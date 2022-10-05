@@ -402,7 +402,8 @@ public class MongoSession
     {
         Document output = new Document();
         for (MongoColumnHandle column : columns) {
-            output.append(column.getName(), 1);
+            // TODO : Pass nested field to MongoDB projection operator
+            output.append(column.getBaseName(), 1);
         }
         MongoCollection<Document> collection = getCollection(tableHandle.getSchemaTableName());
         Document query = buildQuery(tableHandle.getConstraint());
@@ -434,7 +435,7 @@ public class MongoSession
 
     private static Optional<Document> buildPredicate(MongoColumnHandle column, Domain domain)
     {
-        String name = column.getName();
+        String name = column.getQualifiedName();
         Type type = column.getType();
         if (domain.getValues().isNone() && domain.isNullAllowed()) {
             return Optional.of(documentOf(name, isNullPredicate()));
@@ -643,7 +644,7 @@ public class MongoSession
         Document metadata = new Document(TABLE_NAME_KEY, tableName);
 
         ArrayList<Document> fields = new ArrayList<>();
-        if (!columns.stream().anyMatch(c -> c.getName().equals("_id"))) {
+        if (!columns.stream().anyMatch(c -> c.getBaseName().equals("_id"))) {
             fields.add(new MongoColumnHandle("_id", OBJECT_ID, true, Optional.empty()).getDocument());
         }
 

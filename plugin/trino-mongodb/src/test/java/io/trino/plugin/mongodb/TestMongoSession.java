@@ -52,8 +52,8 @@ public class TestMongoSession
 
         Document query = MongoSession.buildQuery(tupleDomain);
         Document expected = new Document()
-                .append(COL1.getName(), new Document().append("$gt", 100L).append("$lte", 200L))
-                .append(COL2.getName(), new Document("$eq", "a value"));
+                .append(COL1.getBaseName(), new Document().append("$gt", 100L).append("$lte", 200L))
+                .append(COL2.getBaseName(), new Document("$eq", "a value"));
         assertEquals(query, expected);
     }
 
@@ -66,8 +66,8 @@ public class TestMongoSession
 
         Document query = MongoSession.buildQuery(tupleDomain);
         Document expected = new Document()
-                .append(COL3.getName(), new Document().append("$gt", "hello").append("$lte", "world"))
-                .append(COL2.getName(), new Document("$gte", "a value"));
+                .append(COL3.getBaseName(), new Document().append("$gt", "hello").append("$lte", "world"))
+                .append(COL2.getBaseName(), new Document("$gte", "a value"));
         assertEquals(query, expected);
     }
 
@@ -78,7 +78,7 @@ public class TestMongoSession
                 COL2, Domain.create(ValueSet.ofRanges(equal(createUnboundedVarcharType(), utf8Slice("hello")), equal(createUnboundedVarcharType(), utf8Slice("world"))), false)));
 
         Document query = MongoSession.buildQuery(tupleDomain);
-        Document expected = new Document(COL2.getName(), new Document("$in", ImmutableList.of("hello", "world")));
+        Document expected = new Document(COL2.getBaseName(), new Document("$in", ImmutableList.of("hello", "world")));
         assertEquals(query, expected);
     }
 
@@ -90,8 +90,8 @@ public class TestMongoSession
 
         Document query = MongoSession.buildQuery(tupleDomain);
         Document expected = new Document("$or", asList(
-                new Document(COL1.getName(), new Document("$lt", 100L)),
-                new Document(COL1.getName(), new Document("$gt", 200L))));
+                new Document(COL1.getBaseName(), new Document("$lt", 100L)),
+                new Document(COL1.getBaseName(), new Document("$gt", 200L))));
         assertEquals(query, expected);
     }
 
@@ -103,8 +103,8 @@ public class TestMongoSession
 
         Document query = MongoSession.buildQuery(tupleDomain);
         Document expected = new Document("$or", asList(
-                new Document(COL1.getName(), new Document("$gt", 200L)),
-                new Document(COL1.getName(), new Document("$eq", null))));
+                new Document(COL1.getBaseName(), new Document("$gt", 200L)),
+                new Document(COL1.getBaseName(), new Document("$eq", null))));
         assertEquals(query, expected);
     }
 
@@ -114,7 +114,7 @@ public class TestMongoSession
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(COL4, Domain.singleValue(BOOLEAN, true)));
 
         Document query = MongoSession.buildQuery(tupleDomain);
-        Document expected = new Document().append(COL4.getName(), new Document("$eq", true));
+        Document expected = new Document().append(COL4.getBaseName(), new Document("$eq", true));
         assertEquals(query, expected);
     }
 }

@@ -46,7 +46,8 @@ public class TestMongoClientConfig
                 .setReadPreference(ReadPreferenceType.PRIMARY)
                 .setWriteConcern(WriteConcernType.ACKNOWLEDGED)
                 .setRequiredReplicaSetName(null)
-                .setImplicitRowFieldPrefix("_pos"));
+                .setImplicitRowFieldPrefix("_pos")
+                .setProjectionPushdownEnabled(true));
     }
 
     @Test
@@ -70,6 +71,7 @@ public class TestMongoClientConfig
                 .put("mongodb.write-concern", "UNACKNOWLEDGED")
                 .put("mongodb.required-replica-set", "replica_set")
                 .put("mongodb.implicit-row-field-prefix", "_prefix")
+                .put("mongodb.projection-pushdown-enabled", "false")
                 .buildOrThrow();
 
         ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
@@ -92,7 +94,8 @@ public class TestMongoClientConfig
                 .setReadPreference(ReadPreferenceType.NEAREST)
                 .setWriteConcern(WriteConcernType.UNACKNOWLEDGED)
                 .setRequiredReplicaSetName("replica_set")
-                .setImplicitRowFieldPrefix("_prefix");
+                .setImplicitRowFieldPrefix("_prefix")
+                .setProjectionPushdownEnabled(false);
 
         assertEquals(config.getSchemaCollection(), expected.getSchemaCollection());
         assertEquals(config.isCaseInsensitiveNameMatching(), expected.isCaseInsensitiveNameMatching());
@@ -111,6 +114,7 @@ public class TestMongoClientConfig
         assertEquals(config.getWriteConcern(), expected.getWriteConcern());
         assertEquals(config.getRequiredReplicaSetName(), expected.getRequiredReplicaSetName());
         assertEquals(config.getImplicitRowFieldPrefix(), expected.getImplicitRowFieldPrefix());
+        assertEquals(config.isProjectionPushdownEnabled(), expected.isProjectionPushdownEnabled());
     }
 
     @Test

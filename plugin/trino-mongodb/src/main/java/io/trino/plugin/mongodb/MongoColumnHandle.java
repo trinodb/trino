@@ -14,12 +14,16 @@
 package io.trino.plugin.mongodb;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
 import org.bson.Document;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -29,28 +33,51 @@ import static java.util.Objects.requireNonNull;
 public class MongoColumnHandle
         implements ColumnHandle
 {
-    private final String name;
+    private final String baseName;
+    private final List<String> dereferenceNames;
     private final Type type;
     private final boolean hidden;
     private final Optional<String> comment;
 
+    public MongoColumnHandle(
+            String name,
+            Type type,
+            boolean hidden,
+            Optional<String> comment)
+    {
+        this(
+                name,
+                ImmutableList.of(name),
+                type,
+                hidden,
+                comment);
+    }
+
     @JsonCreator
     public MongoColumnHandle(
-            @JsonProperty("name") String name,
+            @JsonProperty("baseName") String baseName,
+            @JsonProperty("dereferenceNames") List<String> dereferenceNames,
             @JsonProperty("columnType") Type type,
             @JsonProperty("hidden") boolean hidden,
             @JsonProperty("comment") Optional<String> comment)
     {
-        this.name = requireNonNull(name, "name is null");
+        this.baseName = requireNonNull(baseName, "baseName is null");
+        this.dereferenceNames = requireNonNull(dereferenceNames, "fieldName is null");
         this.type = requireNonNull(type, "type is null");
         this.hidden = hidden;
         this.comment = requireNonNull(comment, "comment is null");
     }
 
     @JsonProperty
-    public String getName()
+    public String getBaseName()
     {
-        return name;
+        return baseName;
+    }
+
+    @JsonProperty
+    public List<String> getDereferenceNames()
+    {
+        return dereferenceNames;
     }
 
     @JsonProperty("columnType")
@@ -74,16 +101,22 @@ public class MongoColumnHandle
     public ColumnMetadata toColumnMetadata()
     {
         return ColumnMetadata.builder()
-                .setName(name)
+                .setName(getQualifiedName())
                 .setType(type)
                 .setHidden(hidden)
                 .setComment(comment)
                 .build();
     }
 
+    @JsonIgnore
+    public String getQualifiedName()
+    {
+        return Joiner.on('.').join(dereferenceNames);
+    }
+
     public Document getDocument()
     {
-        return new Document().append("name", name)
+        return new Document().append("name", getQualifiedName())
                 .append("type", type.getTypeSignature().toString())
                 .append("hidden", hidden)
                 .append("comment", comment.orElse(null));
@@ -92,7 +125,7 @@ public class MongoColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type, hidden, comment);
+        return Objects.hash(baseName, dereferenceNames, type, hidden, comment);
     }
 
     @Override
@@ -105,7 +138,8 @@ public class MongoColumnHandle
             return false;
         }
         MongoColumnHandle other = (MongoColumnHandle) obj;
-        return Objects.equals(name, other.name) &&
+        return Objects.equals(baseName, other.baseName) &&
+                Objects.equals(dereferenceNames, other.dereferenceNames) &&
                 Objects.equals(type, other.type) &&
                 Objects.equals(hidden, other.hidden) &&
                 Objects.equals(comment, other.comment);
@@ -115,7 +149,8 @@ public class MongoColumnHandle
     public String toString()
     {
         return toStringHelper(this)
-                .add("name", name)
+                .add("baseName", baseName)
+                .add("dereferenceNames", dereferenceNames)
                 .add("type", type)
                 .add("hidden", hidden)
                 .add("comment", comment)

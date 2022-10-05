@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.mongodb.MongoCredential;
 import com.mongodb.ServerAddress;
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
 
@@ -60,6 +61,7 @@ public class MongoClientConfig
     private WriteConcernType writeConcern = WriteConcernType.ACKNOWLEDGED;
     private String requiredReplicaSetName;
     private String implicitRowFieldPrefix = "_pos";
+    private boolean projectionPushDownEnabled = true;
 
     @AssertTrue(message = "Exactly one of these 'mongodb.seed' or 'mongodb.connection-url' must be specified")
     public boolean isConnectionPropertyValid()
@@ -332,6 +334,19 @@ public class MongoClientConfig
     public MongoClientConfig setMaxConnectionIdleTime(int maxConnectionIdleTime)
     {
         this.maxConnectionIdleTime = maxConnectionIdleTime;
+        return this;
+    }
+
+    public boolean isProjectionPushdownEnabled()
+    {
+        return projectionPushDownEnabled;
+    }
+
+    @Config("mongodb.projection-pushdown-enabled")
+    @ConfigDescription("Read only required fields from a row type")
+    public MongoClientConfig setProjectionPushdownEnabled(boolean projectionPushDownEnabled)
+    {
+        this.projectionPushDownEnabled = projectionPushDownEnabled;
         return this;
     }
 }

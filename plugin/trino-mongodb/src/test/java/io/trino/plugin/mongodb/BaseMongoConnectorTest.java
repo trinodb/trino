@@ -15,15 +15,19 @@ package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.mongodb.DBRef;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
+import io.trino.Session;
 import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.TrinoSqlExecutor;
 import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.testng.SkipException;
@@ -38,7 +42,9 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 
+import static io.trino.plugin.mongodb.TypeUtils.isPushdownSupportedType;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -627,6 +633,114 @@ public abstract class BaseMongoConnectorTest
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageMatching(".*fully qualified namespace .* is too long.*|Qualified identifier name must be shorter than or equal to '120'.*");
+    }
+
+    @Test(dataProvider = "nestedValuesProvider")
+    public void testProjectionPushdown(String expectedValue, String expectedType)
+    {
+        try (TestTable table = new TestTable(
+                new TrinoSqlExecutor(getQueryRunner()),
+                "projection_pushdown",
+                format("(col_0 row(col_1 %1$s, col_2 row(col_3 %1$s, col_4 row(col_5 %1$s))))", expectedType))) {
+            assertUpdate(format("INSERT INTO %1$s VALUES ROW(ROW(%2$s, ROW(%2$s, ROW(%2$s))))", table.getName(), expectedValue), 1);
+
+            assertThat(query("SELECT col_0.col_1 FROM " + table.getName()))
+                    .matches("VALUES " + expectedValue)
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT col_0.col_2.col_3 FROM " + table.getName()))
+                    .matches("VALUES " + expectedValue)
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT col_0.col_2.col_4.col_5 FROM " + table.getName()))
+                    .matches("VALUES " + expectedValue)
+                    .isFullyPushedDown();
+
+            // With Projection Pushdown disabled
+            assertThat(query(
+                    Session.builder(getSession())
+                            .setCatalogSessionProperty("mongodb", "projection_pushdown_enabled", "false")
+                            .build(),
+                    "SELECT col_0.col_1 FROM " + table.getName()))
+                    .matches("VALUES " + expectedValue)
+                    .isNotFullyPushedDown(ProjectNode.class);
+        }
+    }
+
+    @Test(dataProvider = "nestedValuesProvider")
+    public void testFiltersOnDereferenceColumnReadsLessData(String expectedValue, String expectedType)
+    {
+        if (!isPushdownSupportedType(getQueryRunner().getTypeManager().fromSqlType(expectedType))) {
+            throw new SkipException("Type doesn't support filter pushdown");
+        }
+
+        Session sessionWithoutPushdown = Session.builder(getSession())
+                .setCatalogSessionProperty("mongodb", "projection_pushdown_enabled", "false")
+                .build();
+
+        try (TestTable table = new TestTable(
+                new TrinoSqlExecutor(getQueryRunner()),
+                "filter_on_projection_columns",
+                format("(col_0 row(col_1 %1$s, col_2 row(col_3 %1$s, col_4 row(col_5 %1$s))))", expectedType))) {
+            assertUpdate(format("INSERT INTO %1$s VALUES NULL", table.getName()), 1);
+            assertUpdate(format("INSERT INTO %1$s VALUES ROW(ROW(%2$s, ROW(%2$s, ROW(%2$s))))", table.getName(), expectedValue), 1);
+
+            Set<Object> expected = ImmutableSet.of(1);
+
+            assertQueryStats(
+                    getSession(),
+                    format("SELECT 1 FROM %s WHERE col_0.col_1 = %s", table.getName(), expectedValue),
+                    statsWithPushdown -> {
+                        long processedInputPositionWithPushdown = statsWithPushdown.getProcessedInputPositions();
+                        assertQueryStats(
+                                sessionWithoutPushdown,
+                                format("SELECT 1 FROM %s WHERE col_0.col_1 = %s", table.getName(), expectedValue),
+                                statsWithoutPushdown -> assertThat(statsWithoutPushdown.getProcessedInputPositions()).isGreaterThan(processedInputPositionWithPushdown),
+                                results -> assertEquals(results.getOnlyColumnAsSet(), expected));
+                    },
+                    results -> assertEquals(results.getOnlyColumnAsSet(), expected));
+
+            assertQueryStats(
+                    getSession(),
+                    format("SELECT 1 FROM %s WHERE col_0.col_2.col_3 = %s", table.getName(), expectedValue),
+                    statsWithPushdown -> {
+                        long processedInputPositionWithPushdown = statsWithPushdown.getProcessedInputPositions();
+                        assertQueryStats(
+                                sessionWithoutPushdown,
+                                format("SELECT 1 FROM %s WHERE col_0.col_2.col_3 = %s", table.getName(), expectedValue),
+                                statsWithoutPushdown -> assertThat(statsWithoutPushdown.getProcessedInputPositions()).isGreaterThan(processedInputPositionWithPushdown),
+                                results -> assertEquals(results.getOnlyColumnAsSet(), expected));
+                    },
+                    results -> assertEquals(results.getOnlyColumnAsSet(), expected));
+
+            assertQueryStats(
+                    getSession(),
+                    format("SELECT 1 FROM %s WHERE col_0.col_2.col_4.col_5 = %s", table.getName(), expectedValue),
+                    statsWithPushdown -> {
+                        long processedInputPositionWithPushdown = statsWithPushdown.getProcessedInputPositions();
+                        assertQueryStats(
+                                sessionWithoutPushdown,
+                                format("SELECT 1 FROM %s WHERE col_0.col_2.col_4.col_5 = %s", table.getName(), expectedValue),
+                                statsWithoutPushdown -> assertThat(statsWithoutPushdown.getProcessedInputPositions()).isGreaterThan(processedInputPositionWithPushdown),
+                                results -> assertEquals(results.getOnlyColumnAsSet(), expected));
+                    },
+                    results -> assertEquals(results.getOnlyColumnAsSet(), expected));
+        }
+    }
+
+    @DataProvider
+    public Object[][] nestedValuesProvider()
+    {
+        return new Object[][] {
+                {"varchar 'String type'", "varchar"},
+                {"to_utf8('BinData')", "varbinary"},
+                {"bigint '1234567890'", "bigint"},
+                {"true", "boolean"},
+                {"double '12.3'", "double"},
+                {"timestamp '1970-01-01 00:00:00.000'", "timestamp(3)"},
+                {"array[bigint '1']", "array(bigint)"},
+                {"ObjectId('5126bc054aed4daf9e2ab772')", "ObjectId"},
+        };
     }
 
     private void assertOneNotNullResult(String query)

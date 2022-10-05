@@ -15,6 +15,7 @@ package io.trino.plugin.mongodb;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import com.mongodb.DBRef;
@@ -50,6 +51,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -82,6 +84,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.join;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class MongoPageSource
@@ -91,8 +94,19 @@ public class MongoPageSource
     private static final int ROWS_PER_REQUEST = 1024;
 
     private final MongoCursor<Document> cursor;
-    private final List<String> columnNames;
+    private final List<MongoColumnHandle> columns;
     private final List<Type> columnTypes;
+    private final BiFunction<Document, MongoColumnHandle, Object> valueProvider = (document, mongoColumnHandle) -> {
+        Object value = null;
+        Document documentValue = document;
+        for (String dereferenceName : mongoColumnHandle.getDereferenceNames()) {
+            value = documentValue.get(dereferenceName);
+            if (value instanceof Document) {
+                documentValue = (Document) value;
+            }
+        }
+        return value;
+    };
     private Document currentDoc;
     private boolean finished;
 
@@ -103,7 +117,7 @@ public class MongoPageSource
             MongoTableHandle tableHandle,
             List<MongoColumnHandle> columns)
     {
-        this.columnNames = columns.stream().map(MongoColumnHandle::getName).collect(toList());
+        this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.columnTypes = columns.stream().map(MongoColumnHandle::getType).collect(toList());
         this.cursor = mongoSession.execute(tableHandle, columns);
         currentDoc = null;
@@ -149,7 +163,7 @@ public class MongoPageSource
             pageBuilder.declarePosition();
             for (int column = 0; column < columnTypes.size(); column++) {
                 BlockBuilder output = pageBuilder.getBlockBuilder(column);
-                appendTo(columnTypes.get(column), currentDoc.get(columnNames.get(column)), output);
+                appendTo(columnTypes.get(column), valueProvider.apply(currentDoc, columns.get(column)), output);
             }
         }
 

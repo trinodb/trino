@@ -15,10 +15,13 @@ package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.plugin.base.projection.ApplyProjectionUtil;
 import io.trino.plugin.mongodb.MongoIndex.MongodbIndexKey;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -35,15 +38,20 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.connector.NotFoundException;
+import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortingProperty;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.RowType.Field;
 import io.trino.spi.type.Type;
 
 import java.util.Collection;
@@ -58,6 +66,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.base.projection.ApplyProjectionUtil.ProjectedColumnRepresentation;
+import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
+import static io.trino.plugin.base.projection.ApplyProjectionUtil.replaceWithNewVariables;
+import static io.trino.plugin.mongodb.MongoSessionProperties.isProjectionPushdownEnabled;
 import static io.trino.plugin.mongodb.TypeUtils.isPushdownSupportedType;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
@@ -66,6 +80,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 
 public class MongoMetadata
@@ -146,7 +161,7 @@ public class MongoMetadata
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (MongoColumnHandle columnHandle : columns) {
-            columnHandles.put(columnHandle.getName(), columnHandle);
+            columnHandles.put(columnHandle.getBaseName(), columnHandle);
         }
         return columnHandles.buildOrThrow();
     }
@@ -207,7 +222,7 @@ public class MongoMetadata
     {
         MongoTableHandle table = (MongoTableHandle) tableHandle;
         MongoColumnHandle column = (MongoColumnHandle) columnHandle;
-        mongoSession.setColumnComment(table.getSchemaTableName(), column.getName(), comment);
+        mongoSession.setColumnComment(table.getSchemaTableName(), column.getBaseName(), comment);
     }
 
     @Override
@@ -229,7 +244,7 @@ public class MongoMetadata
     @Override
     public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
     {
-        mongoSession.dropColumn(((MongoTableHandle) tableHandle).getSchemaTableName(), ((MongoColumnHandle) column).getName());
+        mongoSession.dropColumn(((MongoTableHandle) tableHandle).getSchemaTableName(), ((MongoColumnHandle) column).getBaseName());
     }
 
     @Override
@@ -271,7 +286,7 @@ public class MongoMetadata
                 table.getSchemaTableName(),
                 columns.stream()
                         .filter(column -> !column.isHidden())
-                        .peek(column -> validateColumnNameForInsert(column.getName()))
+                        .peek(column -> validateColumnNameForInsert(column.getBaseName()))
                         .collect(toImmutableList()));
     }
 
@@ -368,6 +383,83 @@ public class MongoMetadata
         return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary(), false));
     }
 
+    @Override
+    public Optional<ProjectionApplicationResult<ConnectorTableHandle>> applyProjection(
+            ConnectorSession session,
+            ConnectorTableHandle handle,
+            List<ConnectorExpression> projections,
+            Map<String, ColumnHandle> assignments)
+    {
+        if (!isProjectionPushdownEnabled(session)) {
+            return Optional.empty();
+        }
+        // Create projected column representations for supported sub expressions. Simple column references and chain of
+        // dereferences on a variable are supported right now.
+        Set<ConnectorExpression> projectedExpressions = projections.stream()
+                .flatMap(expression -> extractSupportedProjectedColumns(expression).stream())
+                .collect(toImmutableSet());
+
+        Map<ConnectorExpression, ApplyProjectionUtil.ProjectedColumnRepresentation> columnProjections = projectedExpressions.stream()
+                .collect(toImmutableMap(identity(), ApplyProjectionUtil::createProjectedColumnRepresentation));
+
+        MongoTableHandle mongoTableHandle = (MongoTableHandle) handle;
+
+        // all references are simple variables
+        if (columnProjections.values().stream().allMatch(ApplyProjectionUtil.ProjectedColumnRepresentation::isVariable)) {
+            Set<MongoColumnHandle> projectedColumns = assignments.values().stream()
+                    .map(MongoColumnHandle.class::cast)
+                    .collect(toImmutableSet());
+            if (mongoTableHandle.getProjectedColumns().equals(projectedColumns)) {
+                return Optional.empty();
+            }
+            List<Assignment> assignmentsList = assignments.entrySet().stream()
+                    .map(assignment -> new Assignment(
+                            assignment.getKey(),
+                            assignment.getValue(),
+                            ((MongoColumnHandle) assignment.getValue()).getType()))
+                    .collect(toImmutableList());
+
+            return Optional.of(new ProjectionApplicationResult<>(
+                    mongoTableHandle.withProjectedColumns(projectedColumns),
+                    projections,
+                    assignmentsList,
+                    false));
+        }
+
+        Map<String, Assignment> newAssignments = new HashMap<>();
+        ImmutableMap.Builder<ConnectorExpression, Variable> newVariablesBuilder = ImmutableMap.builder();
+        ImmutableSet.Builder<MongoColumnHandle> projectedColumnsBuilder = ImmutableSet.builder();
+
+        for (Map.Entry<ConnectorExpression, ProjectedColumnRepresentation> entry : columnProjections.entrySet()) {
+            ConnectorExpression expression = entry.getKey();
+            ProjectedColumnRepresentation projectedColumn = entry.getValue();
+
+            MongoColumnHandle baseColumnHandle = (MongoColumnHandle) assignments.get(projectedColumn.getVariable().getName());
+            MongoColumnHandle projectedColumnHandle = createProjectedColumnHandle(baseColumnHandle, projectedColumn.getDereferenceIndices(), expression.getType());
+            String projectedColumnName = projectedColumnHandle.getQualifiedName();
+
+            Variable projectedColumnVariable = new Variable(projectedColumnName, expression.getType());
+            Assignment newAssignment = new Assignment(projectedColumnName, projectedColumnHandle, expression.getType());
+            newAssignments.putIfAbsent(projectedColumnName, newAssignment);
+
+            newVariablesBuilder.put(expression, projectedColumnVariable);
+            projectedColumnsBuilder.add(projectedColumnHandle);
+        }
+
+        // Modify projections to refer to new variables
+        Map<ConnectorExpression, Variable> newVariables = newVariablesBuilder.buildOrThrow();
+        List<ConnectorExpression> newProjections = projections.stream()
+                .map(expression -> replaceWithNewVariables(expression, newVariables))
+                .collect(toImmutableList());
+
+        List<Assignment> outputAssignments = newAssignments.values().stream().collect(toImmutableList());
+        return Optional.of(new ProjectionApplicationResult<>(
+                mongoTableHandle.withProjectedColumns(projectedColumnsBuilder.build()),
+                newProjections,
+                outputAssignments,
+                false));
+    }
+
     private void setRollback(Runnable action)
     {
         checkState(rollbackAction.compareAndSet(null, action), "rollback action is already set");
@@ -414,5 +506,30 @@ public class MongoMetadata
         if (columnName.contains("$") || columnName.contains(".")) {
             throw new IllegalArgumentException("Column name must not contain '$' or '.' for INSERT: " + columnName);
         }
+    }
+
+    private static MongoColumnHandle createProjectedColumnHandle(MongoColumnHandle baseColumn, List<Integer> indices, Type projectedColumnType)
+    {
+        if (indices.isEmpty()) {
+            return baseColumn;
+        }
+        ImmutableList.Builder<String> dereferenceNamesBuilder = ImmutableList.builder();
+        dereferenceNamesBuilder.addAll(baseColumn.getDereferenceNames());
+
+        Type type = baseColumn.getType();
+        for (int index : indices) {
+            checkArgument(type instanceof RowType, "type should be Row type");
+            RowType rowType = (RowType) type;
+            Field field = rowType.getFields().get(index);
+            dereferenceNamesBuilder.add(field.getName()
+                    .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "ROW type does not have field names declared: " + rowType)));
+            type = field.getType();
+        }
+        return new MongoColumnHandle(
+                baseColumn.getBaseName(),
+                dereferenceNamesBuilder.build(),
+                projectedColumnType,
+                baseColumn.isHidden(),
+                baseColumn.getComment());
     }
 }

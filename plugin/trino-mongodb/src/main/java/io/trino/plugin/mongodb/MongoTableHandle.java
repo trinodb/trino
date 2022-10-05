@@ -14,7 +14,9 @@
 package io.trino.plugin.mongodb;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
@@ -22,6 +24,7 @@ import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Objects;
 import java.util.OptionalInt;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -30,6 +33,7 @@ public class MongoTableHandle
 {
     private final SchemaTableName schemaTableName;
     private final TupleDomain<ColumnHandle> constraint;
+    private final Set<MongoColumnHandle> projectedColumns;
     private final OptionalInt limit;
 
     public MongoTableHandle(SchemaTableName schemaTableName)
@@ -43,8 +47,22 @@ public class MongoTableHandle
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
             @JsonProperty("limit") OptionalInt limit)
     {
+        this(
+                schemaTableName,
+                constraint,
+                ImmutableSet.of(),
+                limit);
+    }
+
+    public MongoTableHandle(
+            SchemaTableName schemaTableName,
+            TupleDomain<ColumnHandle> constraint,
+            Set<MongoColumnHandle> projectedColumns,
+            OptionalInt limit)
+    {
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
+        this.projectedColumns = ImmutableSet.copyOf(requireNonNull(projectedColumns, "projectedColumns is null"));
         this.limit = requireNonNull(limit, "limit is null");
     }
 
@@ -60,6 +78,12 @@ public class MongoTableHandle
         return constraint;
     }
 
+    @JsonIgnore
+    public Set<MongoColumnHandle> getProjectedColumns()
+    {
+        return projectedColumns;
+    }
+
     @JsonProperty
     public OptionalInt getLimit()
     {
@@ -69,7 +93,7 @@ public class MongoTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaTableName, constraint, limit);
+        return Objects.hash(schemaTableName, constraint, projectedColumns, limit);
     }
 
     @Override
@@ -84,7 +108,17 @@ public class MongoTableHandle
         MongoTableHandle other = (MongoTableHandle) obj;
         return Objects.equals(this.schemaTableName, other.schemaTableName) &&
                 Objects.equals(this.constraint, other.constraint) &&
+                Objects.equals(this.projectedColumns, other.projectedColumns) &&
                 Objects.equals(this.limit, other.limit);
+    }
+
+    MongoTableHandle withProjectedColumns(Set<MongoColumnHandle> projectedColumns)
+    {
+        return new MongoTableHandle(
+                schemaTableName,
+                constraint,
+                projectedColumns,
+                limit);
     }
 
     @Override
