@@ -378,6 +378,7 @@ public class FaultTolerantStageScheduler
         }
     }
 
+    @GuardedBy("this")
     private void startTask(int partition, NodeAllocator.NodeLease nodeLease, MemoryRequirements memoryRequirements)
     {
         Optional<TaskDescriptor> taskDescriptorOptional = taskDescriptorStorage.get(stage.getStageId(), partition);
