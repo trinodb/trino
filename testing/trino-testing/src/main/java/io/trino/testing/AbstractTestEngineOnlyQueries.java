@@ -3388,6 +3388,20 @@ public abstract class AbstractTestEngineOnlyQueries
                 "SELECT * FROM (SELECT custkey FROM orders ORDER BY orderkey LIMIT 1) CROSS JOIN (VALUES (10, 1), (20, 2), (30, 3))");
 
         assertQuery("SELECT * FROM orders, UNNEST(ARRAY[1])", "SELECT orders.*, 1 FROM orders");
+
+        assertQuery(
+                """
+                        WITH array_construct AS (
+                            SELECT ARRAY[1, 2, 3] AS array_actual, '[1,2,3]' AS expected
+                            UNION ALL
+                            SELECT NULL AS array_actual, '[]' AS expected)
+                        SELECT
+                            array_actual,
+                            '[' || (SELECT listagg(CAST(element AS varchar), ',') WITHIN GROUP(ORDER BY element) FROM UNNEST(array_actual) t(element)) || ']' AS actual,
+                            expected
+                        FROM array_construct
+                        """,
+                "VALUES (ARRAY[1, 2, 3], CAST('[1,2,3]' AS varchar), '[1,2,3]'), (null, null, '[]')");
     }
 
     @Test
