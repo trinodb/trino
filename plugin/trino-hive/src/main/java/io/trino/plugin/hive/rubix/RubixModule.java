@@ -68,19 +68,18 @@ public class RubixModule
     {
         private static final String RUBIX_DISTRIBUTED_FS_CLASS_NAME = CachingPrestoDistributedFileSystem.class.getName();
 
-        @Deprecated // TODO do not keep mutable config instance on a field
-        private HdfsAuthenticationConfig authenticationConfig;
+        private final boolean hdfsImpersonationEnabled;
 
         @Inject
         public DefaultRubixHdfsInitializer(HdfsAuthenticationConfig authenticationConfig)
         {
-            this.authenticationConfig = requireNonNull(authenticationConfig, "authenticationConfig is null");
+            this.hdfsImpersonationEnabled = requireNonNull(authenticationConfig, "authenticationConfig is null").isHdfsImpersonationEnabled();
         }
 
         @Override
         public void initializeConfiguration(Configuration config)
         {
-            checkArgument(!authenticationConfig.isHdfsImpersonationEnabled(), "HDFS impersonation is not compatible with Hive caching");
+            checkArgument(!hdfsImpersonationEnabled, "HDFS impersonation is not compatible with Hive caching");
             config.set("fs.hdfs.impl", RUBIX_DISTRIBUTED_FS_CLASS_NAME);
         }
     }
