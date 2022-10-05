@@ -174,7 +174,8 @@ public class MultiChannelGroupByHash
                 currentPageBuilder.getRetainedSizeInBytes() +
                 sizeOf(groupIdsByHash) +
                 sizeOf(rawHashByHashPosition) +
-                preallocatedMemoryInBytes;
+                preallocatedMemoryInBytes +
+                (dictionaryLookBack != null ? dictionaryLookBack.getRetainedSizeInBytes() : 0);
     }
 
     @Override
@@ -543,6 +544,7 @@ public class MultiChannelGroupByHash
 
     private static final class DictionaryLookBack
     {
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(DictionaryLookBack.class).instanceSize());
         private final Block dictionary;
         private final int[] processed;
 
@@ -571,6 +573,13 @@ public class MultiChannelGroupByHash
         public void setProcessed(int position, int groupId)
         {
             processed[position] = groupId;
+        }
+
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE +
+                    sizeOf(processed) +
+                    dictionary.getRetainedSizeInBytes();
         }
     }
 
