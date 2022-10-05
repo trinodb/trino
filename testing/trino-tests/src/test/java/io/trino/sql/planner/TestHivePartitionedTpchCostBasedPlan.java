@@ -20,7 +20,7 @@ import java.util.stream.Stream;
  * This class is using Hive connector with mocked in memory thrift metastore with partitioned TPCH tables.
  */
 public class TestHivePartitionedTpchCostBasedPlan
-        extends AbstractHiveCostBasedPlanTest
+        extends BaseHiveCostBasedPlanTest
 {
     /*
      * CAUTION: The expected plans here are not necessarily optimal yet. Their role is to prevent
