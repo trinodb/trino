@@ -15,7 +15,7 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.plugin.hive.HivePlugin;
+import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.testing.DistributedQueryRunner;
 
 import java.nio.file.Path;
@@ -77,7 +77,7 @@ public class HiveMetadataRecorder
         String recordingPath = getResourcePath(format("%s/%s.json.gz", recordingDir, schema));
         Path.of(recordingPath).toFile().getParentFile().mkdirs();
 
-        queryRunner.installPlugin(new HivePlugin());
+        queryRunner.installPlugin(new TestingHivePlugin());
         queryRunner.createCatalog("hive", "hive", configBuilder
                 .putAll(loadPropertiesFrom(configPath))
                 .put("hive.metastore-recording-path", recordingPath)
