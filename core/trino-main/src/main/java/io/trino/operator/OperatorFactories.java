@@ -35,7 +35,7 @@ import static java.util.Objects.requireNonNull;
 
 public interface OperatorFactories
 {
-    public OperatorFactory join(
+    OperatorFactory join(
             JoinOperatorType joinType,
             int operatorId,
             PlanNodeId planNodeId,
@@ -47,7 +47,7 @@ public interface OperatorFactories
             Optional<List<Integer>> probeOutputChannels,
             BlockTypeOperators blockTypeOperators);
 
-    public OperatorFactory spillingJoin(
+    OperatorFactory spillingJoin(
             JoinOperatorType joinType,
             int operatorId,
             PlanNodeId planNodeId,
