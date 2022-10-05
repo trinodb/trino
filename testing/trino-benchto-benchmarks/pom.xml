@@ -19,6 +19,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-benchmark-queries</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>io.trino.benchto</groupId>
             <artifactId>benchto-driver</artifactId>
         </dependency>
@@ -32,63 +37,6 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-jdbc</artifactId>
             <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-hive</artifactId>
-            <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-hive</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-hive-hadoop2</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-main</artifactId>
-            <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-main</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-spi</artifactId>
-            <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-spi</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-testing</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>testing</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <dependency>

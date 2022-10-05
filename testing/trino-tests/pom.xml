@@ -139,6 +139,12 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-benchmark-queries</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-blackhole</artifactId>
             <scope>test</scope>
         </dependency>
@@ -153,6 +159,46 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-exchange-filesystem</artifactId>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-hive</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <!-- conflicts with com.google.protobuf:protobuf-java -->
+                    <groupId>org.alluxio</groupId>
+                    <artifactId>alluxio-shaded-client</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-hive</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <!-- conflicts with com.google.protobuf:protobuf-java -->
+                    <groupId>org.alluxio</groupId>
+                    <artifactId>alluxio-shaded-client</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-hive-hadoop2</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <!-- conflicts with com.google.protobuf:protobuf-java -->
+                    <groupId>org.alluxio</groupId>
+                    <artifactId>alluxio-shaded-client</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -203,6 +249,13 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-spi</artifactId>
+            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
 
@@ -285,4 +338,20 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <configuration>
+                    <ignoredResourcePatterns>
+                        <!-- com.amazonaws:aws-java-sdk-core and software.amazon.awssdk:sdk-core MIME type file duplicate-->
+                        <ignoredResourcePattern>mime.types</ignoredResourcePattern>
+                        <ignoredResourcePattern>about.html</ignoredResourcePattern>
+                    </ignoredResourcePatterns>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
