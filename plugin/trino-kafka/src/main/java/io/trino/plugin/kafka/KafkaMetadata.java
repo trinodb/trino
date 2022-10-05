@@ -43,12 +43,19 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toSet;
+import static java.util.stream.Stream.concat;
 
 /**
  * Manages the Kafka connector specific metadata information. The Connector provides an additional set of columns
@@ -131,31 +138,33 @@ public class KafkaMetadata
     {
         KafkaTopicDescription kafkaTopicDescription = getRequiredTopicDescription(session, schemaTableName);
 
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        Stream<KafkaColumnHandle> keyColumnHandles = kafkaTopicDescription.getKey().stream()
+                .map(KafkaTopicFieldGroup::getFields)
+                .flatMap(Collection::stream)
+                .map(kafkaTopicFieldDescription -> kafkaTopicFieldDescription.getColumnHandle(true));
 
-        kafkaTopicDescription.getKey().ifPresent(key -> {
-            List<KafkaTopicFieldDescription> fields = key.getFields();
-            if (fields != null) {
-                for (KafkaTopicFieldDescription kafkaTopicFieldDescription : fields) {
-                    columnHandles.put(kafkaTopicFieldDescription.getName(), kafkaTopicFieldDescription.getColumnHandle(true));
-                }
-            }
-        });
+        Stream<KafkaColumnHandle> messageColumnHandles = kafkaTopicDescription.getMessage().stream()
+                .map(KafkaTopicFieldGroup::getFields)
+                .flatMap(Collection::stream)
+                .map(kafkaTopicFieldDescription -> kafkaTopicFieldDescription.getColumnHandle(false));
 
-        kafkaTopicDescription.getMessage().ifPresent(message -> {
-            List<KafkaTopicFieldDescription> fields = message.getFields();
-            if (fields != null) {
-                for (KafkaTopicFieldDescription kafkaTopicFieldDescription : fields) {
-                    columnHandles.put(kafkaTopicFieldDescription.getName(), kafkaTopicFieldDescription.getColumnHandle(false));
-                }
-            }
-        });
+        List<KafkaColumnHandle> topicColumnHandles = concat(keyColumnHandles, messageColumnHandles)
+                .collect(toImmutableList());
 
-        for (KafkaInternalFieldManager.InternalField kafkaInternalField : kafkaInternalFieldManager.getInternalFields().values()) {
-            columnHandles.put(kafkaInternalField.getColumnName(), kafkaInternalField.getColumnHandle(hideInternalColumns));
+        List<KafkaColumnHandle> internalColumnHandles = kafkaInternalFieldManager.getInternalFields().values().stream()
+                .map(kafkaInternalField -> kafkaInternalField.getColumnHandle(hideInternalColumns))
+                .collect(toImmutableList());
+
+        Set<String> conflictingColumns = topicColumnHandles.stream().map(KafkaColumnHandle::getName).collect(toSet());
+        conflictingColumns.retainAll(internalColumnHandles.stream().map(KafkaColumnHandle::getName).collect(toSet()));
+        if (!conflictingColumns.isEmpty()) {
+            throw new TrinoException(DUPLICATE_COLUMN_NAME, "Internal Kafka column names conflict with column names from the table. "
+                    + "topic=" + schemaTableName
+                    + ", Conflicting names=" + conflictingColumns);
         }
 
-        return columnHandles.buildOrThrow();
+        return concat(topicColumnHandles.stream(), internalColumnHandles.stream())
+                .collect(toImmutableMap(KafkaColumnHandle::getName, identity()));
     }
 
     @Override
