@@ -32,6 +32,9 @@ S3 configuration properties
         S3-compatible storage system instead of AWS. When using v4 signatures,
         it is recommended to set this to the AWS region-specific endpoint
         (e.g., ``http[s]://s3.<AWS-region>.amazonaws.com``).
+    * - ``hive.s3.region``
+      - Optional property to force the S3 client to connect to the specified
+        region only.
     * - ``hive.s3.storage-class``
       - The S3 storage class to use when writing the data. Currently only
         ``STANDARD`` and ``INTELLIGENT_TIERING`` storage classes are supported.
