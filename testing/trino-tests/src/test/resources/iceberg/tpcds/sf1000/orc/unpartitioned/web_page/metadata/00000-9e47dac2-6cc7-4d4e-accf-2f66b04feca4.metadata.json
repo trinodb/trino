@@ -1,0 +1,198 @@
+{
+  "format-version" : 1,
+  "table-uuid" : "9446c583-b6b2-4b1a-a809-5eb768f8ffd9",
+  "location" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc/web_page",
+  "last-updated-ms" : 1648026774651,
+  "last-column-id" : 14,
+  "schema" : {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "wp_web_page_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "wp_web_page_id",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "wp_rec_start_date",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 4,
+      "name" : "wp_rec_end_date",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 5,
+      "name" : "wp_creation_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 6,
+      "name" : "wp_access_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 7,
+      "name" : "wp_autogen_flag",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 8,
+      "name" : "wp_customer_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 9,
+      "name" : "wp_url",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 10,
+      "name" : "wp_type",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 11,
+      "name" : "wp_char_count",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 12,
+      "name" : "wp_link_count",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 13,
+      "name" : "wp_image_count",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 14,
+      "name" : "wp_max_ad_count",
+      "required" : false,
+      "type" : "int"
+    } ]
+  },
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "wp_web_page_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "wp_web_page_id",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "wp_rec_start_date",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 4,
+      "name" : "wp_rec_end_date",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 5,
+      "name" : "wp_creation_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 6,
+      "name" : "wp_access_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 7,
+      "name" : "wp_autogen_flag",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 8,
+      "name" : "wp_customer_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 9,
+      "name" : "wp_url",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 10,
+      "name" : "wp_type",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 11,
+      "name" : "wp_char_count",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 12,
+      "name" : "wp_link_count",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 13,
+      "name" : "wp_image_count",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 14,
+      "name" : "wp_max_ad_count",
+      "required" : false,
+      "type" : "int"
+    } ]
+  } ],
+  "partition-spec" : [ ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "write.format.default" : "ORC"
+  },
+  "current-snapshot-id" : 400010007199662463,
+  "snapshots" : [ {
+    "snapshot-id" : 400010007199662463,
+    "timestamp-ms" : 1648026774651,
+    "summary" : {
+      "operation" : "append",
+      "added-data-files" : "5",
+      "added-records" : "3000",
+      "added-files-size" : "43055",
+      "changed-partition-count" : "1",
+      "total-records" : "3000",
+      "total-files-size" : "43055",
+      "total-data-files" : "5",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc/web_page/metadata/snap-400010007199662463-1-140ff455-0714-4117-aa41-2dc31716ffc6.avro",
+    "schema-id" : 0
+  } ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1648026774651,
+    "snapshot-id" : 400010007199662463
+  } ],
+  "metadata-log" : [ ]
+}

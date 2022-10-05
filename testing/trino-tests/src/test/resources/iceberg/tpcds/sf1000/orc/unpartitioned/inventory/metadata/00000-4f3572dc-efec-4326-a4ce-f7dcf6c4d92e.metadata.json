@@ -1,0 +1,98 @@
+{
+  "format-version" : 1,
+  "table-uuid" : "1c971fec-6623-4285-acbc-a2a8d8f126ca",
+  "location" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc/inventory",
+  "last-updated-ms" : 1648027755930,
+  "last-column-id" : 4,
+  "schema" : {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "inv_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "inv_item_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 3,
+      "name" : "inv_warehouse_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 4,
+      "name" : "inv_quantity_on_hand",
+      "required" : false,
+      "type" : "int"
+    } ]
+  },
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "inv_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "inv_item_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 3,
+      "name" : "inv_warehouse_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 4,
+      "name" : "inv_quantity_on_hand",
+      "required" : false,
+      "type" : "int"
+    } ]
+  } ],
+  "partition-spec" : [ ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "write.format.default" : "ORC"
+  },
+  "current-snapshot-id" : 8748002454324012504,
+  "snapshots" : [ {
+    "snapshot-id" : 8748002454324012504,
+    "timestamp-ms" : 1648027755930,
+    "summary" : {
+      "operation" : "append",
+      "added-data-files" : "6",
+      "added-records" : "783000000",
+      "added-files-size" : "1318577526",
+      "changed-partition-count" : "1",
+      "total-records" : "783000000",
+      "total-files-size" : "1318577526",
+      "total-data-files" : "6",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc/inventory/metadata/snap-8748002454324012504-1-e79e3684-dfee-4c0c-a7b6-194b67b916d4.avro",
+    "schema-id" : 0
+  } ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1648027755930,
+    "snapshot-id" : 8748002454324012504
+  } ],
+  "metadata-log" : [ ]
+}

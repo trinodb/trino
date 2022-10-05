@@ -17,6 +17,7 @@ package io.trino.sql.planner;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
+import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.TableHandle;
@@ -32,6 +33,7 @@ import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.testing.LocalQueryRunner;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -68,6 +70,8 @@ import static org.testng.Assert.assertEquals;
 public abstract class BaseCostBasedPlanTest
         extends BasePlanTest
 {
+    private static final Logger log = Logger.get(BaseCostBasedPlanTest.class);
+
     public static final List<String> TPCH_SQL_FILES = IntStream.rangeClosed(1, 22)
             .mapToObj(i -> format("q%02d", i))
             .map(queryId -> format("/sql/presto/tpch/%s.sql", queryId))
@@ -103,6 +107,10 @@ public abstract class BaseCostBasedPlanTest
 
     protected abstract String getSchema();
 
+    @BeforeClass
+    public abstract void prepareTables()
+            throws Exception;
+
     protected abstract Stream<String> getQueryResourcePaths();
 
     @DataProvider
@@ -132,6 +140,7 @@ public abstract class BaseCostBasedPlanTest
     {
         initPlanTest();
         try {
+            prepareTables();
             getQueryResourcePaths()
                     .parallel()
                     .forEach(queryResourcePath -> {
@@ -142,12 +151,19 @@ public abstract class BaseCostBasedPlanTest
                                     getQueryPlanResourcePath(queryResourcePath));
                             createParentDirs(queryPlanWritePath.toFile());
                             write(generateQueryPlan(readQuery(queryResourcePath)).getBytes(UTF_8), queryPlanWritePath.toFile());
-                            System.out.println("Generated expected plan for query: " + queryResourcePath);
+                            log.info("Generated expected plan for query: %s", queryResourcePath);
                         }
                         catch (IOException e) {
                             throw new UncheckedIOException(e);
                         }
                     });
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted", e);
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
         }
         finally {
             destroyPlanTest();

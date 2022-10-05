@@ -1,0 +1,348 @@
+{
+  "format-version" : 1,
+  "table-uuid" : "31ce935a-c02a-4983-98f8-9eed637a4f9e",
+  "location" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc-part/store",
+  "last-updated-ms" : 1648044147943,
+  "last-column-id" : 29,
+  "schema" : {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "s_store_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "s_store_id",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "s_rec_start_date",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 4,
+      "name" : "s_rec_end_date",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 5,
+      "name" : "s_closed_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 6,
+      "name" : "s_store_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 7,
+      "name" : "s_number_employees",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 8,
+      "name" : "s_floor_space",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 9,
+      "name" : "s_hours",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 10,
+      "name" : "s_manager",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 11,
+      "name" : "s_market_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 12,
+      "name" : "s_geography_class",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 13,
+      "name" : "s_market_desc",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 14,
+      "name" : "s_market_manager",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 15,
+      "name" : "s_division_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 16,
+      "name" : "s_division_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 17,
+      "name" : "s_company_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 18,
+      "name" : "s_company_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 19,
+      "name" : "s_street_number",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 20,
+      "name" : "s_street_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 21,
+      "name" : "s_street_type",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 22,
+      "name" : "s_suite_number",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 23,
+      "name" : "s_city",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 24,
+      "name" : "s_county",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 25,
+      "name" : "s_state",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 26,
+      "name" : "s_zip",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 27,
+      "name" : "s_country",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 28,
+      "name" : "s_gmt_offset",
+      "required" : false,
+      "type" : "decimal(5, 2)"
+    }, {
+      "id" : 29,
+      "name" : "s_tax_precentage",
+      "required" : false,
+      "type" : "decimal(5, 2)"
+    } ]
+  },
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "s_store_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "s_store_id",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "s_rec_start_date",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 4,
+      "name" : "s_rec_end_date",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 5,
+      "name" : "s_closed_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 6,
+      "name" : "s_store_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 7,
+      "name" : "s_number_employees",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 8,
+      "name" : "s_floor_space",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 9,
+      "name" : "s_hours",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 10,
+      "name" : "s_manager",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 11,
+      "name" : "s_market_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 12,
+      "name" : "s_geography_class",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 13,
+      "name" : "s_market_desc",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 14,
+      "name" : "s_market_manager",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 15,
+      "name" : "s_division_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 16,
+      "name" : "s_division_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 17,
+      "name" : "s_company_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 18,
+      "name" : "s_company_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 19,
+      "name" : "s_street_number",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 20,
+      "name" : "s_street_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 21,
+      "name" : "s_street_type",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 22,
+      "name" : "s_suite_number",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 23,
+      "name" : "s_city",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 24,
+      "name" : "s_county",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 25,
+      "name" : "s_state",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 26,
+      "name" : "s_zip",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 27,
+      "name" : "s_country",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 28,
+      "name" : "s_gmt_offset",
+      "required" : false,
+      "type" : "decimal(5, 2)"
+    }, {
+      "id" : 29,
+      "name" : "s_tax_precentage",
+      "required" : false,
+      "type" : "decimal(5, 2)"
+    } ]
+  } ],
+  "partition-spec" : [ ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "write.format.default" : "ORC"
+  },
+  "current-snapshot-id" : 8302422540923679471,
+  "snapshots" : [ {
+    "snapshot-id" : 8302422540923679471,
+    "timestamp-ms" : 1648044147943,
+    "summary" : {
+      "operation" : "append",
+      "added-data-files" : "3",
+      "added-records" : "1002",
+      "added-files-size" : "72347",
+      "changed-partition-count" : "1",
+      "total-records" : "1002",
+      "total-files-size" : "72347",
+      "total-data-files" : "3",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc-part/store/metadata/snap-8302422540923679471-1-3dfcd5d7-cef5-4a88-a153-88f349613b01.avro",
+    "schema-id" : 0
+  } ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1648044147943,
+    "snapshot-id" : 8302422540923679471
+  } ],
+  "metadata-log" : [ ]
+}
