@@ -77,7 +77,7 @@ class EvictableCache<K, V>
                                 tokens.remove(token.getKey(), token);
                             }
                         }),
-                new TokenCacheLoader<>(cacheLoader));
+                new TokenCacheLoader<>(cacheLoader, tokens));
     }
 
     @SuppressModernizer // CacheBuilder.build(CacheLoader) is forbidden, advising to use this class as a safety-adding wrapper.
@@ -104,8 +104,13 @@ class EvictableCache<K, V>
     {
         Token<K> newToken = new Token<>(key);
         Token<K> token = tokens.computeIfAbsent(key, ignored -> newToken);
+        Callable<? extends V> valueLoaderImpl = () -> {
+            // revive token if it got expired before reloading
+            tokens.computeIfAbsent(token.getKey(), ignored -> token);
+            return valueLoader.call();
+        };
         try {
-            return dataCache.get(token, valueLoader);
+            return dataCache.get(token, valueLoaderImpl);
         }
         catch (Throwable e) {
             if (newToken == token) {
@@ -394,16 +399,20 @@ class EvictableCache<K, V>
             extends CacheLoader<Token<K>, V>
     {
         private final CacheLoader<? super K, V> delegate;
+        private final ConcurrentHashMap<K, Token<K>> tokens;
 
-        public TokenCacheLoader(CacheLoader<? super K, V> delegate)
+        public TokenCacheLoader(CacheLoader<? super K, V> delegate, ConcurrentHashMap<K, Token<K>> tokens)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
+            this.tokens = requireNonNull(tokens, "tokens is null");
         }
 
         @Override
         public V load(Token<K> token)
                 throws Exception
         {
+            // revive token if it got expired before reloading
+            tokens.computeIfAbsent(token.getKey(), ignored -> token);
             return delegate.load(token.getKey());
         }
 

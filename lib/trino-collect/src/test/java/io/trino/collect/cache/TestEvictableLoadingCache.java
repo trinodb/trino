@@ -24,6 +24,7 @@ import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -47,7 +48,9 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.collect.cache.CacheStatsAssertions.assertCacheStats;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.util.concurrent.Executors.newFixedThreadPool;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -110,6 +113,29 @@ public class TestEvictableLoadingCache
         assertThat(cache.asMap().keySet().stream().mapToInt(i -> i).sum()).as("key sum").isLessThanOrEqualTo(20);
         assertThat(cache.asMap().values()).as("values").hasSize(cacheSize);
         assertThat(cache.asMap().values().stream().mapToInt(String::length).sum()).as("values length sum").isLessThanOrEqualTo(20);
+    }
+
+    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    public void testLoadOnceWithTimeEviction()
+            throws Exception
+    {
+        int ttl = 50;
+        int expectedCalls = 10;
+
+        AtomicInteger counter = new AtomicInteger();
+        LoadingCache<String, String> cache = EvictableCacheBuilder.newBuilder()
+                .expireAfterWrite(ttl, MILLISECONDS)
+                .build(CacheLoader.from(k -> {
+                    counter.incrementAndGet();
+                    return k;
+                }));
+
+        Instant until = Instant.now().plus(ttl * expectedCalls, MILLIS);
+        while (until.isAfter(Instant.now())) {
+            cache.get("foo");
+            Thread.sleep(1);
+        }
+        assertThat(counter.get()).isEqualTo(expectedCalls);
     }
 
     @Test(timeOut = TEST_TIMEOUT_MILLIS, dataProvider = "testDisabledCacheDataProvider")
