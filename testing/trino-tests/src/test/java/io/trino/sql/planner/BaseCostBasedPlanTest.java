@@ -65,7 +65,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.testng.Assert.assertEquals;
 
-public abstract class AbstractCostBasedPlanTest
+public abstract class BaseCostBasedPlanTest
         extends BasePlanTest
 {
     public static final List<String> TPCH_SQL_FILES = IntStream.rangeClosed(1, 22)
@@ -165,7 +165,7 @@ public abstract class AbstractCostBasedPlanTest
     private static String read(String resource)
     {
         try {
-            return Resources.toString(getResource(AbstractCostBasedPlanTest.class, resource), UTF_8);
+            return Resources.toString(getResource(BaseCostBasedPlanTest.class, resource), UTF_8);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
