@@ -190,19 +190,6 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-hive-hadoop2</artifactId>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <!-- conflicts with com.google.protobuf:protobuf-java -->
-                    <groupId>org.alluxio</groupId>
-                    <artifactId>alluxio-shaded-client</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
             <artifactId>trino-main</artifactId>
             <scope>test</scope>
         </dependency>
