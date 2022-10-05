@@ -20,6 +20,7 @@ import io.trino.plugin.hive.metastore.UnimplementedHiveMetastore;
 import io.trino.plugin.hive.metastore.recording.HiveMetastoreRecording;
 import io.trino.plugin.hive.metastore.recording.RecordingHiveMetastore;
 import io.trino.spi.connector.ConnectorFactory;
+import org.testng.annotations.BeforeClass;
 
 import java.io.File;
 import java.io.IOException;
@@ -59,6 +60,13 @@ public abstract class BaseHiveCostBasedPlanTest
     {
         String fileName = Paths.get(getRecordingPath()).getFileName().toString();
         return fileName.split("\\.")[0];
+    }
+
+    @Override
+    @BeforeClass
+    public void prepareTables()
+    {
+        // Nothing to do. Tables are populated using the recording.
     }
 
     private String getRecordingPath()

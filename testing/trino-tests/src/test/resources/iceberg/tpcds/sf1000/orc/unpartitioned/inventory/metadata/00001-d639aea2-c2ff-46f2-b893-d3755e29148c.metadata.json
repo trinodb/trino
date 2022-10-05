@@ -1,0 +1,111 @@
+{
+  "format-version" : 1,
+  "table-uuid" : "1c971fec-6623-4285-acbc-a2a8d8f126ca",
+  "location" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc/inventory",
+  "last-updated-ms" : 1663708625992,
+  "last-column-id" : 4,
+  "schema" : {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "inv_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "inv_item_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 3,
+      "name" : "inv_warehouse_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 4,
+      "name" : "inv_quantity_on_hand",
+      "required" : false,
+      "type" : "int"
+    } ]
+  },
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "inv_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "inv_item_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 3,
+      "name" : "inv_warehouse_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 4,
+      "name" : "inv_quantity_on_hand",
+      "required" : false,
+      "type" : "int"
+    } ]
+  } ],
+  "partition-spec" : [ ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "trino.stats.ndv.2.ndv" : "297612",
+    "trino.stats.ndv.1.ndv" : "261",
+    "trino.stats.ndv.3.ndv" : "20",
+    "write.format.default" : "ORC",
+    "trino.stats.ndv.4.ndv" : "1010"
+  },
+  "current-snapshot-id" : 8748002454324012504,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 8748002454324012504,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "snapshot-id" : 8748002454324012504,
+    "timestamp-ms" : 1648027755930,
+    "summary" : {
+      "operation" : "append",
+      "added-data-files" : "6",
+      "added-records" : "783000000",
+      "added-files-size" : "1318577526",
+      "changed-partition-count" : "1",
+      "total-records" : "783000000",
+      "total-files-size" : "1318577526",
+      "total-data-files" : "6",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc/inventory/metadata/snap-8748002454324012504-1-e79e3684-dfee-4c0c-a7b6-194b67b916d4.avro",
+    "schema-id" : 0
+  } ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1648027755930,
+    "snapshot-id" : 8748002454324012504
+  } ],
+  "metadata-log" : [ {
+    "timestamp-ms" : 1648027755930,
+    "metadata-file" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc/inventory/metadata/00000-4f3572dc-efec-4326-a4ce-f7dcf6c4d92e.metadata.json"
+  } ]
+}

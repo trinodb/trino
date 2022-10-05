@@ -33,6 +33,7 @@ import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.testing.LocalQueryRunner;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -106,6 +107,10 @@ public abstract class BaseCostBasedPlanTest
 
     protected abstract String getSchema();
 
+    @BeforeClass
+    public abstract void prepareTables()
+            throws Exception;
+
     protected abstract Stream<String> getQueryResourcePaths();
 
     @DataProvider
@@ -135,6 +140,7 @@ public abstract class BaseCostBasedPlanTest
     {
         initPlanTest();
         try {
+            prepareTables();
             getQueryResourcePaths()
                     .parallel()
                     .forEach(queryResourcePath -> {
@@ -151,6 +157,13 @@ public abstract class BaseCostBasedPlanTest
                             throw new UncheckedIOException(e);
                         }
                     });
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted", e);
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
         }
         finally {
             destroyPlanTest();
