@@ -31,8 +31,8 @@ import java.util.Arrays;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.plugin.hive.metastore.recording.TestRecordingHiveMetastore.createJsonCodec;
 
-public abstract class AbstractHiveCostBasedPlanTest
-        extends AbstractCostBasedPlanTest
+public abstract class BaseHiveCostBasedPlanTest
+        extends BaseCostBasedPlanTest
 {
     @Override
     protected ConnectorFactory createConnectorFactory()
