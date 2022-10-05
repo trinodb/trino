@@ -14,12 +14,7 @@
 
 package io.trino.sql.planner;
 
-import java.util.List;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
-
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.String.format;
 
 /**
  * This class tests cost-based optimization rules related to joins. It contains unmodified TPCH queries.
@@ -36,10 +31,6 @@ public class TestHiveTpchCostBasedPlan
      */
 
     public static final String TPCH_METADATA_DIR = "/hive_metadata/unpartitioned_tpch";
-    public static final List<String> TPCH_SQL_FILES = IntStream.rangeClosed(1, 22)
-            .mapToObj(i -> format("q%02d", i))
-            .map(queryId -> format("/sql/presto/tpch/%s.sql", queryId))
-            .collect(toImmutableList());
 
     @Override
     protected String getMetadataDir()

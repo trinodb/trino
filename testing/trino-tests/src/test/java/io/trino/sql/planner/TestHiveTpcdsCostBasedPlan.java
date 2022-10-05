@@ -14,12 +14,7 @@
 
 package io.trino.sql.planner;
 
-import java.util.List;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
-
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.String.format;
 
 /**
  * This class tests cost-based optimization rules related to joins. It contains unmodified TPCDS queries.
@@ -36,10 +31,6 @@ public class TestHiveTpcdsCostBasedPlan
      */
 
     public static final String TPCDS_METADATA_DIR = "/hive_metadata/unpartitioned_tpcds";
-    public static final List<String> TPCDS_SQL_FILES = IntStream.range(1, 100)
-            .mapToObj(i -> format("q%02d", i))
-            .map(queryId -> format("/sql/presto/tpcds/%s.sql", queryId))
-            .collect(toImmutableList());
 
     @Override
     protected String getMetadataDir()
