@@ -70,6 +70,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTim
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.Boolean.parseBoolean;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
@@ -106,7 +107,7 @@ public final class DeltaLakeSchemaSupport
 
     public static boolean isAppendOnly(MetadataEntry metadataEntry)
     {
-        return Boolean.parseBoolean(metadataEntry.getConfiguration().getOrDefault(APPEND_ONLY_CONFIGURATION_KEY, "false"));
+        return parseBoolean(metadataEntry.getConfiguration().getOrDefault(APPEND_ONLY_CONFIGURATION_KEY, "false"));
     }
 
     public static ColumnMappingMode getColumnMappingMode(MetadataEntry metadata)
@@ -432,6 +433,12 @@ public final class DeltaLakeSchemaSupport
         return metadataEntry.getConfiguration().entrySet().stream()
                 .filter(entry -> entry.getKey().startsWith("delta.constraints."))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
+    public static boolean changeDataFeedEnabled(MetadataEntry metadataEntry)
+    {
+        String enableChangeDataFeed = metadataEntry.getConfiguration().getOrDefault("delta.enableChangeDataFeed", "false");
+        return parseBoolean(enableChangeDataFeed);
     }
 
     public static Map<String, Map<String, Object>> getColumnsMetadata(MetadataEntry metadataEntry)
