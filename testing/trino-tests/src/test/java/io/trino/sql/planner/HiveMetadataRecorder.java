@@ -88,7 +88,7 @@ public class HiveMetadataRecorder
 
     private static String getResourcePath(String relativePath)
     {
-        return Path.of("testing/trino-benchto-benchmarks/src/test/resources", relativePath).toString();
+        return Path.of("testing/trino-tests/src/test/resources", relativePath).toString();
     }
 
     @Override

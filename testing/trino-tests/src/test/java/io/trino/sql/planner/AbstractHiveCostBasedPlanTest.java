@@ -229,12 +229,12 @@ public abstract class AbstractHiveCostBasedPlanTest
         verify(isDirectory(workingDir), "Working directory is not a directory");
         String topDirectoryName = workingDir.getFileName().toString();
         switch (topDirectoryName) {
-            case "trino-benchto-benchmarks":
+            case "trino-tests":
                 return workingDir;
             case "trino":
-                return workingDir.resolve("testing/trino-benchto-benchmarks");
+                return workingDir.resolve("testing/trino-tests");
             default:
-                throw new IllegalStateException("This class must be executed from trino-benchto-benchmarks or Trino source directory");
+                throw new IllegalStateException("This class must be executed from trino-tests or Trino source directory");
         }
     }
 

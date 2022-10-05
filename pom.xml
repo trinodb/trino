@@ -165,6 +165,7 @@
         <module>service/trino-proxy</module>
         <module>service/trino-verifier</module>
         <module>testing/trino-benchmark</module>
+        <module>testing/trino-benchmark-queries</module>
         <module>testing/trino-benchto-benchmarks</module>
         <module>testing/trino-faulttolerant-tests</module>
         <module>testing/trino-plugin-reader</module>
@@ -206,6 +207,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-benchmark</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-benchmark-queries</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
