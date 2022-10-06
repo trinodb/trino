@@ -22,9 +22,9 @@ import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.PrimitiveType;
 
 import java.math.BigInteger;
-import java.util.Arrays;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.parquet.ParquetTypeUtils.paddingBigInteger;
 import static java.util.Objects.requireNonNull;
 
 public class FixedLenByteArrayLongDecimalValueWriter
@@ -51,25 +51,10 @@ public class FixedLenByteArrayLongDecimalValueWriter
             if (!block.isNull(i)) {
                 Int128 decimal = (Int128) decimalType.getObject(block, i);
                 BigInteger bigInteger = decimal.toBigInteger();
-                Binary binary = Binary.fromConstantByteArray(paddingBigInteger(bigInteger));
+                Binary binary = Binary.fromConstantByteArray(paddingBigInteger(bigInteger, getTypeLength()));
                 getValueWriter().writeBytes(binary);
                 getStatistics().updateStats(binary);
             }
         }
-    }
-
-    private byte[] paddingBigInteger(BigInteger bigInteger)
-    {
-        int numBytes = getTypeLength();
-        byte[] bytes = bigInteger.toByteArray();
-        if (bytes.length == numBytes) {
-            return bytes;
-        }
-        byte[] result = new byte[numBytes];
-        if (bigInteger.signum() < 0) {
-            Arrays.fill(result, 0, numBytes - bytes.length, (byte) 0xFF);
-        }
-        System.arraycopy(bytes, 0, result, numBytes - bytes.length, bytes.length);
-        return result;
     }
 }
