@@ -84,6 +84,9 @@ public class TestBigQueryConnectorTest
             case SUPPORTS_NOT_NULL_CONSTRAINT:
                 return false;
 
+            case SUPPORTS_TRUNCATE:
+                return true;
+
             case SUPPORTS_NEGATIVE_DATE:
                 return false;
 

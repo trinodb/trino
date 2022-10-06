@@ -481,6 +481,21 @@ public class BigQueryMetadata
     }
 
     @Override
+    public void truncateTable(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        BigQueryTableHandle table = (BigQueryTableHandle) tableHandle;
+        BigQueryClient client = bigQueryClientFactory.createBigQueryClient(session);
+
+        RemoteTableName remoteTableName = table.asPlainTable().getRemoteTableName();
+        String sql = format(
+                "TRUNCATE TABLE %s.%s.%s",
+                quote(remoteTableName.getProjectId()),
+                quote(remoteTableName.getDatasetName()),
+                quote(remoteTableName.getTableName()));
+        client.executeUpdate(QueryJobConfiguration.of(sql));
+    }
+
+    @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns, RetryMode retryMode)
     {
         if (retryMode != RetryMode.NO_RETRIES) {
