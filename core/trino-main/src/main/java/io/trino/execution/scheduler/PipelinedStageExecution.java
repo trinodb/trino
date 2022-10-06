@@ -237,13 +237,6 @@ public class PipelinedStageExecution
         }
     }
 
-    private synchronized boolean isFlushing()
-    {
-        // to transition to flushing, there must be at least one flushing task, and all others must be flushing or finished.
-        return !flushingTasks.isEmpty()
-                && allTasks.stream().allMatch(taskId -> finishedTasks.contains(taskId) || flushingTasks.contains(taskId));
-    }
-
     @Override
     public synchronized void schedulingComplete(PlanNodeId partitionedSource)
     {
@@ -387,6 +380,13 @@ public class PipelinedStageExecution
                 stateMachine.transitionToFinished();
             }
         }
+    }
+
+    private synchronized boolean isStageFlushing()
+    {
+        // to transition to flushing, there must be at least one flushing task, and all others must be flushing or finished.
+        return !flushingTasks.isEmpty()
+                && allTasks.stream().allMatch(taskId -> finishedTasks.contains(taskId) || flushingTasks.contains(taskId));
     }
 
     private ExecutionFailureInfo rewriteTransportFailure(ExecutionFailureInfo executionFailureInfo)
