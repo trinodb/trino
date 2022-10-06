@@ -85,10 +85,10 @@ public abstract class BaseTrinoCatalogTest
             catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
             String tableLocation = arbitraryTableLocation(catalog, SESSION, schemaTableName);
             catalog.newCreateTableTransaction(
-                    SESSION,
-                    schemaTableName,
-                    new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
-                    PartitionSpec.unpartitioned(),
+                            SESSION,
+                            schemaTableName,
+                            new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
+                            PartitionSpec.unpartitioned(),
                             tableLocation,
                             ImmutableMap.of())
                     .commitTransaction();
@@ -131,12 +131,12 @@ public abstract class BaseTrinoCatalogTest
             catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
             catalog.createNamespace(SESSION, targetNamespace, defaultNamespaceProperties(targetNamespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
             catalog.newCreateTableTransaction(
-                    SESSION,
-                    sourceSchemaTableName,
-                    new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
-                    PartitionSpec.unpartitioned(),
-                    arbitraryTableLocation(catalog, SESSION, sourceSchemaTableName),
-                    ImmutableMap.of())
+                            SESSION,
+                            sourceSchemaTableName,
+                            new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
+                            PartitionSpec.unpartitioned(),
+                            arbitraryTableLocation(catalog, SESSION, sourceSchemaTableName),
+                            ImmutableMap.of())
                     .commitTransaction();
             assertThat(catalog.listTables(SESSION, Optional.of(namespace))).contains(sourceSchemaTableName);
 
