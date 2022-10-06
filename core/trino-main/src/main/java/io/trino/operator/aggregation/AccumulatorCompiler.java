@@ -219,6 +219,9 @@ public final class AccumulatorCompiler
             AggregationImplementation implementation,
             FunctionNullability functionNullability)
     {
+        // change types used in Aggregation methods to types used in the core Trino engine to simplify code generation
+        implementation = normalizeAggregationMethods(implementation);
+
         DynamicClassLoader classLoader = new DynamicClassLoader(AccumulatorCompiler.class.getClassLoader());
 
         List<Boolean> argumentNullable = functionNullability.getArgumentNullable()
