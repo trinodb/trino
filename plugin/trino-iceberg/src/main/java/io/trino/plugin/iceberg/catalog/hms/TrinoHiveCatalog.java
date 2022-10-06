@@ -202,7 +202,7 @@ public class TrinoHiveCatalog
             try {
                 return !fileSystemFactory.create(session).listFiles(path).hasNext();
             }
-            catch (IOException e) {
+            catch (IOException | RuntimeException e) {
                 log.warn(e, "Could not check schema directory '%s'", path);
                 return deleteSchemaLocationsFallback;
             }
