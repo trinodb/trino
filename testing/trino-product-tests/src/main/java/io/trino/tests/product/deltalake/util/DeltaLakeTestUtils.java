@@ -29,14 +29,14 @@ public final class DeltaLakeTestUtils
 
     public static String getDatabricksRuntimeVersion()
     {
-        QueryResult result = onDelta().executeQuery("SELECT java_method('java.lang.System', 'getenv', 'DATABRICKS_RUNTIME_VERSION')");
-        return firstNonNull((String) result.row(0).get(0), "unknown");
+        return firstNonNull((String) onDelta().executeQuery("SELECT java_method('java.lang.System', 'getenv', 'DATABRICKS_RUNTIME_VERSION')").getOnlyValue(), "unknown");
     }
 
     public static String getColumnCommentOnTrino(String schemaName, String tableName, String columnName)
     {
-        QueryResult result = onTrino().executeQuery("SELECT comment FROM information_schema.columns WHERE table_schema = '" + schemaName + "' AND table_name = '" + tableName + "' AND column_name = '" + columnName + "'");
-        return (String) result.row(0).get(0);
+        return (String) onTrino()
+                .executeQuery("SELECT comment FROM information_schema.columns WHERE table_schema = '" + schemaName + "' AND table_name = '" + tableName + "' AND column_name = '" + columnName + "'")
+                .getOnlyValue();
     }
 
     public static String getColumnCommentOnDelta(String schemaName, String tableName, String columnName)

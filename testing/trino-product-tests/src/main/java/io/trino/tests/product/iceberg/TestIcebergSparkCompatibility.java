@@ -876,7 +876,7 @@ public class TestIcebergSparkCompatibility
 
         QueryResult queryResult = onTrino().executeQuery(format("SELECT file_path FROM %s", trinoTableName("\"" + baseTableName + "$files\"")));
         assertThat(queryResult).hasRowsCount(1).hasColumnsCount(1);
-        assertTrue(((String) queryResult.row(0).get(0)).contains(dataPath));
+        assertTrue(((String) queryResult.getOnlyValue()).contains(dataPath));
 
         // TODO: support path override in Iceberg table creation: https://github.com/trinodb/trino/issues/8861
         assertQueryFailure(() -> onTrino().executeQuery("DROP TABLE " + trinoTableName))
@@ -905,7 +905,7 @@ public class TestIcebergSparkCompatibility
 
         QueryResult queryResult = onTrino().executeQuery(format("SELECT file_path FROM %s", trinoTableName("\"" + baseTableName + "$files\"")));
         assertThat(queryResult).hasRowsCount(1).hasColumnsCount(1);
-        assertTrue(((String) queryResult.row(0).get(0)).contains(dataPath));
+        assertTrue(((String) queryResult.getOnlyValue()).contains(dataPath));
 
         assertQueryFailure(() -> onTrino().executeQuery("DROP TABLE " + trinoTableName))
                 .hasMessageContaining("contains Iceberg path override properties and cannot be dropped from Trino");
@@ -2185,7 +2185,7 @@ public class TestIcebergSparkCompatibility
 
     private int calculateMetadataFilesForPartitionedTable(String tableName)
     {
-        String dataFilePath = onTrino().executeQuery(format("SELECT file_path FROM iceberg.default.\"%s$files\" limit 1", tableName)).row(0).get(0).toString();
+        String dataFilePath = (String) onTrino().executeQuery(format("SELECT file_path FROM iceberg.default.\"%s$files\" limit 1", tableName)).getOnlyValue();
         String partitionPath = dataFilePath.substring(0, dataFilePath.lastIndexOf("/"));
         String dataFolderPath = partitionPath.substring(0, partitionPath.lastIndexOf("/"));
         String tableFolderPath = dataFolderPath.substring(0, dataFolderPath.lastIndexOf("/"));

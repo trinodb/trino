@@ -301,8 +301,7 @@ public class TestHivePartitionProcedures
 
     private Long getTableCount(String tableName)
     {
-        QueryResult countResult = onTrino().executeQuery("SELECT count(*) FROM " + tableName);
-        return (Long) countResult.row(0).get(0);
+        return (Long) onTrino().executeQuery("SELECT count(*) FROM " + tableName).getOnlyValue();
     }
 
     private Set<String> getPartitionValues(String tableName)

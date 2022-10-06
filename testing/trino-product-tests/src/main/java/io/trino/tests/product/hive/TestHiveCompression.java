@@ -19,7 +19,6 @@ import io.trino.tempto.configuration.Configuration;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
@@ -101,7 +100,7 @@ public class TestHiveCompression
                         "WITH (format='PARQUET')",
                 tableName));
 
-        String catalog = (String) getOnlyElement(getOnlyElement(onTrino().executeQuery("SELECT CURRENT_CATALOG").rows()));
+        String catalog = (String) onTrino().executeQuery("SELECT CURRENT_CATALOG").getOnlyValue();
         onTrino().executeQuery("SET SESSION " + catalog + ".compression_codec = 'SNAPPY'");
         onTrino().executeQuery("SET SESSION " + catalog + ".parquet_optimized_writer_enabled = " + optimizedParquetWriter);
         onTrino().executeQuery(format("INSERT INTO %s VALUES(1, 'test data')", tableName));
@@ -127,7 +126,7 @@ public class TestHiveCompression
             assertThat(onTrino().executeQuery("SELECT sum(o_orderkey) FROM test_read_compressed"))
                     .containsExactlyInOrder(row(4499987250000L));
 
-            assertThat((String) onTrino().executeQuery("SELECT regexp_replace(\"$path\", '.*/') FROM test_read_compressed LIMIT 1").row(0).get(0))
+            assertThat((String) onTrino().executeQuery("SELECT regexp_replace(\"$path\", '.*/') FROM test_read_compressed LIMIT 1").getOnlyValue())
                     .matches(expectedFileNamePattern);
         }
         finally {

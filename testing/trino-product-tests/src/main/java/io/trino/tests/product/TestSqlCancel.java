@@ -143,7 +143,7 @@ public class TestSqlCancel
             QueryResult queryResult = onTrino().executeQuery(format(findQuerySql, sql));
             checkState(queryResult.getRowsCount() < 2, "Query is executed multiple times");
             if (queryResult.getRowsCount() == 1) {
-                String queryId = (String) queryResult.row(0).get(0);
+                String queryId = (String) queryResult.getOnlyValue();
                 Response response = queryCanceller.cancel(queryId);
                 Assertions.assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT.code());
                 return;
