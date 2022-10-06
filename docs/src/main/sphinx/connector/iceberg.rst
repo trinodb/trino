@@ -310,6 +310,20 @@ otherwise the procedure will fail with similar message:
 ``Retention specified (1.00d) is shorter than the minimum retention configured in the system (7.00d)``.
 The default value for this property is ``7d``.
 
+.. _drop-extended-stats:
+
+drop_extended_stats
+~~~~~~~~~~~~~~~~~~~
+
+This is an experimental command to remove extended statistics from the table.
+
+``drop_extended_stats`` can be run as follows:
+
+.. code-block:: sql
+
+  SET SESSION my_catalog.experimental_extended_statistics_enabled = true;
+  ALTER TABLE test_table EXECUTE drop_extended_stats
+
 .. _iceberg-alter-table-set-properties:
 
 ALTER TABLE SET PROPERTIES
@@ -1032,3 +1046,37 @@ like a normal view, and the data is queried directly from the base tables.
 
 Dropping a materialized view with :doc:`/sql/drop-materialized-view` removes
 the definition and the storage table.
+
+Table statistics
+----------------
+
+There is experimental support to collect column statistics which can be enabled by
+setting the ``iceberg.experimental.extended-statistics.enabled`` catalog
+configuration property or the corresponding
+``experimental_extended_statistics_enabled`` session property to ``true``.
+Enabling this configuration allows executing :doc:`/sql/analyze` statement to gather statistics.
+
+.. _iceberg_analyze:
+
+Updating table statistics
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If your queries are complex and include joining large data sets,
+running :doc:`/sql/analyze` on tables may improve query performance
+by collecting statistical information about the data::
+
+    ANALYZE table_name
+
+This query collects statistics for all columns.
+
+On wide tables, collecting statistics for all columns can be expensive.
+It is also typically unnecessary - statistics are
+only useful on specific columns, like join keys, predicates, or grouping keys. You can
+specify a subset of columns to analyzed with the optional ``columns`` property::
+
+    ANALYZE table_name WITH (columns = ARRAY['col_1', 'col_2'])
+
+This query collects statistics for columns ``col_1`` and ``col_2``.
+
+Note that if statistics were previously collected for all columns, they need to be dropped
+using :ref:`drop_extended_stats <drop-extended-stats>` command before re-analyzing.
