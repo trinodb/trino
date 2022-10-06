@@ -51,6 +51,12 @@ public class IcebergPartitioningHandle
     }
 
     @Override
+    public boolean isSingleWriterPerPartition()
+    {
+        return false;
+    }
+
+    @Override
     public String toString()
     {
         return toStringHelper(this)

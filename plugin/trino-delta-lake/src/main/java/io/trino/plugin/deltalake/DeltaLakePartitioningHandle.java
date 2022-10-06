@@ -38,4 +38,10 @@ public class DeltaLakePartitioningHandle
     {
         return partitioningColumns;
     }
+
+    @Override
+    public boolean isSingleWriterPerPartition()
+    {
+        return false;
+    }
 }

@@ -34,6 +34,7 @@ public class HivePartitioningHandle
     private final List<HiveType> hiveTypes;
     private final OptionalInt maxCompatibleBucketCount;
     private final boolean usePartitionedBucketing;
+    private final boolean isTransactional;
 
     @JsonCreator
     public HivePartitioningHandle(
@@ -41,13 +42,15 @@ public class HivePartitioningHandle
             @JsonProperty("bucketCount") int bucketCount,
             @JsonProperty("hiveBucketTypes") List<HiveType> hiveTypes,
             @JsonProperty("maxCompatibleBucketCount") OptionalInt maxCompatibleBucketCount,
-            @JsonProperty("usePartitionedBucketing") boolean usePartitionedBucketing)
+            @JsonProperty("usePartitionedBucketing") boolean usePartitionedBucketing,
+            @JsonProperty("isTransactional") boolean isTransactional)
     {
         this.bucketingVersion = requireNonNull(bucketingVersion, "bucketingVersion is null");
         this.bucketCount = bucketCount;
         this.hiveTypes = requireNonNull(hiveTypes, "hiveTypes is null");
         this.maxCompatibleBucketCount = maxCompatibleBucketCount;
         this.usePartitionedBucketing = usePartitionedBucketing;
+        this.isTransactional = isTransactional;
     }
 
     @JsonProperty
@@ -81,11 +84,19 @@ public class HivePartitioningHandle
     }
 
     @Override
+    @JsonProperty
+    public boolean isSingleWriterPerPartition()
+    {
+        return isTransactional;
+    }
+
+    @Override
     public String toString()
     {
         ToStringHelper helper = toStringHelper(this)
                 .add("buckets", bucketCount)
-                .add("hiveTypes", hiveTypes);
+                .add("hiveTypes", hiveTypes)
+                .add("isTransactional", isTransactional);
         if (usePartitionedBucketing) {
             helper.add("usePartitionedBucketing", usePartitionedBucketing);
         }
@@ -104,12 +115,13 @@ public class HivePartitioningHandle
         HivePartitioningHandle that = (HivePartitioningHandle) o;
         return bucketCount == that.bucketCount &&
                 usePartitionedBucketing == that.usePartitionedBucketing &&
-                Objects.equals(hiveTypes, that.hiveTypes);
+                Objects.equals(hiveTypes, that.hiveTypes) &&
+                isTransactional == that.isTransactional;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(bucketCount, hiveTypes, usePartitionedBucketing);
+        return Objects.hash(bucketCount, hiveTypes, usePartitionedBucketing, isTransactional);
     }
 }

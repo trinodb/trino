@@ -24,4 +24,10 @@ public interface ConnectorPartitioningHandle
     {
         return false;
     }
+
+    // Specifies if writing to partition has to be performed by a single writer instance
+    default boolean isSingleWriterPerPartition()
+    {
+        return true;
+    }
 }

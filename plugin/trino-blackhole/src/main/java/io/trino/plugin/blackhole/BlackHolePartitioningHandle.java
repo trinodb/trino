@@ -18,5 +18,11 @@ import io.trino.spi.connector.ConnectorPartitioningHandle;
 public enum BlackHolePartitioningHandle
         implements ConnectorPartitioningHandle
 {
-    INSTANCE
+    INSTANCE;
+
+    @Override
+    public boolean isSingleWriterPerPartition()
+    {
+        return false;
+    }
 }

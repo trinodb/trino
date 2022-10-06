@@ -2795,7 +2795,8 @@ public class HiveMetadata
                                         .map(HiveColumnHandle::getHiveType)
                                         .collect(toImmutableList()),
                                 OptionalInt.empty(),
-                                false),
+                                false,
+                                hiveTable.getTransaction().isTransactional()),
                         bucketing.getColumns().stream()
                                 .map(ColumnHandle.class::cast)
                                 .collect(toImmutableList())));
@@ -3027,7 +3028,8 @@ public class HiveMetadata
                 smallerBucketCount,
                 leftHandle.getHiveTypes(),
                 maxCompatibleBucketCount,
-                false));
+                false,
+                left.isSingleWriterPerPartition() || right.isSingleWriterPerPartition()));
     }
 
     private static OptionalInt min(OptionalInt left, OptionalInt right)
@@ -3198,7 +3200,8 @@ public class HiveMetadata
                         .map(HiveColumnHandle::getHiveType)
                         .collect(toImmutableList()),
                 OptionalInt.of(hiveBucketHandle.get().getTableBucketCount()),
-                !partitionColumns.isEmpty() && isParallelPartitionedBucketedWrites(session));
+                !partitionColumns.isEmpty() && isParallelPartitionedBucketedWrites(session),
+                isTransactionalTable(table.getParameters()));
         return Optional.of(new ConnectorTableLayout(partitioningHandle, partitioningColumns.build()));
     }
 
@@ -3234,7 +3237,8 @@ public class HiveMetadata
                                 .map(hiveTypeMap::get)
                                 .collect(toImmutableList()),
                         OptionalInt.of(bucketProperty.get().getBucketCount()),
-                        !partitionedBy.isEmpty() && isParallelPartitionedBucketedWrites(session)),
+                        !partitionedBy.isEmpty() && isParallelPartitionedBucketedWrites(session),
+                        isTransactional(tableMetadata.getProperties()).orElse(false)),
                 ImmutableList.<String>builder()
                         .addAll(bucketedBy)
                         .addAll(partitionedBy)

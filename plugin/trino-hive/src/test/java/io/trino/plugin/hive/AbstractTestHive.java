@@ -5585,7 +5585,8 @@ public abstract class AbstractTestHive
                         bucketProperty.getBucketCount(),
                         ImmutableList.of(HIVE_STRING),
                         OptionalInt.empty(),
-                        false);
+                        false,
+                        transactional);
                 assertEquals(insertLayout.get().getPartitioning(), Optional.of(partitioningHandle));
                 assertEquals(insertLayout.get().getPartitionColumns(), ImmutableList.of("column1"));
                 ConnectorBucketNodeMap connectorBucketNodeMap = nodePartitioningProvider.getBucketNodeMapping(transaction.getTransactionHandle(), session, partitioningHandle).orElseThrow();
@@ -5635,7 +5636,8 @@ public abstract class AbstractTestHive
                         bucketProperty.getBucketCount(),
                         ImmutableList.of(HIVE_STRING),
                         OptionalInt.empty(),
-                        true);
+                        true,
+                        transactional);
                 assertEquals(insertLayout.get().getPartitioning(), Optional.of(partitioningHandle));
                 assertEquals(insertLayout.get().getPartitionColumns(), ImmutableList.of("column1", "column2"));
                 ConnectorBucketNodeMap connectorBucketNodeMap = nodePartitioningProvider.getBucketNodeMapping(transaction.getTransactionHandle(), session, partitioningHandle).orElseThrow();
@@ -5696,6 +5698,7 @@ public abstract class AbstractTestHive
                     10,
                     ImmutableList.of(HIVE_LONG),
                     OptionalInt.empty(),
+                    false,
                     false);
             assertEquals(newTableLayout.get().getPartitioning(), Optional.of(partitioningHandle));
             assertEquals(newTableLayout.get().getPartitionColumns(), ImmutableList.of("column1"));
@@ -5729,7 +5732,8 @@ public abstract class AbstractTestHive
                     10,
                     ImmutableList.of(HIVE_LONG),
                     OptionalInt.empty(),
-                    true);
+                    true,
+                    false);
             assertEquals(newTableLayout.get().getPartitioning(), Optional.of(partitioningHandle));
             assertEquals(newTableLayout.get().getPartitionColumns(), ImmutableList.of("column1", "column2"));
             ConnectorBucketNodeMap connectorBucketNodeMap = nodePartitioningProvider.getBucketNodeMapping(transaction.getTransactionHandle(), session, partitioningHandle).orElseThrow();

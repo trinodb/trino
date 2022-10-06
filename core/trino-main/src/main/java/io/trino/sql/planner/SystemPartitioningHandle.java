@@ -103,6 +103,12 @@ public final class SystemPartitioningHandle
     }
 
     @Override
+    public boolean isSingleWriterPerPartition()
+    {
+        return false;
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {
