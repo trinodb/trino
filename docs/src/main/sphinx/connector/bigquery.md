@@ -315,6 +315,7 @@ BigQuery database. In addition to the
 the following features:
 
 - {doc}`/sql/insert`
+- {doc}`/sql/delete`
 - {doc}`/sql/truncate`
 - {doc}`/sql/create-table`
 - {doc}`/sql/create-table-as`
@@ -322,6 +323,9 @@ the following features:
 - {doc}`/sql/create-schema`
 - {doc}`/sql/drop-schema`
 - {doc}`/sql/comment`
+
+```{include} sql-delete-limitation.fragment
+```
 
 (bigquery-fte-support)=
 

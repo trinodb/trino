@@ -93,6 +93,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.google.cloud.bigquery.StandardSQLTypeName.INT64;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -110,6 +111,7 @@ import static io.trino.plugin.bigquery.BigQueryUtil.isWildcardTable;
 import static io.trino.plugin.bigquery.BigQueryUtil.quote;
 import static io.trino.plugin.bigquery.BigQueryUtil.quoted;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -672,17 +674,37 @@ public class BigQueryMetadata
     }
 
     @Override
+    public ColumnHandle getMergeRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return new BigQueryColumnHandle("$merge_row_id", BIGINT, INT64, true, Field.Mode.REQUIRED, ImmutableList.of(), null, true);
+    }
+
+    @Override
     public Optional<ConnectorTableHandle> applyDelete(ConnectorSession session, ConnectorTableHandle handle)
     {
-        // TODO Fix BaseBigQueryFailureRecoveryTest when implementing this method
-        return ConnectorMetadata.super.applyDelete(session, handle);
+        return Optional.of(handle);
     }
 
     @Override
     public OptionalLong executeDelete(ConnectorSession session, ConnectorTableHandle handle)
     {
-        // TODO Fix BaseBigQueryFailureRecoveryTest when implementing this method
-        return ConnectorMetadata.super.executeDelete(session, handle);
+        BigQueryTableHandle tableHandle = ((BigQueryTableHandle) handle);
+        checkArgument(tableHandle.isNamedRelation(), "Unable to delete from synthetic table: %s", tableHandle);
+        TupleDomain<ColumnHandle> tableConstraint = tableHandle.getConstraint();
+        Optional<String> filter = BigQueryFilterQueryBuilder.buildFilter(tableConstraint);
+
+        RemoteTableName remoteTableName = tableHandle.asPlainTable().getRemoteTableName();
+        String sql = format(
+                "DELETE FROM %s.%s.%s WHERE %s",
+                quote(remoteTableName.getProjectId()),
+                quote(remoteTableName.getDatasetName()),
+                quote(remoteTableName.getTableName()),
+                filter.orElse("true"));
+        BigQueryClient client = bigQueryClientFactory.create(session);
+        long rows = client.executeUpdate(session, QueryJobConfiguration.newBuilder(sql)
+                .setQuery(sql)
+                .build());
+        return OptionalLong.of(rows);
     }
 
     @Override
