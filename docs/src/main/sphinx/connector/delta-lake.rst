@@ -294,6 +294,11 @@ writing data. Data types may not map the same way in both directions between
 Trino and the data source. Refer to the following sections for type mapping in
 each direction.
 
+See the `Delta Transaction Log specification
+<https://github.com/delta-io/delta/blob/master/PROTOCOL.md#primitive-types>`_
+for more information about supported data types in the Delta Lake table format
+specification.
+
 Delta Lake to Trino type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
