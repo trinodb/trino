@@ -13,16 +13,22 @@
  */
 package io.trino.parquet.reader;
 
+import com.google.common.primitives.Bytes;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.spi.type.Decimals;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.function.IntFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.trino.parquet.ParquetTypeUtils.paddingBigInteger;
 
 public final class TestData
 {
@@ -100,6 +106,14 @@ public final class TestData
         int[] result = new int[size];
         mixedList.getElements(0, result, 0, size);
         return result;
+    }
+
+    public static Slice randomBigInteger(Random r)
+    {
+        BigInteger bigInteger = new BigInteger(126, r);
+        byte[] result = paddingBigInteger(bigInteger, 2 * SIZE_OF_LONG);
+        Bytes.reverse(result);
+        return Slices.wrappedBuffer(result);
     }
 
     public static int randomInt(Random r, int bitWidth)
