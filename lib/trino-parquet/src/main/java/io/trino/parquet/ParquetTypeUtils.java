@@ -33,6 +33,7 @@ import org.apache.parquet.schema.MessageType;
 
 import javax.annotation.Nullable;
 
+import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -282,6 +283,20 @@ public final class ParquetTypeUtils
         }
         value = value >> ((8 - length) * 8);
         return value;
+    }
+
+    public static byte[] paddingBigInteger(BigInteger bigInteger, int numBytes)
+    {
+        byte[] bytes = bigInteger.toByteArray();
+        if (bytes.length == numBytes) {
+            return bytes;
+        }
+        byte[] result = new byte[numBytes];
+        if (bigInteger.signum() < 0) {
+            Arrays.fill(result, 0, numBytes - bytes.length, (byte) 0xFF);
+        }
+        System.arraycopy(bytes, 0, result, numBytes - bytes.length, bytes.length);
+        return result;
     }
 
     public static Optional<Field> constructField(Type type, ColumnIO columnIO)
