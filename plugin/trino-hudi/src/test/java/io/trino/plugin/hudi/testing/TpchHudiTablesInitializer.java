@@ -105,29 +105,29 @@ public class TpchHudiTablesInitializer
     public void initializeTables(
             QueryRunner queryRunner,
             HiveMetastore metastore,
-            CatalogSchemaName hudiCatalogSchema,
+            String schemaName,
             String dataDir,
             Configuration conf)
     {
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog(TPCH_TINY.getCatalogName(), "tpch", ImmutableMap.of());
         for (TpchTable<?> table : tpchTables) {
-            load(table, queryRunner, metastore, hudiCatalogSchema, dataDir, conf);
+            load(table, queryRunner, metastore, schemaName, dataDir, conf);
         }
     }
 
     private void load(
-            TpchTable<?> table,
+            TpchTable<?> tpchTables,
             QueryRunner queryRunner,
             HiveMetastore metastore,
-            CatalogSchemaName hudiCatalogSchema,
+            String schemaName,
             String basePath,
             Configuration conf)
     {
-        try (HoodieJavaWriteClient<HoodieAvroPayload> writeClient = createWriteClient(table, basePath, conf)) {
-            RecordConverter recordConverter = createRecordConverter(table);
+        try (HoodieJavaWriteClient<HoodieAvroPayload> writeClient = createWriteClient(tpchTables, basePath, conf)) {
+            RecordConverter recordConverter = createRecordConverter(tpchTables);
 
-            @Language("SQL") String sql = generateScanSql(TPCH_TINY, table);
+            @Language("SQL") String sql = generateScanSql(TPCH_TINY, tpchTables);
             log.info("Executing %s", sql);
             MaterializedResult result = queryRunner.execute(sql);
 
@@ -141,7 +141,7 @@ public class TpchHudiTablesInitializer
             writeClient.insert(records, timestamp);
         }
 
-        metastore.createTable(createMetastoreTable(table, hudiCatalogSchema, basePath), NO_PRIVILEGES);
+        metastore.createTable(createMetastoreTable(schemaName, tpchTables, basePath), NO_PRIVILEGES);
     }
 
     private String generateScanSql(CatalogSchemaName catalogSchemaName, TpchTable<?> table)
@@ -158,7 +158,7 @@ public class TpchHudiTablesInitializer
         return builder.toString();
     }
 
-    private Table createMetastoreTable(TpchTable<?> table, CatalogSchemaName targetCatalogSchema, String basePath)
+    private Table createMetastoreTable(String schemaName, TpchTable<?> table, String basePath)
     {
         String tablePath = getTablePath(table, basePath);
         List<Column> columns = Stream.of(HUDI_META_COLUMNS, createMetastoreColumns(table))
@@ -168,7 +168,7 @@ public class TpchHudiTablesInitializer
         StorageFormat storageFormat = StorageFormat.fromHiveStorageFormat(HiveStorageFormat.PARQUET);
 
         return Table.builder()
-                .setDatabaseName(targetCatalogSchema.getSchemaName())
+                .setDatabaseName(schemaName)
                 .setTableName(table.getTableName())
                 .setTableType(EXTERNAL_TABLE.name())
                 .setOwner(Optional.of("public"))
