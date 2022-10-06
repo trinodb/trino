@@ -18,7 +18,6 @@ import org.assertj.core.api.Assertions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.ICEBERG;
@@ -45,7 +44,7 @@ public class TestIcebergPartitionEvolution
 
         onSpark().executeQuery("ALTER TABLE iceberg_test.default.test_dropped_partition_field DROP PARTITION FIELD " + (dropFirst ? "a" : "b"));
 
-        Assertions.assertThat((String) getOnlyElement(getOnlyElement(onTrino().executeQuery("SHOW CREATE TABLE test_dropped_partition_field").rows())))
+        Assertions.assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE test_dropped_partition_field").getOnlyValue())
                 .matches(
                         "\\QCREATE TABLE iceberg.default.test_dropped_partition_field (\n" +
                                 "   a varchar,\n" +

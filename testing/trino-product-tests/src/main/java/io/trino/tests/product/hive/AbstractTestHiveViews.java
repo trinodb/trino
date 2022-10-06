@@ -300,12 +300,12 @@ public abstract class AbstractTestHiveViews
 
         QueryResult actualResult = onTrino().executeQuery(format(showCreateViewSql, "hive"));
         assertThat(actualResult).hasRowsCount(1);
-        assertEquals((String) actualResult.row(0).get(0), format(expectedResult, "hive"));
+        assertEquals((String) actualResult.getOnlyValue(), format(expectedResult, "hive"));
 
         // Verify the translated view sql for a catalog other than "hive", which is configured to the same metastore
         actualResult = onTrino().executeQuery(format(showCreateViewSql, "hive_with_external_writes"));
         assertThat(actualResult).hasRowsCount(1);
-        assertEquals((String) actualResult.row(0).get(0), format(expectedResult, "hive_with_external_writes"));
+        assertEquals((String) actualResult.getOnlyValue(), format(expectedResult, "hive_with_external_writes"));
     }
 
     /**

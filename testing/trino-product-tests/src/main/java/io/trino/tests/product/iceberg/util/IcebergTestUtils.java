@@ -26,7 +26,7 @@ public final class IcebergTestUtils
     public static String getTableLocation(String tableName)
     {
         Pattern locationPattern = Pattern.compile(".*location = 'hdfs://hadoop-master:9000(.*?)'.*", Pattern.DOTALL);
-        Matcher m = locationPattern.matcher((String) onTrino().executeQuery("SHOW CREATE TABLE " + tableName).row(0).get(0));
+        Matcher m = locationPattern.matcher((String) onTrino().executeQuery("SHOW CREATE TABLE " + tableName).getOnlyValue());
         if (m.find()) {
             String location = m.group(1);
             verify(!m.find(), "Unexpected second match");

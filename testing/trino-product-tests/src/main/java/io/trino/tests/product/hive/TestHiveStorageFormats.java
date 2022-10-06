@@ -55,7 +55,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.immutableEntry;
 import static io.trino.plugin.hive.HiveTimestampPrecision.MICROSECONDS;
 import static io.trino.plugin.hive.HiveTimestampPrecision.MILLISECONDS;
@@ -293,8 +292,7 @@ public class TestHiveStorageFormats
     @Test
     public void verifyDataProviderCompleteness()
     {
-        String formatsDescription = (String) getOnlyElement(getOnlyElement(
-                onTrino().executeQuery("SELECT description FROM system.metadata.table_properties WHERE catalog_name = CURRENT_CATALOG AND property_name = 'format'").rows()));
+        String formatsDescription = (String) onTrino().executeQuery("SELECT description FROM system.metadata.table_properties WHERE catalog_name = CURRENT_CATALOG AND property_name = 'format'").getOnlyValue();
         Pattern pattern = Pattern.compile("Hive storage format for the table. Possible values: \\[([A-Z]+(, [A-z]+)+)]");
         Assertions.assertThat(formatsDescription).matches(pattern);
         Matcher matcher = pattern.matcher(formatsDescription);
