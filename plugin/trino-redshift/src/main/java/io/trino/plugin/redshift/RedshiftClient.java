@@ -22,6 +22,7 @@ import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.WriteMapping;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -90,9 +91,9 @@ public class RedshiftClient
         extends BaseJdbcClient
 {
     @Inject
-    public RedshiftClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping)
+    public RedshiftClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping, RemoteQueryModifier queryModifier)
     {
-        super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
+        super(config, "\"", connectionFactory, queryBuilder, identifierMapping, queryModifier);
     }
 
     @Override
@@ -110,7 +111,7 @@ public class RedshiftClient
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
         }
 
-        execute(connection, format(
+        execute(session, connection, format(
                 "ALTER TABLE %s RENAME TO %s",
                 quoted(catalogName, remoteSchemaName, remoteTableName),
                 quoted(newRemoteTableName)));

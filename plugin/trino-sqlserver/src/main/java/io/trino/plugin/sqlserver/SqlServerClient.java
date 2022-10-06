@@ -53,6 +53,7 @@ import io.trino.plugin.jdbc.aggregation.ImplementSum;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.expression.RewriteComparison;
 import io.trino.plugin.jdbc.expression.RewriteIn;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -212,9 +213,10 @@ public class SqlServerClient
             JdbcStatisticsConfig statisticsConfig,
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
-            IdentifierMapping identifierMapping)
+            IdentifierMapping identifierMapping,
+            RemoteQueryModifier queryModifier)
     {
-        super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, true);
+        super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, true);
 
         this.statisticsEnabled = statisticsConfig.isEnabled();
 
@@ -284,7 +286,7 @@ public class SqlServerClient
             // note: this is not a request to lock a table immediately
             String sql = format("EXEC sp_tableoption '%s', 'table lock on bulk load', '1'",
                     quoted(table.getCatalogName(), table.getSchemaName(), table.getTemporaryTableName().orElseGet(table::getTableName)));
-            execute(connection, sql);
+            execute(session, connection, sql);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
@@ -375,7 +377,7 @@ public class SqlServerClient
     }
 
     @Override
-    protected void copyTableSchema(Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
+    protected void copyTableSchema(ConnectorSession session, Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
     {
         String sql = format(
                 "SELECT %s INTO %s FROM %s WHERE 0 = 1",
@@ -385,7 +387,7 @@ public class SqlServerClient
                 quoted(catalogName, schemaName, newTableName),
                 quoted(catalogName, schemaName, tableName));
         try {
-            execute(connection, sql);
+            execute(session, connection, sql);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
