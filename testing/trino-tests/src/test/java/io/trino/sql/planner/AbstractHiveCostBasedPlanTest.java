@@ -43,7 +43,7 @@ public abstract class AbstractHiveCostBasedPlanTest
         try {
             // The RecordingHiveMetastore loads the metadata files generated through HiveMetadataRecorder
             // which essentially helps to generate the optimal query plans for validation purposes. These files
-            // contains all the metadata including statistics.
+            // contain all the metadata including statistics.
             RecordingHiveMetastore metastore = new RecordingHiveMetastore(
                     new UnimplementedHiveMetastore(),
                     new HiveMetastoreRecording(recordingConfig, createJsonCodec()));
