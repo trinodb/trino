@@ -18,7 +18,6 @@ import io.trino.tempto.AfterTestWithContext;
 import io.trino.tempto.BeforeTestWithContext;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.query.QueryExecutionException;
-import io.trino.tempto.query.QueryResult;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -235,8 +234,7 @@ public class TestAvroSchemaUrl
     private boolean isOnHdp()
     {
         try {
-            QueryResult queryResult = onHive().executeQuery("SET system:hdp.version");
-            String hdpVersion = (String) queryResult.row(0).get(0);
+            String hdpVersion = (String) onHive().executeQuery("SET system:hdp.version").getOnlyValue();
             return !isNullOrEmpty(hdpVersion);
         }
         catch (QueryExecutionException e) {
