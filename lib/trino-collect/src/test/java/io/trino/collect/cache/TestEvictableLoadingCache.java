@@ -20,6 +20,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.testing.TestingTicker;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -36,6 +37,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
@@ -48,6 +50,7 @@ import static io.trino.collect.cache.CacheStatsAssertions.assertCacheStats;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newFixedThreadPool;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -110,6 +113,29 @@ public class TestEvictableLoadingCache
         assertThat(cache.asMap().keySet().stream().mapToInt(i -> i).sum()).as("key sum").isLessThanOrEqualTo(20);
         assertThat(cache.asMap().values()).as("values").hasSize(cacheSize);
         assertThat(cache.asMap().values().stream().mapToInt(String::length).sum()).as("values length sum").isLessThanOrEqualTo(20);
+    }
+
+    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    public void testEvictByTime()
+    {
+        TestingTicker ticker = new TestingTicker();
+        int ttl = 100;
+        LoadingCache<Integer, String> cache = EvictableCacheBuilder.newBuilder()
+                .ticker(ticker)
+                .expireAfterWrite(ttl, TimeUnit.MILLISECONDS)
+                .build(CacheLoader.from(k -> k + " ala ma kota"));
+
+        assertEquals(cache.getUnchecked(1), "1 ala ma kota");
+        ticker.increment(ttl, MILLISECONDS);
+        assertEquals(cache.getUnchecked(2), "2 ala ma kota");
+        cache.cleanUp();
+
+        // First entry should be expired and its token removed
+        int cacheSize = toIntExact(cache.size());
+        assertThat(cacheSize).as("cacheSize").isEqualTo(1);
+        assertThat(((EvictableCache<?, ?>) cache).tokensCount()).as("tokensCount").isEqualTo(cacheSize);
+        assertThat(cache.asMap().keySet()).as("keySet").hasSize(cacheSize);
+        assertThat(cache.asMap().values()).as("values").hasSize(cacheSize);
     }
 
     @Test(timeOut = TEST_TIMEOUT_MILLIS, dataProvider = "testDisabledCacheDataProvider")
