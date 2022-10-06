@@ -259,7 +259,18 @@ public class BeginTableWrite
             }
 
             if (node instanceof MergeWriterNode mergeWriterNode) {
-                return mergeWriterNode.getTarget();
+                MergeTarget mergeTarget = mergeWriterNode.getTarget();
+                Optional<TableHandle> tableHandle = findTableScanHandleForMergeWriter(mergeWriterNode.getSource());
+                if (tableHandle.isEmpty()) {
+                    // The table scan was eliminated by constant folding.  But since it was eliminated, we
+                    // won't ever need to access the table, so returning the existing mergeTarget works.
+                    return mergeTarget;
+                }
+                return new MergeTarget(
+                        tableHandle.get(),
+                        mergeTarget.getMergeHandle(),
+                        mergeTarget.getSchemaTableName(),
+                        mergeTarget.getMergeParadigmAndTypes());
             }
 
             if (node instanceof ExchangeNode || node instanceof UnionNode) {
@@ -363,6 +374,21 @@ public class BeginTableWrite
                 return Optional.of(((TableScanNode) tableScanNodes.get(0)).getTable());
             }
             throw new IllegalArgumentException("Expected to find exactly one update target TableScanNode in plan but found: " + tableScanNodes);
+        }
+
+        private Optional<TableHandle> findTableScanHandleForMergeWriter(PlanNode startNode)
+        {
+            List<PlanNode> tableScanNodes = PlanNodeSearcher.searchFrom(startNode)
+                    .where(node -> node instanceof TableScanNode scanNode && scanNode.isUpdateTarget())
+                    .findAll();
+
+            if (tableScanNodes.isEmpty()) {
+                return Optional.empty();
+            }
+            if (tableScanNodes.size() == 1) {
+                return Optional.of(((TableScanNode) tableScanNodes.get(0)).getTable());
+            }
+            throw new IllegalArgumentException("Expected to find zero or one update target TableScanNode in plan but found: " + tableScanNodes);
         }
 
         private PlanNode rewriteModifyTableScan(PlanNode node, TableHandle handle, boolean tableScanNotFoundIsOk)
