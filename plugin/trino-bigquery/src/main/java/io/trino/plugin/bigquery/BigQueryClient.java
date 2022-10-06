@@ -280,10 +280,10 @@ public class BigQueryClient
         return bigQuery.create(jobInfo);
     }
 
-    public void executeUpdate(ConnectorSession session, QueryJobConfiguration job)
+    public long executeUpdate(ConnectorSession session, QueryJobConfiguration job)
     {
         log.debug("Execute query: %s", job.getQuery());
-        execute(session, job);
+        return execute(session, job).getTotalRows();
     }
 
     public TableResult executeQuery(ConnectorSession session, String sql)
