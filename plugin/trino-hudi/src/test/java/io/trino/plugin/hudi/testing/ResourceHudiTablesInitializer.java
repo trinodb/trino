@@ -26,7 +26,6 @@ import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.testing.QueryRunner;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.metastore.TableType;
@@ -64,7 +63,7 @@ public class ResourceHudiTablesInitializer
     public void initializeTables(
             QueryRunner queryRunner,
             HiveMetastore metastore,
-            CatalogSchemaName hudiCatalogSchema,
+            String schemaName,
             String dataDir,
             Configuration conf)
             throws Exception
@@ -77,7 +76,7 @@ public class ResourceHudiTablesInitializer
             String tableName = table.getTableName();
             createTable(
                     metastore,
-                    hudiCatalogSchema,
+                    schemaName,
                     basePath.resolve(tableName),
                     tableName,
                     table.getDataColumns(),
@@ -88,7 +87,7 @@ public class ResourceHudiTablesInitializer
 
     private void createTable(
             HiveMetastore metastore,
-            CatalogSchemaName hudiCatalogSchema,
+            String schemaName,
             Path tablePath,
             String tableName,
             List<Column> dataColumns,
@@ -98,7 +97,7 @@ public class ResourceHudiTablesInitializer
         StorageFormat storageFormat = StorageFormat.fromHiveStorageFormat(HiveStorageFormat.PARQUET);
 
         Table table = Table.builder()
-                .setDatabaseName(hudiCatalogSchema.getSchemaName())
+                .setDatabaseName(schemaName)
                 .setTableName(tableName)
                 .setTableType(TableType.EXTERNAL_TABLE.name())
                 .setOwner(Optional.of("public"))
@@ -114,7 +113,7 @@ public class ResourceHudiTablesInitializer
         List<PartitionWithStatistics> partitionsToAdd = new ArrayList<>();
         partitions.forEach((partitionName, partitionPath) -> {
             Partition partition = Partition.builder()
-                    .setDatabaseName(hudiCatalogSchema.getSchemaName())
+                    .setDatabaseName(schemaName)
                     .setTableName(tableName)
                     .setValues(extractPartitionValues(partitionName))
                     .withStorage(storageBuilder -> storageBuilder
@@ -124,7 +123,7 @@ public class ResourceHudiTablesInitializer
                     .build();
             partitionsToAdd.add(new PartitionWithStatistics(partition, partitionName, PartitionStatistics.empty()));
         });
-        metastore.addPartitions(hudiCatalogSchema.getSchemaName(), tableName, partitionsToAdd);
+        metastore.addPartitions(schemaName, tableName, partitionsToAdd);
     }
 
     private static Column column(String name, HiveType type)
