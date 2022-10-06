@@ -158,6 +158,9 @@ is used.
       materialized view definition. When the ``storage_schema`` materialized
       view property is specified, it takes precedence over this catalog property.
     - Empty
+  * - ``iceberg.register-table-procedure.enabled``
+    - Enable to allow user to call ``register_table`` procedure
+    - ``false``
 
 ORC format configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -747,6 +750,25 @@ Iceberg supports schema evolution, with safe column add, drop, reorder
 and rename operations, including in nested structures.
 Table partitioning can also be changed and the connector can still
 query data created before the partitioning change.
+
+Register table
+--------------
+The connector can register existing Iceberg tables with the catalog.
+
+An SQL procedure ``system.register_table`` allows the caller to register an existing Iceberg
+table in the metastore, using its existing metadata and data files::
+
+    CALL iceberg.system.register_table(schema_name => 'testdb', table_name => 'customer_orders', table_location => 'hdfs://hadoop-master:9000/user/hive/warehouse/customer_orders-581fad8517934af6be1857a903559d44')
+
+In addition, you can provide a file name to register a table
+with specific metadata. This may be used to register the table with
+some specific table state, or may be necessary if the connector cannot
+automatically figure out the metadata version to use::
+
+    CALL iceberg.system.register_table(schema_name => 'testdb', table_name => 'customer_orders', table_location => 'hdfs://hadoop-master:9000/user/hive/warehouse/customer_orders-581fad8517934af6be1857a903559d44', metadata_file_name => '00003-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json')
+
+To prevent unauthorized users from accessing data, this procedure is disabled by default.
+The procedure is enabled only when ``iceberg.register-table-procedure.enabled`` is set to ``true``.
 
 Migrating existing tables
 -------------------------
