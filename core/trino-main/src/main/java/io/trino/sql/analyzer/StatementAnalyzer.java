@@ -2001,22 +2001,6 @@ class StatementAnalyzer
             QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName());
             analysis.setRelationName(table, QualifiedName.of(name.getCatalogName(), name.getSchemaName(), name.getObjectName()));
 
-            Optional<MaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, name);
-            if (optionalMaterializedView.isPresent()) {
-                if (metadata.getMaterializedViewFreshness(session, name).isMaterializedViewFresh()) {
-                    // If materialized view is current, answer the query using the storage table
-                    QualifiedName storageName = getMaterializedViewStorageTableName(optionalMaterializedView.get())
-                            .orElseThrow(() -> semanticException(INVALID_VIEW, table, "Materialized view '%s' is fresh but does not have storage table name", name));
-                    QualifiedObjectName storageTableName = createQualifiedObjectName(session, table, storageName);
-                    checkStorageTableNotRedirected(storageTableName);
-                    TableHandle tableHandle = metadata.getTableHandle(session, storageTableName)
-                            .orElseThrow(() -> semanticException(INVALID_VIEW, table, "Storage table '%s' does not exist", storageTableName));
-                    return createScopeForMaterializedView(table, name, scope, optionalMaterializedView.get(), Optional.of(tableHandle));
-                }
-                // This is a stale materialized view and should be expanded like a logical view
-                return createScopeForMaterializedView(table, name, scope, optionalMaterializedView.get(), Optional.empty());
-            }
-
             // This could be a reference to a logical view or a table
             Optional<ViewDefinition> optionalView = metadata.getView(session, name);
             if (optionalView.isPresent()) {
@@ -2031,11 +2015,28 @@ class StatementAnalyzer
             analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), targetTableName);
 
             if (tableHandle.isEmpty()) {
-                getRequiredCatalogHandle(metadata, session, table, targetTableName.getCatalogName());
-                if (!metadata.schemaExists(session, new CatalogSchemaName(targetTableName.getCatalogName(), targetTableName.getSchemaName()))) {
-                    throw semanticException(SCHEMA_NOT_FOUND, table, "Schema '%s' does not exist", targetTableName.getSchemaName());
+                Optional<MaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, name);
+                if (optionalMaterializedView.isPresent()) {
+                    if (metadata.getMaterializedViewFreshness(session, name).isMaterializedViewFresh()) {
+                        // If materialized view is current, answer the query using the storage table
+                        QualifiedName storageName = getMaterializedViewStorageTableName(optionalMaterializedView.get())
+                                .orElseThrow(() -> semanticException(INVALID_VIEW, table, "Materialized view '%s' is fresh but does not have storage table name", name));
+                        QualifiedObjectName storageTableName = createQualifiedObjectName(session, table, storageName);
+                        checkStorageTableNotRedirected(storageTableName);
+                        tableHandle = Optional.of(metadata.getTableHandle(session, storageTableName)
+                                .orElseThrow(() -> semanticException(INVALID_VIEW, table, "Storage table '%s' does not exist", storageTableName)));
+                        return createScopeForMaterializedView(table, name, scope, optionalMaterializedView.get(), tableHandle);
+                    }
+                    // This is a stale materialized view and should be expanded like a logical view
+                    return createScopeForMaterializedView(table, name, scope, optionalMaterializedView.get(), Optional.empty());
                 }
-                throw semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", targetTableName);
+                else {
+                    getRequiredCatalogHandle(metadata, session, table, targetTableName.getCatalogName());
+                    if (!metadata.schemaExists(session, new CatalogSchemaName(targetTableName.getCatalogName(), targetTableName.getSchemaName()))) {
+                        throw semanticException(SCHEMA_NOT_FOUND, table, "Schema '%s' does not exist", targetTableName.getSchemaName());
+                    }
+                    throw semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", targetTableName);
+                }
             }
             TableSchema tableSchema = metadata.getTableSchema(session, tableHandle.get());
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());

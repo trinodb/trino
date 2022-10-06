@@ -13,11 +13,18 @@
  */
 package io.trino.plugin.hive;
 
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.sql.TestView;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -26,12 +33,18 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestHiveConnectorSmokeTest
         extends BaseConnectorSmokeTest
 {
+    private final FailingHiveMaterializedViewMetadata materializedViewMetadata = new FailingHiveMaterializedViewMetadata();
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         return HiveQueryRunner.builder()
                 .setInitialTables(REQUIRED_TPCH_TABLES)
+                .setModule(binder -> {
+                    newOptionalBinder(binder, HiveMaterializedViewMetadataFactory.class)
+                            .setBinding().toInstance(ignore -> materializedViewMetadata);
+                })
                 .build();
     }
 
@@ -94,5 +107,38 @@ public class TestHiveConnectorSmokeTest
                         "WITH (\n" +
                         "   format = 'ORC'\n" +
                         ")");
+    }
+
+    @Test
+    public void testMaterializedViewServiceFailure()
+            throws Exception
+    {
+        // Test if SELECT on an ordinary table/view is possible when MV service is down
+        try (TestView view = new TestView(getQueryRunner()::execute, "mv_service_failure", "SELECT * FROM region");
+                AutoCloseable ignore = materializedViewMetadata.fail()) {
+            assertQuery("SELECT name FROM region");
+            assertQuery("SELECT count(*) FROM " + view.getName(), "VALUES (5)");
+        }
+    }
+
+    private static class FailingHiveMaterializedViewMetadata
+            extends NoneHiveMaterializedViewMetadata
+    {
+        private boolean shouldFail;
+
+        @Override
+        public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
+        {
+            if (shouldFail) {
+                throw new RuntimeException("MV service down");
+            }
+            return super.getMaterializedView(session, viewName);
+        }
+
+        public AutoCloseable fail()
+        {
+            shouldFail = true;
+            return () -> shouldFail = false;
+        }
     }
 }
