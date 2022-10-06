@@ -23,7 +23,9 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseBigQueryFailureRecoveryTest
@@ -73,15 +75,23 @@ public abstract class BaseBigQueryFailureRecoveryTest
     @Override
     protected void testDelete()
     {
-        // This connector does not support modifying table rows
-        abort("skipped");
+        // This simple delete on BigQuery ends up as a very simple, single-fragment, coordinator-only plan,
+        // which has no ability to recover from errors. This test simply verifies that's still the case.
+        Optional<String> setupQuery = Optional.of("CREATE TABLE <table> AS SELECT * FROM orders");
+        String testQuery = "DELETE FROM <table> WHERE orderkey = 1";
+        Optional<String> cleanupQuery = Optional.of("DROP TABLE <table>");
+
+        assertThatQuery(testQuery)
+                .withSetupQuery(setupQuery)
+                .withCleanupQuery(cleanupQuery)
+                .isCoordinatorOnly();
     }
 
     @Test
     @Override
     protected void testDeleteWithSubquery()
     {
-        // This connector does not support modifying table rows
+        assertThatThrownBy(super::testDeleteWithSubquery).hasMessageContaining("This connector does not support modifying table rows");
         abort("skipped");
     }
 
