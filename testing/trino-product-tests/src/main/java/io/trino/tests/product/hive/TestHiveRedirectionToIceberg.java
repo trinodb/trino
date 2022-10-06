@@ -23,7 +23,6 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
@@ -289,7 +288,7 @@ public class TestHiveRedirectionToIceberg
 
         createIcebergTable(icebergTableName, true);
 
-        Assertions.assertThat((String) getOnlyElement(getOnlyElement(onTrino().executeQuery("SHOW CREATE TABLE " + hiveTableName).rows())))
+        Assertions.assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + hiveTableName).getOnlyValue())
                 .matches("\\QCREATE TABLE " + icebergTableName + " (\n" +
                         "   nationkey bigint,\n" +
                         "   name varchar,\n" +
@@ -632,8 +631,7 @@ public class TestHiveRedirectionToIceberg
 
     private static AbstractStringAssert<?> assertTableComment(String catalog, String schema, String tableName)
     {
-        QueryResult queryResult = readTableComment(catalog, schema, tableName);
-        return Assertions.assertThat((String) getOnlyElement(getOnlyElement(queryResult.rows())));
+        return Assertions.assertThat((String) readTableComment(catalog, schema, tableName).getOnlyValue());
     }
 
     private static QueryResult readTableComment(String catalog, String schema, String tableName)
@@ -647,8 +645,7 @@ public class TestHiveRedirectionToIceberg
 
     private static AbstractStringAssert<?> assertColumnComment(String catalog, String schema, String tableName, String columnName)
     {
-        QueryResult queryResult = readColumnComment(catalog, schema, tableName, columnName);
-        return Assertions.assertThat((String) getOnlyElement(getOnlyElement(queryResult.rows())));
+        return Assertions.assertThat((String) readColumnComment(catalog, schema, tableName, columnName).getOnlyValue());
     }
 
     private static QueryResult readColumnComment(String catalog, String schema, String tableName, String columnName)
