@@ -17,7 +17,6 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.Session;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.iceberg.IcebergConnectorFactory;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.spi.connector.Connector;
@@ -25,21 +24,30 @@ import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.containers.Minio;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeClass;
 
 import javax.annotation.concurrent.GuardedBy;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
-import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_ACCESS_KEY;
-import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_SECRET_KEY;
-import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig.VERSION_COMPATIBILITY_CONFIG;
+import static io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig.VersionCompatibility.UNSAFE_ASSUME_COMPATIBILITY;
+import static io.trino.plugin.iceberg.CatalogType.TESTING_FILE_METASTORE;
 import static io.trino.plugin.iceberg.IcebergConfig.EXTENDED_STATISTICS_CONFIG;
+import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
+import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 
 public abstract class BaseIcebergCostBasedPlanTest
         extends BaseCostBasedPlanTest
@@ -52,30 +60,41 @@ public abstract class BaseIcebergCostBasedPlanTest
 
     // The container needs to be shared, since bucket name cannot be reused between tests.
     // The bucket name is used as a key in TrinoFileSystemCache which is managed in static manner.
-    @GuardedBy("sharedDataLakeLock")
-    private static HiveMinioDataLake sharedDataLake;
-    private static final Object sharedDataLakeLock = new Object();
+    @GuardedBy("sharedMinioLock")
+    private static Minio sharedMinio;
+    private static final Object sharedMinioLock = new Object();
 
-    protected HiveMinioDataLake dataLake;
+    protected Minio minio;
+    private Path temporaryMetastoreDirectory;
     private Map<String, String> connectorConfiguration;
 
     @Override
     protected ConnectorFactory createConnectorFactory()
     {
-        synchronized (sharedDataLakeLock) {
-            if (sharedDataLake == null) {
-                sharedDataLake = new HiveMinioDataLake(BUCKET_NAME);
-                sharedDataLake.start();
+        synchronized (sharedMinioLock) {
+            if (sharedMinio == null) {
+                Minio minio = Minio.builder().build();
+                minio.start();
+                minio.createBucket(BUCKET_NAME);
+                sharedMinio = minio;
             }
-            dataLake = sharedDataLake;
+            minio = sharedMinio;
         }
 
+        try {
+            temporaryMetastoreDirectory = createTempDirectory("file-metastore");
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
         connectorConfiguration = ImmutableMap.<String, String>builder()
-                .put("iceberg.catalog.type", HIVE_METASTORE.name())
-                .put("hive.metastore.uri", "thrift://" + dataLake.getHiveHadoop().getHiveMetastoreEndpoint())
+                .put("iceberg.catalog.type", TESTING_FILE_METASTORE.name())
+                .put("hive.metastore.catalog.dir", temporaryMetastoreDirectory.toString())
+                // The different query runners used in setup have different dummy/test versions.
+                .put(VERSION_COMPATIBILITY_CONFIG, UNSAFE_ASSUME_COMPATIBILITY.name())
                 .put("hive.s3.aws-access-key", MINIO_ACCESS_KEY)
                 .put("hive.s3.aws-secret-key", MINIO_SECRET_KEY)
-                .put("hive.s3.endpoint", "http://" + dataLake.getMinio().getMinioApiEndpoint())
+                .put("hive.s3.endpoint", minio.getMinioAddress())
                 .put("hive.s3.path-style-access", "true")
                 .put(EXTENDED_STATISTICS_CONFIG, "true")
                 .buildOrThrow();
@@ -117,7 +136,7 @@ public abstract class BaseIcebergCostBasedPlanTest
     protected void populateTableFromResource(QueryRunner queryRunner, Session session, String tableName, String resourcePath, String targetPath)
     {
         log.info("Copying resources for %s unpartitioned table from %s to %s in the container", tableName, resourcePath, targetPath);
-        dataLake.copyResources(resourcePath, targetPath);
+        minio.copyResources(resourcePath, BUCKET_NAME, targetPath);
         queryRunner.execute(session, format(
                 "CALL iceberg.system.register_table(schema_name => CURRENT_SCHEMA, table_name => '%s', table_location => '%s')",
                 tableName,
@@ -126,24 +145,28 @@ public abstract class BaseIcebergCostBasedPlanTest
 
     @AfterClass
     public void cleanUp()
+            throws Exception
     {
-        if (dataLake != null) {
+        if (minio != null) {
             // Don't stop container, as it's shared
-            synchronized (sharedDataLakeLock) {
-                verify(dataLake == sharedDataLake);
+            synchronized (sharedMinioLock) {
+                verify(minio == sharedMinio);
             }
-            dataLake = null;
+            minio = null;
+        }
+
+        if (temporaryMetastoreDirectory != null) {
+            deleteRecursively(temporaryMetastoreDirectory, ALLOW_INSECURE);
         }
     }
 
     @AfterSuite(alwaysRun = true)
-    public void disposeSharedResources()
-            throws Exception
+    public static void disposeSharedResources()
     {
-        synchronized (sharedDataLakeLock) {
-            if (sharedDataLake != null) {
-                sharedDataLake.stop();
-                sharedDataLake = null;
+        synchronized (sharedMinioLock) {
+            if (sharedMinio != null) {
+                sharedMinio.stop();
+                sharedMinio = null;
             }
         }
     }
