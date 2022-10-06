@@ -163,12 +163,14 @@ public class IcebergSplitSource
 
         if (fileScanTaskIterable == null) {
             // Used to avoid duplicating work if the Dynamic Filter was already pushed down to the Iceberg API
+            boolean dynamicFilterIsComplete = dynamicFilter.isComplete();
             this.pushedDownDynamicFilterPredicate = dynamicFilter.getCurrentPredicate().transformKeys(IcebergColumnHandle.class::cast);
             TupleDomain<IcebergColumnHandle> fullPredicate = tableHandle.getUnenforcedPredicate()
                     .intersect(pushedDownDynamicFilterPredicate);
             // TODO: (https://github.com/trinodb/trino/issues/9743): Consider removing TupleDomain#simplify
             TupleDomain<IcebergColumnHandle> simplifiedPredicate = fullPredicate.simplify(ICEBERG_DOMAIN_COMPACTION_THRESHOLD);
-            if (!simplifiedPredicate.equals(fullPredicate)) {
+            boolean usedSimplifiedPredicate = !simplifiedPredicate.equals(fullPredicate);
+            if (usedSimplifiedPredicate) {
                 // Pushed down predicate was simplified, always evaluate it against individual splits
                 this.pushedDownDynamicFilterPredicate = TupleDomain.all();
             }
@@ -182,11 +184,13 @@ public class IcebergSplitSource
             }
 
             Expression filterExpression = toIcebergExpression(effectivePredicate);
-            this.fileScanTaskIterable = TableScanUtil.splitFiles(
-                    tableScan.filter(filterExpression)
-                            .includeColumnStats()
-                            .planFiles(),
-                    tableScan.targetSplitSize());
+            // If the Dynamic Filter will be evaluated against each file, stats are required. Otherwise, skip them.
+            boolean requiresColumnStats = usedSimplifiedPredicate || !dynamicFilterIsComplete;
+            TableScan scan = tableScan.filter(filterExpression);
+            if (requiresColumnStats) {
+                scan = scan.includeColumnStats();
+            }
+            this.fileScanTaskIterable = TableScanUtil.splitFiles(scan.planFiles(), tableScan.targetSplitSize());
             closer.register(fileScanTaskIterable);
             this.fileScanTaskIterator = fileScanTaskIterable.iterator();
             closer.register(fileScanTaskIterator);
