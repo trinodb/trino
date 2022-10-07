@@ -110,7 +110,7 @@ public class InvocationConvention
          */
         NEVER_NULL(false, 1),
         /**
-         * Argument is always an object type. A SQL null will be passed a Java null.
+         * Argument is always an object type. An SQL null will be passed a Java null.
          */
         BOXED_NULLABLE(true, 1),
         /**

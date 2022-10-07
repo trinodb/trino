@@ -20,7 +20,7 @@ for internal Presto data structures and temporary allocations.
 Session properties
 ------------------
 
-All session properties now have a SQL type, default value and description.  The
+All session properties now have an SQL type, default value and description.  The
 value for :doc:`/sql/set-session` can now be any constant expression, and the
 :doc:`/sql/show-session` command prints the current effective value and default
 value for all session properties.
