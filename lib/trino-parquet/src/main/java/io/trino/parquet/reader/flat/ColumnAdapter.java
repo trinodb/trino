@@ -22,7 +22,7 @@ public interface ColumnAdapter<BufferType>
     /**
      * Temporary buffer used for null unpacking
      */
-    default BufferType createTemporaryBuffer(int size)
+    default BufferType createTemporaryBuffer(int currentOffset, int size, BufferType buffer)
     {
         return createBuffer(size);
     }
@@ -35,7 +35,7 @@ public interface ColumnAdapter<BufferType>
 
     Block createNonNullBlock(int size, BufferType values);
 
-    default void unpackNullValues(BufferType source, BufferType destination, boolean[] isNull, int destOffset, int nonNullCount)
+    default void unpackNullValues(BufferType source, BufferType destination, boolean[] isNull, int destOffset, int nonNullCount, int totalValuesCount)
     {
         int srcOffset = 0;
         while (srcOffset < nonNullCount) {
