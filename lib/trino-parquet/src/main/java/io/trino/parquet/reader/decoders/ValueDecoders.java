@@ -16,7 +16,11 @@ package io.trino.parquet.reader.decoders;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.dictionary.Dictionary;
+import io.trino.parquet.reader.flat.BinaryBuffer;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 import org.apache.parquet.column.values.ValuesReader;
 
 import javax.annotation.Nullable;
@@ -25,8 +29,11 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
 import static io.trino.parquet.ValuesType.VALUES;
+import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.BinaryApacheParquetValueDecoder;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.BooleanApacheParquetValueDecoder;
+import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.BoundedVarcharApacheParquetValueDecoder;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.ByteApacheParquetValueDecoder;
+import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.CharApacheParquetValueDecoder;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.DoubleApacheParquetValueDecoder;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.FloatApacheParquetValueDecoder;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.IntApacheParquetValueDecoder;
@@ -163,6 +170,43 @@ public final class ValueDecoders
         return switch (encoding) {
             case PLAIN, DELTA_LENGTH_BYTE_ARRAY, DELTA_BYTE_ARRAY, PLAIN_DICTIONARY, RLE_DICTIONARY ->
                     new LongDecimalApacheParquetValueDecoder(getApacheParquetReader(encoding, field, dictionary));
+            default -> throw wrongEncoding(encoding, field);
+        };
+    }
+
+    public static ValueDecoder<BinaryBuffer> getBoundedVarcharBinaryDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    {
+        Type trinoType = field.getType();
+        checkArgument(
+                trinoType instanceof VarcharType varcharType && !varcharType.isUnbounded(),
+                "Trino type %s is not a bounded varchar",
+                trinoType);
+        return switch (encoding) {
+            case PLAIN, DELTA_LENGTH_BYTE_ARRAY, DELTA_BYTE_ARRAY, PLAIN_DICTIONARY, RLE_DICTIONARY ->
+                    new BoundedVarcharApacheParquetValueDecoder(getApacheParquetReader(encoding, field, dictionary), (VarcharType) trinoType);
+            default -> throw wrongEncoding(encoding, field);
+        };
+    }
+
+    public static ValueDecoder<BinaryBuffer> getCharBinaryDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    {
+        Type trinoType = field.getType();
+        checkArgument(
+                trinoType instanceof CharType,
+                "Trino type %s is not a char",
+                trinoType);
+        return switch (encoding) {
+            case PLAIN, DELTA_LENGTH_BYTE_ARRAY, DELTA_BYTE_ARRAY, PLAIN_DICTIONARY, RLE_DICTIONARY ->
+                    new CharApacheParquetValueDecoder(getApacheParquetReader(encoding, field, dictionary), (CharType) trinoType);
+            default -> throw wrongEncoding(encoding, field);
+        };
+    }
+
+    public static ValueDecoder<BinaryBuffer> getBinaryDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    {
+        return switch (encoding) {
+            case PLAIN, DELTA_LENGTH_BYTE_ARRAY, DELTA_BYTE_ARRAY, PLAIN_DICTIONARY, RLE_DICTIONARY ->
+                    new BinaryApacheParquetValueDecoder(getApacheParquetReader(encoding, field, dictionary));
             default -> throw wrongEncoding(encoding, field);
         };
     }

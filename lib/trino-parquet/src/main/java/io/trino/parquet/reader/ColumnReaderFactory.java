@@ -19,8 +19,11 @@ import io.trino.parquet.reader.flat.FlatColumnReader;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.AbstractIntType;
 import io.trino.spi.type.AbstractLongType;
+import io.trino.spi.type.AbstractVariableWidthType;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.DateLogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
@@ -34,6 +37,7 @@ import org.joda.time.DateTimeZone;
 import java.util.Optional;
 
 import static io.trino.parquet.ParquetTypeUtils.createDecimalType;
+import static io.trino.parquet.reader.flat.BinaryColumnAdapter.BINARY_ADAPTER;
 import static io.trino.parquet.reader.flat.BooleanColumnAdapter.BOOLEAN_ADAPTER;
 import static io.trino.parquet.reader.flat.ByteColumnAdapter.BYTE_ADAPTER;
 import static io.trino.parquet.reader.flat.Int128ColumnAdapter.INT128_ADAPTER;
@@ -123,6 +127,15 @@ public final class ColumnReaderFactory
                 if (annotation instanceof DecimalLogicalTypeAnnotation decimalAnnotation && !isDecimalRescaled(decimalAnnotation, decimalType)) {
                     return new FlatColumnReader<>(field, ValueDecoders::getLongDecimalDecoder, INT128_ADAPTER);
                 }
+            }
+            if (type instanceof VarcharType varcharType && !varcharType.isUnbounded() && primitiveType == BINARY) {
+                return new FlatColumnReader<>(field, ValueDecoders::getBoundedVarcharBinaryDecoder, BINARY_ADAPTER);
+            }
+            if (type instanceof CharType && primitiveType == BINARY) {
+                return new FlatColumnReader<>(field, ValueDecoders::getCharBinaryDecoder, BINARY_ADAPTER);
+            }
+            if (type instanceof AbstractVariableWidthType && primitiveType == BINARY) {
+                return new FlatColumnReader<>(field, ValueDecoders::getBinaryDecoder, BINARY_ADAPTER);
             }
         }
 

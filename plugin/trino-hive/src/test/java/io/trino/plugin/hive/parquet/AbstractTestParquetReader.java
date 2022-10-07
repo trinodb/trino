@@ -24,6 +24,8 @@ import io.airlift.units.DataSize;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.Chars;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlDecimal;
@@ -73,6 +75,7 @@ import static io.trino.plugin.hive.parquet.ParquetTester.TEST_COLUMN;
 import static io.trino.plugin.hive.parquet.ParquetTester.insertNullEvery;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Decimals.MAX_PRECISION;
@@ -91,6 +94,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.testing.StructuralTestUtil.mapType;
@@ -1731,35 +1735,55 @@ public abstract class AbstractTestParquetReader
     public void testStringUnicode()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, limit(cycle(ImmutableList.of("apple", "apple pie", "apple\uD835\uDC03", "apple\uFFFD")), 30_000), createUnboundedVarcharType());
+        Iterable<String> writeValues = limit(cycle(ImmutableList.of("apple", "apple pie", "apple\uD835\uDC03", "apple\uFFFD")), 30_000);
+        tester.testRoundTrip(javaStringObjectInspector, writeValues, createUnboundedVarcharType());
+        tester.testRoundTrip(javaStringObjectInspector, writeValues, createVarcharType(25));
+        CharType charType = createCharType(25);
+        tester.testRoundTrip(javaStringObjectInspector, writeValues, value -> Chars.padSpaces(value, charType), charType);
     }
 
     @Test
     public void testStringDirectSequence()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, transform(intsBetween(0, 30_000), Object::toString), createUnboundedVarcharType());
+        Iterable<String> writeValues = transform(intsBetween(0, 30_000), Object::toString);
+        tester.testRoundTrip(javaStringObjectInspector, writeValues, createUnboundedVarcharType());
+        tester.testRoundTrip(javaStringObjectInspector, writeValues, createVarcharType(5));
+        CharType charType = createCharType(5);
+        tester.testRoundTrip(javaStringObjectInspector, writeValues, value -> Chars.padSpaces(value, charType), charType);
     }
 
     @Test
     public void testStringDictionarySequence()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, limit(cycle(transform(ImmutableList.of(1, 3, 5, 7, 11, 13, 17), Object::toString)), 30_000), createUnboundedVarcharType());
+        Iterable<String> writeValues = limit(cycle(transform(ImmutableList.of(1, 3, 5, 7, 11, 13, 17), Object::toString)), 30_000);
+        tester.testRoundTrip(javaStringObjectInspector, writeValues, createUnboundedVarcharType());
+        tester.testRoundTrip(javaStringObjectInspector, writeValues, createVarcharType(3));
+        CharType charType = createCharType(3);
+        tester.testRoundTrip(javaStringObjectInspector, writeValues, value -> Chars.padSpaces(value, charType), charType);
     }
 
     @Test
     public void testStringStrideDictionary()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, concat(ImmutableList.of("a"), Collections.nCopies(9999, "123"), ImmutableList.of("b"), Collections.nCopies(9999, "123")), createUnboundedVarcharType());
+        Iterable<String> writeValues = concat(ImmutableList.of("a"), Collections.nCopies(9999, "123"), ImmutableList.of("b"), Collections.nCopies(9999, "123"));
+        tester.testRoundTrip(javaStringObjectInspector, writeValues, createUnboundedVarcharType());
+        tester.testRoundTrip(javaStringObjectInspector, writeValues, createVarcharType(3));
+        CharType charType = createCharType(3);
+        tester.testRoundTrip(javaStringObjectInspector, writeValues, value -> Chars.padSpaces(value, charType), charType);
     }
 
     @Test
     public void testEmptyStringSequence()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, limit(cycle(""), 30_000), createUnboundedVarcharType());
+        Iterable<String> writeValues = limit(cycle(""), 30_000);
+        tester.testRoundTrip(javaStringObjectInspector, writeValues, createUnboundedVarcharType());
+        tester.testRoundTrip(javaStringObjectInspector, writeValues, createVarcharType(3));
+        CharType charType = createCharType(3);
+        tester.testRoundTrip(javaStringObjectInspector, writeValues, value -> Chars.padSpaces(value, charType), charType);
     }
 
     @Test
