@@ -73,13 +73,14 @@ public class TestEliminateCrossJoins
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, "ELIMINATE_CROSS_JOINS")
                 .on(crossJoinAndJoin(INNER))
                 .matches(
-                        join(INNER,
-                                ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("cySymbol"), new Symbol("bySymbol"))),
-                                join(INNER,
-                                        ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("axSymbol"), new Symbol("cxSymbol"))),
-                                        any(),
-                                        any()),
-                                any()));
+                        join(INNER, builder -> builder
+                                .equiCriteria(ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("cySymbol"), new Symbol("bySymbol"))))
+                                .left(
+                                        join(INNER, leftJoinBuilder -> leftJoinBuilder
+                                                .equiCriteria(ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("axSymbol"), new Symbol("cxSymbol"))))
+                                                .left(any())
+                                                .right(any())))
+                                .right(any())));
     }
 
     @Test
@@ -266,27 +267,29 @@ public class TestEliminateCrossJoins
                 })
                 .matches(
                         node(ProjectNode.class,
-                                join(
-                                        INNER,
-                                        ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("d"), new Symbol("f"))),
-                                        join(
-                                                INNER,
-                                                ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("a2"), new Symbol("c"))),
-                                                join(INNER,
-                                                        ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("a1"), new Symbol("e"))),
-                                                        strictProject(
-                                                                ImmutableMap.of(
-                                                                        "a2", expression("-a1"),
-                                                                        "a1", expression("a1")),
-                                                                PlanMatchPattern.values("a1")),
-                                                        strictProject(
-                                                                ImmutableMap.of(
-                                                                        "e", expression("e")),
-                                                                PlanMatchPattern.values("e"))),
-                                                any()),
-                                        strictProject(
-                                                ImmutableMap.of("f", expression("-b")),
-                                                PlanMatchPattern.values("b")))));
+                                join(INNER, builder -> builder
+                                        .equiCriteria(ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("d"), new Symbol("f"))))
+                                        .left(join(INNER, leftJoinBuilder -> leftJoinBuilder
+                                                .equiCriteria(ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("a2"), new Symbol("c"))))
+                                                .left(
+                                                        join(INNER, leftInnerJoinBuilder -> leftInnerJoinBuilder
+                                                                .equiCriteria(ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("a1"), new Symbol("e"))))
+                                                                .left(
+                                                                        strictProject(
+                                                                                ImmutableMap.of(
+                                                                                        "a2", expression("-a1"),
+                                                                                        "a1", expression("a1")),
+                                                                                PlanMatchPattern.values("a1")))
+                                                                .right(
+                                                                        strictProject(
+                                                                                ImmutableMap.of(
+                                                                                        "e", expression("e")),
+                                                                                PlanMatchPattern.values("e")))))
+                                                .right(any())))
+                                        .right(
+                                                strictProject(
+                                                        ImmutableMap.of("f", expression("-b")),
+                                                        PlanMatchPattern.values("b"))))));
     }
 
     @Test
