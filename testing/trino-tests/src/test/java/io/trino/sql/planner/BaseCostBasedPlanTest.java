@@ -17,6 +17,7 @@ package io.trino.sql.planner;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
+import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.TableHandle;
@@ -68,6 +69,8 @@ import static org.testng.Assert.assertEquals;
 public abstract class BaseCostBasedPlanTest
         extends BasePlanTest
 {
+    private static final Logger log = Logger.get(BaseCostBasedPlanTest.class);
+
     public static final List<String> TPCH_SQL_FILES = IntStream.rangeClosed(1, 22)
             .mapToObj(i -> format("q%02d", i))
             .map(queryId -> format("/sql/presto/tpch/%s.sql", queryId))
@@ -142,7 +145,7 @@ public abstract class BaseCostBasedPlanTest
                                     getQueryPlanResourcePath(queryResourcePath));
                             createParentDirs(queryPlanWritePath.toFile());
                             write(generateQueryPlan(readQuery(queryResourcePath)).getBytes(UTF_8), queryPlanWritePath.toFile());
-                            System.out.println("Generated expected plan for query: " + queryResourcePath);
+                            log.info("Generated expected plan for query: %s", queryResourcePath);
                         }
                         catch (IOException e) {
                             throw new UncheckedIOException(e);
