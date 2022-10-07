@@ -30,11 +30,15 @@ it is to be run on. For the purpose of the following example, we will use `tpch`
 and Trino server running at `localhost:8080`, with Benchto service running at `localhost:8081`.
 
 Benchto driver uses Spring Boot to locate environment configuration file, so to pass the
-configuration. To continue with our example, one needs to place an `application-trino-devenv.yaml`
+configuration. To continue with our example, one needs to place an `application.yaml`
 file in the current directory (i.e. the directory from which the benchmark will be invoked),
 with the following content:
 
 ```yaml
+benchmarks: src/main/resources/benchmarks
+sql: sql/main/resources/sql
+query-results-dir: target/results
+
 benchmark-service:
   url: http://localhost:8081
 
@@ -42,7 +46,6 @@ data-sources:
   trino:
     url: jdbc:trino://localhost:8080
     username: na
-    password: na
     driver-class-name: io.trino.jdbc.TrinoDriver
 
 environment:
@@ -50,6 +53,7 @@ environment:
 
 presto:
   url: http://localhost:8080
+  username: na
 
 benchmark:
   feature:
@@ -77,17 +81,20 @@ runs or different underlying schemas. Create a simple `overrides.yaml` file:
 
 ```yaml
 runs: 10
-tpch_medium: tpcds_10gb_txt
+tpch_300: tpch_sf1_orc
+scale_300: 1
+tpch_1000: tpch_sf1_orc
+scale_1000: 1
+tpch_3000: tpch_sf1_orc
+scale_3000: 1
+prefix: ""
 ```
 
 ### Running benchto-driver
 
 With the scene set up as in the previous section, the benchmark can be run with:
 ```bash
-./mvnw clean package -pl :trino-benchto-benchmarks
-java -Xmx1g -jar trino-benchto-benchmarks/target/trino-benchto-benchmarks-*-executable.jar \
-    --sql trino-benchto-benchmarks/src/main/resources/sql \
-    --benchmarks trino-benchto-benchmarks/src/main/resources/benchmarks \
-    --activeBenchmarks=trino/tpch --profile=trino-devenv \
-    --overrides overrides.yaml
+java -jar "$HOME/.m2/repository/io/trino/benchto/benchto-driver/0.18/benchto-driver-0.18.jar" \
+            --activeBenchmarks=trino/tpch \
+            --overrides "overrides.yaml"
 ```
