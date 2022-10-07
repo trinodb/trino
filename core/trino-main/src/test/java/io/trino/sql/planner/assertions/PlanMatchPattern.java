@@ -45,7 +45,6 @@ import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.IndexSourceNode;
 import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.JoinNode;
-import io.trino.sql.planner.plan.JoinNode.EquiJoinClause;
 import io.trino.sql.planner.plan.JoinNode.Type;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
@@ -98,7 +97,6 @@ import static io.trino.sql.planner.assertions.MatchResult.match;
 import static io.trino.sql.planner.assertions.StrictAssignedSymbolsMatcher.actualAssignments;
 import static io.trino.sql.planner.assertions.StrictSymbolsMatcher.actualOutputs;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
-import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
 import static io.trino.sql.tree.SortItem.NullOrdering.FIRST;
 import static io.trino.sql.tree.SortItem.NullOrdering.UNDEFINED;
@@ -414,6 +412,13 @@ public final class PlanMatchPattern
         return builder.build();
     }
 
+    public static PlanMatchPattern join(JoinNode.Type type, Consumer<JoinMatcher.Builder> handler)
+    {
+        JoinMatcher.Builder builder = new JoinMatcher.Builder().type(type);
+        handler.accept(builder);
+        return builder.build();
+    }
+
     public static PlanMatchPattern sort(PlanMatchPattern source)
     {
         return node(SortNode.class, source);
@@ -499,76 +504,6 @@ public final class PlanMatchPattern
     public static PlanMatchPattern semiJoin(String sourceSymbolAlias, String filteringSymbolAlias, String outputAlias, Optional<SemiJoinNode.DistributionType> distributionType, Optional<Boolean> hasDynamicFilter, PlanMatchPattern source, PlanMatchPattern filtering)
     {
         return node(SemiJoinNode.class, source, filtering).with(new SemiJoinMatcher(sourceSymbolAlias, filteringSymbolAlias, outputAlias, distributionType, hasDynamicFilter));
-    }
-
-    public static PlanMatchPattern join(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria, PlanMatchPattern left, PlanMatchPattern right)
-    {
-        return join(joinType, expectedEquiCriteria, Optional.empty(), left, right);
-    }
-
-    public static PlanMatchPattern join(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria, Optional<String> expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
-    {
-        return join(joinType, expectedEquiCriteria, expectedFilter, Optional.empty(), Optional.empty(), left, right);
-    }
-
-    public static PlanMatchPattern join(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria, Optional<String> expectedFilter, Optional<JoinNode.DistributionType> expectedDistributionType, PlanMatchPattern left, PlanMatchPattern right)
-    {
-        return join(joinType, expectedEquiCriteria, expectedFilter, expectedDistributionType, Optional.empty(), left, right);
-    }
-
-    public static PlanMatchPattern join(
-            JoinNode.Type joinType,
-            List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria,
-            Optional<String> expectedFilter,
-            Optional<JoinNode.DistributionType> expectedDistributionType,
-            Optional<Boolean> expectedSpillable,
-            PlanMatchPattern left,
-            PlanMatchPattern right)
-    {
-        return join(joinType, expectedEquiCriteria, expectedFilter, Optional.empty(), expectedDistributionType, expectedSpillable, left, right);
-    }
-
-    public static PlanMatchPattern join(
-            Type joinType,
-            List<ExpectedValueProvider<EquiJoinClause>> expectedEquiCriteria,
-            Map<String, String> expectedDynamicFilter,
-            PlanMatchPattern left,
-            PlanMatchPattern right)
-    {
-        List<DynamicFilterPattern> pattern = expectedDynamicFilter.entrySet().stream()
-                .map(entry -> new DynamicFilterPattern(entry.getKey(), EQUAL, entry.getValue()))
-                .collect(toImmutableList());
-        return join(joinType, expectedEquiCriteria, Optional.empty(), Optional.of(pattern), Optional.empty(), Optional.empty(), left, right);
-    }
-
-    public static PlanMatchPattern join(
-            Type joinType,
-            List<ExpectedValueProvider<EquiJoinClause>> expectedEquiCriteria,
-            List<DynamicFilterPattern> expectedDynamicFilter,
-            PlanMatchPattern left,
-            PlanMatchPattern right)
-    {
-        return join(joinType, expectedEquiCriteria, Optional.empty(), Optional.of(expectedDynamicFilter), Optional.empty(), Optional.empty(), left, right);
-    }
-
-    public static PlanMatchPattern join(
-            JoinNode.Type joinType,
-            List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria,
-            Optional<String> expectedFilter,
-            Optional<List<DynamicFilterPattern>> expectedDynamicFilter,
-            Optional<JoinNode.DistributionType> expectedDistributionType,
-            Optional<Boolean> expectedSpillable,
-            PlanMatchPattern left,
-            PlanMatchPattern right)
-    {
-        return node(JoinNode.class, left, right).with(
-                new JoinMatcher(
-                        joinType,
-                        expectedEquiCriteria,
-                        expectedFilter.map(predicate -> PlanBuilder.expression(predicate)),
-                        expectedDistributionType,
-                        expectedSpillable,
-                        expectedDynamicFilter));
     }
 
     public static PlanMatchPattern spatialJoin(String expectedFilter, PlanMatchPattern left, PlanMatchPattern right)

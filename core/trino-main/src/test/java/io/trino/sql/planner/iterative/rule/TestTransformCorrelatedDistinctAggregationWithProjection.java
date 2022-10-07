@@ -86,15 +86,14 @@ public class TestTransformCorrelatedDistinctAggregationWithProjection
                                         ImmutableMap.of(),
                                         Optional.empty(),
                                         SINGLE,
-                                        join(
-                                                LEFT,
-                                                ImmutableList.of(),
-                                                Optional.of("b > corr"),
-                                                assignUniqueId(
-                                                        "unique",
-                                                        values("corr")),
-                                                filter(
+                                        join(LEFT, builder -> builder
+                                                .filter("b > corr")
+                                                .left(
+                                                        assignUniqueId(
+                                                                "unique",
+                                                                values("corr")))
+                                                .right(filter(
                                                         "true",
-                                                        values("a", "b"))))));
+                                                        values("a", "b")))))));
     }
 }

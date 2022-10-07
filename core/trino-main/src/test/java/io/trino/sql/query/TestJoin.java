@@ -253,10 +253,9 @@ public class TestJoin
                         aggregation(
                                 ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of())),
                                 anyTree(
-                                        join(INNER, ImmutableList.of(),
-                                                anyTree(
-                                                        values("y")),
-                                                values())
+                                        join(INNER, builder -> builder
+                                                .left(anyTree(values("y")))
+                                                .right(values()))
                                                 .with(JoinNode.class, not(JoinNode::isMaySkipOutputDuplicates))))));
 
         assertions.assertQueryAndPlan(
@@ -267,10 +266,9 @@ public class TestJoin
                                 ImmutableMap.of(),
                                 FINAL,
                                 anyTree(
-                                        join(INNER, ImmutableList.of(),
-                                                anyTree(
-                                                        values("y")),
-                                                values())
+                                        join(INNER, builder -> builder
+                                                .left(anyTree(values("y")))
+                                                .right(values()))
                                                 .with(JoinNode.class, JoinNode::isMaySkipOutputDuplicates)))));
     }
 

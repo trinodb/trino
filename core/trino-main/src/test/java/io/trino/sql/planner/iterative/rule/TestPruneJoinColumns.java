@@ -30,10 +30,10 @@ import java.util.Optional;
 import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 
 public class TestPruneJoinColumns
         extends BaseRuleTest
@@ -46,12 +46,10 @@ public class TestPruneJoinColumns
                 .matches(
                         strictProject(
                                 ImmutableMap.of("rightValue", PlanMatchPattern.expression("rightValue")),
-                                join(
-                                        JoinNode.Type.INNER,
-                                        ImmutableList.of(equiJoinClause("leftKey", "rightKey")),
-                                        Optional.empty(),
-                                        values(ImmutableList.of("leftKey", "leftValue")),
-                                        values(ImmutableList.of("rightKey", "rightValue")))
+                                join(INNER, builder -> builder
+                                        .equiCriteria("leftKey", "rightKey")
+                                        .left(values(ImmutableList.of("leftKey", "leftValue")))
+                                        .right(values(ImmutableList.of("rightKey", "rightValue"))))
                                         .withExactOutputs("rightValue")));
     }
 
@@ -73,7 +71,7 @@ public class TestPruneJoinColumns
                     return p.project(
                             Assignments.of(),
                             p.join(
-                                    JoinNode.Type.INNER,
+                                    INNER,
                                     p.values(leftValue),
                                     p.values(rightValue),
                                     ImmutableList.of(),
@@ -86,12 +84,9 @@ public class TestPruneJoinColumns
                 .matches(
                         strictProject(
                                 ImmutableMap.of(),
-                                join(
-                                        JoinNode.Type.INNER,
-                                        ImmutableList.of(),
-                                        Optional.empty(),
-                                        values(ImmutableList.of("leftValue")),
-                                        values(ImmutableList.of("rightValue")))
+                                join(INNER, builder -> builder
+                                        .left(values(ImmutableList.of("leftValue")))
+                                        .right(values(ImmutableList.of("rightValue"))))
                                         .withExactOutputs()));
     }
 
@@ -109,7 +104,7 @@ public class TestPruneJoinColumns
                                 .filter(projectionFilter)
                                 .collect(toImmutableList())),
                 p.join(
-                        JoinNode.Type.INNER,
+                        INNER,
                         p.values(leftKey, leftValue),
                         p.values(rightKey, rightValue),
                         ImmutableList.of(new JoinNode.EquiJoinClause(leftKey, rightKey)),
