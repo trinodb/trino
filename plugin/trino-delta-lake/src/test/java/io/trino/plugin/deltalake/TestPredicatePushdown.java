@@ -138,7 +138,7 @@ public class TestPredicatePushdown
     /**
      * Assert on the number of rows read and updated by a read operation
      * @param actual The query to test
-     * @param expected The expected results as a SQL expression
+     * @param expected The expected results as an SQL expression
      * @param countProcessed The number of rows expected to be processed
      */
     private void assertPushdown(String actual, String expected, long countProcessed)

@@ -738,7 +738,7 @@ Use the ``$snapshots`` metadata table to determine the latest snapshot ID of the
     FROM iceberg.testdb."customer_orders$snapshots"
     ORDER BY committed_at DESC LIMIT 1
 
-A SQL procedure ``system.rollback_to_snapshot`` allows the caller to roll back
+An SQL procedure ``system.rollback_to_snapshot`` allows the caller to roll back
 the state of the table to a previous snapshot id::
 
     CALL iceberg.system.rollback_to_snapshot('testdb', 'customer_orders', 8954597067493422955)

@@ -189,13 +189,13 @@ public class ThriftHiveMetastoreClient
         /*
          * The parameter value is restricted to have only alphanumeric characters so that it's safe
          * to be used against HMS. When using with a LIKE operator, the HMS may want the parameter
-         * value to follow a Java regex pattern or a SQL pattern. And it's hard to predict the
+         * value to follow a Java regex pattern or an SQL pattern. And it's hard to predict the
          * HMS's behavior from outside. Also, by restricting parameter values, we avoid the problem
          * of how to quote them when passing within the filter string.
          */
         checkArgument(TABLE_PARAMETER_SAFE_VALUE_PATTERN.matcher(parameterValue).matches(), "Parameter value contains invalid characters: '%s'", parameterValue);
         /*
-         * Thrift call `get_table_names_by_filter` may be translated by Metastore to a SQL query against Metastore database.
+         * Thrift call `get_table_names_by_filter` may be translated by Metastore to an SQL query against Metastore database.
          * Hive 2.3 on some databases uses CLOB for table parameter value column and some databases disallow `=` predicate over
          * CLOB values. At the same time, they allow `LIKE` predicates over them.
          */

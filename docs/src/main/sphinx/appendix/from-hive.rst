@@ -2,7 +2,7 @@
 Migrating from Hive
 ===================
 
-Trino uses ANSI SQL syntax and semantics, whereas Hive uses a SQL-like language called HiveQL which is loosely modeled after MySQL (which itself has many differences from ANSI SQL).
+Trino uses ANSI SQL syntax and semantics, whereas Hive uses an SQL-like language called HiveQL which is loosely modeled after MySQL (which itself has many differences from ANSI SQL).
 
 Use subscript for accessing a dynamic index of an array instead of a udf
 ------------------------------------------------------------------------
