@@ -16,8 +16,8 @@ package io.trino.sql.planner;
 import java.util.stream.Stream;
 
 /**
- * This class tests cost-based optimization rules related to joins. It contains unmodified TPCH queries.
- * This class is using Hive connector with mocked in memory thrift metastore with partitioned TPCH tables.
+ * This class tests cost-based optimization rules related to joins. It contains unmodified TPC-H queries.
+ * This class is using Hive connector with mocked in memory thrift metastore with partitioned TPC-H tables.
  */
 public class TestHivePartitionedTpchCostBasedPlan
         extends BaseHiveCostBasedPlanTest
