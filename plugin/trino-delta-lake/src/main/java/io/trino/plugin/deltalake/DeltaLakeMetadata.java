@@ -182,6 +182,7 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ge
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnMappingMode;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnsMetadata;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnsNullability;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getGeneratedColumnExpressions;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isAppendOnly;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeSchemaAsJson;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeStatsAsJson;
@@ -1259,6 +1260,7 @@ public class DeltaLakeMetadata
         if (!getCheckConstraints(table.getMetadataEntry()).isEmpty()) {
             throw new TrinoException(NOT_SUPPORTED, "Writing to tables with CHECK constraints is not supported");
         }
+        checkUnsupportedGeneratedColumns(table.getMetadataEntry());
         checkSupportedWriterVersion(session, table.getSchemaTableName());
 
         List<DeltaLakeColumnHandle> inputColumns = columns.stream()
@@ -1392,6 +1394,7 @@ public class DeltaLakeMetadata
         if (!getCheckConstraints(handle.getMetadataEntry()).isEmpty()) {
             throw new TrinoException(NOT_SUPPORTED, "Writing to tables with CHECK constraints is not supported");
         }
+        checkUnsupportedGeneratedColumns(handle.getMetadataEntry());
         checkSupportedWriterVersion(session, handle.getSchemaTableName());
 
         return DeltaLakeTableHandle.forDelete(
@@ -1455,6 +1458,7 @@ public class DeltaLakeMetadata
         if (!getCheckConstraints(handle.getMetadataEntry()).isEmpty()) {
             throw new TrinoException(NOT_SUPPORTED, "Writing to tables with CHECK constraints is not supported");
         }
+        checkUnsupportedGeneratedColumns(handle.getMetadataEntry());
         checkSupportedWriterVersion(session, handle.getSchemaTableName());
 
         List<DeltaLakeColumnHandle> updatedColumnHandles = updatedColumns.stream()
@@ -1525,6 +1529,7 @@ public class DeltaLakeMetadata
         if (!getCheckConstraints(handle.getMetadataEntry()).isEmpty()) {
             throw new TrinoException(NOT_SUPPORTED, "Writing to tables with CHECK constraints is not supported");
         }
+        checkUnsupportedGeneratedColumns(handle.getMetadataEntry());
         checkSupportedWriterVersion(session, handle.getSchemaTableName());
 
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, handle);
@@ -1820,6 +1825,14 @@ public class DeltaLakeMetadata
                 return false;
             }
             throw e;
+        }
+    }
+
+    private void checkUnsupportedGeneratedColumns(MetadataEntry metadataEntry)
+    {
+        Map<String, String> columnGeneratedExpressions = getGeneratedColumnExpressions(metadataEntry);
+        if (!columnGeneratedExpressions.isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "Writing to tables with generated columns is not supported");
         }
     }
 
