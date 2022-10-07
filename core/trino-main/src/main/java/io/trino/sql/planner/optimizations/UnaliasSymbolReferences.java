@@ -341,6 +341,7 @@ public class UnaliasSymbolReferences
                         properties.isRowSemantics(),
                         properties.isPruneWhenEmpty(),
                         properties.isPassThroughColumns(),
+                        inputMapper.map(properties.getPassThroughSymbols()),
                         inputMapper.map(properties.getRequiredColumns()),
                         newSpecification));
             }
