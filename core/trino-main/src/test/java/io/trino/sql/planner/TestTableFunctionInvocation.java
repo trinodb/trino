@@ -22,10 +22,12 @@ import io.trino.connector.TestingTableFunctions.DescriptorArgumentFunction;
 import io.trino.connector.TestingTableFunctions.DifferentArgumentTypesFunction;
 import io.trino.connector.TestingTableFunctions.TestingTableFunctionHandle;
 import io.trino.connector.TestingTableFunctions.TwoScalarArgumentsFunction;
+import io.trino.connector.TestingTableFunctions.TwoTableArgumentsFunction;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.ptf.Descriptor;
 import io.trino.spi.ptf.Descriptor.Field;
 import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LongLiteral;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -58,7 +60,8 @@ public class TestTableFunctionInvocation
                 .withTableFunctions(ImmutableSet.of(
                         new DifferentArgumentTypesFunction(),
                         new TwoScalarArgumentsFunction(),
-                        new DescriptorArgumentFunction()))
+                        new DescriptorArgumentFunction(),
+                        new TwoTableArgumentsFunction()))
                 .withApplyTableFunction((session, handle) -> {
                     if (handle instanceof TestingTableFunctionHandle functionHandle) {
                         return Optional.of(new TableFunctionApplicationResult<>(functionHandle.getTableHandle(), functionHandle.getTableHandle().getColumns().orElseThrow()));
@@ -89,17 +92,20 @@ public class TestTableFunctionInvocation
                                         "INPUT_1",
                                         tableArgument(0)
                                                 .specification(specification(ImmutableList.of("c1"), ImmutableList.of("c1"), ImmutableMap.of("c1", ASC_NULLS_LAST)))
-                                                .passThroughColumns())
+                                                .passThroughColumns()
+                                                .passThroughSymbols(ImmutableSet.of("c1")))
                                 .addTableArgument(
                                         "INPUT_3",
                                         tableArgument(2)
                                                 .specification(specification(ImmutableList.of("c3"), ImmutableList.of(), ImmutableMap.of()))
-                                                .pruneWhenEmpty())
+                                                .pruneWhenEmpty()
+                                                .passThroughSymbols(ImmutableSet.of("c3")))
                                 .addTableArgument(
                                         "INPUT_2",
                                         tableArgument(1)
                                                 .rowSemantics()
-                                                .passThroughColumns())
+                                                .passThroughColumns()
+                                                .passThroughSymbols(ImmutableSet.of("c2")))
                                 .addScalarArgument("ID", 2001L)
                                 .addDescriptorArgument(
                                         "LAYOUT",
@@ -111,6 +117,36 @@ public class TestTableFunctionInvocation
                         anyTree(project(ImmutableMap.of("c1", expression("'a'")), values(1))),
                         anyTree(values(ImmutableList.of("c2"), ImmutableList.of(ImmutableList.of(new LongLiteral("1"))))),
                         anyTree(project(ImmutableMap.of("c3", expression("'b'")), values(1))))));
+    }
+
+    @Test
+    public void testTableFunctionInitialPlanWithCoercionForCopartitioning()
+    {
+        assertPlan(
+                """
+                        SELECT * FROM TABLE(mock.system.two_table_arguments_function(
+                           INPUT1 => TABLE(VALUES SMALLINT '1') t1(c1) PARTITION BY c1,
+                           INPUT2 => TABLE(VALUES INTEGER '2') t2(c2) PARTITION BY c2
+                           COPARTITION (t1, t2))) t
+                        """,
+                CREATED,
+                anyTree(tableFunction(builder -> builder
+                                .name("two_table_arguments_function")
+                                .addTableArgument(
+                                        "INPUT1",
+                                        tableArgument(0)
+                                                .specification(specification(ImmutableList.of("c1_coerced"), ImmutableList.of(), ImmutableMap.of()))
+                                                .passThroughSymbols(ImmutableSet.of("c1")))
+                                .addTableArgument(
+                                        "INPUT2",
+                                        tableArgument(1)
+                                                .specification(specification(ImmutableList.of("c2"), ImmutableList.of(), ImmutableMap.of()))
+                                                .passThroughSymbols(ImmutableSet.of("c2")))
+                                .addCopartitioning(ImmutableList.of("INPUT1", "INPUT2"))
+                                .properOutputs(ImmutableList.of("COLUMN")),
+                        project(ImmutableMap.of("c1_coerced", expression("CAST(c1 AS INTEGER)")),
+                                anyTree(values(ImmutableList.of("c1"), ImmutableList.of(ImmutableList.of(new GenericLiteral("SMALLINT", "1")))))),
+                        anyTree(values(ImmutableList.of("c2"), ImmutableList.of(ImmutableList.of(new GenericLiteral("INTEGER", "2"))))))));
     }
 
     @Test

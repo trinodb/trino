@@ -249,6 +249,13 @@ public final class ValidateDependenciesChecker
                                 source.getOutputSymbols());
                     });
                 });
+                checkDependencies(
+                        inputs,
+                        argumentProperties.getPassThroughSymbols(),
+                        "Invalid node. Pass-through symbols for source %s (%s) not in source plan output (%s)",
+                        argumentProperties.getArgumentName(),
+                        argumentProperties.getPassThroughSymbols(),
+                        source.getOutputSymbols());
             }
 
             return null;
