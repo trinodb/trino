@@ -25,7 +25,6 @@ import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.rule.GatherAndMergeWindows;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
-import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.FrameBound;
 import io.trino.sql.tree.WindowFrame;
@@ -48,6 +47,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
+import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 
 public class TestMergeWindows
         extends BasePlanTest
@@ -469,19 +469,19 @@ public class TestMergeWindows
         assertUnitPlan(sql,
                 anyTree(
                         filter("SUM = AVG",
-                                join(JoinNode.Type.INNER, ImmutableList.of(),
-                                        any(
-                                                window(windowMatcherBuilder -> windowMatcherBuilder
-                                                                .specification(leftSpecification)
-                                                                .addFunction("SUM", functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
-                                                        any(
-                                                                leftTableScan))),
-                                        any(
-                                                window(windowMatcherBuilder -> windowMatcherBuilder
-                                                                .specification(rightSpecification)
-                                                                .addFunction("AVG", functionCall("avg", COMMON_FRAME, ImmutableList.of(rQuantityAlias))),
-                                                        any(
-                                                                rightTableScan)))))));
+                                join(INNER, builder -> builder
+                                        .left(
+                                                any(
+                                                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                                                        .specification(leftSpecification)
+                                                                        .addFunction("SUM", functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                                any(leftTableScan))))
+                                        .right(
+                                                any(
+                                                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                                                        .specification(rightSpecification)
+                                                                        .addFunction("AVG", functionCall("avg", COMMON_FRAME, ImmutableList.of(rQuantityAlias))),
+                                                                any(rightTableScan))))))));
     }
 
     @Test

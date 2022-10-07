@@ -65,11 +65,9 @@ public class TestUseNonPartitionedJoinLookupSource
                             repartitioningExchange(p, b, p.values(b)));
                 })
                 .matches(
-                        join(
-                                INNER,
-                                ImmutableList.of(),
-                                values("a"),
-                                exchange(LOCAL, GATHER, values("b"))));
+                        join(INNER, builder -> builder
+                                .left(values("a"))
+                                .right(exchange(LOCAL, GATHER, values("b")))));
     }
 
     @Test

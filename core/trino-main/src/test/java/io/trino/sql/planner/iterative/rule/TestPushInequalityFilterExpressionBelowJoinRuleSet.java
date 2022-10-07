@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -23,8 +22,6 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.GenericLiteral;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-
-import java.util.Optional;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
@@ -80,14 +77,12 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                             comparison(LESS_THAN, add(b, 1), a.toSymbolReference()));
                 })
                 .matches(
-                        join(
-                                INNER,
-                                ImmutableList.of(),
-                                Optional.of("expr < a"),
-                                values("a"),
-                                project(
+                        join(INNER, builder -> builder
+                                .filter("expr < a")
+                                .left(values("a"))
+                                .right(project(
                                         ImmutableMap.of("expr", expression("b + BIGINT '1'")),
-                                        values("b"))));
+                                        values("b")))));
     }
 
     @Test
@@ -106,16 +101,15 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                                     comparison(GREATER_THAN, add(b, 10), a.toSymbolReference())));
                 })
                 .matches(
-                        join(
-                                INNER,
-                                ImmutableList.of(),
-                                Optional.of("expr_less < a and expr_greater > a"),
-                                values("a"),
-                                project(
-                                        ImmutableMap.of(
-                                                "expr_less", expression("b + BIGINT '1'"),
-                                                "expr_greater", expression("b + BIGINT '10'")),
-                                        values("b"))));
+                        join(INNER, builder -> builder
+                                .filter("expr_less < a and expr_greater > a")
+                                .left(values("a"))
+                                .right(
+                                        project(
+                                                ImmutableMap.of(
+                                                        "expr_less", expression("b + BIGINT '1'"),
+                                                        "expr_greater", expression("b + BIGINT '10'")),
+                                                values("b")))));
     }
 
     @Test
@@ -132,14 +126,13 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                             comparison(LESS_THAN, add(b, 1), add(a, 2)));
                 })
                 .matches(
-                        join(
-                                INNER,
-                                ImmutableList.of(),
-                                Optional.of("expr < a + BIGINT '2'"),
-                                values("a"),
-                                project(
-                                        ImmutableMap.of("expr", expression("b + BIGINT '1'")),
-                                        values("b"))));
+                        join(INNER, builder -> builder
+                                .filter("expr < a + BIGINT '2'")
+                                .left(values("a"))
+                                .right(
+                                        project(
+                                                ImmutableMap.of("expr", expression("b + BIGINT '1'")),
+                                                values("b")))));
     }
 
     @Test
@@ -176,13 +169,13 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                 .matches(
                         project(
                                 filter("expr < a",
-                                        join(
-                                                INNER,
-                                                ImmutableList.of(),
-                                                values("a"),
-                                                project(
-                                                        ImmutableMap.of("expr", expression("b + BIGINT '1'")),
-                                                        values("b"))))));
+                                        join(INNER, builder -> builder
+                                                .left(
+                                                        values("a"))
+                                                .right(
+                                                        project(
+                                                                ImmutableMap.of("expr", expression("b + BIGINT '1'")),
+                                                                values("b")))))));
     }
 
     @Test
@@ -204,15 +197,14 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                 .matches(
                         project(
                                 filter("expr_less < a and expr_greater > a",
-                                        join(
-                                                INNER,
-                                                ImmutableList.of(),
-                                                values("a"),
-                                                project(
-                                                        ImmutableMap.of(
-                                                                "expr_less", expression("b + BIGINT '1'"),
-                                                                "expr_greater", expression("b + BIGINT '10'")),
-                                                        values("b"))))));
+                                        join(INNER, builder -> builder
+                                                .left(values("a"))
+                                                .right(
+                                                        project(
+                                                                ImmutableMap.of(
+                                                                        "expr_less", expression("b + BIGINT '1'"),
+                                                                        "expr_greater", expression("b + BIGINT '10'")),
+                                                                values("b")))))));
     }
 
     @Test
@@ -233,16 +225,15 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                 .matches(
                         project(
                                 filter("parent_expression < a",
-                                        join(
-                                                INNER,
-                                                ImmutableList.of(),
-                                                Optional.of("join_expression < a"),
-                                                values("a"),
-                                                project(
-                                                        ImmutableMap.of(
-                                                                "join_expression", expression("b + BIGINT '2'"),
-                                                                "parent_expression", expression("b + BIGINT '1'")),
-                                                        values("b")))
+                                        join(INNER, builder -> builder
+                                                .filter("join_expression < a")
+                                                .left(values("a"))
+                                                .right(
+                                                        project(
+                                                                ImmutableMap.of(
+                                                                        "join_expression", expression("b + BIGINT '2'"),
+                                                                        "parent_expression", expression("b + BIGINT '1'")),
+                                                                values("b"))))
                                                 .withExactOutputs("a", "b", "parent_expression"))));
     }
 
