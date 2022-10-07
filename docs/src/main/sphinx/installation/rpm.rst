@@ -11,9 +11,10 @@ to start as a service.
 
 ..  warning::
 
-  It is recommended to deploy Trino with the Helm chart on Kubernetes or
-  manually with the :doc:`Docker containers <containers>` or the :doc:`tar
-  archive <deployment>`. While the RPM is available for use, it is not tested.
+  It is recommended to deploy Trino with the :doc:`Helm chart <kubernetes>` on
+  Kubernetes or manually with the :doc:`Docker containers <containers>` or the
+  :doc:`tar archive <deployment>`. While the RPM is available for use, it is not
+  tested.
 
 Installing Trino
 ----------------
