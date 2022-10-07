@@ -89,7 +89,9 @@ public class HudiMetadata
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return metastore.getAllDatabases();
+        return metastore.getAllDatabases().stream()
+                .filter(schemaName -> !isHiveSystemSchema(schemaName))
+                .collect(toImmutableList());
     }
 
     @Override
