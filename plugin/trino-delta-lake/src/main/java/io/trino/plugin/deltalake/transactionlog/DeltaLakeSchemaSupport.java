@@ -415,6 +415,18 @@ public final class DeltaLakeSchemaSupport
         return invariants == null ? null : invariants.asText();
     }
 
+    public static Map<String, String> getGeneratedColumnExpressions(MetadataEntry metadataEntry)
+    {
+        return getColumnProperties(metadataEntry, DeltaLakeSchemaSupport::getGeneratedColumnExpressions);
+    }
+
+    @Nullable
+    private static String getGeneratedColumnExpressions(JsonNode node)
+    {
+        JsonNode invariants = node.get("metadata").get("delta.generationExpression");
+        return invariants == null ? null : invariants.asText();
+    }
+
     public static Map<String, String> getCheckConstraints(MetadataEntry metadataEntry)
     {
         return metadataEntry.getConfiguration().entrySet().stream()
