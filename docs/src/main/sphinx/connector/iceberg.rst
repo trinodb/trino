@@ -575,8 +575,8 @@ the state of the table to a previous snapshot id::
 Schema evolution
 ----------------
 
-Iceberg and the Iceberg connector support schema evolution, with safe
-column add, drop, reorder and rename operations, including in nested structures.
+Iceberg supports schema evolution, with safe column add, drop, reorder
+and rename operations, including in nested structures.
 Table partitioning can also be changed and the connector can still
 query data created before the partitioning change.
 
