@@ -1,14 +1,14 @@
-# Presto Benchto benchmarks
+# Trino Benchto benchmarks
 
 The Benchto benchmarks utilize [Benchto](https://github.com/trinodb/benchto) benchmarking
-utility to do macro benchmarking of Presto. As opposed to micro benchmarking which exercises
-a class or a small, coherent set of classes, macro benchmarks done with Benchto use Presto
-end-to-end, by accessing it through its API (usually with `presto-jdbc`), executing queries,
+utility to do macro benchmarking of Trino. As opposed to micro benchmarking which exercises
+a class or a small, coherent set of classes, macro benchmarks done with Benchto use Trino
+end-to-end, by accessing it through its API (usually with `trino-jdbc`), executing queries,
 measuring time and gathering various metrics.
 
 ## Benchmarking suites
 
-Even though benchmarks exercise Presto end-to-end, a single benchmark cannot use all Presto
+Even though benchmarks exercise Trino end-to-end, a single benchmark cannot use all Trino
 features. Therefore benchmarks are organized in suites, like:
 
 * *tpch* - queries closely following the [TPC-H](http://www.tpc.org/tpch/) benchmark
@@ -18,7 +18,7 @@ features. Therefore benchmarks are organized in suites, like:
 
 ### Requirements
 
-* Presto already installed on the target environment
+* Trino already installed on the target environment
 * Basic understanding of Benchto [components and architecture](https://github.com/trinodb/benchto)
 * Benchto service [configured and running](https://github.com/trinodb/benchto/tree/master/benchto-service)
 * An environment [defined in Benchto service](https://github.com/trinodb/benchto/tree/master/benchto-service#creating-environment)
@@ -27,10 +27,10 @@ features. Therefore benchmarks are organized in suites, like:
 
 Benchto driver needs to know two things: what benchmark is to be run and what environment
 it is to be run on. For the purpose of the following example, we will use `tpch` benchmark
-and Presto server running at `localhost:8080`, with Benchto service running at `localhost:8081`.
+and Trino server running at `localhost:8080`, with Benchto service running at `localhost:8081`.
 
 Benchto driver uses Spring Boot to locate environment configuration file, so to pass the
-configuration. To continue with our example, one needs to place an `application-presto-devenv.yaml`
+configuration. To continue with our example, one needs to place an `application-trino-devenv.yaml`
 file in the current directory (i.e. the directory from which the benchmark will be invoked),
 with the following content:
 
@@ -63,7 +63,7 @@ macros:
 
 ### Bootstrapping benchmark data
 
-* Make sure you have configured [Presto TPC-H connector](https://trino.io/docs/current/connector/tpch.html).
+* Make sure you have configured [Trino TPC-H connector](https://trino.io/docs/current/connector/tpch.html).
 * Bootstrap benchmark data:
   ```bash
   testing/trino-benchto-benchmarks/generate_schemas/generate-tpch.py --factors sf1 --formats orc | trino-cli-[version]-executable.jar --server [trino_coordinator-url]:[port]
@@ -88,6 +88,6 @@ With the scene set up as in the previous section, the benchmark can be run with:
 java -Xmx1g -jar trino-benchto-benchmarks/target/trino-benchto-benchmarks-*-executable.jar \
     --sql trino-benchto-benchmarks/src/main/resources/sql \
     --benchmarks trino-benchto-benchmarks/src/main/resources/benchmarks \
-    --activeBenchmarks=presto/tpch --profile=presto-devenv \
+    --activeBenchmarks=trino/tpch --profile=trino-devenv \
     --overrides overrides.yaml
 ```
