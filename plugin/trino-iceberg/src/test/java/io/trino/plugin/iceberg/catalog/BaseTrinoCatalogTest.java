@@ -103,7 +103,6 @@ public abstract class BaseTrinoCatalogTest
             // Test with IcebergMetadata, should the ConnectorMetadata implementation behavior depend on that class
             ConnectorMetadata icebergMetadata = new IcebergMetadata(
                     PLANNER_CONTEXT.getTypeManager(),
-                    PLANNER_CONTEXT.getTypeOperators(),
                     jsonCodec(CommitTaskData.class),
                     catalog,
                     connectorIdentity -> {
