@@ -208,7 +208,7 @@ contribution](https://trino.io/development/process.html).
 
 2. You might select a GitHub doc issue to work on that requires you to verify
    how Trino handles a situation, such as [adding
-   documentation](https://github.com/trinodb/trino/issues/7660) for a SQL
+   documentation](https://github.com/trinodb/trino/issues/7660) for an SQL
    language function.
 
    In this case, the five-minute video [Learning Trino SQL with
