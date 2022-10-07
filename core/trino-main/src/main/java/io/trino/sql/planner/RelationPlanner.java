@@ -428,27 +428,33 @@ class RelationPlanner
                 specification = Optional.of(new DataOrganizationSpecification(partitionBy, orderBy));
             }
 
+            // add output symbols passed from the table argument
+            ImmutableList.Builder<Symbol> passThroughSymbols = ImmutableList.builder();
+            if (tableArgument.isPassThroughColumns()) {
+                // the original output symbols from the source node, not coerced
+                // note: hidden columns are included. They are present in sourcePlan.fieldMappings
+                outputSymbols.addAll(sourcePlan.getFieldMappings());
+                passThroughSymbols.addAll(sourcePlan.getFieldMappings());
+            }
+            else if (tableArgument.getPartitionBy().isPresent()) {
+                tableArgument.getPartitionBy().get().stream()
+                        // the original symbols for partitioning columns, not coerced
+                        .map(sourcePlanBuilder::translate)
+                        .forEach(symbol -> {
+                            outputSymbols.add(symbol);
+                            passThroughSymbols.add(symbol);
+                        });
+            }
+
             sources.add(sourcePlanBuilder.getRoot());
             sourceProperties.add(new TableArgumentProperties(
                     tableArgument.getArgumentName(),
                     tableArgument.isRowSemantics(),
                     tableArgument.isPruneWhenEmpty(),
                     tableArgument.isPassThroughColumns(),
+                    passThroughSymbols.build(),
                     requiredColumns,
                     specification));
-
-            // add output symbols passed from the table argument
-            if (tableArgument.isPassThroughColumns()) {
-                // the original output symbols from the source node, not coerced
-                // note: hidden columns are included. They are present in sourcePlan.fieldMappings
-                outputSymbols.addAll(sourcePlan.getFieldMappings());
-            }
-            else if (tableArgument.getPartitionBy().isPresent()) {
-                tableArgument.getPartitionBy().get().stream()
-                        // the original symbols for partitioning columns, not coerced
-                        .map(sourcePlanBuilder::translate)
-                        .forEach(outputSymbols::add);
-            }
         }
 
         PlanNode root = new TableFunctionNode(

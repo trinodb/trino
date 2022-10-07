@@ -116,17 +116,9 @@ public class TableFunctionNode
 
         symbols.addAll(properOutputs);
 
-        for (int i = 0; i < sources.size(); i++) {
-            TableArgumentProperties sourceProperties = tableArgumentProperties.get(i);
-            if (sourceProperties.isPassThroughColumns()) {
-                symbols.addAll(sources.get(i).getOutputSymbols());
-            }
-            else {
-                sourceProperties.getSpecification()
-                        .map(DataOrganizationSpecification::getPartitionBy)
-                        .ifPresent(symbols::addAll);
-            }
-        }
+        tableArgumentProperties.stream()
+                .map(TableArgumentProperties::getPassThroughSymbols)
+                .forEach(symbols::addAll);
 
         return symbols.build();
     }
@@ -150,6 +142,7 @@ public class TableFunctionNode
         private final boolean rowSemantics;
         private final boolean pruneWhenEmpty;
         private final boolean passThroughColumns;
+        private final List<Symbol> passThroughSymbols;
         private final List<Symbol> requiredColumns;
         private final Optional<DataOrganizationSpecification> specification;
 
@@ -159,6 +152,7 @@ public class TableFunctionNode
                 @JsonProperty("rowSemantics") boolean rowSemantics,
                 @JsonProperty("pruneWhenEmpty") boolean pruneWhenEmpty,
                 @JsonProperty("passThroughColumns") boolean passThroughColumns,
+                @JsonProperty("passThroughSymbols") List<Symbol> passThroughSymbols,
                 @JsonProperty("requiredColumns") List<Symbol> requiredColumns,
                 @JsonProperty("specification") Optional<DataOrganizationSpecification> specification)
         {
@@ -166,6 +160,7 @@ public class TableFunctionNode
             this.rowSemantics = rowSemantics;
             this.pruneWhenEmpty = pruneWhenEmpty;
             this.passThroughColumns = passThroughColumns;
+            this.passThroughSymbols = ImmutableList.copyOf(passThroughSymbols);
             this.requiredColumns = ImmutableList.copyOf(requiredColumns);
             this.specification = requireNonNull(specification, "specification is null");
         }
@@ -192,6 +187,12 @@ public class TableFunctionNode
         public boolean isPassThroughColumns()
         {
             return passThroughColumns;
+        }
+
+        @JsonProperty
+        public List<Symbol> getPassThroughSymbols()
+        {
+            return passThroughSymbols;
         }
 
         @JsonProperty
