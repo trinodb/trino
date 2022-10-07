@@ -217,7 +217,7 @@ public class PipelinedStageExecution
     }
 
     @Override
-    public void schedulingComplete()
+    public synchronized void schedulingComplete()
     {
         if (!stateMachine.transitionToScheduled()) {
             return;
@@ -331,7 +331,7 @@ public class PipelinedStageExecution
         return Optional.of(task);
     }
 
-    private void updateTaskStatus(TaskStatus taskStatus)
+    private synchronized void updateTaskStatus(TaskStatus taskStatus)
     {
         State stageState = stateMachine.getState();
         if (stageState.isDone()) {
