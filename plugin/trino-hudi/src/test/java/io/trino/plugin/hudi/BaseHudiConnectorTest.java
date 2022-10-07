@@ -79,6 +79,13 @@ public abstract class BaseHudiConnectorTest
                         ")");
     }
 
+    @Test
+    public void testHideHiveSysSchema()
+    {
+        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain("sys");
+        assertQueryFails("SHOW TABLES IN hudi.sys", ".*Schema 'sys' does not exist");
+    }
+
     protected static String columnsToHide()
     {
         List<String> columns = new ArrayList<>(HOODIE_META_COLUMNS.size() + 1);
