@@ -56,7 +56,6 @@ import static io.trino.plugin.hive.TestHiveReaderProjectionsUtil.createProjected
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -213,23 +212,24 @@ public class TestHiveProjectionPushdownIntoTableScan
                                         "expr_0_x", expression("expr_0[1]"),
                                         "expr_0", expression("expr_0"),
                                         "expr_0_y", expression("expr_0[2]")),
-                                join(
-                                        INNER,
-                                        ImmutableList.of(equiJoinClause("t_expr_1", "s_expr_1")),
-                                        anyTree(
-                                                filter(
-                                                        "expr_0_x = BIGINT '2'",
+                                join(INNER, builder -> builder
+                                        .equiCriteria("t_expr_1", "s_expr_1")
+                                        .left(
+                                                anyTree(
+                                                        filter(
+                                                                "expr_0_x = BIGINT '2'",
+                                                                tableScan(
+                                                                        table -> ((HiveTableHandle) table).getCompactEffectivePredicate().getDomains().get()
+                                                                                .equals(ImmutableMap.of(columnX, Domain.singleValue(BIGINT, 2L))),
+                                                                        TupleDomain.all(),
+                                                                        ImmutableMap.of("expr_0_x", columnX::equals, "expr_0", column0Handle::equals, "t_expr_1", column1Handle::equals)))))
+                                        .right(
+                                                anyTree(
                                                         tableScan(
-                                                                table -> ((HiveTableHandle) table).getCompactEffectivePredicate().getDomains().get()
-                                                                        .equals(ImmutableMap.of(columnX, Domain.singleValue(BIGINT, 2L))),
+                                                                ((HiveTableHandle) tableHandle.get().getConnectorHandle())
+                                                                        .withProjectedColumns(ImmutableSet.of(column1Handle))::equals,
                                                                 TupleDomain.all(),
-                                                                ImmutableMap.of("expr_0_x", columnX::equals, "expr_0", column0Handle::equals, "t_expr_1", column1Handle::equals)))),
-                                        anyTree(
-                                                tableScan(
-                                                        ((HiveTableHandle) tableHandle.get().getConnectorHandle())
-                                                                .withProjectedColumns(ImmutableSet.of(column1Handle))::equals,
-                                                        TupleDomain.all(),
-                                                        ImmutableMap.of("s_expr_1", column1Handle::equals)))))));
+                                                                ImmutableMap.of("s_expr_1", column1Handle::equals))))))));
     }
 
     @AfterClass(alwaysRun = true)

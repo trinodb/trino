@@ -25,7 +25,6 @@ import java.util.Optional;
 import static io.trino.SystemSessionProperties.PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -62,14 +61,17 @@ public class TestPushPartialAggregationThroughJoin
                         "LEFT_GROUP_BY", PlanMatchPattern.expression("LEFT_GROUP_BY"),
                         "RIGHT_GROUP_BY", PlanMatchPattern.expression("RIGHT_GROUP_BY"),
                         "AVG", PlanMatchPattern.expression("AVG")),
-                        join(INNER, ImmutableList.of(equiJoinClause("LEFT_EQUI", "RIGHT_EQUI")),
-                                Optional.of("LEFT_NON_EQUI <= RIGHT_NON_EQUI"),
-                                aggregation(
-                                        singleGroupingSet("LEFT_EQUI", "LEFT_NON_EQUI", "LEFT_GROUP_BY", "LEFT_HASH"),
-                                        ImmutableMap.of(Optional.of("AVG"), functionCall("avg", ImmutableList.of("LEFT_AGGR"))),
-                                        Optional.empty(),
-                                        PARTIAL,
-                                        values("LEFT_EQUI", "LEFT_NON_EQUI", "LEFT_GROUP_BY", "LEFT_AGGR", "LEFT_HASH")),
-                                values("RIGHT_EQUI", "RIGHT_NON_EQUI", "RIGHT_GROUP_BY", "RIGHT_HASH"))));
+                        join(INNER, builder -> builder
+                                .equiCriteria("LEFT_EQUI", "RIGHT_EQUI")
+                                .filter("LEFT_NON_EQUI <= RIGHT_NON_EQUI")
+                                .left(
+                                        aggregation(
+                                                singleGroupingSet("LEFT_EQUI", "LEFT_NON_EQUI", "LEFT_GROUP_BY", "LEFT_HASH"),
+                                                ImmutableMap.of(Optional.of("AVG"), functionCall("avg", ImmutableList.of("LEFT_AGGR"))),
+                                                Optional.empty(),
+                                                PARTIAL,
+                                                values("LEFT_EQUI", "LEFT_NON_EQUI", "LEFT_GROUP_BY", "LEFT_AGGR", "LEFT_HASH")))
+                                .right(
+                                        values("RIGHT_EQUI", "RIGHT_NON_EQUI", "RIGHT_GROUP_BY", "RIGHT_HASH")))));
     }
 }

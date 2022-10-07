@@ -16,12 +16,10 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinNode.Type;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.LongLiteral;
 import org.testng.annotations.Test;
-
-import java.util.Optional;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -53,14 +51,13 @@ public class TestTransformCorrelatedJoinToJoin
                                     p.values(b)));
                 })
                 .matches(
-                        join(
-                                JoinNode.Type.INNER,
-                                ImmutableList.of(),
-                                Optional.of("b > a"),
-                                values("a"),
-                                filter(
-                                        TRUE_LITERAL,
-                                        values("b"))));
+                        join(Type.INNER, builder -> builder
+                                .filter("b > a")
+                                .left(values("a"))
+                                .right(
+                                        filter(
+                                                TRUE_LITERAL,
+                                                values("b")))));
 
         tester().assertThat(new TransformCorrelatedJoinToJoin(tester().getPlannerContext()))
                 .on(p -> {
@@ -82,14 +79,13 @@ public class TestTransformCorrelatedJoinToJoin
                                     p.values(b)));
                 })
                 .matches(
-                        join(
-                                JoinNode.Type.INNER,
-                                ImmutableList.of(),
-                                Optional.of("b > a AND b < 3"),
-                                values("a"),
-                                filter(
-                                        TRUE_LITERAL,
-                                        values("b"))));
+                        join(Type.INNER, builder -> builder
+                                .filter("b > a AND b < 3")
+                                .left(values("a"))
+                                .right(
+                                        filter(
+                                                TRUE_LITERAL,
+                                                values("b")))));
     }
 
     @Test
@@ -112,14 +108,13 @@ public class TestTransformCorrelatedJoinToJoin
                                     p.values(b)));
                 })
                 .matches(
-                        join(
-                                JoinNode.Type.LEFT,
-                                ImmutableList.of(),
-                                Optional.of("b > a"),
-                                values("a"),
-                                filter(
-                                        TRUE_LITERAL,
-                                        values("b"))));
+                        join(Type.LEFT, builder -> builder
+                                .filter("b > a")
+                                .left(values("a"))
+                                .right(
+                                        filter(
+                                                TRUE_LITERAL,
+                                                values("b")))));
 
         tester().assertThat(new TransformCorrelatedJoinToJoin(tester().getPlannerContext()))
                 .on(p -> {
@@ -141,14 +136,13 @@ public class TestTransformCorrelatedJoinToJoin
                                     p.values(b)));
                 })
                 .matches(
-                        join(
-                                JoinNode.Type.LEFT,
-                                ImmutableList.of(),
-                                Optional.of("b > a AND b < 3"),
-                                values("a"),
-                                filter(
-                                        TRUE_LITERAL,
-                                        values("b"))));
+                        join(Type.LEFT, builder -> builder
+                                .filter("b > a AND b < 3")
+                                .left(values("a"))
+                                .right(
+                                        filter(
+                                                TRUE_LITERAL,
+                                                values("b")))));
     }
 
     @Test
