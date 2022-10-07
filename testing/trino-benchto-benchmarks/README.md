@@ -94,7 +94,8 @@ prefix: ""
 
 With the scene set up as in the previous section, the benchmark can be run with:
 ```bash
-java -jar "$HOME/.m2/repository/io/trino/benchto/benchto-driver/0.18/benchto-driver-0.18.jar" \
+./mvnw clean package -pl :trino-benchto-benchmarks
+java -jar "$HOME/.m2/repository/io/trino/benchto/benchto-driver/0.20/benchto-driver-0.20-exec.jar" \
             --activeBenchmarks=trino/tpch \
             --overrides "overrides.yaml"
 ```
