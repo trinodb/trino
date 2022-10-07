@@ -41,7 +41,7 @@ public abstract class DecimalType
         }
 
         if (precision <= MAX_SHORT_PRECISION) {
-            return new ShortDecimalType(precision, scale);
+            return ShortDecimalType.getInstance(precision, scale);
         }
         return new LongDecimalType(precision, scale);
     }
