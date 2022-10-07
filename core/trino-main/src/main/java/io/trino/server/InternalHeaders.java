@@ -23,6 +23,7 @@ public final class InternalHeaders
     public static final String TRINO_PAGE_NEXT_TOKEN = "X-Trino-Page-End-Sequence-Id";
     public static final String TRINO_BUFFER_COMPLETE = "X-Trino-Buffer-Complete";
     public static final String TRINO_TASK_FAILED = "X-Trino-Task-Failed";
+    public static final String TRINO_NEXT_URI = "X-Trino-NextUri";
 
     private InternalHeaders() {}
 }

@@ -88,6 +88,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String> TRACE_TOKEN = new TraceToken();
     public static final ConnectionProperty<Map<String, String>> SESSION_PROPERTIES = new SessionProperties();
     public static final ConnectionProperty<String> SOURCE = new Source();
+    public static final ConnectionProperty<Boolean> MULTI_THREAD = new MultiThread();
 
     private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
             .add(USER)
@@ -128,6 +129,7 @@ final class ConnectionProperties
             .add(EXTERNAL_AUTHENTICATION_TIMEOUT)
             .add(EXTERNAL_AUTHENTICATION_TOKEN_CACHE)
             .add(EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS)
+            .add(MULTI_THREAD)
             .build();
 
     private static final Map<String, ConnectionProperty<?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
@@ -610,6 +612,15 @@ final class ConnectionProperties
         public Source()
         {
             super("source", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+        }
+    }
+
+    private static class MultiThread
+            extends AbstractConnectionProperty<Boolean>
+    {
+        public MultiThread()
+        {
+            super("multithread", Optional.of("false"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 

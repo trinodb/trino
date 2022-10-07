@@ -53,6 +53,7 @@ public class ClientSession
     private final String transactionId;
     private final Duration clientRequestTimeout;
     private final boolean compressionDisabled;
+    private final boolean multiThread;
 
     public static Builder builder()
     {
@@ -91,7 +92,8 @@ public class ClientSession
             Map<String, String> extraCredentials,
             String transactionId,
             Duration clientRequestTimeout,
-            boolean compressionDisabled)
+            boolean compressionDisabled,
+            boolean multiThread)
     {
         this.server = requireNonNull(server, "server is null");
         this.principal = requireNonNull(principal, "principal is null");
@@ -113,6 +115,7 @@ public class ClientSession
         this.extraCredentials = ImmutableMap.copyOf(requireNonNull(extraCredentials, "extraCredentials is null"));
         this.clientRequestTimeout = clientRequestTimeout;
         this.compressionDisabled = compressionDisabled;
+        this.multiThread = multiThread;
 
         for (String clientTag : clientTags) {
             checkArgument(!clientTag.contains(","), "client tag cannot contain ','");
@@ -251,6 +254,11 @@ public class ClientSession
         return compressionDisabled;
     }
 
+    public boolean isMultiThread()
+    {
+        return multiThread;
+    }
+
     @Override
     public String toString()
     {
@@ -294,6 +302,7 @@ public class ClientSession
         private String transactionId;
         private Duration clientRequestTimeout;
         private boolean compressionDisabled;
+        private boolean multiThread;
 
         private Builder() {}
 
@@ -320,6 +329,7 @@ public class ClientSession
             transactionId = clientSession.getTransactionId();
             clientRequestTimeout = clientSession.getClientRequestTimeout();
             compressionDisabled = clientSession.isCompressionDisabled();
+            multiThread = clientSession.isMultiThread();
         }
 
         public Builder server(URI server)
@@ -442,6 +452,12 @@ public class ClientSession
             return this;
         }
 
+        public Builder multiThread(boolean multiThread)
+        {
+            this.multiThread = multiThread;
+            return this;
+        }
+
         public ClientSession build()
         {
             return new ClientSession(
@@ -464,7 +480,8 @@ public class ClientSession
                     credentials,
                     transactionId,
                     clientRequestTimeout,
-                    compressionDisabled);
+                    compressionDisabled,
+                    multiThread);
         }
     }
 }

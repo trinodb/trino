@@ -90,6 +90,8 @@ class StatementClientV1
     private final Optional<String> user;
     private final String clientCapabilities;
     private final boolean compressionDisabled;
+    private MultiThreadedQuery mtQuery;
+    private final Boolean multiThread;
 
     private final AtomicReference<State> state = new AtomicReference<>(State.RUNNING);
 
@@ -109,6 +111,7 @@ class StatementClientV1
                 .findFirst();
         this.clientCapabilities = Joiner.on(",").join(ClientCapabilities.values());
         this.compressionDisabled = session.isCompressionDisabled();
+        this.multiThread = session.isMultiThread();
 
         Request request = buildQueryRequest(session, query);
 
@@ -117,6 +120,10 @@ class StatementClientV1
         if ((response.getStatusCode() != HTTP_OK) || !response.hasValue()) {
             state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
             throw requestFailedException("starting query", request, response);
+        }
+
+        if (this.multiThread) {
+            mtQuery = new MultiThreadedQuery(session, response.getHeaders(), this, this.user);
         }
 
         processResponse(response.getHeaders(), response.getValue());
@@ -333,6 +340,10 @@ class StatementClientV1
             return false;
         }
 
+        if (this.multiThread) {
+            return advanceMultithreaded();
+        }
+
         URI nextUri = currentStatusInfo().getNextUri();
         if (nextUri == null) {
             state.compareAndSet(State.RUNNING, State.FINISHED);
@@ -392,6 +403,24 @@ class StatementClientV1
                 throw requestFailedException("fetching next", request, response);
             }
         }
+    }
+
+    private boolean advanceMultithreaded()
+    {
+        JsonResponse<QueryResults> response = mtQuery.getNextResults();
+        if (response == null) {
+            state.compareAndSet(State.RUNNING, State.FINISHED);
+            return false;
+        }
+
+        if ((response.getStatusCode() == HTTP_OK) && response.hasValue()) {
+            processResponse(response.getHeaders(), response.getValue());
+            return true;
+        }
+
+        System.out.printf("UNEXPECTED RESPONSE: %d\n", response.getStatusCode());
+        state.compareAndSet(State.RUNNING, State.FINISHED);
+        return false;
     }
 
     private void processResponse(Headers headers, QueryResults results)

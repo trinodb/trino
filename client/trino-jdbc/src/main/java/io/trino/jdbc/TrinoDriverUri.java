@@ -72,6 +72,7 @@ import static io.trino.jdbc.ConnectionProperties.KERBEROS_PRINCIPAL;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_REMOTE_SERVICE_NAME;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_SERVICE_PRINCIPAL_PATTERN;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_USE_CANONICAL_HOSTNAME;
+import static io.trino.jdbc.ConnectionProperties.MULTI_THREAD;
 import static io.trino.jdbc.ConnectionProperties.PASSWORD;
 import static io.trino.jdbc.ConnectionProperties.ROLES;
 import static io.trino.jdbc.ConnectionProperties.SESSION_PROPERTIES;
@@ -256,6 +257,12 @@ public final class TrinoDriverUri
             throws SQLException
     {
         return ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS.getValue(properties).orElse(false);
+    }
+
+    public boolean isMultiThread()
+            throws SQLException
+    {
+        return MULTI_THREAD.getValue(properties).orElse(false);
     }
 
     public void setupClient(OkHttpClient.Builder builder)

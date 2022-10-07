@@ -112,6 +112,7 @@ public class TrinoConnection
     private final AtomicReference<String> transactionId = new AtomicReference<>();
     private final OkHttpClient httpClient;
     private final Set<TrinoStatement> statements = newSetFromMap(new ConcurrentHashMap<>());
+    private final Boolean multiThread;
 
     TrinoConnection(TrinoDriverUri uri, OkHttpClient httpClient)
             throws SQLException
@@ -127,6 +128,8 @@ public class TrinoConnection
         this.source = uri.getSource();
         this.extraCredentials = uri.getExtraCredentials();
         this.compressionDisabled = uri.isCompressionDisabled();
+        this.multiThread = uri.isMultiThread();
+
         this.assumeLiteralNamesInMetadataCallsForNonConformingClients = uri.isAssumeLiteralNamesInMetadataCallsForNonConformingClients();
 
         if (this.assumeLiteralNamesInMetadataCallsForNonConformingClients) {
@@ -753,6 +756,7 @@ public class TrinoConnection
                 .transactionId(transactionId.get())
                 .clientRequestTimeout(timeout)
                 .compressionDisabled(compressionDisabled)
+                .multiThread(multiThread)
                 .build();
 
         return newStatementClient(httpClient, session, sql);

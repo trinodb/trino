@@ -82,6 +82,7 @@ import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.server.HttpRequestSessionContextFactory.AUTHENTICATED_IDENTITY;
+import static io.trino.server.InternalHeaders.TRINO_NEXT_URI;
 import static io.trino.server.protocol.QueryInfoUrlFactory.getQueryInfoUri;
 import static io.trino.server.protocol.Slug.Context.EXECUTING_QUERY;
 import static io.trino.server.protocol.Slug.Context.QUEUED_QUERY;
@@ -248,6 +249,7 @@ public class QueuedStatementResource
         if (!compressionEnabled) {
             builder.encoding("identity");
         }
+        builder.header(TRINO_NEXT_URI, results.getNextUri());
         return builder.build();
     }
 

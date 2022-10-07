@@ -60,6 +60,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.server.InternalHeaders.TRINO_NEXT_URI;
 import static io.trino.server.protocol.Slug.Context.EXECUTING_QUERY;
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -278,6 +279,7 @@ public class ExecutingStatementResource
             response.encoding("identity");
         }
 
+        response.header(TRINO_NEXT_URI, queryResults.getNextUri());
         return response.build();
     }
 
