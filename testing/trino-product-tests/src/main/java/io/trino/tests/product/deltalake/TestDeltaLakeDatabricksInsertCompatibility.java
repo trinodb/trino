@@ -516,4 +516,29 @@ public class TestDeltaLakeDatabricksInsertCompatibility
             onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
         }
     }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    public void testWritesToTableWithGeneratedColumnFails()
+    {
+        String tableName = "test_writes_into_table_with_generated_column_" + randomTableSuffix();
+        try {
+            onDelta().executeQuery("CREATE TABLE default." + tableName + " (a INT, b BOOLEAN GENERATED ALWAYS AS (CAST(true AS BOOLEAN))) " +
+                    "USING DELTA " +
+                    "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'");
+
+            // Disallowing all statements just in case though some statements may not unrelated to generated columns
+            assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (1, false)"))
+                    .hasMessageContaining("Writing to tables with generated columns is not supported");
+            assertQueryFailure(() -> onTrino().executeQuery("UPDATE delta.default." + tableName + " SET a = 3 WHERE b = true"))
+                    .hasMessageContaining("Writing to tables with generated columns is not supported");
+            assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a = 3"))
+                    .hasMessageContaining("Writing to tables with generated columns is not supported");
+            assertQueryFailure(() -> onTrino().executeQuery("MERGE INTO delta.default." + tableName + " t USING delta.default." + tableName + " s " +
+                    "ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET b = false"))
+                    .hasMessageContaining("Writing to tables with generated columns is not supported");
+        }
+        finally {
+            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
+        }
+    }
 }
