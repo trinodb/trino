@@ -406,13 +406,7 @@ public class KuduMetadata
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
         }
         KuduTableHandle handle = (KuduTableHandle) table;
-        return new KuduTableHandle(
-                handle.getSchemaTableName(),
-                handle.getConstraint(),
-                handle.getDesiredColumns(),
-                true,
-                handle.getBucketCount(),
-                handle.getLimit());
+        return handle.withRequiresRowId(true);
     }
 
     @Override
@@ -449,7 +443,7 @@ public class KuduMetadata
         PartitionDesign design = KuduTableProperties.getPartitionDesign(tableMetadata.getProperties());
         boolean generateUUID = !design.hasPartitions();
         return new KuduMergeTableHandle(
-                kuduTableHandle,
+                kuduTableHandle.withRequiresRowId(true),
                 new KuduOutputTableHandle(tableMetadata.getTable(), columnOriginalTypes, columnTypes, generateUUID, table));
     }
 
@@ -492,7 +486,7 @@ public class KuduMetadata
                 handle.getTable(clientSession),
                 newDomain,
                 handle.getDesiredColumns(),
-                handle.isDeleteHandle(),
+                handle.isRequiresRowId(),
                 handle.getBucketCount(),
                 handle.getLimit());
 
@@ -550,7 +544,7 @@ public class KuduMetadata
                 handle.getTable(clientSession),
                 handle.getConstraint(),
                 Optional.of(desiredColumns.build()),
-                handle.isDeleteHandle(),
+                handle.isRequiresRowId(),
                 handle.getBucketCount(),
                 handle.getLimit());
 
@@ -571,7 +565,7 @@ public class KuduMetadata
                 handle.getTable(clientSession),
                 handle.getConstraint(),
                 handle.getDesiredColumns(),
-                handle.isDeleteHandle(),
+                handle.isRequiresRowId(),
                 handle.getBucketCount(),
                 OptionalLong.of(limit));
 
