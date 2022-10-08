@@ -139,7 +139,6 @@ public class TestDynamicTable
     @Test
     public void testFilterWithCast()
     {
-        // UPDATE: Pinot 0.11.0 automatically casts constants during parsing
         String tableName = "primitive_types_table";
         String query = "SELECT string_col, long_col" +
                 " FROM " + tableName + " WHERE string_col = CAST(123 AS STRING) AND long_col = CAST('123' AS LONG) LIMIT 60";
