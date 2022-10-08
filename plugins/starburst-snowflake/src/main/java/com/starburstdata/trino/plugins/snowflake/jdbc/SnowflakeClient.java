@@ -280,23 +280,27 @@ public class SnowflakeClient
     }
 
     @Override
-    protected String createSchemaSql(String schemaName)
+    protected void createSchema(ConnectorSession session, Connection connection, String remoteSchemaName)
+            throws SQLException
     {
         if (!databasePrefixForSchemaEnabled) {
-            return super.createSchemaSql(schemaName);
+            super.createSchema(session, connection, remoteSchemaName);
+            return;
         }
-        DatabaseSchemaName databaseSchema = parseDatabaseSchemaName(schemaName);
-        return format("CREATE SCHEMA %s%s%s", quoted(databaseSchema.getDatabaseName()), DATABASE_SEPARATOR, quoted(databaseSchema.getSchemaName()));
+        DatabaseSchemaName databaseSchema = parseDatabaseSchemaName(remoteSchemaName);
+        execute(connection, format("CREATE SCHEMA %s%s%s", quoted(databaseSchema.getDatabaseName()), DATABASE_SEPARATOR, quoted(databaseSchema.getSchemaName())));
     }
 
     @Override
-    protected String dropSchemaSql(String schemaName)
+    protected void dropSchema(ConnectorSession session, Connection connection, String remoteSchemaName)
+            throws SQLException
     {
         if (!databasePrefixForSchemaEnabled) {
-            return super.dropSchemaSql(schemaName);
+            super.dropSchema(session, connection, remoteSchemaName);
+            return;
         }
-        DatabaseSchemaName databaseSchema = parseDatabaseSchemaName(schemaName);
-        return format("DROP SCHEMA %s%s%s", quoted(databaseSchema.getDatabaseName()), DATABASE_SEPARATOR, quoted(databaseSchema.getSchemaName()));
+        DatabaseSchemaName databaseSchema = parseDatabaseSchemaName(remoteSchemaName);
+        execute(session, format("DROP SCHEMA %s%s%s", quoted(databaseSchema.getDatabaseName()), DATABASE_SEPARATOR, quoted(databaseSchema.getSchemaName())));
     }
 
     @Override
@@ -339,8 +343,8 @@ public class SnowflakeClient
 
         return metadata.getTables(
                 databaseSchema.map(DatabaseSchemaName::getDatabaseName).orElse(null),
-                escapeNamePattern(databaseSchema.map(DatabaseSchemaName::getSchemaName), metadata.getSearchStringEscape()).orElse(null),
-                escapeNamePattern(remoteTableName, metadata.getSearchStringEscape()).orElse(null),
+                escapeObjectNameForMetadataQuery(databaseSchema.map(DatabaseSchemaName::getSchemaName), metadata.getSearchStringEscape()).orElse(null),
+                escapeObjectNameForMetadataQuery(remoteTableName, metadata.getSearchStringEscape()).orElse(null),
                 getTableTypes().map(types -> types.toArray(String[]::new)).orElse(null));
     }
 

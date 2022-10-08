@@ -13,9 +13,7 @@ import com.google.common.base.Joiner;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
-import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
-import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.QueryBuilder;
@@ -26,7 +24,6 @@ import io.trino.plugin.sqlserver.SqlServerClient;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.Type;
@@ -92,27 +89,30 @@ public class StarburstSynapseClient
     }
 
     @Override
-    protected void renameTable(ConnectorSession session, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
+    protected void renameTable(ConnectorSession session, Connection connection, String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
+            throws SQLException
     {
-        if (!schemaName.equals(newTable.getSchemaName())) {
+        if (!remoteSchemaName.equals(newRemoteSchemaName)) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
         }
         String sql = format(
                 "RENAME OBJECT %s TO %s",
-                quoted(catalogName, schemaName, tableName),
-                newTable.getTableName());
-        execute(session, sql);
+                quoted(catalogName, remoteSchemaName, remoteSchemaName),
+                newRemoteTableName);
+        execute(connection, sql);
     }
 
     @Override
-    protected String renameColumnSql(JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newRemoteColumnName)
+    protected void renameColumn(ConnectorSession session, Connection connection, RemoteTableName remoteTableName, String remoteColumnName, String newRemoteColumnName)
+            throws SQLException
     {
-        // TODO: Evaluate whether this is SQL injection issue or not https://starburstdata.atlassian.net/browse/SEP-9796
-        RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
-        return format(
+        execute(connection, format(
                 "sp_rename %s, %s, 'COLUMN'",
-                singleQuote(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName(), jdbcColumn.getColumnName()),
-                singleQuote(newRemoteColumnName));
+                singleQuote(remoteTableName.getCatalogName().orElse(null),
+                        remoteTableName.getSchemaName().orElse(null),
+                        remoteTableName.getTableName(),
+                        remoteColumnName),
+                singleQuote(newRemoteColumnName)));
     }
 
     @Override
