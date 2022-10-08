@@ -1548,38 +1548,20 @@ public class TestExpressionCompiler
     @SuppressWarnings("fallthrough")
     private static long callExtractFunction(long value, Field field)
     {
-        switch (field) {
-            case YEAR:
-                return ExtractYear.extract(value);
-            case QUARTER:
-                return ExtractQuarter.extract(value);
-            case MONTH:
-                return ExtractMonth.extract(value);
-            case WEEK:
-                return ExtractWeekOfYear.extract(value);
-            case DAY:
-            case DAY_OF_MONTH:
-                return ExtractDay.extract(value);
-            case DAY_OF_WEEK:
-            case DOW:
-                return ExtractDayOfWeek.extract(value);
-            case YEAR_OF_WEEK:
-            case YOW:
-                return ExtractYearOfWeek.extract(value);
-            case DAY_OF_YEAR:
-            case DOY:
-                return ExtractDayOfYear.extract(value);
-            case HOUR:
-                return ExtractHour.extract(value);
-            case MINUTE:
-                return ExtractMinute.extract(value);
-            case SECOND:
-                return ExtractSecond.extract(value);
-            case TIMEZONE_MINUTE:
-            case TIMEZONE_HOUR:
-                // TODO test these
-        }
-        throw new AssertionError("Unhandled field: " + field);
+        return switch (field) {
+            case YEAR -> ExtractYear.extract(value);
+            case QUARTER -> ExtractQuarter.extract(value);
+            case MONTH -> ExtractMonth.extract(value);
+            case WEEK -> ExtractWeekOfYear.extract(value);
+            case DAY, DAY_OF_MONTH -> ExtractDay.extract(value);
+            case DAY_OF_WEEK, DOW -> ExtractDayOfWeek.extract(value);
+            case YEAR_OF_WEEK, YOW -> ExtractYearOfWeek.extract(value);
+            case DAY_OF_YEAR, DOY -> ExtractDayOfYear.extract(value);
+            case HOUR -> ExtractHour.extract(value);
+            case MINUTE -> ExtractMinute.extract(value);
+            case SECOND -> ExtractSecond.extract(value);
+            case TIMEZONE_MINUTE, TIMEZONE_HOUR -> throw new AssertionError("Unhandled field: " + field);
+        };
     }
 
     @Test
