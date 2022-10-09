@@ -167,6 +167,39 @@ public class TestReadUniontype
         }
     }
 
+    @Test(groups = SMOKE)
+    public void testReadOrcUniontypeWithCheckpoint()
+    {
+        // According to testing results, the Hive INSERT queries here only work in Hive 1.2
+        if (getHiveVersionMajor() != 1 || getHiveVersionMinor() != 2) {
+            throw new SkipException("This test can only be run with Hive 1.2 (default config)");
+        }
+
+        // Set the row group size to 1000 (the minimum value).
+        onHive().executeQuery(format(
+                "CREATE TABLE %s (id INT,foo UNIONTYPE<" +
+                        "INT," +
+                        "DOUBLE," +
+                        "ARRAY<STRING>>)" +
+                        "STORED AS ORC TBLPROPERTIES (\"orc.row.index.stride\"=\"1000\")",
+                TABLE_NAME));
+
+        // Generate a file with 1100 rows, as the default row group size is 1000, reading 1100 rows will involve
+        // streaming checkpoint.
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < 1100; i++) {
+            builder.append("SELECT 0, create_union(0, CAST(36 AS INT), CAST(NULL AS DOUBLE), ARRAY('foo','bar')) ");
+            if (i < 1099) {
+                builder.append("UNION ALL ");
+            }
+        }
+        onHive().executeQuery(format(
+                "INSERT INTO TABLE %s " + builder.toString(), TABLE_NAME));
+
+        QueryResult selectAllResult = onTrino().executeQuery(format("SELECT * FROM %s", TABLE_NAME));
+        assertEquals(selectAllResult.rows().size(), 1100);
+    }
+
     private void testORCSchemaEvolution()
     {
         // Generate a file with rows:
