@@ -771,6 +771,22 @@ jobs:
           ./.github/bin/build-pt-matrix-from-impacted-connectors.py -v -m .github/test-pt-matrix.yaml -o matrix.json
       - name: Build PT matrix (impacted-features)
         if: steps.filter.outputs.product-tests == 'false' && !contains(github.event.pull_request.labels.*.name, 'tests:all') && !contains(github.event.pull_request.labels.*.name, 'product-tests:all')
+        # all these envs are required to be set by some product test environments
+        env:
+          ABFS_CONTAINER:
+          ABFS_ACCOUNT:
+          ABFS_ACCESS_KEY:
+          S3_BUCKET:
+          AWS_REGION:
+          DATABRICKS_AWS_ACCESS_KEY_ID:
+          DATABRICKS_AWS_SECRET_ACCESS_KEY:
+          DATABRICKS_73_JDBC_URL:
+          DATABRICKS_91_JDBC_URL:
+          DATABRICKS_104_JDBC_URL:
+          DATABRICKS_LOGIN:
+          DATABRICKS_TOKEN:
+          GCP_CREDENTIALS_KEY:
+          GCP_STORAGE_BUCKET:
         run: |
           # converts filtered YAML file into JSON
           ./.github/bin/build-pt-matrix-from-impacted-connectors.py -v -m .github/test-pt-matrix.yaml -i impacted-features.log -o matrix.json
