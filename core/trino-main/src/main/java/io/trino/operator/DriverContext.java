@@ -27,7 +27,9 @@ import io.trino.operator.OperationTimer.OperationTiming;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.joda.time.DateTime;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -273,6 +275,22 @@ public class DriverContext
             physicalWrittenBytes += context.getPhysicalWrittenDataSize();
         }
         return physicalWrittenBytes;
+    }
+
+    public Map<Integer, Long> getPartitionPhysicalWrittenBytes()
+    {
+        // Avoid using stream api for performance reasons
+        HashMap<Integer, Long> result = new HashMap<>();
+        for (OperatorContext context : operatorContexts) {
+            context.getPartitionPhysicalWrittenBytes().forEach((partition, physicalWrittenBytes) ->
+                    result.compute(partition, (key, value) -> {
+                        if (value == null) {
+                            return physicalWrittenBytes;
+                        }
+                        return physicalWrittenBytes + value;
+                    }));
+        }
+        return result;
     }
 
     public boolean isExecutionStarted()

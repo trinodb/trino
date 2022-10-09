@@ -13,23 +13,14 @@
  */
 package io.trino.operator;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.Futures;
+import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.memory.context.LocalMemoryContext;
-import io.trino.operator.OperationTimer.OperationTiming;
-import io.trino.spi.Mergeable;
 import io.trino.spi.Page;
-import io.trino.spi.PageBuilder;
-import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.type.Type;
 import io.trino.split.PageSinkManager;
@@ -44,28 +35,19 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.Futures.allAsList;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.SystemSessionProperties.isStatisticsCpuTimerEnabled;
-import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
 import static io.trino.sql.planner.plan.TableWriterNode.InsertTarget;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class TableWriterOperator
-        implements Operator
+        extends AbstractTableWriterOperator
 {
-    public static final int ROW_COUNT_CHANNEL = 0;
-    public static final int FRAGMENT_CHANNEL = 1;
-    public static final int STATS_START_CHANNEL = 2;
-
     public static class TableWriterOperatorFactory
             implements OperatorFactory
     {
@@ -100,7 +82,7 @@ public class TableWriterOperator
                             || writerTarget instanceof TableWriterNode.TableExecuteTarget,
                     "writerTarget must be CreateTarget, InsertTarget, RefreshMaterializedViewTarget or TableExecuteTarget");
             this.target = requireNonNull(writerTarget, "writerTarget is null");
-            this.session = session;
+            this.session = requireNonNull(session, "session is null");
             this.statisticsAggregationOperatorFactory = requireNonNull(statisticsAggregationOperatorFactory, "statisticsAggregationOperatorFactory is null");
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         }
@@ -112,7 +94,7 @@ public class TableWriterOperator
             OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, TableWriterOperator.class.getSimpleName());
             Operator statisticsAggregationOperator = statisticsAggregationOperatorFactory.createOperator(driverContext);
             boolean statisticsCpuTimerEnabled = !(statisticsAggregationOperator instanceof DevNullOperator) && isStatisticsCpuTimerEnabled(session);
-            return new TableWriterOperator(context, createPageSink(), columnChannels, statisticsAggregationOperator, types, statisticsCpuTimerEnabled);
+            return new TableWriterOperator(context, statisticsAggregationOperator, types, statisticsCpuTimerEnabled, createPageSink(), Ints.toArray(columnChannels));
         }
 
         private ConnectorPageSink createPageSink()
@@ -145,333 +127,83 @@ public class TableWriterOperator
         }
     }
 
-    private enum State
-    {
-        RUNNING, FINISHING, FINISHED
-    }
-
-    private final OperatorContext operatorContext;
     private final LocalMemoryContext pageSinkMemoryContext;
     private final ConnectorPageSink pageSink;
-    private final List<Integer> columnChannels;
+    private final int[] columnChannels;
     private final AtomicLong pageSinkPeakMemoryUsage = new AtomicLong();
-    private final Operator statisticAggregationOperator;
-    private final List<Type> types;
 
-    private ListenableFuture<Void> blocked = NOT_BLOCKED;
     private CompletableFuture<Collection<Slice>> finishFuture;
-    private State state = State.RUNNING;
-    private long rowCount;
-    private boolean committed;
-    private boolean closed;
     private long writtenBytes;
-
-    private final OperationTiming statisticsTiming = new OperationTiming();
-    private final boolean statisticsCpuTimerEnabled;
-
-    private final Supplier<TableWriterInfo> tableWriterInfoSupplier;
 
     public TableWriterOperator(
             OperatorContext operatorContext,
-            ConnectorPageSink pageSink,
-            List<Integer> columnChannels,
             Operator statisticAggregationOperator,
             List<Type> types,
-            boolean statisticsCpuTimerEnabled)
+            boolean statisticsCpuTimerEnabled,
+            ConnectorPageSink pageSink,
+            int[] columnChannels)
     {
-        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        super(operatorContext, statisticAggregationOperator, types, statisticsCpuTimerEnabled);
         this.pageSinkMemoryContext = operatorContext.newLocalUserMemoryContext(TableWriterOperator.class.getSimpleName());
         this.pageSink = requireNonNull(pageSink, "pageSink is null");
-        this.columnChannels = requireNonNull(columnChannels, "columnChannels is null");
-        this.statisticAggregationOperator = requireNonNull(statisticAggregationOperator, "statisticAggregationOperator is null");
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
-        this.statisticsCpuTimerEnabled = statisticsCpuTimerEnabled;
-        this.tableWriterInfoSupplier = createTableWriterInfoSupplier(pageSinkPeakMemoryUsage, statisticsTiming, pageSink);
-        this.operatorContext.setInfoSupplier(tableWriterInfoSupplier);
+        this.columnChannels = columnChannels;
     }
 
     @Override
-    public OperatorContext getOperatorContext()
+    protected List<ListenableFuture<?>> finishWriter()
     {
-        return operatorContext;
+        finishFuture = pageSink.finish();
+        return ImmutableList.of(toListenableFuture(finishFuture));
     }
 
     @Override
-    public void finish()
+    protected List<ListenableFuture<?>> writePage(Page page)
     {
-        ListenableFuture<Void> currentlyBlocked = blocked;
-
-        OperationTimer timer = new OperationTimer(statisticsCpuTimerEnabled);
-        statisticAggregationOperator.finish();
-        timer.end(statisticsTiming);
-
-        ListenableFuture<Void> blockedOnAggregation = statisticAggregationOperator.isBlocked();
-        ListenableFuture<?> blockedOnFinish = NOT_BLOCKED;
-        if (state == State.RUNNING) {
-            state = State.FINISHING;
-            finishFuture = pageSink.finish();
-            blockedOnFinish = toListenableFuture(finishFuture);
-            updateWrittenBytes();
-        }
-        this.blocked = asVoid(allAsList(currentlyBlocked, blockedOnAggregation, blockedOnFinish));
+        CompletableFuture<?> future = pageSink.appendPage(page.getColumns(columnChannels));
+        return ImmutableList.of(toListenableFuture(future));
     }
 
     @Override
-    public boolean isFinished()
+    protected Collection<Slice> getOutputFragments()
     {
-        return state == State.FINISHED && blocked.isDone();
+        return getFutureValue(finishFuture);
     }
 
     @Override
-    public ListenableFuture<Void> isBlocked()
-    {
-        return blocked;
-    }
-
-    @Override
-    public boolean needsInput()
-    {
-        if (state != State.RUNNING || !blocked.isDone()) {
-            return false;
-        }
-        return statisticAggregationOperator.needsInput();
-    }
-
-    @Override
-    public void addInput(Page page)
-    {
-        requireNonNull(page, "page is null");
-        checkState(needsInput(), "Operator does not need input");
-
-        Block[] blocks = new Block[columnChannels.size()];
-        for (int outputChannel = 0; outputChannel < columnChannels.size(); outputChannel++) {
-            Block block = page.getBlock(columnChannels.get(outputChannel));
-            blocks[outputChannel] = block;
-        }
-
-        OperationTimer timer = new OperationTimer(statisticsCpuTimerEnabled);
-        statisticAggregationOperator.addInput(page);
-        timer.end(statisticsTiming);
-
-        ListenableFuture<Void> blockedOnAggregation = statisticAggregationOperator.isBlocked();
-        CompletableFuture<?> future = pageSink.appendPage(new Page(blocks));
-        updateMemoryUsage();
-        ListenableFuture<?> blockedOnWrite = toListenableFuture(future);
-        blocked = asVoid(allAsList(blockedOnAggregation, blockedOnWrite));
-        rowCount += page.getPositionCount();
-        updateWrittenBytes();
-    }
-
-    @Override
-    public Page getOutput()
-    {
-        if (!blocked.isDone()) {
-            return null;
-        }
-
-        if (!statisticAggregationOperator.isFinished()) {
-            OperationTimer timer = new OperationTimer(statisticsCpuTimerEnabled);
-            Page aggregationOutput = statisticAggregationOperator.getOutput();
-            timer.end(statisticsTiming);
-
-            if (aggregationOutput == null) {
-                return null;
-            }
-            return createStatisticsPage(aggregationOutput);
-        }
-
-        if (state != State.FINISHING) {
-            return null;
-        }
-
-        Page fragmentsPage = createFragmentsPage();
-        int positionCount = fragmentsPage.getPositionCount();
-        Block[] outputBlocks = new Block[types.size()];
-        for (int channel = 0; channel < types.size(); channel++) {
-            if (channel < STATS_START_CHANNEL) {
-                outputBlocks[channel] = fragmentsPage.getBlock(channel);
-            }
-            else {
-                outputBlocks[channel] = RunLengthEncodedBlock.create(types.get(channel), null, positionCount);
-            }
-        }
-
-        state = State.FINISHED;
-        return new Page(positionCount, outputBlocks);
-    }
-
-    private Page createStatisticsPage(Page aggregationOutput)
-    {
-        int positionCount = aggregationOutput.getPositionCount();
-        Block[] outputBlocks = new Block[types.size()];
-        for (int channel = 0; channel < types.size(); channel++) {
-            if (channel < STATS_START_CHANNEL) {
-                outputBlocks[channel] = RunLengthEncodedBlock.create(types.get(channel), null, positionCount);
-            }
-            else {
-                outputBlocks[channel] = aggregationOutput.getBlock(channel - 2);
-            }
-        }
-        return new Page(positionCount, outputBlocks);
-    }
-
-    private Page createFragmentsPage()
-    {
-        Collection<Slice> fragments = getFutureValue(finishFuture);
-        committed = true;
-        updateWrittenBytes();
-
-        // output page will only be constructed once,
-        // so a new PageBuilder is constructed (instead of using PageBuilder.reset)
-        PageBuilder page = new PageBuilder(fragments.size() + 1, ImmutableList.of(types.get(ROW_COUNT_CHANNEL), types.get(FRAGMENT_CHANNEL)));
-        BlockBuilder rowsBuilder = page.getBlockBuilder(0);
-        BlockBuilder fragmentBuilder = page.getBlockBuilder(1);
-
-        // write row count
-        page.declarePosition();
-        BIGINT.writeLong(rowsBuilder, rowCount);
-        fragmentBuilder.appendNull();
-
-        // write fragments
-        for (Slice fragment : fragments) {
-            page.declarePosition();
-            rowsBuilder.appendNull();
-            VARBINARY.writeSlice(fragmentBuilder, fragment);
-        }
-
-        return page.build();
-    }
-
-    @Override
-    public void close()
+    protected void closeWriter(boolean committed)
             throws Exception
     {
         AutoCloseableCloser closer = AutoCloseableCloser.create();
-        if (!closed) {
-            closed = true;
-            if (!committed) {
-                closer.register(pageSink::abort);
-            }
+        if (!committed) {
+            closer.register(pageSink::abort);
         }
-        closer.register(() -> statisticAggregationOperator.getOperatorContext().destroy());
-        closer.register(statisticAggregationOperator);
         closer.register(pageSinkMemoryContext::close);
         closer.close();
     }
 
-    private void updateWrittenBytes()
+    @Override
+    protected void updateWrittenBytes()
     {
         long current = pageSink.getCompletedBytes();
         operatorContext.recordPhysicalWrittenData(current - writtenBytes);
         writtenBytes = current;
     }
 
-    private void updateMemoryUsage()
+    @Override
+    protected void updateMemoryUsage()
     {
         long pageSinkMemoryUsage = pageSink.getMemoryUsage();
         pageSinkMemoryContext.setBytes(pageSinkMemoryUsage);
         pageSinkPeakMemoryUsage.accumulateAndGet(pageSinkMemoryUsage, Math::max);
     }
 
-    @VisibleForTesting
-    Operator getStatisticAggregationOperator()
+    @Override
+    protected Supplier<TableWriterInfo> createTableWriterInfoSupplier()
     {
-        return statisticAggregationOperator;
-    }
-
-    @VisibleForTesting
-    TableWriterInfo getInfo()
-    {
-        return tableWriterInfoSupplier.get();
-    }
-
-    private static Supplier<TableWriterInfo> createTableWriterInfoSupplier(AtomicLong pageSinkPeakMemoryUsage, OperationTiming statisticsTiming, ConnectorPageSink pageSink)
-    {
-        requireNonNull(pageSinkPeakMemoryUsage, "pageSinkPeakMemoryUsage is null");
-        requireNonNull(statisticsTiming, "statisticsTiming is null");
-        requireNonNull(pageSink, "pageSink is null");
         return () -> new TableWriterInfo(
                 pageSinkPeakMemoryUsage.get(),
                 new Duration(statisticsTiming.getWallNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(statisticsTiming.getCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(pageSink.getValidationCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit());
-    }
-
-    public static class TableWriterInfo
-            implements Mergeable<TableWriterInfo>, OperatorInfo
-    {
-        private final long pageSinkPeakMemoryUsage;
-        private final Duration statisticsWallTime;
-        private final Duration statisticsCpuTime;
-        private final Duration validationCpuTime;
-
-        @JsonCreator
-        public TableWriterInfo(
-                @JsonProperty("pageSinkPeakMemoryUsage") long pageSinkPeakMemoryUsage,
-                @JsonProperty("statisticsWallTime") Duration statisticsWallTime,
-                @JsonProperty("statisticsCpuTime") Duration statisticsCpuTime,
-                @JsonProperty("validationCpuTime") Duration validationCpuTime)
-        {
-            this.pageSinkPeakMemoryUsage = pageSinkPeakMemoryUsage;
-            this.statisticsWallTime = requireNonNull(statisticsWallTime, "statisticsWallTime is null");
-            this.statisticsCpuTime = requireNonNull(statisticsCpuTime, "statisticsCpuTime is null");
-            this.validationCpuTime = requireNonNull(validationCpuTime, "validationCpuTime is null");
-        }
-
-        @JsonProperty
-        public long getPageSinkPeakMemoryUsage()
-        {
-            return pageSinkPeakMemoryUsage;
-        }
-
-        @JsonProperty
-        public Duration getStatisticsWallTime()
-        {
-            return statisticsWallTime;
-        }
-
-        @JsonProperty
-        public Duration getStatisticsCpuTime()
-        {
-            return statisticsCpuTime;
-        }
-
-        @JsonProperty
-        public Duration getValidationCpuTime()
-        {
-            return validationCpuTime;
-        }
-
-        @Override
-        public TableWriterInfo mergeWith(TableWriterInfo other)
-        {
-            return new TableWriterInfo(
-                    Math.max(pageSinkPeakMemoryUsage, other.pageSinkPeakMemoryUsage),
-                    new Duration(statisticsWallTime.getValue(NANOSECONDS) + other.statisticsWallTime.getValue(NANOSECONDS), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                    new Duration(statisticsCpuTime.getValue(NANOSECONDS) + other.statisticsCpuTime.getValue(NANOSECONDS), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                    new Duration(validationCpuTime.getValue(NANOSECONDS) + other.validationCpuTime.getValue(NANOSECONDS), NANOSECONDS).convertToMostSuccinctTimeUnit());
-        }
-
-        @Override
-        public boolean isFinal()
-        {
-            return true;
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("pageSinkPeakMemoryUsage", pageSinkPeakMemoryUsage)
-                    .add("statisticsWallTime", statisticsWallTime)
-                    .add("statisticsCpuTime", statisticsCpuTime)
-                    .add("validationCpuTime", validationCpuTime)
-                    .toString();
-        }
-    }
-
-    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
-    {
-        return Futures.transform(future, v -> null, directExecutor());
     }
 }

@@ -31,8 +31,10 @@ import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -325,6 +327,22 @@ public class PipelineContext
             physicalWrittenBytes += context.getPhysicalWrittenDataSize();
         }
         return physicalWrittenBytes;
+    }
+
+    public Map<Integer, Long> getPartitionPhysicalWrittenBytes()
+    {
+        // Avoid using stream api for performance reasons
+        HashMap<Integer, Long> result = new HashMap<>();
+        for (DriverContext context : drivers) {
+            context.getPartitionPhysicalWrittenBytes().forEach((partition, physicalWrittenBytes) ->
+                    result.compute(partition, (key, value) -> {
+                        if (value == null) {
+                            return physicalWrittenBytes;
+                        }
+                        return physicalWrittenBytes + value;
+                    }));
+        }
+        return result;
     }
 
     public PipelineStatus getPipelineStatus()

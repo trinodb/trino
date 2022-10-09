@@ -41,7 +41,9 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -93,6 +95,7 @@ public class OperatorContext
     private final AtomicReference<Metrics> connectorMetrics = new AtomicReference<>(Metrics.EMPTY); // this is not incremental, but gets overwritten by the latest value.
 
     private final AtomicLong physicalWrittenDataSize = new AtomicLong();
+    private final ConcurrentHashMap<Integer, Long> partitionPhysicalWrittenBytes = new ConcurrentHashMap<>();
 
     private final AtomicReference<SettableFuture<Void>> memoryFuture;
     private final AtomicReference<SettableFuture<Void>> revocableMemoryFuture;
@@ -255,6 +258,11 @@ public class OperatorContext
     public void recordPhysicalWrittenData(long sizeInBytes)
     {
         physicalWrittenDataSize.getAndAdd(sizeInBytes);
+    }
+
+    public void setPartitionPhysicalWrittenBytes(int partition, long physicalWrittenBytes)
+    {
+        partitionPhysicalWrittenBytes.put(partition, physicalWrittenBytes);
     }
 
     public void recordBlocked(ListenableFuture<Void> blocked)
@@ -495,6 +503,11 @@ public class OperatorContext
     public long getPhysicalWrittenDataSize()
     {
         return physicalWrittenDataSize.get();
+    }
+
+    public Map<Integer, Long> getPartitionPhysicalWrittenBytes()
+    {
+        return partitionPhysicalWrittenBytes;
     }
 
     @Override

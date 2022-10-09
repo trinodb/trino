@@ -21,6 +21,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.operator.BlockedReason;
 import io.trino.operator.OperatorStats;
+import io.trino.operator.PartitionedTableWriterOperator;
 import io.trino.operator.TableWriterOperator;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import org.joda.time.DateTime;
@@ -738,7 +739,8 @@ public class QueryStats
     public long getWrittenPositions()
     {
         return operatorSummaries.stream()
-                .filter(stats -> stats.getOperatorType().equals(TableWriterOperator.class.getSimpleName()))
+                .filter(stats -> stats.getOperatorType().equals(TableWriterOperator.class.getSimpleName())
+                        || stats.getOperatorType().equals(PartitionedTableWriterOperator.class.getSimpleName()))
                 .mapToLong(OperatorStats::getInputPositions)
                 .sum();
     }
@@ -748,7 +750,8 @@ public class QueryStats
     {
         return succinctBytes(
                 operatorSummaries.stream()
-                        .filter(stats -> stats.getOperatorType().equals(TableWriterOperator.class.getSimpleName()))
+                        .filter(stats -> stats.getOperatorType().equals(TableWriterOperator.class.getSimpleName())
+                                || stats.getOperatorType().equals(PartitionedTableWriterOperator.class.getSimpleName()))
                         .mapToLong(stats -> stats.getInputDataSize().toBytes())
                         .sum());
     }
