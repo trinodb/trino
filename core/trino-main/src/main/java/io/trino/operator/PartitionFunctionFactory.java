@@ -23,6 +23,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.planner.MergePartitioningHandle;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.PartitioningHandle;
+import io.trino.sql.planner.ScaleWriterPartitioningHandle;
 import io.trino.sql.planner.SystemPartitioningHandle;
 import io.trino.type.BlockTypeOperators;
 
@@ -54,6 +55,7 @@ public class PartitionFunctionFactory
             int partitionCount)
     {
         checkArgument(Integer.bitCount(partitionCount) == 1, "partitionCount must be a power of 2");
+        partitioning = unwrapScalingPartitioningHandle(partitioning);
 
         if (partitioning.getConnectorHandle() instanceof SystemPartitioningHandle) {
             HashGenerator hashGenerator;
@@ -93,6 +95,7 @@ public class PartitionFunctionFactory
 
     public Function<Page, Page> createPartitionPagePreparer(PartitioningHandle partitioning, List<Integer> partitionChannels)
     {
+        partitioning = unwrapScalingPartitioningHandle(partitioning);
         Function<Page, Page> partitionPagePreparer;
         if (partitioning.getConnectorHandle() instanceof SystemPartitioningHandle) {
             partitionPagePreparer = identity();
@@ -102,5 +105,16 @@ public class PartitionFunctionFactory
             partitionPagePreparer = page -> page.getColumns(partitionChannelsArray);
         }
         return partitionPagePreparer;
+    }
+
+    private PartitioningHandle unwrapScalingPartitioningHandle(PartitioningHandle partitioning)
+    {
+        if (partitioning.getConnectorHandle() instanceof ScaleWriterPartitioningHandle handle) {
+            return new PartitioningHandle(
+                    partitioning.getCatalogHandle(),
+                    partitioning.getTransactionHandle(),
+                    handle.getPartitioningHandle());
+        }
+        return partitioning;
     }
 }

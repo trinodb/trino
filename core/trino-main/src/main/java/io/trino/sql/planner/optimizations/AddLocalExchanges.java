@@ -81,9 +81,11 @@ import static io.trino.SystemSessionProperties.isDistributedSortEnabled;
 import static io.trino.SystemSessionProperties.isSpillEnabled;
 import static io.trino.SystemSessionProperties.isTaskScaleWritersEnabled;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
+import static io.trino.sql.planner.ScaleWriterPartitioningHandle.wrapScalingPartitioningHandle;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.StreamPreferredProperties.any;
 import static io.trino.sql.planner.optimizations.StreamPreferredProperties.defaultParallelism;
@@ -615,21 +617,14 @@ public class AddLocalExchanges
 
         private PlanWithProperties visitPartitionedWriter(PlanNode node, Optional<PartitioningScheme> optionalPartitioning, PlanNode source, StreamPreferredProperties parentPreferences, WriterTarget writerTarget)
         {
-            // TODO - Support scale task writers for partitioned tables (https://github.com/trinodb/trino/issues/13379)
-            if (optionalPartitioning.isEmpty()
-                    && isTaskScaleWritersEnabled(session)
-                    && writerTarget.supportsReportingWrittenBytes(plannerContext.getMetadata(), session)) {
-                PlanWithProperties newSource = source.accept(this, defaultParallelism(session));
-                PlanWithProperties exchange = deriveProperties(
-                        partitionedExchange(
-                                idAllocator.getNextId(),
-                                LOCAL,
-                                newSource.getNode(),
-                                new PartitioningScheme(
-                                        Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()),
-                                        newSource.getNode().getOutputSymbols())),
-                        newSource.getProperties());
-                return rebaseAndDeriveProperties(node, ImmutableList.of(exchange));
+            boolean isSingleWriterPerPartition = optionalPartitioning
+                    .map(partitioningScheme -> partitioningScheme.getPartitioning().getHandle().getConnectorHandle().isSingleWriterPerPartition())
+                    .orElse(false);
+
+            if (isTaskScaleWritersEnabled(session)
+                    && writerTarget.supportsReportingWrittenBytes(plannerContext.getMetadata(), session)
+                    && !isSingleWriterPerPartition) {
+                return visitScaleTableWriter(node, optionalPartitioning, source, parentPreferences);
             }
             if (getTaskWriterCount(session) == 1) {
                 return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
@@ -659,6 +654,58 @@ public class AddLocalExchanges
                             LOCAL,
                             newSource.getNode(),
                             partitioningScheme),
+                    newSource.getProperties());
+
+            return rebaseAndDeriveProperties(node, ImmutableList.of(exchange));
+        }
+
+        private PlanWithProperties visitScaleTableWriter(PlanNode node, Optional<PartitioningScheme> optionalPartitioning, PlanNode source, StreamPreferredProperties parentPreferences)
+        {
+            if (optionalPartitioning.isEmpty()) {
+                PlanWithProperties newSource = source.accept(this, defaultParallelism(session));
+                PlanWithProperties exchange = deriveProperties(
+                        partitionedExchange(
+                                idAllocator.getNextId(),
+                                LOCAL,
+                                newSource.getNode(),
+                                new PartitioningScheme(
+                                        Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()),
+                                        newSource.getNode().getOutputSymbols())),
+                        newSource.getProperties());
+                return rebaseAndDeriveProperties(node, ImmutableList.of(exchange));
+            }
+
+            PartitioningScheme partitioningScheme = optionalPartitioning.get();
+
+            if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_HASH_DISTRIBUTION)) {
+                // arbitrary hash function on predefined set of partition columns
+                StreamPreferredProperties preference = partitionedOn(partitioningScheme.getPartitioning().getColumns());
+                PlanWithProperties newSource = source.accept(this, preference);
+                PlanWithProperties exchange = deriveProperties(
+                        partitionedExchange(
+                                idAllocator.getNextId(),
+                                LOCAL,
+                                newSource.getNode(),
+                                partitioningScheme.withAlternativePartitioningHandle(SCALED_WRITER_HASH_DISTRIBUTION)),
+                        newSource.getProperties());
+                return rebaseAndDeriveProperties(node, ImmutableList.of(exchange));
+            }
+
+            // connector provided hash function
+            verify(!(partitioningScheme.getPartitioning().getHandle().getConnectorHandle() instanceof SystemPartitioningHandle));
+            verify(
+                    partitioningScheme.getPartitioning().getArguments().stream().noneMatch(Partitioning.ArgumentBinding::isConstant),
+                    "Table writer partitioning has constant arguments");
+
+            PlanWithProperties newSource = source.accept(this, parentPreferences);
+            PlanWithProperties exchange = deriveProperties(
+                    partitionedExchange(
+                            idAllocator.getNextId(),
+                            LOCAL,
+                            newSource.getNode(),
+                            partitioningScheme
+                                    .withAlternativePartitioningHandle(
+                                            wrapScalingPartitioningHandle(partitioningScheme.getPartitioning().getHandle()))),
                     newSource.getProperties());
 
             return rebaseAndDeriveProperties(node, ImmutableList.of(exchange));

@@ -18,6 +18,7 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.PartitioningHandle;
+import io.trino.sql.planner.ScaleWriterPartitioningHandle;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.ExchangeNode;
@@ -32,6 +33,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -75,10 +77,13 @@ public class ValidateScaledWritersUsage
         public List<PartitioningHandle> visitTableWriter(TableWriterNode node, Void context)
         {
             List<PartitioningHandle> children = collectPartitioningHandles(node.getSources());
-            boolean anyScaledWriterDistribution = children.stream().anyMatch(partitioningHandle -> partitioningHandle == SCALED_WRITER_DISTRIBUTION);
+            boolean anyScaledWriterDistribution = children.stream()
+                    .anyMatch(partitioningHandle -> partitioningHandle == SCALED_WRITER_DISTRIBUTION
+                            || partitioningHandle == SCALED_WRITER_HASH_DISTRIBUTION
+                            || partitioningHandle.getConnectorHandle() instanceof ScaleWriterPartitioningHandle);
             TableWriterNode.WriterTarget target = node.getTarget();
             checkState(!anyScaledWriterDistribution || target.supportsReportingWrittenBytes(plannerContext.getMetadata(), session),
-                    "The partitioning scheme is set to SCALED_WRITER_DISTRIBUTION but writer target %s does support for it", target);
+                    "The scaling writer partitioning scheme is set but writer target %s doesn't support it", target);
             return children;
         }
 

@@ -23,6 +23,7 @@ import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.MergePartitioningHandle;
 import io.trino.sql.planner.PartitioningHandle;
+import io.trino.sql.planner.ScaleWriterPartitioningHandle;
 import io.trino.sql.planner.SystemPartitioningHandle;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -32,6 +33,7 @@ import java.io.Closeable;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -41,12 +43,14 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.getTaskScaleWritersPartitionCount;
 import static io.trino.operator.exchange.LocalExchangeSink.finishedLocalExchangeSink;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static java.util.Objects.requireNonNull;
 
@@ -84,6 +88,7 @@ public class LocalExchange
             PartitionFunctionFactory partitionFunctionFactory,
             DataSize maxBufferedBytes,
             Supplier<Long> physicalWrittenBytesSupplier,
+            Supplier<Map<Integer, Long>> partitionPhysicalWrittenBytesSupplier,
             DataSize writerMinSize)
     {
         ImmutableList.Builder<LocalExchangeSource> sources = ImmutableList.builder();
@@ -121,6 +126,28 @@ public class LocalExchange
                     maxBufferedBytes.toBytes(),
                     physicalWrittenBytesSupplier,
                     writerMinSize);
+        }
+        else if (partitioning.equals(SCALED_WRITER_HASH_DISTRIBUTION) || isScalingPartitioning(partitioning)) {
+            exchangerSupplier = () -> {
+                int partitionCount = getTaskScaleWritersPartitionCount(session);
+                PartitionFunction partitionFunction = partitionFunctionFactory.create(
+                        session,
+                        partitioning,
+                        partitionChannels,
+                        partitionChannelTypes,
+                        partitionHashChannel,
+                        partitionCount);
+                Function<Page, Page> partitionPagePreparer = partitionFunctionFactory.createPartitionPagePreparer(partitioning, partitionChannels);
+                return new ScaleWriterPartitioningExchanger(
+                        buffers,
+                        memoryManager,
+                        maxBufferedBytes.toBytes(),
+                        partitionPagePreparer,
+                        partitionFunction,
+                        partitionCount,
+                        partitionPhysicalWrittenBytesSupplier,
+                        writerMinSize);
+            };
         }
         else if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.getCatalogHandle().isPresent() ||
                 (partitioning.getConnectorHandle() instanceof MergePartitioningHandle)) {
@@ -180,6 +207,11 @@ public class LocalExchange
     private static boolean isSystemPartitioning(PartitioningHandle partitioning)
     {
         return partitioning.getConnectorHandle() instanceof SystemPartitioningHandle;
+    }
+
+    private static boolean isScalingPartitioning(PartitioningHandle partitioning)
+    {
+        return partitioning.getConnectorHandle() instanceof ScaleWriterPartitioningHandle;
     }
 
     private void checkAllSourcesFinished()
@@ -297,6 +329,11 @@ public class LocalExchange
             // However, only some of them are actively doing the work.
             bufferCount = defaultConcurrency;
             checkArgument(partitionChannels.isEmpty(), "Scaled writer exchange must not have partition channels");
+        }
+        else if (partitioning.equals(SCALED_WRITER_HASH_DISTRIBUTION) || isScalingPartitioning(partitioning)) {
+            // Even when scale writers is enabled, the buffer count or the number of drivers will remain constant.
+            // However, only some of them are actively doing the work.
+            bufferCount = defaultConcurrency;
         }
         else if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.getCatalogHandle().isPresent() ||
                 (partitioning.getConnectorHandle() instanceof MergePartitioningHandle)) {

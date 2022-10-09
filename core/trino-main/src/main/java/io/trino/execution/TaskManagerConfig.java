@@ -80,6 +80,7 @@ public class TaskManagerConfig
     // and acceptable in terms of resource utilization since values like 32 or higher could take
     // more resources, hence potentially affect the other concurrent queries in the cluster.
     private int scaleWritersMaxWriterCount = 8;
+    private int scaleWritersPartitionCount = 128;
     private int writerCount = 1;
     // cap task concurrency to 32 in order to avoid small pages produced by local partitioning exchanges
     private int taskConcurrency = min(nextPowerOfTwo(getAvailablePhysicalProcessorCount()), 32);
@@ -414,6 +415,22 @@ public class TaskManagerConfig
     public TaskManagerConfig setScaleWritersMaxWriterCount(int scaleWritersMaxWriterCount)
     {
         this.scaleWritersMaxWriterCount = scaleWritersMaxWriterCount;
+        return this;
+    }
+
+    @Min(1)
+    @PowerOfTwo
+    public int getScaleWritersPartitionCount()
+    {
+        return scaleWritersPartitionCount;
+    }
+
+    @Config("task.scale-writers.partition-count")
+    @ConfigDescription("Divide the physical partitions into this artificial limit where each partition will be assigned to a bucket id. " +
+            "The scaling will only happen on these artificial partitions if task.scale-writers.enabled is set")
+    public TaskManagerConfig setScaleWritersPartitionCount(int scaleWritersPartitionCount)
+    {
+        this.scaleWritersPartitionCount = scaleWritersPartitionCount;
         return this;
     }
 

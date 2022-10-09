@@ -156,6 +156,7 @@ public final class JoinTestUtils
                 new PartitionFunctionFactory(nodePartitioningManager, TYPE_OPERATOR_FACTORY),
                 DataSize.of(32, DataSize.Unit.MEGABYTE),
                 taskContext::getPhysicalWrittenDataSize,
+                taskContext::getPartitionPhysicalWrittenBytes,
                 DataSize.of(32, DataSize.Unit.MEGABYTE));
 
         // collect input data into the partitioned exchange

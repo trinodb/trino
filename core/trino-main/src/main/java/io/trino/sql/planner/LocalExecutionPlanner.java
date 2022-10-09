@@ -300,6 +300,7 @@ import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageR
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
 import static io.trino.SystemSessionProperties.getTaskConcurrency;
 import static io.trino.SystemSessionProperties.getTaskScaleWritersMaxWriterCount;
+import static io.trino.SystemSessionProperties.getTaskScaleWritersPartitionCount;
 import static io.trino.SystemSessionProperties.getTaskWriterCount;
 import static io.trino.SystemSessionProperties.getWriterMinSize;
 import static io.trino.SystemSessionProperties.isAdaptivePartialAggregationEnabled;
@@ -309,10 +310,12 @@ import static io.trino.SystemSessionProperties.isExchangeCompressionEnabled;
 import static io.trino.SystemSessionProperties.isForceSpillingOperator;
 import static io.trino.SystemSessionProperties.isLateMaterializationEnabled;
 import static io.trino.SystemSessionProperties.isSpillEnabled;
+import static io.trino.SystemSessionProperties.isTaskScaleWritersEnabled;
 import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
+import static io.trino.operator.PartitionedTableWriterOperator.PartitionedTableWriterOperatorFactory;
 import static io.trino.operator.TableFinishOperator.TableFinishOperatorFactory;
 import static io.trino.operator.TableFinishOperator.TableFinisher;
 import static io.trino.operator.TableWriterOperator.FRAGMENT_CHANNEL;
@@ -343,6 +346,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBU
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
@@ -3145,7 +3149,8 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitTableWriter(TableWriterNode node, LocalExecutionPlanContext context)
         {
             // Set table writer count
-            int writerCount = isLocalScaledWriterExchange(node.getSource()) ? getTaskScaleWritersMaxWriterCount(session) : getTaskWriterCount(session);
+            Optional<ExchangeNode> scaleWriterExchangeNode = getScaleWriterExchangeNode(session, node.getSource());
+            int writerCount = scaleWriterExchangeNode.isPresent() ? getTaskScaleWritersMaxWriterCount(session) : getTaskWriterCount(session);
             context.setDriverInstanceCount(writerCount);
 
             PhysicalOperation source = node.getSource().accept(this, context);
@@ -3194,17 +3199,31 @@ public class LocalExecutionPlanner
             List<Integer> inputChannels = node.getColumns().stream()
                     .map(source::symbolToChannel)
                     .collect(toImmutableList());
+            List<Type> types = getSymbolTypes(node.getOutputSymbols(), context.getTypes());
 
-            OperatorFactory operatorFactory = new TableWriterOperatorFactory(
-                    context.getNextOperatorId(),
-                    node.getId(),
-                    pageSinkManager,
-                    node.getTarget(),
-                    inputChannels,
-                    session,
-                    statisticsAggregation,
-                    getSymbolTypes(node.getOutputSymbols(), context.getTypes()));
-
+            OperatorFactory operatorFactory;
+            if (scaleWriterExchangeNode.isPresent()
+                    && !scaleWriterExchangeNode.get().getPartitioningScheme().getPartitioning().getArguments().isEmpty()) {
+                operatorFactory = createPartitionedTableWriterOperatorFactory(
+                        node.getId(),
+                        node.getTarget(),
+                        types,
+                        context,
+                        inputChannels,
+                        statisticsAggregation,
+                        scaleWriterExchangeNode.get());
+            }
+            else {
+                operatorFactory = new TableWriterOperatorFactory(
+                        context.getNextOperatorId(),
+                        node.getId(),
+                        pageSinkManager,
+                        node.getTarget(),
+                        inputChannels,
+                        session,
+                        statisticsAggregation,
+                        types);
+            }
             return new PhysicalOperation(operatorFactory, outputMapping.buildOrThrow(), context, source);
         }
 
@@ -3345,7 +3364,8 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitTableExecute(TableExecuteNode node, LocalExecutionPlanContext context)
         {
             // Set table writer count
-            int writerCount = isLocalScaledWriterExchange(node.getSource()) ? getTaskScaleWritersMaxWriterCount(session) : getTaskWriterCount(session);
+            Optional<ExchangeNode> scaleWriterExchangeNode = getScaleWriterExchangeNode(session, node.getSource());
+            int writerCount = scaleWriterExchangeNode.isPresent() ? getTaskScaleWritersMaxWriterCount(session) : getTaskWriterCount(session);
             context.setDriverInstanceCount(writerCount);
 
             PhysicalOperation source = node.getSource().accept(this, context);
@@ -3358,17 +3378,66 @@ public class LocalExecutionPlanner
                     .map(source::symbolToChannel)
                     .collect(toImmutableList());
 
-            OperatorFactory operatorFactory = new TableWriterOperatorFactory(
+            // statistics are not calculated
+            OperatorFactory devNullOperatorFactory = new DevNullOperatorFactory(context.getNextOperatorId(), node.getId());
+            List<Type> types = getSymbolTypes(node.getOutputSymbols(), context.getTypes());
+            OperatorFactory operatorFactory;
+            if (scaleWriterExchangeNode.isPresent()
+                    && !scaleWriterExchangeNode.get().getPartitioningScheme().getPartitioning().getArguments().isEmpty()) {
+                operatorFactory = createPartitionedTableWriterOperatorFactory(
+                        node.getId(),
+                        node.getTarget(),
+                        types,
+                        context,
+                        inputChannels,
+                        devNullOperatorFactory,
+                        scaleWriterExchangeNode.get());
+            }
+            else {
+                operatorFactory = new TableWriterOperatorFactory(
+                        context.getNextOperatorId(),
+                        node.getId(),
+                        pageSinkManager,
+                        node.getTarget(),
+                        inputChannels,
+                        session,
+                        devNullOperatorFactory,
+                        types);
+            }
+            return new PhysicalOperation(operatorFactory, outputMapping.buildOrThrow(), context, source);
+        }
+
+        private PartitionedTableWriterOperatorFactory createPartitionedTableWriterOperatorFactory(
+                PlanNodeId nodeId,
+                WriterTarget writerTarget,
+                List<Type> types,
+                LocalExecutionPlanContext context,
+                List<Integer> inputChannels,
+                OperatorFactory statisticsAggregation,
+                ExchangeNode exchangeNode)
+        {
+            List<Integer> partitionChannels = exchangeNode.getPartitioningScheme().getPartitioning().getArguments().stream()
+                    .map(argument -> exchangeNode.getOutputSymbols().indexOf(argument.getColumn()))
+                    .collect(toImmutableList());
+            List<Type> exchangeTypes = getSourceOperatorTypes(exchangeNode, context.getTypes());
+            List<Type> partitionChannelTypes = partitionChannels.stream()
+                    .map(exchangeTypes::get)
+                    .collect(toImmutableList());
+
+            return new PartitionedTableWriterOperatorFactory(
                     context.getNextOperatorId(),
-                    node.getId(),
+                    nodeId,
                     pageSinkManager,
-                    node.getTarget(),
+                    writerTarget,
                     inputChannels,
                     session,
-                    new DevNullOperatorFactory(context.getNextOperatorId(), node.getId()), // statistics are not calculated
-                    getSymbolTypes(node.getOutputSymbols(), context.getTypes()));
-
-            return new PhysicalOperation(operatorFactory, outputMapping.buildOrThrow(), context, source);
+                    statisticsAggregation,
+                    types,
+                    partitionFunctionFactory,
+                    exchangeNode.getPartitioningScheme().getPartitioning().getHandle(),
+                    partitionChannels,
+                    partitionChannelTypes,
+                    getTaskScaleWritersPartitionCount(session));
         }
 
         @Override
@@ -3455,15 +3524,23 @@ public class LocalExecutionPlanner
             return createLocalExchange(node, context);
         }
 
-        private boolean isLocalScaledWriterExchange(PlanNode node)
+        private Optional<ExchangeNode> getScaleWriterExchangeNode(Session session, PlanNode node)
         {
+            if (!isTaskScaleWritersEnabled(session)) {
+                return Optional.empty();
+            }
             Optional<PlanNode> result = searchFrom(node)
                     .where(planNode -> planNode instanceof ExchangeNode && ((ExchangeNode) planNode).getScope() == LOCAL)
                     .findFirst();
-
-            return result.isPresent()
-                    && result.get() instanceof ExchangeNode
-                    && ((ExchangeNode) result.get()).getPartitioningScheme().getPartitioning().getHandle().equals(SCALED_WRITER_DISTRIBUTION);
+            if (result.isPresent() && result.get() instanceof ExchangeNode exchangeNode) {
+                PartitioningHandle handle = exchangeNode.getPartitioningScheme().getPartitioning().getHandle();
+                if (handle.equals(SCALED_WRITER_DISTRIBUTION)
+                        || handle.equals(SCALED_WRITER_HASH_DISTRIBUTION)
+                        || handle.getConnectorHandle() instanceof ScaleWriterPartitioningHandle) {
+                    return Optional.of((ExchangeNode) result.get());
+                }
+            }
+            return Optional.empty();
         }
 
         private PhysicalOperation createLocalMerge(ExchangeNode node, LocalExecutionPlanContext context)
@@ -3480,16 +3557,18 @@ public class LocalExecutionPlanner
 
             int operatorsCount = subContext.getDriverInstanceCount().orElse(1);
             List<Type> types = getSourceOperatorTypes(node, context.getTypes());
+            PartitioningHandle partitioning = node.getPartitioningScheme().getPartitioning().getHandle();
             LocalExchange localExchange = new LocalExchange(
                     session,
                     operatorsCount,
-                    node.getPartitioningScheme().getPartitioning().getHandle(),
+                    partitioning,
                     ImmutableList.of(),
                     ImmutableList.of(),
                     Optional.empty(),
                     partitionFunctionFactory,
                     maxLocalExchangeBufferSize,
                     context.getTaskContext()::getPhysicalWrittenDataSize,
+                    context.getTaskContext()::getPartitionPhysicalWrittenBytes,
                     getWriterMinSize(session));
 
             List<Symbol> expectedLayout = node.getInputs().get(0);
@@ -3567,6 +3646,7 @@ public class LocalExecutionPlanner
                     partitionFunctionFactory,
                     maxLocalExchangeBufferSize,
                     context.getTaskContext()::getPhysicalWrittenDataSize,
+                    context.getTaskContext()::getPartitionPhysicalWrittenBytes,
                     getWriterMinSize(session));
             for (int i = 0; i < node.getSources().size(); i++) {
                 DriverFactoryParameters driverFactoryParameters = driverFactoryParametersList.get(i);

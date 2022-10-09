@@ -41,6 +41,7 @@ import org.joda.time.DateTime;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -347,6 +348,22 @@ public class TaskContext
             physicalWrittenBytes += context.getPhysicalWrittenDataSize();
         }
         return physicalWrittenBytes;
+    }
+
+    public Map<Integer, Long> getPartitionPhysicalWrittenBytes()
+    {
+        // Avoid using stream api for performance reasons
+        HashMap<Integer, Long> result = new HashMap<>();
+        for (PipelineContext context : pipelineContexts) {
+            context.getPartitionPhysicalWrittenBytes().forEach((partition, physicalWrittenBytes) ->
+                    result.compute(partition, (key, value) -> {
+                        if (value == null) {
+                            return physicalWrittenBytes;
+                        }
+                        return physicalWrittenBytes + value;
+                    }));
+        }
+        return result;
     }
 
     public Duration getFullGcTime()

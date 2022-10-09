@@ -14,6 +14,7 @@
 package io.trino.operator.exchange;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.SequencePageBuilder;
@@ -46,14 +47,18 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_PARTITION_COUNT;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -62,6 +67,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DIST
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -81,6 +87,7 @@ public class TestLocalExchange
     private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(new TypeOperators());
     private static final Session SESSION = testSessionBuilder().build();
     private static final Supplier<Long> PHYSICAL_WRITTEN_BYTES_SUPPLIER = () -> DataSize.of(32, DataSize.Unit.MEGABYTE).toBytes();
+    private static final Supplier<Map<Integer, Long>> PARTITION_PHYSICAL_WRITTEN_BYTES_SUPPLIER = ImmutableMap::of;
     private static final DataSize WRITER_MIN_SIZE = DataSize.of(32, DataSize.Unit.MEGABYTE);
 
     private final ConcurrentMap<CatalogHandle, ConnectorNodePartitioningProvider> partitionManagers = new ConcurrentHashMap<>();
@@ -117,6 +124,7 @@ public class TestLocalExchange
                 partitionFunctionFactory,
                 DataSize.ofBytes(retainedSizeOfPages(99)),
                 PHYSICAL_WRITTEN_BYTES_SUPPLIER,
+                PARTITION_PHYSICAL_WRITTEN_BYTES_SUPPLIER,
                 WRITER_MIN_SIZE);
 
         run(localExchange, exchange -> {
@@ -190,6 +198,7 @@ public class TestLocalExchange
                 partitionFunctionFactory,
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 PHYSICAL_WRITTEN_BYTES_SUPPLIER,
+                PARTITION_PHYSICAL_WRITTEN_BYTES_SUPPLIER,
                 WRITER_MIN_SIZE);
 
         run(localExchange, exchange -> {
@@ -278,6 +287,7 @@ public class TestLocalExchange
                 partitionFunctionFactory,
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 PHYSICAL_WRITTEN_BYTES_SUPPLIER,
+                PARTITION_PHYSICAL_WRITTEN_BYTES_SUPPLIER,
                 WRITER_MIN_SIZE);
 
         run(localExchange, exchange -> {
@@ -328,6 +338,7 @@ public class TestLocalExchange
                 partitionFunctionFactory,
                 DataSize.ofBytes(retainedSizeOfPages(4)),
                 physicalWrittenBytes::get,
+                PARTITION_PHYSICAL_WRITTEN_BYTES_SUPPLIER,
                 DataSize.ofBytes(retainedSizeOfPages(2)));
 
         run(localExchange, exchange -> {
@@ -408,6 +419,7 @@ public class TestLocalExchange
                 partitionFunctionFactory,
                 DataSize.ofBytes(retainedSizeOfPages(4)),
                 physicalWrittenBytes::get,
+                PARTITION_PHYSICAL_WRITTEN_BYTES_SUPPLIER,
                 DataSize.ofBytes(retainedSizeOfPages(2)));
 
         run(localExchange, exchange -> {
@@ -450,6 +462,7 @@ public class TestLocalExchange
                 partitionFunctionFactory,
                 DataSize.ofBytes(retainedSizeOfPages(20)),
                 physicalWrittenBytes::get,
+                PARTITION_PHYSICAL_WRITTEN_BYTES_SUPPLIER,
                 DataSize.ofBytes(retainedSizeOfPages(2)));
 
         run(localExchange, exchange -> {
@@ -481,6 +494,90 @@ public class TestLocalExchange
     }
 
     @Test
+    public void testScaleWriterForSkewedPartitions()
+    {
+        Session session = testSessionBuilder()
+                .setSystemProperty(TASK_SCALE_WRITERS_PARTITION_COUNT, "4")
+                .build();
+
+        AtomicReference<Map<Integer, Long>> partitionPhysicalWrittenBytes = new AtomicReference<>(ImmutableMap.of());
+        LocalExchange localExchange = new LocalExchange(
+                session,
+                3,
+                SCALED_WRITER_HASH_DISTRIBUTION,
+                ImmutableList.of(0),
+                TYPES,
+                Optional.empty(),
+                partitionFunctionFactory,
+                DataSize.ofBytes(retainedSizeOfPages(4)),
+                PHYSICAL_WRITTEN_BYTES_SUPPLIER,
+                partitionPhysicalWrittenBytes::get,
+                DataSize.ofBytes(retainedSizeOfPages(1)));
+
+        run(localExchange, exchange -> {
+            assertEquals(exchange.getBufferCount(), 3);
+            assertExchangeTotalBufferedBytes(exchange, 0);
+
+            LocalExchangeSinkFactory sinkFactory = exchange.createSinkFactory();
+            sinkFactory.noMoreSinkFactories();
+            LocalExchangeSink sink = sinkFactory.createSink();
+            assertSinkCanWrite(sink);
+            sinkFactory.close();
+
+            LocalExchangeSource sourceA = exchange.getSource(0);
+            assertSource(sourceA, 0);
+
+            LocalExchangeSource sourceB = exchange.getSource(1);
+            assertSource(sourceB, 0);
+
+            LocalExchangeSource sourceC = exchange.getSource(2);
+            assertSource(sourceC, 0);
+
+            sink.addPage(createPage(0));
+            sink.addPage(createPage(0));
+            sink.addPage(createPage(0));
+            sink.addPage(createPage(0));
+
+            // Page are partitioned into four parts since partition count is set to 4 and assigned to
+            // three available writers.
+            assertSource(sourceA, 4);
+            assertSource(sourceB, 4);
+            assertSource(sourceC, 4);
+            assertTrue(exchange.getBufferedBytes() >= retainedSizeOfPages(1));
+
+            // Remove pages from second and third writer
+            IntStream.range(0, 4).forEach(i -> assertPartitionedRemovePage(sourceB, 1, 4));
+            assertSource(sourceA, 4);
+            assertSource(sourceB, 0);
+            assertSource(sourceC, 4);
+
+            IntStream.range(0, 4).forEach(i -> assertPartitionedRemovePage(sourceC, 2, 4));
+            assertSource(sourceA, 4);
+            assertSource(sourceB, 0);
+            assertSource(sourceC, 0);
+
+            // Now update the partition level physicalWrittenBytes such that we cross the
+            // writerMinSize threshold for second partition.
+            partitionPhysicalWrittenBytes.set(ImmutableMap.of(0, retainedSizeOfPages(1), 1, 0L, 2, 0L, 3, retainedSizeOfPages(1)));
+
+            sink.addPage(createPage(0));
+
+            // Now due to scaling the page for first and third partition is written to the second writer
+            // due to round-robin distribution.
+            assertSource(sourceA, 4);
+            assertSource(sourceB, 1);
+            assertSource(sourceC, 1);
+
+            sink.addPage(createPage(0));
+
+            // Again due to round-robin distribution, the first and third partition is written to first writer.
+            assertSource(sourceA, 5);
+            assertSource(sourceB, 2);
+            assertSource(sourceC, 2);
+        });
+    }
+
+    @Test
     public void testPassthrough()
     {
         LocalExchange localExchange = new LocalExchange(
@@ -493,6 +590,7 @@ public class TestLocalExchange
                 partitionFunctionFactory,
                 DataSize.ofBytes(retainedSizeOfPages(1)),
                 PHYSICAL_WRITTEN_BYTES_SUPPLIER,
+                PARTITION_PHYSICAL_WRITTEN_BYTES_SUPPLIER,
                 WRITER_MIN_SIZE);
 
         run(localExchange, exchange -> {
@@ -560,6 +658,7 @@ public class TestLocalExchange
                 partitionFunctionFactory,
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 PHYSICAL_WRITTEN_BYTES_SUPPLIER,
+                PARTITION_PHYSICAL_WRITTEN_BYTES_SUPPLIER,
                 WRITER_MIN_SIZE);
 
         run(localExchange, exchange -> {
@@ -656,6 +755,7 @@ public class TestLocalExchange
                 partitionFunctionFactory,
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 PHYSICAL_WRITTEN_BYTES_SUPPLIER,
+                PARTITION_PHYSICAL_WRITTEN_BYTES_SUPPLIER,
                 WRITER_MIN_SIZE);
 
         run(localExchange, exchange -> {
@@ -697,8 +797,6 @@ public class TestLocalExchange
     @Test
     public void writeUnblockWhenAllReadersFinish()
     {
-        ImmutableList<Type> types = ImmutableList.of(BIGINT);
-
         LocalExchange localExchange = new LocalExchange(
                 SESSION,
                 2,
@@ -709,6 +807,7 @@ public class TestLocalExchange
                 partitionFunctionFactory,
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 PHYSICAL_WRITTEN_BYTES_SUPPLIER,
+                PARTITION_PHYSICAL_WRITTEN_BYTES_SUPPLIER,
                 WRITER_MIN_SIZE);
 
         run(localExchange, exchange -> {
@@ -756,6 +855,7 @@ public class TestLocalExchange
                 partitionFunctionFactory,
                 DataSize.ofBytes(1),
                 PHYSICAL_WRITTEN_BYTES_SUPPLIER,
+                PARTITION_PHYSICAL_WRITTEN_BYTES_SUPPLIER,
                 WRITER_MIN_SIZE);
 
         run(localExchange, exchange -> {

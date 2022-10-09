@@ -131,7 +131,7 @@ public class TestValidateScaledWritersUsage
                                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))));
         assertThatThrownBy(() -> validatePlan(root))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessage("The partitioning scheme is set to SCALED_WRITER_DISTRIBUTION but writer target no_bytes_written_reported:INSTANCE does support for it");
+                .hasMessage("The scaling writer partitioning scheme is set but writer target no_bytes_written_reported:INSTANCE doesn't support it");
     }
 
     @Test
@@ -161,7 +161,7 @@ public class TestValidateScaledWritersUsage
                                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))));
         assertThatThrownBy(() -> validatePlan(root))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessage("The partitioning scheme is set to SCALED_WRITER_DISTRIBUTION but writer target no_bytes_written_reported:INSTANCE does support for it");
+                .hasMessage("The scaling writer partitioning scheme is set but writer target no_bytes_written_reported:INSTANCE doesn't support it");
     }
 
     @Test
@@ -242,7 +242,7 @@ public class TestValidateScaledWritersUsage
                                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))));
         assertThatThrownBy(() -> validatePlan(root))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessage("The partitioning scheme is set to SCALED_WRITER_DISTRIBUTION but writer target no_bytes_written_reported:INSTANCE does support for it");
+                .hasMessage("The scaling writer partitioning scheme is set but writer target no_bytes_written_reported:INSTANCE doesn't support it");
     }
 
     private void validatePlan(PlanNode root)
