@@ -728,7 +728,7 @@ jobs:
             #   actual value of the property, and will therefore not be excluded.
             # - If the expression evaluates to false, it will match the actual
             #   value of the property, and the exclusion will apply normally.
-            - false
+            - "false"
           include:
             # this suite is not meant to be run with different configs
             - config: default
