@@ -29,7 +29,6 @@ def main():
         "--impacted-features",
         type=argparse.FileType("r"),
         dest="impacted_features",
-        default="impacted-features.log",
         help="List of impacted features, one per line",
     )
     parser.add_argument(
@@ -105,24 +104,24 @@ def load_available_features_for_config(config, suites, ptl_binary_path):
     )
     logging.debug("ptl suite describe: %s", process)
     if process.returncode != 0:
-        logging.error("ptl suite describe failed: %s", process)
-        return {}
+        raise RuntimeError(f"ptl suite describe failed: {process}")
     for line in process.stdout.splitlines():
-        if line.startswith("{"):
-            logging.debug("Parsing JSON: %s", line)
-            ptl_output = json.loads(line)
-            logging.debug("Handling JSON object: %s", ptl_output)
-            config_features = {}
-            for suite in ptl_output.get("suites", []):
-                key = (config, suite.get("name"))
-                value = set()
-                for testRun in suite.get("testRuns", []):
-                    for connector in testRun["environment"].get("features", []):
-                        value.add(connector)
-                config_features[key] = value
+        if not line.startswith("{"):
+            continue
+        logging.debug("Parsing JSON: %s", line)
+        ptl_output = json.loads(line)
+        logging.debug("Handling JSON object: %s", ptl_output)
+        config_features = {}
+        for suite in ptl_output.get("suites", []):
+            key = (config, suite.get("name"))
+            value = set()
+            for testRun in suite.get("testRuns", []):
+                for connector in testRun["environment"].get("features", []):
+                    value.add(connector)
+            config_features[key] = value
 
-            logging.debug("config_features: %s", config_features)
-            return config_features
+        logging.debug("config_features: %s", config_features)
+        return config_features
     logging.error("ptl suite describe hasn't returned any JSON line: %s", process)
     return {}
 
@@ -142,10 +141,16 @@ def tested_features(available_connectors, config, suite):
 
 def build(matrix_file, impacted_file, output_file, ptl_binary_path):
     matrix = yaml.load(matrix_file, Loader=yaml.Loader)
+    logging.info("Read matrix: %s", matrix)
+    if impacted_file is None:
+        logging.info("No impacted_features, not applying any changes to matrix")
+        json.dump(matrix, output_file)
+        output_file.write("\n")
+        return
+
     impacted_features = list(
         filter(None, [line.rstrip() for line in impacted_file.readlines()])
     )
-    logging.info("Read matrix: %s", matrix)
     logging.info("Read impacted_features: %s", impacted_features)
     result = copy.copy(matrix)
     items = expand_matrix(matrix)
@@ -156,19 +161,24 @@ def build(matrix_file, impacted_file, output_file, ptl_binary_path):
         configToSuiteMap[item.get("config")].append(item.get("suite"))
     available_features = load_available_features(configToSuiteMap, ptl_binary_path)
     if len(available_features) > 0:
+        all_excluded = True
         for item in items:
             features = tested_features(
                 available_features, item.get("config"), item.get("suite")
             )
-            logging.debug(
-                "impacted_features: %s, features: %s", impacted_features, features
-            )
+            logging.debug("matrix item features: %s", features)
             if not any(connector in impacted_features for connector in features):
                 logging.info("Excluding matrix entry due to features: %s", item)
                 result.setdefault("exclude", []).append(item)
                 if "include" in result and item in result["include"]:
                     logging.debug("Removing from include list: %s", item)
                     result["include"].remove(item)
+            else:
+                all_excluded = False
+        if all_excluded:
+            # if every single item in the matrix is excluded, write an empty matrix
+            output_file.write("{}\n")
+            return
     json.dump(result, output_file)
     output_file.write("\n")
 
@@ -176,7 +186,31 @@ def build(matrix_file, impacted_file, output_file, ptl_binary_path):
 class TestBuild(unittest.TestCase):
     def test_build(self):
         self.maxDiff = None
+        # cases are tuples of: matrix, impacted, ptl_binary_path, expected
         cases = [
+            # impacted features empty, all items are excluded and an empty matrix is returned
+            (
+                {
+                    "config": ["A", "B", "C"],
+                    "suite": ["1", "2", "3"],
+                },
+                [],
+                ".github/bin/fake-ptl",
+                {},
+            ),
+            # no impacted features, ptl is not called, no changes to matrix
+            (
+                {
+                    "config": ["A", "B", "C"],
+                    "suite": ["1", "2", "3"],
+                },
+                None,
+                "invalid",
+                {
+                    "config": ["A", "B", "C"],
+                    "suite": ["1", "2", "3"],
+                },
+            ),
             # missing features get added to exclude list
             (
                 {
@@ -266,12 +300,11 @@ class TestBuild(unittest.TestCase):
             (
                 # input matrix
                 {
-                    "config": ["default", "hdp3", "cdh5"],
+                    "config": ["default", "hdp3"],
                     "suite": ["suite-1", "suite-2", "suite-3", "suite-5"],
                     "jdk": ["11"],
                     "ignore exclusion if": [False],
                     "exclude": [
-                        {"config": "cdh5", "ignore exclusion if": True},
                         {"config": "default", "ignore exclusion if": False},
                     ],
                     "include": [
@@ -313,9 +346,8 @@ class TestBuild(unittest.TestCase):
                 "testing/bin/ptl",
                 # expected matrix
                 {
-                    "config": ["default", "hdp3", "cdh5"],
+                    "config": ["default", "hdp3"],
                     "exclude": [
-                        {"config": "cdh5", "ignore exclusion if": True},
                         {"config": "default", "ignore exclusion if": False},
                         {"config": "default", "jdk": "11", "suite": "suite-oauth2"},
                     ],
@@ -368,10 +400,16 @@ class TestBuild(unittest.TestCase):
                     # given
                     yaml.dump(matrix, matrix_file)
                     matrix_file.seek(0)
-                    impacted_file.write("\n".join(impacted))
-                    impacted_file.seek(0)
+                    if impacted is not None:
+                        impacted_file.write("\n".join(impacted))
+                        impacted_file.seek(0)
+                        impacted_file_final = impacted_file
+                    else:
+                        impacted_file_final = None
                     # when
-                    build(matrix_file, impacted_file, output_file, ptl_binary_path)
+                    build(
+                        matrix_file, impacted_file_final, output_file, ptl_binary_path
+                    )
                     output_file.seek(0)
                     output = json.load(output_file)
                     # then
