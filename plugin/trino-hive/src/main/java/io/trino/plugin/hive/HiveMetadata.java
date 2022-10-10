@@ -2704,6 +2704,20 @@ public class HiveMetadata
     }
 
     @Override
+    public Optional<ConnectorPartitioningHandle> getUpdateLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return getInsertLayout(session, tableHandle)
+                .flatMap(ConnectorTableLayout::getPartitioning)
+                .map(HivePartitioningHandle.class::cast)
+                .map(handle -> new HiveUpdateHandle(
+                        handle.getBucketingVersion(),
+                        handle.getBucketCount(),
+                        handle.getHiveTypes(),
+                        handle.getMaxCompatibleBucketCount(),
+                        handle.isUsePartitionedBucketing()));
+    }
+
+    @Override
     public Optional<ConnectorTableHandle> applyDelete(ConnectorSession session, ConnectorTableHandle handle)
     {
         Map<String, String> parameters = ((HiveTableHandle) handle).getTableParameters()
