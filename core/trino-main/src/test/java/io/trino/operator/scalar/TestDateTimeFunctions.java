@@ -168,7 +168,7 @@ public class TestDateTimeFunctions
 
     private static long epochDaysInZone(TimeZoneKey timeZoneKey, Instant instant)
     {
-        return LocalDate.from(instant.atZone(ZoneId.of(timeZoneKey.getId()))).toEpochDay();
+        return LocalDate.from(instant.atZone(timeZoneKey.getZoneId())).toEpochDay();
     }
 
     @Test

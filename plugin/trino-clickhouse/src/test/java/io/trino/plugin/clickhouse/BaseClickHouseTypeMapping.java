@@ -787,7 +787,7 @@ public abstract class BaseClickHouseTypeMapping
                 // using two non-JVM zones so that we don't need to worry what ClickHouse system zone is
                 {vilnius},
                 {kathmandu},
-                {ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
+                {TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId()},
         };
     }
 
