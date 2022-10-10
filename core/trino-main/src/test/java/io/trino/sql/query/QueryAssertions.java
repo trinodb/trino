@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionBundle;
+import io.trino.spi.Plugin;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.SqlTime;
 import io.trino.spi.type.SqlTimeWithTimeZone;
@@ -106,6 +107,11 @@ public class QueryAssertions
     public void addFunctions(FunctionBundle functionBundle)
     {
         runner.addFunctions(functionBundle);
+    }
+
+    public void addPlugin(Plugin plugin)
+    {
+        runner.installPlugin(plugin);
     }
 
     public AssertProvider<QueryAssert> query(@Language("SQL") String query)
