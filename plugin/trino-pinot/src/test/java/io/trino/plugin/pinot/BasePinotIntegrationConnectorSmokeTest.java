@@ -1471,11 +1471,10 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
                         "  CARDINALITY(int_array_col_with_pinot_default)," +
                         "  CARDINALITY(int_array_col)," +
                         "  CARDINALITY(float_array_col)," +
-                        "  CARDINALITY(long_array_col)," +
                         "  CARDINALITY(long_array_col)" +
                         "  FROM " + ALL_TYPES_TABLE +
                         "  WHERE string_col = 'null'"))
-                .matches("VALUES (BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1')")
+                .matches("VALUES (BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1')")
                 .isNotFullyPushedDown(ProjectNode.class);
 
         // If an array contains both null and non-null values, the null values are omitted:
@@ -1484,11 +1483,10 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
                         "  CARDINALITY(int_array_col_with_pinot_default)," +
                         "  CARDINALITY(int_array_col)," +
                         "  CARDINALITY(float_array_col)," +
-                        "  CARDINALITY(long_array_col)," +
                         "  CARDINALITY(long_array_col)" +
                         "  FROM " + ALL_TYPES_TABLE +
                         "  WHERE string_col = 'array_null'"))
-                .matches("VALUES (BIGINT '3', BIGINT '3', BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1')")
+                .matches("VALUES (BIGINT '3', BIGINT '3', BIGINT '1', BIGINT '1', BIGINT '1')")
                 .isNotFullyPushedDown(ProjectNode.class);
     }
 
