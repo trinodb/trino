@@ -22,9 +22,10 @@ import static java.lang.String.format;
  * @see ShortTimestampWithTimeZoneType
  * @see LongTimestampWithTimeZoneType
  */
-public abstract class TimestampWithTimeZoneType
+public abstract sealed class TimestampWithTimeZoneType
         extends AbstractType
         implements FixedWidthType
+        permits LongTimestampWithTimeZoneType, ShortTimestampWithTimeZoneType
 {
     public static final int MAX_PRECISION = 12;
 
