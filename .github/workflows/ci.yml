@@ -765,12 +765,20 @@ jobs:
               suite: suite-delta-lake-oss
           EOF
       - name: Build PT matrix (all)
-        if: steps.filter.outputs.product-tests == 'true' || contains(github.event.pull_request.labels.*.name, 'tests:all') || contains(github.event.pull_request.labels.*.name, 'tests:all-product')
+        if: |
+          github.event.name != 'pull_request' ||
+          steps.filter.outputs.product-tests == 'true' ||
+          contains(github.event.pull_request.labels.*.name, 'tests:all') ||
+          contains(github.event.pull_request.labels.*.name, 'tests:all-product')
         run: |
           # converts entire YAML file into JSON - no filtering since we want all PTs to run
           ./.github/bin/build-pt-matrix-from-impacted-connectors.py -v -m .github/test-pt-matrix.yaml -o matrix.json
       - name: Build PT matrix (impacted-features)
-        if: steps.filter.outputs.product-tests == 'false' && !contains(github.event.pull_request.labels.*.name, 'tests:all') && !contains(github.event.pull_request.labels.*.name, 'product-tests:all')
+        if: |
+          github.event.name == 'pull_request' &&
+          steps.filter.outputs.product-tests == 'false' &&
+          !contains(github.event.pull_request.labels.*.name, 'tests:all') &&
+          !contains(github.event.pull_request.labels.*.name, 'product-tests:all')
         # all these envs are required to be set by some product test environments
         env:
           ABFS_CONTAINER:
