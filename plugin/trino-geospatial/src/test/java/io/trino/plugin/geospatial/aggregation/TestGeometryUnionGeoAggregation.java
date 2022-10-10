@@ -14,6 +14,10 @@
 package io.trino.plugin.geospatial.aggregation;
 
 import com.google.common.base.Joiner;
+import io.trino.plugin.geospatial.GeoPlugin;
+import io.trino.sql.query.QueryAssertions;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -24,10 +28,27 @@ import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static java.lang.String.format;
 import static java.util.Collections.reverse;
 import static java.util.stream.Collectors.toList;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGeometryUnionGeoAggregation
         extends AbstractTestGeoAggregationFunctions
 {
+    private QueryAssertions assertions;
+
+    @BeforeClass
+    public void init()
+    {
+        assertions = new QueryAssertions();
+        assertions.addPlugin(new GeoPlugin());
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
+    }
+
     private static final Joiner COMMA_JOINER = Joiner.on(",");
 
     @DataProvider(name = "point")
@@ -361,10 +382,14 @@ public class TestGeometryUnionGeoAggregation
         List<String> wktList = Arrays.stream(wkts).map(wkt -> format("ST_GeometryFromText('%s')", wkt)).collect(toList());
         String wktArray = format("ARRAY[%s]", COMMA_JOINER.join(wktList));
         // ST_Union(ARRAY[ST_GeometryFromText('...'), ...])
-        assertFunction(format("geometry_union(%s)", wktArray), GEOMETRY, expectedWkt);
+        assertThat(assertions.function("geometry_union", wktArray))
+                .hasType(GEOMETRY)
+                .isEqualTo(expectedWkt);
 
         reverse(wktList);
         wktArray = format("ARRAY[%s]", COMMA_JOINER.join(wktList));
-        assertFunction(format("geometry_union(%s)", wktArray), GEOMETRY, expectedWkt);
+        assertThat(assertions.function("geometry_union", wktArray))
+                .hasType(GEOMETRY)
+                .isEqualTo(expectedWkt);
     }
 }
