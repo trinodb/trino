@@ -720,7 +720,7 @@ public class TestPhoenixTypeMapping
                 // using two non-JVM zones so that we don't need to worry what Phoenix system zone is
                 {vilnius},
                 {kathmandu},
-                {ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
+                {TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId()},
         };
     }
 
