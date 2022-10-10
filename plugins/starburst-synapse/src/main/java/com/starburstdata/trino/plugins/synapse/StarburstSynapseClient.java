@@ -97,7 +97,7 @@ public class StarburstSynapseClient
         }
         String sql = format(
                 "RENAME OBJECT %s TO %s",
-                quoted(catalogName, remoteSchemaName, remoteSchemaName),
+                quoted(catalogName, remoteSchemaName, remoteTableName),
                 newRemoteTableName);
         execute(connection, sql);
     }
