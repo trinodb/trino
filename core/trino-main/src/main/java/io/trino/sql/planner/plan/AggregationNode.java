@@ -120,6 +120,15 @@ public class AggregationNode
     }
 
     /**
+     * @return true if the aggregation collapses all rows into a single global group (e.g., as a result of a GROUP BY () query).
+     * Otherwise, false.
+     */
+    public boolean hasSingleGlobalAggregation()
+    {
+        return hasEmptyGroupingSet() && getGroupingSetCount() == 1;
+    }
+
+    /**
      * @return whether this node should produce default output in case of no input pages.
      * For example for query:
      * <p>
