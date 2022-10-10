@@ -22,7 +22,6 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static com.starburstdata.trino.plugins.synapse.SynapseQueryRunner.createSynapseQueryRunner;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.NON_TRANSACTIONAL_INSERT;
@@ -307,21 +306,9 @@ public class TestSynapseConnectorTest
     }
 
     @Override
-    protected OptionalInt maxSchemaNameLength()
-    {
-        return OptionalInt.of(128);
-    }
-
-    @Override
     protected void verifySchemaNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageMatching("Parse Error: Identifier '.*' exceeded the maximum length of 128.");
-    }
-
-    @Override
-    protected OptionalInt maxTableNameLength()
-    {
-        return OptionalInt.of(128);
     }
 
     @Override
