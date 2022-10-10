@@ -57,6 +57,9 @@ public class HiveNodePartitioningProvider
             List<Type> partitionChannelTypes,
             int bucketCount)
     {
+        if (partitioningHandle instanceof HiveUpdateHandle) {
+            return new HiveUpdateBucketFunction(bucketCount);
+        }
         HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
         List<HiveType> hiveBucketTypes = handle.getHiveTypes();
         if (!handle.isUsePartitionedBucketing()) {
