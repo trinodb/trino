@@ -11,27 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.tests.product.launcher.suite.suites;
+package io.trino.tests.product.launcher.suite;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.tests.product.launcher.env.EnvironmentConfig;
-import io.trino.tests.product.launcher.env.environment.EnvSinglenodeDeltaLakeDatabricks104;
-import io.trino.tests.product.launcher.env.environment.EnvSinglenodeDeltaLakeDatabricks73;
-import io.trino.tests.product.launcher.env.environment.EnvSinglenodeDeltaLakeDatabricks91;
-import io.trino.tests.product.launcher.suite.Suite;
-import io.trino.tests.product.launcher.suite.SuiteTestRun;
-
-import java.util.List;
-
-import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
-
-public class SuiteDeltaLakeDatabricks
+public abstract class SuiteDeltaLakeDatabricks
         extends Suite
 {
-    @Override
-    public List<SuiteTestRun> getTestRuns(EnvironmentConfig config)
+    protected String[] getExcludedTests()
     {
-        String[] excludedTests = {
+        return new String[] {
                 // AWS Glue does not support table comments
                 "io.trino.tests.product.deltalake.TestHiveAndDeltaLakeRedirect.testDeltaToHiveCommentTable",
                 "io.trino.tests.product.deltalake.TestHiveAndDeltaLakeRedirect.testHiveToDeltaCommentTable",
@@ -46,22 +33,5 @@ public class SuiteDeltaLakeDatabricks
                 // TODO https://github.com/trinodb/trino/issues/13017
                 "io.trino.tests.product.deltalake.TestDeltaLakeDropTableCompatibility.testCreateManagedTableInDeltaDropTableInTrino"
         };
-        return ImmutableList.of(
-                testOnEnvironment(EnvSinglenodeDeltaLakeDatabricks73.class)
-                        .withGroups("configured_features", "delta-lake-databricks")
-                        .withExcludedGroups("delta-lake-exclude-73")
-                        .withExcludedTests(excludedTests)
-                        .build(),
-
-                testOnEnvironment(EnvSinglenodeDeltaLakeDatabricks91.class)
-                        .withGroups("configured_features", "delta-lake-databricks")
-                        .withExcludedGroups("delta-lake-exclude-91")
-                        .withExcludedTests(excludedTests)
-                        .build(),
-
-                testOnEnvironment(EnvSinglenodeDeltaLakeDatabricks104.class)
-                        .withGroups("configured_features", "delta-lake-databricks")
-                        .withExcludedTests(excludedTests)
-                        .build());
     }
 }
