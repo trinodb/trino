@@ -119,7 +119,7 @@ public final class QueryCardinalityUtil
         @Override
         public Range<Long> visitAggregation(AggregationNode node, Void context)
         {
-            if (node.hasEmptyGroupingSet() && node.getGroupingSetCount() == 1) {
+            if (node.hasSingleGlobalAggregation()) {
                 // only single default aggregation which will produce exactly single row
                 return Range.singleton(1L);
             }
