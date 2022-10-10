@@ -18,8 +18,9 @@ import com.google.common.collect.ImmutableList;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.operator.scalar.AbstractTestFunctions;
 import io.trino.spi.type.ArrayType;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -39,12 +40,14 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 
+@TestInstance(PER_CLASS)
 public class TestBingTileFunctions
         extends AbstractTestFunctions
 {
-    @BeforeClass
+    @BeforeAll
     public void registerFunctions()
     {
         functionAssertions.installPlugin(new GeoPlugin());
