@@ -42,7 +42,7 @@ import static java.lang.invoke.MethodHandles.lookup;
  * in the first long and the fractional increment in the remaining integer, as a number of picoseconds
  * additional to the epoch millisecond.
  */
-class LongTimestampWithTimeZoneType
+final class LongTimestampWithTimeZoneType
         extends TimestampWithTimeZoneType
 {
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(LongTimestampWithTimeZoneType.class, lookup(), LongTimestampWithTimeZone.class);
