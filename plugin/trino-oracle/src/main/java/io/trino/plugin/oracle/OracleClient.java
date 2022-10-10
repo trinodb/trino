@@ -588,7 +588,7 @@ public class OracleClient
     {
         return LongWriteFunction.of(OracleTypes.TIMESTAMPTZ, (statement, index, encodedTimeWithZone) -> {
             Instant time = Instant.ofEpochMilli(unpackMillisUtc(encodedTimeWithZone));
-            ZoneId zone = ZoneId.of(unpackZoneKey(encodedTimeWithZone).getId());
+            ZoneId zone = unpackZoneKey(encodedTimeWithZone).getZoneId();
             statement.setObject(index, time.atZone(zone));
         });
     }
