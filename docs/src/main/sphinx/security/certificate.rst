@@ -98,7 +98,7 @@ The following configuration properties are also available:
        rules </security/user-mapping>` for this authentication type.
 
 Use certificate authentication with clients
------------------------------------------
+-------------------------------------------
 
 When using the Trino :doc:`CLI </client/cli>`, specify the
 ``--keystore-path`` and ``--keystore-password`` options as described
