@@ -114,13 +114,13 @@ public class TestExpressionCompiler
     private QueryAssertions assertions;
 
     @BeforeAll
-    public void setupClass()
+    public void setup()
     {
         assertions = new QueryAssertions();
     }
 
     @AfterAll
-    public void tearDownClass()
+    public void tearDown()
     {
         assertions.close();
         assertions = null;
