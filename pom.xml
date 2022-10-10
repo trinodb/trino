@@ -2143,5 +2143,22 @@
                 </plugins>
             </build>
         </profile>
+        <profile>
+            <!-- Adds -Xlint:deprecation to the compiler args. Can be combined with -Werror to fail build upon deprecation warnings -->
+            <id>deprecation</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration combine.children="append">
+                            <compilerArgs>
+                                <arg>-Xlint:deprecation</arg>
+                            </compilerArgs>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
 </project>
