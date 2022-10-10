@@ -176,10 +176,14 @@ public class DeltaLakePageSink
                     dataColumnTypes.add(column.getType());
                     break;
                 case SYNTHESIZED:
+                    processSynthesizedColumn(column);
+                    break;
                 default:
                     throw new IllegalStateException("Unexpected column type: " + column.getColumnType());
             }
         }
+
+        addSpecialColumns(inputColumns, dataColumnHandles, dataColumnsInputIndex, dataColumnNames, dataColumnTypes);
         this.partitionColumnsInputIndex = partitionColumnInputIndex;
         this.dataColumnInputIndex = Ints.toArray(dataColumnsInputIndex.build());
         this.originalPartitionColumnNames = ImmutableList.copyOf(originalPartitionColumnNames);
@@ -233,13 +237,11 @@ public class DeltaLakePageSink
             closeWriter(writer);
         }
 
-        List<Slice> result = dataFileInfos.build();
-
         writtenBytes = closedWriters.stream()
                 .mapToLong(DeltaLakeWriter::getWrittenBytes)
                 .sum();
 
-        return Futures.immediateFuture(result);
+        return Futures.immediateFuture(buildResult());
     }
 
     @Override
@@ -391,13 +393,13 @@ public class DeltaLakePageSink
                 fileWriter = createRecordFileWriter(filePath);
             }
 
-            Path rootTableLocation = new Path(outputPath);
+            Path rootTableLocation = new Path(getRootTableLocation());
             try {
                 DeltaLakeWriter writer = new DeltaLakeWriter(
                         hdfsEnvironment.getFileSystem(session.getIdentity(), rootTableLocation, conf),
                         fileWriter,
                         rootTableLocation,
-                        partitionName.map(partition -> new Path(partition, fileName).toString()).orElse(fileName),
+                        getPartitionPrefixPath() + partitionName.map(partition -> new Path(partition, fileName).toString()).orElse(fileName),
                         partitionValues,
                         stats,
                         dataColumnHandles);
@@ -414,7 +416,7 @@ public class DeltaLakePageSink
         return writerIndexes;
     }
 
-    private void closeWriter(DeltaLakeWriter writer)
+    protected void closeWriter(DeltaLakeWriter writer)
     {
         long currentWritten = writer.getWrittenBytes();
         long currentMemory = writer.getMemoryUsage();
@@ -423,7 +425,7 @@ public class DeltaLakePageSink
         memoryUsage += writer.getMemoryUsage() - currentMemory;
         try {
             DataFileInfo dataFileInfo = writer.getDataFileInfo();
-            dataFileInfos.add(wrappedBuffer(dataFileInfoCodec.toJsonBytes(dataFileInfo)));
+            collectDataFileInfo(dataFileInfo);
         }
         catch (IOException e) {
             LOG.warn("exception '%s' while finishing write on %s", e, writer);
@@ -544,5 +546,37 @@ public class DeltaLakePageSink
             blocks[i] = page.getBlock(dataColumn);
         }
         return new Page(page.getPositionCount(), blocks);
+    }
+
+    protected void processSynthesizedColumn(DeltaLakeColumnHandle column)
+    {
+        throw new IllegalStateException("Unexpected column type: " + column.getColumnType());
+    }
+
+    protected void addSpecialColumns(
+            List<DeltaLakeColumnHandle> inputColumns,
+            ImmutableList.Builder<DeltaLakeColumnHandle> dataColumnHandles,
+            ImmutableList.Builder<Integer> dataColumnsInputIndex,
+            ImmutableList.Builder<String> dataColumnNames,
+            ImmutableList.Builder<Type> dataColumnTypes) {}
+
+    protected String getRootTableLocation()
+    {
+        return outputPath;
+    }
+
+    protected String getPartitionPrefixPath()
+    {
+        return "";
+    }
+
+    protected Collection<Slice> buildResult()
+    {
+        return dataFileInfos.build();
+    }
+
+    protected void collectDataFileInfo(DataFileInfo dataFileInfo)
+    {
+        dataFileInfos.add(wrappedBuffer(dataFileInfoCodec.toJsonBytes(dataFileInfo)));
     }
 }

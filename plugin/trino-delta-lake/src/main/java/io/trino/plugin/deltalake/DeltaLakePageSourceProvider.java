@@ -27,10 +27,12 @@ import io.trino.parquet.reader.MetadataReader;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
+import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -59,6 +61,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -66,6 +69,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.deltalake.DeltaHiveTypeTranslator.toHiveType;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.ROW_ID_COLUMN_NAME;
+import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetMaxReadBlockSize;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
@@ -85,7 +89,12 @@ public class DeltaLakePageSourceProvider
     private final DateTimeZone parquetDateTimeZone;
     private final ExecutorService executorService;
     private final TypeManager typeManager;
+    private final JsonCodec<DataFileInfo> dataFileInfoCodec;
     private final JsonCodec<DeltaLakeUpdateResult> updateResultJsonCodec;
+    private final DeltaLakeWriterStats stats;
+    private final PageIndexerFactory pageIndexerFactory;
+    private final int maxPartitionsPerWriter;
+    private final String trinoVersion;
 
     @Inject
     public DeltaLakePageSourceProvider(
@@ -96,7 +105,11 @@ public class DeltaLakePageSourceProvider
             DeltaLakeConfig deltaLakeConfig,
             ExecutorService executorService,
             TypeManager typeManager,
-            JsonCodec<DeltaLakeUpdateResult> updateResultJsonCodec)
+            JsonCodec<DataFileInfo> dataFileInfoCodec,
+            JsonCodec<DeltaLakeUpdateResult> updateResultJsonCodec,
+            DeltaLakeWriterStats stats,
+            PageIndexerFactory pageIndexerFactory,
+            NodeVersion nodeVersion)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -106,7 +119,12 @@ public class DeltaLakePageSourceProvider
         this.parquetDateTimeZone = deltaLakeConfig.getParquetDateTimeZone();
         this.executorService = requireNonNull(executorService, "executorService is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");
         this.updateResultJsonCodec = requireNonNull(updateResultJsonCodec, "deleteResultJsonCodec is null");
+        this.stats = requireNonNull(stats, "stats is null");
+        this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
+        this.maxPartitionsPerWriter = deltaLakeConfig.getMaxPartitionsPerWriter();
+        this.trinoVersion = nodeVersion.toString();
     }
 
     @Override
@@ -176,10 +194,28 @@ public class DeltaLakePageSourceProvider
         HdfsContext hdfsContext = new HdfsContext(session);
         TupleDomain<HiveColumnHandle> parquetPredicate = getParquetTupleDomain(filteredSplitPredicate.simplify(domainCompactionThreshold), columnMappingMode, parquetFieldIdToName);
 
+        List<DeltaLakeColumnHandle> allColumns = extractSchema(table.getMetadataEntry(), typeManager).stream()
+                .map(metadata -> new DeltaLakeColumnHandle(metadata.getName(), metadata.getType(), metadata.getFieldId(), metadata.getPhysicalName(), metadata.getPhysicalColumnType(), partitionKeys.containsKey(metadata.getName()) ? PARTITION_KEY : REGULAR))
+                .collect(toImmutableList());
         if (table.getWriteType().isPresent()) {
+            Supplier<DeltaLakeCDFPageSink> deltaLakeCDFPageSink = () -> new DeltaLakeCDFPageSink(
+                    allColumns,
+                    partitionKeys.keySet().stream().toList(),
+                    pageIndexerFactory,
+                    hdfsEnvironment,
+                    maxPartitionsPerWriter,
+                    dataFileInfoCodec,
+                    updateResultJsonCodec,
+                    table.getLocation() + "/_data_change/",
+                    table.getLocation(),
+                    session,
+                    stats,
+                    typeManager,
+                    trinoVersion);
             return new DeltaLakeUpdatablePageSource(
                     table,
                     deltaLakeColumns,
+                    allColumns,
                     partitionKeys,
                     split.getPath(),
                     split.getFileSize(),
@@ -193,7 +229,8 @@ public class DeltaLakePageSourceProvider
                     parquetReaderOptions,
                     parquetPredicate,
                     typeManager,
-                    updateResultJsonCodec);
+                    updateResultJsonCodec,
+                    deltaLakeCDFPageSink);
         }
 
         ReaderPageSource pageSource = ParquetPageSourceFactory.createPageSource(

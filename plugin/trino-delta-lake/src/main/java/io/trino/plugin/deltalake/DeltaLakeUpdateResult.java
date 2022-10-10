@@ -24,14 +24,17 @@ public class DeltaLakeUpdateResult
 {
     private final String oldFile;
     private final Optional<DataFileInfo> newFile;
+    private final boolean isCDFData;
 
     @JsonCreator
     public DeltaLakeUpdateResult(
             @JsonProperty("oldFile") String oldFile,
-            @JsonProperty("newFile") Optional<DataFileInfo> newFile)
+            @JsonProperty("newFile") Optional<DataFileInfo> newFile,
+            @JsonProperty("isCDFData") boolean isCDFData)
     {
         this.oldFile = requireNonNull(oldFile, "oldFile is null");
         this.newFile = requireNonNull(newFile, "newFile is null");
+        this.isCDFData = isCDFData;
     }
 
     @JsonProperty
@@ -44,5 +47,11 @@ public class DeltaLakeUpdateResult
     public Optional<DataFileInfo> getNewFile()
     {
         return newFile;
+    }
+
+    @JsonProperty("isCDFData")
+    public boolean isCDFData()
+    {
+        return isCDFData;
     }
 }

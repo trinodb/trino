@@ -527,8 +527,6 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                     "TBLPROPERTIES (delta.enableChangeDataFeed = true)");
 
             onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (1, 2)");
-            assertQueryFailure(() -> onTrino().executeQuery("UPDATE delta.default." + tableName + " SET a = 3 WHERE b = 3"))
-                    .hasMessageContaining("Writing to tables with Change Data Feed enabled is not supported");
             assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a = 3"))
                     .hasMessageContaining("Writing to tables with Change Data Feed enabled is not supported");
             assertQueryFailure(() -> onTrino().executeQuery("MERGE INTO delta.default." + tableName + " t USING delta.default." + tableName + " s " +
