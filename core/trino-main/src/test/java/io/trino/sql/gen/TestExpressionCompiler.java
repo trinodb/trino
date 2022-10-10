@@ -43,9 +43,10 @@ import io.trino.sql.query.QueryAssertions;
 import io.trino.sql.tree.Extract.Field;
 import io.trino.type.LikeFunctions;
 import org.joda.time.DateTime;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
@@ -84,8 +85,9 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.joda.time.DateTimeZone.UTC;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@Test
+@TestInstance(PER_CLASS)
 public class TestExpressionCompiler
 {
     private static final Boolean[] booleanValues = {true, false, null};
@@ -111,13 +113,13 @@ public class TestExpressionCompiler
 
     private QueryAssertions assertions;
 
-    @BeforeClass
+    @BeforeAll
     public void setupClass()
     {
         assertions = new QueryAssertions();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDownClass()
     {
         assertions.close();
