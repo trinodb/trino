@@ -2234,9 +2234,10 @@ public class DeltaLakeMetadata
     public ConnectorAnalyzeMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> analyzeProperties)
     {
         if (!isExtendedStatisticsEnabled(session)) {
-            throw new TrinoException(
-                    NOT_SUPPORTED,
-                    "ANALYZE not supported if extended statistics are disabled. Enable via delta.extended-statistics.enabled config property or extended_statistics_enabled session property.");
+            throw new TrinoException(NOT_SUPPORTED, format(
+                    "ANALYZE not supported if extended statistics are disabled. Enable via %s config property or %s session property.",
+                    DeltaLakeConfig.EXTENDED_STATISTICS_ENABLED,
+                    DeltaLakeSessionProperties.EXTENDED_STATISTICS_ENABLED));
         }
 
         DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;
