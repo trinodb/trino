@@ -207,7 +207,7 @@ public class SapHanaClient
                 .addStandardRules(this::quoted)
                 .build();
 
-        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.empty(), 0, 0, Optional.empty());
+        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.empty(), Optional.of(0), Optional.of(0), Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
                 this.connectorExpressionRewriter,
                 ImmutableSet.<AggregateFunctionRule<JdbcExpression, String>>builder()
@@ -230,7 +230,7 @@ public class SapHanaClient
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
     {
-        return Optional.of(new JdbcTypeHandle(Types.DECIMAL, Optional.empty(), decimalType.getPrecision(), decimalType.getScale(), Optional.empty()));
+        return Optional.of(new JdbcTypeHandle(Types.DECIMAL, Optional.empty(), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
     }
 
     @Override
