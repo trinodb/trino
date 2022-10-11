@@ -51,6 +51,8 @@ import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
 import io.trino.plugin.jdbc.aggregation.ImplementMinMax;
 import io.trino.plugin.jdbc.aggregation.ImplementSum;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
+import io.trino.plugin.jdbc.expression.RewriteComparison;
+import io.trino.plugin.jdbc.expression.RewriteIn;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -60,6 +62,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
+import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
@@ -213,7 +216,25 @@ public class SqlServerClient
         this.statisticsEnabled = statisticsConfig.isEnabled();
 
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
+                // Only SqlServer requires N prefix for unicode characters (SQL-92 standard),
+                // so we add this rule to support such cases for pushdowns
+                .add(new RewriteUnicodeVarcharConstant())
                 .addStandardRules(this::quoted)
+                .add(new RewriteComparison(ImmutableSet.of(RewriteComparison.ComparisonOperator.EQUAL, RewriteComparison.ComparisonOperator.NOT_EQUAL)))
+                .add(new RewriteIn())
+                .withTypeClass("integer_type", ImmutableSet.of("tinyint", "smallint", "integer", "bigint"))
+                .map("$add(left: integer_type, right: integer_type)").to("left + right")
+                .map("$subtract(left: integer_type, right: integer_type)").to("left - right")
+                .map("$multiply(left: integer_type, right: integer_type)").to("left * right")
+                .map("$divide(left: integer_type, right: integer_type)").to("left / right")
+                .map("$modulus(left: integer_type, right: integer_type)").to("left % right")
+                .map("$negate(value: integer_type)").to("-value")
+                .map("$like(value: varchar, pattern: varchar): boolean").to("value LIKE pattern")
+                .map("$like(value: varchar, pattern: varchar, escape: varchar(1)): boolean").to("value LIKE pattern ESCAPE escape")
+                .map("$not($is_null(value))").to("value IS NOT NULL")
+                .map("$not(value: boolean)").to("NOT value")
+                .map("$is_null(value)").to("value IS NULL")
+                .map("$nullif(first, second)").to("NULLIF(first, second)")
                 .build();
 
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
@@ -336,6 +357,12 @@ public class SqlServerClient
             renameColumn.setString(2, newRemoteColumnName);
             renameColumn.execute();
         }
+    }
+
+    @Override
+    public Optional<String> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        return connectorExpressionRewriter.rewrite(session, expression, assignments);
     }
 
     @Override
