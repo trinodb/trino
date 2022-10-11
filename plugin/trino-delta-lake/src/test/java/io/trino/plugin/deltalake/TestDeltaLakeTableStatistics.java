@@ -74,7 +74,7 @@ public class TestDeltaLakeTableStatistics
                 "VALUES " +
                         //  column_name | data_size | distinct_values_count | nulls_fraction | row_count | low_value | high_value
                         "('pk', null, 1.0, 0.5, null, null, null)," +
-                        "('val_col', null, null, 0.0, null, 23, 24)," +
+                        "('val_col', null, 2.0, 0.0, null, 23, 24)," +
                         "(null, null, null, null, 2.0, null, null)");
     }
 
@@ -96,7 +96,7 @@ public class TestDeltaLakeTableStatistics
                         //  column_name | data_size | distinct_values_count | nulls_fraction | row_count | low_value | high_value
                         "('pk1', null, 1.0, 0.25, null, null, null)," +
                         "('pk2', null, 3.0, 0.0, null, null, null)," +
-                        "('val_col', null, null, 0.0, null, 23, 26)," +
+                        "('val_col', null, 4.0, 0.0, null, 23, 26)," +
                         "(null, null, null, null, 4.0, null, null)");
     }
 
@@ -114,7 +114,7 @@ public class TestDeltaLakeTableStatistics
                 "VALUES " +
                         //  column_name | data_size | distinct_values_count | nulls_fraction | row_count | low_value | high_value
                         "('pk1', 0.0, 0.0, 1.0, null, null, null)," +
-                        "('val_col', null, null, 0.0, null, 23, 24)," +
+                        "('val_col', null, 2.0, 0.0, null, 23, 24)," +
                         "(null, null, null, null, 2.0, null, null)");
     }
 
@@ -136,7 +136,7 @@ public class TestDeltaLakeTableStatistics
                         //  column_name | data_size | distinct_values_count | nulls_fraction | row_count | low_value | high_value
                         "('pk1', null, 1.0, 0.0, null, null, null)," +
                         "('pk2', null, 3.0, 0.0, null, null, null)," +
-                        "('val_col', null, null, 0.0, null, 23, 26)," +
+                        "('val_col', null, 3.0, 0.0, null, 23, 26)," +
                         "(null, null, null, null, 3.0, null, null)");
     }
 
@@ -148,7 +148,7 @@ public class TestDeltaLakeTableStatistics
                 "SHOW STATS FOR show_stats_with_null",
                 "VALUES " +
                         //  column_name | data_size | distinct_values_count | nulls_fraction | row_count | low_value | high_value
-                        "('col', 0.0, null, 1.0, null, null, null)," +
+                        "('col', 0.0, 0.0, 1.0, null, null, null)," +
                         "(null, null, null, null, 1.0, null, null)");
     }
 }
