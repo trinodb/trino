@@ -31,6 +31,7 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.TPCH_SCHEMA;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.EXTENDED_STATISTICS_COLLECT_ON_WRITE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -70,17 +71,6 @@ public class TestDeltaLakeAnalyze
         assertUpdate("CREATE TABLE " + tableName
                 + (checkpointInterval.isPresent() ? format(" WITH (checkpoint_interval = %s)", checkpointInterval.get()) : "")
                 + " AS SELECT * FROM tpch.sf1.nation", 25);
-
-        assertQuery(
-                "SHOW STATS FOR " + tableName,
-                "VALUES " +
-                        "('nationkey', null, null, 0.0, null, 0, 24)," +
-                        "('regionkey', null, null, 0.0, null, 0, 4)," +
-                        "('comment', null, null, 0.0, null, null, null)," +
-                        "('name', null, null, 0.0, null, null, null)," +
-                        "(null, null, null, null, 25.0, null, null)");
-
-        runAnalyzeVerifySplitCount(tableName, 1);
 
         assertQuery(
                 "SHOW STATS FOR " + tableName,
@@ -156,13 +146,13 @@ public class TestDeltaLakeAnalyze
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 "VALUES " +
-                        "('nationkey', null, null, 0.0, null, 0, 24)," +
+                        "('nationkey', null, 25.0, 0.0, null, 0, 24)," +
                         "('regionkey', null, 5.0, 0.0, null, null, null)," +
-                        "('comment', null, null, 0.0, null, null, null)," +
-                        "('name', null, null, 0.0, null, null, null)," +
+                        "('comment', 1857.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 177.0, 25.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 25.0, null, null)");
 
-        runAnalyzeVerifySplitCount(tableName, 5);
+        runAnalyzeVerifySplitCount(tableName, 1);
 
         assertQuery(
                 "SHOW STATS FOR " + tableName,
@@ -276,7 +266,10 @@ public class TestDeltaLakeAnalyze
     {
         String tableName = "test_analyze_" + randomNameSuffix();
 
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
+        assertUpdate(
+                disableStatisticsCollectionOnWrite(getSession()),
+                "CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation",
+                25);
 
         Thread.sleep(100);
         Instant afterInitialDataIngestion = Instant.now();
@@ -407,10 +400,6 @@ public class TestDeltaLakeAnalyze
                     + "('name',     177.0, 25.0,  0.0, null, null, null),"
                     + "(null,        null, null, null, 25.0, null, null)";
 
-            assertQuery(query, baseStats);
-
-            // Update stats to include distinct count
-            runAnalyzeVerifySplitCount(table.getName(), 1);
             assertQuery(query, extendedStats);
 
             // Dropping extended stats clears distinct count and leaves other stats alone
@@ -479,6 +468,70 @@ public class TestDeltaLakeAnalyze
         }
     }
 
+    @Test
+    public void testCreateTableStatisticsWhenCollectionOnWriteDisabled()
+    {
+        String tableName = "test_statistics_" + randomNameSuffix();
+        assertUpdate(
+                disableStatisticsCollectionOnWrite(getSession()),
+                "CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation",
+                25);
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('nationkey', null, null, 0.0, null, 0, 24)," +
+                        "('regionkey', null, null, 0.0, null, 0, 4)," +
+                        "('comment', null, null, 0.0, null, null, null)," +
+                        "('name', null, null, 0.0, null, null, null)," +
+                        "(null, null, null, null, 25.0, null, null)");
+
+        assertUpdate("ANALYZE " + tableName);
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('nationkey', null, 25.0, 0.0, null, 0, 24)," +
+                        "('regionkey', null, 5.0, 0.0, null, 0, 4)," +
+                        "('comment', 1857.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 177.0, 25.0, 0.0, null, null, null)," +
+                        "(null, null, null, null, 25.0, null, null)");
+    }
+
+    @Test
+    public void testCreatePartitionedTableStatisticsWhenCollectionOnWriteDisabled()
+    {
+        String tableName = "test_statistics_" + randomNameSuffix();
+        assertUpdate(
+                disableStatisticsCollectionOnWrite(getSession()),
+                "CREATE TABLE " + tableName
+                        + " WITH ("
+                        + "   partitioned_by = ARRAY['regionkey']"
+                        + ")"
+                        + "AS SELECT * FROM tpch.sf1.nation",
+                25);
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('nationkey', null, null, 0.0, null, 0, 24)," +
+                        "('regionkey', null, 5.0, 0.0, null, null, null)," +
+                        "('comment', null, null, 0.0, null, null, null)," +
+                        "('name', null, null, 0.0, null, null, null)," +
+                        "(null, null, null, null, 25.0, null, null)");
+
+        assertUpdate("ANALYZE " + tableName);
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('nationkey', null, 25.0, 0.0, null, 0, 24)," +
+                        "('regionkey', null, 5.0, 0.0, null, null, null)," +
+                        "('comment', 1857.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 177.0, 25.0, 0.0, null, null, null)," +
+                        "(null, null, null, null, 25.0, null, null)");
+    }
+
     private void runAnalyzeVerifySplitCount(String tableName, long expectedSplitCount)
     {
         MaterializedResultWithQueryId analyzeResult = getDistributedQueryRunner().executeWithQueryId(getSession(), "ANALYZE " + tableName);
@@ -501,5 +554,12 @@ public class TestDeltaLakeAnalyze
                 .stream()
                 .filter(summary -> summary.getOperatorType().contains("Scan"))
                 .collect(onlyElement());
+    }
+
+    private static Session disableStatisticsCollectionOnWrite(Session session)
+    {
+        return Session.builder(session)
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), EXTENDED_STATISTICS_COLLECT_ON_WRITE, "false")
+                .build();
     }
 }
