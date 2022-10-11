@@ -29,6 +29,7 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
@@ -96,6 +97,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -126,7 +128,10 @@ import static software.amazon.awssdk.core.client.config.SdkAdvancedClientOption.
 public class S3FileSystemExchangeStorage
         implements FileSystemExchangeStorage
 {
-    public enum CompatibilityMode {
+    private static final Logger log = Logger.get(S3FileSystemExchangeStorage.class);
+
+    public enum CompatibilityMode
+    {
         AWS,
         GCP
     }
@@ -163,12 +168,26 @@ public class S3FileSystemExchangeStorage
                 .putAdvancedOption(USER_AGENT_PREFIX, "")
                 .putAdvancedOption(USER_AGENT_SUFFIX, "Trino-exchange")
                 .build();
-        this.s3AsyncClient = createS3AsyncClient(
+        S3AsyncClient client = createS3AsyncClient(
                 credentialsProvider,
                 overrideConfig,
                 config.getAsyncClientConcurrency(),
                 config.getAsyncClientMaxPendingConnectionAcquires(),
                 config.getConnectionAcquisitionTimeout());
+        this.s3AsyncClient = new S3AsyncClientWrapper(client)
+        {
+            @Override
+            protected void handle(RequestType requestType, CompletableFuture<?> responseFuture)
+            {
+                stats.requestStarted(requestType);
+                responseFuture.whenComplete((result, failure) -> {
+                    if (failure != null && failure.getMessage() != null && failure.getMessage().contains("Maximum pending connection acquisitions exceeded")) {
+                        log.error(failure, "Encountered 'Maximum pending connection acquisitions exceeded' error. Active requests: %s", stats.getActiveRequestsSummary());
+                    }
+                    stats.requestCompleted(requestType);
+                });
+            }
+        };
 
         if (compatibilityMode == GCP) {
             Optional<String> gcsJsonKeyFilePath = config.getGcsJsonKeyFilePath();

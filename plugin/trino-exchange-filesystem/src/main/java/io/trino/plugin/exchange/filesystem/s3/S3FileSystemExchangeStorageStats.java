@@ -15,8 +15,24 @@ package io.trino.plugin.exchange.filesystem.s3;
 
 import io.airlift.stats.DistributionStat;
 import io.trino.plugin.exchange.filesystem.ExecutionStats;
+import io.trino.plugin.exchange.filesystem.s3.S3AsyncClientWrapper.RequestType;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.exchange.filesystem.s3.S3AsyncClientWrapper.RequestType.ABORT_MULTIPART_UPLOAD;
+import static io.trino.plugin.exchange.filesystem.s3.S3AsyncClientWrapper.RequestType.COMPLETE_MULTIPART_UPLOAD;
+import static io.trino.plugin.exchange.filesystem.s3.S3AsyncClientWrapper.RequestType.CREATE_MULTIPART_UPLOAD;
+import static io.trino.plugin.exchange.filesystem.s3.S3AsyncClientWrapper.RequestType.DELETE_OBJECTS;
+import static io.trino.plugin.exchange.filesystem.s3.S3AsyncClientWrapper.RequestType.GET_OBJECT;
+import static io.trino.plugin.exchange.filesystem.s3.S3AsyncClientWrapper.RequestType.LIST_OBJECTS_V2;
+import static io.trino.plugin.exchange.filesystem.s3.S3AsyncClientWrapper.RequestType.PUT_OBJECT;
+import static io.trino.plugin.exchange.filesystem.s3.S3AsyncClientWrapper.RequestType.UPLOAD_PART;
 
 public class S3FileSystemExchangeStorageStats
 {
@@ -35,6 +51,7 @@ public class S3FileSystemExchangeStorageStats
     private final ExecutionStats completeMultipartUpload = new ExecutionStats();
     private final DistributionStat completeMultipartUploadPartsCount = new DistributionStat();
     private final ExecutionStats abortMultipartUpload = new ExecutionStats();
+    private final Map<RequestType, AtomicLong> activeRequests = new ConcurrentHashMap<>();
 
     @Managed
     @Nested
@@ -139,5 +156,77 @@ public class S3FileSystemExchangeStorageStats
     public ExecutionStats getAbortMultipartUpload()
     {
         return abortMultipartUpload;
+    }
+
+    public void requestStarted(RequestType requestType)
+    {
+        activeRequests.computeIfAbsent(requestType, key -> new AtomicLong()).incrementAndGet();
+    }
+
+    public void requestCompleted(RequestType requestType)
+    {
+        AtomicLong count = activeRequests.get(requestType);
+        checkArgument(count != null && count.get() >= 0, "no active requests of type %s found", requestType);
+        count.decrementAndGet();
+    }
+
+    @Managed
+    public long getActivePutObjectRequestCount()
+    {
+        return getActiveRequestCount(PUT_OBJECT);
+    }
+
+    @Managed
+    public long getActiveDeleteObjectsRequestCount()
+    {
+        return getActiveRequestCount(DELETE_OBJECTS);
+    }
+
+    @Managed
+    public long getActiveGetObjectRequestCount()
+    {
+        return getActiveRequestCount(GET_OBJECT);
+    }
+
+    @Managed
+    public long getActiveCreateMultipartUploadRequestCount()
+    {
+        return getActiveRequestCount(CREATE_MULTIPART_UPLOAD);
+    }
+
+    @Managed
+    public long getActiveUploadPartRequestCount()
+    {
+        return getActiveRequestCount(UPLOAD_PART);
+    }
+
+    @Managed
+    public long getActiveCompleteMultipartUploadRequestCount()
+    {
+        return getActiveRequestCount(COMPLETE_MULTIPART_UPLOAD);
+    }
+
+    @Managed
+    public long getActiveAbortMultipartUploadRequestCount()
+    {
+        return getActiveRequestCount(ABORT_MULTIPART_UPLOAD);
+    }
+
+    @Managed
+    public long getListObjectsV2RequestCount()
+    {
+        return getActiveRequestCount(LIST_OBJECTS_V2);
+    }
+
+    public Map<RequestType, Long> getActiveRequestsSummary()
+    {
+        return activeRequests.entrySet().stream()
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().get()));
+    }
+
+    private long getActiveRequestCount(RequestType requestType)
+    {
+        AtomicLong count = activeRequests.get(requestType);
+        return count == null ? 0 : count.get();
     }
 }
