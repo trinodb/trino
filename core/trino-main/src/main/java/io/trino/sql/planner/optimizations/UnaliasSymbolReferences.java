@@ -371,7 +371,27 @@ public class UnaliasSymbolReferences
         @Override
         public PlanAndMappings visitTableFunctionProcessor(TableFunctionProcessorNode node, UnaliasContext context)
         {
-            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+            if (node.getSource().isEmpty()) {
+                Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
+                SymbolMapper mapper = symbolMapper(mapping);
+                return new PlanAndMappings(
+                        new TableFunctionProcessorNode(
+                                node.getId(),
+                                node.getName(),
+                                mapper.map(node.getProperOutputs()),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableSet.of(),
+                                0,
+                                node.getHashSymbol().map(mapper::map),
+                                node.getHandle()),
+                        mapping);
+            }
+
+            PlanAndMappings rewrittenSource = node.getSource().orElseThrow().accept(this, context);
             Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
             SymbolMapper mapper = symbolMapper(mapping);
 
