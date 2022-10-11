@@ -387,6 +387,7 @@ public class SymbolMapper
                 node.getName(),
                 map(node.getProperOutputs()),
                 Optional.of(source),
+                node.isPruneWhenEmpty(),
                 newPassThroughSpecifications,
                 newRequiredSymbols,
                 newMarkerSymbols,

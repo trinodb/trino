@@ -61,6 +61,7 @@ import io.trino.sql.planner.iterative.rule.ImplementIntersectAll;
 import io.trino.sql.planner.iterative.rule.ImplementIntersectDistinctAsUnion;
 import io.trino.sql.planner.iterative.rule.ImplementLimitWithTies;
 import io.trino.sql.planner.iterative.rule.ImplementOffset;
+import io.trino.sql.planner.iterative.rule.ImplementTableFunctionSource;
 import io.trino.sql.planner.iterative.rule.InlineProjectIntoFilter;
 import io.trino.sql.planner.iterative.rule.InlineProjections;
 import io.trino.sql.planner.iterative.rule.MergeExcept;
@@ -629,7 +630,11 @@ public class PlanOptimizers
                         costCalculator,
                         // Temporary hack: separate optimizer step to avoid the sample node being replaced by filter before pushing
                         // it to table scan node
-                        ImmutableSet.of(new ImplementBernoulliSampleAsFilter(metadata))),
+                        ImmutableSet.of(
+                                new ImplementBernoulliSampleAsFilter(metadata),
+                                // Must run after RewriteTableFunctionToTableScan because that rule applies to TableFunctionNode.
+                                // While the node gets rewritten to TableFunctionProcessorNode, we can no longer pushdown the function to the connector.
+                                new ImplementTableFunctionSource(metadata))),
                 columnPruningOptimizer,
                 new IterativeOptimizer(
                         plannerContext,
