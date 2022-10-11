@@ -16,15 +16,18 @@ package io.trino.plugin.hive.containers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
 import io.trino.testing.TestingProperties;
 import io.trino.testing.containers.BaseTestContainer;
 import org.testcontainers.containers.Network;
 
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 
 public class HiveHadoop
@@ -44,6 +47,8 @@ public class HiveHadoop
         return new Builder();
     }
 
+    private final boolean hdfsAndHiveRuntimeDisabled;
+
     private HiveHadoop(
             String image,
             String hostName,
@@ -51,6 +56,7 @@ public class HiveHadoop
             Map<String, String> filesToMount,
             Map<String, String> envVars,
             Optional<Network> network,
+            boolean hdfsAndHiveRuntimeDisabled,
             int startupRetryLimit)
     {
         super(
@@ -61,12 +67,33 @@ public class HiveHadoop
                 envVars,
                 network,
                 startupRetryLimit);
+        this.hdfsAndHiveRuntimeDisabled = hdfsAndHiveRuntimeDisabled;
     }
 
     @Override
     protected void setupContainer()
     {
         super.setupContainer();
+        if (hdfsAndHiveRuntimeDisabled) {
+            container.withCreateContainerCmdModifier(createContainerCmd -> {
+                if (createContainerCmd.getEntrypoint() != null) {
+                    throw new IllegalStateException("Entrypoint already set: " + Arrays.toString(createContainerCmd.getEntrypoint()));
+                }
+                createContainerCmd.withEntrypoint(
+                        "bash",
+                        "-c",
+                        """
+                                echo Disabling HDF and Hive runtime in the container
+                                set -xeuo pipefail
+                                rm -v /etc/supervisord.d/hive-server2.conf
+                                rm -v /etc/supervisord.d/yarn-nodemanager.conf
+                                rm -v /etc/supervisord.d/yarn-resourcemanager.conf
+                                rm -v /etc/supervisord.d/hdfs-namenode.conf
+                                rm -v /etc/supervisord.d/hdfs-datanode.conf
+                                exec "$0" "$@"
+                                """);
+            });
+        }
         String runCmd = "/usr/local/hadoop-run.sh";
         copyResourceToContainer("containers/hive_hadoop/hadoop-run.sh", runCmd);
         withRunCommand(
@@ -85,6 +112,7 @@ public class HiveHadoop
 
     public String runOnHive(String query)
     {
+        checkState(!hdfsAndHiveRuntimeDisabled, "Hive runtime is disabled");
         return executeInContainerFailOnError("beeline", "-u", "jdbc:hive2://localhost:10000/default", "-n", "hive", "-e", query);
     }
 
@@ -101,6 +129,8 @@ public class HiveHadoop
     public static class Builder
             extends BaseTestContainer.Builder<HiveHadoop.Builder, HiveHadoop>
     {
+        private boolean hdfsAndHiveRuntimeDisabled;
+
         private Builder()
         {
             this.image = DEFAULT_IMAGE;
@@ -108,10 +138,17 @@ public class HiveHadoop
             this.exposePorts = ImmutableSet.of(HIVE_METASTORE_PORT);
         }
 
+        @CanIgnoreReturnValue
+        public Builder withHdfsAndHiveRuntimeDisabled()
+        {
+            hdfsAndHiveRuntimeDisabled = true;
+            return this;
+        }
+
         @Override
         public HiveHadoop build()
         {
-            return new HiveHadoop(image, hostName, exposePorts, filesToMount, envVars, network, startupRetryLimit);
+            return new HiveHadoop(image, hostName, exposePorts, filesToMount, envVars, network, hdfsAndHiveRuntimeDisabled, startupRetryLimit);
         }
     }
 }

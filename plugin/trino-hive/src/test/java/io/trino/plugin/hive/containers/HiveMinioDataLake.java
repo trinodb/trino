@@ -14,11 +14,13 @@
 package io.trino.plugin.hive.containers;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.trino.testing.containers.Minio;
 import io.trino.testing.minio.MinioClient;
 import io.trino.util.AutoCloseableCloser;
 import org.testcontainers.containers.Network;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -55,12 +57,25 @@ public class HiveMinioDataLake
         this(bucketName, HiveHadoop.DEFAULT_IMAGE);
     }
 
+    /**
+     * @deprecated Use {@link #builder()}.
+     */
+    @Deprecated
     public HiveMinioDataLake(String bucketName, String hiveHadoopImage)
     {
         this(bucketName, ImmutableMap.of("/etc/hadoop/conf/core-site.xml", getPathFromClassPathResource("hive_minio_datalake/hive-core-site.xml")), hiveHadoopImage);
     }
 
+    /**
+     * @deprecated Use {@link #builder()}.
+     */
+    @Deprecated
     public HiveMinioDataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount, String hiveHadoopImage)
+    {
+        this(bucketName, hiveHadoopFilesToMount, hiveHadoopImage, true);
+    }
+
+    private HiveMinioDataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount, String hiveHadoopImage, boolean hdfsAndHiveRuntimeDisabled)
     {
         this.bucketName = requireNonNull(bucketName, "bucketName is null");
         Network network = closer.register(newNetwork());
@@ -78,6 +93,9 @@ public class HiveMinioDataLake
                 .withImage(hiveHadoopImage)
                 .withNetwork(network)
                 .withFilesToMount(hiveHadoopFilesToMount);
+        if (hdfsAndHiveRuntimeDisabled) {
+            hiveHadoopBuilder.withHdfsAndHiveRuntimeDisabled();
+        }
         this.hiveHadoop = closer.register(hiveHadoopBuilder.build());
     }
 
@@ -156,5 +174,53 @@ public class HiveMinioDataLake
         STARTING,
         STARTED,
         STOPPED,
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static class Builder
+    {
+        private String bucketName;
+        private Map<String, String> hiveHadoopFilesToMount = new HashMap<>();
+        private String hiveHadoopImage;
+        private boolean hdfsAndHiveRuntimeDisabled = true;
+
+        private Builder() {}
+
+        @CanIgnoreReturnValue
+        public Builder withBucketName(String bucketName)
+        {
+            this.bucketName = bucketName;
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public Builder withHiveHadoopFilesToMount(Map<String, String> hiveHadoopFilesToMount)
+        {
+            this.hiveHadoopFilesToMount = new HashMap<>(hiveHadoopFilesToMount);
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public Builder withHiveHadoopImage(String hiveHadoopImage)
+        {
+            this.hiveHadoopImage = hiveHadoopImage;
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public Builder withHdfsAndHiveRuntimeEnabled()
+        {
+            this.hdfsAndHiveRuntimeDisabled = false;
+            return this;
+        }
+
+        public HiveMinioDataLake build()
+        {
+            return new HiveMinioDataLake(bucketName, hiveHadoopFilesToMount, hiveHadoopImage, hdfsAndHiveRuntimeDisabled);
+        }
     }
 }

@@ -53,7 +53,7 @@ public abstract class BaseTestContainer
     private final Optional<Network> network;
     private final int startupRetryLimit;
 
-    private GenericContainer<?> container;
+    protected GenericContainer<?> container;
 
     protected BaseTestContainer(
             String image,

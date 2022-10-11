@@ -78,7 +78,11 @@ public abstract class BaseTestHiveOnDataLake
     {
         this.bucketName = "test-hive-insert-overwrite-" + randomTableSuffix();
         this.hiveMinioDataLake = closeAfterClass(
-                new HiveMinioDataLake(bucketName, hiveHadoopImage));
+                HiveMinioDataLake.builder()
+                        .withBucketName(bucketName)
+                        .withHiveHadoopImage(hiveHadoopImage)
+                        .withHdfsAndHiveRuntimeEnabled() // required for runOnHive
+                        .build());
         this.hiveMinioDataLake.start();
         this.metastoreClient = new BridgingHiveMetastore(
                 testingThriftHiveMetastoreBuilder()

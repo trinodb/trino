@@ -30,7 +30,11 @@ public class TestHudiMergeOnReadMinioConnectorTest
             throws Exception
     {
         String bucketName = "test-hudi-connector-" + randomTableSuffix();
-        hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName, HIVE3_IMAGE));
+        hiveMinioDataLake = closeAfterClass(HiveMinioDataLake.builder()
+                .withBucketName(bucketName)
+                .withHiveHadoopImage(HIVE3_IMAGE)
+                .withHdfsAndHiveRuntimeEnabled() // TODO why is this needed? Are we still using HDFS despite desire to use MinIO
+                .build());
         hiveMinioDataLake.start();
         hiveMinioDataLake.getMinioClient().ensureBucketExists(bucketName);
 
