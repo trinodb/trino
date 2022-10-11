@@ -1450,11 +1450,6 @@ public class TestHiveGlueMetastore
             return new PartitionValues(Arrays.asList(values));
         }
 
-        private static PartitionValues make(List<String> values)
-        {
-            return new PartitionValues(values);
-        }
-
         private PartitionValues(List<String> values)
         {
             this.values = values;
