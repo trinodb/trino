@@ -251,7 +251,13 @@ public abstract class BaseFailureRecoveryTest
     @Test(invocationCount = INVOCATION_COUNT)
     public void testUserFailure()
     {
-        assertThatThrownBy(() -> getQueryRunner().execute("SELECT * FROM nation WHERE regionKey / nationKey - 1 = 0"))
+        // Some connectors have pushdowns enabled for arithmetic operations (like SqlServer),
+        // so exception will come not from trino, but from datasource itself
+        Session withoutPushdown = Session.builder(this.getSession())
+                .setSystemProperty("allow_pushdown_into_connectors", "false")
+                .build();
+
+        assertThatThrownBy(() -> getQueryRunner().execute(withoutPushdown, "SELECT * FROM nation WHERE regionKey / nationKey - 1 = 0"))
                 .hasMessageMatching("(?i).*Division by zero.*"); // some errors come back with different casing.
 
         assertThatQuery("SELECT * FROM nation")
