@@ -3231,7 +3231,7 @@ public class HiveMetadata
             return TableStatisticsMetadata.empty();
         }
         if (isTransactional(tableMetadata.getProperties()).orElse(false)) {
-            // TODO(https://github.com/trinodb/trino/issues/1956) updating table statistics for trasactional not supported right now.
+            // TODO(https://github.com/trinodb/trino/issues/1956) updating table statistics for transactional not supported right now.
             return TableStatisticsMetadata.empty();
         }
         List<String> partitionedBy = firstNonNull(getPartitionedBy(tableMetadata.getProperties()), ImmutableList.of());
