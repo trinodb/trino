@@ -31,6 +31,7 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.TPCH_SCHEMA;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
@@ -67,9 +68,12 @@ public class TestDeltaLakeAnalyze
     private void testAnalyze(Optional<Integer> checkpointInterval)
     {
         String tableName = "test_analyze_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName
-                + (checkpointInterval.isPresent() ? format(" WITH (checkpoint_interval = %s)", checkpointInterval.get()) : "")
-                + " AS SELECT * FROM tpch.sf1.nation", 25);
+        assertUpdate(
+                disableStatisticsCollectionOnWrite(getSession()),
+                "CREATE TABLE " + tableName + " " +
+                        (checkpointInterval.isPresent() ? format(" WITH (checkpoint_interval = %s)", checkpointInterval.get()) : "") +
+                        " AS SELECT * FROM tpch.sf1.nation",
+                25);
 
         assertQuery(
                 "SHOW STATS FOR " + tableName,
@@ -147,11 +151,14 @@ public class TestDeltaLakeAnalyze
     public void testAnalyzePartitioned()
     {
         String tableName = "test_analyze_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName
+        assertUpdate(
+                disableStatisticsCollectionOnWrite(getSession()),
+                "CREATE TABLE " + tableName
                 + " WITH ("
                 + "   partitioned_by = ARRAY['regionkey']"
                 + ")"
-                + "AS SELECT * FROM tpch.sf1.nation", 25);
+                + "AS SELECT * FROM tpch.sf1.nation",
+                25);
 
         assertQuery(
                 "SHOW STATS FOR " + tableName,
@@ -276,7 +283,7 @@ public class TestDeltaLakeAnalyze
     {
         String tableName = "test_analyze_" + randomTableSuffix();
 
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
+        assertUpdate(disableStatisticsCollectionOnWrite(getSession()), "CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
 
         Thread.sleep(100);
         Instant afterInitialDataIngestion = Instant.now();
@@ -389,7 +396,7 @@ public class TestDeltaLakeAnalyze
     public void testDropExtendedStats()
     {
         try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+                sql -> getQueryRunner().execute(disableStatisticsCollectionOnWrite(getSession()), sql),
                 "test_drop_extended_stats",
                 "AS SELECT * FROM tpch.sf1.nation")) {
             String query = "SHOW STATS FOR " + table.getName();
@@ -480,5 +487,12 @@ public class TestDeltaLakeAnalyze
                 .stream()
                 .filter(summary -> summary.getOperatorType().contains("Scan"))
                 .collect(onlyElement());
+    }
+
+    private static Session disableStatisticsCollectionOnWrite(Session session)
+    {
+        return Session.builder(session)
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), COLLECT_EXTENDED_STATISTICS_ON_WRITE, "false")
+                .build();
     }
 }

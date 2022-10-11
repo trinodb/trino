@@ -67,6 +67,7 @@ public class DeltaLakeConfig
     private Duration dynamicFilteringWaitTimeout = new Duration(0, SECONDS);
     private boolean tableStatisticsEnabled = true;
     private boolean extendedStatisticsEnabled = true;
+    private boolean collectExtendedStatisticsColumnStatisticsOnWrite = true;
     private HiveCompressionCodec compressionCodec = HiveCompressionCodec.SNAPPY;
     private long perTransactionMetastoreCacheMaximumSize = 1000;
     private boolean deleteSchemaLocationsFallback;
@@ -327,6 +328,19 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setExtendedStatisticsEnabled(boolean extendedStatisticsEnabled)
     {
         this.extendedStatisticsEnabled = extendedStatisticsEnabled;
+        return this;
+    }
+
+    public boolean isCollectExtendedStatisticsColumnStatisticsOnWrite()
+    {
+        return collectExtendedStatisticsColumnStatisticsOnWrite;
+    }
+
+    @Config("delta.extended-statistics.collect-on-write")
+    @ConfigDescription("Enables automatic column level extended statistics collection on write")
+    public DeltaLakeConfig setCollectExtendedStatisticsColumnStatisticsOnWrite(boolean collectExtendedStatisticsColumnStatisticsOnWrite)
+    {
+        this.collectExtendedStatisticsColumnStatisticsOnWrite = collectExtendedStatisticsColumnStatisticsOnWrite;
         return this;
     }
 
