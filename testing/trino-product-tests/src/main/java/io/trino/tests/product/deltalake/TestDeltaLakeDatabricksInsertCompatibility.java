@@ -368,11 +368,11 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                     .containsOnly(row(1, 2), row(2, 4), row(3, 6));
 
             assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (1, 2, 4)"))
-                    .hasMessageMatching(".*Table default." + tableName + " requires Delta Lake writer version 4 which is not supported");
+                    .hasMessageMatching(".*Writing to tables with generated columns is not supported");
             assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a_number = 1"))
-                    .hasMessageMatching(".*Table default." + tableName + " requires Delta Lake writer version 4 which is not supported");
+                    .hasMessageMatching(".*Writing to tables with generated columns is not supported");
             assertQueryFailure(() -> onTrino().executeQuery("UPDATE delta.default." + tableName + " SET a_number_times_two = 5 WHERE a_number = 2"))
-                    .hasMessageMatching(".*Table default." + tableName + " requires Delta Lake writer version 4 which is not supported");
+                    .hasMessageMatching(".*Writing to tables with generated columns is not supported");
         }
         finally {
             onDelta().executeQuery("DROP TABLE default." + tableName);
@@ -552,8 +552,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                     "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
                     "TBLPROPERTIES (delta.enableChangeDataFeed = true)");
 
-            assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (1, 2)"))
-                    .hasMessageMatching(".* Table .* requires Delta Lake writer version 4 which is not supported");
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (1, 2)");
             assertQueryFailure(() -> onTrino().executeQuery("UPDATE delta.default." + tableName + " SET a = 3 WHERE b = 3"))
                     .hasMessageContaining("Writing to tables with Change Data Feed enabled is not supported");
             assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a = 3"))
@@ -561,6 +560,8 @@ public class TestDeltaLakeDatabricksInsertCompatibility
             assertQueryFailure(() -> onTrino().executeQuery("MERGE INTO delta.default." + tableName + " t USING delta.default." + tableName + " s " +
                     "ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET b = 42"))
                     .hasMessageContaining("Writing to tables with Change Data Feed enabled is not supported");
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .containsOnly(row(1, 2));
         }
         finally {
             onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
