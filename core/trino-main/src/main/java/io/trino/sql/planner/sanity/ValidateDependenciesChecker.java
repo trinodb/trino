@@ -270,7 +270,11 @@ public final class ValidateDependenciesChecker
         @Override
         public Void visitTableFunctionProcessor(TableFunctionProcessorNode node, Set<Symbol> boundSymbols)
         {
-            PlanNode source = node.getSource();
+            if (node.getSource().isEmpty()) {
+                return null;
+            }
+
+            PlanNode source = node.getSource().orElseThrow();
             source.accept(this, boundSymbols);
 
             Set<Symbol> inputs = createInputs(source, boundSymbols);
