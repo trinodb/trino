@@ -26,13 +26,16 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.OutputTableHandle;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableExecuteHandle;
+import io.trino.metadata.TableFunctionHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SortOrder;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.ptf.ConnectorTableFunctionHandle;
 import io.trino.spi.type.Type;
 import io.trino.sql.ExpressionUtils;
 import io.trino.sql.analyzer.TypeSignatureProvider;
@@ -87,6 +90,8 @@ import io.trino.sql.planner.plan.StatisticAggregations;
 import io.trino.sql.planner.plan.StatisticAggregationsDescriptor;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
+import io.trino.sql.planner.plan.TableFunctionNode;
+import io.trino.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
@@ -1172,6 +1177,25 @@ public class PlanBuilder
                 columnNames,
                 partitioningScheme,
                 preferredPartitioningScheme);
+    }
+
+    public TableFunctionNode tableFunction(
+            String name,
+            List<Symbol> properOutputs,
+            List<PlanNode> sources,
+            List<TableArgumentProperties> tableArgumentProperties,
+            List<List<String>> copartitioningLists)
+
+    {
+        return new TableFunctionNode(
+                idAllocator.getNextId(),
+                name,
+                ImmutableMap.of(),
+                properOutputs,
+                sources,
+                tableArgumentProperties,
+                copartitioningLists,
+                new TableFunctionHandle(TEST_CATALOG_HANDLE, new SchemaFunctionName("system", name), new ConnectorTableFunctionHandle() {}, TestingTransactionHandle.create()));
     }
 
     public PartitioningScheme partitioningScheme(List<Symbol> outputSymbols, List<Symbol> partitioningSymbols, Symbol hashSymbol)
