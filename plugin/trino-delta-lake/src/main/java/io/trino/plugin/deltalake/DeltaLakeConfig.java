@@ -40,6 +40,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 @DefunctConfig("delta.experimental.ignore-checkpoint-write-failures")
 public class DeltaLakeConfig
 {
+    public static final String EXTENDED_STATISTICS_ENABLED = "delta.extended-statistics.enabled";
     public static final String VACUUM_MIN_RETENTION = "delta.vacuum.min-retention";
 
     // Runtime.getRuntime().maxMemory() is not 100% stable and may return slightly different value over JVM lifetime. We use
@@ -321,7 +322,7 @@ public class DeltaLakeConfig
         return extendedStatisticsEnabled;
     }
 
-    @Config("delta.extended-statistics.enabled")
+    @Config(EXTENDED_STATISTICS_ENABLED)
     @ConfigDescription("Use extended statistics collected by ANALYZE")
     public DeltaLakeConfig setExtendedStatisticsEnabled(boolean extendedStatisticsEnabled)
     {
