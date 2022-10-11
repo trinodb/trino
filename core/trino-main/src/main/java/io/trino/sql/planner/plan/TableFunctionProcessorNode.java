@@ -46,6 +46,10 @@ public class TableFunctionProcessorNode
     private final Optional<PlanNode> source;
     // TODO do we need the info of which source has row semantics, or is it already included in the joins / join distribution?
 
+    // specifies whether the function should be pruned or executed when the input is empty
+    // pruneWhenEmpty is false if and only if all original input tables are KEEP WHEN EMPTY
+    private final boolean pruneWhenEmpty;
+
     // all source symbols to be produced on output, ordered as table argument specifications
     private final List<PassThroughSpecification> passThroughSpecifications;
 
@@ -72,6 +76,7 @@ public class TableFunctionProcessorNode
             @JsonProperty("name") String name,
             @JsonProperty("properOutputs") List<Symbol> properOutputs,
             @JsonProperty("source") Optional<PlanNode> source,
+            @JsonProperty("pruneWhenEmpty") boolean pruneWhenEmpty,
             @JsonProperty("passThroughSpecifications") List<PassThroughSpecification> passThroughSpecifications,
             @JsonProperty("requiredSymbols") List<List<Symbol>> requiredSymbols,
             @JsonProperty("markerSymbols") Optional<Map<Symbol, Symbol>> markerSymbols,
@@ -85,6 +90,7 @@ public class TableFunctionProcessorNode
         this.name = requireNonNull(name, "name is null");
         this.properOutputs = ImmutableList.copyOf(properOutputs);
         this.source = requireNonNull(source, "source is null");
+        this.pruneWhenEmpty = pruneWhenEmpty;
         this.passThroughSpecifications = ImmutableList.copyOf(passThroughSpecifications);
         this.requiredSymbols = requiredSymbols.stream()
                 .map(ImmutableList::copyOf)
@@ -126,6 +132,12 @@ public class TableFunctionProcessorNode
     public Optional<PlanNode> getSource()
     {
         return source;
+    }
+
+    @JsonProperty
+    public boolean isPruneWhenEmpty()
+    {
+        return pruneWhenEmpty;
     }
 
     @JsonProperty
@@ -209,6 +221,6 @@ public class TableFunctionProcessorNode
     public PlanNode replaceChildren(List<PlanNode> newSources)
     {
         Optional<PlanNode> newSource = newSources.isEmpty() ? Optional.empty() : Optional.of(getOnlyElement(newSources));
-        return new TableFunctionProcessorNode(getId(), name, properOutputs, newSource, passThroughSpecifications, requiredSymbols, markerSymbols, specification, prePartitioned, preSorted, hashSymbol, handle);
+        return new TableFunctionProcessorNode(getId(), name, properOutputs, newSource, pruneWhenEmpty, passThroughSpecifications, requiredSymbols, markerSymbols, specification, prePartitioned, preSorted, hashSymbol, handle);
     }
 }

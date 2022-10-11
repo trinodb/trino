@@ -380,6 +380,7 @@ public class UnaliasSymbolReferences
                                 node.getName(),
                                 mapper.map(node.getProperOutputs()),
                                 Optional.empty(),
+                                node.isPruneWhenEmpty(),
                                 ImmutableList.of(),
                                 ImmutableList.of(),
                                 Optional.empty(),

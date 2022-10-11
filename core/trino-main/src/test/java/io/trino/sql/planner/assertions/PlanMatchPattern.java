@@ -128,7 +128,7 @@ public final class PlanMatchPattern
      * Matches to any tree of nodes with children matching to given source matchers.
      * anyTree(tableScan("nation")) - will match to any plan which all leafs contain
      * any node containing table scan from nation table.
-     *
+     * <p>
      * Note: anyTree does not match zero nodes. E.g. output(anyTree(tableScan)) will NOT match TableScan node followed by OutputNode.
      */
     public static PlanMatchPattern anyTree(PlanMatchPattern... sources)
@@ -844,6 +844,20 @@ public final class PlanMatchPattern
     public static PlanMatchPattern tableFunction(Consumer<TableFunctionMatcher.Builder> handler, PlanMatchPattern... sources)
     {
         TableFunctionMatcher.Builder builder = new TableFunctionMatcher.Builder(sources);
+        handler.accept(builder);
+        return builder.build();
+    }
+
+    public static PlanMatchPattern tableFunctionProcessor(Consumer<TableFunctionProcessorMatcher.Builder> handler, PlanMatchPattern source)
+    {
+        TableFunctionProcessorMatcher.Builder builder = new TableFunctionProcessorMatcher.Builder(source);
+        handler.accept(builder);
+        return builder.build();
+    }
+
+    public static PlanMatchPattern tableFunctionProcessor(Consumer<TableFunctionProcessorMatcher.Builder> handler)
+    {
+        TableFunctionProcessorMatcher.Builder builder = new TableFunctionProcessorMatcher.Builder();
         handler.accept(builder);
         return builder.build();
     }
