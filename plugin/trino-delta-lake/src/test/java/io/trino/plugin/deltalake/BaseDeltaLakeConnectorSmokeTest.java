@@ -59,6 +59,7 @@ import static com.google.common.collect.Sets.union;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.EXTENDED_STATISTICS_COLLECT_ON_WRITE;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DELETE_TABLE;
@@ -513,26 +514,21 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testCreateTableAsStatistics()
     {
+        String tableName = "test_ctats_stats_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName
+                + " WITH ("
+                + "location = '" + getLocationForTable(bucketName, tableName) + "'"
+                + ")"
+                + " AS SELECT * FROM tpch.sf1.nation", 25);
+
         assertQuery(
-                "SHOW STATS FOR lineitem",
+                "SHOW STATS FOR " + tableName,
                 "VALUES " +
-                        "('orderkey', NULL, NULL, 0.0, NULL, '1', '60000')," +
-                        "('partkey', NULL, NULL, 0.0, NULL, '1', '2000')," +
-                        "('suppkey', NULL, NULL, 0.0, NULL, '1', '100')," +
-                        "('linenumber', NULL, NULL, 0.0, NULL, '1', '7')," +
-                        "('quantity', NULL, NULL, 0.0, NULL, '1.0', '50.0')," +
-                        "('extendedprice', NULL, NULL, 0.0, NULL, '904.0', '94949.5')," +
-                        "('discount', NULL, NULL, 0.0, NULL, '0.0', '0.1')," +
-                        "('tax', NULL, NULL, 0.0, NULL, '0.0', '0.08')," +
-                        "('returnflag', NULL, NULL, 0.0, NULL, NULL, NULL)," +
-                        "('linestatus', NULL, NULL, 0.0, NULL, NULL, NULL)," +
-                        "('shipdate', NULL, NULL, 0.0, NULL, '1992-01-04', '1998-11-29')," +
-                        "('commitdate', NULL, NULL, 0.0, NULL, '1992-02-02', '1998-10-28')," +
-                        "('receiptdate', NULL, NULL, 0.0, NULL, '1992-01-09', '1998-12-25')," +
-                        "('shipinstruct', NULL, NULL, 0.0, NULL, NULL, NULL)," +
-                        "('shipmode', NULL, NULL, 0.0, NULL, NULL, NULL)," +
-                        "('comment', NULL, NULL, 0.0, NULL, NULL, NULL)," +
-                        "(NULL, NULL, NULL, NULL, 60175.0, NULL, NULL)");
+                        "('nationkey', null, 25.0, 0.0, null, 0, 24)," +
+                        "('regionkey', null, 5.0, 0.0, null, 0, 4)," +
+                        "('comment', 1857.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 177.0, 25.0, 0.0, null, null, null)," +
+                        "(null, null, null, null, 25.0, null, null)");
     }
 
     @Test
@@ -1364,7 +1360,10 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     public void testAnalyze()
     {
         String tableName = "test_analyze_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName
+        Session sessionWithDisabledStatisticsOnWrite = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), EXTENDED_STATISTICS_COLLECT_ON_WRITE, "false")
+                .build();
+        assertUpdate(sessionWithDisabledStatisticsOnWrite, "CREATE TABLE " + tableName
                 + " WITH ("
                 + "location = '" + getLocationForTable(bucketName, tableName) + "'"
                 + ")"
