@@ -152,8 +152,8 @@ public final class JdbcTypeHandle
                 .omitNullValues()
                 .add("jdbcType", jdbcType)
                 .add("jdbcTypeName", jdbcTypeName.orElse(null))
-                .add("columnSize", columnSize)
-                .add("decimalDigits", decimalDigits)
+                .add("columnSize", columnSize.orElse(null))
+                .add("decimalDigits", decimalDigits.orElse(null))
                 .add("arrayDimensions", arrayDimensions.orElse(null))
                 .add("caseSensitivity", caseSensitivity.orElse(null))
                 .toString();
