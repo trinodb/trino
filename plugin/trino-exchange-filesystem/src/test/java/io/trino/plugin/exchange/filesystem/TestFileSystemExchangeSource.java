@@ -29,7 +29,8 @@ public class TestFileSystemExchangeSource
                 new LocalFileSystemExchangeStorage(),
                 new FileSystemExchangeStats(),
                 1024,
-                2)) {
+                2,
+                1)) {
             CompletableFuture<Void> first = source.isBlocked();
             CompletableFuture<Void> second = source.isBlocked();
             assertThat(first)
