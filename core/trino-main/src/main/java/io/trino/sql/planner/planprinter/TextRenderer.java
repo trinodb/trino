@@ -247,13 +247,6 @@ public class TextRenderer
                     "HashBuilderOperator", "Right (build) ");
         }
 
-        if (operators.contains("LookupJoinOperator") && operators.contains("DynamicFilterSourceOperator")) {
-            // join plan node
-            return ImmutableMap.of(
-                    "LookupJoinOperator", "Left (probe) ",
-                    "DynamicFilterSourceOperator", "Right (build) ");
-        }
-
         return ImmutableMap.of();
     }
 
