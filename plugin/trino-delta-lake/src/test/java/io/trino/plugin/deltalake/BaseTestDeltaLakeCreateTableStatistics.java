@@ -65,7 +65,7 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
-public abstract class AbstractTestDeltaLakeCreateTableStatistics
+public abstract class BaseTestDeltaLakeCreateTableStatistics
         extends AbstractTestQueryFramework
 {
     private static final String SCHEMA = "default";

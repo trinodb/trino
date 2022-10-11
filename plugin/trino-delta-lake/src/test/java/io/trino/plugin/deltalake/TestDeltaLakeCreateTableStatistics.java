@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Map;
 
 public class TestDeltaLakeCreateTableStatistics
-        extends AbstractTestDeltaLakeCreateTableStatistics
+        extends BaseTestDeltaLakeCreateTableStatistics
 {
     @Override
     Map<String, String> additionalProperties()

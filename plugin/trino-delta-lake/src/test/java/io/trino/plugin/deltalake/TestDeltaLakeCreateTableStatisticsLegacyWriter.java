@@ -36,7 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 public class TestDeltaLakeCreateTableStatisticsLegacyWriter
-        extends AbstractTestDeltaLakeCreateTableStatistics
+        extends BaseTestDeltaLakeCreateTableStatistics
 {
     @Override
     Map<String, String> additionalProperties()
