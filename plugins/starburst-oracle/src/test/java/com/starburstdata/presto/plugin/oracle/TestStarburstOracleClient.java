@@ -57,14 +57,14 @@ public class TestStarburstOracleClient
             JdbcColumnHandle.builder()
                     .setColumnName("c_decimal")
                     .setColumnType(createDecimalType(21, 3))
-                    .setJdbcTypeHandle(new JdbcTypeHandle(OracleTypes.NUMBER, Optional.of("NUMBER"), 21, 3, Optional.empty()))
+                    .setJdbcTypeHandle(new JdbcTypeHandle(OracleTypes.NUMBER, Optional.of("NUMBER"), Optional.of(21), Optional.of(3), Optional.empty(), Optional.empty()))
                     .build();
 
     private static final JdbcColumnHandle DOUBLE_COLUMN =
             JdbcColumnHandle.builder()
                     .setColumnName("c_double")
                     .setColumnType(DOUBLE)
-                    .setJdbcTypeHandle(new JdbcTypeHandle(OracleTypes.BINARY_DOUBLE, Optional.of("BINARY DOUBLE"), 0, 0, Optional.empty()))
+                    .setJdbcTypeHandle(new JdbcTypeHandle(OracleTypes.BINARY_DOUBLE, Optional.of("BINARY DOUBLE"), Optional.of(0), Optional.of(0), Optional.empty(), Optional.empty()))
                     .build();
 
     private static final JdbcClient JDBC_CLIENT = new StarburstOracleClient(
