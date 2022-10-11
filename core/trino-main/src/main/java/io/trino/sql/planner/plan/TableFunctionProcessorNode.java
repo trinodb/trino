@@ -43,7 +43,7 @@ public class TableFunctionProcessorNode
     private final List<Symbol> properOutputs;
 
     // pre-planned sources
-    private final PlanNode source;
+    private final Optional<PlanNode> source;
     // TODO do we need the info of which source has row semantics, or is it already included in the joins / join distribution?
 
     // all source symbols to be produced on output, ordered as table argument specifications
@@ -71,7 +71,7 @@ public class TableFunctionProcessorNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("name") String name,
             @JsonProperty("properOutputs") List<Symbol> properOutputs,
-            @JsonProperty("source") PlanNode source,
+            @JsonProperty("source") Optional<PlanNode> source,
             @JsonProperty("passThroughSpecifications") List<PassThroughSpecification> passThroughSpecifications,
             @JsonProperty("requiredSymbols") List<List<Symbol>> requiredSymbols,
             @JsonProperty("markerSymbols") Optional<Map<Symbol, Symbol>> markerSymbols,
@@ -123,7 +123,7 @@ public class TableFunctionProcessorNode
     }
 
     @JsonProperty
-    public PlanNode getSource()
+    public Optional<PlanNode> getSource()
     {
         return source;
     }
@@ -180,7 +180,7 @@ public class TableFunctionProcessorNode
     @Override
     public List<PlanNode> getSources()
     {
-        return ImmutableList.of(source);
+        return source.map(ImmutableList::of).orElse(ImmutableList.of());
     }
 
     @Override
@@ -208,6 +208,7 @@ public class TableFunctionProcessorNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newSources)
     {
-        return new TableFunctionProcessorNode(getId(), name, properOutputs, getOnlyElement(newSources), passThroughSpecifications, requiredSymbols, markerSymbols, specification, prePartitioned, preSorted, hashSymbol, handle);
+        Optional<PlanNode> newSource = newSources.isEmpty() ? Optional.empty() : Optional.of(getOnlyElement(newSources));
+        return new TableFunctionProcessorNode(getId(), name, properOutputs, newSource, passThroughSpecifications, requiredSymbols, markerSymbols, specification, prePartitioned, preSorted, hashSymbol, handle);
     }
 }
