@@ -57,6 +57,7 @@ public class FileSystemExchangeSource
     private final FileSystemExchangeStats stats;
     private final int maxPageStorageSize;
     private final int exchangeSourceConcurrentReaders;
+    private final int maxFilesPerReader;
 
     private final Queue<ExchangeSourceFile> files = new ConcurrentLinkedQueue<>();
     @GuardedBy("this")
@@ -74,12 +75,14 @@ public class FileSystemExchangeSource
             FileSystemExchangeStorage exchangeStorage,
             FileSystemExchangeStats stats,
             int maxPageStorageSize,
-            int exchangeSourceConcurrentReaders)
+            int exchangeSourceConcurrentReaders,
+            int maxFilesPerReader)
     {
         this.exchangeStorage = requireNonNull(exchangeStorage, "exchangeStorage is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.maxPageStorageSize = maxPageStorageSize;
         this.exchangeSourceConcurrentReaders = exchangeSourceConcurrentReaders;
+        this.maxFilesPerReader = maxFilesPerReader;
     }
 
     @Override
@@ -272,6 +275,7 @@ public class FileSystemExchangeSource
             try {
                 while (activeReaders.size() < exchangeSourceConcurrentReaders && !files.isEmpty()) {
                     ImmutableList.Builder<ExchangeSourceFile> readerFiles = ImmutableList.builder();
+                    int readerFileCount = 0;
                     long readerFileSize = 0;
                     while (!files.isEmpty()) {
                         ExchangeSourceFile file = files.peek();
@@ -280,9 +284,10 @@ public class FileSystemExchangeSource
                                 file.getExchangeId(),
                                 file.getSourceTaskPartitionId(),
                                 file.getSourceTaskAttemptId());
-                        if (readerFileSize == 0 || readerFileSize + file.getFileSize() <= maxPageStorageSize + exchangeStorage.getWriteBufferSize()) {
+                        if (readerFileCount == 0 || ((readerFileSize + file.getFileSize() <= maxPageStorageSize + exchangeStorage.getWriteBufferSize()) && readerFileCount < maxFilesPerReader)) {
                             readerFiles.add(file);
                             readerFileSize += file.getFileSize();
+                            readerFileCount++;
                             files.poll();
                         }
                         else {
