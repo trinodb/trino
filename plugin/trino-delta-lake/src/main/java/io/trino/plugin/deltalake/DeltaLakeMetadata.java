@@ -138,6 +138,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
@@ -1100,7 +1101,7 @@ public class DeltaLakeMetadata
             ImmutableMap.Builder<String, String> columnComments = ImmutableMap.builder();
             columnComments.putAll(getColumnComments(deltaLakeTableHandle.getMetadataEntry()).entrySet().stream()
                     .filter(e -> !e.getKey().equals(deltaLakeColumnHandle.getName()))
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
+                    .collect(Collectors.toMap(Entry::getKey, Entry::getValue)));
             comment.ifPresent(s -> columnComments.put(deltaLakeColumnHandle.getName(), s));
 
             TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, deltaLakeTableHandle.getLocation());
@@ -1972,7 +1973,7 @@ public class DeltaLakeMetadata
 
         ImmutableMap.Builder<DeltaLakeColumnHandle, Domain> enforceableDomains = ImmutableMap.builder();
         ImmutableMap.Builder<DeltaLakeColumnHandle, Domain> unenforceableDomains = ImmutableMap.builder();
-        for (Map.Entry<ColumnHandle, Domain> domainEntry : constraintDomains.entrySet()) {
+        for (Entry<ColumnHandle, Domain> domainEntry : constraintDomains.entrySet()) {
             DeltaLakeColumnHandle column = (DeltaLakeColumnHandle) domainEntry.getKey();
             if (!partitionColumns.contains(column)) {
                 unenforceableDomains.put(column, domainEntry.getValue());
@@ -2194,16 +2195,17 @@ public class DeltaLakeMetadata
                 .orElseGet(ImmutableMap::of);
         Map<String, DeltaLakeColumnStatistics> newColumnStatistics = toDeltaLakeColumnStatistics(computedStatistics);
 
-        Map<String, DeltaLakeColumnStatistics> mergedColumnStatistics = new HashMap<>();
-
-        // only keep stats for existing columns
-        oldColumnStatistics.entrySet().stream()
-                .filter(entry -> newColumnStatistics.containsKey(entry.getKey()))
-                .forEach(entry -> mergedColumnStatistics.put(entry.getKey(), entry.getValue()));
-
-        newColumnStatistics.forEach((columnName, columnStatistics) -> {
-            mergedColumnStatistics.merge(columnName, columnStatistics, DeltaLakeColumnStatistics::update);
-        });
+        Map<String, DeltaLakeColumnStatistics> mergedColumnStatistics = newColumnStatistics.entrySet().stream()
+                .collect(toImmutableMap(
+                        Entry::getKey,
+                        entry -> {
+                            String columnName = entry.getKey();
+                            DeltaLakeColumnStatistics newStats = entry.getValue();
+                            DeltaLakeColumnStatistics oldStats = oldColumnStatistics.get(columnName);
+                            return oldStats == null
+                                    ? newStats
+                                    : oldStats.update(newStats);
+                        }));
 
         Optional<Instant> maxFileModificationTime = getMaxFileModificationTime(computedStatistics);
         // We do not want to hinder our future calls to ANALYZE if one of the files we analyzed have modification time far in the future.
@@ -2337,7 +2339,7 @@ public class DeltaLakeMetadata
         // Only statistics for whole table are collected
         ComputedStatistics singleStatistics = Iterables.getOnlyElement(computedStatistics);
         return createColumnToComputedStatisticsMap(singleStatistics.getColumnStatistics()).entrySet().stream()
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> createDeltaLakeColumnStatistics(entry.getValue())));
+                .collect(toImmutableMap(Entry::getKey, entry -> createDeltaLakeColumnStatistics(entry.getValue())));
     }
 
     private static Map<String, Map<ColumnStatisticType, Block>> createColumnToComputedStatisticsMap(Map<ColumnStatisticMetadata, Block> computedStatistics)
