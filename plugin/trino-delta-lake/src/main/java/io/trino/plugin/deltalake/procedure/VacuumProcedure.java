@@ -28,6 +28,7 @@ import io.trino.plugin.deltalake.DeltaLakeSessionProperties;
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
+import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
@@ -58,6 +59,7 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getVacuumMinR
 import static io.trino.plugin.deltalake.procedure.Procedures.checkProcedureArgument;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
@@ -67,6 +69,8 @@ import static java.util.Objects.requireNonNull;
 public class VacuumProcedure
         implements Provider<Procedure>
 {
+    private static final int MAX_SUPPORTED_WRITER_VERSION = 3;
+    private static final int MAX_SUPPORTED_READER_VERSION = 2;
     private static final Logger log = Logger.get(VacuumProcedure.class);
 
     private static final MethodHandle VACUUM;
@@ -173,6 +177,18 @@ public class VacuumProcedure
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         String commonPathPrefix = tableLocation + "/";
         String queryId = session.getQueryId();
+
+        ProtocolEntry protocolEntry = metadata.getMetastore().getProtocol(session, tableSnapshot);
+        if (protocolEntry.getMinWriterVersion() > MAX_SUPPORTED_WRITER_VERSION) {
+            throw new TrinoException(
+                    NOT_SUPPORTED,
+                    format("Table %s.%s requires Delta Lake writer version %d which is not supported", schema, table, protocolEntry.getMinWriterVersion()));
+        }
+        if (protocolEntry.getMinReaderVersion() > MAX_SUPPORTED_READER_VERSION) {
+            throw new TrinoException(
+                    NOT_SUPPORTED,
+                    format("Table %s.%s requires Delta Lake reader version %d which is not supported", schema, table, protocolEntry.getMinReaderVersion()));
+        }
 
         // Retain all active files and every file removed by a "recent" transaction (except for the oldest "recent").
         // Any remaining file are not live, and not needed to read any "recent" snapshot.
