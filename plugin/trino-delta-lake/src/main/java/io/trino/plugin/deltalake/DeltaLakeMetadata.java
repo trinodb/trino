@@ -2199,9 +2199,8 @@ public class DeltaLakeMetadata
         Map<String, DeltaLakeColumnStatistics> mergedColumnStatistics = new HashMap<>();
 
         // only keep stats for existing columns
-        Set<String> newColumns = newColumnStatistics.keySet();
         oldColumnStatistics.entrySet().stream()
-                .filter(entry -> newColumns.contains(entry.getKey()))
+                .filter(entry -> newColumnStatistics.containsKey(entry.getKey()))
                 .forEach(entry -> mergedColumnStatistics.put(entry.getKey(), entry.getValue()));
 
         newColumnStatistics.forEach((columnName, columnStatistics) -> {
