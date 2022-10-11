@@ -1284,11 +1284,13 @@ public interface ConnectorMetadata
                     continue;
                 }
                 Optional<JoinCondition> condition = JoinCondition.from(argument, leftAssignments.keySet(), rightAssignments.keySet());
+
                 if (condition.isEmpty()) {
                     // We would need to add a FilterNode on top of the result
                     return Optional.empty();
                 }
-                conditions.add(condition.get());
+                JoinCondition x = condition.get();
+                conditions.add(x);
             }
         }
         else {
@@ -1296,7 +1298,8 @@ public interface ConnectorMetadata
             if (condition.isEmpty()) {
                 return Optional.empty();
             }
-            conditions = List.of(condition.get());
+            JoinCondition x = condition.get();
+            conditions = List.of(x);
         }
         return applyJoin(
                 session,
