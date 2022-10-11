@@ -15,6 +15,7 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.bootstrap.ApplicationConfigurationException;
+import io.trino.plugin.hive.HiveConfig;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
@@ -140,6 +141,19 @@ public class TestDeltaLakePlugin
                         "hive.metastore.uri", "thrift://foo:1234",
                         "delta.metadata.live-files.cache-ttl", "0s"),
                 new TestingConnectorContext());
+    }
+
+    @Test
+    public void testHiveConfigIsNotBound()
+    {
+        ConnectorFactory factory = getOnlyElement(new DeltaLakePlugin().getConnectorFactories());
+        assertThatThrownBy(() -> factory.create("test",
+                ImmutableMap.of(
+                        "hive.metastore.uri", "thrift://foo:1234",
+                        // Try setting any property provided by HiveConfig class
+                        HiveConfig.CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED, "true"),
+                new TestingConnectorContext()))
+                .hasMessageContaining("Error: Configuration property 'hive.partition-projection-enabled' was not used");
     }
 
     @Test
