@@ -266,7 +266,7 @@ public class DeltaLakeMetadata
     // The required writer version used by tables created by Trino
     private static final int WRITER_VERSION = 2;
     // The highest writer version Trino supports writing to
-    private static final int MAX_WRITER_VERSION = 3;
+    private static final int MAX_WRITER_VERSION = 4;
     // This constant should be used only for a new table
     private static final ProtocolEntry DEFAULT_PROTOCOL = new ProtocolEntry(READER_VERSION, WRITER_VERSION);
     // Matches the dummy column Databricks stores in the metastore
