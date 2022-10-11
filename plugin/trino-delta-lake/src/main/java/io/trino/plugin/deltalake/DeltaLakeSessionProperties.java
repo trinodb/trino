@@ -55,7 +55,7 @@ public final class DeltaLakeSessionProperties
     private static final String TIMESTAMP_PRECISION = "timestamp_precision";
     private static final String DYNAMIC_FILTERING_WAIT_TIMEOUT = "dynamic_filtering_wait_timeout";
     private static final String TABLE_STATISTICS_ENABLED = "statistics_enabled";
-    private static final String EXTENDED_STATISTICS_ENABLED = "extended_statistics_enabled";
+    public static final String EXTENDED_STATISTICS_ENABLED = "extended_statistics_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
