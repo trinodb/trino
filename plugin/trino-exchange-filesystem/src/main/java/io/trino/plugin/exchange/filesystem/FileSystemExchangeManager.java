@@ -57,6 +57,7 @@ public class FileSystemExchangeManager
     private final int exchangeSinkBuffersPerPartition;
     private final long exchangeSinkMaxFileSizeInBytes;
     private final int exchangeSourceConcurrentReaders;
+    private final int exchangeSourceMaxFilesPerReader;
     private final int maxOutputPartitionCount;
     private final int exchangeFileListingParallelism;
     private final long exchangeSourceHandleTargetDataSizeInBytes;
@@ -77,6 +78,7 @@ public class FileSystemExchangeManager
         this.exchangeSinkBuffersPerPartition = fileSystemExchangeConfig.getExchangeSinkBuffersPerPartition();
         this.exchangeSinkMaxFileSizeInBytes = fileSystemExchangeConfig.getExchangeSinkMaxFileSize().toBytes();
         this.exchangeSourceConcurrentReaders = fileSystemExchangeConfig.getExchangeSourceConcurrentReaders();
+        this.exchangeSourceMaxFilesPerReader = fileSystemExchangeConfig.getExchangeSourceMaxFilesPerReader();
         this.maxOutputPartitionCount = fileSystemExchangeConfig.getMaxOutputPartitionCount();
         this.exchangeFileListingParallelism = fileSystemExchangeConfig.getExchangeFileListingParallelism();
         this.exchangeSourceHandleTargetDataSizeInBytes = fileSystemExchangeConfig.getExchangeSourceHandleTargetDataSize().toBytes();
@@ -140,6 +142,7 @@ public class FileSystemExchangeManager
                 exchangeStorage,
                 stats,
                 maxPageStorageSizeInBytes,
-                exchangeSourceConcurrentReaders);
+                exchangeSourceConcurrentReaders,
+                exchangeSourceMaxFilesPerReader);
     }
 }

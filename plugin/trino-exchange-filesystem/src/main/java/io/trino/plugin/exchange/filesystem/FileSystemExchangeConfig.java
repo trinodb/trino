@@ -42,6 +42,7 @@ public class FileSystemExchangeConfig
     private int exchangeSinkBuffersPerPartition = 2;
     private DataSize exchangeSinkMaxFileSize = DataSize.of(1, GIGABYTE);
     private int exchangeSourceConcurrentReaders = 4;
+    private int exchangeSourceMaxFilesPerReader = 25;
     private int maxOutputPartitionCount = 50;
     private int exchangeFileListingParallelism = 50;
     private DataSize exchangeSourceHandleTargetDataSize = DataSize.of(256, MEGABYTE);
@@ -148,6 +149,19 @@ public class FileSystemExchangeConfig
     public FileSystemExchangeConfig setExchangeSourceConcurrentReaders(int exchangeSourceConcurrentReaders)
     {
         this.exchangeSourceConcurrentReaders = exchangeSourceConcurrentReaders;
+        return this;
+    }
+
+    @Min(1)
+    public int getExchangeSourceMaxFilesPerReader()
+    {
+        return exchangeSourceMaxFilesPerReader;
+    }
+
+    @Config("exchange.source-max-files-per-reader")
+    public FileSystemExchangeConfig setExchangeSourceMaxFilesPerReader(int exchangeSourceMaxFilesPerReader)
+    {
+        this.exchangeSourceMaxFilesPerReader = exchangeSourceMaxFilesPerReader;
         return this;
     }
 
