@@ -69,13 +69,13 @@ public class CassandraServer
     public CassandraServer()
             throws Exception
     {
-        this("cassandra:2.2");
+        this("cassandra:3.0", "cu-cassandra.yaml");
     }
 
-    public CassandraServer(String imageName)
+    public CassandraServer(String imageName, String configFileName)
             throws Exception
     {
-        this(imageName, ImmutableMap.of(), "/etc/cassandra/cassandra.yaml", "cu-cassandra.yaml");
+        this(imageName, ImmutableMap.of(), "/etc/cassandra/cassandra.yaml", configFileName);
     }
 
     public CassandraServer(String imageName, Map<String, String> environmentVariables, String configPath, String configFileName)
