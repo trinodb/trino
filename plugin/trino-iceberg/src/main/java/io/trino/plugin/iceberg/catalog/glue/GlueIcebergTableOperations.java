@@ -37,8 +37,10 @@ import org.apache.iceberg.io.FileIO;
 
 import javax.annotation.Nullable;
 
+import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
 import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
@@ -83,15 +85,16 @@ public class GlueIcebergTableOperations
         Table table = getTable();
         glueVersionId = table.getVersionId();
 
-        if (isPrestoView(table.getParameters()) && isHiveOrPrestoView(table.getTableType())) {
+        Map<String, String> parameters = firstNonNull(table.getParameters(), ImmutableMap.of());
+        if (isPrestoView(parameters) && isHiveOrPrestoView(table.getTableType())) {
             // this is a Presto Hive view, hence not a table
             throw new TableNotFoundException(getSchemaTableName());
         }
-        if (!isIcebergTable(table.getParameters())) {
+        if (!isIcebergTable(parameters)) {
             throw new UnknownTableTypeException(getSchemaTableName());
         }
 
-        String metadataLocation = table.getParameters().get(METADATA_LOCATION_PROP);
+        String metadataLocation = parameters.get(METADATA_LOCATION_PROP);
         if (metadataLocation == null) {
             throw new TrinoException(ICEBERG_INVALID_METADATA, format("Table is missing [%s] property: %s", METADATA_LOCATION_PROP, getSchemaTableName()));
         }
