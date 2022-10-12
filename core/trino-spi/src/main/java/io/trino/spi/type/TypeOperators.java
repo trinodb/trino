@@ -13,8 +13,10 @@
  */
 package io.trino.spi.type;
 
+import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
@@ -27,6 +29,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -37,8 +40,10 @@ import java.util.function.Supplier;
 
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
@@ -47,6 +52,7 @@ import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -62,6 +68,9 @@ import static java.util.stream.Collectors.joining;
 
 public class TypeOperators
 {
+    private static final InvocationConvention READ_BLOCK_NOT_NULL_CALLING_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL);
+    private static final InvocationConvention WRITE_BLOCK_CALLING_CONVENTION = simpleConvention(BLOCK_BUILDER, NEVER_NULL);
+
     private final BiFunction<Object, Supplier<Object>, Object> cache;
 
     public TypeOperators()
@@ -80,6 +89,11 @@ public class TypeOperators
     public TypeOperators(BiFunction<Object, Supplier<Object>, Object> cache)
     {
         this.cache = cache;
+    }
+
+    public MethodHandle getReadValueOperator(Type type, InvocationConvention callingConvention)
+    {
+        return getOperatorAdaptor(type, callingConvention, READ_VALUE).get();
     }
 
     public MethodHandle getEqualOperator(Type type, InvocationConvention callingConvention)
@@ -237,6 +251,16 @@ public class TypeOperators
             TypeOperatorDeclaration typeOperatorDeclaration = operatorConvention.type().getTypeOperatorDeclaration(TypeOperators.this);
             requireNonNull(typeOperatorDeclaration, "typeOperators is null for " + operatorConvention.type());
             return switch (operatorConvention.operatorType()) {
+                case READ_VALUE -> {
+                    List<OperatorMethodHandle> readValueOperators = new ArrayList<>(typeOperatorDeclaration.getReadValueOperators());
+                    if (readValueOperators.stream().map(OperatorMethodHandle::getCallingConvention).noneMatch(READ_BLOCK_NOT_NULL_CALLING_CONVENTION::equals)) {
+                        readValueOperators.add(new OperatorMethodHandle(READ_BLOCK_NOT_NULL_CALLING_CONVENTION, getDefaultReadBlockMethod(operatorConvention.type())));
+                    }
+                    if (readValueOperators.stream().map(OperatorMethodHandle::getCallingConvention).noneMatch(WRITE_BLOCK_CALLING_CONVENTION::equals)) {
+                        readValueOperators.add(new OperatorMethodHandle(WRITE_BLOCK_CALLING_CONVENTION, getDefaultWriteMethod(operatorConvention.type())));
+                    }
+                    yield readValueOperators;
+                }
                 case EQUAL -> typeOperatorDeclaration.getEqualOperators();
                 case HASH_CODE -> {
                     Collection<OperatorMethodHandle> hashCodeOperators = typeOperatorDeclaration.getHashCodeOperators();
@@ -300,6 +324,44 @@ public class TypeOperators
             };
         }
 
+        private static MethodHandle getDefaultReadBlockMethod(Type type)
+        {
+            Class<?> javaType = type.getJavaType();
+            if (boolean.class.equals(javaType)) {
+                return TYPE_GET_BOOLEAN.bindTo(type);
+            }
+            if (long.class.equals(javaType)) {
+                return TYPE_GET_LONG.bindTo(type);
+            }
+            if (double.class.equals(javaType)) {
+                return TYPE_GET_DOUBLE.bindTo(type);
+            }
+            if (Slice.class.equals(javaType)) {
+                return TYPE_GET_SLICE.bindTo(type);
+            }
+            return TYPE_GET_OBJECT
+                    .asType(TYPE_GET_OBJECT.type().changeReturnType(type.getJavaType()))
+                    .bindTo(type);
+        }
+
+        private static MethodHandle getDefaultWriteMethod(Type type)
+        {
+            Class<?> javaType = type.getJavaType();
+            if (boolean.class.equals(javaType)) {
+                return TYPE_WRITE_BOOLEAN.bindTo(type);
+            }
+            if (long.class.equals(javaType)) {
+                return TYPE_WRITE_LONG.bindTo(type);
+            }
+            if (double.class.equals(javaType)) {
+                return TYPE_WRITE_DOUBLE.bindTo(type);
+            }
+            if (Slice.class.equals(javaType)) {
+                return TYPE_WRITE_SLICE.bindTo(type);
+            }
+            return TYPE_WRITE_OBJECT.bindTo(type);
+        }
+
         private OperatorMethodHandle generateDistinctFromOperator(OperatorConvention operatorConvention)
         {
             if (operatorConvention.callingConvention().getArgumentConventions().equals(List.of(BLOCK_POSITION, BLOCK_POSITION))) {
@@ -358,6 +420,7 @@ public class TypeOperators
                 case EQUAL, IS_DISTINCT_FROM, LESS_THAN, LESS_THAN_OR_EQUAL, INDETERMINATE -> BOOLEAN;
                 case COMPARISON_UNORDERED_LAST, COMPARISON_UNORDERED_FIRST -> INTEGER;
                 case HASH_CODE, XX_HASH_64 -> BIGINT;
+                case READ_VALUE -> operatorConvention.type();
                 default -> throw new IllegalArgumentException("Unsupported operator type: " + operatorConvention.operatorType());
             };
         }
@@ -367,7 +430,7 @@ public class TypeOperators
             return switch (operatorConvention.operatorType()) {
                 case EQUAL, IS_DISTINCT_FROM, COMPARISON_UNORDERED_LAST, COMPARISON_UNORDERED_FIRST, LESS_THAN, LESS_THAN_OR_EQUAL ->
                         List.of(operatorConvention.type(), operatorConvention.type());
-                case HASH_CODE, XX_HASH_64, INDETERMINATE ->
+                case READ_VALUE, HASH_CODE, XX_HASH_64, INDETERMINATE ->
                         List.of(operatorConvention.type());
                 default -> throw new IllegalArgumentException("Unsupported operator type: " + operatorConvention.operatorType());
             };
@@ -409,6 +472,18 @@ public class TypeOperators
     private static final MethodHandle ORDER_COMPARISON_RESULT;
     private static final MethodHandle BLOCK_IS_NULL;
 
+    private static final MethodHandle TYPE_GET_BOOLEAN;
+    private static final MethodHandle TYPE_GET_LONG;
+    private static final MethodHandle TYPE_GET_DOUBLE;
+    private static final MethodHandle TYPE_GET_SLICE;
+    private static final MethodHandle TYPE_GET_OBJECT;
+
+    private static final MethodHandle TYPE_WRITE_BOOLEAN;
+    private static final MethodHandle TYPE_WRITE_LONG;
+    private static final MethodHandle TYPE_WRITE_DOUBLE;
+    private static final MethodHandle TYPE_WRITE_SLICE;
+    private static final MethodHandle TYPE_WRITE_OBJECT;
+
     static {
         try {
             Lookup lookup = lookup();
@@ -424,10 +499,31 @@ public class TypeOperators
             ORDER_NULLS = lookup.findStatic(TypeOperators.class, "orderNulls", MethodType.methodType(int.class, SortOrder.class, boolean.class, boolean.class));
             ORDER_COMPARISON_RESULT = lookup.findStatic(TypeOperators.class, "orderComparisonResult", MethodType.methodType(int.class, SortOrder.class, long.class));
             BLOCK_IS_NULL = lookup.findVirtual(Block.class, "isNull", MethodType.methodType(boolean.class, int.class));
+
+            TYPE_GET_BOOLEAN = lookup.findVirtual(Type.class, "getBoolean", MethodType.methodType(boolean.class, Block.class, int.class));
+            TYPE_GET_LONG = lookup.findVirtual(Type.class, "getLong", MethodType.methodType(long.class, Block.class, int.class));
+            TYPE_GET_DOUBLE = lookup.findVirtual(Type.class, "getDouble", MethodType.methodType(double.class, Block.class, int.class));
+            TYPE_GET_SLICE = lookup.findVirtual(Type.class, "getSlice", MethodType.methodType(Slice.class, Block.class, int.class));
+            TYPE_GET_OBJECT = lookup.findVirtual(Type.class, "getObject", MethodType.methodType(Object.class, Block.class, int.class));
+
+            TYPE_WRITE_BOOLEAN = lookupWriteBlockBuilderMethod(lookup, "writeBoolean", boolean.class);
+            TYPE_WRITE_LONG = lookupWriteBlockBuilderMethod(lookup, "writeLong", long.class);
+            TYPE_WRITE_DOUBLE = lookupWriteBlockBuilderMethod(lookup, "writeDouble", double.class);
+            TYPE_WRITE_SLICE = lookupWriteBlockBuilderMethod(lookup, "writeSlice", Slice.class);
+            TYPE_WRITE_OBJECT = lookupWriteBlockBuilderMethod(lookup, "writeObject", Object.class);
         }
         catch (NoSuchMethodException | IllegalAccessException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private static MethodHandle lookupWriteBlockBuilderMethod(Lookup lookup, String methodName, Class<?> javaType)
+            throws NoSuchMethodException, IllegalAccessException
+    {
+        return permuteArguments(
+                lookup.findVirtual(Type.class, methodName, MethodType.methodType(void.class, BlockBuilder.class, javaType)),
+                MethodType.methodType(void.class, Type.class, javaType, BlockBuilder.class),
+                0, 2, 1);
     }
 
     //

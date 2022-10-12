@@ -54,6 +54,7 @@ public final class TypeOperatorDeclaration
 {
     public static final TypeOperatorDeclaration NO_TYPE_OPERATOR_DECLARATION = builder(boolean.class).build();
 
+    private final Collection<OperatorMethodHandle> readValueOperators;
     private final Collection<OperatorMethodHandle> equalOperators;
     private final Collection<OperatorMethodHandle> hashCodeOperators;
     private final Collection<OperatorMethodHandle> xxHash64Operators;
@@ -65,6 +66,7 @@ public final class TypeOperatorDeclaration
     private final Collection<OperatorMethodHandle> lessThanOrEqualOperators;
 
     private TypeOperatorDeclaration(
+            Collection<OperatorMethodHandle> readValueOperators,
             Collection<OperatorMethodHandle> equalOperators,
             Collection<OperatorMethodHandle> hashCodeOperators,
             Collection<OperatorMethodHandle> xxHash64Operators,
@@ -75,6 +77,7 @@ public final class TypeOperatorDeclaration
             Collection<OperatorMethodHandle> lessThanOperators,
             Collection<OperatorMethodHandle> lessThanOrEqualOperators)
     {
+        this.readValueOperators = List.copyOf(requireNonNull(readValueOperators, "readValueOperators is null"));
         this.equalOperators = List.copyOf(requireNonNull(equalOperators, "equalOperators is null"));
         this.hashCodeOperators = List.copyOf(requireNonNull(hashCodeOperators, "hashCodeOperators is null"));
         this.xxHash64Operators = List.copyOf(requireNonNull(xxHash64Operators, "xxHash64Operators is null"));
@@ -94,6 +97,11 @@ public final class TypeOperatorDeclaration
     public boolean isOrderable()
     {
         return !comparisonUnorderedLastOperators.isEmpty();
+    }
+
+    public Collection<OperatorMethodHandle> getReadValueOperators()
+    {
+        return readValueOperators;
     }
 
     public Collection<OperatorMethodHandle> getEqualOperators()
@@ -157,6 +165,7 @@ public final class TypeOperatorDeclaration
     {
         private final Class<?> typeJavaType;
 
+        private final Collection<OperatorMethodHandle> readValueOperators = new ArrayList<>();
         private final Collection<OperatorMethodHandle> equalOperators = new ArrayList<>();
         private final Collection<OperatorMethodHandle> hashCodeOperators = new ArrayList<>();
         private final Collection<OperatorMethodHandle> xxHash64Operators = new ArrayList<>();
@@ -175,6 +184,7 @@ public final class TypeOperatorDeclaration
 
         public Builder addOperators(TypeOperatorDeclaration operatorDeclaration)
         {
+            operatorDeclaration.getReadValueOperators().forEach(this::addReadValueOperator);
             operatorDeclaration.getEqualOperators().forEach(this::addEqualOperator);
             operatorDeclaration.getHashCodeOperators().forEach(this::addHashCodeOperator);
             operatorDeclaration.getXxHash64Operators().forEach(this::addXxHash64Operator);
@@ -184,6 +194,13 @@ public final class TypeOperatorDeclaration
             operatorDeclaration.getComparisonUnorderedFirstOperators().forEach(this::addComparisonUnorderedFirstOperator);
             operatorDeclaration.getLessThanOperators().forEach(this::addLessThanOperator);
             operatorDeclaration.getLessThanOrEqualOperators().forEach(this::addLessThanOrEqualOperator);
+            return this;
+        }
+
+        public Builder addReadValueOperator(OperatorMethodHandle readValueOperator)
+        {
+            verifyMethodHandleSignature(1, typeJavaType, readValueOperator);
+            this.readValueOperators.add(readValueOperator);
             return this;
         }
 
@@ -350,6 +367,9 @@ public final class TypeOperatorDeclaration
                 }
 
                 switch (operatorType) {
+                    case READ_VALUE:
+                        addReadValueOperator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, typeJavaType), methodHandle));
+                        break;
                     case EQUAL:
                         addEqualOperator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, boolean.class), methodHandle));
                         break;
@@ -585,6 +605,7 @@ public final class TypeOperatorDeclaration
             }
 
             return new TypeOperatorDeclaration(
+                    readValueOperators,
                     equalOperators,
                     hashCodeOperators,
                     xxHash64Operators,
