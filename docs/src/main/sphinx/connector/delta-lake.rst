@@ -90,6 +90,9 @@ values. Typical usage does not require you to configure them.
       - Frequency of checks for metadata updates, equivalent to transactions, to
         update the metadata cache specified in :ref:`prop-type-duration`.
       - ``5m``
+    * - ``delta.metadata.cache-size``
+      - The maximum number of Delta table metadata entries to cache.
+      - 1000
     * - ``delta.metadata.live-files.cache-size``
       - Amount of memory allocated for caching information about files. Needs
         to be specified in :ref:`prop-type-data-size` values such as ``64MB``.
