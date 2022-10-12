@@ -48,7 +48,10 @@ public class GlueMetastoreModule
     @Override
     protected void setup(Binder binder)
     {
-        configBinder(binder).bindConfig(GlueHiveMetastoreConfig.class);
+        GlueHiveMetastoreConfig glueConfig = buildConfigObject(GlueHiveMetastoreConfig.class);
+        glueConfig.getGlueProxyApiId().ifPresent(glueProxyApiId -> binder
+                .bind(Key.get(RequestHandler2.class, ForGlueHiveMetastore.class))
+                .toInstance(new ProxyApiRequestHandler(glueProxyApiId)));
         configBinder(binder).bindConfig(HiveConfig.class);
         binder.bind(AWSCredentialsProvider.class).toProvider(GlueCredentialsProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, Key.get(RequestHandler2.class, ForGlueHiveMetastore.class));

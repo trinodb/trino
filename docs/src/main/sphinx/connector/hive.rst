@@ -654,6 +654,9 @@ Property Name                                        Description
                                                      required when running in a GovCloud region.
                                                      Example: ``us-gov-east-1``
 
+``hive.metastore.glue.proxy-api-id``                 The ID of the Glue Proxy API, when accessing Glue via an VPC
+                                                     endpoint in API Gateway.
+
 ``hive.metastore.glue.sts.endpoint``                 STS endpoint URL to use when authenticating to Glue (optional).
                                                      Example: ``https://sts.us-gov-east-1.amazonaws.com``
 
