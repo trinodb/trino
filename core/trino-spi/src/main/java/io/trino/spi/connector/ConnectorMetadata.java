@@ -250,6 +250,7 @@ public interface ConnectorMetadata
 
     /**
      * List table, view and materialized view names, possibly filtered by schema. An empty list is returned if none match.
+     * An empty list is returned also when schema name does not refer to an existing schema.
      */
     default List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
@@ -770,6 +771,10 @@ public interface ConnectorMetadata
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping views");
     }
 
+    /**
+     * List view names, possibly filtered by schema. An empty list is returned if none match.
+     * An empty list is returned also when schema name does not refer to an existing schema.
+     */
     default List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
     {
         return emptyList();
@@ -1388,7 +1393,8 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Get the names that match the specified table prefix (never null).
+     * List materialized view names, possibly filtered by schema. An empty list is returned if none match.
+     * An empty list is returned also when schema name does not refer to an existing schema.
      */
     default List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> schemaName)
     {
