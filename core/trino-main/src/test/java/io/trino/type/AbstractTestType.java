@@ -40,6 +40,7 @@ import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
 import io.trino.type.BlockTypeOperators.BlockPositionXxHash64;
 import org.testng.annotations.Test;
 
+import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -56,7 +57,9 @@ import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.DEFAULT_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -84,7 +87,11 @@ public abstract class AbstractTestType
     private final Class<?> objectValueType;
     private final Block testBlock;
     protected final Type type;
+
     private final TypeOperators typeOperators;
+    private final MethodHandle readBlockMethod;
+    private final MethodHandle writeBlockMethod;
+
     protected final BlockTypeOperators blockTypeOperators;
     private final BlockPositionEqual equalOperator;
     private final BlockPositionHashCode hashCodeOperator;
@@ -103,6 +110,9 @@ public abstract class AbstractTestType
     {
         this.type = requireNonNull(type, "type is null");
         typeOperators = new TypeOperators();
+        readBlockMethod = typeOperators.getReadValueOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL));
+        writeBlockMethod = typeOperators.getReadValueOperator(type, simpleConvention(BLOCK_BUILDER, NEVER_NULL));
+
         blockTypeOperators = new BlockTypeOperators(typeOperators);
         if (type.isComparable()) {
             equalOperator = blockTypeOperators.getEqualOperator(type);
@@ -182,6 +192,7 @@ public abstract class AbstractTestType
 
     @Test
     public void testBlock()
+            throws Throwable
     {
         for (Entry<Integer, Object> entry : expectedStackValues.entrySet()) {
             assertPositionEquals(testBlock, entry.getKey(), entry.getValue(), expectedObjectValues.get(entry.getKey()));
@@ -233,6 +244,7 @@ public abstract class AbstractTestType
     }
 
     protected void assertPositionEquals(Block block, int position, Object expectedStackValue, Object expectedObjectValue)
+            throws Throwable
     {
         long hash = 0;
         if (type.isComparable()) {
@@ -247,9 +259,16 @@ public abstract class AbstractTestType
         BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
         type.appendTo(block, position, blockBuilder);
         assertPositionValue(blockBuilder.build(), 0, expectedStackValue, hash, expectedObjectValue);
+
+        if (expectedStackValue != null) {
+            blockBuilder = type.createBlockBuilder(null, 1);
+            writeBlockMethod.invoke(expectedStackValue, blockBuilder);
+            assertPositionValue(blockBuilder.build(), 0, expectedStackValue, hash, expectedObjectValue);
+        }
     }
 
     private void assertPositionValue(Block block, int position, Object expectedStackValue, long expectedHash, Object expectedObjectValue)
+            throws Throwable
     {
         assertEquals(block.isNull(position), expectedStackValue == null);
 
@@ -330,18 +349,21 @@ public abstract class AbstractTestType
             assertThatThrownBy(() -> type.getLong(block, position)).isInstanceOf(UnsupportedOperationException.class);
             assertThatThrownBy(() -> type.getDouble(block, position)).isInstanceOf(UnsupportedOperationException.class);
             assertThatThrownBy(() -> type.getObject(block, position)).isInstanceOf(UnsupportedOperationException.class);
+            assertEquals((boolean) readBlockMethod.invokeExact(block, position), expectedStackValue);
         }
         else if (type.getJavaType() == long.class) {
             assertEquals(type.getLong(block, position), expectedStackValue);
             assertThatThrownBy(() -> type.getBoolean(block, position)).isInstanceOf(UnsupportedOperationException.class);
             assertThatThrownBy(() -> type.getDouble(block, position)).isInstanceOf(UnsupportedOperationException.class);
             assertThatThrownBy(() -> type.getObject(block, position)).isInstanceOf(UnsupportedOperationException.class);
+            assertEquals((long) readBlockMethod.invokeExact(block, position), expectedStackValue);
         }
         else if (type.getJavaType() == double.class) {
             assertEquals(type.getDouble(block, position), expectedStackValue);
             assertThatThrownBy(() -> type.getBoolean(block, position)).isInstanceOf(UnsupportedOperationException.class);
             assertThatThrownBy(() -> type.getLong(block, position)).isInstanceOf(UnsupportedOperationException.class);
             assertThatThrownBy(() -> type.getObject(block, position)).isInstanceOf(UnsupportedOperationException.class);
+            assertEquals((double) readBlockMethod.invokeExact(block, position), expectedStackValue);
         }
         else if (type.getJavaType() == Slice.class) {
             assertEquals(type.getSlice(block, position), expectedStackValue);
@@ -349,24 +371,32 @@ public abstract class AbstractTestType
             assertThatThrownBy(() -> type.getBoolean(block, position)).isInstanceOf(UnsupportedOperationException.class);
             assertThatThrownBy(() -> type.getLong(block, position)).isInstanceOf(UnsupportedOperationException.class);
             assertThatThrownBy(() -> type.getDouble(block, position)).isInstanceOf(UnsupportedOperationException.class);
+            assertEquals((Slice) readBlockMethod.invokeExact(block, position), expectedStackValue);
         }
         else if (type.getJavaType() == Block.class) {
-            SliceOutput actualSliceOutput = new DynamicSliceOutput(100);
-            writeBlock(blockEncodingSerde, actualSliceOutput, (Block) type.getObject(block, position));
-            SliceOutput expectedSliceOutput = new DynamicSliceOutput(actualSliceOutput.size());
-            writeBlock(blockEncodingSerde, expectedSliceOutput, (Block) expectedStackValue);
-            assertEquals(actualSliceOutput.slice(), expectedSliceOutput.slice());
+            assertBlockEquals((Block) type.getObject(block, position), (Block) expectedStackValue);
             assertThatThrownBy(() -> type.getBoolean(block, position)).isInstanceOf(UnsupportedOperationException.class);
             assertThatThrownBy(() -> type.getLong(block, position)).isInstanceOf(UnsupportedOperationException.class);
             assertThatThrownBy(() -> type.getDouble(block, position)).isInstanceOf(UnsupportedOperationException.class);
             assertThatThrownBy(() -> type.getSlice(block, position)).isInstanceOf(UnsupportedOperationException.class);
+            assertBlockEquals((Block) readBlockMethod.invokeExact(block, position), (Block) expectedStackValue);
         }
         else {
             assertEquals(type.getObject(block, position), expectedStackValue);
             assertThatThrownBy(() -> type.getBoolean(block, position)).isInstanceOf(UnsupportedOperationException.class);
             assertThatThrownBy(() -> type.getLong(block, position)).isInstanceOf(UnsupportedOperationException.class);
             assertThatThrownBy(() -> type.getDouble(block, position)).isInstanceOf(UnsupportedOperationException.class);
+            assertEquals(readBlockMethod.invoke(block, position), expectedStackValue);
         }
+    }
+
+    private void assertBlockEquals(Block actualValue, Block expectedValue)
+    {
+        SliceOutput actualSliceOutput = new DynamicSliceOutput(100);
+        writeBlock(blockEncodingSerde, actualSliceOutput, actualValue);
+        SliceOutput expectedSliceOutput = new DynamicSliceOutput(actualSliceOutput.size());
+        writeBlock(blockEncodingSerde, expectedSliceOutput, expectedValue);
+        assertEquals(actualSliceOutput.slice(), expectedSliceOutput.slice());
     }
 
     private void verifyInvalidPositionHandling(Block block)
@@ -426,6 +456,14 @@ public abstract class AbstractTestType
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Invalid position %d in block with %d positions", block.getPositionCount(), block.getPositionCount());
         }
+
+        assertThatThrownBy(() -> readBlockMethod.invoke(block, -1))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid position -1 in block with %d positions", block.getPositionCount());
+
+        assertThatThrownBy(() -> readBlockMethod.invoke(block, block.getPositionCount()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid position %d in block with %d positions", block.getPositionCount(), block.getPositionCount());
 
         if (type.getJavaType() == boolean.class) {
             assertThatThrownBy(() -> type.getBoolean(block, -1))
