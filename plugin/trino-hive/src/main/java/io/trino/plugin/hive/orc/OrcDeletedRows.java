@@ -326,7 +326,7 @@ public class OrcDeletedRows
                         currentPath = createPath(acidInfo, deleteDeltaInfo, sourceFileName);
                         FileSystem fileSystem = hdfsEnvironment.getFileSystem(identity, currentPath, configuration);
                         FileStatus fileStatus = hdfsEnvironment.doAs(identity, () -> fileSystem.getFileStatus(currentPath));
-                        currentPageSource = pageSourceFactory.createPageSource(fileStatus.getPath(), fileStatus.getLen()).orElseGet(() -> new EmptyPageSource());
+                        currentPageSource = pageSourceFactory.createPageSource(fileStatus.getPath().toString(), fileStatus.getLen()).orElseGet(() -> new EmptyPageSource());
                     }
 
                     while (!currentPageSource.isFinished() || currentPage != null) {
