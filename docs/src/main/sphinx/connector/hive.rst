@@ -339,9 +339,14 @@ Hive configuration properties
     * - ``hive.max-partitions-per-writers``
       - Maximum number of partitions per writer.
       - 100
+    * - ``hive.max-partitions-for-eager-load``
+      - The maximum number of partitions for a single table scan to load eagerly
+        on the coordinator. Certain optimizations are not possible without eager
+        loading.
+      - 100,000
     * - ``hive.max-partitions-per-scan``
       - Maximum number of partitions for a single table scan.
-      - 100,000
+      - 1,000,000
     * - ``hive.hdfs.authentication.type``
       - HDFS authentication type. Possible values are ``NONE`` or ``KERBEROS``.
       - ``NONE``
