@@ -90,7 +90,7 @@ class StatementClientV1
     private final Optional<String> user;
     private final String clientCapabilities;
     private final boolean compressionDisabled;
-    private MultiThreadedQuery mtQuery;
+    private MultiThreadedQuery multiThreadedQuery;
     private final Boolean multiThread;
 
     private final AtomicReference<State> state = new AtomicReference<>(State.RUNNING);
@@ -123,7 +123,7 @@ class StatementClientV1
         }
 
         if (this.multiThread) {
-            mtQuery = new MultiThreadedQuery(session, response.getHeaders(), this, this.user);
+            multiThreadedQuery = new MultiThreadedQuery(session, this.httpClient, response.getHeaders(), this, this.user);
         }
 
         processResponse(response.getHeaders(), response.getValue());
@@ -407,7 +407,7 @@ class StatementClientV1
 
     private boolean advanceMultithreaded()
     {
-        JsonResponse<QueryResults> response = mtQuery.getNextResults();
+        JsonResponse<QueryResults> response = multiThreadedQuery.getNextResults();
         if (response == null) {
             state.compareAndSet(State.RUNNING, State.FINISHED);
             return false;
@@ -418,9 +418,10 @@ class StatementClientV1
             return true;
         }
 
-        System.out.printf("UNEXPECTED RESPONSE: %d\n", response.getStatusCode());
         state.compareAndSet(State.RUNNING, State.FINISHED);
-        return false;
+        throw new RuntimeException(
+                format("Unexpected response (%d): %s", response.getStatusCode(), response.getStatusMessage()),
+                response.getException());
     }
 
     private void processResponse(Headers headers, QueryResults results)

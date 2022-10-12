@@ -13,7 +13,6 @@
  */
 package io.trino.client;
 
-import okhttp3.ConnectionPool;
 import okhttp3.Headers;
 import okhttp3.HttpUrl;
 import okhttp3.Interceptor;
@@ -29,7 +28,6 @@ import java.util.OptionalLong;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
@@ -50,15 +48,17 @@ public class MultiThreadedQuery
     Semaphore allResultsReady;
     LocalDateTime start;
     String nextUri;
+    OkHttpClient httpClient;
     Optional<String> user;
 
-    public MultiThreadedQuery(ClientSession session, Headers headers, StatementClient caller, Optional<String> user)
+    public MultiThreadedQuery(ClientSession session, OkHttpClient httpClient, Headers headers, StatementClient caller, Optional<String> user)
     {
         this.start = LocalDateTime.now();
         this.client = caller;
         this.session = session;
         this.user = user;
         this.nextUri = headers.get(HEADER_NEXTURI);
+        this.httpClient = httpClient;
 //        System.out.println("DEBUG: " + nextUri);
         this.allResultsReady = new Semaphore(1);
         try {
@@ -84,7 +84,6 @@ public class MultiThreadedQuery
     public void run()
     {
         ExecutorService executorService = Executors.newFixedThreadPool(8);
-        ConnectionPool pool = new ConnectionPool(10, 5, TimeUnit.SECONDS);
 
         String nextUri = this.nextUri;
         Results newResults = this.results;
@@ -96,7 +95,6 @@ public class MultiThreadedQuery
 
                 String urlToDownload = nextUri;
                 Results res = newResults;
-                LocalDateTime start = LocalDateTime.now();
                 executorService.submit(() -> downloadData(urlToDownload, res));
                 res.waitForNextUri();
                 nextUri = res.nextUri;
@@ -132,7 +130,7 @@ public class MultiThreadedQuery
     {
         try {
             HttpUrl url = HttpUrl.get(nextUri);
-            OkHttpClient client = new OkHttpClient.Builder()
+            OkHttpClient client = httpClient.newBuilder()
                     .addNetworkInterceptor(new HeadersInterceptor(results))
                     .build();
 
@@ -183,7 +181,7 @@ public class MultiThreadedQuery
 
         JsonResponse<QueryResults> results = currentResults.content;
         if (results.getStatusCode() != 200) {
-            System.out.printf("Problem [%d]: HTTP error code %d\n", currentResults.nb, results.getStatusCode());
+            System.out.printf("Problem [%d]: HTTP error code %d\n", currentResults.number, results.getStatusCode());
         }
         currentResults = currentResults.next;
         return results;
@@ -196,16 +194,15 @@ public class MultiThreadedQuery
     public static class Results
     {
         Results next;
-        int nb;
+        int number;
         String nextUri;
         JsonResponse<QueryResults> content;
-        int index;
         private final Semaphore dataLock;
         private final Semaphore nextUriLock;
 
-        public Results(int nb)
+        public Results(int number)
         {
-            this.nb = nb;
+            this.number = number;
             this.dataLock = new Semaphore(1);
             this.nextUriLock = new Semaphore(1);
             try {
