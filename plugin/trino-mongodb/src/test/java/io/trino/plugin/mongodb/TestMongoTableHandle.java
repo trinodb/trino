@@ -15,7 +15,10 @@ package io.trino.plugin.mongodb;
 
 import io.airlift.json.JsonCodec;
 import io.trino.spi.connector.SchemaTableName;
+import org.bson.Document;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
 
 import static org.testng.Assert.assertEquals;
 
@@ -24,9 +27,20 @@ public class TestMongoTableHandle
     private final JsonCodec<MongoTableHandle> codec = JsonCodec.jsonCodec(MongoTableHandle.class);
 
     @Test
-    public void testRoundTrip()
+    public void testRoundTripWithoutQuery()
     {
-        MongoTableHandle expected = new MongoTableHandle(new SchemaTableName("schema", "table"));
+        MongoTableHandle expected = new MongoTableHandle(new SchemaTableName("schema", "table"), Optional.empty());
+
+        String json = codec.toJson(expected);
+        MongoTableHandle actual = codec.fromJson(json);
+
+        assertEquals(actual.getSchemaTableName(), expected.getSchemaTableName());
+    }
+
+    @Test
+    public void testRoundTripWithQuery()
+    {
+        MongoTableHandle expected = new MongoTableHandle(new SchemaTableName("schema", "table"), Optional.of(new Document("key", "value")));
 
         String json = codec.toJson(expected);
         MongoTableHandle actual = codec.fromJson(json);

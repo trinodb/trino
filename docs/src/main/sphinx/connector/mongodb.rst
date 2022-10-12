@@ -469,3 +469,33 @@ ALTER TABLE
 The connector supports ``ALTER TABLE RENAME TO``, ``ALTER TABLE ADD COLUMN``
 and ``ALTER TABLE DROP COLUMN`` operations.
 Other uses of ``ALTER TABLE`` are not supported.
+
+Table functions
+---------------
+
+The connector provides specific :doc:`table functions </functions/table>` to
+access MongoDB.
+
+.. _mongodb-query-function:
+
+``query(database, collection, filter) -> table``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``query`` function allows you to query the underlying MongoDB directly. It
+requires syntax native to MongoDB, because the full query is pushed down and
+processed by MongoDB. This can be useful for accessing native features which are
+not available in Trino or for improving query performance in situations where
+running a query natively may be faster.
+
+For example, get all rows where ``regionkey`` field is 0::
+
+    SELECT
+      *
+    FROM
+      TABLE(
+        mongodb.system.query(
+          database => 'tpch',
+          collection => 'region',
+          filter => '{ regionkey: 0 }'
+        )
+      );

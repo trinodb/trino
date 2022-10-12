@@ -585,6 +585,102 @@ public abstract class BaseMongoConnectorTest
     }
 
     @Test
+    public void testNativeQuerySimple()
+    {
+        assertThat(query("SELECT * FROM TABLE(mongodb.system.query(database => 'tpch', collection => 'region', filter => '{ regionkey: 1 }'))"))
+                .matches("SELECT * FROM region WHERE regionkey = 1");
+
+        // Empty filter '{}' returns all rows
+        assertThat(query("SELECT * FROM TABLE(mongodb.system.query(database => 'tpch', collection => 'region', filter => '{}'))"))
+                .matches("SELECT * FROM region");
+    }
+
+    @Test
+    public void testNativeQueryArray()
+    {
+        String tableName = "test_array" + randomTableSuffix();
+        MongoCollection<Document> collection = client.getDatabase("tpch").getCollection(tableName);
+        collection.insertOne(new Document("array_field", ImmutableList.of("zero", "one", "two")));
+        collection.insertOne(new Document("array_field", ImmutableList.of("0", "1", "2")));
+
+        assertThat(query("SELECT array_field FROM TABLE(mongodb.system.query(database => 'tpch', collection => '" + tableName + "', filter => '{ \"array_field.1\": \"one\" }'))"))
+                .matches("VALUES CAST(ARRAY['zero', 'one', 'two'] AS array(varchar))");
+    }
+
+    @Test
+    public void testNativeQueryNestedRow()
+    {
+        String tableName = "test_nested_row" + randomTableSuffix();
+        MongoCollection<Document> collection = client.getDatabase("tpch").getCollection(tableName);
+        collection.insertOne(new Document("row_field", new Document("first", new Document("second", 1))));
+        collection.insertOne(new Document("row_field", new Document("first", new Document("second", 2))));
+
+        assertQuery(
+                "SELECT row_field.first.second FROM TABLE(mongodb.system.query(database => 'tpch', collection => '" + tableName + "', filter => '{ \"row_field.first.second\": 1 }'))",
+                "VALUES 1");
+    }
+
+    @Test
+    public void testNativeQueryFilterAndWhere()
+    {
+        assertThat(query("SELECT * FROM TABLE(mongodb.system.query(database => 'tpch', collection => 'nation', filter => '{ regionkey: 0 }')) WHERE name = 'ALGERIA'"))
+                .matches("SELECT * FROM nation WHERE regionkey = 0 AND name = 'ALGERIA'");
+
+        assertThat(query("SELECT * FROM TABLE(mongodb.system.query(database => 'tpch', collection => 'nation', filter => '{ regionkey: {$gte: 1} }')) WHERE regionkey = 4"))
+                .matches("SELECT * FROM nation WHERE regionkey >= 1 AND regionkey = 4");
+
+        assertThat(query("SELECT * FROM TABLE(mongodb.system.query(database => 'tpch', collection => 'nation', filter => '{ regionkey: {$gte: 1} }')) WHERE regionkey < 1"))
+                .returnsEmptyResult();
+    }
+
+    @Test
+    public void testNativeQueryEmptyResult()
+    {
+        assertThat(query("SELECT * FROM TABLE(mongodb.system.query(database => 'tpch', collection => 'region', filter => '{ regionkey: 999 }'))"))
+                .returnsEmptyResult();
+    }
+
+    @Test
+    public void testNativeQueryLimit()
+    {
+        // Use high limit for result determinism
+        assertThat(query("SELECT * FROM TABLE(mongodb.system.query(database => 'tpch', collection => 'region', filter => '{}')) LIMIT 30"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT * FROM TABLE(mongodb.system.query(database => 'tpch', collection => 'region', filter => '{}')) LIMIT 0"))
+                .returnsEmptyResult();
+    }
+
+    @Test
+    public void testNativeQueryProjection()
+    {
+        assertThat(query("SELECT name FROM TABLE(mongodb.system.query(database => 'tpch', collection => 'region', filter => '{}'))"))
+                .matches("SELECT name FROM region");
+    }
+
+    @Test
+    public void testNativeQueryInvalidArgument()
+    {
+        assertQueryFails(
+                "SELECT * FROM TABLE(mongodb.system.query(database => 'invalid', collection => 'region', filter => '{}'))",
+                "Table 'invalid.region' not found");
+        assertQueryFails(
+                "SELECT * FROM TABLE(mongodb.system.query(database => 'tpch', collection => 'invalid', filter => '{}'))",
+                "Table 'tpch.invalid' not found");
+
+        assertQueryFails(
+                "SELECT * FROM TABLE(mongodb.system.query(database => 'TPCH', collection => 'region', filter => '{}'))",
+                "Only lowercase database name is supported");
+        assertQueryFails(
+                "SELECT * FROM TABLE(mongodb.system.query(database => 'tpch', collection => 'REGION', filter => '{}'))",
+                 "Only lowercase collection name is supported");
+
+        assertQueryFails(
+                "SELECT * FROM TABLE(mongodb.system.query(database => 'tpch', collection => 'region', filter => '{ invalid }'))",
+                "Can't parse 'filter' argument as json");
+    }
+
+    @Test
     public void testRenameTableTo120bytesTableName()
     {
         String sourceTableName = "test_rename_source_" + randomTableSuffix();
