@@ -39,6 +39,7 @@ import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.aws.athena.PartitionProjectionModule;
 import io.trino.plugin.hive.azure.HiveAzureModule;
+import io.trino.plugin.hive.cos.HiveCosModule;
 import io.trino.plugin.hive.fs.CachingDirectoryListerModule;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.gcs.HiveGcsModule;
@@ -112,6 +113,7 @@ public final class InternalHiveConnectorFactory
                     new HiveS3Module(),
                     new HiveGcsModule(),
                     new HiveAzureModule(),
+                    new HiveCosModule(),
                     conditionalModule(RubixEnabledConfig.class, RubixEnabledConfig::isCacheEnabled, new RubixModule()),
                     new HiveMetastoreModule(metastore),
                     new HiveSecurityModule(),
