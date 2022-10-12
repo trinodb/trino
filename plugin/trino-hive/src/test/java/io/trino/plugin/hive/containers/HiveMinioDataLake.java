@@ -34,12 +34,6 @@ public class HiveMinioDataLake
     public static final String MINIO_ACCESS_KEY = Minio.MINIO_ACCESS_KEY;
     @Deprecated
     public static final String MINIO_SECRET_KEY = Minio.MINIO_SECRET_KEY;
-    /**
-     * In S3 this region is implicitly the default one. In Minio, however,
-     * if we set an empty region, it will accept any.
-     * So setting it by default to `us-east-1` simulates S3 better
-     */
-    public static final String MINIO_DEFAULT_REGION = "us-east-1";
 
     private final String bucketName;
     private final Minio minio;
@@ -70,7 +64,6 @@ public class HiveMinioDataLake
                         .withEnvVars(ImmutableMap.<String, String>builder()
                                 .put("MINIO_ACCESS_KEY", MINIO_ACCESS_KEY)
                                 .put("MINIO_SECRET_KEY", MINIO_SECRET_KEY)
-                                .put("MINIO_REGION", MINIO_DEFAULT_REGION)
                                 .buildOrThrow())
                         .build());
 
@@ -81,7 +74,7 @@ public class HiveMinioDataLake
         this.hiveHadoop = closer.register(hiveHadoopBuilder.build());
     }
 
-    public HiveMinioDataLake start()
+    public void start()
     {
         checkState(state == State.INITIAL, "Already started: %s", state);
         state = State.STARTING;
@@ -90,8 +83,6 @@ public class HiveMinioDataLake
         minioClient = closer.register(minio.createMinioClient());
         minio.createBucket(bucketName);
         state = State.STARTED;
-
-        return this;
     }
 
     public void stop()
