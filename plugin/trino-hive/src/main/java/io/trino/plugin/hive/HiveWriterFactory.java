@@ -20,6 +20,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.airlift.event.client.EventClient;
 import io.airlift.units.DataSize;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior;
@@ -44,7 +46,6 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.conf.HiveConf;
@@ -112,7 +113,6 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
 import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
 import static org.apache.hadoop.hive.ql.io.AcidUtils.deleteDeltaSubdir;
 import static org.apache.hadoop.hive.ql.io.AcidUtils.deltaSubdir;
@@ -126,6 +126,7 @@ public class HiveWriterFactory
     private static final Pattern BUCKET_FROM_FILENAME_PATTERN = Pattern.compile("(0[0-9]+)_.*");
 
     private final Set<HiveFileWriterFactory> fileWriterFactories;
+    private final TrinoFileSystemFactory trinoFileSystemFactory;
     private final String schemaName;
     private final String tableName;
     private final AcidTransaction transaction;
@@ -172,6 +173,7 @@ public class HiveWriterFactory
 
     public HiveWriterFactory(
             Set<HiveFileWriterFactory> fileWriterFactories,
+            TrinoFileSystemFactory trinoFileSystemFactory,
             String schemaName,
             String tableName,
             boolean isCreateTable,
@@ -199,6 +201,7 @@ public class HiveWriterFactory
             HiveWriterStats hiveWriterStats)
     {
         this.fileWriterFactories = ImmutableSet.copyOf(requireNonNull(fileWriterFactories, "fileWriterFactories is null"));
+        this.trinoFileSystemFactory = requireNonNull(trinoFileSystemFactory, "trinoFileSystemFactory is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.transaction = requireNonNull(transaction, "transaction is null");
@@ -570,7 +573,7 @@ public class HiveWriterFactory
         };
 
         if (!sortedBy.isEmpty()) {
-            FileSystem fileSystem;
+            TrinoFileSystem fileSystem;
             Path tempFilePath;
             if (sortedWritingTempStagingPathEnabled) {
                 String tempPrefix = sortedWritingTempStagingPath.replace(
@@ -582,12 +585,9 @@ public class HiveWriterFactory
                 tempFilePath = new Path(path.getParent(), ".tmp-sort." + path.getName());
             }
             try {
-                Configuration configuration = new Configuration(outputConf);
-                // Explicitly set the default FS to local file system to avoid getting HDFS when sortedWritingTempStagingPath specifies no scheme
-                configuration.set(FS_DEFAULT_NAME_KEY, "file:///");
-                fileSystem = hdfsEnvironment.getFileSystem(session.getIdentity(), tempFilePath, configuration);
+                fileSystem = trinoFileSystemFactory.create(session);
             }
-            catch (IOException e) {
+            catch (RuntimeException e) {
                 throw new TrinoException(HIVE_WRITER_OPEN_ERROR, e);
             }
 
@@ -643,15 +643,12 @@ public class HiveWriterFactory
 
     public SortingFileWriter makeRowIdSortingWriter(FileWriter deleteFileWriter, Path path)
     {
-        FileSystem fileSystem;
+        TrinoFileSystem fileSystem;
         Path tempFilePath = new Path(path.getParent(), ".tmp-sort." + path.getName());
         try {
-            Configuration configuration = new Configuration(conf);
-            // Explicitly set the default FS to local file system to avoid getting HDFS when sortedWritingTempStagingPath specifies no scheme
-            configuration.set(FS_DEFAULT_NAME_KEY, "file:///");
-            fileSystem = hdfsEnvironment.getFileSystem(session.getIdentity(), tempFilePath, configuration);
+            fileSystem = trinoFileSystemFactory.create(session);
         }
-        catch (IOException e) {
+        catch (RuntimeException e) {
             throw new TrinoException(HIVE_WRITER_OPEN_ERROR, e);
         }
         // The ORC columns are: operation, originalTransaction, bucket, rowId, row

@@ -14,7 +14,9 @@
 package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.hdfs.HdfsEnvironment;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.hive.orc.OrcConf;
 import io.trino.orc.OrcDataSink;
 import io.trino.orc.OrcDataSource;
@@ -36,7 +38,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
 import org.apache.hadoop.mapred.JobConf;
@@ -81,41 +82,41 @@ import static java.util.stream.Collectors.toList;
 public class OrcFileWriterFactory
         implements HiveFileWriterFactory
 {
-    private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
     private final NodeVersion nodeVersion;
     private final FileFormatDataSourceStats readStats;
     private final OrcWriterStats stats = new OrcWriterStats();
     private final OrcWriterOptions orcWriterOptions;
+    private final TrinoFileSystemFactory trinoFileSystemFactory;
 
     @Inject
     public OrcFileWriterFactory(
-            HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             NodeVersion nodeVersion,
             FileFormatDataSourceStats readStats,
-            OrcWriterConfig config)
+            OrcWriterConfig config,
+            TrinoFileSystemFactory trinoFileSystemFactory)
     {
         this(
-                hdfsEnvironment,
                 typeManager,
                 nodeVersion,
                 readStats,
-                config.toOrcWriterOptions());
+                config.toOrcWriterOptions(),
+                trinoFileSystemFactory);
     }
 
     public OrcFileWriterFactory(
-            HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             NodeVersion nodeVersion,
             FileFormatDataSourceStats readStats,
-            OrcWriterOptions orcWriterOptions)
+            OrcWriterOptions orcWriterOptions,
+            TrinoFileSystemFactory trinoFileSystemFactory)
     {
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.readStats = requireNonNull(readStats, "readStats is null");
         this.orcWriterOptions = requireNonNull(orcWriterOptions, "orcWriterOptions is null");
+        this.trinoFileSystemFactory = requireNonNull(trinoFileSystemFactory, "trinoFileSystemFactory is null");
     }
 
     @Managed
@@ -160,18 +161,20 @@ public class OrcFileWriterFactory
         }
 
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getIdentity(), path, configuration);
-            OrcDataSink orcDataSink = createOrcDataSink(fileSystem, path);
+            TrinoFileSystem trinoFileSystem = trinoFileSystemFactory.create(session);
+            OrcDataSink orcDataSink = createOrcDataSink(trinoFileSystem, path.toString());
 
             Optional<Supplier<OrcDataSource>> validationInputFactory = Optional.empty();
+            String stringPath = path.toString();
             if (isOrcOptimizedWriterValidate(session)) {
                 validationInputFactory = Optional.of(() -> {
                     try {
+                        TrinoInputFile trinoInputFile = trinoFileSystem.newInputFile(stringPath);
                         return new HdfsOrcDataSource(
-                                new OrcDataSourceId(path.toString()),
-                                fileSystem.getFileStatus(path).getLen(),
+                                new OrcDataSourceId(stringPath),
+                                trinoInputFile.length(),
                                 new OrcReaderOptions(),
-                                fileSystem.open(path),
+                                trinoInputFile.newInput(),
                                 readStats);
                     }
                     catch (IOException e) {
@@ -181,7 +184,7 @@ public class OrcFileWriterFactory
             }
 
             Callable<Void> rollbackAction = () -> {
-                fileSystem.delete(path, false);
+                trinoFileSystem.deleteFile(stringPath);
                 return null;
             };
 
@@ -237,10 +240,10 @@ public class OrcFileWriterFactory
         return toHiveType(acidRowType);
     }
 
-    public static OrcDataSink createOrcDataSink(FileSystem fileSystem, Path path)
+    public static OrcDataSink createOrcDataSink(TrinoFileSystem fileSystem, String path)
             throws IOException
     {
-        return new OutputStreamOrcDataSink(fileSystem.create(path, false));
+        return new OutputStreamOrcDataSink(fileSystem.newOutputFile(path).create());
     }
 
     private static CompressionKind getCompression(Properties schema, JobConf configuration)

@@ -17,6 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.TrinoInput;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.orc.NameBasedFieldMapper;
@@ -50,8 +53,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
@@ -126,25 +127,23 @@ public class OrcPageSourceFactory
     private final FileFormatDataSourceStats stats;
     private final DateTimeZone legacyTimeZone;
     private final int domainCompactionThreshold;
+    private final TrinoFileSystemFactory trinoFileSystemFactory;
 
     @Inject
-    public OrcPageSourceFactory(OrcReaderConfig config, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats, HiveConfig hiveConfig)
+    public OrcPageSourceFactory(
+            OrcReaderConfig config,
+            HdfsEnvironment hdfsEnvironment,
+            FileFormatDataSourceStats stats,
+            HiveConfig hiveConfig,
+            TrinoFileSystemFactory trinoFileSystemFactory)
     {
         this(
                 config.toOrcReaderOptions(),
                 hdfsEnvironment,
                 stats,
                 hiveConfig.getOrcLegacyDateTimeZone(),
-                hiveConfig.getDomainCompactionThreshold());
-    }
-
-    public OrcPageSourceFactory(
-            OrcReaderOptions orcReaderOptions,
-            HdfsEnvironment hdfsEnvironment,
-            FileFormatDataSourceStats stats,
-            DateTimeZone legacyTimeZone)
-    {
-        this(orcReaderOptions, hdfsEnvironment, stats, legacyTimeZone, 0);
+                hiveConfig.getDomainCompactionThreshold(),
+                trinoFileSystemFactory);
     }
 
     public OrcPageSourceFactory(
@@ -152,13 +151,25 @@ public class OrcPageSourceFactory
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats,
             DateTimeZone legacyTimeZone,
-            int domainCompactionThreshold)
+            TrinoFileSystemFactory trinoFileSystemFactory)
+    {
+        this(orcReaderOptions, hdfsEnvironment, stats, legacyTimeZone, 0, trinoFileSystemFactory);
+    }
+
+    public OrcPageSourceFactory(
+            OrcReaderOptions orcReaderOptions,
+            HdfsEnvironment hdfsEnvironment,
+            FileFormatDataSourceStats stats,
+            DateTimeZone legacyTimeZone,
+            int domainCompactionThreshold,
+            TrinoFileSystemFactory trinoFileSystemFactory)
     {
         this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.legacyTimeZone = legacyTimeZone;
         this.domainCompactionThreshold = domainCompactionThreshold;
+        this.trinoFileSystemFactory = requireNonNull(trinoFileSystemFactory, "trinoFileSystemFactory is null");
     }
 
     @Override
@@ -252,8 +263,8 @@ public class OrcPageSourceFactory
 
         boolean originalFilesPresent = acidInfo.isPresent() && !acidInfo.get().getOriginalFiles().isEmpty();
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(identity, path, configuration);
-            FSDataInputStream inputStream = hdfsEnvironment.doAs(identity, () -> fileSystem.open(path));
+            TrinoFileSystem trinoFileSystem = trinoFileSystemFactory.create(identity);
+            TrinoInput inputStream = hdfsEnvironment.doAs(identity, () -> trinoFileSystem.newInputFile(path.toString()).newInput());
             orcDataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(path.toString()),
                     estimatedFileSize,
@@ -397,7 +408,7 @@ public class OrcPageSourceFactory
             Optional<OrcDeletedRows> deletedRows = acidInfo.map(info ->
                     new OrcDeletedRows(
                             path.getName(),
-                            new OrcDeleteDeltaPageSourceFactory(options, identity, configuration, hdfsEnvironment, stats),
+                            new OrcDeleteDeltaPageSourceFactory(options, identity, trinoFileSystemFactory, hdfsEnvironment, stats),
                             identity,
                             configuration,
                             hdfsEnvironment,
@@ -412,9 +423,9 @@ public class OrcPageSourceFactory
                             acidInfo.get().getOriginalFiles(),
                             path,
                             hdfsEnvironment,
+                            trinoFileSystemFactory,
                             identity,
                             options,
-                            configuration,
                             stats));
 
             if (transaction.isDelete()) {
