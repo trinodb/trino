@@ -149,6 +149,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.json.JsonCodec.mapJsonCodec;
+import static io.airlift.units.Duration.succinctNanos;
 import static io.trino.execution.StageInfo.getAllStages;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
@@ -487,7 +488,8 @@ public class PlanPrinter
             Optional<TDigestHistogram> outputBufferUtilization = stageInfo.get().getStageStats().getOutputBufferUtilization();
             if (verbose && outputBufferUtilization.isPresent()) {
                 builder.append(indentString(1))
-                        .append(format("Output buffer utilization distribution (%%): {p01=%s, p05=%s, p10=%s, p25=%s, p50=%s, p75=%s, p90=%s, p95=%s, p99=%s, max=%s}\n",
+                        .append(format("Output buffer active time: %s, buffer utilization distribution (%%): {p01=%s, p05=%s, p10=%s, p25=%s, p50=%s, p75=%s, p90=%s, p95=%s, p99=%s, max=%s}\n",
+                                succinctNanos(outputBufferUtilization.get().getTotal()),
                                 // scale ratio to percentages
                                 formatDouble(outputBufferUtilization.get().getP01() * 100),
                                 formatDouble(outputBufferUtilization.get().getP05() * 100),
