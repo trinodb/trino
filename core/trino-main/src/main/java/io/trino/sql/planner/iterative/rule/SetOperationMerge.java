@@ -56,7 +56,7 @@ class SetOperationMerge
     {
         Lookup lookup = context.getLookup();
         List<PlanNode> sources = node.getSources().stream()
-                .flatMap(lookup::resolveGroup)
+                .map(lookup::resolve)
                 .collect(Collectors.toList());
 
         PlanNode child = sources.get(0);
@@ -101,7 +101,7 @@ class SetOperationMerge
 
         Lookup lookup = context.getLookup();
         List<PlanNode> sources = node.getSources().stream()
-                .flatMap(lookup::resolveGroup)
+                .map(lookup::resolve)
                 .collect(Collectors.toList());
 
         ImmutableListMultimap.Builder<Symbol, Symbol> newMappingsBuilder = ImmutableListMultimap.builder();

@@ -51,7 +51,7 @@ public class PruneDistinctAggregation
         DistinctAggregationRewriter rewriter = new DistinctAggregationRewriter(lookup);
 
         List<PlanNode> newSources = node.getSources().stream()
-                .flatMap(lookup::resolveGroup)
+                .map(lookup::resolve)
                 .map(source -> source.accept(rewriter, true))
                 .collect(Collectors.toList());
 
@@ -86,7 +86,7 @@ public class PruneDistinctAggregation
         private PlanNode rewriteChildren(PlanNode node, Boolean context)
         {
             List<PlanNode> newSources = node.getSources().stream()
-                    .flatMap(lookup::resolveGroup)
+                    .map(lookup::resolve)
                     .map(source -> source.accept(this, context)).collect(Collectors.toList());
 
             return replaceChildren(node, newSources);
