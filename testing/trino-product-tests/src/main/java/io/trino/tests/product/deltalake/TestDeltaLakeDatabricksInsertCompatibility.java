@@ -348,37 +348,6 @@ public class TestDeltaLakeDatabricksInsertCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
-    public void testGeneratedColumnsCompatibility()
-    {
-        // Generated columns require writer version 4, which is not supported by Trino
-        String tableName = "test_generated_columns_not_supported_" + randomTableSuffix();
-
-        onDelta().executeQuery("CREATE TABLE default." + tableName + "( " +
-                " id INT, " +
-                " a_number INT, " +
-                " a_number_times_two INT GENERATED ALWAYS AS (a_number * 2)) " +
-                "USING DELTA " +
-                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'");
-
-        try {
-            onDelta().executeQuery("INSERT INTO default." + tableName + " (id, a_number) VALUES (1, 1), (2, 2), (3, 3)");
-
-            assertThat(onTrino().executeQuery("SELECT a_number, a_number_times_two FROM " + tableName))
-                    .containsOnly(row(1, 2), row(2, 4), row(3, 6));
-
-            assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (1, 2, 4)"))
-                    .hasMessageMatching(".*Writing to tables with generated columns is not supported");
-            assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a_number = 1"))
-                    .hasMessageMatching(".*Writing to tables with generated columns is not supported");
-            assertQueryFailure(() -> onTrino().executeQuery("UPDATE delta.default." + tableName + " SET a_number_times_two = 5 WHERE a_number = 2"))
-                    .hasMessageMatching(".*Writing to tables with generated columns is not supported");
-        }
-        finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
-        }
-    }
-
     /**
      * Smoke test compression when writing to a Delta table. It's verified that writer doesn't fail and reads succeed,
      * but it's not verified that compression actually takes place.
@@ -525,6 +494,11 @@ public class TestDeltaLakeDatabricksInsertCompatibility
             onDelta().executeQuery("CREATE TABLE default." + tableName + " (a INT, b BOOLEAN GENERATED ALWAYS AS (CAST(true AS BOOLEAN))) " +
                     "USING DELTA " +
                     "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'");
+
+            onDelta().executeQuery("INSERT INTO default." + tableName + " (a) VALUES (1), (2), (3)");
+
+            assertThat(onTrino().executeQuery("SELECT a, b FROM " + tableName))
+                    .containsOnly(row(1, true), row(2, true), row(3, true));
 
             // Disallowing all statements just in case though some statements may not unrelated to generated columns
             assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (1, false)"))
