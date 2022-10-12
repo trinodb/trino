@@ -183,8 +183,6 @@ public class TestEventListenerWithSplits
         assertTrue(statistics.getWallTime().getSeconds() >= 0);
         assertTrue(statistics.getCpuTimeDistribution().size() > 0);
         assertTrue(statistics.getOperatorSummaries().size() > 0);
-        assertTrue(statistics.getStageOutputBufferUtilizationDistribution().size() > 0);
-        assertTrue(statistics.getStageOutputBufferUtilizationDistribution().stream().allMatch(Optional::isPresent));
     }
 
     @Test
