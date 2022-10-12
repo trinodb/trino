@@ -23,16 +23,17 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestS3WrongRegionPicked
 {
-    @Test
+    @Test(invocationCount = 100)
     public void testS3WrongRegionSelection()
             throws Exception
     {
-        try (HiveMinioDataLake dataLake = new HiveMinioDataLake("test-bucket").start();
+        String bucketName = "test-bucket" + randomTableSuffix();
+        try (HiveMinioDataLake dataLake = new HiveMinioDataLake(bucketName).start();
                 QueryRunner queryRunner = S3HiveQueryRunner.builder(dataLake)
                         .setHiveProperties(ImmutableMap.of("hive.s3.region", "eu-central-1")) // Different than the default one
                         .build()) {
             String tableName = "s3_region_test_" + randomTableSuffix();
-            queryRunner.execute("CREATE TABLE default." + tableName + " (a int) WITH (external_location = 's3://test-bucket/" + tableName + "')");
+            queryRunner.execute("CREATE TABLE default." + tableName + " (a int) WITH (external_location = 's3://" + bucketName + "/" + tableName + "')");
             assertThatThrownBy(() -> queryRunner.execute("SELECT * FROM default." + tableName))
                     .getRootCause()
                     .hasMessageContaining("Status Code: 400")
