@@ -4,6 +4,8 @@
 
 * Add output buffer utilization to `EXPLAIN ANALYZE VERBOSE`. ({issue}`14396`)
 * Increase concurrency for large clusters. ({issue}`14395`)
+* Fix JSON serialization failure for `QueryCompletedEvent` in event listener.
+  ({issue}`14604`)
 
 ## BigQuery connector
 
