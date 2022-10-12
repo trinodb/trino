@@ -115,6 +115,7 @@ public class MongoSession
     private static final String FIELDS_TYPE_KEY = "type";
     private static final String FIELDS_HIDDEN_KEY = "hidden";
 
+    private static final String AND_OP = "$and";
     private static final String OR_OP = "$or";
 
     private static final String EQ_OP = "$eq";
@@ -347,7 +348,7 @@ public class MongoSession
             columnHandles.add(columnHandle);
         }
 
-        MongoTableHandle tableHandle = new MongoTableHandle(schemaTableName);
+        MongoTableHandle tableHandle = new MongoTableHandle(schemaTableName, Optional.empty());
         return new MongoTable(tableHandle, columnHandles.build(), getIndexes(schemaName, tableName), getComment(tableMeta));
     }
 
@@ -405,16 +406,25 @@ public class MongoSession
             output.append(column.getName(), 1);
         }
         MongoCollection<Document> collection = getCollection(tableHandle.getSchemaTableName());
-        Document query = buildQuery(tableHandle.getConstraint());
-        FindIterable<Document> iterable = collection.find(query).projection(output);
+        Document filter = buildFilter(tableHandle);
+        FindIterable<Document> iterable = collection.find(filter).projection(output);
         tableHandle.getLimit().ifPresent(iterable::limit);
-        log.debug("Find documents: collection: %s, filter: %s, projection: %s", tableHandle.getSchemaTableName(), query.toJson(), output.toJson());
+        log.debug("Find documents: collection: %s, filter: %s, projection: %s", tableHandle.getSchemaTableName(), filter.toJson(), output);
 
         if (cursorBatchSize != 0) {
             iterable.batchSize(cursorBatchSize);
         }
 
         return iterable.iterator();
+    }
+
+    static Document buildFilter(MongoTableHandle table)
+    {
+        // Use $and operator because Document.putAll method overwrites existing entries where the key already exists
+        ImmutableList.Builder<Document> filter = ImmutableList.builder();
+        table.getFilter().ifPresent(filter::add);
+        filter.add(buildQuery(table.getConstraint()));
+        return andPredicate(filter.build());
     }
 
     @VisibleForTesting
@@ -563,6 +573,15 @@ public class MongoSession
             return values.get(0);
         }
         return new Document(OR_OP, values);
+    }
+
+    private static Document andPredicate(List<Document> values)
+    {
+        checkState(!values.isEmpty());
+        if (values.size() == 1) {
+            return values.get(0);
+        }
+        return new Document(AND_OP, values);
     }
 
     private static Document isNullPredicate()

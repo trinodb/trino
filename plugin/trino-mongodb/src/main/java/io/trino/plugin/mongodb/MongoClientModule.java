@@ -21,10 +21,13 @@ import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
+import io.trino.plugin.mongodb.ptf.Query;
+import io.trino.spi.ptf.ConnectorTableFunction;
 import io.trino.spi.type.TypeManager;
 
 import javax.inject.Singleton;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -40,6 +43,7 @@ public class MongoClientModule
         binder.bind(MongoPageSinkProvider.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(MongoClientConfig.class);
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 
     @Singleton
