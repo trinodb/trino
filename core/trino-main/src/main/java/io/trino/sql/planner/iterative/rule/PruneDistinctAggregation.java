@@ -26,8 +26,8 @@ import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.UnionNode;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.sql.planner.plan.ChildReplacer.replaceChildren;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 
@@ -52,7 +52,7 @@ public class PruneDistinctAggregation
         List<PlanNode> newSources = node.getSources().stream()
                 .map(lookup::resolve)
                 .map(source -> source.accept(rewriter, true))
-                .collect(Collectors.toList());
+                .collect(toImmutableList());
 
         if (rewriter.isRewritten()) {
             return Result.ofPlanNode(replaceChildren(node, newSources));
@@ -86,7 +86,8 @@ public class PruneDistinctAggregation
         {
             List<PlanNode> newSources = node.getSources().stream()
                     .map(lookup::resolve)
-                    .map(source -> source.accept(this, context)).collect(Collectors.toList());
+                    .map(source -> source.accept(this, context))
+                    .collect(toImmutableList());
 
             return replaceChildren(node, newSources);
         }
