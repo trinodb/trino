@@ -118,6 +118,33 @@ jobs:
           $MAVEN ${MAVEN_TEST} -T C1 clean verify -DskipTests -P gib,errorprone-compiler \
             -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
 
+  deprecation-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
+      - name: Fetch base ref to find merge-base for GIB
+        run: .github/bin/git-fetch-base-ref.sh
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: 17
+          cache: 'maven'
+      - name: Configure Problem Matchers
+        run: echo "::add-matcher::.github/problem-matcher.json"
+      - name: Maven Package
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          $RETRY $MAVEN clean package ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+      - name: Deprecation Checks
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          $MAVEN ${MAVEN_TEST} -T C1 clean test-compile -DskipTests -Dmaven.compiler.showDeprecation -P gib \
+            -pl '!:trino-docs,!:trino-server,!:trino-server-rpm' -l maven.log
+          .github/bin/deprecations.sh maven.log
+
   web-ui-checks:
     runs-on: ubuntu-latest
     timeout-minutes: 30
