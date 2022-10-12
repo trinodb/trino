@@ -24,6 +24,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.SymbolReference;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -71,6 +72,7 @@ public final class SortExpressionExtractor
                 .map(visitor::process)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
+                .flatMap(List::stream)
                 .collect(toMap(SortExpressionContext::getSortExpression, identity(), SortExpressionExtractor::merge))
                 .values()
                 .stream()
@@ -93,7 +95,7 @@ public final class SortExpressionExtractor
     }
 
     private static class SortExpressionVisitor
-            extends AstVisitor<Optional<SortExpressionContext>, Void>
+            extends AstVisitor<Optional<List<SortExpressionContext>>, Void>
     {
         private final Set<Symbol> buildSymbols;
 
@@ -103,13 +105,13 @@ public final class SortExpressionExtractor
         }
 
         @Override
-        protected Optional<SortExpressionContext> visitExpression(Expression expression, Void context)
+        protected Optional<List<SortExpressionContext>> visitExpression(Expression expression, Void context)
         {
             return Optional.empty();
         }
 
         @Override
-        protected Optional<SortExpressionContext> visitComparisonExpression(ComparisonExpression comparison, Void context)
+        protected Optional<List<SortExpressionContext>> visitComparisonExpression(ComparisonExpression comparison, Void context)
         {
             return switch (comparison.getOperator()) {
                 case GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL -> {
@@ -120,7 +122,7 @@ public final class SortExpressionExtractor
                         hasBuildReferencesOnOtherSide = hasBuildSymbolReference(buildSymbols, comparison.getRight());
                     }
                     if (sortChannel.isPresent() && !hasBuildReferencesOnOtherSide) {
-                        yield sortChannel.map(symbolReference -> new SortExpressionContext(symbolReference, singletonList(comparison)));
+                        yield sortChannel.map(symbolReference -> singletonList(new SortExpressionContext(symbolReference, singletonList(comparison))));
                     }
                     yield Optional.empty();
                 }
@@ -129,13 +131,20 @@ public final class SortExpressionExtractor
         }
 
         @Override
-        protected Optional<SortExpressionContext> visitBetweenPredicate(BetweenPredicate node, Void context)
+        protected Optional<List<SortExpressionContext>> visitBetweenPredicate(BetweenPredicate node, Void context)
         {
-            Optional<SortExpressionContext> result = visitComparisonExpression(new ComparisonExpression(GREATER_THAN_OR_EQUAL, node.getValue(), node.getMin()), context);
-            if (result.isPresent()) {
-                return result;
+            // Handle both side of BETWEEN as `GREATER_THAN_OR_EQUAL` expression and `LESS_THAN_OR_EQUAL` expression.
+            Optional<List<SortExpressionContext>> betweenLeftResult = visitComparisonExpression(new ComparisonExpression(GREATER_THAN_OR_EQUAL, node.getValue(), node.getMin()), context);
+            Optional<List<SortExpressionContext>> betweenRightResult = visitComparisonExpression(new ComparisonExpression(LESS_THAN_OR_EQUAL, node.getValue(), node.getMax()), context);
+            if (betweenLeftResult.isPresent() && betweenRightResult.isPresent()) {
+                return Optional.of(Arrays.asList(betweenLeftResult.get().get(0), betweenRightResult.get().get(0)));
             }
-            return visitComparisonExpression(new ComparisonExpression(LESS_THAN_OR_EQUAL, node.getValue(), node.getMax()), context);
+            else if (betweenLeftResult.isPresent()) {
+                return betweenLeftResult;
+            }
+            else {
+                return betweenRightResult;
+            }
         }
     }
 

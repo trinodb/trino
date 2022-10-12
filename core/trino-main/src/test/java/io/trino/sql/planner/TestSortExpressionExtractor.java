@@ -82,7 +82,9 @@ public class TestSortExpressionExtractor
 
         assertGetSortExpression("p1 BETWEEN p2 AND b1", "b1", "p1 <= b1");
 
-        assertGetSortExpression("b1 BETWEEN p1 AND p2", "b1", "b1 >= p1");
+        assertGetSortExpression("b1 BETWEEN p1 AND p2", "b1", "b1 >= p1", "b1 <= p2");
+
+        assertGetSortExpression("p1 BETWEEN b1 AND b2 AND b2 < p2 + 1", "b2", "p1 <= b2", "b2 < p2 + 1");
 
         assertGetSortExpression("b1 > p1 AND p1 BETWEEN b1 AND b2", "b1", "b1 > p1", "p1 >= b1");
     }
