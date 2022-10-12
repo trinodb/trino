@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.orc.OrcDataSink;
 import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcDataSourceId;
@@ -32,7 +34,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -66,7 +67,7 @@ public class SortingFileWriter
 
     private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SortingFileWriter.class).instanceSize());
 
-    private final FileSystem fileSystem;
+    private final TrinoFileSystem fileSystem;
     private final Path tempFilePrefix;
     private final int maxOpenTempFiles;
     private final List<Type> types;
@@ -80,7 +81,7 @@ public class SortingFileWriter
     private final TypeOperators typeOperators;
 
     public SortingFileWriter(
-            FileSystem fileSystem,
+            TrinoFileSystem fileSystem,
             Path tempFilePrefix,
             FileWriter outputWriter,
             DataSize maxMemory,
@@ -212,12 +213,13 @@ public class SortingFileWriter
             Collection<Iterator<Page>> iterators = new ArrayList<>();
 
             for (TempFile tempFile : files) {
-                Path file = tempFile.getPath();
+                String file = tempFile.getPath();
+                TrinoInputFile inputFile = fileSystem.newInputFile(file);
                 OrcDataSource dataSource = new HdfsOrcDataSource(
-                        new OrcDataSourceId(file.toString()),
-                        fileSystem.getFileStatus(file).getLen(),
+                        new OrcDataSourceId(file),
+                        inputFile.length(),
                         new OrcReaderOptions(),
-                        fileSystem.open(file),
+                        inputFile,
                         new FileFormatDataSourceStats());
                 closer.register(dataSource);
                 iterators.add(new TempFileReader(types, dataSource));
@@ -227,10 +229,7 @@ public class SortingFileWriter
                     .forEachRemaining(consumer);
 
             for (TempFile tempFile : files) {
-                Path file = tempFile.getPath();
-                if (!fileSystem.delete(file, false)) {
-                    throw new IOException("Failed to delete temporary file: " + file);
-                }
+                fileSystem.deleteFile(tempFile.getPath());
             }
         }
         catch (IOException e) {
@@ -240,7 +239,7 @@ public class SortingFileWriter
 
     private void writeTempFile(Consumer<TempFileWriter> consumer)
     {
-        Path tempFile = getTempFileName();
+        String tempFile = getTempFileName();
 
         try (TempFileWriter writer = new TempFileWriter(types, tempFileSinkFactory.createSink(fileSystem, tempFile))) {
             consumer.accept(writer);
@@ -253,36 +252,34 @@ public class SortingFileWriter
         }
     }
 
-    private void cleanupFile(Path file)
+    private void cleanupFile(String file)
     {
         try {
-            if (!fileSystem.delete(file, false)) {
-                throw new IOException("Delete failed");
-            }
+            fileSystem.deleteFile(file);
         }
         catch (IOException e) {
             log.warn(e, "Failed to delete temporary file: %s", file);
         }
     }
 
-    private Path getTempFileName()
+    private String getTempFileName()
     {
-        return new Path(tempFilePrefix + "." + nextFileId.getAndIncrement());
+        return tempFilePrefix + "." + nextFileId.getAndIncrement();
     }
 
     private static class TempFile
     {
-        private final Path path;
+        private final String path;
         private final long size;
 
-        public TempFile(Path path, long size)
+        public TempFile(String path, long size)
         {
             checkArgument(size >= 0, "size is negative");
             this.path = requireNonNull(path, "path is null");
             this.size = size;
         }
 
-        public Path getPath()
+        public String getPath()
         {
             return path;
         }
@@ -304,7 +301,7 @@ public class SortingFileWriter
 
     public interface TempFileSinkFactory
     {
-        OrcDataSink createSink(FileSystem fileSystem, Path path)
+        OrcDataSink createSink(TrinoFileSystem fileSystem, String path)
                 throws IOException;
     }
 }

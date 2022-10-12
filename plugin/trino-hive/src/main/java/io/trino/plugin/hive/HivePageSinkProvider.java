@@ -20,6 +20,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.event.client.EventClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.HivePageSinkMetadataProvider;
@@ -58,6 +59,7 @@ public class HivePageSinkProvider
         implements ConnectorPageSinkProvider
 {
     private final Set<HiveFileWriterFactory> fileWriterFactories;
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final HdfsEnvironment hdfsEnvironment;
     private final PageSorter pageSorter;
     private final HiveMetastoreFactory metastoreFactory;
@@ -79,6 +81,7 @@ public class HivePageSinkProvider
     @Inject
     public HivePageSinkProvider(
             Set<HiveFileWriterFactory> fileWriterFactories,
+            TrinoFileSystemFactory fileSystemFactory,
             HdfsEnvironment hdfsEnvironment,
             PageSorter pageSorter,
             HiveMetastoreFactory metastoreFactory,
@@ -93,6 +96,7 @@ public class HivePageSinkProvider
             HiveWriterStats hiveWriterStats)
     {
         this.fileWriterFactories = ImmutableSet.copyOf(requireNonNull(fileWriterFactories, "fileWriterFactories is null"));
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
@@ -154,6 +158,7 @@ public class HivePageSinkProvider
 
         HiveWriterFactory writerFactory = new HiveWriterFactory(
                 fileWriterFactories,
+                fileSystemFactory,
                 handle.getSchemaName(),
                 handle.getTableName(),
                 isCreateTable,
