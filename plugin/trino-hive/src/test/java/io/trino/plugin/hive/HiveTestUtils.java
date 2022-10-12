@@ -98,6 +98,8 @@ public final class HiveTestUtils
             new HdfsConfig(),
             new NoHdfsAuthentication());
 
+    public static final HdfsFileSystemFactory HDFS_FILE_SYSTEM_FACTORY = new HdfsFileSystemFactory(HDFS_ENVIRONMENT);
+
     public static final PageSorter PAGE_SORTER = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
 
     public static ConnectorSession getHiveSession(HiveConfig hiveConfig)
@@ -155,7 +157,7 @@ public final class HiveTestUtils
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
         return ImmutableSet.<HivePageSourceFactory>builder()
                 .add(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, hdfsEnvironment, stats, hiveConfig))
-                .add(new OrcPageSourceFactory(new OrcReaderConfig(), hdfsEnvironment, stats, hiveConfig))
+                .add(new OrcPageSourceFactory(new OrcReaderConfig(), hdfsEnvironment, fileSystemFactory, stats, hiveConfig))
                 .add(new ParquetPageSourceFactory(fileSystemFactory, stats, new ParquetReaderConfig(), hiveConfig))
                 .build();
     }
@@ -178,7 +180,7 @@ public final class HiveTestUtils
     private static OrcFileWriterFactory getDefaultOrcFileWriterFactory(HdfsEnvironment hdfsEnvironment)
     {
         return new OrcFileWriterFactory(
-                hdfsEnvironment,
+                new HdfsFileSystemFactory(hdfsEnvironment),
                 TESTING_TYPE_MANAGER,
                 new NodeVersion("test_version"),
                 new FileFormatDataSourceStats(),

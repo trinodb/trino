@@ -13,13 +13,11 @@
  */
 package io.trino.plugin.hive.orc;
 
-import io.trino.hdfs.HdfsEnvironment;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.security.ConnectorIdentity;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 
 import java.util.Optional;
 
@@ -30,33 +28,29 @@ public class OrcDeleteDeltaPageSourceFactory
 {
     private final OrcReaderOptions options;
     private final ConnectorIdentity identity;
-    private final Configuration configuration;
-    private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
+    private final TrinoFileSystemFactory fileSystemFactory;
 
     public OrcDeleteDeltaPageSourceFactory(
             OrcReaderOptions options,
             ConnectorIdentity identity,
-            Configuration configuration,
-            HdfsEnvironment hdfsEnvironment,
+            TrinoFileSystemFactory fileSystemFactory,
             FileFormatDataSourceStats stats)
     {
         this.options = requireNonNull(options, "options is null");
         this.identity = requireNonNull(identity, "identity is null");
-        this.configuration = requireNonNull(configuration, "configuration is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.stats = requireNonNull(stats, "stats is null");
     }
 
-    public Optional<ConnectorPageSource> createPageSource(Path path, long fileSize)
+    public Optional<ConnectorPageSource> createPageSource(String path, long fileSize)
     {
         return createOrcDeleteDeltaPageSource(
                 path,
                 fileSize,
                 options,
                 identity,
-                configuration,
-                hdfsEnvironment,
-                stats);
+                stats,
+                fileSystemFactory);
     }
 }
