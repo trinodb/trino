@@ -274,168 +274,197 @@ configuration of partition projection.
 Hive configuration properties
 -----------------------------
 
-================================================== ============================================================ ============
-Property Name                                      Description                                                  Default
-================================================== ============================================================ ============
-``hive.config.resources``                          An optional comma-separated list of HDFS
-                                                   configuration files. These files must exist on the
-                                                   machines running Trino. Only specify this if
-                                                   absolutely necessary to access HDFS.
-                                                   Example: ``/etc/hdfs-site.xml``
+.. list-table:: Hive configuration properties
+    :widths: 35, 50, 15
+    :header-rows: 1
 
-``hive.recursive-directories``                     Enable reading data from subdirectories of table or          ``false``
-                                                   partition locations. If disabled, subdirectories are
-                                                   ignored. This is equivalent to the
-                                                   ``hive.mapred.supports.subdirectories`` property in Hive.
+    * - Property Name
+      - Description
+      - Default
+    * - ``hive.config.resources``
+      - An optional comma-separated list of HDFS configuration files. These
+        files must exist on the machines running Trino. Only specify this if
+        absolutely necessary to access HDFS. Example: ``/etc/hdfs-site.xml``
+      -
+    * - ``hive.recursive-directories``
+      - Enable reading data from subdirectories of table or partition locations.
+        If disabled, subdirectories are ignored. This is equivalent to the
+        ``hive.mapred.supports.subdirectories`` property in Hive.
+      - ``false``
+    * - ``hive.ignore-absent-partitions``
+      - Ignore partitions when the file system location does not exist rather
+        than failing the query. This skips data that may be expected to be part
+        of the table.
+      - ``false``
+    * - ``hive.storage-format``
+      - The default file format used when creating new tables.
+      - ``ORC``
+    * - ``hive.compression-codec``
+      - The compression codec to use when writing files. Possible values are
+        ``NONE``, ``SNAPPY``, ``LZ4``, ``ZSTD``, or ``GZIP``.
+      - ``GZIP``
+    * - ``hive.force-local-scheduling``
+      - Force splits to be scheduled on the same node as the Hadoop DataNode
+        process serving the split data. This is useful for installations where
+        Trino is collocated with every DataNode.
+      - ``false``
+    * - ``hive.respect-table-format``
+      - Should new partitions be written using the existing table format or the
+        default Trino format?
+      - ``true``
+    * - ``hive.immutable-partitions``
+      - Can new data be inserted into existing partitions? If ``true`` then
+        setting ``hive.insert-existing-partitions-behavior`` to ``APPEND`` is
+        not allowed. This also affects the ``insert_existing_partitions_behavior``
+        session property in the same way.
+      - ``false``
+    * - ``hive.insert-existing-partitions-behavior``
+      - What happens when data is inserted into an existing partition? Possible
+        values are
 
-``hive.ignore-absent-partitions``                  Ignore partitions when the file system location does not     ``false``
-                                                   exist rather than failing the query. This skips data that
-                                                   may be expected to be part of the table.
+            * ``APPEND`` - appends data to existing partitions
+            * ``OVERWRITE`` - overwrites existing partitions
+            * ``ERROR`` - modifying existing partitions is not allowed
+      - ``APPEND``
+    * - ``hive.target-max-file-size``
+      - Best effort maximum size of new files.
+      - ``1GB``
+    * - ``hive.create-empty-bucket-files``
+      - Should empty files be created for buckets that have no data?
+      - ``false``
+    * - ``hive.partition-statistics-sample-size``
+      - Specifies the number of partitions to analyze when computing table
+        statistics.
+      - 100
+    * - ``hive.max-partitions-per-writers``
+      - Maximum number of partitions per writer.
+      - 100
+    * - ``hive.max-partitions-per-scan``
+      - Maximum number of partitions for a single table scan.
+      - 100,000
+    * - ``hive.hdfs.authentication.type``
+      - HDFS authentication type. Possible values are ``NONE`` or ``KERBEROS``.
+      - ``NONE``
+    * - ``hive.hdfs.impersonation.enabled``
+      - Enable HDFS end user impersonation.
+      - ``false``
+    * - ``hive.hdfs.trino.principal``
+      - The Kerberos principal that Trino will use when connecting to HDFS.
+      -
+    * - ``hive.hdfs.trino.keytab``
+      - HDFS client keytab location.
+      -
+    * - ``hive.dfs.replication``
+      - Hadoop file system replication factor.
+      -
+    * - ``hive.security``
+      - See :doc:`hive-security`.
+      -
+    * - ``security.config-file``
+      - Path of config file to use when ``hive.security=file``. See
+        :ref:`catalog-file-based-access-control` for details.
+      -
+    * - ``hive.non-managed-table-writes-enabled``
+      - Enable writes to non-managed (external) Hive tables.
+      - ``false``
+    * - ``hive.non-managed-table-creates-enabled``
+      - Enable creating non-managed (external) Hive tables.
+      - ``true``
+    * - ``hive.collect-column-statistics-on-write``
+      - Enables automatic column level statistics collection on write. See
+        `Table Statistics <#table-statistics>`__ for details.
+      - ``true``
+    * - ``hive.s3select-pushdown.enabled``
+      - Enable query pushdown to AWS S3 Select service.
+      - ``false``
+    * - ``hive.s3select-pushdown.max-connections``
+      - Maximum number of simultaneously open connections to S3 for
+        :ref:`s3selectpushdown`.
+      - 500
+    * - ``hive.file-status-cache-tables``
+      - Cache directory listing for specific tables. Examples:
 
-``hive.storage-format``                            The default file format used when creating new tables.       ``ORC``
-
-``hive.compression-codec``                         The compression codec to use when writing files.             ``GZIP``
-                                                   Possible values are ``NONE``, ``SNAPPY``, ``LZ4``,
-                                                   ``ZSTD``, or ``GZIP``.
-
-``hive.force-local-scheduling``                    Force splits to be scheduled on the same node as the Hadoop  ``false``
-                                                   DataNode process serving the split data.  This is useful for
-                                                   installations where Trino is collocated with every
-                                                   DataNode.
-
-``hive.respect-table-format``                      Should new partitions be written using the existing table    ``true``
-                                                   format or the default Trino format?
-
-``hive.immutable-partitions``                      Can new data be inserted into existing partitions?           ``false``
-                                                   If ``true`` then setting
-                                                   ``hive.insert-existing-partitions-behavior`` to ``APPEND``
-                                                   is not allowed.
-                                                   This also affects the
-                                                   ``insert_existing_partitions_behavior``
-                                                   session property in the same way.
-
-``hive.insert-existing-partitions-behavior``       What happens when data is inserted into an existing          ``APPEND``
-                                                   partition?
-                                                   Possible values are
-
-                                                   * ``APPEND`` - appends data to existing partitions
-                                                   * ``OVERWRITE`` - overwrites existing partitions
-                                                   * ``ERROR`` - modifying existing partitions is not allowed
-
-``hive.target-max-file-size``                      Best effort maximum size of new files.                       ``1GB``
-
-``hive.create-empty-bucket-files``                 Should empty files be created for buckets that have no data? ``false``
-
-``hive.partition-statistics-sample-size``          Specifies the number of partitions to analyze when           100
-                                                   computing table statistics.
-
-``hive.max-partitions-per-writers``                Maximum number of partitions per writer.                     100
-
-``hive.max-partitions-per-scan``                   Maximum number of partitions for a single table scan.        100,000
-
-``hive.hdfs.authentication.type``                  HDFS authentication type.                                    ``NONE``
-                                                   Possible values are ``NONE`` or ``KERBEROS``.
-
-``hive.hdfs.impersonation.enabled``                Enable HDFS end user impersonation.                          ``false``
-
-``hive.hdfs.trino.principal``                      The Kerberos principal that Trino will use when connecting
-                                                   to HDFS.
-
-``hive.hdfs.trino.keytab``                         HDFS client keytab location.
-
-``hive.dfs.replication``                           Hadoop file system replication factor.
-
-``hive.security``                                  See :doc:`hive-security`.
-
-``security.config-file``                           Path of config file to use when ``hive.security=file``.
-                                                   See :ref:`catalog-file-based-access-control` for details.
-
-``hive.non-managed-table-writes-enabled``          Enable writes to non-managed (external) Hive tables.         ``false``
-
-``hive.non-managed-table-creates-enabled``         Enable creating non-managed (external) Hive tables.          ``true``
-
-``hive.collect-column-statistics-on-write``        Enables automatic column level statistics collection         ``true``
-                                                   on write. See `Table Statistics <#table-statistics>`__ for
-                                                   details.
-
-``hive.s3select-pushdown.enabled``                 Enable query pushdown to AWS S3 Select service.              ``false``
-
-``hive.s3select-pushdown.max-connections``         Maximum number of simultaneously open connections to S3 for  500
-                                                   :ref:`s3selectpushdown`.
-
-``hive.file-status-cache-tables``                  Cache directory listing for specific tables. Examples:
-
-                                                   * ``fruit.apple,fruit.orange`` to cache listings only for
-                                                     tables ``apple`` and ``orange`` in schema ``fruit``
-                                                   * ``fruit.*,vegetable.*`` to cache listings for all tables
-                                                     in schemas ``fruit`` and ``vegetable``
-                                                   * ``*`` to cache listings for all tables in all schemas
-
-``hive.file-status-cache-size``                    Maximum total number of cached file status entries.          1,000,000
-
-``hive.file-status-cache-expire-time``             How long a cached directory listing should be considered     ``1m``
-                                                   valid.
-
-``hive.rcfile.time-zone``                          Adjusts binary encoded timestamp values to a specific        JVM default
-                                                   time zone. For Hive 3.1+, this should be set to UTC.
-
-``hive.timestamp-precision``                       Specifies the precision to use for Hive columns of type      ``MILLISECONDS``
-                                                   ``timestamp``. Possible values are ``MILLISECONDS``,
-                                                   ``MICROSECONDS`` and ``NANOSECONDS``. Values with higher
-                                                   precision than configured are rounded.
-
-``hive.temporary-staging-directory-enabled``       Controls whether the temporary staging directory configured  ``true``
-                                                   at ``hive.temporary-staging-directory-path`` should be
-                                                   used for write operations. Temporary staging directory is
-                                                   never used for writes to non-sorted tables on S3,
-                                                   encrypted HDFS or external location. Writes to sorted tables
-                                                   will utilize this path for staging temporary files
-                                                   during sorting operation. When disabled, the target storage
-                                                   will be used for staging while writing sorted tables which
-                                                   can be inefficient when writing to object stores like S3.
-
-``hive.temporary-staging-directory-path``          Controls the location of temporary staging directory that    ``/tmp/presto-${USER}``
-                                                   is used for write operations. The ``${USER}`` placeholder
-                                                   can be used to use a different location for each user.
-
-``hive.hive-views.enabled``                        Enable translation for :ref:`Hive views <hive-views>`.       ``false``
-
-``hive.hive-views.legacy-translation``             Use the legacy algorithm to translate                        ``false``
-                                                   :ref:`Hive views <hive-views>`. You can use the
-                                                   ``hive_views_legacy_translation`` catalog session property
-                                                   for temporary, catalog specific use.
-
-``hive.parallel-partitioned-bucketed-writes``      Improve parallelism of partitioned and bucketed table        ``true``
-                                                   writes. When disabled, the number of writing threads
-                                                   is limited to number of buckets.
-
-``hive.fs.new-directory-permissions``              Controls the permissions set on new directories created      ``0777``
-                                                   for tables. It must be either 'skip' or an octal number,
-                                                   with a leading 0. If set to 'skip', permissions of newly
-                                                   created directories will not be set by Trino.
-
-``hive.fs.cache.max-size``                         Maximum number of cached file system objects.                 1000
-
-``hive.query-partition-filter-required``           Set to ``true`` to force a query to use a partition filter.   ``false``
-                                                   You can use the ``query_partition_filter_required`` catalog
-                                                   session property for temporary, catalog specific use.
-
-``hive.table-statistics-enabled``                  Enables :doc:`/optimizer/statistics`. The equivalent          ``true``
-                                                   :doc:`catalog session property </sql/set-session>`
-                                                   is ``statistics_enabled`` for session specific use.
-                                                   Set to ``false`` to disable statistics. Disabling statistics
-                                                   means that :doc:`/optimizer/cost-based-optimizations` can
-                                                   not make smart decisions about the query plan.
-
-``hive.auto-purge``                                Set the default value for the auto_purge table property for   ``false``
-                                                   managed tables.
-                                                   See the :ref:`hive_table_properties` for more information
-                                                   on auto_purge.
-
-``hive.partition-projection-enabled``              Enables Athena partition projection support                     ``false``
-
-``hive.max-partition-drops-per-query``             Maximum number of partitions to drop in a single query.      100,000
-================================================== ============================================================ ============
+            * ``fruit.apple,fruit.orange`` to cache listings only for tables
+              ``apple`` and ``orange`` in schema ``fruit``
+            * ``fruit.*,vegetable.*`` to cache listings for all tables
+              in schemas ``fruit`` and ``vegetable``
+            * ``*`` to cache listings for all tables in all schemas
+      -
+    * - ``hive.file-status-cache-size``
+      - Maximum total number of cached file status entries.
+      - 1,000,000
+    * - ``hive.file-status-cache-expire-time``
+      - How long a cached directory listing should be considered valid.
+      - ``1m``
+    * - ``hive.rcfile.time-zone``
+      - Adjusts binary encoded timestamp values to a specific time zone. For
+        Hive 3.1+, this should be set to UTC.
+      - JVM default
+    * - ``hive.timestamp-precision``
+      - Specifies the precision to use for Hive columns of type ``timestamp``.
+        Possible values are ``MILLISECONDS``, ``MICROSECONDS`` and``NANOSECONDS``.
+        Values with higher precision than configured are rounded.
+      - ``MILLISECONDS``
+    * - ``hive.temporary-staging-directory-enabled``
+      - Controls whether the temporary staging directory configured at
+        ``hive.temporary-staging-directory-path`` should be used for write
+        operations. Temporary staging directory is never used for writes to
+        non-sorted tables on S3, encrypted HDFS or external location. Writes to
+        sorted tables will utilize this path for staging temporary files during
+        sorting operation. When disabled, the target storage will be used for
+        staging while writing sorted tables which can be inefficient when
+        writing to object stores like S3.
+      - ``true``
+    * - ``hive.temporary-staging-directory-path``
+      - Controls the location of temporary staging directory that is used for
+        write operations. The ``${USER}`` placeholder can be used to use a
+        different location for each user.
+      - ``/tmp/presto-${USER}``
+    * - ``hive.hive-views.enabled``
+      - Enable translation for :ref:`Hive views <hive-views>`.
+      - ``false``
+    * - ``hive.hive-views.legacy-translation``
+      - Use the legacy algorithm to translate :ref:`Hive views <hive-views>`.
+        You can use the ``hive_views_legacy_translation`` catalog session
+        property for temporary, catalog specific use.
+      - ``false``
+    * - ``hive.parallel-partitioned-bucketed-writes``
+      - Improve parallelism of partitioned and bucketed table writes. When
+        disabled, the number of writing threads is limited to number of buckets.
+      - ``true``
+    * - ``hive.fs.new-directory-permissions``
+      - Controls the permissions set on new directories created for tables. It
+        must be either 'skip' or an octal number, with a leading 0. If set to
+        'skip', permissions of newly created directories will not be set by
+        Trino.
+      - ``0777``
+    * - ``hive.fs.cache.max-size``
+      - Maximum number of cached file system objects.
+      - 1000
+    * - ``hive.query-partition-filter-required``
+      - Set to ``true`` to force a query to use a partition filter. You can use
+        the ``query_partition_filter_required`` catalog session property for
+        temporary, catalog specific use.
+      - ``false``
+    * - ``hive.table-statistics-enabled``
+      - Enables :doc:`/optimizer/statistics`. The equivalent
+        :doc:`catalog session property </sql/set-session>` is
+        ``statistics_enabled`` for session specific use. Set to ``false`` to
+        disable statistics. Disabling statistics means that
+        :doc:`/optimizer/cost-based-optimizations` can not make smart decisions
+        about the query plan.
+      - ``true``
+    * - ``hive.auto-purge``
+      - Set the default value for the auto_purge table property for managed
+        tables. See the :ref:`hive_table_properties` for more information on
+        auto_purge.
+      - ``false``
+    * - ``hive.partition-projection-enabled``
+      - Enables Athena partition projection support
+      - ``false``
+    * - ``hive.max-partition-drops-per-query``
+      - Maximum number of partitions to drop in a single query.
+      - 100,000
 
 ORC format configuration properties
 -----------------------------------
