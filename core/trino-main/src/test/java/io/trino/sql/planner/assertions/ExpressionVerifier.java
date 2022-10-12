@@ -336,7 +336,7 @@ public final class ExpressionVerifier
          * For example, InListExpression.toString returns "(onlyitem)" rather than "onlyitem".
          */
         List<Expression> values = ((InListExpression) expected.getValueList()).getValues();
-        checkState(values.size() == 1, "Multiple expressions in expected value list %s, but actual value is not a list", values, actual.getValue());
+        checkState(values.size() == 1, "Multiple expressions in expected value list %s, but actual value is not a list: %s", values, actual.getValue());
         Expression onlyExpectedExpression = values.get(0);
         return process(actual.getValue(), expected.getValue()) &&
                 process(actual.getValueList(), onlyExpectedExpression);
