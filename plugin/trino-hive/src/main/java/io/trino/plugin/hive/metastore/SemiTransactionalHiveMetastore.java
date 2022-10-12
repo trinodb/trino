@@ -431,8 +431,8 @@ public class SemiTransactionalHiveMetastore
         // Ensure the database has queryId set. This is relied on for exception handling
         verify(
                 getQueryId(database).orElseThrow(() -> new IllegalArgumentException("Query id is not present")).equals(queryId),
-                "Database does not have correct query id set",
-                database);
+                "Database '%s' does not have correct query id set",
+                database.getDatabaseName());
 
         setExclusive((delegate, hdfsEnvironment) -> {
             try {
@@ -1518,7 +1518,7 @@ public class SemiTransactionalHiveMetastore
         HiveTransaction hiveTransaction;
         synchronized (this) {
             String queryId = session.getQueryId();
-            checkState(currentQueryId.equals(Optional.of(queryId)), "Invalid query id %s while current query is", queryId, currentQueryId);
+            checkState(currentQueryId.equals(Optional.of(queryId)), "Invalid query id %s while current query is %s", queryId, currentQueryId);
             if (!AcidUtils.isTransactionalTable(tableHandle.getTableParameters().orElseThrow(() -> new IllegalStateException("tableParameters missing")))) {
                 return Optional.empty();
             }
@@ -1535,7 +1535,7 @@ public class SemiTransactionalHiveMetastore
     public synchronized void cleanupQuery(ConnectorSession session)
     {
         String queryId = session.getQueryId();
-        checkState(currentQueryId.equals(Optional.of(queryId)), "Invalid query id %s while current query is", queryId, currentQueryId);
+        checkState(currentQueryId.equals(Optional.of(queryId)), "Invalid query id %s while current query is %s", queryId, currentQueryId);
         Optional<HiveTransaction> transaction = currentHiveTransaction;
 
         if (transaction.isEmpty()) {

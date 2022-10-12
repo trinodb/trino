@@ -85,7 +85,7 @@ public class ExpressionMatcher
         }
 
         List<Expression> matches = matchesBuilder.build();
-        checkState(matches.size() < 2, "Ambiguous expression %s matches multiple assignments", expression,
+        checkState(matches.size() < 2, "Ambiguous expression %s matches multiple assignments: %s", expression,
                 (matches.stream().map(Expression::toString).collect(Collectors.joining(", "))));
         return result;
     }

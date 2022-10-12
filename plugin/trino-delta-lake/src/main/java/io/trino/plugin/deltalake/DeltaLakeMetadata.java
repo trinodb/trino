@@ -625,8 +625,8 @@ public class DeltaLakeMetadata
         // Ensure the database has queryId set. This is relied on for exception handling
         verify(
                 getQueryId(database).orElseThrow(() -> new IllegalArgumentException("Query id is not present")).equals(queryId),
-                "Database does not have correct query id set",
-                database);
+                "Database '%s' does not have correct query id set",
+                database.getDatabaseName());
 
         try {
             metastore.createDatabase(database);
@@ -971,7 +971,7 @@ public class DeltaLakeMetadata
         String queryId = session.getQueryId();
         verify(
                 getQueryId(table).orElseThrow(() -> new IllegalArgumentException("Query id is not present")).equals(queryId),
-                "Table does not have correct query id set",
+                "Table '%s' does not have correct query id set",
                 table);
 
         try {
