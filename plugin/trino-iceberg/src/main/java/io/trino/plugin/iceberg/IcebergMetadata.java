@@ -235,6 +235,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.UuidType.UUID;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.groupingBy;
@@ -1529,7 +1530,7 @@ public class IcebergMetadata
     {
         UpdateProperties updateProperties = transaction.updateProperties();
         Map<String, Integer> columnNameToId = transaction.table().schema().columns().stream()
-                .collect(toImmutableMap(Types.NestedField::name, Types.NestedField::fieldId));
+                .collect(toImmutableMap(nestedField -> nestedField.name().toLowerCase(ENGLISH), Types.NestedField::fieldId));
         Set<Integer> columnIds = columnNameToId.values().stream()
                 .collect(toImmutableSet());
 
