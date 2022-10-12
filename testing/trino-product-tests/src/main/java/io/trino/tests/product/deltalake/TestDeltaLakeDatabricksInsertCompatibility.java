@@ -562,6 +562,8 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                     .hasMessageContaining("Writing to tables with Change Data Feed enabled is not supported");
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
                     .containsOnly(row(1, 2));
+            assertThat(onDelta().executeQuery("SELECT a, b, _change_type, _commit_version FROM table_changes('default." + tableName + "', 0)"))
+                    .containsOnly(row(1, 2, "insert", 1L));
         }
         finally {
             onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
