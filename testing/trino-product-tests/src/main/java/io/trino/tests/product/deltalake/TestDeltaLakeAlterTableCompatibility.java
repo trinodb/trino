@@ -263,4 +263,36 @@ public class TestDeltaLakeAlterTableCompatibility
             onTrino().executeQuery("DROP TABLE delta.default." + tableName);
         }
     }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testTrinoPreservesReaderAndWriterVersions()
+    {
+        String tableName = "test_trino_preserves_versions_" + randomTableSuffix();
+        String tableDirectory = "databricks-compatibility-test-" + tableName;
+
+        onDelta().executeQuery(format("" +
+                        "CREATE TABLE default.%s (col int) " +
+                        "USING DELTA LOCATION 's3://%s/%s'" +
+                        "TBLPROPERTIES ('delta.minReaderVersion'='1', 'delta.minWriterVersion'='1', 'delta.checkpointInterval' = 1)",
+                tableName,
+                bucketName,
+                tableDirectory));
+        try {
+            onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".col IS 'test column comment'");
+            onTrino().executeQuery("COMMENT ON TABLE delta.default." + tableName + " IS 'test table comment'");
+            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN new_col INT");
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (1, 1)");
+            onTrino().executeQuery("UPDATE delta.default." + tableName + " SET col = 2");
+            onTrino().executeQuery("DELETE FROM delta.default." + tableName);
+            onTrino().executeQuery("MERGE INTO delta.default." + tableName + " t USING delta.default." + tableName + " s " + "ON (t.col = s.col) WHEN MATCHED THEN UPDATE SET new_col = 3");
+
+            List<?> minReaderVersion = getOnlyElement(onDelta().executeQuery("SHOW TBLPROPERTIES " + tableName + "(delta.minReaderVersion)").rows());
+            assertEquals((String) minReaderVersion.get(1), "1");
+            List<?> minWriterVersion = getOnlyElement(onDelta().executeQuery("SHOW TBLPROPERTIES " + tableName + "(delta.minWriterVersion)").rows());
+            assertEquals((String) minWriterVersion.get(1), "1");
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE delta.default." + tableName);
+        }
+    }
 }
