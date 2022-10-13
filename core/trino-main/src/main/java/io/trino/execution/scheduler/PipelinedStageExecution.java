@@ -118,8 +118,10 @@ public class PipelinedStageExecution
     // current stage task tracking
     @GuardedBy("this")
     private final Set<TaskId> allTasks = new HashSet<>();
-    private final Set<TaskId> finishedTasks = ConcurrentHashMap.newKeySet();
-    private final Set<TaskId> flushingTasks = ConcurrentHashMap.newKeySet();
+    @GuardedBy("this")
+    private final Set<TaskId> finishedTasks = new HashSet<>();
+    @GuardedBy("this")
+    private final Set<TaskId> flushingTasks = new HashSet<>();
 
     // source task tracking
     @GuardedBy("this")
@@ -217,22 +219,29 @@ public class PipelinedStageExecution
     }
 
     @Override
-    public void schedulingComplete()
+    public synchronized void schedulingComplete()
     {
         if (!stateMachine.transitionToScheduled()) {
             return;
         }
 
-        if (isStageFlushing()) {
+        if (isFlushing()) {
             stateMachine.transitionToFlushing();
         }
-        if (isStageFinished()) {
+        if (finishedTasks.containsAll(allTasks)) {
             stateMachine.transitionToFinished();
         }
 
         for (PlanNodeId partitionedSource : stage.getFragment().getPartitionedSources()) {
             schedulingComplete(partitionedSource);
         }
+    }
+
+    private synchronized boolean isFlushing()
+    {
+        // to transition to flushing, there must be at least one flushing task, and all others must be flushing or finished.
+        return !flushingTasks.isEmpty()
+                && allTasks.stream().allMatch(taskId -> finishedTasks.contains(taskId) || flushingTasks.contains(taskId));
     }
 
     @Override
@@ -331,13 +340,13 @@ public class PipelinedStageExecution
         return Optional.of(task);
     }
 
-    private void updateTaskStatus(TaskStatus taskStatus)
+    private synchronized void updateTaskStatus(TaskStatus taskStatus)
     {
         State stageState = stateMachine.getState();
         if (stageState.isDone()) {
             return;
         }
-        boolean newFlushingOrFinishedTaskObserved = false;
+
         TaskState taskState = taskStatus.getState();
 
         switch (taskState) {
@@ -358,10 +367,11 @@ public class PipelinedStageExecution
                 fail(new TrinoException(GENERIC_INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageState));
                 break;
             case FLUSHING:
-                newFlushingOrFinishedTaskObserved = addFlushingTask(taskStatus.getTaskId());
+                flushingTasks.add(taskStatus.getTaskId());
                 break;
             case FINISHED:
-                newFlushingOrFinishedTaskObserved = addFinishedTask(taskStatus.getTaskId());
+                finishedTasks.add(taskStatus.getTaskId());
+                flushingTasks.remove(taskStatus.getTaskId());
                 break;
             default:
         }
@@ -370,54 +380,13 @@ public class PipelinedStageExecution
             if (taskState == TaskState.RUNNING) {
                 stateMachine.transitionToRunning();
             }
-            // avoid extra synchronization if no new flushing or finished task was observed
-            if (newFlushingOrFinishedTaskObserved) {
-                if (isStageFlushing()) {
-                    stateMachine.transitionToFlushing();
-                }
-                if (isStageFinished()) {
-                    stateMachine.transitionToFinished();
-                }
+            if (isFlushing()) {
+                stateMachine.transitionToFlushing();
+            }
+            if (finishedTasks.containsAll(allTasks)) {
+                stateMachine.transitionToFinished();
             }
         }
-    }
-
-    private synchronized boolean isStageFlushing()
-    {
-        // to transition to flushing, there must be at least one flushing task, and all others must be flushing or finished.
-        return !flushingTasks.isEmpty()
-                && allTasks.stream().allMatch(taskId -> finishedTasks.contains(taskId) || flushingTasks.contains(taskId));
-    }
-
-    private synchronized boolean isStageFinished()
-    {
-        return finishedTasks.containsAll(allTasks);
-    }
-
-    private boolean addFlushingTask(TaskId taskId)
-    {
-        if (!flushingTasks.contains(taskId) && !finishedTasks.contains(taskId)) {
-            synchronized (this) {
-                // We need to check whether that task is not already finished. It could happen because of out of order of
-                // task status events
-                if (!finishedTasks.contains(taskId)) {
-                    return flushingTasks.add(taskId);
-                }
-            }
-        }
-        return false;
-    }
-
-    private boolean addFinishedTask(TaskId taskId)
-    {
-        if (!finishedTasks.contains(taskId)) {
-            synchronized (this) {
-                boolean added = finishedTasks.add(taskId);
-                flushingTasks.remove(taskId);
-                return added;
-            }
-        }
-        return false;
     }
 
     private ExecutionFailureInfo rewriteTransportFailure(ExecutionFailureInfo executionFailureInfo)
