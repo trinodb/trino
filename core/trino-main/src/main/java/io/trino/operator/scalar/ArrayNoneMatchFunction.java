@@ -14,14 +14,20 @@
 package io.trino.operator.scalar;
 
 import io.trino.spi.block.Block;
+import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
-import io.trino.spi.function.TypeParameterSpecialization;
 import io.trino.spi.type.StandardTypes;
-import io.trino.spi.type.Type;
+
+import java.lang.invoke.MethodHandle;
+
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.OperatorType.READ_VALUE;
 
 @Description("Returns true if all elements of the array don't match the given predicate")
 @ScalarFunction("none_match")
@@ -30,63 +36,15 @@ public final class ArrayNoneMatchFunction
     private ArrayNoneMatchFunction() {}
 
     @TypeParameter("T")
-    @TypeParameterSpecialization(name = "T", nativeContainerType = Object.class)
     @SqlType(StandardTypes.BOOLEAN)
     @SqlNullable
-    public static Boolean noneMatchObject(
-            @TypeParameter("T") Type elementType,
+    public static Boolean noneMatch(
+            @OperatorDependency(operator = READ_VALUE, argumentTypes = "T", convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = FAIL_ON_NULL)) MethodHandle readValue,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("function(T, boolean)") ObjectToBooleanFunction function)
+            throws Throwable
     {
-        Boolean anyMatchResult = ArrayAnyMatchFunction.anyMatchObject(elementType, arrayBlock, function);
-        if (anyMatchResult == null) {
-            return null;
-        }
-        return !anyMatchResult;
-    }
-
-    @TypeParameter("T")
-    @TypeParameterSpecialization(name = "T", nativeContainerType = long.class)
-    @SqlType(StandardTypes.BOOLEAN)
-    @SqlNullable
-    public static Boolean noneMatchLong(
-            @TypeParameter("T") Type elementType,
-            @SqlType("array(T)") Block arrayBlock,
-            @SqlType("function(T, boolean)") LongToBooleanFunction function)
-    {
-        Boolean anyMatchResult = ArrayAnyMatchFunction.anyMatchLong(elementType, arrayBlock, function);
-        if (anyMatchResult == null) {
-            return null;
-        }
-        return !anyMatchResult;
-    }
-
-    @TypeParameter("T")
-    @TypeParameterSpecialization(name = "T", nativeContainerType = double.class)
-    @SqlType(StandardTypes.BOOLEAN)
-    @SqlNullable
-    public static Boolean noneMatchDouble(
-            @TypeParameter("T") Type elementType,
-            @SqlType("array(T)") Block arrayBlock,
-            @SqlType("function(T, boolean)") DoubleToBooleanFunction function)
-    {
-        Boolean anyMatchResult = ArrayAnyMatchFunction.anyMatchDouble(elementType, arrayBlock, function);
-        if (anyMatchResult == null) {
-            return null;
-        }
-        return !anyMatchResult;
-    }
-
-    @TypeParameter("T")
-    @TypeParameterSpecialization(name = "T", nativeContainerType = boolean.class)
-    @SqlType(StandardTypes.BOOLEAN)
-    @SqlNullable
-    public static Boolean noneMatchBoolean(
-            @TypeParameter("T") Type elementType,
-            @SqlType("array(T)") Block arrayBlock,
-            @SqlType("function(T, boolean)") BooleanToBooleanFunction function)
-    {
-        Boolean anyMatchResult = ArrayAnyMatchFunction.anyMatchBoolean(elementType, arrayBlock, function);
+        Boolean anyMatchResult = ArrayAnyMatchFunction.anyMatch(readValue, arrayBlock, function);
         if (anyMatchResult == null) {
             return null;
         }

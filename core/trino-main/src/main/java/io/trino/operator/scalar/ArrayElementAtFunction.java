@@ -15,14 +15,21 @@ package io.trino.operator.scalar;
 
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.Type;
 
+import java.lang.invoke.MethodHandle;
+
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static java.lang.Math.toIntExact;
 
 @ScalarFunction("element_at")
@@ -34,7 +41,12 @@ public final class ArrayElementAtFunction
     @TypeParameter("E")
     @SqlNullable
     @SqlType("E")
-    public static Long longElementAt(@TypeParameter("E") Type elementType, @SqlType("array(E)") Block array, @SqlType("bigint") long index)
+    public static Object elementAt(
+            @TypeParameter("E") Type elementType,
+            @OperatorDependency(operator = READ_VALUE, argumentTypes = "E", convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = FAIL_ON_NULL)) MethodHandle readValue,
+            @SqlType("array(E)") Block array,
+            @SqlType("bigint") long index)
+            throws Throwable
     {
         int position = checkedIndexToBlockPosition(array, index);
         if (position == -1) {
@@ -44,55 +56,7 @@ public final class ArrayElementAtFunction
             return null;
         }
 
-        return elementType.getLong(array, position);
-    }
-
-    @TypeParameter("E")
-    @SqlNullable
-    @SqlType("E")
-    public static Boolean booleanElementAt(@TypeParameter("E") Type elementType, @SqlType("array(E)") Block array, @SqlType("bigint") long index)
-    {
-        int position = checkedIndexToBlockPosition(array, index);
-        if (position == -1) {
-            return null;
-        }
-        if (array.isNull(position)) {
-            return null;
-        }
-
-        return elementType.getBoolean(array, position);
-    }
-
-    @TypeParameter("E")
-    @SqlNullable
-    @SqlType("E")
-    public static Double doubleElementAt(@TypeParameter("E") Type elementType, @SqlType("array(E)") Block array, @SqlType("bigint") long index)
-    {
-        int position = checkedIndexToBlockPosition(array, index);
-        if (position == -1) {
-            return null;
-        }
-        if (array.isNull(position)) {
-            return null;
-        }
-
-        return elementType.getDouble(array, position);
-    }
-
-    @TypeParameter("E")
-    @SqlNullable
-    @SqlType("E")
-    public static Object sliceElementAt(@TypeParameter("E") Type elementType, @SqlType("array(E)") Block array, @SqlType("bigint") long index)
-    {
-        int position = checkedIndexToBlockPosition(array, index);
-        if (position == -1) {
-            return null;
-        }
-        if (array.isNull(position)) {
-            return null;
-        }
-
-        return elementType.getObject(array, position);
+        return readValue.invoke(array, position);
     }
 
     /**
