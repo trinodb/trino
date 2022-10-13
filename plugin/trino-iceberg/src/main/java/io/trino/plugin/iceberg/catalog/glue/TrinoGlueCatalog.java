@@ -70,6 +70,7 @@ import org.apache.iceberg.io.FileIO;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
@@ -690,6 +691,30 @@ public class TrinoGlueCatalog
                 definition.getOwner(),
                 definition.isRunAsInvoker());
 
+        updateView(session, viewName, newDefinition);
+    }
+
+    @Override
+    public void updateViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
+    {
+        ConnectorViewDefinition definition = getView(session, viewName)
+                .orElseThrow(() -> new ViewNotFoundException(viewName));
+        ConnectorViewDefinition newDefinition = new ConnectorViewDefinition(
+                definition.getOriginalSql(),
+                definition.getCatalog(),
+                definition.getSchema(),
+                definition.getColumns().stream()
+                        .map(currentViewColumn -> Objects.equals(columnName, currentViewColumn.getName()) ? new ConnectorViewDefinition.ViewColumn(currentViewColumn.getName(), currentViewColumn.getType(), comment) : currentViewColumn)
+                        .collect(toImmutableList()),
+                definition.getComment(),
+                definition.getOwner(),
+                definition.isRunAsInvoker());
+
+        updateView(session, viewName, newDefinition);
+    }
+
+    private void updateView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition newDefinition)
+    {
         TableInput viewTableInput = getViewTableInput(viewName.getTableName(), encodeViewData(newDefinition), session.getUser(), createViewProperties(session));
 
         try {
