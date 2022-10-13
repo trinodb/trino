@@ -91,6 +91,8 @@ public interface TrinoCatalog
 
     void updateViewComment(ConnectorSession session, SchemaTableName schemaViewName, Optional<String> comment);
 
+    void updateViewColumnComment(ConnectorSession session, SchemaTableName schemaViewName, String columnName, Optional<String> comment);
+
     String defaultTableLocation(ConnectorSession session, SchemaTableName schemaTableName);
 
     void setTablePrincipal(ConnectorSession session, SchemaTableName schemaTableName, TrinoPrincipal principal);

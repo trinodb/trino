@@ -665,6 +665,12 @@ public class IcebergMetadata
     }
 
     @Override
+    public void setViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
+    {
+        catalog.updateViewColumnComment(session, viewName, columnName, comment);
+    }
+
+    @Override
     public Optional<ConnectorTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         Schema schema = schemaFromMetadata(tableMetadata.getColumns());
