@@ -102,7 +102,7 @@ public final class ValueDecoders
 
     public static ValueDecoder<long[]> getIntToLongDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
     {
-        // We need to produce LongArrayBlock from the decoded integers for INT32 backed decimals
+        // We need to produce LongArrayBlock from the decoded integers for INT32 backed decimals and bigints
         return switch (encoding) {
             case PLAIN, DELTA_BINARY_PACKED, RLE, BIT_PACKED, PLAIN_DICTIONARY, RLE_DICTIONARY ->
                     new IntToLongApacheParquetValueDecoder(getApacheParquetReader(encoding, field, dictionary));
