@@ -333,8 +333,7 @@ public class PipelinedStageExecution
 
     private void updateTaskStatus(TaskStatus taskStatus)
     {
-        State stageState = stateMachine.getState();
-        if (stageState.isDone()) {
+        if (stateMachine.getState().isDone()) {
             return;
         }
         boolean newFlushingOrFinishedTaskObserved = false;
@@ -351,11 +350,11 @@ public class PipelinedStageExecution
                 break;
             case CANCELED:
                 // A task should only be in the canceled state if the STAGE is cancelled
-                fail(new TrinoException(GENERIC_INTERNAL_ERROR, "A task is in the CANCELED state but stage is " + stageState));
+                fail(new TrinoException(GENERIC_INTERNAL_ERROR, "A task is in the CANCELED state but stage is " + stateMachine.getState()));
                 break;
             case ABORTED:
                 // A task should only be in the aborted state if the STAGE is done (ABORTED or FAILED)
-                fail(new TrinoException(GENERIC_INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageState));
+                fail(new TrinoException(GENERIC_INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stateMachine.getState()));
                 break;
             case FLUSHING:
                 newFlushingOrFinishedTaskObserved = addFlushingTask(taskStatus.getTaskId());
@@ -366,6 +365,11 @@ public class PipelinedStageExecution
             default:
         }
 
+        // Only allow stage state to transition to RUNNING, FLUSHING or FINISHED state
+        // when allTasks list is complete.
+        // If scheduling of tasks completes and all tasks are already finished then
+        // stage state will also be updated by schedulingComplete method.
+        State stageState = stateMachine.getState();
         if (stageState == SCHEDULED || stageState == RUNNING || stageState == FLUSHING) {
             if (taskState == TaskState.RUNNING) {
                 stateMachine.transitionToRunning();
