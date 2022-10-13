@@ -6715,7 +6715,7 @@ public class TestAnalyzer
                 "select a from t1",
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
-                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
                 Identity.ofUser("user"),
                 Optional.empty(),
@@ -6727,7 +6727,7 @@ public class TestAnalyzer
                 "select a from t1",
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
-                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")));
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v1"), viewData1, false));
@@ -6737,7 +6737,7 @@ public class TestAnalyzer
                 "select a from t1",
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
-                ImmutableList.of(new ViewColumn("a", VARCHAR.getTypeId())),
+                ImmutableList.of(new ViewColumn("a", VARCHAR.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")));
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2"), viewData2, false));
@@ -6747,7 +6747,7 @@ public class TestAnalyzer
                 "select a from t4",
                 Optional.of(SECOND_CATALOG),
                 Optional.of("s2"),
-                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("owner")));
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(THIRD_CATALOG, "s3", "v3"), viewData3, false));
@@ -6757,7 +6757,7 @@ public class TestAnalyzer
                 "select A from t1",
                 Optional.of("tpch"),
                 Optional.of("s1"),
-                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")));
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v4"), viewData4, false));
@@ -6767,7 +6767,7 @@ public class TestAnalyzer
                 "select * from v5",
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
-                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")));
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v5"), viewData5, false));
@@ -6843,7 +6843,7 @@ public class TestAnalyzer
                         "SELECT a FROM t1",
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
-                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
+                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                         Optional.empty(),
                         Identity.ofUser("some user"),
                         Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t1")),
@@ -6854,7 +6854,7 @@ public class TestAnalyzer
                 "SELECT a FROM t2",
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
-                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                 Optional.empty(),
                 Optional.empty());
         inSetupTransaction(session -> metadata.createView(
@@ -6892,7 +6892,7 @@ public class TestAnalyzer
                         "SELECT a, b FROM t1",
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
-                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId()), new ViewColumn("b", BIGINT.getTypeId())),
+                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", BIGINT.getTypeId(), Optional.empty())),
                         Optional.empty(),
                         Identity.ofUser("some user"),
                         // t3 has a, b column and hidden column x
@@ -6910,7 +6910,7 @@ public class TestAnalyzer
                         "SELECT a FROM t1",
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
-                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
+                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                         Optional.empty(),
                         Identity.ofUser("some user"),
                         Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
@@ -6927,7 +6927,7 @@ public class TestAnalyzer
                         "SELECT a, b as c FROM t1",
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
-                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId()), new ViewColumn("c", BIGINT.getTypeId())),
+                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("c", BIGINT.getTypeId(), Optional.empty())),
                         Optional.empty(),
                         Identity.ofUser("some user"),
                         Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
@@ -6944,7 +6944,7 @@ public class TestAnalyzer
                         "SELECT a, null b FROM t1",
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
-                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId()), new ViewColumn("b", RowType.anonymousRow(TINYINT).getTypeId())),
+                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", RowType.anonymousRow(TINYINT).getTypeId(), Optional.empty())),
                         Optional.empty(),
                         Identity.ofUser("some user"),
                         Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),

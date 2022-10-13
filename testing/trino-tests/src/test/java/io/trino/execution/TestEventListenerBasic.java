@@ -150,7 +150,7 @@ public class TestEventListenerBasic
                                     "SELECT nationkey AS test_column FROM tpch.tiny.nation",
                                     Optional.empty(),
                                     Optional.empty(),
-                                    ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test_column", BIGINT.getTypeId())),
+                                    ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test_column", BIGINT.getTypeId(), Optional.empty())),
                                     Optional.empty(),
                                     Optional.empty(),
                                     true);

@@ -158,7 +158,7 @@ public abstract class BaseDataDefinitionTaskTest
 
     protected MaterializedViewDefinition someMaterializedView()
     {
-        return someMaterializedView("select * from some_table", ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId())));
+        return someMaterializedView("select * from some_table", ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId(), Optional.empty())));
     }
 
     protected MaterializedViewDefinition someMaterializedView(String sql, List<ViewColumn> columns)
@@ -181,7 +181,7 @@ public abstract class BaseDataDefinitionTaskTest
 
     protected static ViewDefinition someView()
     {
-        return viewDefinition("SELECT 1", ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId())));
+        return viewDefinition("SELECT 1", ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId(), Optional.empty())));
     }
 
     protected static ViewDefinition viewDefinition(String sql, ImmutableList<ViewColumn> columns)
@@ -440,6 +440,23 @@ public abstract class BaseDataDefinitionTaskTest
                     tableMetadata.getProperties(),
                     tableMetadata.getComment());
             tables.put(tableMetadata.getTable(), newTableMetadata);
+        }
+
+        @Override
+        public void setViewColumnComment(Session session, QualifiedObjectName viewName, String columnName, Optional<String> comment)
+        {
+            ViewDefinition view = views.get(viewName.asSchemaTableName());
+            views.put(
+                    viewName.asSchemaTableName(),
+                    new ViewDefinition(
+                            view.getOriginalSql(),
+                            view.getCatalog(),
+                            view.getSchema(),
+                            view.getColumns().stream()
+                                    .map(currentViewColumn -> columnName.equals(currentViewColumn.getName()) ? new ViewColumn(currentViewColumn.getName(), currentViewColumn.getType(), comment) : currentViewColumn)
+                                    .collect(toImmutableList()),
+                            view.getComment(),
+                            view.getRunAsIdentity()));
         }
 
         @Override

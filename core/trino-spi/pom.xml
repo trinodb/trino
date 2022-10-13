@@ -199,6 +199,12 @@
                                     <new>method void io.trino.spi.eventlistener.QueryStatistics::&lt;init&gt;(java.time.Duration, java.time.Duration, java.time.Duration, java.time.Duration, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, double, double, java.util.List&lt;io.trino.spi.eventlistener.StageGcStatistics&gt;, int, boolean, java.util.List&lt;io.trino.spi.eventlistener.StageCpuDistribution&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferUtilization&gt;, java.util.List&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;)
                                     </new>
                                 </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.connector.ConnectorViewDefinition.ViewColumn::&lt;init&gt;(java.lang.String, io.trino.spi.type.TypeId)</old>
+                                    <new>method void io.trino.spi.connector.ConnectorViewDefinition.ViewColumn::&lt;init&gt;(java.lang.String, io.trino.spi.type.TypeId, java.util.Optional&lt;java.lang.String&gt;)</new>
+                                    <justification>Add support for view column comments</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

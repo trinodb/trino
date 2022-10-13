@@ -48,6 +48,7 @@ import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.COMMENT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.COMMENT_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
@@ -103,7 +104,7 @@ public class TestAccessControl
                             "select 1",
                             Optional.of("mock"),
                             Optional.of("default"),
-                            ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test", BIGINT.getTypeId())),
+                            ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test", BIGINT.getTypeId(), Optional.empty())),
                             Optional.of("comment"),
                             Optional.of("admin"),
                             false);
@@ -111,7 +112,7 @@ public class TestAccessControl
                             "select 1",
                             Optional.of("mock"),
                             Optional.of("default"),
-                            ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test", BIGINT.getTypeId())),
+                            ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test", BIGINT.getTypeId(), Optional.empty())),
                             Optional.of("comment"),
                             Optional.empty(),
                             true);
@@ -394,6 +395,15 @@ public class TestAccessControl
         }
 
         assertUpdate("DROP VIEW " + viewName);
+    }
+
+    @Test
+    public void testCommentColumnView()
+    {
+        String viewName = "comment_view" + randomTableSuffix();
+        assertUpdate("CREATE VIEW " + viewName + " AS SELECT * FROM orders");
+        assertAccessDenied("COMMENT ON COLUMN " + viewName + ".orderkey IS 'new order key comment'", "Cannot comment column to .*", privilege(viewName, COMMENT_COLUMN));
+        assertUpdate(getSession(), "COMMENT ON COLUMN " + viewName + ".orderkey IS 'new comment'");
     }
 
     @Test

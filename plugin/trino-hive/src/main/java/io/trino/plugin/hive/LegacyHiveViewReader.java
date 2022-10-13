@@ -47,7 +47,7 @@ public class LegacyHiveViewReader
                 Optional.of(catalogName.toString()),
                 Optional.ofNullable(table.getDatabaseName()),
                 Stream.concat(table.getDataColumns().stream(), table.getPartitionColumns().stream())
-                        .map(column -> new ConnectorViewDefinition.ViewColumn(column.getName(), TypeId.of(column.getType().getTypeSignature().toString())))
+                        .map(column -> new ConnectorViewDefinition.ViewColumn(column.getName(), TypeId.of(column.getType().getTypeSignature().toString()), column.getComment()))
                         .collect(toImmutableList()),
                 Optional.ofNullable(table.getParameters().get(TABLE_COMMENT)),
                 Optional.empty(), // will be filled in later by HiveMetadata

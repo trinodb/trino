@@ -212,7 +212,7 @@ public class TestMetadataManager
                 "test view SQL",
                 Optional.of("upper_case_schema_catalog"),
                 Optional.of("upper_case_schema"),
-                ImmutableList.of(new ConnectorViewDefinition.ViewColumn("col", BIGINT.getTypeId())),
+                ImmutableList.of(new ConnectorViewDefinition.ViewColumn("col", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
                 Optional.of("test_owner"),
                 false);
