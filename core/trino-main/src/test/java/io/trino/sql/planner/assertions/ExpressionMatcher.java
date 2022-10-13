@@ -29,7 +29,6 @@ import io.trino.sql.tree.SymbolReference;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
@@ -85,8 +84,7 @@ public class ExpressionMatcher
         }
 
         List<Expression> matches = matchesBuilder.build();
-        checkState(matches.size() < 2, "Ambiguous expression %s matches multiple assignments: %s", expression,
-                (matches.stream().map(Expression::toString).collect(Collectors.joining(", "))));
+        checkState(matches.size() < 2, "Ambiguous expression %s matches multiple assignments: %s", expression, matches);
         return result;
     }
 
