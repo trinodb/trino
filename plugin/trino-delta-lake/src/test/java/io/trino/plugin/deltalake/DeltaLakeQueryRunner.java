@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.plugin.hive.containers.HiveHadoop;
@@ -74,12 +75,14 @@ public final class DeltaLakeQueryRunner
             super(defaultSession);
         }
 
+        @CanIgnoreReturnValue
         public Builder setCatalogName(String catalogName)
         {
             this.catalogName = catalogName;
             return self();
         }
 
+        @CanIgnoreReturnValue
         public Builder setDeltaProperties(Map<String, String> deltaProperties)
         {
             this.deltaProperties = ImmutableMap.<String, String>builder()
