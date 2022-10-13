@@ -296,15 +296,15 @@ public class StarburstOracleClient
         }
     }
 
-    private static ResultSet getColumns(JdbcTableHandle tableHandle, DatabaseMetaData metadata, String tableNameSuffix)
+    private ResultSet getColumns(JdbcTableHandle tableHandle, DatabaseMetaData metadata, String tableNameSuffix)
             throws SQLException
     {
         String escape = metadata.getSearchStringEscape();
         RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
         return metadata.getColumns(
                 remoteTableName.getCatalogName().orElse(null),
-                escapeNamePattern(remoteTableName.getSchemaName(), escape).orElse(null),
-                escapeNamePattern(Optional.ofNullable(remoteTableName.getTableName()), escape).orElse("") + tableNameSuffix,
+                escapeObjectNameForMetadataQuery(remoteTableName.getSchemaName(), escape).orElse(null),
+                escapeObjectNameForMetadataQuery(Optional.ofNullable(remoteTableName.getTableName()), escape).orElse("") + tableNameSuffix,
                 null);
     }
 
