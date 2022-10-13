@@ -250,7 +250,12 @@ public class SapHanaClient
                         .map(this::quoted)
                         .collect(joining(", ")),
                 quoted(catalogName, schemaName, tableName));
-        execute(connection, sql);
+        try {
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
     }
 
     @Override
