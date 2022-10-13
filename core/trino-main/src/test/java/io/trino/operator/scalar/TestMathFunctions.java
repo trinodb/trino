@@ -1650,6 +1650,14 @@ public class TestMathFunctions
         assertThat(assertions.function("round", "-0.3E0"))
                 .isEqualTo(-0.0);
 
+        // 923 * 10^16 exceeds Long.MAX_VALUE
+        assertThat(assertions.function("round", "923e0", "16"))
+                .isEqualTo(923.0);
+
+        // 3000 * 10^16 exceeds Long.MAX_VALUE. Note that value has limited precision even before round is invoked
+        assertThat(assertions.function("round", "DOUBLE '3000.1234567890123456789'", "16"))
+                .isEqualTo(3000.1234567890124);
+
         assertThat(assertions.function("round", "TINYINT '3'", "TINYINT '1'"))
                 .isEqualTo((byte) 3);
 
@@ -1685,6 +1693,14 @@ public class TestMathFunctions
 
         assertThat(assertions.function("round", "REAL '-3.99'", "0"))
                 .isEqualTo(-4.0f);
+
+        // 923 * 10^16 exceeds Long.MAX_VALUE
+        assertThat(assertions.function("round", "REAL '923'", "16"))
+                .isEqualTo(923f);
+
+        // 3000 * 10^16 exceeds Long.MAX_VALUE. Note that value has limited precision even before round is invoked
+        assertThat(assertions.function("round", "REAL '3000.1234567890123456789'", "16"))
+                .isEqualTo(3000.1235f);
 
         assertThat(assertions.function("round", "3", "1"))
                 .isEqualTo(3);
