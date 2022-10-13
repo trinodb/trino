@@ -103,6 +103,40 @@ public class TestComments
     }
 
     @Test(groups = COMMENT)
+    public void testCommentViewColumn()
+    {
+        String columnName = "col";
+        String createViewSql = format("" +
+                        "CREATE VIEW hive.default.%s " +
+                        "AS SELECT 1 AS %s",
+                COMMENT_VIEW_NAME,
+                columnName);
+        onTrino().executeQuery(createViewSql);
+
+        assertThat(getColumnComment("default", COMMENT_VIEW_NAME, columnName)).isNull();
+
+        onTrino().executeQuery(format("COMMENT ON COLUMN %s.%s IS 'new col comment'", COMMENT_VIEW_NAME, columnName));
+        assertThat(getColumnComment("default", COMMENT_VIEW_NAME, columnName)).isEqualTo("new col comment");
+
+        onTrino().executeQuery(format("COMMENT ON COLUMN %s.%s IS ''", COMMENT_VIEW_NAME, columnName));
+        assertThat(getColumnComment("default", COMMENT_VIEW_NAME, columnName)).isEmpty();
+
+        onTrino().executeQuery(format("COMMENT ON COLUMN %s.%s IS NULL", COMMENT_VIEW_NAME, columnName));
+        assertThat(getColumnComment("default", COMMENT_VIEW_NAME, columnName)).isNull();
+
+        onTrino().executeQuery(format("CREATE TABLE hive.default.%s (col int)", COMMENT_TABLE_NAME));
+        onHive().executeQuery(format("CREATE VIEW default.%s AS SELECT * FROM default.%s", COMMENT_HIVE_VIEW_NAME, COMMENT_TABLE_NAME));
+        assertThatThrownBy(() -> onTrino().executeQuery(format("COMMENT ON COLUMN %s.%s IS NULL", COMMENT_HIVE_VIEW_NAME, columnName)))
+                .hasMessageContaining("Hive views are not supported");
+    }
+
+    protected String getColumnComment(String schemaName, String tableName, String columnName)
+    {
+        String sql = "SELECT comment FROM information_schema.columns WHERE table_schema = '" + schemaName + "' AND table_name = '" + tableName + "' AND column_name = '" + columnName + "'";
+        return (String) onTrino().executeQuery(sql).getOnlyValue();
+    }
+
+    @Test(groups = COMMENT)
     public void testCommentColumn()
     {
         String createTableSql = format("" +
