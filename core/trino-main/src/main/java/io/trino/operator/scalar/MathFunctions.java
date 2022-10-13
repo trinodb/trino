@@ -13,6 +13,7 @@
  */
 package io.trino.operator.scalar;
 
+import com.google.common.math.DoubleMath;
 import com.google.common.math.LongMath;
 import com.google.common.primitives.Doubles;
 import com.google.common.primitives.Shorts;
@@ -830,11 +831,13 @@ public final class MathFunctions
         }
 
         double factor = Math.pow(10, decimals);
-        if (num < 0) {
-            return -(Math.round(-num * factor) / factor);
+        int sign = (num < 0) ? -1 : 1;
+        double rescaled = sign * num * factor;
+        long rescaledRound = Math.round(rescaled);
+        if (rescaledRound != Long.MAX_VALUE) {
+            return sign * (rescaledRound / factor);
         }
-
-        return Math.round(num * factor) / factor;
+        return sign * DoubleMath.roundToBigInteger(rescaled, RoundingMode.HALF_UP).doubleValue() / factor;
     }
 
     @Description("Round to given number of decimal places")
@@ -848,11 +851,19 @@ public final class MathFunctions
         }
 
         double factor = Math.pow(10, decimals);
-        if (numInFloat < 0) {
-            return floatToRawIntBits((float) -(Math.round(-numInFloat * factor) / factor));
+        int sign = (numInFloat < 0) ? -1 : 1;
+        double result;
+        double rescaled = sign * numInFloat * factor;
+        long rescaledRound = Math.round(rescaled);
+        if (rescaledRound != Long.MAX_VALUE) {
+            result = sign * (rescaledRound / factor);
         }
-
-        return floatToRawIntBits((float) (Math.round(numInFloat * factor) / factor));
+        else {
+            result = sign * (DoubleMath.roundToBigInteger(rescaled, RoundingMode.HALF_UP).doubleValue() / factor);
+        }
+        @SuppressWarnings("NumericCastThatLosesPrecision")
+        float resultAsFloat = (float) result;
+        return floatToRawIntBits(resultAsFloat);
     }
 
     @ScalarFunction("round")
