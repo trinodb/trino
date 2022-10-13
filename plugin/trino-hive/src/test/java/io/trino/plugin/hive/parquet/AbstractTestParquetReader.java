@@ -1107,6 +1107,12 @@ public abstract class AbstractTestParquetReader
             tester.testRoundTrip(javaLongObjectInspector, ImmutableList.of(1L), ImmutableList.of(1L), BIGINT, Optional.of(parquetSchema));
         }).hasMessage("Unsupported Trino column type (bigint) for Parquet column ([test] optional int64 test (DECIMAL(10,1)))")
                 .isInstanceOf(TrinoException.class);
+
+        assertThatThrownBy(() -> {
+            MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT32 test (DECIMAL(%d, %d)); }", 8, 1));
+            tester.testRoundTrip(javaIntObjectInspector, ImmutableList.of(1), ImmutableList.of(1), BIGINT, Optional.of(parquetSchema));
+        }).hasMessage("Unsupported Trino column type (bigint) for Parquet column ([test] optional int32 test (DECIMAL(8,1)))")
+                .isInstanceOf(TrinoException.class);
     }
 
     @Test
