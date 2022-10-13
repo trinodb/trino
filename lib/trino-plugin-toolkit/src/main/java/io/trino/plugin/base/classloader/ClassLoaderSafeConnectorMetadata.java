@@ -440,6 +440,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void setViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.setViewColumnComment(session, viewName, columnName, comment);
+        }
+    }
+
+    @Override
     public void setColumnComment(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Optional<String> comment)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

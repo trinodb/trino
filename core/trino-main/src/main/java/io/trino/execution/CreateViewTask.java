@@ -97,7 +97,7 @@ public class CreateViewTask
 
         List<ViewColumn> columns = analysis.getOutputDescriptor(statement.getQuery())
                 .getVisibleFields().stream()
-                .map(field -> new ViewColumn(field.getName().get(), field.getType().getTypeId()))
+                .map(field -> new ViewColumn(field.getName().get(), field.getType().getTypeId(), Optional.empty()))
                 .collect(toImmutableList());
 
         // use DEFINER security by default

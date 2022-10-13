@@ -220,6 +220,11 @@ public interface Metadata
     void setViewComment(Session session, QualifiedObjectName viewName, Optional<String> comment);
 
     /**
+     * Comments to the specified view column.
+     */
+    void setViewColumnComment(Session session, QualifiedObjectName viewName, String columnName, Optional<String> comment);
+
+    /**
      * Comments to the specified column.
      */
     void setColumnComment(Session session, TableHandle tableHandle, ColumnHandle column, Optional<String> comment);

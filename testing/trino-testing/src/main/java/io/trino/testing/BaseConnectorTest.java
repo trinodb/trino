@@ -83,6 +83,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ARRAY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_VIEW;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_VIEW_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
@@ -2826,6 +2827,39 @@ public abstract class BaseConnectorTest
             assertThat(getColumnComment(table.getName(), "a")).isEqualTo("a comment");
             assertUpdate("COMMENT ON COLUMN " + table.getName() + ".a IS NULL");
             assertThat(getColumnComment(table.getName(), "a")).isEqualTo(null);
+        }
+    }
+
+    @Test
+    public void testCommentViewColumn()
+    {
+        if (!hasBehavior(SUPPORTS_COMMENT_ON_VIEW_COLUMN)) {
+            if (hasBehavior(SUPPORTS_CREATE_VIEW)) {
+                try (TestView view = new TestView(getQueryRunner()::execute, "test_comment_view_column", "SELECT * FROM region")) {
+                    assertQueryFails("COMMENT ON COLUMN " + view.getName() + ".regionkey IS 'new region key comment'", "This connector does not support setting view column comments");
+                }
+                return;
+            }
+            throw new SkipException("Skipping as connector does not support CREATE VIEW");
+        }
+
+        String viewColumnName = "regionkey";
+        try (TestView view = new TestView(getQueryRunner()::execute, "test_comment_view_column", "SELECT * FROM region")) {
+            // comment set
+            assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS 'new region key comment'");
+            assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo("new region key comment");
+
+            // comment updated
+            assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS 'updated region key comment'");
+            assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo("updated region key comment");
+
+            // comment set to empty
+            assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS ''");
+            assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo("");
+
+            // comment deleted
+            assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS NULL");
+            assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo(null);
         }
     }
 

@@ -69,6 +69,7 @@ public enum TestingConnectorBehavior
     SUPPORTS_COMMENT_ON_TABLE,
     SUPPORTS_COMMENT_ON_VIEW(false),
     SUPPORTS_COMMENT_ON_COLUMN,
+    SUPPORTS_COMMENT_ON_VIEW_COLUMN(false),
 
     SUPPORTS_CREATE_VIEW(false),
 

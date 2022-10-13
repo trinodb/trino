@@ -829,7 +829,7 @@ public class TestRaptorMetadata
                 sql,
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId())),
+                ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId(), Optional.empty())),
                 Optional.empty(),
                 Optional.empty(),
                 true);

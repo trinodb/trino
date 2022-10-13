@@ -104,8 +104,8 @@ public class TestConnectorViewDefinition
                 Optional.of("test_catalog"),
                 Optional.of("test_schema"),
                 ImmutableList.of(
-                        new ViewColumn("abc", BIGINT.getTypeId()),
-                        new ViewColumn("xyz", new ArrayType(createVarcharType(32)).getTypeId())),
+                        new ViewColumn("abc", BIGINT.getTypeId(), Optional.of("abc description")),
+                        new ViewColumn("xyz", new ArrayType(createVarcharType(32)).getTypeId(), Optional.empty())),
                 Optional.of("comment"),
                 Optional.of("test_owner"),
                 false));

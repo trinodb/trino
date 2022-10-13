@@ -72,7 +72,7 @@ public class TestInformationSchemaMetadata
                             "select 1",
                             Optional.of("test_catalog"),
                             Optional.of("test_schema"),
-                            ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId())),
+                            ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId(), Optional.of("test column comment"))),
                             Optional.of("comment"),
                             Optional.empty(),
                             true);

@@ -16,7 +16,9 @@ package io.trino.metadata;
 import io.trino.spi.type.TypeId;
 
 import java.util.Objects;
+import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public final class ViewColumn
@@ -24,10 +26,13 @@ public final class ViewColumn
     private final String name;
     private final TypeId type;
 
-    public ViewColumn(String name, TypeId type)
+    private final Optional<String> comment;
+
+    public ViewColumn(String name, TypeId type, Optional<String> comment)
     {
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
+        this.comment = requireNonNull(comment, "comment is null");
     }
 
     public String getName()
@@ -40,10 +45,19 @@ public final class ViewColumn
         return type;
     }
 
+    public Optional<String> getComment()
+    {
+        return comment;
+    }
+
     @Override
     public String toString()
     {
-        return name + " " + type;
+        return toStringHelper(this).omitNullValues()
+                .add("name", name)
+                .add("type", type)
+                .add("comment", comment.orElse(null))
+                .toString();
     }
 
     @Override
@@ -56,12 +70,12 @@ public final class ViewColumn
             return false;
         }
         ViewColumn that = (ViewColumn) o;
-        return Objects.equals(name, that.name) && Objects.equals(type, that.type);
+        return Objects.equals(name, that.name) && Objects.equals(type, that.type) && Objects.equals(comment, that.comment);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type);
+        return Objects.hash(name, type, comment);
     }
 }

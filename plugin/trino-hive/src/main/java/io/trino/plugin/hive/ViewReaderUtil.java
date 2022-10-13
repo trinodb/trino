@@ -219,7 +219,8 @@ public final class ViewReaderUtil
                 List<ViewColumn> columns = rowType.getFieldList().stream()
                         .map(field -> new ViewColumn(
                                 field.getName(),
-                                typeManager.fromSqlType(getTypeString(field.getType())).getTypeId()))
+                                typeManager.fromSqlType(getTypeString(field.getType())).getTypeId(),
+                                Optional.empty()))
                         .collect(toImmutableList());
                 return new ConnectorViewDefinition(
                         trinoSql,

@@ -510,6 +510,9 @@ public class MockConnector
         public void setViewComment(ConnectorSession session, SchemaTableName viewName, Optional<String> comment) {}
 
         @Override
+        public void setViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment) {}
+
+        @Override
         public void setColumnComment(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Optional<String> comment) {}
 
         @Override
