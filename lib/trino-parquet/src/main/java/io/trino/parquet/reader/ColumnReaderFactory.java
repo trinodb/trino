@@ -102,6 +102,12 @@ public final class ColumnReaderFactory
                 }
                 throw unsupportedException(type, field);
             }
+            if (type instanceof AbstractLongType && primitiveType == INT32) {
+                if (isIntegerAnnotation(annotation)) {
+                    return new FlatColumnReader<>(field, ValueDecoders::getIntToLongDecoder, LONG_ADAPTER);
+                }
+                throw unsupportedException(type, field);
+            }
             if (type instanceof AbstractLongType && primitiveType == INT64) {
                 if (BIGINT.equals(type) && annotation instanceof TimestampLogicalTypeAnnotation) {
                     return new FlatColumnReader<>(field, ValueDecoders::getLongDecoder, LONG_ADAPTER);
