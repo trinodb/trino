@@ -84,7 +84,7 @@ public class TestMockConnector
                                                 "SELECT nationkey FROM mock.default.test_table",
                                                 Optional.of("mock"),
                                                 Optional.of("default"),
-                                                ImmutableList.of(new ViewColumn("nationkey", BIGINT.getTypeId())),
+                                                ImmutableList.of(new ViewColumn("nationkey", BIGINT.getTypeId(), Optional.empty())),
                                                 Optional.empty(),
                                                 Optional.of("alice"),
                                                 false)))
