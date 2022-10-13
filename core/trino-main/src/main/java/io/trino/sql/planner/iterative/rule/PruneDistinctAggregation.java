@@ -28,7 +28,6 @@ import io.trino.sql.planner.plan.UnionNode;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.planner.plan.ChildReplacer.replaceChildren;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 
@@ -128,8 +127,7 @@ public class PruneDistinctAggregation
         {
             boolean distinct = isDistinctOperator(node);
 
-            PlanNode rewrittenNode = getOnlyElement(lookup.resolveGroup(node.getSource())
-                    .map(source -> source.accept(this, distinct)).collect(Collectors.toList()));
+            PlanNode rewrittenNode = lookup.resolve(node.getSource()).accept(this, distinct);
 
             if (context && distinct) {
                 this.rewritten = true;
