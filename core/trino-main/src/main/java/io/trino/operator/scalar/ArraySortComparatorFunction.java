@@ -19,18 +19,24 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
-import io.trino.spi.function.TypeParameterSpecialization;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.lambda.LambdaFunctionInterface;
 
+import java.lang.invoke.MethodHandle;
 import java.util.Comparator;
 import java.util.List;
 
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.util.Failures.checkCondition;
 
 @ScalarFunction("array_sort")
@@ -48,79 +54,27 @@ public final class ArraySortComparatorFunction
     }
 
     @TypeParameter("T")
-    @TypeParameterSpecialization(name = "T", nativeContainerType = long.class)
     @SqlType("array(T)")
-    public Block sortLong(
+    public Block sort(
             @TypeParameter("T") Type type,
-            @SqlType("array(T)") Block block,
-            @SqlType("function(T, T, integer)") ComparatorLongLambda function)
-    {
-        int arrayLength = block.getPositionCount();
-        initPositionsList(arrayLength);
-
-        Comparator<Integer> comparator = (x, y) -> comparatorResult(function.apply(
-                block.isNull(x) ? null : type.getLong(block, x),
-                block.isNull(y) ? null : type.getLong(block, y)));
-
-        sortPositions(arrayLength, comparator);
-
-        return computeResultBlock(type, block, arrayLength);
-    }
-
-    @TypeParameter("T")
-    @TypeParameterSpecialization(name = "T", nativeContainerType = double.class)
-    @SqlType("array(T)")
-    public Block sortDouble(
-            @TypeParameter("T") Type type,
-            @SqlType("array(T)") Block block,
-            @SqlType("function(T, T, integer)") ComparatorDoubleLambda function)
-    {
-        int arrayLength = block.getPositionCount();
-        initPositionsList(arrayLength);
-
-        Comparator<Integer> comparator = (x, y) -> comparatorResult(function.apply(
-                block.isNull(x) ? null : type.getDouble(block, x),
-                block.isNull(y) ? null : type.getDouble(block, y)));
-
-        sortPositions(arrayLength, comparator);
-
-        return computeResultBlock(type, block, arrayLength);
-    }
-
-    @TypeParameter("T")
-    @TypeParameterSpecialization(name = "T", nativeContainerType = boolean.class)
-    @SqlType("array(T)")
-    public Block sortBoolean(
-            @TypeParameter("T") Type type,
-            @SqlType("array(T)") Block block,
-            @SqlType("function(T, T, integer)") ComparatorBooleanLambda function)
-    {
-        int arrayLength = block.getPositionCount();
-        initPositionsList(arrayLength);
-
-        Comparator<Integer> comparator = (x, y) -> comparatorResult(function.apply(
-                block.isNull(x) ? null : type.getBoolean(block, x),
-                block.isNull(y) ? null : type.getBoolean(block, y)));
-
-        sortPositions(arrayLength, comparator);
-
-        return computeResultBlock(type, block, arrayLength);
-    }
-
-    @TypeParameter("T")
-    @TypeParameterSpecialization(name = "T", nativeContainerType = Object.class)
-    @SqlType("array(T)")
-    public Block sortObject(
-            @TypeParameter("T") Type type,
+            @OperatorDependency(operator = READ_VALUE, argumentTypes = "T", convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = FAIL_ON_NULL)) MethodHandle readValue,
             @SqlType("array(T)") Block block,
             @SqlType("function(T, T, integer)") ComparatorObjectLambda function)
     {
         int arrayLength = block.getPositionCount();
         initPositionsList(arrayLength);
 
-        Comparator<Integer> comparator = (x, y) -> comparatorResult(function.apply(
-                block.isNull(x) ? null : type.getObject(block, x),
-                block.isNull(y) ? null : type.getObject(block, y)));
+        Comparator<Integer> comparator = (x, y) -> {
+            try {
+                return comparatorResult(function.apply(
+                        block.isNull(x) ? null : readValue.invoke(block, x),
+                        block.isNull(y) ? null : readValue.invoke(block, y)));
+            }
+            catch (Throwable e) {
+                throwIfUnchecked(e);
+                throw new RuntimeException(e);
+            }
+        };
 
         sortPositions(arrayLength, comparator);
 
@@ -172,27 +126,6 @@ public final class ArraySortComparatorFunction
                 INVALID_FUNCTION_ARGUMENT,
                 "Lambda comparator must return either -1, 0, or 1");
         return result.intValue();
-    }
-
-    @FunctionalInterface
-    public interface ComparatorLongLambda
-            extends LambdaFunctionInterface
-    {
-        Long apply(Long x, Long y);
-    }
-
-    @FunctionalInterface
-    public interface ComparatorDoubleLambda
-            extends LambdaFunctionInterface
-    {
-        Long apply(Double x, Double y);
-    }
-
-    @FunctionalInterface
-    public interface ComparatorBooleanLambda
-            extends LambdaFunctionInterface
-    {
-        Long apply(Boolean x, Boolean y);
     }
 
     @FunctionalInterface
