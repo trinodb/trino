@@ -40,7 +40,7 @@ public class CassandraPageSinkProvider
     {
         this.cassandraTypeManager = requireNonNull(cassandraTypeManager, "cassandraTypeManager is null");
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
-        this.batchSize = requireNonNull(cassandraClientConfig, "cassandraClientConfig is null").getBatchSize();
+        this.batchSize = cassandraClientConfig.getBatchSize();
     }
 
     @Override

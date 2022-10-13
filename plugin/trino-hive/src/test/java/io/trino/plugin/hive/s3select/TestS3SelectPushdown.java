@@ -276,6 +276,10 @@ public class TestS3SelectPushdown
         assertTrue(isSplittable(true, schema, inputFormat, new Path("s3://fakeBucket/fakeObject.csv")));
         // Pushdown disabled
         assertTrue(isSplittable(false, schema, inputFormat, new Path("s3://fakeBucket/fakeObject.csv")));
+        // JSON
+        Properties jsonSchema = new Properties();
+        jsonSchema.setProperty(SERIALIZATION_LIB, JsonSerDe.class.getName());
+        assertTrue(isSplittable(true, jsonSchema, inputFormat, new Path("s3://fakeBucket/fakeObject.json")));
     }
 
     @Test
@@ -283,10 +287,6 @@ public class TestS3SelectPushdown
     {
         // Compressed file
         assertFalse(isSplittable(true, schema, inputFormat, new Path("s3://fakeBucket/fakeObject.gz")));
-        // JSON
-        Properties newSchema = new Properties();
-        newSchema.setProperty(SERIALIZATION_LIB, JsonSerDe.class.getName());
-        assertFalse(isSplittable(true, newSchema, inputFormat, new Path("s3://fakeBucket/fakeObject.json")));
     }
 
     @AfterClass(alwaysRun = true)

@@ -48,14 +48,14 @@ public final class DeltaLakeSessionProperties
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
     private static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
-    private static final String PARQUET_OPTIMIZED_WRITER_ENABLED = "experimental_parquet_optimized_writer_enabled"; // = HiveSessionProperties#PARQUET_OPTIMIZED_WRITER_ENABLED
+    private static final String PARQUET_OPTIMIZED_WRITER_ENABLED = "parquet_optimized_writer_enabled"; // = HiveSessionProperties#PARQUET_OPTIMIZED_WRITER_ENABLED
     private static final String COMPRESSION_CODEC = "compression_codec";
     // This property is not supported by Delta Lake and exists solely for technical reasons.
     @Deprecated
     private static final String TIMESTAMP_PRECISION = "timestamp_precision";
     private static final String DYNAMIC_FILTERING_WAIT_TIMEOUT = "dynamic_filtering_wait_timeout";
     private static final String TABLE_STATISTICS_ENABLED = "statistics_enabled";
-    private static final String EXTENDED_STATISTICS_ENABLED = "extended_statistics_enabled";
+    public static final String EXTENDED_STATISTICS_ENABLED = "extended_statistics_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -115,7 +115,7 @@ public final class DeltaLakeSessionProperties
                         false),
                 booleanProperty(
                         PARQUET_OPTIMIZED_WRITER_ENABLED,
-                        "Experimental: Enable optimized writer",
+                        "Enable optimized writer",
                         parquetWriterConfig.isParquetOptimizedWriterEnabled(),
                         false),
                 enumProperty(

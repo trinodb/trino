@@ -24,6 +24,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.WindowIndex;
 import io.trino.spi.type.Type;
 import io.trino.sql.tree.QualifiedName;
@@ -146,14 +147,14 @@ public abstract class AbstractTestAggregationFunction
         WindowIndex windowIndex = new PagesWindowIndex(pagesIndex, 0, totalPositions - 1);
 
         ResolvedFunction resolvedFunction = functionResolution.resolveFunction(QualifiedName.of(getFunctionName()), fromTypes(getFunctionParameterTypes()));
-        AggregationMetadata aggregationMetadata = functionResolution.getPlannerContext().getFunctionManager().getAggregateFunctionImplementation(resolvedFunction);
-        WindowAccumulator aggregation = createWindowAccumulator(resolvedFunction, aggregationMetadata);
+        AggregationImplementation aggregationImplementation = functionResolution.getPlannerContext().getFunctionManager().getAggregationImplementation(resolvedFunction);
+        WindowAccumulator aggregation = createWindowAccumulator(resolvedFunction, aggregationImplementation);
         int oldStart = 0;
         int oldWidth = 0;
         for (int start = 0; start < totalPositions; ++start) {
             int width = windowWidths[start];
             // Note that add/removeInput's interval is inclusive on both ends
-            if (aggregationMetadata.getRemoveInputFunction().isPresent()) {
+            if (aggregationImplementation.getRemoveInputFunction().isPresent()) {
                 for (int oldi = oldStart; oldi < oldStart + oldWidth; ++oldi) {
                     if (oldi < start || oldi >= start + width) {
                         aggregation.removeInput(windowIndex, oldi, oldi);
@@ -166,7 +167,7 @@ public abstract class AbstractTestAggregationFunction
                 }
             }
             else {
-                aggregation = createWindowAccumulator(resolvedFunction, aggregationMetadata);
+                aggregation = createWindowAccumulator(resolvedFunction, aggregationImplementation);
                 aggregation.addInput(windowIndex, start, start + width - 1);
             }
             oldStart = start;
@@ -184,12 +185,12 @@ public abstract class AbstractTestAggregationFunction
         }
     }
 
-    private static WindowAccumulator createWindowAccumulator(ResolvedFunction resolvedFunction, AggregationMetadata aggregationMetadata)
+    private static WindowAccumulator createWindowAccumulator(ResolvedFunction resolvedFunction, AggregationImplementation aggregationImplementation)
     {
         try {
             Constructor<? extends WindowAccumulator> constructor = generateWindowAccumulatorClass(
                     resolvedFunction.getSignature(),
-                    aggregationMetadata,
+                    aggregationImplementation,
                     resolvedFunction.getFunctionNullability());
             return constructor.newInstance(ImmutableList.of());
         }

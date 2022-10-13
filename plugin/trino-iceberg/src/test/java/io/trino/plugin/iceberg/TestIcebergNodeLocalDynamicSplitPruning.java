@@ -157,11 +157,11 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 0,
                 outputFile.length(),
                 outputFile.length(),
+                0, // This is incorrect, but the value is only used for delete operations
                 ORC,
                 ImmutableList.of(),
                 PartitionSpecParser.toJson(PartitionSpec.unpartitioned()),
                 PartitionData.toJson(new PartitionData(new Object[] {})),
-                Optional.empty(),
                 ImmutableList.of(),
                 SplitWeight.standard());
 

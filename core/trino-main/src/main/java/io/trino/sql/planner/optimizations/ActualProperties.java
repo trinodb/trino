@@ -109,9 +109,7 @@ public class ActualProperties
         if (exactly) {
             return global.isStreamPartitionedOnExactly(columns, constants.keySet(), nullsAndAnyReplicated);
         }
-        else {
-            return global.isStreamPartitionedOn(columns, constants.keySet(), nullsAndAnyReplicated);
-        }
+        return global.isStreamPartitionedOn(columns, constants.keySet(), nullsAndAnyReplicated);
     }
 
     public boolean isNodePartitionedOn(Collection<Symbol> columns, boolean exactly)
@@ -124,9 +122,7 @@ public class ActualProperties
         if (exactly) {
             return global.isNodePartitionedOnExactly(columns, constants.keySet(), nullsAndAnyReplicated);
         }
-        else {
-            return global.isNodePartitionedOn(columns, constants.keySet(), nullsAndAnyReplicated);
-        }
+        return global.isNodePartitionedOn(columns, constants.keySet(), nullsAndAnyReplicated);
     }
 
     public boolean isCompatibleTablePartitioningWith(Partitioning partitioning, boolean nullsAndAnyReplicated, Metadata metadata, Session session)

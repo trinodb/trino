@@ -76,7 +76,7 @@ public class TestingOpenLdapServer
 
     public String getLdapUrl()
     {
-        return format("ldap://%s:%s", openLdapServer.getContainerIpAddress(), openLdapServer.getMappedPort(LDAP_PORT));
+        return format("ldap://%s:%s", openLdapServer.getHost(), openLdapServer.getMappedPort(LDAP_PORT));
     }
 
     public DisposableSubContext createOrganization()

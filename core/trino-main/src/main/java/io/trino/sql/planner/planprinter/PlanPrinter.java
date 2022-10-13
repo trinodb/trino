@@ -34,7 +34,9 @@ import io.trino.execution.TableInfo;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
+import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.expression.FunctionName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
@@ -482,6 +484,22 @@ public class PlanPrinter
                             formatDouble(sdAmongTasks),
                             formatPositions(stageStats.getOutputPositions()),
                             stageStats.getOutputDataSize()));
+            Optional<TDigestHistogram> outputBufferUtilization = stageInfo.get().getStageStats().getOutputBufferUtilization();
+            if (verbose && outputBufferUtilization.isPresent()) {
+                builder.append(indentString(1))
+                        .append(format("Output buffer utilization distribution (%%): {p01=%s, p05=%s, p10=%s, p25=%s, p50=%s, p75=%s, p90=%s, p95=%s, p99=%s, max=%s}\n",
+                                // scale ratio to percentages
+                                formatDouble(outputBufferUtilization.get().getP01() * 100),
+                                formatDouble(outputBufferUtilization.get().getP05() * 100),
+                                formatDouble(outputBufferUtilization.get().getP10() * 100),
+                                formatDouble(outputBufferUtilization.get().getP25() * 100),
+                                formatDouble(outputBufferUtilization.get().getP50() * 100),
+                                formatDouble(outputBufferUtilization.get().getP75() * 100),
+                                formatDouble(outputBufferUtilization.get().getP90() * 100),
+                                formatDouble(outputBufferUtilization.get().getP95() * 100),
+                                formatDouble(outputBufferUtilization.get().getP99() * 100),
+                                formatDouble(outputBufferUtilization.get().getMax() * 100)));
+            }
         }
 
         PartitioningScheme partitioningScheme = fragment.getPartitioningScheme();
@@ -519,15 +537,15 @@ public class PlanPrinter
         }
 
         builder.append(
-                new PlanPrinter(
-                        fragment.getRoot(),
-                        typeProvider,
-                        tableInfoSupplier,
-                        dynamicFilterDomainStats,
-                        valuePrinter,
-                        fragment.getStatsAndCosts(),
-                        planNodeStats,
-                        anonymizer).toText(verbose, 1))
+                        new PlanPrinter(
+                                fragment.getRoot(),
+                                typeProvider,
+                                tableInfoSupplier,
+                                dynamicFilterDomainStats,
+                                valuePrinter,
+                                fragment.getStatsAndCosts(),
+                                planNodeStats,
+                                anonymizer).toText(verbose, 1))
                 .append("\n");
 
         return builder.toString();
@@ -1458,9 +1476,22 @@ public class PlanPrinter
             }
 
             for (Map.Entry<ColumnStatisticMetadata, Symbol> columnStatistic : columnStatistics.entrySet()) {
+                String aggregationName;
+                if (columnStatistic.getKey().getStatisticTypeIfPresent().isPresent()) {
+                    aggregationName = columnStatistic.getKey().getStatisticType().name();
+                }
+                else {
+                    FunctionName aggregation = columnStatistic.getKey().getAggregation();
+                    if (aggregation.getCatalogSchema().isPresent()) {
+                        aggregationName = aggregation.getCatalogSchema().get() + "." + aggregation.getName();
+                    }
+                    else {
+                        aggregationName = aggregation.getName();
+                    }
+                }
                 nodeOutput.appendDetails(
                         indentString(1) + "%s[%s] => [%s := %s]",
-                        columnStatistic.getKey().getStatisticType(),
+                        aggregationName,
                         anonymizer.anonymizeColumn(columnStatistic.getKey().getColumnName()),
                         anonymizer.anonymize(columnStatistic.getValue()),
                         formatAggregation(anonymizer, aggregations.get(columnStatistic.getValue())));
@@ -1644,7 +1675,7 @@ public class PlanPrinter
                     ImmutableMap.of("name", node.getName()));
 
             checkArgument(
-                    node.getSources().isEmpty() && node.getTableArgumentProperties().isEmpty() && node.getInputDescriptorMappings().isEmpty(),
+                    node.getSources().isEmpty() && node.getTableArgumentProperties().isEmpty(),
                     "Table or descriptor arguments are not yet supported in PlanPrinter");
 
             node.getArguments().entrySet().stream()
@@ -1766,12 +1797,12 @@ public class PlanPrinter
         private String formatOrderingScheme(OrderingScheme orderingScheme, int preSortedOrderPrefix)
         {
             List<String> orderBy = Stream.concat(
-                    orderingScheme.getOrderBy().stream()
-                            .limit(preSortedOrderPrefix)
-                            .map(symbol -> "<" + anonymizer.anonymize(symbol) + " " + orderingScheme.getOrdering(symbol) + ">"),
-                    orderingScheme.getOrderBy().stream()
-                            .skip(preSortedOrderPrefix)
-                            .map(symbol -> anonymizer.anonymize(symbol) + " " + orderingScheme.getOrdering(symbol)))
+                            orderingScheme.getOrderBy().stream()
+                                    .limit(preSortedOrderPrefix)
+                                    .map(symbol -> "<" + anonymizer.anonymize(symbol) + " " + orderingScheme.getOrdering(symbol) + ">"),
+                            orderingScheme.getOrderBy().stream()
+                                    .skip(preSortedOrderPrefix)
+                                    .map(symbol -> anonymizer.anonymize(symbol) + " " + orderingScheme.getOrdering(symbol)))
                     .collect(toImmutableList());
             return formatCollection(orderBy, Objects::toString);
         }

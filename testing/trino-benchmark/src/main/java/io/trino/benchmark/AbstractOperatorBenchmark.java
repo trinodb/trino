@@ -39,7 +39,6 @@ import io.trino.operator.OperatorFactory;
 import io.trino.operator.PageSourceOperator;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TaskStats;
-import io.trino.operator.aggregation.AggregationMetadata;
 import io.trino.operator.project.InputPageProjection;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProjection;
@@ -48,6 +47,7 @@ import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.type.Type;
 import io.trino.spiller.SpillSpaceTracker;
 import io.trino.split.SplitSource;
@@ -156,8 +156,8 @@ public abstract class AbstractOperatorBenchmark
     protected final BenchmarkAggregationFunction createAggregationFunction(String name, Type... argumentTypes)
     {
         ResolvedFunction resolvedFunction = localQueryRunner.getMetadata().resolveFunction(session, QualifiedName.of(name), fromTypes(argumentTypes));
-        AggregationMetadata aggregationMetadata = localQueryRunner.getFunctionManager().getAggregateFunctionImplementation(resolvedFunction);
-        return new BenchmarkAggregationFunction(resolvedFunction, aggregationMetadata);
+        AggregationImplementation aggregationImplementation = localQueryRunner.getFunctionManager().getAggregationImplementation(resolvedFunction);
+        return new BenchmarkAggregationFunction(resolvedFunction, aggregationImplementation);
     }
 
     protected final OperatorFactory createTableScanOperator(int operatorId, PlanNodeId planNodeId, String tableName, String... columnNames)

@@ -26,12 +26,13 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcSplit
         implements ConnectorSplit
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(JdbcSplit.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(JdbcSplit.class).instanceSize());
 
     private final Optional<String> additionalPredicate;
     private final TupleDomain<JdbcColumnHandle> dynamicFilter;

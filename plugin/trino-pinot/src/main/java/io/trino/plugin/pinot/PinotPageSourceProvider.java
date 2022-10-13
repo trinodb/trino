@@ -50,7 +50,6 @@ public class PinotPageSourceProvider
             PinotClient clusterInfoFetcher,
             PinotDataFetcher.Factory pinotDataFetcherFactory)
     {
-        requireNonNull(pinotConfig, "pinotConfig is null");
         this.clusterInfoFetcher = requireNonNull(clusterInfoFetcher, "clusterInfoFetcher is null");
         this.pinotDataFetcherFactory = requireNonNull(pinotDataFetcherFactory, "pinotDataFetcherFactory is null");
         this.limitForSegmentQueries = pinotDataFetcherFactory.getRowLimit();

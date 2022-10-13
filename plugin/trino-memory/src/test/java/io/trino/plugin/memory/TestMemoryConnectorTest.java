@@ -79,6 +79,7 @@ public class TestMemoryConnectorTest
                         .build());
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -89,15 +90,17 @@ public class TestMemoryConnectorTest
             case SUPPORTS_AGGREGATION_PUSHDOWN:
                 return false;
 
+            case SUPPORTS_RENAME_SCHEMA:
+                return false;
+
             case SUPPORTS_ADD_COLUMN:
             case SUPPORTS_RENAME_COLUMN:
                 return false;
 
-            case SUPPORTS_RENAME_SCHEMA:
-                return false;
+            case SUPPORTS_COMMENT_ON_VIEW:
+                return true;
 
             case SUPPORTS_CREATE_VIEW:
-            case SUPPORTS_COMMENT_ON_VIEW:
                 return true;
 
             case SUPPORTS_NOT_NULL_CONSTRAINT:

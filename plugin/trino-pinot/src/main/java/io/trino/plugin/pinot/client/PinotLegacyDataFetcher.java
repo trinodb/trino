@@ -22,7 +22,6 @@ import io.trino.plugin.pinot.PinotSessionProperties;
 import io.trino.plugin.pinot.PinotSplit;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.pinot.common.metrics.BrokerMetrics;
-import org.apache.pinot.common.metrics.PinotMetricUtils;
 import org.apache.pinot.common.request.BrokerRequest;
 import org.apache.pinot.common.utils.DataSchema;
 import org.apache.pinot.common.utils.DataTable;
@@ -31,6 +30,7 @@ import org.apache.pinot.core.transport.QueryRouter;
 import org.apache.pinot.core.transport.ServerInstance;
 import org.apache.pinot.core.transport.ServerResponse;
 import org.apache.pinot.core.transport.ServerRoutingInstance;
+import org.apache.pinot.spi.metrics.PinotMetricUtils;
 import org.apache.pinot.spi.metrics.PinotMetricsRegistry;
 import org.apache.pinot.spi.utils.builder.TableNameBuilder;
 import org.apache.pinot.sql.parsers.CalciteSqlCompiler;
@@ -153,8 +153,7 @@ public class PinotLegacyDataFetcher
         public Factory(PinotHostMapper pinotHostMapper, PinotConfig pinotConfig, PinotLegacyServerQueryClientConfig pinotLegacyServerQueryClientConfig)
         {
             requireNonNull(pinotHostMapper, "pinotHostMapper is null");
-            requireNonNull(pinotConfig, "pinotConfig is null");
-            this.limitForSegmentQueries = requireNonNull(pinotLegacyServerQueryClientConfig, "pinotLegacyServerQueryClientConfig is null").getMaxRowsPerSplitForSegmentQueries();
+            this.limitForSegmentQueries = pinotLegacyServerQueryClientConfig.getMaxRowsPerSplitForSegmentQueries();
             this.queryClient = new PinotLegacyServerQueryClient(pinotHostMapper, pinotConfig);
         }
 
@@ -173,7 +172,6 @@ public class PinotLegacyDataFetcher
 
     public static class PinotLegacyServerQueryClient
     {
-        private static final CalciteSqlCompiler REQUEST_COMPILER = new CalciteSqlCompiler();
         private static final String TRINO_HOST_PREFIX = "trino-pinot-master";
 
         private final String trinoHostId;
@@ -185,7 +183,6 @@ public class PinotLegacyDataFetcher
 
         public PinotLegacyServerQueryClient(PinotHostMapper pinotHostMapper, PinotConfig pinotConfig)
         {
-            requireNonNull(pinotConfig, "pinotConfig is null");
             trinoHostId = getDefaultTrinoId();
             this.pinotHostMapper = requireNonNull(pinotHostMapper, "pinotHostMapper is null");
             this.estimatedNonNumericColumnSize = pinotConfig.getEstimatedSizeInBytesForNonNumericColumn();
@@ -214,7 +211,7 @@ public class PinotLegacyDataFetcher
             // TODO: separate into offline and realtime methods
             BrokerRequest brokerRequest;
             try {
-                brokerRequest = REQUEST_COMPILER.compileToBrokerRequest(query);
+                brokerRequest = CalciteSqlCompiler.compileToBrokerRequest(query);
             }
             catch (SqlCompilationException e) {
                 throw new PinotException(PINOT_INVALID_PQL_GENERATED, Optional.of(query), format("Parsing error with on %s, Error = %s", serverHost, e.getMessage()), e);
@@ -231,7 +228,7 @@ public class PinotLegacyDataFetcher
             AsyncQueryResponse asyncQueryResponse =
                     doWithRetries(pinotRetryCount, requestId -> queryRouter.submitQuery(requestId, rawTableName, offlineBrokerRequest, offlineRoutingTable, realtimeBrokerRequest, realtimeRoutingTable, connectionTimeoutInMillis));
             try {
-                Map<ServerRoutingInstance, ServerResponse> response = asyncQueryResponse.getResponse();
+                Map<ServerRoutingInstance, ServerResponse> response = asyncQueryResponse.getFinalResponses();
                 ImmutableList.Builder<PinotDataTableWithSize> pinotDataTableWithSizeBuilder = ImmutableList.builder();
                 for (Map.Entry<ServerRoutingInstance, ServerResponse> entry : response.entrySet()) {
                     ServerResponse serverResponse = entry.getValue();

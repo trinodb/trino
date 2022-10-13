@@ -23,6 +23,8 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RealType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.Timestamps;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
@@ -120,9 +122,7 @@ public final class PinotQueryBuilder
         if (!conjuncts.isEmpty()) {
             return Optional.of(Joiner.on(" AND ").join(conjuncts));
         }
-        else {
-            return Optional.empty();
-        }
+        return Optional.empty();
     }
 
     private static String toPredicate(PinotColumnHandle pinotColumnHandle, Domain domain)
@@ -163,13 +163,24 @@ public final class PinotQueryBuilder
         if (type instanceof RealType) {
             return intBitsToFloat(toIntExact((Long) value));
         }
-        else if (type instanceof VarcharType) {
+        if (type instanceof VarcharType) {
             return ((Slice) value).toStringUtf8();
         }
-        else if (type instanceof VarbinaryType) {
+        if (type instanceof VarbinaryType) {
             return Hex.encodeHexString(((Slice) value).getBytes());
         }
+        if (type instanceof TimestampType) {
+            return toMillis((Long) value);
+        }
         return value;
+    }
+
+    private static Long toMillis(Long value)
+    {
+        if (value == null) {
+            return null;
+        }
+        return Timestamps.epochMicrosToMillisWithRounding(value);
     }
 
     private static String toConjunct(String columnName, String operator, Object value)

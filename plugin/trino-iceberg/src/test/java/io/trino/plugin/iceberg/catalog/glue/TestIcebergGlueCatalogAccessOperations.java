@@ -62,6 +62,7 @@ import static io.trino.plugin.iceberg.TableType.SNAPSHOTS;
 import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.CREATE_TABLE;
 import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.GET_DATABASE;
 import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.GET_TABLE;
+import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.UPDATE_TABLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
@@ -121,6 +122,21 @@ public class TestIcebergGlueCatalogAccessOperations
     }
 
     @Test
+    public void testUse()
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        String schema = getSession().getSchema().orElseThrow();
+        Session session = Session.builder(getSession())
+                .setCatalog(Optional.empty())
+                .setSchema(Optional.empty())
+                .build();
+        assertGlueMetastoreApiInvocations(session, "USE %s.%s".formatted(catalog, schema),
+                ImmutableMultiset.builder()
+                        .add(GET_DATABASE)
+                        .build());
+    }
+
+    @Test
     public void testCreateTable()
     {
         try {
@@ -160,7 +176,7 @@ public class TestIcebergGlueCatalogAccessOperations
 
             assertGlueMetastoreApiInvocations("SELECT * FROM test_select_from",
                     ImmutableMultiset.builder()
-                            .addCopies(GET_TABLE, 3)
+                            .add(GET_TABLE)
                             .build());
         }
         finally {
@@ -176,7 +192,7 @@ public class TestIcebergGlueCatalogAccessOperations
 
             assertGlueMetastoreApiInvocations("SELECT * FROM test_select_from_where WHERE age = 2",
                     ImmutableMultiset.builder()
-                            .addCopies(GET_TABLE, 3)
+                            .add(GET_TABLE)
                             .build());
         }
         finally {
@@ -193,7 +209,7 @@ public class TestIcebergGlueCatalogAccessOperations
 
             assertGlueMetastoreApiInvocations("SELECT * FROM test_select_view_view",
                     ImmutableMultiset.builder()
-                            .addCopies(GET_TABLE, 5)
+                            .addCopies(GET_TABLE, 2)
                             .build());
         }
         finally {
@@ -211,7 +227,7 @@ public class TestIcebergGlueCatalogAccessOperations
 
             assertGlueMetastoreApiInvocations("SELECT * FROM test_select_view_where_view WHERE age = 2",
                     ImmutableMultiset.builder()
-                            .addCopies(GET_TABLE, 5)
+                            .addCopies(GET_TABLE, 2)
                             .build());
         }
         finally {
@@ -220,7 +236,7 @@ public class TestIcebergGlueCatalogAccessOperations
         }
     }
 
-    @Test(enabled = false)
+    @Test
     public void testSelectFromMaterializedView()
     {
         try {
@@ -238,7 +254,7 @@ public class TestIcebergGlueCatalogAccessOperations
         }
     }
 
-    @Test(enabled = false)
+    @Test
     public void testSelectFromMaterializedViewWithFilter()
     {
         try {
@@ -256,7 +272,7 @@ public class TestIcebergGlueCatalogAccessOperations
         }
     }
 
-    @Test(enabled = false)
+    @Test
     public void testRefreshMaterializedView()
     {
         try {
@@ -265,7 +281,8 @@ public class TestIcebergGlueCatalogAccessOperations
 
             assertGlueMetastoreApiInvocations("REFRESH MATERIALIZED VIEW test_refresh_mview_view",
                     ImmutableMultiset.builder()
-                            .addCopies(GET_TABLE, 5)
+                            .addCopies(GET_TABLE, 6)
+                            .addCopies(UPDATE_TABLE, 1)
                             .build());
         }
         finally {
@@ -283,7 +300,7 @@ public class TestIcebergGlueCatalogAccessOperations
 
             assertGlueMetastoreApiInvocations("SELECT name, age FROM test_join_t1 JOIN test_join_t2 ON test_join_t2.id = test_join_t1.id",
                     ImmutableMultiset.builder()
-                            .addCopies(GET_TABLE, 6)
+                            .addCopies(GET_TABLE, 2)
                             .build());
         }
         finally {
@@ -300,7 +317,7 @@ public class TestIcebergGlueCatalogAccessOperations
 
             assertGlueMetastoreApiInvocations("SELECT child.age, parent.age FROM test_self_join_table child JOIN test_self_join_table parent ON child.parent = parent.id",
                     ImmutableMultiset.builder()
-                            .addCopies(GET_TABLE, 5)
+                            .add(GET_TABLE)
                             .build());
         }
         finally {
@@ -316,7 +333,7 @@ public class TestIcebergGlueCatalogAccessOperations
 
             assertGlueMetastoreApiInvocations("EXPLAIN SELECT * FROM test_explain",
                     ImmutableMultiset.builder()
-                            .addCopies(GET_TABLE, 3)
+                            .add(GET_TABLE)
                             .build());
         }
         finally {
@@ -332,7 +349,7 @@ public class TestIcebergGlueCatalogAccessOperations
 
             assertGlueMetastoreApiInvocations("SHOW STATS FOR test_show_stats",
                     ImmutableMultiset.builder()
-                            .addCopies(GET_TABLE, 3)
+                            .add(GET_TABLE)
                             .build());
         }
         finally {
@@ -348,7 +365,7 @@ public class TestIcebergGlueCatalogAccessOperations
 
             assertGlueMetastoreApiInvocations("SHOW STATS FOR (SELECT * FROM test_show_stats_with_filter where age >= 2)",
                     ImmutableMultiset.builder()
-                            .addCopies(GET_TABLE, 3)
+                            .addCopies(GET_TABLE, 1)
                             .build());
         }
         finally {
@@ -409,10 +426,15 @@ public class TestIcebergGlueCatalogAccessOperations
 
     private void assertGlueMetastoreApiInvocations(@Language("SQL") String query, Multiset<?> expectedInvocations)
     {
+        assertGlueMetastoreApiInvocations(getSession(), query, expectedInvocations);
+    }
+
+    private void assertGlueMetastoreApiInvocations(Session session, @Language("SQL") String query, Multiset<?> expectedInvocations)
+    {
         Map<GlueMetastoreMethod, Integer> countsBefore = Arrays.stream(GlueMetastoreMethod.values())
                 .collect(toImmutableMap(Function.identity(), method -> method.getInvocationCount(glueStats)));
 
-        getQueryRunner().execute(query);
+        getQueryRunner().execute(session, query);
         Map<GlueMetastoreMethod, Integer> countsAfter = Arrays.stream(GlueMetastoreMethod.values())
                 .collect(toImmutableMap(Function.identity(), method -> method.getInvocationCount(glueStats)));
 

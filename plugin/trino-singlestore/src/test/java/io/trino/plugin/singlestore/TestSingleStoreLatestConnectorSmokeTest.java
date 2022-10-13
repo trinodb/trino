@@ -31,11 +31,14 @@ public class TestSingleStoreLatestConnectorSmokeTest
         return createSingleStoreQueryRunner(singleStoreServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
             case SUPPORTS_RENAME_SCHEMA:
+                return false;
+
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
                 return false;
 

@@ -169,9 +169,7 @@ public class MockKinesisClient
 
                 return returnArray;
             }
-            else {
-                return new ArrayList<>();
-            }
+            return new ArrayList<>();
         }
 
         public PutRecordResult putRecord(ByteBuffer data, String partitionKey)
@@ -289,9 +287,7 @@ public class MockKinesisClient
         if (theStream != null) {
             return theStream.putRecord(putRecordRequest.getData(), putRecordRequest.getPartitionKey());
         }
-        else {
-            throw new AmazonClientException("This stream does not exist!");
-        }
+        throw new AmazonClientException("This stream does not exist!");
     }
 
     @Override
@@ -328,9 +324,7 @@ public class MockKinesisClient
             result.setRecords(resultList);
             return result;
         }
-        else {
-            throw new AmazonClientException("This stream does not exist!");
-        }
+        throw new AmazonClientException("This stream does not exist!");
     }
 
     @Override

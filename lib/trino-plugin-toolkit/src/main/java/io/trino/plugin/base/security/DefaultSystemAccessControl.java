@@ -21,7 +21,6 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.security.AccessDeniedException.denyImpersonateUser;
-import static java.util.Objects.requireNonNull;
 
 /**
  * Default system access control rules.
@@ -46,7 +45,6 @@ public class DefaultSystemAccessControl
         @Override
         public SystemAccessControl create(Map<String, String> config)
         {
-            requireNonNull(config, "config is null");
             checkArgument(config.isEmpty(), "This access controller does not support any configuration properties");
             return INSTANCE;
         }

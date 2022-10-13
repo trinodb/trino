@@ -131,12 +131,12 @@ public class HiveUpdatablePageSource
 
         Block originalTransactionChannel = columnarRow.getField(ORIGINAL_TRANSACTION_CHANNEL);
         Block[] blockArray = {
-                new RunLengthEncodedBlock(DELETE_OPERATION_BLOCK, positionCount),
+                RunLengthEncodedBlock.create(DELETE_OPERATION_BLOCK, positionCount),
                 originalTransactionChannel,
                 columnarRow.getField(BUCKET_CHANNEL),
                 columnarRow.getField(ROW_ID_CHANNEL),
                 RunLengthEncodedBlock.create(BIGINT, writeId, positionCount),
-                new RunLengthEncodedBlock(hiveRowTypeNullsBlock, positionCount),
+                RunLengthEncodedBlock.create(hiveRowTypeNullsBlock, positionCount),
         };
         Page deletePage = new Page(blockArray);
 
@@ -165,7 +165,7 @@ public class HiveUpdatablePageSource
 
         Block currentTransactionBlock = RunLengthEncodedBlock.create(BIGINT, writeId, positionCount);
         Block[] blockArray = {
-                new RunLengthEncodedBlock(INSERT_OPERATION_BLOCK, positionCount),
+                RunLengthEncodedBlock.create(INSERT_OPERATION_BLOCK, positionCount),
                 currentTransactionBlock,
                 acidBlock.getField(BUCKET_CHANNEL),
                 createRowIdBlock(positionCount),
@@ -257,9 +257,7 @@ public class HiveUpdatablePageSource
             List<Integer> channels = dependencyChannels.orElseThrow(() -> new IllegalArgumentException("dependencyChannels not present"));
             return updateProcessor.removeNonDependencyColumns(page, channels);
         }
-        else {
-            return page;
-        }
+        return page;
     }
 
     @Override

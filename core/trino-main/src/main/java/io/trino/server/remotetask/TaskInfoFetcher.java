@@ -27,7 +27,9 @@ import io.trino.execution.StateMachine;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskInfo;
+import io.trino.execution.TaskState;
 import io.trino.execution.TaskStatus;
+import io.trino.execution.buffer.SpoolingOutputStats;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -38,8 +40,10 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
@@ -69,6 +73,8 @@ public class TaskInfoFetcher
     private final boolean summarizeTaskInfo;
     private final RemoteTaskStats stats;
     private final Optional<DataSize> estimatedMemory;
+
+    private final AtomicReference<SpoolingOutputStats.Snapshot> spoolingOutputStats = new AtomicReference<>();
 
     @GuardedBy("this")
     private boolean running;
@@ -104,7 +110,7 @@ public class TaskInfoFetcher
         this.finalTaskInfo = new StateMachine<>("task-" + taskId, executor, Optional.empty());
         this.taskInfoCodec = requireNonNull(taskInfoCodec, "taskInfoCodec is null");
 
-        this.updateIntervalMillis = requireNonNull(updateInterval, "updateInterval is null").toMillis();
+        this.updateIntervalMillis = updateInterval.toMillis();
         this.updateScheduledExecutor = requireNonNull(updateScheduledExecutor, "updateScheduledExecutor is null");
         this.errorTracker = new RequestErrorTracker(taskId, initialTask.getTaskStatus().getSelf(), maxErrorDuration, errorScheduledExecutor, "getting info for task");
 
@@ -159,6 +165,17 @@ public class TaskInfoFetcher
         };
         finalTaskInfo.addStateChangeListener(fireOnceStateChangeListener);
         fireOnceStateChangeListener.stateChanged(finalTaskInfo.get());
+    }
+
+    public SpoolingOutputStats.Snapshot retrieveAndDropSpoolingOutputStats()
+    {
+        Optional<TaskInfo> finalTaskInfo = this.finalTaskInfo.get();
+        checkState(finalTaskInfo.isPresent(), "finalTaskInfo must be present");
+        TaskState taskState = finalTaskInfo.get().getTaskStatus().getState();
+        checkState(taskState == TaskState.FINISHED, "task must be FINISHED, got: %s", taskState);
+        SpoolingOutputStats.Snapshot result = spoolingOutputStats.getAndSet(null);
+        checkState(result != null, "spooling output stats is not available");
+        return result;
     }
 
     private synchronized void scheduleUpdate()
@@ -228,6 +245,11 @@ public class TaskInfoFetcher
             newTaskInfo = newTaskInfo.withEstimatedMemory(estimatedMemory.get());
         }
 
+        if (newTaskInfo.getTaskStatus().getState().isDone()) {
+            spoolingOutputStats.compareAndSet(null, newTaskInfo.getOutputBuffers().getSpoolingOutputStats().orElse(null));
+            newTaskInfo = newTaskInfo.pruneSpoolingOutputStats();
+        }
+
         TaskInfo newValue = newTaskInfo;
         boolean updated = taskInfo.setIf(newValue, oldValue -> {
             TaskStatus oldTaskStatus = oldValue.getTaskStatus();
@@ -241,6 +263,7 @@ public class TaskInfoFetcher
         });
 
         if (updated && newValue.getTaskStatus().getState().isDone()) {
+            taskStatusFetcher.updateTaskStatus(newTaskInfo.getTaskStatus());
             finalTaskInfo.compareAndSet(Optional.empty(), Optional.of(newValue));
             stop();
         }

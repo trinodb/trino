@@ -21,6 +21,9 @@ import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.plugin.blackhole.BlackHolePlugin;
+import io.trino.plugin.jdbc.JdbcPlugin;
+import io.trino.plugin.jdbc.TestingH2JdbcModule;
+import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
@@ -29,12 +32,15 @@ import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.SelectedRole;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DataProviders;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingAccessControlManager;
 import io.trino.testing.TestingAccessControlManager.TestingPrivilege;
 import io.trino.testing.TestingSession;
 import org.testng.annotations.Test;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
@@ -68,6 +74,7 @@ import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestAccessControl
@@ -86,6 +93,8 @@ public class TestAccessControl
                 .build();
         queryRunner.installPlugin(new BlackHolePlugin());
         queryRunner.createCatalog("blackhole", "blackhole");
+        queryRunner.installPlugin(new MemoryPlugin());
+        queryRunner.createCatalog("memory", "memory", Map.of());
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
@@ -113,6 +122,8 @@ public class TestAccessControl
                 .withListRoleGrants((connectorSession, roles, grantees, limit) -> ImmutableSet.of(new RoleGrant(new TrinoPrincipal(USER, "alice"), "alice_role", false)))
                 .build()));
         queryRunner.createCatalog("mock", "mock");
+        queryRunner.installPlugin(new JdbcPlugin("base-jdbc", new TestingH2JdbcModule()));
+        queryRunner.createCatalog("jdbc", "base-jdbc", TestingH2JdbcModule.createProperties());
         for (String tableName : ImmutableList.of("orders", "nation", "region", "lineitem")) {
             queryRunner.execute(format("CREATE TABLE %1$s AS SELECT * FROM tpch.tiny.%1$s WITH NO DATA", tableName));
         }
@@ -352,6 +363,37 @@ public class TestAccessControl
         assertAccessDenied("COMMENT ON VIEW " + viewName + " IS 'new comment'", "Cannot comment view to .*", privilege(viewName, COMMENT_VIEW));
         assertThatThrownBy(() -> getQueryRunner().execute(getSession(), "COMMENT ON VIEW " + viewName + " IS 'new comment'"))
                 .hasMessageContaining("This connector does not support setting view comments");
+    }
+
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    public void testViewWithTableFunction(boolean securityDefiner)
+    {
+        Session viewOwner = getSession();
+        Session otherUser = Session.builder(getSession())
+                .setIdentity(Identity.ofUser(getSession().getUser() + "-someone-else"))
+                .build();
+
+        String viewName = "memory.default.definer_view_with_ptf";
+        assertUpdate(viewOwner, "CREATE VIEW " + viewName + " SECURITY " + (securityDefiner ? "DEFINER" : "INVOKER") + " AS SELECT * FROM TABLE (jdbc.system.query('SELECT ''from h2'', monthname(CAST(''2005-09-10'' AS date))'))");
+        String viewValues = "VALUES ('from h2', 'September') ";
+
+        assertThat(query(viewOwner, "TABLE " + viewName)).matches(viewValues);
+        assertThat(query(otherUser, "TABLE " + viewName)).matches(viewValues);
+
+        TestingPrivilege grantExecute = TestingAccessControlManager.privilege("jdbc.system.query", GRANT_EXECUTE_FUNCTION);
+        assertAccessAllowed(viewOwner, "TABLE " + viewName, grantExecute);
+        if (securityDefiner) {
+            assertAccessDenied(
+                    otherUser,
+                    "TABLE " + viewName,
+                    "View owner does not have sufficient privileges: 'user' cannot grant 'jdbc.system.query' execution to user 'user-someone-else'",
+                    grantExecute);
+        }
+        else {
+            assertAccessAllowed(otherUser, "TABLE " + viewName, grantExecute);
+        }
+
+        assertUpdate("DROP VIEW " + viewName);
     }
 
     @Test

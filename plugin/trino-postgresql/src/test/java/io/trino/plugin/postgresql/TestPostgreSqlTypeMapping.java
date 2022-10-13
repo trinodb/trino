@@ -1490,7 +1490,7 @@ public class TestPostgreSqlTypeMapping
                 // using two non-JVM zones so that we don't need to worry what Postgres system zone is
                 {vilnius},
                 {kathmandu},
-                {ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
+                {TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId()},
         };
     }
 
@@ -1813,9 +1813,7 @@ public class TestPostgreSqlTypeMapping
         if (insertWithTrino) {
             return trinoTimestampWithTimeZoneDataType(precision);
         }
-        else {
-            return postgreSqlTimestampWithTimeZoneDataType(precision);
-        }
+        return postgreSqlTimestampWithTimeZoneDataType(precision);
     }
 
     public static DataType<ZonedDateTime> trinoTimestampWithTimeZoneDataType(int precision)
@@ -1848,9 +1846,7 @@ public class TestPostgreSqlTypeMapping
         if (insertWithTrino) {
             return arrayDataType(trinoTimestampWithTimeZoneDataType(precision));
         }
-        else {
-            return arrayDataType(postgreSqlTimestampWithTimeZoneDataType(precision), format("timestamptz(%d)[]", precision));
-        }
+        return arrayDataType(postgreSqlTimestampWithTimeZoneDataType(precision), format("timestamptz(%d)[]", precision));
     }
 
     private Session sessionWithArrayAsArray()

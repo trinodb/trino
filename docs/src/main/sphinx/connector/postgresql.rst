@@ -41,9 +41,9 @@ as appropriate for your setup:
 The ``connection-url`` defines the connection information and parameters to pass
 to the PostgreSQL JDBC driver. The parameters for the URL are available in the
 `PostgreSQL JDBC driver documentation
-<https://jdbc.postgresql.org/documentation/head/connect.html>`_. Some parameters
-can have adverse effects on the connector behavior or not work with the
-connector.
+<https://jdbc.postgresql.org/documentation/use/#connecting-to-the-database>`__.
+Some parameters can have adverse effects on the connector behavior or not work
+with the connector.
 
 The ``connection-user`` and ``connection-password`` are typically required and
 determine the user credentials for the connection, often a service user. You can
@@ -69,7 +69,7 @@ property:
   connection-url=jdbc:postgresql://example.net:5432/database?ssl=true
 
 For more information on TLS configuration options, see the `PostgreSQL JDBC
-driver documentation <https://jdbc.postgresql.org/documentation/head/connect.html>`_.
+driver documentation <https://jdbc.postgresql.org/documentation/use/#connecting-to-the-database>`__.
 
 Multiple PostgreSQL databases or servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -86,6 +86,9 @@ catalog named ``sales`` using the configured connector.
 
 .. include:: jdbc-common-configurations.fragment
 
+.. |default_domain_compaction_threshold| replace:: ``32``
+.. include:: jdbc-domain-compaction-threshold.fragment
+
 .. include:: jdbc-procedures.fragment
 
 .. include:: jdbc-case-insensitive-matching.fragment
@@ -98,9 +101,10 @@ Type mapping
 ------------
 
 Because Trino and PostgreSQL each support types that the other does not, this
-connector modifies some types when reading or writing data. Data types may not
-map the same way in both directions between Trino and the data source. Refer to
-the following sections for type mapping in each direction.
+connector :ref:`modifies some types <type-mapping-overview>` when reading or
+writing data. Data types may not map the same way in both directions between
+Trino and the data source. Refer to the following sections for type mapping in
+each direction.
 
 PostgreSQL type to Trino type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -66,18 +66,18 @@ public class TestExpressionMappingParser
                         Optional.empty()));
 
         assertExpressionPattern(
-                "$like_pattern(a: varchar(n), b: varchar(m))",
+                "$like(a: varchar(n), b: varchar(m))",
                 new CallPattern(
-                        "$like_pattern",
+                        "$like",
                         List.of(
                                 new ExpressionCapture("a", type("varchar", parameter("n"))),
                                 new ExpressionCapture("b", type("varchar", parameter("m")))),
                         Optional.empty()));
 
         assertExpressionPattern(
-                "$like_pattern(a: varchar(n), b: varchar(m)): boolean",
+                "$like(a: varchar(n), b: varchar(m)): boolean",
                 new CallPattern(
-                        "$like_pattern",
+                        "$like",
                         List.of(
                                 new ExpressionCapture("a", type("varchar", parameter("n"))),
                                 new ExpressionCapture("b", type("varchar", parameter("m")))),

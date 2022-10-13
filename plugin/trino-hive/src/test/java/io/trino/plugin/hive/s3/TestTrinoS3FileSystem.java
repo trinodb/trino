@@ -87,6 +87,7 @@ import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_MAX_CLIENT_RETRIES;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_MAX_RETRY_TIME;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_PATH_STYLE_ACCESS;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_PIN_CLIENT_TO_CURRENT_REGION;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_REGION;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SECRET_KEY;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SESSION_TOKEN;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SKIP_GLACIER_OBJECTS;
@@ -168,6 +169,35 @@ public class TestTrinoS3FileSystem
         config.set(S3_PIN_CLIENT_TO_CURRENT_REGION, "true");
         try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             fs.initialize(new URI("s3a://test-bucket/"), config);
+        }
+    }
+
+    @Test
+    public void testEndpointWithExplicitRegionConfiguration()
+            throws Exception
+    {
+        Configuration config = newEmptyConfiguration();
+
+        // Only endpoint set
+        config.set(S3_ENDPOINT, "test.example.endpoint.com");
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
+            fs.initialize(new URI("s3a://test-bucket/"), config);
+            assertThat(((AmazonS3Client) fs.getS3Client()).getSignerRegionOverride()).isNull();
+        }
+
+        // Endpoint and region set
+        config.set(S3_ENDPOINT, "test.example.endpoint.com");
+        config.set(S3_REGION, "region1");
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
+            fs.initialize(new URI("s3a://test-bucket/"), config);
+            assertThat(((AmazonS3Client) fs.getS3Client()).getSignerRegionOverride()).isEqualTo("region1");
+        }
+
+        // Only region set
+        config.set(S3_REGION, "region1");
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
+            fs.initialize(new URI("s3a://test-bucket/"), config);
+            assertThat(((AmazonS3Client) fs.getS3Client()).getSignerRegionOverride()).isEqualTo("region1");
         }
     }
 
@@ -812,18 +842,19 @@ public class TestTrinoS3FileSystem
     {
         Configuration config = newEmptyConfiguration();
         config.set(S3_STREAMING_UPLOAD_ENABLED, "true");
-        config.set(S3_STREAMING_UPLOAD_PART_SIZE, "10");
 
         try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             MockAmazonS3 s3 = new MockAmazonS3();
             String expectedBucketName = "test-bucket";
+            config.set(S3_STREAMING_UPLOAD_PART_SIZE, "128");
             fs.initialize(new URI("s3n://" + expectedBucketName + "/"), config);
             fs.setS3Client(s3);
-            try (FSDataOutputStream stream = fs.create(new Path("s3n://test-bucket/test"))) {
+            String objectKey = "test";
+            try (FSDataOutputStream stream = fs.create(new Path("s3n://test-bucket/" + objectKey))) {
                 stream.write('a');
-                stream.write("foo".repeat(2).getBytes(US_ASCII));
-                stream.write("bar".repeat(3).getBytes(US_ASCII));
-                stream.write("orange".repeat(4).getBytes(US_ASCII), 6, 12);
+                stream.write("foo".repeat(21).getBytes(US_ASCII)); // 63 bytes = "foo" * 21
+                stream.write("bar".repeat(44).getBytes(US_ASCII)); // 132 bytes = "bar" * 44
+                stream.write("orange".repeat(25).getBytes(US_ASCII), 6, 132); // 132 bytes = "orange" * 22
             }
 
             List<UploadPartRequest> parts = s3.getUploadParts();
@@ -833,7 +864,7 @@ public class TestTrinoS3FileSystem
                     .map(UploadPartRequest::getInputStream)
                     .reduce(new ByteArrayInputStream(new byte[0]), SequenceInputStream::new);
             String data = new String(toByteArray(concatInputStream), US_ASCII);
-            assertEquals(data, "afoofoobarbarbarorangeorange");
+            assertEquals(data, "a" + "foo".repeat(21) + "bar".repeat(44) + "orange".repeat(22));
         }
     }
 

@@ -68,7 +68,7 @@ public class FixedSourcePartitionedScheduler
         requireNonNull(stageExecution, "stageExecution is null");
         requireNonNull(splitSources, "splitSources is null");
         requireNonNull(bucketNodeMap, "bucketNodeMap is null");
-        checkArgument(!requireNonNull(nodes, "nodes is null").isEmpty(), "nodes is empty");
+        checkArgument(!nodes.isEmpty(), "nodes is empty");
         requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
 
         this.stageExecution = stageExecution;
@@ -148,10 +148,8 @@ public class FixedSourcePartitionedScheduler
         if (blockedReason != null) {
             return new ScheduleResult(sourceSchedulers.isEmpty(), newTasks, blocked, blockedReason, splitsScheduled);
         }
-        else {
-            checkState(blocked.isDone(), "blockedReason not provided when scheduler is blocked");
-            return new ScheduleResult(sourceSchedulers.isEmpty(), newTasks, splitsScheduled);
-        }
+        checkState(blocked.isDone(), "blockedReason not provided when scheduler is blocked");
+        return new ScheduleResult(sourceSchedulers.isEmpty(), newTasks, splitsScheduled);
     }
 
     @Override

@@ -16,8 +16,8 @@ package io.trino.sql.relational.optimizer;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.metadata.FunctionManager;
-import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Metadata;
+import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -39,7 +39,7 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.metadata.Signature.mangleOperatorName;
+import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
 import static io.trino.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
 import static io.trino.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NAME;
@@ -130,9 +130,7 @@ public class ExpressionOptimizer
                             return specialForm.getArguments().get(1).accept(this, context);
                         }
                         // FALSE and NULL
-                        else {
-                            return specialForm.getArguments().get(2).accept(this, context);
-                        }
+                        return specialForm.getArguments().get(2).accept(this, context);
                     }
                     List<RowExpression> arguments = specialForm.getArguments().stream()
                             .map(argument -> argument.accept(this, null))

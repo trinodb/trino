@@ -37,15 +37,14 @@ public class TestingWarningCollector
 {
     @GuardedBy("this")
     private final Map<WarningCode, TrinoWarning> warnings = new LinkedHashMap<>();
-    private final WarningCollectorConfig config;
+    private final int maxWarnings;
 
     private final boolean addWarnings;
     private final AtomicInteger warningCode = new AtomicInteger();
 
     public TestingWarningCollector(WarningCollectorConfig config, TestingWarningCollectorConfig testConfig)
     {
-        this.config = requireNonNull(config, "config is null");
-        requireNonNull(testConfig, "testConfig is null");
+        this.maxWarnings = requireNonNull(config, "config is null").getMaxWarnings();
         addWarnings = testConfig.getAddWarnings();
         // Start warning codes at 1
         for (int warningCode = 1; warningCode <= testConfig.getPreloadedWarnings(); warningCode++) {
@@ -58,7 +57,7 @@ public class TestingWarningCollector
     public synchronized void add(TrinoWarning warning)
     {
         requireNonNull(warning, "warning is null");
-        if (warnings.size() < config.getMaxWarnings()) {
+        if (warnings.size() < maxWarnings) {
             warnings.putIfAbsent(warning.getWarningCode(), warning);
         }
     }

@@ -27,3 +27,6 @@ node_modules
 product-test-reports
 .vscode/
 /gib-impacted.log
+/impacted-features.log
+.github/test-matrix.yaml
+.github/test-pt-matrix.yaml

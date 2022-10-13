@@ -23,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public abstract class BaseOracleConnectorSmokeTest
         extends BaseJdbcConnectorSmokeTest
 {
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {

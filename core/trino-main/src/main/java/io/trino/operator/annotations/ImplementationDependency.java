@@ -15,19 +15,19 @@ package io.trino.operator.annotations;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.FunctionBinding;
-import io.trino.metadata.FunctionDependencies;
-import io.trino.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.trino.spi.function.CastDependency;
 import io.trino.spi.function.Convention;
+import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionDependency;
+import io.trino.spi.function.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.function.QualifiedFunctionName;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
-import io.trino.sql.tree.QualifiedName;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
@@ -111,7 +111,7 @@ public interface ImplementationDependency
             if (annotation instanceof FunctionDependency) {
                 FunctionDependency functionDependency = (FunctionDependency) annotation;
                 return new FunctionImplementationDependency(
-                        QualifiedName.of(functionDependency.name()),
+                        QualifiedFunctionName.of(functionDependency.name()),
                         Arrays.stream(functionDependency.argumentTypes())
                                 .map(signature -> parseTypeSignature(signature, literalParameters))
                                 .collect(toImmutableList()),

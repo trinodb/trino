@@ -57,6 +57,9 @@ Property name                                      Required   Description
 
 .. include:: jdbc-common-configurations.fragment
 
+.. |default_domain_compaction_threshold| replace:: ``5000``
+.. include:: jdbc-domain-compaction-threshold.fragment
+
 .. include:: jdbc-procedures.fragment
 
 .. include:: jdbc-case-insensitive-matching.fragment
@@ -95,9 +98,10 @@ Type mapping
 ------------
 
 Because Trino and Phoenix each support types that the other does not, this
-connector modifies some types when reading or writing data. Data types may not
-map the same way in both directions between Trino and the data source. Refer to
-the following sections for type mapping in each direction.
+connector :ref:`modifies some types <type-mapping-overview>` when reading or
+writing data. Data types may not map the same way in both directions between
+Trino and the data source. Refer to the following sections for type mapping in
+each direction.
 
 Phoenix type to Trino type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

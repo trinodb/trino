@@ -174,14 +174,13 @@ public class UnwrapCastInComparison
         private Expression unwrapCast(ComparisonExpression expression)
         {
             // Canonicalization is handled by CanonicalizeExpressionRewriter
-            if (!(expression.getLeft() instanceof Cast)) {
+            if (!(expression.getLeft() instanceof Cast cast)) {
                 return expression;
             }
 
             Object right = new ExpressionInterpreter(expression.getRight(), plannerContext, session, typeAnalyzer.getTypes(session, types, expression.getRight()))
                     .optimize(NoOpSymbolResolver.INSTANCE);
 
-            Cast cast = (Cast) expression.getLeft();
             ComparisonExpression.Operator operator = expression.getOperator();
 
             if (right == null || right instanceof NullLiteral) {
@@ -227,10 +226,8 @@ public class UnwrapCastInComparison
                         if (!typeHasNaN(sourceType)) {
                             return TRUE_LITERAL;
                         }
-                        else {
-                            // NaN on the right of comparison will be cast to source type later
-                            break;
-                        }
+                        // NaN on the right of comparison will be cast to source type later
+                        break;
                     default:
                         throw new UnsupportedOperationException("Not yet implemented: " + operator);
                 }
@@ -404,13 +401,11 @@ public class UnwrapCastInComparison
                             Double.isNaN(doubleValue) ||
                             (doubleValue > -1L << 53 && doubleValue < 1L << 53); // in (-2^53, 2^53), bigint follows an injective implicit coercion w.r.t double
                 }
-                else {
-                    float realValue = intBitsToFloat(toIntExact((long) value));
-                    return (source.equals(BIGINT) && (realValue > Long.MAX_VALUE || realValue < Long.MIN_VALUE)) ||
-                            (source.equals(INTEGER) && (realValue > Integer.MAX_VALUE || realValue < Integer.MIN_VALUE)) ||
-                            Float.isNaN(realValue) ||
-                            (realValue > -1L << 23 && realValue < 1L << 23); // in (-2^23, 2^23), bigint (and integer) follows an injective implicit coercion w.r.t real
-                }
+                float realValue = intBitsToFloat(toIntExact((long) value));
+                return (source.equals(BIGINT) && (realValue > Long.MAX_VALUE || realValue < Long.MIN_VALUE)) ||
+                        (source.equals(INTEGER) && (realValue > Integer.MAX_VALUE || realValue < Integer.MIN_VALUE)) ||
+                        Float.isNaN(realValue) ||
+                        (realValue > -1L << 23 && realValue < 1L << 23); // in (-2^23, 2^23), bigint (and integer) follows an injective implicit coercion w.r.t real
             }
 
             if (source instanceof DecimalType) {
@@ -427,8 +422,7 @@ public class UnwrapCastInComparison
                 }
             }
 
-            if (target instanceof TimestampWithTimeZoneType) {
-                TimestampWithTimeZoneType timestampWithTimeZoneType = (TimestampWithTimeZoneType) target;
+            if (target instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
                 if (source instanceof TimestampType) {
                     // Cast from TIMESTAMP WITH TIME ZONE to TIMESTAMP and back to TIMESTAMP WITH TIME ZONE does not round trip, unless the value's zone is equal to sesion zone
                     if (!getTimeZone(timestampWithTimeZoneType, value).equals(session.getTimeZoneKey())) {
@@ -456,10 +450,7 @@ public class UnwrapCastInComparison
             }
 
             boolean coercible = new TypeCoercion(plannerContext.getTypeManager()::getType).canCoerce(source, target);
-            if (source instanceof VarcharType && target instanceof CharType) {
-                VarcharType sourceVarchar = (VarcharType) source;
-                CharType targetChar = (CharType) target;
-
+            if (source instanceof VarcharType sourceVarchar && target instanceof CharType targetChar) {
                 if (sourceVarchar.isUnbounded() || sourceVarchar.getBoundedLength() > targetChar.getLength()) {
                     // Truncation, not injective.
                     return false;
@@ -496,7 +487,7 @@ public class UnwrapCastInComparison
             // choice of placing unordered values first or last does not matter for this code
             MethodHandle comparisonOperator = plannerContext.getTypeOperators().getComparisonUnorderedLastOperator(type, InvocationConvention.simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
             try {
-                return (int) (long) comparisonOperator.invoke(first, second);
+                return toIntExact((long) comparisonOperator.invoke(first, second));
             }
             catch (Throwable throwable) {
                 Throwables.throwIfUnchecked(throwable);
@@ -549,12 +540,12 @@ public class UnwrapCastInComparison
                 .plus(longTimestampWithTimeZone.getPicosOfMilli() / PICOSECONDS_PER_NANOSECOND, ChronoUnit.NANOS);
     }
 
-    private static Expression falseIfNotNull(Expression argument)
+    public static Expression falseIfNotNull(Expression argument)
     {
         return and(new IsNullPredicate(argument), new NullLiteral());
     }
 
-    private static Expression trueIfNotNull(Expression argument)
+    public static Expression trueIfNotNull(Expression argument)
     {
         return or(new IsNotNullPredicate(argument), new NullLiteral());
     }

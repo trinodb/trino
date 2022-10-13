@@ -24,12 +24,13 @@ import java.net.URI;
 import java.util.List;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class ExampleSplit
         implements ConnectorSplit
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ExampleSplit.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ExampleSplit.class).instanceSize());
 
     private final String uri;
     private final boolean remotelyAccessible;

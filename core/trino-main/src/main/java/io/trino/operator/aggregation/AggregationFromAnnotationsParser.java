@@ -20,10 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.MoreCollectors;
 import io.airlift.log.Logger;
 import io.trino.metadata.FunctionBinding;
-import io.trino.metadata.FunctionDependencies;
-import io.trino.metadata.Signature;
 import io.trino.operator.ParametricImplementationsGroup;
-import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import io.trino.operator.aggregation.state.InOutStateSerializer;
 import io.trino.operator.annotations.FunctionsParserHelper;
 import io.trino.operator.annotations.ImplementationDependency;
@@ -34,8 +31,10 @@ import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AccumulatorStateMetadata;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.function.AggregationFunction;
+import io.trino.spi.function.AggregationImplementation.AccumulatorStateDescriptor;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionDependency;
 import io.trino.spi.function.InOut;
 import io.trino.spi.function.InputFunction;
@@ -43,6 +42,7 @@ import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.RemoveInputFunction;
+import io.trino.spi.function.Signature;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.TypeSignature;
 
@@ -66,7 +66,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.operator.aggregation.AggregationImplementation.Parser.parseImplementation;
+import static io.trino.operator.aggregation.ParametricAggregationImplementation.Parser.parseImplementation;
 import static io.trino.operator.aggregation.state.StateCompiler.generateInOutStateFactory;
 import static io.trino.operator.aggregation.state.StateCompiler.generateStateFactory;
 import static io.trino.operator.aggregation.state.StateCompiler.generateStateSerializer;
@@ -107,11 +107,11 @@ public final class AggregationFromAnnotationsParser
             }
 
             // Input functions can have either an exact signature, or generic/calculate signature
-            List<AggregationImplementation> exactImplementations = new ArrayList<>();
-            List<AggregationImplementation> nonExactImplementations = new ArrayList<>();
+            List<ParametricAggregationImplementation> exactImplementations = new ArrayList<>();
+            List<ParametricAggregationImplementation> nonExactImplementations = new ArrayList<>();
             for (Method inputFunction : getInputFunctions(aggregationDefinition, stateDetails)) {
                 Optional<Method> removeInputFunction = getRemoveInputFunction(aggregationDefinition, inputFunction);
-                AggregationImplementation implementation = parseImplementation(
+                ParametricAggregationImplementation implementation = parseImplementation(
                         aggregationDefinition,
                         header.getName(),
                         stateDetails,
@@ -141,13 +141,13 @@ public final class AggregationFromAnnotationsParser
             String name,
             AggregationHeader header,
             List<AccumulatorStateDetails<?>> stateDetails,
-            List<AggregationImplementation> exactImplementations,
-            List<AggregationImplementation> nonExactImplementations)
+            List<ParametricAggregationImplementation> exactImplementations,
+            List<ParametricAggregationImplementation> nonExactImplementations)
     {
         ImmutableList.Builder<ParametricAggregation> functions = ImmutableList.builder();
 
         // create a separate function for each exact implementation
-        for (AggregationImplementation exactImplementation : exactImplementations) {
+        for (ParametricAggregationImplementation exactImplementation : exactImplementations) {
             functions.add(new ParametricAggregation(
                     exactImplementation.getSignature().withName(name),
                     header,
@@ -157,9 +157,9 @@ public final class AggregationFromAnnotationsParser
 
         // if there are non-exact functions, create a single generic/calculated function using these implementations
         if (!nonExactImplementations.isEmpty()) {
-            ParametricImplementationsGroup.Builder<AggregationImplementation> implementationsBuilder = ParametricImplementationsGroup.builder();
+            ParametricImplementationsGroup.Builder<ParametricAggregationImplementation> implementationsBuilder = ParametricImplementationsGroup.builder();
             nonExactImplementations.forEach(implementationsBuilder::addImplementation);
-            ParametricImplementationsGroup<AggregationImplementation> implementations = implementationsBuilder.build();
+            ParametricImplementationsGroup<ParametricAggregationImplementation> implementations = implementationsBuilder.build();
             functions.add(new ParametricAggregation(
                     implementations.getSignature().withName(name),
                     header,
@@ -598,10 +598,10 @@ public final class AggregationFromAnnotationsParser
 
         public AccumulatorStateDescriptor<T> createAccumulatorStateDescriptor(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
         {
-            return new AccumulatorStateDescriptor<>(
-                    stateClass,
-                    serializerGenerator.apply(functionBinding, functionDependencies),
-                    factoryGenerator.apply(functionBinding, functionDependencies));
+            return AccumulatorStateDescriptor.builder(stateClass)
+                    .serializer(serializerGenerator.apply(functionBinding, functionDependencies))
+                    .factory(factoryGenerator.apply(functionBinding, functionDependencies))
+                    .build();
         }
 
         @Override

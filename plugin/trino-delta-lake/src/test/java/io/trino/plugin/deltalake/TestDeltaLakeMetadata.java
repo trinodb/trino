@@ -72,6 +72,7 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 
@@ -84,7 +85,7 @@ import static io.trino.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.TimestampType.TIMESTAMP;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.Locale.ENGLISH;
@@ -97,19 +98,19 @@ public class TestDeltaLakeMetadata
 
     private static final ColumnMetadata BIGINT_COLUMN_1 = new ColumnMetadata("bigint_column1", BIGINT);
     private static final ColumnMetadata BIGINT_COLUMN_2 = new ColumnMetadata("bigint_column2", BIGINT);
-    private static final ColumnMetadata TIMESTAMP_COLUMN = new ColumnMetadata("timestamp_column", TIMESTAMP);
+    private static final ColumnMetadata TIMESTAMP_COLUMN = new ColumnMetadata("timestamp_column", TIMESTAMP_MILLIS);
     private static final ColumnMetadata MISSING_COLUMN = new ColumnMetadata("missing_column", BIGINT);
 
     private static final DeltaLakeColumnHandle BOOLEAN_COLUMN_HANDLE =
-            new DeltaLakeColumnHandle("boolean_column_name", BooleanType.BOOLEAN, "boolean_column_name", BooleanType.BOOLEAN, REGULAR);
+            new DeltaLakeColumnHandle("boolean_column_name", BooleanType.BOOLEAN, OptionalInt.empty(), "boolean_column_name", BooleanType.BOOLEAN, REGULAR);
     private static final DeltaLakeColumnHandle DOUBLE_COLUMN_HANDLE =
-            new DeltaLakeColumnHandle("double_column_name", DoubleType.DOUBLE, "double_column_name", DoubleType.DOUBLE, REGULAR);
+            new DeltaLakeColumnHandle("double_column_name", DoubleType.DOUBLE, OptionalInt.empty(), "double_column_name", DoubleType.DOUBLE, REGULAR);
     private static final DeltaLakeColumnHandle BOGUS_COLUMN_HANDLE =
-            new DeltaLakeColumnHandle("bogus_column_name", BogusType.BOGUS, "bogus_column_name", BogusType.BOGUS, REGULAR);
+            new DeltaLakeColumnHandle("bogus_column_name", BogusType.BOGUS, OptionalInt.empty(), "bogus_column_name", BogusType.BOGUS, REGULAR);
     private static final DeltaLakeColumnHandle VARCHAR_COLUMN_HANDLE =
-            new DeltaLakeColumnHandle("varchar_column_name", VarcharType.VARCHAR, "varchar_column_name", VarcharType.VARCHAR, REGULAR);
+            new DeltaLakeColumnHandle("varchar_column_name", VarcharType.VARCHAR, OptionalInt.empty(), "varchar_column_name", VarcharType.VARCHAR, REGULAR);
     private static final DeltaLakeColumnHandle DATE_COLUMN_HANDLE =
-            new DeltaLakeColumnHandle("date_column_name", DateType.DATE, "date_column_name", DateType.DATE, REGULAR);
+            new DeltaLakeColumnHandle("date_column_name", DateType.DATE, OptionalInt.empty(), "date_column_name", DateType.DATE, REGULAR);
 
     private static final Map<String, ColumnHandle> SYNTHETIC_COLUMN_ASSIGNMENTS = ImmutableMap.of(
             "test_synthetic_column_name_1", BOGUS_COLUMN_HANDLE,

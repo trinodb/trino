@@ -107,12 +107,12 @@ public class TransactionLogAccess
         this.checkpointSchemaManager = requireNonNull(checkpointSchemaManager, "checkpointSchemaManager is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-        this.parquetReaderOptions = requireNonNull(parquetReaderConfig, "parquetReaderConfig is null").toParquetReaderOptions();
-        requireNonNull(deltaLakeConfig, "deltaLakeConfig is null");
+        this.parquetReaderOptions = parquetReaderConfig.toParquetReaderOptions();
         this.checkpointRowStatisticsWritingEnabled = deltaLakeConfig.isCheckpointRowStatisticsWritingEnabled();
 
         tableSnapshots = EvictableCacheBuilder.newBuilder()
                 .expireAfterWrite(deltaLakeConfig.getMetadataCacheTtl().toMillis(), TimeUnit.MILLISECONDS)
+                .maximumSize(deltaLakeConfig.getMetadataCacheMaxSize())
                 .shareNothingWhenDisabled()
                 .recordStats()
                 .build();
@@ -209,7 +209,7 @@ public class TransactionLogAccess
                 log.warn("Query run with outdated Transaction Log Snapshot, retrieved stale table entries for table: %s and query %s", tableSnapshot.getTable(), session.getQueryId());
                 return loadActiveFiles(tableSnapshot, session);
             }
-            else if (cachedTable.getVersion() < tableSnapshot.getVersion()) {
+            if (cachedTable.getVersion() < tableSnapshot.getVersion()) {
                 DeltaLakeDataFileCacheEntry updatedCacheEntry;
                 try {
                     List<DeltaLakeTransactionLogEntry> newEntries = getJsonEntries(
@@ -221,7 +221,7 @@ public class TransactionLogAccess
                 }
                 catch (MissingTransactionLogException e) {
                     // Reset the cached table when there are transaction files which are newer than
-                    // the cached table version which are already garbage colllected.
+                    // the cached table version which are already garbage collected.
                     List<AddFileEntry> activeFiles = loadActiveFiles(tableSnapshot, session);
                     updatedCacheEntry = new DeltaLakeDataFileCacheEntry(tableSnapshot.getVersion(), activeFiles);
                 }

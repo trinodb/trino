@@ -225,11 +225,12 @@ public class DeltaLakeMergeSink
                     })
                     .collect(toImmutableList());
 
+            List<String> dataColumnNames = dataColumns.stream()
+                    .map(DeltaLakeColumnHandle::getName)
+                    .collect(toImmutableList());
             ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(
                     parquetTypes,
-                    dataColumns.stream()
-                            .map(DeltaLakeColumnHandle::getName)
-                            .collect(toImmutableList()),
+                    dataColumnNames,
                     false,
                     false);
 
@@ -237,12 +238,14 @@ public class DeltaLakeMergeSink
                     fileSystem.create(path),
                     rollbackAction,
                     parquetTypes,
+                    dataColumnNames,
                     schemaConverter.getMessageType(),
                     schemaConverter.getPrimitiveTypes(),
                     parquetWriterOptions,
                     IntStream.range(0, dataColumns.size()).toArray(),
                     compressionCodecName,
                     trinoVersion,
+                    Optional.empty(),
                     Optional.empty());
         }
         catch (IOException e) {
@@ -310,7 +313,8 @@ public class DeltaLakeMergeSink
                 true,
                 parquetDateTimeZone,
                 new FileFormatDataSourceStats(),
-                new ParquetReaderOptions());
+                new ParquetReaderOptions(),
+                Optional.empty());
     }
 
     private static class FileDeletion

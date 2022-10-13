@@ -26,8 +26,7 @@ import javax.inject.Inject;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
-import static java.util.Objects.requireNonNull;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
@@ -40,7 +39,7 @@ public final class EnvSinglenodeKerberosHdfsImpersonationWithDataProtection
     public EnvSinglenodeKerberosHdfsImpersonationWithDataProtection(DockerFiles dockerFiles, Standard standard, HadoopKerberos hadoopKerberos)
     {
         super(ImmutableList.of(standard, hadoopKerberos));
-        configDir = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostDirectory("conf/environment/singlenode-kerberos-hdfs-impersonation-with-data-protection");
+        configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/singlenode-kerberos-hdfs-impersonation-with-data-protection");
     }
 
     @Override
@@ -55,7 +54,7 @@ public final class EnvSinglenodeKerberosHdfsImpersonationWithDataProtection
 
         builder.configureContainer(COORDINATOR, container -> {
             container
-                    .withCopyFileToContainer(forHostPath(configDir.getPath("hive-data-protection-site.xml")), CONTAINER_PRESTO_ETC + "/hive-data-protection-site.xml");
+                    .withCopyFileToContainer(forHostPath(configDir.getPath("hive-data-protection-site.xml")), CONTAINER_TRINO_ETC + "/hive-data-protection-site.xml");
         });
         builder.addConnector("hive", forHostPath(configDir.getPath("hive.properties")));
     }

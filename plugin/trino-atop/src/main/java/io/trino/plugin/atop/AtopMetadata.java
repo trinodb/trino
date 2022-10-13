@@ -56,7 +56,7 @@ public class AtopMetadata
     public AtopMetadata(TypeManager typeManager, Environment environment)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.environment = requireNonNull(environment, "environment is null").toString();
+        this.environment = environment.toString();
     }
 
     @Override

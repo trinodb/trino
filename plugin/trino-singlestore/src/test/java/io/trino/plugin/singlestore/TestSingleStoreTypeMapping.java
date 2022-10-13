@@ -924,7 +924,7 @@ public class TestSingleStoreTypeMapping
                 {ZoneId.of("Europe/Vilnius")},
                 // minutes offset change since 1970-01-01, no DST
                 {ZoneId.of("Asia/Kathmandu")},
-                {ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
+                {TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId()},
         };
     }
 

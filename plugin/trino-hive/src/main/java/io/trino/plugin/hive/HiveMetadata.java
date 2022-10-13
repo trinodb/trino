@@ -107,7 +107,6 @@ import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
-import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatisticType;
 import io.trino.spi.statistics.TableStatistics;
@@ -265,7 +264,7 @@ import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat
 import static io.trino.plugin.hive.util.CompressionConfigUtil.configureCompression;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucketHandle;
 import static io.trino.plugin.hive.util.HiveBucketing.isSupportedBucketing;
-import static io.trino.plugin.hive.util.HiveUtil.columnExtraInfo;
+import static io.trino.plugin.hive.util.HiveUtil.columnMetadataGetter;
 import static io.trino.plugin.hive.util.HiveUtil.getPartitionKeyColumnHandles;
 import static io.trino.plugin.hive.util.HiveUtil.getRegularColumnHandles;
 import static io.trino.plugin.hive.util.HiveUtil.hiveColumnHandles;
@@ -371,7 +370,8 @@ public class HiveMetadata
     private final AccessControlMetadata accessControlMetadata;
     private final DirectoryLister directoryLister;
     private final PartitionProjectionService partitionProjectionService;
-    private final String metastoreType;
+    private final boolean allowTableRename;
+    private final long maxPartitionDropsPerQuery;
 
     public HiveMetadata(
             CatalogName catalogName,
@@ -396,7 +396,8 @@ public class HiveMetadata
             AccessControlMetadata accessControlMetadata,
             DirectoryLister directoryLister,
             PartitionProjectionService partitionProjectionService,
-            String metastoreType)
+            boolean allowTableRename,
+            long maxPartitionDropsPerQuery)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -420,7 +421,8 @@ public class HiveMetadata
         this.accessControlMetadata = requireNonNull(accessControlMetadata, "accessControlMetadata is null");
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
         this.partitionProjectionService = requireNonNull(partitionProjectionService, "partitionProjectionService is null");
-        this.metastoreType = requireNonNull(metastoreType, "metastoreType is null");
+        this.allowTableRename = allowTableRename;
+        this.maxPartitionDropsPerQuery = maxPartitionDropsPerQuery;
     }
 
     @Override
@@ -805,7 +807,7 @@ public class HiveMetadata
         // Note that the computation is not persisted in the table handle, so can be redone many times
         // TODO: https://github.com/trinodb/trino/issues/10980.
         if (partitionManager.canPartitionsBeLoaded(partitionResult)) {
-            List<HivePartition> partitions = partitionManager.getPartitionsAsList(partitionResult);
+            List<HivePartition> partitions = ImmutableList.copyOf(partitionResult.getPartitions());
             return hiveStatisticsProvider.getTableStatistics(session, hiveTableHandle.getSchemaTableName(), columns, columnTypes, partitions);
         }
         return TableStatistics.empty();
@@ -1266,8 +1268,8 @@ public class HiveMetadata
     @Override
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
-        if (metastoreType.equalsIgnoreCase("glue")) {
-            throw new TrinoException(NOT_SUPPORTED, "Table rename is not yet supported by Glue service");
+        if (!allowTableRename) {
+            throw new TrinoException(NOT_SUPPORTED, "Table rename is not supported with current metastore configuration");
         }
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
         metastore.renameTable(handle.getSchemaName(), handle.getTableName(), newTableName.getSchemaName(), newTableName.getTableName());
@@ -1374,7 +1376,7 @@ public class HiveMetadata
             }
 
             ImmutableMap.Builder<List<String>, PartitionStatistics> partitionStatistics = ImmutableMap.builder();
-            Map<String, Set<ColumnStatisticType>> columnStatisticTypes = hiveColumnHandles.stream()
+            Map<String, Set<HiveColumnStatisticType>> columnStatisticTypes = hiveColumnHandles.stream()
                     .filter(columnHandle -> !partitionColumnNames.contains(columnHandle.getName()))
                     .filter(column -> !column.isHidden())
                     .collect(toImmutableMap(HiveColumnHandle::getName, column -> ImmutableSet.copyOf(metastore.getSupportedColumnStatistics(column.getType()))));
@@ -2715,17 +2717,27 @@ public class HiveMetadata
     {
         HiveTableHandle handle = (HiveTableHandle) deleteHandle;
 
-        Optional<Table> table = metastore.getTable(handle.getSchemaName(), handle.getTableName());
-        if (table.isEmpty()) {
-            throw new TableNotFoundException(handle.getSchemaTableName());
-        }
+        Table table = metastore.getTable(handle.getSchemaName(), handle.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(handle.getSchemaTableName()));
 
-        if (table.get().getPartitionColumns().isEmpty()) {
+        if (table.getPartitionColumns().isEmpty()) {
             metastore.truncateUnpartitionedTable(session, handle.getSchemaName(), handle.getTableName());
         }
         else {
-            for (HivePartition hivePartition : partitionManager.getOrLoadPartitions(metastore, handle)) {
-                metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), toPartitionValues(hivePartition.getPartitionId()), true);
+            Iterator<HivePartition> partitions = partitionManager.getPartitions(metastore, handle);
+            List<String> partitionIds = new ArrayList<>();
+            while (partitions.hasNext()) {
+                partitionIds.add(partitions.next().getPartitionId());
+                if (partitionIds.size() > maxPartitionDropsPerQuery) {
+                    throw new TrinoException(
+                            NOT_SUPPORTED,
+                            format(
+                                    "Failed to drop partitions. The number of partitions to be dropped is greater than the maximum allowed partitions (%s).",
+                                    maxPartitionDropsPerQuery));
+                }
+            }
+            for (String partitionId : partitionIds) {
+                metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), toPartitionValues(partitionId), true);
             }
         }
         // it is too expensive to determine the exact number of deleted rows
@@ -2752,7 +2764,7 @@ public class HiveMetadata
                         // TODO: https://github.com/trinodb/trino/issues/10980.
                         HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, table, new Constraint(hiveTable.getEnforcedConstraint()));
                         if (partitionManager.canPartitionsBeLoaded(partitionResult)) {
-                            return Optional.of(partitionManager.getPartitionsAsList(partitionResult));
+                            return Optional.of(ImmutableList.copyOf(partitionResult.getPartitions()));
                         }
                         return Optional.empty();
                     });
@@ -3277,10 +3289,10 @@ public class HiveMetadata
         return getColumnStatisticMetadata(columnMetadata.getName(), metastore.getSupportedColumnStatistics(columnMetadata.getType()));
     }
 
-    private List<ColumnStatisticMetadata> getColumnStatisticMetadata(String columnName, Set<ColumnStatisticType> statisticTypes)
+    private List<ColumnStatisticMetadata> getColumnStatisticMetadata(String columnName, Set<HiveColumnStatisticType> statisticTypes)
     {
         return statisticTypes.stream()
-                .map(type -> new ColumnStatisticMetadata(columnName, type))
+                .map(type -> type.createColumnStatisticMetadata(columnName))
                 .collect(toImmutableList());
     }
 
@@ -3536,40 +3548,6 @@ public class HiveMetadata
                 validateTimestampTypes(fieldType, precision);
             }
         }
-    }
-
-    private Function<HiveColumnHandle, ColumnMetadata> columnMetadataGetter(Table table)
-    {
-        ImmutableList.Builder<String> columnNames = ImmutableList.builder();
-        table.getPartitionColumns().stream().map(Column::getName).forEach(columnNames::add);
-        table.getDataColumns().stream().map(Column::getName).forEach(columnNames::add);
-        List<String> allColumnNames = columnNames.build();
-        if (allColumnNames.size() > Sets.newHashSet(allColumnNames).size()) {
-            throw new TrinoException(HIVE_INVALID_METADATA,
-                    format("Hive metadata for table %s is invalid: Table descriptor contains duplicate columns", table.getTableName()));
-        }
-
-        List<Column> tableColumns = table.getDataColumns();
-        ImmutableMap.Builder<String, Optional<String>> builder = ImmutableMap.builder();
-        for (Column field : concat(tableColumns, table.getPartitionColumns())) {
-            if (field.getComment().isPresent() && !field.getComment().get().equals("from deserializer")) {
-                builder.put(field.getName(), field.getComment());
-            }
-            else {
-                builder.put(field.getName(), Optional.empty());
-            }
-        }
-
-        Map<String, Optional<String>> columnComment = builder.buildOrThrow();
-
-        return handle -> ColumnMetadata.builder()
-                .setName(handle.getName())
-                .setType(handle.getType())
-                .setComment(handle.isHidden() ? Optional.empty() : columnComment.get(handle.getName()))
-                .setExtraInfo(Optional.ofNullable(columnExtraInfo(handle.isPartitionKey())))
-                .setHidden(handle.isHidden())
-                .setProperties(partitionProjectionService.getPartitionProjectionTrinoColumnProperties(table, handle.getName()))
-                .build();
     }
 
     @Override

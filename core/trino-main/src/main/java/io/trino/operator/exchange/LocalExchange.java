@@ -14,7 +14,6 @@
 package io.trino.operator.exchange;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.XxHash64;
@@ -26,8 +25,8 @@ import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.PrecomputedHashGenerator;
 import io.trino.spi.Page;
-import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.type.Type;
+import io.trino.sql.planner.MergePartitioningHandle;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.SystemPartitioningHandle;
@@ -136,7 +135,8 @@ public class LocalExchange
                     physicalWrittenBytesSupplier,
                     writerMinSize);
         }
-        else if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.getCatalogHandle().isPresent()) {
+        else if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.getCatalogHandle().isPresent() ||
+                (partitioning.getConnectorHandle() instanceof MergePartitioningHandle)) {
             exchangerSupplier = () -> {
                 PartitionFunction partitionFunction = createPartitionFunction(
                         nodePartitioningManager,
@@ -226,14 +226,20 @@ public class LocalExchange
         // The same bucket function (with the same bucket count) as for node
         // partitioning must be used. This way rows within a single bucket
         // will be being processed by single thread.
-        int bucketCount = nodePartitioningManager.getConnectorBucketNodeMap(session, partitioning)
-                .map(ConnectorBucketNodeMap::getBucketCount)
-                .orElseThrow(() -> new VerifyException("No bucket node map for partitioning: " + partitioning));
+        int bucketCount = nodePartitioningManager.getBucketCount(session, partitioning);
         int[] bucketToPartition = new int[bucketCount];
+
         for (int bucket = 0; bucket < bucketCount; bucket++) {
             // mix the bucket bits so we don't use the same bucket number used to distribute between stages
             int hashedBucket = (int) XxHash64.hash(Long.reverse(bucket));
             bucketToPartition[bucket] = hashedBucket & (partitionCount - 1);
+        }
+
+        if (partitioning.getConnectorHandle() instanceof MergePartitioningHandle handle) {
+            return handle.getPartitionFunction(
+                    (scheme, types) -> nodePartitioningManager.getPartitionFunction(session, scheme, types, bucketToPartition),
+                    partitionChannelTypes,
+                    bucketToPartition);
         }
 
         return new BucketPartitionFunction(
@@ -362,7 +368,8 @@ public class LocalExchange
             bufferCount = defaultConcurrency;
             checkArgument(partitionChannels.isEmpty(), "Scaled writer exchange must not have partition channels");
         }
-        else if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.getCatalogHandle().isPresent()) {
+        else if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.getCatalogHandle().isPresent() ||
+                (partitioning.getConnectorHandle() instanceof MergePartitioningHandle)) {
             // partitioned exchange
             bufferCount = defaultConcurrency;
         }

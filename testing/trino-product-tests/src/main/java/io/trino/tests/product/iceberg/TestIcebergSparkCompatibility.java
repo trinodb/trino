@@ -62,6 +62,7 @@ import static io.trino.tests.product.iceberg.TestIcebergSparkCompatibility.Creat
 import static io.trino.tests.product.iceberg.TestIcebergSparkCompatibility.CreateMode.CREATE_TABLE_AS_SELECT;
 import static io.trino.tests.product.iceberg.TestIcebergSparkCompatibility.CreateMode.CREATE_TABLE_WITH_NO_DATA_AND_INSERT;
 import static io.trino.tests.product.iceberg.TestIcebergSparkCompatibility.StorageFormat.AVRO;
+import static io.trino.tests.product.iceberg.util.IcebergTestUtils.getTableLocation;
 import static io.trino.tests.product.utils.QueryExecutors.onSpark;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -875,7 +876,7 @@ public class TestIcebergSparkCompatibility
 
         QueryResult queryResult = onTrino().executeQuery(format("SELECT file_path FROM %s", trinoTableName("\"" + baseTableName + "$files\"")));
         assertThat(queryResult).hasRowsCount(1).hasColumnsCount(1);
-        assertTrue(((String) queryResult.row(0).get(0)).contains(dataPath));
+        assertTrue(((String) queryResult.getOnlyValue()).contains(dataPath));
 
         // TODO: support path override in Iceberg table creation: https://github.com/trinodb/trino/issues/8861
         assertQueryFailure(() -> onTrino().executeQuery("DROP TABLE " + trinoTableName))
@@ -904,7 +905,7 @@ public class TestIcebergSparkCompatibility
 
         QueryResult queryResult = onTrino().executeQuery(format("SELECT file_path FROM %s", trinoTableName("\"" + baseTableName + "$files\"")));
         assertThat(queryResult).hasRowsCount(1).hasColumnsCount(1);
-        assertTrue(((String) queryResult.row(0).get(0)).contains(dataPath));
+        assertTrue(((String) queryResult.getOnlyValue()).contains(dataPath));
 
         assertQueryFailure(() -> onTrino().executeQuery("DROP TABLE " + trinoTableName))
                 .hasMessageContaining("contains Iceberg path override properties and cannot be dropped from Trino");
@@ -1999,6 +2000,25 @@ public class TestIcebergSparkCompatibility
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testAddNotNullColumn()
+    {
+        String baseTableName = "test_add_not_null_column_" + randomTableSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onTrino().executeQuery("CREATE TABLE " + trinoTableName + " AS SELECT 1 col");
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(row(1));
+
+        assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + trinoTableName + " ADD COLUMN new_col INT NOT NULL"))
+                .hasMessageMatching(".*This connector does not support adding not null columns");
+        assertQueryFailure(() -> onSpark().executeQuery("ALTER TABLE " + sparkTableName + " ADD COLUMN new_col INT NOT NULL"))
+                .hasMessageMatching("(?s).*Unsupported table change: Incompatible change: cannot add required column.*");
+
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(row(1));
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
     public void testHandlingPartitionSchemaEvolutionInPartitionMetadata()
     {
         String baseTableName = "test_handling_partition_schema_evolution_" + randomTableSuffix();
@@ -2087,6 +2107,40 @@ public class TestIcebergSparkCompatibility
                 ImmutableMap.of("old_partition_key", "3", "new_partition_key", "null", "value_day", "null", "value_month", "null")));
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testMetadataCompressionCodecGzip()
+    {
+        // Verify that Trino can read and write to a table created by Spark
+        String baseTableName = "test_metadata_compression_codec_gzip" + randomTableSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onSpark().executeQuery("CREATE TABLE " + sparkTableName + "(col int) USING iceberg TBLPROPERTIES ('write.metadata.compression-codec'='gzip')");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (1)");
+        onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES (2)");
+
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(row(1), row(2));
+
+        // Verify that all metadata file is compressed as Gzip
+        String tableLocation = getTableLocation(trinoTableName);
+        List<String> metadataFiles = hdfsClient.listDirectory(tableLocation + "/metadata").stream()
+                .filter(file -> file.endsWith("metadata.json"))
+                .collect(toImmutableList());
+        Assertions.assertThat(metadataFiles)
+                .isNotEmpty()
+                .filteredOn(file -> file.endsWith("gz.metadata.json"))
+                .isEqualTo(metadataFiles);
+
+        // Change 'write.metadata.compression-codec' to none and insert and select the table in Trino
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " SET TBLPROPERTIES ('write.metadata.compression-codec'='none')");
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(row(1), row(2));
+
+        onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES (3)");
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(row(1), row(2), row(3));
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
+    }
+
     private void validatePartitioning(String baseTableName, String sparkTableName, List<Map<String, String>> expectedValues)
     {
         List<String> trinoResult = expectedValues.stream().map(m ->
@@ -2110,9 +2164,28 @@ public class TestIcebergSparkCompatibility
         Assertions.assertThat(partitions).containsAll(sparkResult);
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testTrinoAnalyze()
+    {
+        String baseTableName = "test_trino_analyze_" + randomTableSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
+        onTrino().executeQuery("CREATE TABLE " + trinoTableName + " AS SELECT regionkey, name FROM tpch.tiny.region");
+        onTrino().executeQuery("SET SESSION " + TRINO_CATALOG + ".experimental_extended_statistics_enabled = true");
+        onTrino().executeQuery("ANALYZE " + trinoTableName);
+
+        // We're not verifying results of ANALYZE (covered by non-product tests), but we're verifying table is readable.
+        List<Row> expected = List.of(row(0, "AFRICA"), row(1, "AMERICA"), row(2, "ASIA"), row(3, "EUROPE"), row(4, "MIDDLE EAST"));
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(expected);
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(expected);
+
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
+    }
+
     private int calculateMetadataFilesForPartitionedTable(String tableName)
     {
-        String dataFilePath = onTrino().executeQuery(format("SELECT file_path FROM iceberg.default.\"%s$files\" limit 1", tableName)).row(0).get(0).toString();
+        String dataFilePath = (String) onTrino().executeQuery(format("SELECT file_path FROM iceberg.default.\"%s$files\" limit 1", tableName)).getOnlyValue();
         String partitionPath = dataFilePath.substring(0, dataFilePath.lastIndexOf("/"));
         String dataFolderPath = partitionPath.substring(0, partitionPath.lastIndexOf("/"));
         String tableFolderPath = dataFolderPath.substring(0, dataFolderPath.lastIndexOf("/"));

@@ -2,6 +2,8 @@
 Resource management properties
 ==============================
 
+.. _prop-resource-query-max-cpu-time:
+
 ``query.max-cpu-time``
 ^^^^^^^^^^^^^^^^^^^^^^
 
@@ -10,6 +12,8 @@ Resource management properties
 
 This is the max amount of CPU time that a query can use across the entire
 cluster. Queries that exceed this limit are killed.
+
+.. _prop-resource-query-max-memory-per-node:
 
 ``query.max-memory-per-node``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -24,9 +28,17 @@ by the hash tables built during execution, memory used during sorting, etc.
 When the user memory allocation of a query on any worker hits this limit,
 it is killed.
 
+.. warning::
+
+   The sum of :ref:`prop-resource-query-max-memory-per-node` and
+   :ref:`prop-resource-memory-heap-headroom-per-node` must be less than the
+   maximum heap size in the JVM on the node. See :ref:`jvm_config`.
+
 .. note::
 
     Does not apply for queries with task level retries enabled (``retry-policy=TASK``)
+
+.. _prop-resource-query-max-memory:
 
 ``query.max-memory``
 ^^^^^^^^^^^^^^^^^^^^
@@ -41,9 +53,16 @@ by the hash tables built during execution, memory used during sorting, etc.
 When the user memory allocation of a query across all workers hits this limit
 it is killed.
 
+.. warning::
+
+   :ref:`prop-resource-query-max-total-memory` must be greater than
+   :ref:`prop-resource-query-max-memory`.
+
 .. note::
 
     Does not apply for queries with task level retries enabled (``retry-policy=TASK``)
+
+.. _prop-resource-query-max-total-memory:
 
 ``query.max-total-memory``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -56,9 +75,16 @@ including revocable memory. When the memory allocated by a query across all
 workers hits this limit it is killed. The value of ``query.max-total-memory``
 must be greater than ``query.max-memory``.
 
+.. warning::
+
+   :ref:`prop-resource-query-max-total-memory` must be greater than
+   :ref:`prop-resource-query-max-memory`.
+
 .. note::
 
     Does not apply for queries with task level retries enabled (``retry-policy=TASK``)
+
+.. _prop-resource-memory-heap-headroom-per-node:
 
 ``memory.heap-headroom-per-node``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -68,6 +94,14 @@ must be greater than ``query.max-memory``.
 
 This is the amount of memory set aside as headroom/buffer in the JVM heap
 for allocations that are not tracked by Trino.
+
+.. warning::
+
+   The sum of :ref:`prop-resource-query-max-memory-per-node` and
+   :ref:`prop-resource-memory-heap-headroom-per-node` must be less than the
+   maximum heap size in the JVM on the node. See :ref:`jvm_config`.
+
+.. _prop-resource-exchange-deduplication-buffer-size:
 
 ``exchange.deduplication-buffer-size``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

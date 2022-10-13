@@ -63,24 +63,35 @@ public class TestKuduConnectorTest
         }
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_TOPN_PUSHDOWN:
+                return false;
+
+            case SUPPORTS_RENAME_SCHEMA:
+                return false;
+
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
+                return false;
+
+            case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_COMMENT_ON_COLUMN:
+                return false;
+
+            case SUPPORTS_NOT_NULL_CONSTRAINT:
+                return false;
+
             case SUPPORTS_DELETE:
             case SUPPORTS_MERGE:
                 return true;
-            case SUPPORTS_RENAME_SCHEMA:
-            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
-            case SUPPORTS_COMMENT_ON_TABLE:
-            case SUPPORTS_COMMENT_ON_COLUMN:
-            case SUPPORTS_ARRAY:
-            case SUPPORTS_NOT_NULL_CONSTRAINT:
-            case SUPPORTS_TOPN_PUSHDOWN:
-            case SUPPORTS_NEGATIVE_DATE:
-                return false;
 
+            case SUPPORTS_ARRAY:
             case SUPPORTS_ROW_TYPE:
+            case SUPPORTS_NEGATIVE_DATE:
                 return false;
 
             default:
@@ -441,11 +452,11 @@ public class TestKuduConnectorTest
     {
         // Overridden because DDL in base class can't create Kudu table due to lack of primary key and required table properties
         String tableName = "test_long_column" + randomTableSuffix();
-        String basColumnName = "col";
+        String baseColumnName = "col";
 
         int maxLength = maxColumnNameLength().orElseThrow();
 
-        String validColumnName = basColumnName + "z".repeat(maxLength - basColumnName.length());
+        String validColumnName = baseColumnName + "z".repeat(maxLength - baseColumnName.length());
         assertUpdate("CREATE TABLE " + tableName + " (" +
                 "id INT WITH (primary_key=true)," +
                 validColumnName + " bigint)" +
@@ -517,6 +528,19 @@ public class TestKuduConnectorTest
         assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar COMMENT 'test new column comment'");
         assertThat(getColumnComment(tableName, "b_varchar")).isEqualTo("test new column comment");
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Override
+    public void testAddColumnWithCommentSpecialCharacter(String comment)
+    {
+        // Override because Kudu connector doesn't support creating a new table without partition columns
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_add_col_",
+                "(id INT WITH (primary_key=true), a_varchar varchar) WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN b_varchar varchar COMMENT " + varcharLiteral(comment));
+            assertEquals(getColumnComment(table.getName(), "b_varchar"), comment);
+        }
     }
 
     @Test

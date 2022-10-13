@@ -22,6 +22,7 @@ import io.airlift.units.Duration;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveBasicStatistics;
+import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionNotFoundException;
@@ -45,7 +46,6 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.RoleGrant;
-import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.LockComponentBuilder;
@@ -139,11 +139,9 @@ public class ThriftHiveMetastore
 
     private static final String DEFAULT_METASTORE_USER = "presto";
 
-    private final HdfsContext hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER));
-
     private final Optional<ConnectorIdentity> identity;
     private final HdfsEnvironment hdfsEnvironment;
-    private final TokenDelegationThriftMetastoreFactory metastoreFactory;
+    private final IdentityAwareMetastoreClientFactory metastoreClientFactory;
     private final double backoffScaleFactor;
     private final Duration minBackoffDelay;
     private final Duration maxBackoffDelay;
@@ -158,7 +156,7 @@ public class ThriftHiveMetastore
     public ThriftHiveMetastore(
             Optional<ConnectorIdentity> identity,
             HdfsEnvironment hdfsEnvironment,
-            TokenDelegationThriftMetastoreFactory metastoreFactory,
+            IdentityAwareMetastoreClientFactory metastoreClientFactory,
             double backoffScaleFactor,
             Duration minBackoffDelay,
             Duration maxBackoffDelay,
@@ -172,7 +170,7 @@ public class ThriftHiveMetastore
     {
         this.identity = requireNonNull(identity, "identity is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
+        this.metastoreClientFactory = requireNonNull(metastoreClientFactory, "metastoreClientFactory is null");
         this.backoffScaleFactor = backoffScaleFactor;
         this.minBackoffDelay = requireNonNull(minBackoffDelay, "minBackoffDelay is null");
         this.maxBackoffDelay = requireNonNull(maxBackoffDelay, "maxBackoffDelay is null");
@@ -308,7 +306,7 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public Set<ColumnStatisticType> getSupportedColumnStatistics(Type type)
+    public Set<HiveColumnStatisticType> getSupportedColumnStatistics(Type type)
     {
         return ThriftMetastoreUtil.getSupportedColumnStatistics(type);
     }
@@ -955,7 +953,7 @@ public class ThriftHiveMetastore
                             client.dropTable(databaseName, tableName, deleteData);
                             String tableLocation = table.getSd().getLocation();
                             if (deleteFilesOnDrop && deleteData && isManagedTable(table) && !isNullOrEmpty(tableLocation)) {
-                                deleteDirRecursive(hdfsContext, hdfsEnvironment, new Path(tableLocation));
+                                deleteDirRecursive(new Path(tableLocation));
                             }
                         }
                         return null;
@@ -972,9 +970,11 @@ public class ThriftHiveMetastore
         }
     }
 
-    private static void deleteDirRecursive(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
+    private void deleteDirRecursive(Path path)
     {
         try {
+            HdfsContext context = new HdfsContext(identity.orElseGet(() ->
+                    ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER)));
             hdfsEnvironment.getFileSystem(context, path).delete(path, true);
         }
         catch (IOException | RuntimeException e) {
@@ -1139,7 +1139,12 @@ public class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("dropPartition", stats.getDropPartition().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient()) {
+                            Partition partition = client.getPartition(databaseName, tableName, parts);
                             client.dropPartition(databaseName, tableName, parts, deleteData);
+                            String partitionLocation = partition.getSd().getLocation();
+                            if (deleteFilesOnDrop && deleteData && !isNullOrEmpty(partitionLocation) && isManagedTable(client.getTable(databaseName, tableName))) {
+                                deleteDirRecursive(new Path(partitionLocation));
+                            }
                         }
                         return null;
                     }));
@@ -1670,7 +1675,7 @@ public class ThriftHiveMetastore
 
         builder.setDbName(table.getSchemaName());
         builder.setTableName(table.getTableName());
-        requireNonNull(partitionName, "partitionName is null").ifPresent(builder::setPartitionName);
+        partitionName.ifPresent(builder::setPartitionName);
 
         // acquire locks is called only for TransactionalTable
         builder.setIsTransactional(true);
@@ -1848,7 +1853,7 @@ public class ThriftHiveMetastore
     private ThriftMetastoreClient createMetastoreClient()
             throws TException
     {
-        return metastoreFactory.createMetastoreClient(identity);
+        return metastoreClientFactory.createMetastoreClientFor(identity);
     }
 
     private RetryDriver retry()

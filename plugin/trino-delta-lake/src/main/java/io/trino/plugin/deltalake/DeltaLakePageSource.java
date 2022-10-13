@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -63,6 +64,7 @@ public class DeltaLakePageSource
 
     public DeltaLakePageSource(
             List<DeltaLakeColumnHandle> columns,
+            Set<String> missingColumnNames,
             Map<String, Optional<String>> partitionKeys,
             List<String> partitionValues,
             ConnectorPageSource delegate,
@@ -70,7 +72,7 @@ public class DeltaLakePageSource
             long fileSize,
             long fileModifiedTime)
     {
-        int size = requireNonNull(columns, "columns is null").size();
+        int size = columns.size();
         requireNonNull(partitionKeys, "partitionKeys is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
 
@@ -110,6 +112,10 @@ public class DeltaLakePageSource
                 partitionsBlock = Utils.nativeValueToBlock(VARCHAR, wrappedBuffer(PARTITIONS_CODEC.toJsonBytes(partitionValues)));
                 delegateIndexes[outputIndex] = delegateIndex;
                 delegateIndex++;
+            }
+            else if (missingColumnNames.contains(column.getName())) {
+                prefilledBlocks[outputIndex] = Utils.nativeValueToBlock(column.getType(), null);
+                delegateIndexes[outputIndex] = -1;
             }
             else {
                 delegateIndexes[outputIndex] = delegateIndex;
@@ -159,7 +165,7 @@ public class DeltaLakePageSource
             Block[] blocks = new Block[prefilledBlocks.length];
             for (int i = 0; i < prefilledBlocks.length; i++) {
                 if (prefilledBlocks[i] != null) {
-                    blocks[i] = new RunLengthEncodedBlock(prefilledBlocks[i], batchSize);
+                    blocks[i] = RunLengthEncodedBlock.create(prefilledBlocks[i], batchSize);
                 }
                 else if (i == rowIdIndex) {
                     blocks[i] = createRowIdBlock(dataPage.getBlock(delegateIndexes[i]));
@@ -181,9 +187,9 @@ public class DeltaLakePageSource
     {
         int positions = rowIndexBlock.getPositionCount();
         Block[] fields = {
-                new RunLengthEncodedBlock(pathBlock, positions),
+                RunLengthEncodedBlock.create(pathBlock, positions),
                 rowIndexBlock,
-                new RunLengthEncodedBlock(partitionsBlock, positions),
+                RunLengthEncodedBlock.create(partitionsBlock, positions),
         };
         return RowBlock.fromFieldBlocks(positions, Optional.empty(), fields);
     }

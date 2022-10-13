@@ -337,7 +337,7 @@ public class TestTableScanRedirectionWithPushdown
                                 new ColumnMetadata(SOURCE_COLUMN_NAME_C, VARCHAR),
                                 new ColumnMetadata(SOURCE_COLUMN_NAME_D, ROW_TYPE));
                     }
-                    else if (name.equals(DESTINATION_TABLE)) {
+                    if (name.equals(DESTINATION_TABLE)) {
                         return ImmutableList.of(
                                 new ColumnMetadata(DESTINATION_COLUMN_NAME_A, INTEGER),
                                 new ColumnMetadata(DESTINATION_COLUMN_NAME_B, INTEGER),

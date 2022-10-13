@@ -40,6 +40,7 @@ import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
+import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ChildReplacer;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
@@ -780,9 +781,7 @@ public class AddExchanges
 
                 return planReplicatedJoin(node, left);
             }
-            else {
-                return planPartitionedJoin(node, leftSymbols, rightSymbols);
-            }
+            return planPartitionedJoin(node, leftSymbols, rightSymbols);
         }
 
         private PlanWithProperties planPartitionedJoin(JoinNode node, List<Symbol> leftSymbols, List<Symbol> rightSymbols)
@@ -1272,19 +1271,17 @@ public class AddExchanges
                 // instead of "arbitraryPartition".
                 return new PlanWithProperties(node.replaceChildren(partitionedChildren));
             }
-            else {
-                // Trino currently cannot execute stage that has multiple table scans, so in that case
-                // we have to insert REMOTE exchange with FIXED_ARBITRARY_DISTRIBUTION instead of local exchange
-                return new PlanWithProperties(
-                        new ExchangeNode(
-                                idAllocator.getNextId(),
-                                REPARTITION,
-                                REMOTE,
-                                new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
-                                partitionedChildren,
-                                partitionedOutputLayouts,
-                                Optional.empty()));
-            }
+            // Trino currently cannot execute stage that has multiple table scans, so in that case
+            // we have to insert REMOTE exchange with FIXED_ARBITRARY_DISTRIBUTION instead of local exchange
+            return new PlanWithProperties(
+                    new ExchangeNode(
+                            idAllocator.getNextId(),
+                            REPARTITION,
+                            REMOTE,
+                            new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
+                            partitionedChildren,
+                            partitionedOutputLayouts,
+                            Optional.empty()));
         }
 
         @Override
@@ -1309,6 +1306,14 @@ public class AddExchanges
             return withDerivedProperties(
                     ChildReplacer.replaceChildren(node, ImmutableList.of(child.getNode())),
                     child.getProperties());
+        }
+
+        @Override
+        public PlanWithProperties visitAssignUniqueId(AssignUniqueId node, PreferredProperties preferredProperties)
+        {
+            PreferredProperties translatedPreferred = preferredProperties.translate(symbol -> node.getIdColumn().equals(symbol) ? Optional.empty() : Optional.of(symbol));
+
+            return rebaseAndDeriveProperties(node, planChild(node, translatedPreferred));
         }
 
         private PlanWithProperties rebaseAndDeriveProperties(PlanNode node, List<PlanWithProperties> children)

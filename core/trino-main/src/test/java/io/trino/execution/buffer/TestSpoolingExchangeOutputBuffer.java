@@ -38,7 +38,6 @@ import static io.trino.execution.buffer.BufferState.FAILED;
 import static io.trino.execution.buffer.BufferState.FINISHED;
 import static io.trino.execution.buffer.BufferState.FLUSHING;
 import static io.trino.execution.buffer.BufferState.NO_MORE_BUFFERS;
-import static io.trino.execution.buffer.OutputBuffers.createSpoolingExchangeOutputBuffers;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -50,7 +49,7 @@ public class TestSpoolingExchangeOutputBuffer
     public void testIsFull()
     {
         TestingExchangeSink exchangeSink = new TestingExchangeSink();
-        OutputBuffer outputBuffer = createSpoolingExchangeOutputBuffer(exchangeSink);
+        OutputBuffer outputBuffer = createSpoolingExchangeOutputBuffer(exchangeSink, 2);
         assertEquals(outputBuffer.getState(), NO_MORE_BUFFERS);
         assertNotBlocked(outputBuffer.isFull());
 
@@ -71,7 +70,7 @@ public class TestSpoolingExchangeOutputBuffer
         CompletableFuture<Void> finish = new CompletableFuture<>();
         exchangeSink.setFinish(finish);
 
-        OutputBuffer outputBuffer = createSpoolingExchangeOutputBuffer(exchangeSink);
+        OutputBuffer outputBuffer = createSpoolingExchangeOutputBuffer(exchangeSink, 2);
         assertEquals(outputBuffer.getState(), NO_MORE_BUFFERS);
 
         outputBuffer.setNoMorePages();
@@ -90,7 +89,7 @@ public class TestSpoolingExchangeOutputBuffer
         CompletableFuture<Void> finish = new CompletableFuture<>();
         exchangeSink.setFinish(finish);
 
-        OutputBuffer outputBuffer = createSpoolingExchangeOutputBuffer(exchangeSink);
+        OutputBuffer outputBuffer = createSpoolingExchangeOutputBuffer(exchangeSink, 2);
         assertEquals(outputBuffer.getState(), NO_MORE_BUFFERS);
 
         outputBuffer.setNoMorePages();
@@ -111,7 +110,7 @@ public class TestSpoolingExchangeOutputBuffer
         CompletableFuture<Void> finish = new CompletableFuture<>();
         exchangeSink.setFinish(finish);
 
-        OutputBuffer outputBuffer = createSpoolingExchangeOutputBuffer(exchangeSink);
+        OutputBuffer outputBuffer = createSpoolingExchangeOutputBuffer(exchangeSink, 2);
         assertEquals(outputBuffer.getState(), NO_MORE_BUFFERS);
 
         outputBuffer.setNoMorePages();
@@ -133,7 +132,7 @@ public class TestSpoolingExchangeOutputBuffer
         CompletableFuture<Void> finish = new CompletableFuture<>();
         exchangeSink.setFinish(finish);
 
-        OutputBuffer outputBuffer = createSpoolingExchangeOutputBuffer(exchangeSink);
+        OutputBuffer outputBuffer = createSpoolingExchangeOutputBuffer(exchangeSink, 2);
         assertEquals(outputBuffer.getState(), NO_MORE_BUFFERS);
 
         outputBuffer.setNoMorePages();
@@ -151,7 +150,7 @@ public class TestSpoolingExchangeOutputBuffer
     {
         TestingExchangeSink exchangeSink = new TestingExchangeSink();
 
-        OutputBuffer outputBuffer = createSpoolingExchangeOutputBuffer(exchangeSink);
+        OutputBuffer outputBuffer = createSpoolingExchangeOutputBuffer(exchangeSink, 2);
         assertEquals(outputBuffer.getState(), NO_MORE_BUFFERS);
 
         outputBuffer.abort();
@@ -169,7 +168,7 @@ public class TestSpoolingExchangeOutputBuffer
         CompletableFuture<Void> abort = new CompletableFuture<>();
         exchangeSink.setAbort(abort);
 
-        OutputBuffer outputBuffer = createSpoolingExchangeOutputBuffer(exchangeSink);
+        OutputBuffer outputBuffer = createSpoolingExchangeOutputBuffer(exchangeSink, 2);
         assertEquals(outputBuffer.getState(), NO_MORE_BUFFERS);
 
         outputBuffer.setNoMorePages();
@@ -195,7 +194,7 @@ public class TestSpoolingExchangeOutputBuffer
         CompletableFuture<Void> abort = new CompletableFuture<>();
         exchangeSink.setAbort(abort);
 
-        OutputBuffer outputBuffer = createSpoolingExchangeOutputBuffer(exchangeSink);
+        OutputBuffer outputBuffer = createSpoolingExchangeOutputBuffer(exchangeSink, 2);
         assertEquals(outputBuffer.getState(), NO_MORE_BUFFERS);
 
         outputBuffer.setNoMorePages();
@@ -222,7 +221,7 @@ public class TestSpoolingExchangeOutputBuffer
         CompletableFuture<Void> finish = new CompletableFuture<>();
         exchangeSink.setFinish(finish);
 
-        OutputBuffer outputBuffer = createSpoolingExchangeOutputBuffer(exchangeSink);
+        OutputBuffer outputBuffer = createSpoolingExchangeOutputBuffer(exchangeSink, 2);
         assertEquals(outputBuffer.getState(), NO_MORE_BUFFERS);
 
         outputBuffer.enqueue(0, ImmutableList.of(utf8Slice("page1")));
@@ -255,7 +254,7 @@ public class TestSpoolingExchangeOutputBuffer
         CompletableFuture<Void> abort = new CompletableFuture<>();
         exchangeSink.setAbort(abort);
 
-        OutputBuffer outputBuffer = createSpoolingExchangeOutputBuffer(exchangeSink);
+        OutputBuffer outputBuffer = createSpoolingExchangeOutputBuffer(exchangeSink, 2);
         assertEquals(outputBuffer.getState(), NO_MORE_BUFFERS);
 
         outputBuffer.enqueue(0, ImmutableList.of(utf8Slice("page1")));
@@ -281,11 +280,11 @@ public class TestSpoolingExchangeOutputBuffer
         assertEquals(exchangeSink.getDataBuffer(), expectedDataBufferState);
     }
 
-    private static SpoolingExchangeOutputBuffer createSpoolingExchangeOutputBuffer(ExchangeSink exchangeSink)
+    private static SpoolingExchangeOutputBuffer createSpoolingExchangeOutputBuffer(ExchangeSink exchangeSink, int outputPartitionCount)
     {
         return new SpoolingExchangeOutputBuffer(
                 new OutputBufferStateMachine(new TaskId(new StageId(new QueryId("query"), 0), 0, 0), directExecutor()),
-                createSpoolingExchangeOutputBuffers(TestingExchangeSinkInstanceHandle.INSTANCE),
+                SpoolingOutputBuffers.createInitial(TestingExchangeSinkInstanceHandle.INSTANCE, outputPartitionCount),
                 exchangeSink,
                 TestingLocalMemoryContext::new);
     }
@@ -310,6 +309,18 @@ public class TestSpoolingExchangeOutputBuffer
 
         private boolean finishCalled;
         private boolean abortCalled;
+
+        @Override
+        public boolean isHandleUpdateRequired()
+        {
+            return false;
+        }
+
+        @Override
+        public void updateHandle(ExchangeSinkInstanceHandle handle)
+        {
+            throw new UnsupportedOperationException();
+        }
 
         @Override
         public CompletableFuture<Void> isBlocked()

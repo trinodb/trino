@@ -62,7 +62,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.Decimals.encodeShortScaledValue;
 import static io.trino.spi.type.Decimals.isLongDecimal;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.LongTimestampWithTimeZone.fromEpochMillisAndFraction;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
@@ -170,9 +169,8 @@ public class BigQueryStoragePageSource
                 else if (type.equals(INTEGER)) {
                     type.writeLong(output, ((Number) value).intValue());
                 }
-                else if (type instanceof DecimalType) {
-                    verify(isShortDecimal(type), "The type should be short decimal");
-                    DecimalType decimalType = (DecimalType) type;
+                else if (type instanceof DecimalType decimalType) {
+                    verify(decimalType.isShort(), "The type should be short decimal");
                     BigDecimal decimal = DECIMAL_CONVERTER.convert(decimalType.getPrecision(), decimalType.getScale(), value);
                     type.writeLong(output, encodeShortScaledValue(decimal, decimalType.getScale()));
                 }
@@ -282,6 +280,10 @@ public class BigQueryStoragePageSource
     @Override
     public long getMemoryUsage()
     {
+        if (split.getDataSize().isPresent()) {
+            return split.getDataSize().getAsInt() + pageBuilder.getSizeInBytes();
+        }
+
         return 0;
     }
 

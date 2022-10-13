@@ -158,7 +158,7 @@ public class DeltaLakeUpdatablePageSource
 
         List<DeltaLakeColumnMetadata> columnMetadata = extractSchema(tableHandle.getMetadataEntry(), typeManager);
         List<DeltaLakeColumnHandle> allColumns = columnMetadata.stream()
-                .map(metadata -> new DeltaLakeColumnHandle(metadata.getName(), metadata.getType(), metadata.getPhysicalName(), metadata.getPhysicalColumnType(), partitionKeys.containsKey(metadata.getName()) ? PARTITION_KEY : REGULAR))
+                .map(metadata -> new DeltaLakeColumnHandle(metadata.getName(), metadata.getType(), metadata.getFieldId(), metadata.getPhysicalName(), metadata.getPhysicalColumnType(), partitionKeys.containsKey(metadata.getName()) ? PARTITION_KEY : REGULAR))
                 .collect(toImmutableList());
         this.allDataColumns = allColumns.stream()
                 .filter(columnHandle -> columnHandle.getColumnType() == REGULAR)
@@ -224,6 +224,7 @@ public class DeltaLakeUpdatablePageSource
 
         this.pageSourceDelegate = new DeltaLakePageSource(
                 delegatedColumns,
+                ImmutableSet.of(),
                 partitionKeys,
                 ImmutableList.of(),
                 parquetPageSource.get(),
@@ -327,7 +328,7 @@ public class DeltaLakeUpdatablePageSource
      */
     private static DeltaLakeColumnHandle rowIndexColumn()
     {
-        return new DeltaLakeColumnHandle("$delta$dummy_row_index", BIGINT, "$delta$dummy_row_index", BIGINT, DeltaLakeColumnType.SYNTHESIZED)
+        return new DeltaLakeColumnHandle("$delta$dummy_row_index", BIGINT, OptionalInt.empty(), "$delta$dummy_row_index", BIGINT, DeltaLakeColumnType.SYNTHESIZED)
         {
             @Override
             public HiveColumnHandle toHiveColumnHandle()
@@ -578,7 +579,8 @@ public class DeltaLakeUpdatablePageSource
                 parquetDateTimeZone,
                 new FileFormatDataSourceStats(),
                 parquetReaderOptions.withMaxReadBlockSize(getParquetMaxReadBlockSize(this.session))
-                        .withUseColumnIndex(isParquetUseColumnIndex(this.session)));
+                        .withUseColumnIndex(isParquetUseColumnIndex(this.session)),
+                Optional.empty());
     }
 
     private DeltaLakeWriter createWriter(Path targetFile, List<DeltaLakeColumnMetadata> allColumns, List<DeltaLakeColumnHandle> dataColumns)
@@ -627,7 +629,7 @@ public class DeltaLakeUpdatablePageSource
             partitionValues[i] = nativeValueToBlock(
                     columnMetadata.getType(),
                     deserializePartitionValue(
-                            new DeltaLakeColumnHandle(columnMetadata.getName(), columnMetadata.getType(), columnMetadata.getPhysicalName(), columnMetadata.getPhysicalColumnType(), PARTITION_KEY),
+                            new DeltaLakeColumnHandle(columnMetadata.getName(), columnMetadata.getType(), OptionalInt.empty(), columnMetadata.getPhysicalName(), columnMetadata.getPhysicalColumnType(), PARTITION_KEY),
                             partitionKeys.get(columnMetadata.getName())));
         }
         return createPartitionValues(

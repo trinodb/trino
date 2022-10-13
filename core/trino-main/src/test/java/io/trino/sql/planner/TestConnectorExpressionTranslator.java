@@ -68,7 +68,7 @@ import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.IS_NULL_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
-import static io.trino.spi.expression.StandardFunctions.LIKE_PATTERN_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NEGATE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NOT_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NULLIF_FUNCTION_NAME;
@@ -343,7 +343,7 @@ public class TestConnectorExpressionTranslator
                         new StringLiteral(pattern),
                         Optional.empty()),
                 new Call(BOOLEAN,
-                        LIKE_PATTERN_FUNCTION_NAME,
+                        LIKE_FUNCTION_NAME,
                         List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE),
                                 new Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length())))));
 
@@ -354,7 +354,7 @@ public class TestConnectorExpressionTranslator
                         new StringLiteral(pattern),
                         Optional.of(new StringLiteral(escape))),
                 new Call(BOOLEAN,
-                        LIKE_PATTERN_FUNCTION_NAME,
+                        LIKE_FUNCTION_NAME,
                         List.of(
                                 new Variable("varchar_symbol_1", VARCHAR_TYPE),
                                 new Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length())),
@@ -470,7 +470,7 @@ public class TestConnectorExpressionTranslator
 
     private void assertTranslationToConnectorExpression(Session session, Expression expression, Optional<ConnectorExpression> connectorExpression)
     {
-        Optional<ConnectorExpression> translation = translate(session, expression, TYPE_ANALYZER, TYPE_PROVIDER, PLANNER_CONTEXT);
+        Optional<ConnectorExpression> translation = translate(session, expression, TYPE_PROVIDER, PLANNER_CONTEXT, TYPE_ANALYZER);
         assertEquals(connectorExpression.isPresent(), translation.isPresent());
         translation.ifPresent(value -> assertEquals(value, connectorExpression.get()));
     }

@@ -204,6 +204,37 @@ public abstract class BaseTestHiveOnDataLake
         String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
         String partitionColumn = "regionkey";
 
+        testFlushPartitionCache(
+                tableName,
+                fullyQualifiedTestTableName,
+                partitionColumn,
+                format(
+                        "CALL system.flush_metadata_cache(schema_name => '%s', table_name => '%s', partition_columns => ARRAY['%s'], partition_values => ARRAY['0'])",
+                        HIVE_TEST_SCHEMA,
+                        tableName,
+                        partitionColumn));
+    }
+
+    @Test
+    public void testFlushPartitionCacheWithDeprecatedPartitionParams()
+    {
+        String tableName = "nation_" + randomTableSuffix();
+        String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
+        String partitionColumn = "regionkey";
+
+        testFlushPartitionCache(
+                tableName,
+                fullyQualifiedTestTableName,
+                partitionColumn,
+                format(
+                        "CALL system.flush_metadata_cache(schema_name => '%s', table_name => '%s', partition_column => ARRAY['%s'], partition_value => ARRAY['0'])",
+                        HIVE_TEST_SCHEMA,
+                        tableName,
+                        partitionColumn));
+    }
+
+    private void testFlushPartitionCache(String tableName, String fullyQualifiedTestTableName, String partitionColumn, String flushCacheProcedureSql)
+    {
         // Create table with partition on regionkey
         computeActual(getCreateTableStatement(
                 fullyQualifiedTestTableName,
@@ -230,18 +261,23 @@ public abstract class BaseTestHiveOnDataLake
         assertQueryReturnsEmptyResult(queryUsingPartitionCacheForValue1);
         assertQueryReturnsEmptyResult(queryUsingPartitionCacheForValue2);
 
-        // Refresh cache for schema_name => 'dummy_schema', table_name => 'dummy_table', partition_column =>
-        getQueryRunner().execute(format(
-                "CALL system.flush_metadata_cache(schema_name => '%s', table_name => '%s', partition_column => ARRAY['%s'], partition_value => ARRAY['%s'])",
-                HIVE_TEST_SCHEMA,
-                tableName,
-                partitionColumn,
-                partitionValue1));
+        // Refresh cache
+        getQueryRunner().execute(flushCacheProcedureSql);
 
         // Should return expected rows as we refresh cache
         assertQuery(queryUsingPartitionCacheForValue1, expectedQueryResultForValue1);
         // Should return 0 rows as we left cache untouched
         assertQueryReturnsEmptyResult(queryUsingPartitionCacheForValue2);
+
+        // Refresh cache for schema_name => 'dummy_schema', table_name => 'dummy_table'
+        getQueryRunner().execute(format(
+                "CALL system.flush_metadata_cache(schema_name => '%s', table_name => '%s')",
+                HIVE_TEST_SCHEMA,
+                tableName));
+
+        // Should return expected rows for all partitions
+        assertQuery(queryUsingPartitionCacheForValue1, expectedQueryResultForValue1);
+        assertQuery(queryUsingPartitionCacheForValue2, expectedQueryResultForValue2);
 
         computeActual(format("DROP TABLE %s", fullyQualifiedTestTableName));
     }

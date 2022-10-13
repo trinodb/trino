@@ -74,51 +74,47 @@ public final class SingleLevelArraySchemaConverter
                 return Types.primitive(PrimitiveTypeName.BINARY, repetition).as(LogicalTypeAnnotation.stringType())
                         .named(name);
             }
-            else if (typeInfo.equals(TypeInfoFactory.intTypeInfo) ||
+            if (typeInfo.equals(TypeInfoFactory.intTypeInfo) ||
                     typeInfo.equals(TypeInfoFactory.shortTypeInfo) ||
                     typeInfo.equals(TypeInfoFactory.byteTypeInfo)) {
                 return Types.primitive(PrimitiveTypeName.INT32, repetition).named(name);
             }
-            else if (typeInfo.equals(TypeInfoFactory.longTypeInfo)) {
+            if (typeInfo.equals(TypeInfoFactory.longTypeInfo)) {
                 return Types.primitive(PrimitiveTypeName.INT64, repetition).named(name);
             }
-            else if (typeInfo.equals(TypeInfoFactory.doubleTypeInfo)) {
+            if (typeInfo.equals(TypeInfoFactory.doubleTypeInfo)) {
                 return Types.primitive(PrimitiveTypeName.DOUBLE, repetition).named(name);
             }
-            else if (typeInfo.equals(TypeInfoFactory.floatTypeInfo)) {
+            if (typeInfo.equals(TypeInfoFactory.floatTypeInfo)) {
                 return Types.primitive(PrimitiveTypeName.FLOAT, repetition).named(name);
             }
-            else if (typeInfo.equals(TypeInfoFactory.booleanTypeInfo)) {
+            if (typeInfo.equals(TypeInfoFactory.booleanTypeInfo)) {
                 return Types.primitive(PrimitiveTypeName.BOOLEAN, repetition).named(name);
             }
-            else if (typeInfo.equals(TypeInfoFactory.binaryTypeInfo)) {
+            if (typeInfo.equals(TypeInfoFactory.binaryTypeInfo)) {
                 return Types.primitive(PrimitiveTypeName.BINARY, repetition).named(name);
             }
-            else if (typeInfo.equals(TypeInfoFactory.timestampTypeInfo)) {
+            if (typeInfo.equals(TypeInfoFactory.timestampTypeInfo)) {
                 return Types.primitive(PrimitiveTypeName.INT96, repetition).named(name);
             }
-            else if (typeInfo.equals(TypeInfoFactory.voidTypeInfo)) {
+            if (typeInfo.equals(TypeInfoFactory.voidTypeInfo)) {
                 throw new UnsupportedOperationException("Void type not implemented");
             }
-            else if (typeInfo.getTypeName().toLowerCase(Locale.ENGLISH).startsWith(
+            if (typeInfo.getTypeName().toLowerCase(Locale.ENGLISH).startsWith(
                     serdeConstants.CHAR_TYPE_NAME)) {
                 if (repetition == Repetition.OPTIONAL) {
                     return Types.optional(PrimitiveTypeName.BINARY).as(LogicalTypeAnnotation.stringType()).named(name);
                 }
-                else {
-                    return Types.repeated(PrimitiveTypeName.BINARY).as(LogicalTypeAnnotation.stringType()).named(name);
-                }
+                return Types.repeated(PrimitiveTypeName.BINARY).as(LogicalTypeAnnotation.stringType()).named(name);
             }
-            else if (typeInfo.getTypeName().toLowerCase(Locale.ENGLISH).startsWith(
+            if (typeInfo.getTypeName().toLowerCase(Locale.ENGLISH).startsWith(
                     serdeConstants.VARCHAR_TYPE_NAME)) {
                 if (repetition == Repetition.OPTIONAL) {
                     return Types.optional(PrimitiveTypeName.BINARY).as(LogicalTypeAnnotation.stringType()).named(name);
                 }
-                else {
-                    return Types.repeated(PrimitiveTypeName.BINARY).as(LogicalTypeAnnotation.stringType()).named(name);
-                }
+                return Types.repeated(PrimitiveTypeName.BINARY).as(LogicalTypeAnnotation.stringType()).named(name);
             }
-            else if (typeInfo instanceof DecimalTypeInfo) {
+            if (typeInfo instanceof DecimalTypeInfo) {
                 DecimalTypeInfo decimalTypeInfo = (DecimalTypeInfo) typeInfo;
                 int prec = decimalTypeInfo.precision();
                 int scale = decimalTypeInfo.scale();
@@ -126,42 +122,36 @@ public final class SingleLevelArraySchemaConverter
                 if (repetition == Repetition.OPTIONAL) {
                     return Types.optional(PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY).length(bytes).as(LogicalTypeAnnotation.decimalType(scale, prec)).named(name);
                 }
-                else {
-                    return Types.repeated(PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY).length(bytes).as(LogicalTypeAnnotation.decimalType(scale, prec)).named(name);
-                }
+                return Types.repeated(PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY).length(bytes).as(LogicalTypeAnnotation.decimalType(scale, prec)).named(name);
             }
-            else if (typeInfo.equals(TypeInfoFactory.dateTypeInfo)) {
+            if (typeInfo.equals(TypeInfoFactory.dateTypeInfo)) {
                 return Types.primitive(PrimitiveTypeName.INT32, repetition).as(LogicalTypeAnnotation.dateType()).named(name);
             }
-            else if (typeInfo.equals(TypeInfoFactory.unknownTypeInfo)) {
+            if (typeInfo.equals(TypeInfoFactory.unknownTypeInfo)) {
                 throw new UnsupportedOperationException("Unknown type not implemented");
             }
-            else {
-                throw new IllegalArgumentException("Unknown type: " + typeInfo);
-            }
-        }
-        else if (typeInfo.getCategory() == Category.LIST) {
-            return convertArrayType(name, (ListTypeInfo) typeInfo, repetition);
-        }
-        else if (typeInfo.getCategory() == Category.STRUCT) {
-            return convertStructType(name, (StructTypeInfo) typeInfo, repetition);
-        }
-        else if (typeInfo.getCategory() == Category.MAP) {
-            return convertMapType(name, (MapTypeInfo) typeInfo, repetition);
-        }
-        else if (typeInfo.getCategory() == Category.UNION) {
-            throw new UnsupportedOperationException("Union type not implemented");
-        }
-        else {
             throw new IllegalArgumentException("Unknown type: " + typeInfo);
         }
+        if (typeInfo.getCategory() == Category.LIST) {
+            return convertArrayType(name, (ListTypeInfo) typeInfo, repetition);
+        }
+        if (typeInfo.getCategory() == Category.STRUCT) {
+            return convertStructType(name, (StructTypeInfo) typeInfo, repetition);
+        }
+        if (typeInfo.getCategory() == Category.MAP) {
+            return convertMapType(name, (MapTypeInfo) typeInfo, repetition);
+        }
+        if (typeInfo.getCategory() == Category.UNION) {
+            throw new UnsupportedOperationException("Union type not implemented");
+        }
+        throw new IllegalArgumentException("Unknown type: " + typeInfo);
     }
 
     // 1 anonymous element "array_element"
     private static GroupType convertArrayType(String name, ListTypeInfo typeInfo, Repetition repetition)
     {
         TypeInfo subType = typeInfo.getListElementTypeInfo();
-        return listWrapper(name, LogicalTypeAnnotation.listType(), convertType("array", subType, Repetition.REPEATED), repetition);
+        return listWrapper(name, convertType("array", subType, Repetition.REPEATED), repetition);
     }
 
     // An optional group containing multiple elements
@@ -183,9 +173,8 @@ public final class SingleLevelArraySchemaConverter
         return ConversionPatterns.mapType(repetition, name, keyType, valueType);
     }
 
-    private static GroupType listWrapper(String name, LogicalTypeAnnotation logicalType,
-            Type elementType, Repetition repetition)
+    private static GroupType listWrapper(String name, Type elementType, Repetition repetition)
     {
-        return Types.buildGroup(repetition).as(logicalType).addField(elementType).named(name);
+        return Types.buildGroup(repetition).as(LogicalTypeAnnotation.listType()).addField(elementType).named(name);
     }
 }

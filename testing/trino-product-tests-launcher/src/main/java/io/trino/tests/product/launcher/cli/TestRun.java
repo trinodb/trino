@@ -54,6 +54,8 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.server.PluginReader.CONNECTOR;
+import static io.trino.server.PluginReader.PASSWORD_AUTHENTICATOR;
 import static io.trino.tests.product.launcher.cli.Commands.runCommand;
 import static io.trino.tests.product.launcher.env.DockerContainer.cleanOrCreateHostPath;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
@@ -95,7 +97,7 @@ public final class TestRun
 
     public TestRun(Extensions extensions)
     {
-        this.additionalEnvironments = requireNonNull(extensions, "extensions is null").getAdditionalEnvironments();
+        this.additionalEnvironments = extensions.getAdditionalEnvironments();
     }
 
     @Override
@@ -186,7 +188,7 @@ public final class TestRun
             this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
             requireNonNull(environmentOptions, "environmentOptions is null");
             this.debug = environmentOptions.debug;
-            this.debugSuspend = requireNonNull(testRunOptions, "testRunOptions is null").debugSuspend;
+            this.debugSuspend = testRunOptions.debugSuspend;
             this.jdkVersion = requireNonNull(environmentOptions.jdkVersion, "environmentOptions.jdkVersion is null");
             this.testJar = requireNonNull(testRunOptions.testJar, "testRunOptions.testJar is null");
             this.cliJar = requireNonNull(testRunOptions.cliJar, "testRunOptions.cliJar is null");
@@ -275,8 +277,8 @@ public final class TestRun
             }, toList())));
             // see PluginReader. printPluginFeatures() for all possible feature prefixes
             Map<String, Supplier<List<String>>> environmentFeaturesByName = Map.of(
-                    "connector", environment::getConfiguredConnectors,
-                    "passwordAuthenticator", environment::getConfiguredPasswordAuthenticators);
+                    CONNECTOR, environment::getConfiguredConnectors,
+                    PASSWORD_AUTHENTICATOR, environment::getConfiguredPasswordAuthenticators);
             for (Map.Entry<String, List<String>> entry : featuresByName.entrySet()) {
                 String name = entry.getKey();
                 List<String> features = entry.getValue();

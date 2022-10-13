@@ -43,7 +43,6 @@ public class ThriftIndexProvider
         this.client = requireNonNull(client, "client is null");
         this.thriftHeaderProvider = requireNonNull(thriftHeaderProvider, "thriftHeaderProvider is null");
         this.stats = requireNonNull(stats, "stats is null");
-        requireNonNull(config, "config is null");
         this.maxBytesPerResponse = config.getMaxResponseSize().toBytes();
         this.lookupRequestsConcurrency = config.getLookupRequestsConcurrency();
     }

@@ -133,13 +133,13 @@ public class QueryMonitor
         this.operatorStatsCodec = requireNonNull(operatorStatsCodec, "operatorStatsCodec is null");
         this.statsAndCostsCodec = requireNonNull(statsAndCostsCodec, "statsAndCostsCodec is null");
         this.executionFailureInfoCodec = requireNonNull(executionFailureInfoCodec, "executionFailureInfoCodec is null");
-        this.serverVersion = requireNonNull(nodeVersion, "nodeVersion is null").toString();
-        this.serverAddress = requireNonNull(nodeInfo, "nodeInfo is null").getExternalAddress();
-        this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
+        this.serverVersion = nodeVersion.toString();
+        this.serverAddress = nodeInfo.getExternalAddress();
+        this.environment = nodeInfo.getEnvironment();
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
-        this.maxJsonLimit = toIntExact(requireNonNull(config, "config is null").getMaxOutputStageJsonSize().toBytes());
+        this.maxJsonLimit = toIntExact(config.getMaxOutputStageJsonSize().toBytes());
     }
 
     public void queryCreatedEvent(BasicQueryInfo queryInfo)
@@ -559,9 +559,7 @@ public class QueryMonitor
             long waiting = queryStats.getResourceWaitingTime().toMillis();
 
             List<StageInfo> stages = getAllStages(queryInfo.getOutputStage());
-            // long lastSchedulingCompletion = 0;
             long firstTaskStartTime = queryEndTime.getMillis();
-            long lastTaskStartTime = queryStartTime.getMillis() + planning;
             long lastTaskEndTime = queryStartTime.getMillis() + planning;
             for (StageInfo stage : stages) {
                 // only consider leaf stages
@@ -575,11 +573,6 @@ public class QueryMonitor
                     DateTime firstStartTime = taskStats.getFirstStartTime();
                     if (firstStartTime != null) {
                         firstTaskStartTime = Math.min(firstStartTime.getMillis(), firstTaskStartTime);
-                    }
-
-                    DateTime lastStartTime = taskStats.getLastStartTime();
-                    if (lastStartTime != null) {
-                        lastTaskStartTime = max(lastStartTime.getMillis(), lastTaskStartTime);
                     }
 
                     DateTime endTime = taskStats.getEndTime();

@@ -14,7 +14,7 @@ Requirements
 
 To connect to Pinot, you need:
 
-* Pinot 0.9.3 or higher.
+* Pinot 0.10.0 or higher.
 * Network access from the Trino coordinator and workers to the Pinot controller
   nodes. Port 8098 is the default port.
 
@@ -74,6 +74,7 @@ Property name                                             Required   Description
 ``pinot.aggregation-pushdown.enabled``                    No         Push down aggregation queries, default is ``true``.
 ``pinot.count-distinct-pushdown.enabled``                 No         Push down count distinct queries to Pinot, default is ``true``.
 ``pinot.target-segment-page-size``                        No         Max allowed page size for segment query, default is ``1MB``.
+``pinot.proxy.enabled``                                   No         Use Pinot Proxy for controller and broker requests, default is ``false``.
 ========================================================= ========== ==============================================================================
 
 If ``pinot.controller.authentication.type`` is set to ``PASSWORD`` then both ``pinot.controller.authentication.user`` and
@@ -101,6 +102,7 @@ Property name                                             Required   Description
 ``pinot.grpc.tls.truststore-path``                        No         TLS truststore file location for gRPC connection, default is empty.
 ``pinot.grpc.tls.truststore-password``                    No         TLS truststore password, default is empty.
 ``pinot.grpc.tls.ssl-provider``                           No         SSL provider, default is ``JDK``.
+``pinot.grpc.proxy-uri``                                  No         Pinot Rest Proxy gRPC endpoint URI, default is null.
 ========================================================= ========== ==============================================================================
 
 For more Apache Pinot TLS configurations, please also refer to `Configuring TLS/SSL <https://docs.pinot.apache.org/operators/tutorials/configuring-tls-ssl>`_.
@@ -153,29 +155,56 @@ The above query is translated to the following Pinot PQL query::
     WHERE col3 IN('FOO', 'BAR') and col4 > 50
     TOP 30000
 
+.. _pinot-type-mapping:
 
+Type mapping
+------------
 
-Data types
-----------
+Because Trino and Pinot each support types that the other does not, this
+connector :ref:`maps some types <type-mapping-overview>` when reading data.
 
-Pinot does not allow null values in any data type and supports the following primitive types:
+Pinot type to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-==========================   ============
-Pinot                        Trino
-==========================   ============
-``INT``                      ``INTEGER``
-``LONG``                     ``BIGINT``
-``FLOAT``                    ``REAL``
-``DOUBLE``                   ``DOUBLE``
-``STRING``                   ``VARCHAR``
-``BYTES``                    ``VARBINARY``
-``JSON``                     ``JSON``
-``INT_ARRAY``                ``VARCHAR``
-``LONG_ARRAY``               ``VARCHAR``
-``FLOAT_ARRAY``              ``VARCHAR``
-``DOUBLE_ARRAY``             ``VARCHAR``
-``STRING_ARRAY``             ``VARCHAR``
-==========================   ============
+The connector maps Pinot types to the corresponding Trino types
+according to the following table:
+
+.. list-table:: Pinot type to Trino type mapping
+  :widths: 75,60
+  :header-rows: 1
+
+  * - Pinot type
+    - Trino type
+  * - ``INT``
+    - ``INTEGER``
+  * - ``LONG``
+    - ``BIGINT``
+  * - ``FLOAT``
+    - ``REAL``
+  * - ``DOUBLE``
+    - ``DOUBLE``
+  * - ``STRING``
+    - ``VARCHAR``
+  * - ``BYTES``
+    - ``VARBINARY``
+  * - ``JSON``
+    - ``JSON``
+  * - ``TIMESTAMP``
+    - ``TIMESTAMP``
+  * - ``INT_ARRAY``
+    - ``VARCHAR``
+  * - ``LONG_ARRAY``
+    - ``VARCHAR``
+  * - ``FLOAT_ARRAY``
+    - ``VARCHAR``
+  * - ``DOUBLE_ARRAY``
+    - ``VARCHAR``
+  * - ``STRING_ARRAY``
+    - ``VARCHAR``
+
+Pinot does not allow null values in any data type.
+
+No other types are supported.
 
 .. _pinot-sql-support:
 

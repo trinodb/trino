@@ -384,9 +384,7 @@ public class DefaultPageJoiner
         if (joinPosition >= 0) {
             return lookupSourceProvider.withLease(lookupSourceLease -> lookupSourceLease.getLookupSource().joinPositionWithinPartition(joinPosition));
         }
-        else {
-            return -1;
-        }
+        return -1;
     }
 
     private Page buildOutputPage()

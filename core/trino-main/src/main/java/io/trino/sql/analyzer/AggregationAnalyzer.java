@@ -20,7 +20,7 @@ import io.trino.spi.StandardErrorCode;
 import io.trino.sql.planner.ScopeAware;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
-import io.trino.sql.tree.ArrayConstructor;
+import io.trino.sql.tree.Array;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.BetweenPredicate;
@@ -251,7 +251,7 @@ class AggregationAnalyzer
         }
 
         @Override
-        protected Boolean visitArrayConstructor(ArrayConstructor node, Void context)
+        protected Boolean visitArray(Array node, Void context)
         {
             return node.getValues().stream().allMatch(expression -> process(expression, context));
         }

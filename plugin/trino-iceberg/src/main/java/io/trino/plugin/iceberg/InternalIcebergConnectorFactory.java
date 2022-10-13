@@ -36,7 +36,6 @@ import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.azure.HiveAzureModule;
 import io.trino.plugin.hive.gcs.HiveGcsModule;
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.s3.HiveS3Module;
 import io.trino.plugin.iceberg.catalog.IcebergCatalogModule;
 import io.trino.spi.NodeManager;
@@ -73,7 +72,7 @@ public final class InternalIcebergConnectorFactory
             Map<String, String> config,
             ConnectorContext context,
             Module module,
-            Optional<HiveMetastore> metastore,
+            Optional<Module> icebergCatalogModule,
             Optional<TrinoFileSystemFactory> fileSystemFactory)
     {
         ClassLoader classLoader = InternalIcebergConnectorFactory.class.getClassLoader();
@@ -85,7 +84,7 @@ public final class InternalIcebergConnectorFactory
                     new JsonModule(),
                     new IcebergModule(),
                     new IcebergSecurityModule(),
-                    new IcebergCatalogModule(metastore),
+                    icebergCatalogModule.orElse(new IcebergCatalogModule()),
                     new HdfsModule(),
                     new HiveS3Module(),
                     new HiveGcsModule(),
@@ -118,6 +117,7 @@ public final class InternalIcebergConnectorFactory
             Set<SessionPropertiesProvider> sessionPropertiesProviders = injector.getInstance(Key.get(new TypeLiteral<Set<SessionPropertiesProvider>>() {}));
             IcebergTableProperties icebergTableProperties = injector.getInstance(IcebergTableProperties.class);
             IcebergMaterializedViewAdditionalProperties materializedViewAdditionalProperties = injector.getInstance(IcebergMaterializedViewAdditionalProperties.class);
+            IcebergAnalyzeProperties icebergAnalyzeProperties = injector.getInstance(IcebergAnalyzeProperties.class);
             Set<Procedure> procedures = injector.getInstance(Key.get(new TypeLiteral<Set<Procedure>>() {}));
             Set<TableProcedureMetadata> tableProcedures = injector.getInstance(Key.get(new TypeLiteral<Set<TableProcedureMetadata>>() {}));
             Optional<ConnectorAccessControl> accessControl = injector.getInstance(Key.get(new TypeLiteral<Optional<ConnectorAccessControl>>() {}));
@@ -137,6 +137,7 @@ public final class InternalIcebergConnectorFactory
                     IcebergSchemaProperties.SCHEMA_PROPERTIES,
                     icebergTableProperties.getTableProperties(),
                     materializedViewProperties,
+                    icebergAnalyzeProperties.getAnalyzeProperties(),
                     accessControl,
                     procedures,
                     tableProcedures);

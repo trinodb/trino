@@ -165,7 +165,7 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
-    public void addOutputInfoListener(Consumer<QueryOutputInfo> listener)
+    public void setOutputInfoListener(Consumer<QueryOutputInfo> listener)
     {
         // DDL does not have an output
     }

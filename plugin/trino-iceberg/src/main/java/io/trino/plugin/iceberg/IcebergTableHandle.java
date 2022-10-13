@@ -33,6 +33,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class IcebergTableHandle
         implements ConnectorTableHandle
@@ -381,6 +382,17 @@ public class IcebergTableHandle
     @Override
     public String toString()
     {
-        return getSchemaTableNameWithType() + snapshotId.map(v -> "@" + v).orElse("");
+        StringBuilder builder = new StringBuilder(getSchemaTableNameWithType().toString());
+        snapshotId.ifPresent(snapshotId -> builder.append("@").append(snapshotId));
+        if (enforcedPredicate.isNone()) {
+            builder.append(" constraint=FALSE");
+        }
+        else if (!enforcedPredicate.isAll()) {
+            builder.append(" constraint on ");
+            builder.append(enforcedPredicate.getDomains().orElseThrow().keySet().stream()
+                    .map(IcebergColumnHandle::getQualifiedName)
+                    .collect(joining(", ", "[", "]")));
+        }
+        return builder.toString();
     }
 }

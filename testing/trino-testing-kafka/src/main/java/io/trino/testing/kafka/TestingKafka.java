@@ -215,7 +215,7 @@ public final class TestingKafka
 
     public String getConnectString()
     {
-        return kafka.getContainerIpAddress() + ":" + kafka.getMappedPort(KAFKA_PORT);
+        return kafka.getHost() + ":" + kafka.getMappedPort(KAFKA_PORT);
     }
 
     private <K, V> KafkaProducer<K, V> createProducer(Map<String, String> extraProperties)
@@ -242,7 +242,7 @@ public final class TestingKafka
 
     public String getSchemaRegistryConnectString()
     {
-        return "http://" + schemaRegistry.getContainerIpAddress() + ":" + schemaRegistry.getMappedPort(SCHEMA_REGISTRY_PORT);
+        return "http://" + schemaRegistry.getHost() + ":" + schemaRegistry.getMappedPort(SCHEMA_REGISTRY_PORT);
     }
 
     public Network getNetwork()

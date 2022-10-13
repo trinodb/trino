@@ -18,7 +18,7 @@ import io.trino.tests.product.launcher.env.Environment;
 
 import javax.inject.Inject;
 
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.PRESTO;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.TRINO;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -48,7 +48,7 @@ public class ConfigHdp3
     public void extendEnvironment(Environment.Builder builder)
     {
         builder.configureContainers(container -> {
-            if (container.getLogicalName().startsWith(PRESTO)) {
+            if (container.getLogicalName().startsWith(TRINO)) {
                 container.withCopyFileToContainer(forHostPath(
                         // HDP3's handling of timestamps is incompatible with previous versions of Hive (see https://issues.apache.org/jira/browse/HIVE-21002);
                         // in order for Trino to deal with the differences, we must set catalog properties for Parquet and RCFile

@@ -65,7 +65,7 @@ public class StreamingDirectExchangeBuffer
     public StreamingDirectExchangeBuffer(Executor executor, DataSize bufferCapacity)
     {
         this.executor = requireNonNull(executor, "executor is null");
-        this.bufferCapacityInBytes = requireNonNull(bufferCapacity, "bufferCapacity is null").toBytes();
+        this.bufferCapacityInBytes = bufferCapacity.toBytes();
     }
 
     @Override

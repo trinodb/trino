@@ -383,7 +383,7 @@ public class TestIcebergV2
         assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(2);
         assertUpdate("DELETE FROM " + tableName + " WHERE regionkey <= 2", "SELECT count(*) FROM nation WHERE regionkey <= 2");
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey > 2");
-        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(2);
+        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(1);
     }
 
     @Test
@@ -397,7 +397,7 @@ public class TestIcebergV2
         assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(4);
         assertUpdate("DELETE FROM " + tableName + " WHERE b % 2 = 0", 6);
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, 1), (1, 3), (1, 5), (2, 1), (2, 3), (2, 5)");
-        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(4);
+        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(2);
     }
 
     @Test
@@ -411,7 +411,7 @@ public class TestIcebergV2
         assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(2);
         assertUpdate("DELETE FROM " + tableName + " WHERE regionkey % 2 = 1", "SELECT count(*) FROM nation WHERE regionkey % 2 = 1");
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey % 2 = 0");
-        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(2);
+        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(1);
     }
 
     @Test
@@ -431,7 +431,7 @@ public class TestIcebergV2
         long parentSnapshotId = (long) computeScalar("SELECT parent_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES");
         assertEquals(initialSnapshotId, parentSnapshotId);
         assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
-        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(1);
+        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(0);
     }
 
     @Test

@@ -122,11 +122,9 @@ public class AccumuloRecordSet
             LOG.debug("scan_auths table property set: %s", auths);
             return auths;
         }
-        else {
-            Authorizations auths = connector.securityOperations().getUserAuthorizations(username);
-            LOG.debug("scan_auths table property not set, using user auths: %s", auths);
-            return auths;
-        }
+        Authorizations auths = connector.securityOperations().getUserAuthorizations(username);
+        LOG.debug("scan_auths table property not set, using user auths: %s", auths);
+        return auths;
     }
 
     @Override

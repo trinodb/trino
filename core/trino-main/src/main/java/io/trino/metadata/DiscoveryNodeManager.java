@@ -117,7 +117,7 @@ public final class DiscoveryNodeManager
 
         this.currentNode = findCurrentNode(
                 serviceSelector.selectAllServices(),
-                requireNonNull(nodeInfo, "nodeInfo is null").getNodeId(),
+                nodeInfo.getNodeId(),
                 expectedNodeVersion,
                 httpsRequired);
 

@@ -60,6 +60,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Queue;
 import java.util.Set;
 
@@ -143,12 +144,11 @@ public class CheckpointEntryIterator
             ParquetReaderOptions parquetReaderOptions,
             boolean checkpointRowStatisticsWritingEnabled)
     {
-        this.checkpointPath = requireNonNull(checkpoint, "checkpoint is null").location();
+        this.checkpointPath = checkpoint.location();
         this.session = requireNonNull(session, "session is null");
-        this.stringList = (ArrayType) requireNonNull(typeManager, "typeManager is null").getType(TypeSignature.arrayType(VarcharType.VARCHAR.getTypeSignature()));
+        this.stringList = (ArrayType) typeManager.getType(TypeSignature.arrayType(VarcharType.VARCHAR.getTypeSignature()));
         this.stringMap = (MapType) typeManager.getType(TypeSignature.mapType(VarcharType.VARCHAR.getTypeSignature(), VarcharType.VARCHAR.getTypeSignature()));
         this.checkpointRowStatisticsWritingEnabled = checkpointRowStatisticsWritingEnabled;
-        requireNonNull(fields);
         checkArgument(fields.size() > 0, "fields is empty");
         Map<EntryType, CheckPointFieldExtractor> extractors = ImmutableMap.<EntryType, CheckPointFieldExtractor>builder()
                 .put(TRANSACTION, this::buildTxnEntry)
@@ -182,7 +182,8 @@ public class CheckpointEntryIterator
                 true,
                 DateTimeZone.UTC,
                 stats,
-                parquetReaderOptions);
+                parquetReaderOptions,
+                Optional.empty());
 
         verify(pageSource.getReaderColumns().isEmpty(), "All columns expected to be base columns");
 
@@ -201,7 +202,7 @@ public class CheckpointEntryIterator
                 type = schemaManager.getTxnEntryType();
                 break;
             case ADD:
-                type = schemaManager.getAddEntryType(metadataEntry);
+                type = schemaManager.getAddEntryType(metadataEntry, true, true);
                 break;
             case REMOVE:
                 type = schemaManager.getRemoveEntryType();
@@ -218,7 +219,7 @@ public class CheckpointEntryIterator
             default:
                 throw new IllegalArgumentException("Unsupported Delta Lake checkpoint entry type: " + entryType);
         }
-        return new DeltaLakeColumnHandle(entryType.getColumnName(), type, entryType.getColumnName(), type, REGULAR);
+        return new DeltaLakeColumnHandle(entryType.getColumnName(), type, OptionalInt.empty(), entryType.getColumnName(), type, REGULAR);
     }
 
     private DeltaLakeTransactionLogEntry buildCommitInfoEntry(ConnectorSession session, Block block, int pagePosition)

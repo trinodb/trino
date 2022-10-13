@@ -174,9 +174,8 @@ public class DruidJdbcClient
                 if (Objects.equals(schemaName, jdbcSchemaName) && Objects.equals(tableName, jdbcTableName)) {
                     tableHandles.add(new JdbcTableHandle(
                             schemaTableName,
-                            DRUID_CATALOG,
-                            schemaName,
-                            tableName));
+                            new RemoteTableName(Optional.of(DRUID_CATALOG), Optional.ofNullable(schemaName), tableName),
+                            Optional.empty()));
                 }
             }
             if (tableHandles.isEmpty()) {
@@ -377,17 +376,19 @@ public class DruidJdbcClient
     private JdbcTableHandle prepareTableHandleForQuery(JdbcTableHandle table)
     {
         if (table.isNamedRelation()) {
-            String schemaName = table.getSchemaName();
+            JdbcNamedRelationHandle relation = table.getRequiredNamedRelation();
+            RemoteTableName remoteTableName = relation.getRemoteTableName();
+            String schemaName = remoteTableName.getSchemaName().orElse(null);
             checkArgument("druid".equals(schemaName), "Only \"druid\" schema is supported");
 
             table = new JdbcTableHandle(
                     new JdbcNamedRelationHandle(
-                            table.getRequiredNamedRelation().getSchemaTableName(),
+                            relation.getSchemaTableName(),
                             // Druid doesn't like table names to be qualified with catalog names in the SQL query, hence we null out the catalog.
                             new RemoteTableName(
                                     Optional.empty(),
-                                    table.getRequiredNamedRelation().getRemoteTableName().getSchemaName(),
-                                    table.getRequiredNamedRelation().getRemoteTableName().getTableName()),
+                                    remoteTableName.getSchemaName(),
+                                    remoteTableName.getTableName()),
                             Optional.empty()),
                     table.getConstraint(),
                     table.getConstraintExpressions(),
@@ -415,10 +416,11 @@ public class DruidJdbcClient
     protected ResultSet getColumns(JdbcTableHandle tableHandle, DatabaseMetaData metadata)
             throws SQLException
     {
+        RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
         return metadata.getColumns(
-                tableHandle.getCatalogName(),
-                tableHandle.getSchemaName(),
-                tableHandle.getTableName(),
+                remoteTableName.getCatalogName().orElse(null),
+                remoteTableName.getSchemaName().orElse(null),
+                remoteTableName.getTableName(),
                 null);
     }
 
@@ -544,19 +546,17 @@ public class DruidJdbcClient
         if (type == DOUBLE) {
             return WriteMapping.doubleMapping("double precision", doubleWriteFunction());
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
             if (decimalType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
             }
             return WriteMapping.objectMapping(dataType, longDecimalWriteFunction(decimalType));
         }
-        if (type instanceof CharType) {
-            return WriteMapping.sliceMapping("char(" + ((CharType) type).getLength() + ")", charWriteFunction());
+        if (type instanceof CharType charType) {
+            return WriteMapping.sliceMapping("char(" + charType.getLength() + ")", charWriteFunction());
         }
-        if (type instanceof VarcharType) {
-            VarcharType varcharType = (VarcharType) type;
+        if (type instanceof VarcharType varcharType) {
             String dataType;
             if (varcharType.isUnbounded()) {
                 dataType = "varchar";

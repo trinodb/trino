@@ -16,7 +16,6 @@ package io.trino.plugin.hive.fs;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 
@@ -26,17 +25,17 @@ public class FileSystemDirectoryLister
         implements DirectoryLister
 {
     @Override
-    public RemoteIterator<LocatedFileStatus> list(FileSystem fs, Table table, Path path)
+    public RemoteIterator<TrinoFileStatus> list(FileSystem fs, Table table, Path path)
             throws IOException
     {
-        return fs.listLocatedStatus(path);
+        return new TrinoFileStatusRemoteIterator(fs.listLocatedStatus(path));
     }
 
     @Override
-    public RemoteIterator<LocatedFileStatus> listFilesRecursively(FileSystem fs, Table table, Path path)
+    public RemoteIterator<TrinoFileStatus> listFilesRecursively(FileSystem fs, Table table, Path path)
             throws IOException
     {
-        return fs.listFiles(path, true);
+        return new TrinoFileStatusRemoteIterator(fs.listFiles(path, true));
     }
 
     @Override

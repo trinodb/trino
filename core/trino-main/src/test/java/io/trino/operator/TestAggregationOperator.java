@@ -132,7 +132,7 @@ public class TestAggregationOperator
                 Optional.of(new boolean[] {true, true, true, true}), /* all positions are null */
                 new byte[] {1, 1, 1, 1}); /* non-zero value is true, all masks are true */
 
-        Block trueNullRleMask = new RunLengthEncodedBlock(trueMaskAllNull.getSingleValueBlock(0), 4);
+        Block trueNullRleMask = RunLengthEncodedBlock.create(trueMaskAllNull.getSingleValueBlock(0), 4);
 
         List<Page> nullTrueMaskInput = ImmutableList.of(
                 new Page(4, createLongsBlock(1, 2, 3, 4), trueMaskAllNull),

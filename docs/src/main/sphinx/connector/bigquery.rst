@@ -147,9 +147,10 @@ Type mapping
 ------------
 
 Because Trino and BigQuery each support types that the other does not, this
-connector modifies some types when reading or writing data. Data types may not
-map the same way in both directions between Trino and the data source. Refer to
-the following sections for type mapping in each direction.
+connector :ref:`modifies some types <type-mapping-overview>` when reading or
+writing data. Data types may not map the same way in both directions between
+Trino and the data source. Refer to the following sections for type mapping in
+each direction.
 
 BigQuery type to Trino type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -243,6 +244,9 @@ to the following table:
   * - ``VARCHAR``
     - ``STRING``
     -
+  * - ``TIMESTAMP(6)``
+    - ``DATETIME``
+    -
 
 No other types are supported.
 
@@ -294,11 +298,13 @@ BigQuery database. In addition to the
 the following features:
 
 * :doc:`/sql/insert`
+* :doc:`/sql/truncate`
 * :doc:`/sql/create-table`
 * :doc:`/sql/create-table-as`
 * :doc:`/sql/drop-table`
 * :doc:`/sql/create-schema`
 * :doc:`/sql/drop-schema`
+* :doc:`/sql/comment`
 
 Table functions
 ---------------

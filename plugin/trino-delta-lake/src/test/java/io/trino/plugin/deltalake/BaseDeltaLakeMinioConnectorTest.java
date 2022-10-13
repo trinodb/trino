@@ -98,25 +98,29 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         return queryRunner;
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_DELETE:
-            case SUPPORTS_ROW_LEVEL_DELETE:
-            case SUPPORTS_UPDATE:
-            case SUPPORTS_NOT_NULL_CONSTRAINT:
-                return true;
-            case SUPPORTS_MERGE:
-                return true;
             case SUPPORTS_PREDICATE_PUSHDOWN:
             case SUPPORTS_LIMIT_PUSHDOWN:
             case SUPPORTS_TOPN_PUSHDOWN:
             case SUPPORTS_AGGREGATION_PUSHDOWN:
-            case SUPPORTS_DROP_COLUMN:
-            case SUPPORTS_RENAME_COLUMN:
+                return false;
+
             case SUPPORTS_RENAME_SCHEMA:
                 return false;
+
+            case SUPPORTS_DROP_COLUMN:
+            case SUPPORTS_RENAME_COLUMN:
+                return false;
+
+            case SUPPORTS_DELETE:
+            case SUPPORTS_UPDATE:
+            case SUPPORTS_MERGE:
+                return true;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
@@ -312,7 +316,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     public void testRenameTable()
     {
         assertThatThrownBy(super::testRenameTable)
-                .hasMessage("Renaming managed tables is not supported for thrift metastore")
+                .hasMessage("Renaming managed tables is not allowed with current metastore configuration")
                 .hasStackTraceContaining("SQL: ALTER TABLE test_rename_");
     }
 
@@ -323,7 +327,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     public void testRenameTableAcrossSchema()
     {
         assertThatThrownBy(super::testRenameTableAcrossSchema)
-                .hasMessage("Renaming managed tables is not supported for thrift metastore")
+                .hasMessage("Renaming managed tables is not allowed with current metastore configuration")
                 .hasStackTraceContaining("SQL: ALTER TABLE test_rename_");
     }
 
@@ -331,7 +335,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     public void testRenameTableToUnqualifiedPreservesSchema()
     {
         assertThatThrownBy(super::testRenameTableToUnqualifiedPreservesSchema)
-                .hasMessage("Renaming managed tables is not supported for thrift metastore")
+                .hasMessage("Renaming managed tables is not allowed with current metastore configuration")
                 .hasStackTraceContaining("SQL: ALTER TABLE test_source_schema_");
     }
 
@@ -339,7 +343,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     public void testRenameTableToLongTableName()
     {
         assertThatThrownBy(super::testRenameTableToLongTableName)
-                .hasMessage("Renaming managed tables is not supported for thrift metastore")
+                .hasMessage("Renaming managed tables is not allowed with current metastore configuration")
                 .hasStackTraceContaining("SQL: ALTER TABLE test_rename_");
     }
 
@@ -510,7 +514,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
                 .setSystemProperty("task_writer_count", "1")
                 // task scale writers should be disabled since we want to write with a single task writer
                 .setSystemProperty("task_scale_writers_enabled", "false")
-                .setCatalogSessionProperty("delta_lake", "experimental_parquet_optimized_writer_enabled", "true")
+                .setCatalogSessionProperty("delta_lake", "parquet_optimized_writer_enabled", "true")
                 .build();
         assertUpdate(session, createTableSql, 100000);
         Set<String> initialFiles = getActiveFiles(tableName);
@@ -522,7 +526,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
                 .setSystemProperty("task_writer_count", "1")
                 // task scale writers should be disabled since we want to write with a single task writer
                 .setSystemProperty("task_scale_writers_enabled", "false")
-                .setCatalogSessionProperty("delta_lake", "experimental_parquet_optimized_writer_enabled", "true")
+                .setCatalogSessionProperty("delta_lake", "parquet_optimized_writer_enabled", "true")
                 .setCatalogSessionProperty("delta_lake", "target_max_file_size", maxSize.toString())
                 .build();
 
@@ -735,8 +739,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
                 {"CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s')"},
                 {"CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['customer'])"},
                 {"CREATE TABLE %s (customer VARCHAR, address VARCHAR, purchases INT) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])"},
-                // TODO: enable when https://github.com/trinodb/trino/issues/13505 is fixed
-                // {"CREATE TABLE %s (purchases INT, customer VARCHAR, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address', 'customer'])"}
+                {"CREATE TABLE %s (purchases INT, customer VARCHAR, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address', 'customer'])"},
                 {"CREATE TABLE %s (purchases INT, address VARCHAR, customer VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address', 'customer'])"}
         };
     }
@@ -771,12 +774,11 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     public Object[][] targetAndSourceWithDifferentPartitioning()
     {
         return new Object[][] {
-                // TODO: enable when https://github.com/trinodb/trino/issues/13505 is fixed
-                // {
-                //         "target_partitioned_source_and_target_partitioned",
-                //         "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address', 'customer'])",
-                //         "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
-                // },
+                {
+                        "target_partitioned_source_and_target_partitioned",
+                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address', 'customer'])",
+                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
+                },
                 {
                         "target_partitioned_source_and_target_partitioned",
                         "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['customer', 'address'])",

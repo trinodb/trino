@@ -20,7 +20,6 @@ import io.trino.plugin.hive.NamenodeStats;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 
@@ -37,7 +36,7 @@ import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.fs.Path.SEPARATOR_CHAR;
 
 public class HiveFileIterator
-        extends AbstractIterator<LocatedFileStatus>
+        extends AbstractIterator<TrinoFileStatus>
 {
     public enum NestedDirectoryPolicy
     {
@@ -53,7 +52,7 @@ public class HiveFileIterator
     private final NamenodeStats namenodeStats;
     private final NestedDirectoryPolicy nestedDirectoryPolicy;
     private final boolean ignoreAbsentPartitions;
-    private final Iterator<LocatedFileStatus> remoteIterator;
+    private final Iterator<TrinoFileStatus> remoteIterator;
 
     public HiveFileIterator(
             Table table,
@@ -64,7 +63,7 @@ public class HiveFileIterator
             NestedDirectoryPolicy nestedDirectoryPolicy,
             boolean ignoreAbsentPartitions)
     {
-        this.pathPrefix = requireNonNull(path, "path is null").toUri().getPath();
+        this.pathPrefix = path.toUri().getPath();
         this.table = requireNonNull(table, "table is null");
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
@@ -75,10 +74,10 @@ public class HiveFileIterator
     }
 
     @Override
-    protected LocatedFileStatus computeNext()
+    protected TrinoFileStatus computeNext()
     {
         while (remoteIterator.hasNext()) {
-            LocatedFileStatus status = getLocatedFileStatus(remoteIterator);
+            TrinoFileStatus status = getLocatedFileStatus(remoteIterator);
 
             // Ignore hidden files and directories
             if (nestedDirectoryPolicy == RECURSE) {
@@ -108,7 +107,7 @@ public class HiveFileIterator
         return endOfData();
     }
 
-    private Iterator<LocatedFileStatus> getLocatedFileStatusRemoteIterator(Path path)
+    private Iterator<TrinoFileStatus> getLocatedFileStatusRemoteIterator(Path path)
     {
         try (TimeStat.BlockTimer ignored = namenodeStats.getListLocatedStatus().time()) {
             return new FileStatusIterator(table, path, fileSystem, directoryLister, namenodeStats, nestedDirectoryPolicy == RECURSE);
@@ -130,7 +129,7 @@ public class HiveFileIterator
         }
     }
 
-    private LocatedFileStatus getLocatedFileStatus(Iterator<LocatedFileStatus> iterator)
+    private TrinoFileStatus getLocatedFileStatus(Iterator<TrinoFileStatus> iterator)
     {
         try (TimeStat.BlockTimer ignored = namenodeStats.getRemoteIteratorNext().time()) {
             return iterator.next();
@@ -173,11 +172,11 @@ public class HiveFileIterator
     }
 
     private static class FileStatusIterator
-            implements Iterator<LocatedFileStatus>
+            implements Iterator<TrinoFileStatus>
     {
         private final Path path;
         private final NamenodeStats namenodeStats;
-        private final RemoteIterator<LocatedFileStatus> fileStatusIterator;
+        private final RemoteIterator<TrinoFileStatus> fileStatusIterator;
 
         private FileStatusIterator(Table table, Path path, FileSystem fileSystem, DirectoryLister directoryLister, NamenodeStats namenodeStats, boolean recursive)
         {
@@ -208,7 +207,7 @@ public class HiveFileIterator
         }
 
         @Override
-        public LocatedFileStatus next()
+        public TrinoFileStatus next()
         {
             try {
                 return fileStatusIterator.next();

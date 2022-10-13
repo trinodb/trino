@@ -964,7 +964,7 @@ public final class PropertyDerivations
             if (equality.getLeft().equals(column) && columns.contains(equality.getRight())) {
                 return Optional.of(equality.getRight());
             }
-            else if (equality.getRight().equals(column) && columns.contains(equality.getLeft())) {
+            if (equality.getRight().equals(column) && columns.contains(equality.getLeft())) {
                 return Optional.of(equality.getLeft());
             }
         }

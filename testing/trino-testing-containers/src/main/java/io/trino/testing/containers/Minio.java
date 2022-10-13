@@ -14,14 +14,27 @@
 package io.trino.testing.containers;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
+import com.google.common.reflect.ClassPath;
 import io.airlift.log.Logger;
+import io.trino.testing.minio.MinioClient;
+import net.jodah.failsafe.Failsafe;
+import net.jodah.failsafe.RetryPolicy;
 import org.testcontainers.containers.Network;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
+
+import static java.time.temporal.ChronoUnit.MINUTES;
+import static java.time.temporal.ChronoUnit.SECONDS;
+import static java.util.regex.Matcher.quoteReplacement;
 
 public class Minio
         extends BaseTestContainer
@@ -33,6 +46,10 @@ public class Minio
 
     public static final int MINIO_API_PORT = 4566;
     public static final int MINIO_CONSOLE_PORT = 4567;
+
+    // defaults
+    public static final String MINIO_ACCESS_KEY = "accesskey";
+    public static final String MINIO_SECRET_KEY = "secretkey";
 
     public static Builder builder()
     {
@@ -82,9 +99,55 @@ public class Minio
         return getMappedHostAndPortForExposedPort(MINIO_API_PORT);
     }
 
+    public String getMinioAddress()
+    {
+        return "http://" + getMinioApiEndpoint();
+    }
+
     public HostAndPort getMinioConsoleEndpoint()
     {
         return getMappedHostAndPortForExposedPort(MINIO_CONSOLE_PORT);
+    }
+
+    public void createBucket(String bucketName)
+    {
+        try (MinioClient minioClient = createMinioClient()) {
+            // use retry loop for minioClient.makeBucket as minio container tends to return "Server not initialized, please try again" error
+            // for some time after starting up
+            RetryPolicy<Object> retryPolicy = new RetryPolicy<>()
+                    .withMaxDuration(Duration.of(2, MINUTES))
+                    .withMaxAttempts(Integer.MAX_VALUE) // limited by MaxDuration
+                    .withDelay(Duration.of(10, SECONDS));
+            Failsafe.with(retryPolicy).run(() -> minioClient.makeBucket(bucketName));
+        }
+    }
+
+    public void copyResources(String resourcePath, String bucketName, String target)
+    {
+        try (MinioClient minioClient = createMinioClient()) {
+            for (ClassPath.ResourceInfo resourceInfo : ClassPath.from(MinioClient.class.getClassLoader())
+                    .getResources()) {
+                if (resourceInfo.getResourceName().startsWith(resourcePath)) {
+                    String fileName = resourceInfo.getResourceName().replaceFirst("^" + Pattern.quote(resourcePath), quoteReplacement(target));
+                    minioClient.putObject(bucketName, resourceInfo.asByteSource().read(), fileName);
+                }
+            }
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    public void writeFile(byte[] contents, String bucketName, String path)
+    {
+        try (MinioClient minioClient = createMinioClient()) {
+            minioClient.putObject(bucketName, contents, path);
+        }
+    }
+
+    public MinioClient createMinioClient()
+    {
+        return new MinioClient(getMinioAddress(), MINIO_ACCESS_KEY, MINIO_SECRET_KEY);
     }
 
     public static class Builder
@@ -98,6 +161,10 @@ public class Minio
                     ImmutableSet.of(
                             MINIO_API_PORT,
                             MINIO_CONSOLE_PORT);
+            this.envVars = ImmutableMap.<String, String>builder()
+                    .put("MINIO_ACCESS_KEY", MINIO_ACCESS_KEY)
+                    .put("MINIO_SECRET_KEY", MINIO_SECRET_KEY)
+                    .buildOrThrow();
         }
 
         @Override

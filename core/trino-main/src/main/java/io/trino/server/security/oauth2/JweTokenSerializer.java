@@ -39,7 +39,6 @@ import java.text.ParseException;
 import java.time.Clock;
 import java.util.Date;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
@@ -77,7 +76,7 @@ public class JweTokenSerializer
             Duration tokenExpiration)
             throws KeyLengthException, NoSuchAlgorithmException
     {
-        SecretKey secretKey = createKey(requireNonNull(config, "config is null"));
+        SecretKey secretKey = createKey(config);
         this.jweEncrypter = new AESEncrypter(secretKey);
         this.jweDecrypter = new AESDecrypter(secretKey);
         this.client = requireNonNull(client, "client is null");
@@ -122,11 +121,7 @@ public class JweTokenSerializer
     {
         requireNonNull(tokenPair, "tokenPair is null");
 
-        Optional<Map<String, Object>> accessTokenClaims = client.getClaims(tokenPair.getAccessToken());
-        if (accessTokenClaims.isEmpty()) {
-            throw new IllegalArgumentException("Claims are missing");
-        }
-        Map<String, Object> claims = accessTokenClaims.get();
+        Map<String, Object> claims = client.getClaims(tokenPair.getAccessToken()).orElseThrow(() -> new IllegalArgumentException("Claims are missing"));
         if (!claims.containsKey(principalField)) {
             throw new IllegalArgumentException(format("%s field is missing", principalField));
         }

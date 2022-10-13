@@ -23,7 +23,6 @@ import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.fs.TransactionScopeCachingDirectoryLister;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.MetastoreTypeConfig;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.security.AccessControlMetadataFactory;
 import io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider;
@@ -66,6 +65,7 @@ public class HiveMetadataFactory
     private final BoundedExecutor renameExecution;
     private final BoundedExecutor dropExecutor;
     private final Executor updateExecutor;
+    private final long maxPartitionDropsPerQuery;
     private final String trinoVersion;
     private final HiveRedirectionsProvider hiveRedirectionsProvider;
     private final Set<SystemTableProvider> systemTableProviders;
@@ -76,7 +76,7 @@ public class HiveMetadataFactory
     private final DirectoryLister directoryLister;
     private final long perTransactionFileStatusCacheMaximumSize;
     private final PartitionProjectionService partitionProjectionService;
-    private final String metastoreType;
+    private final boolean allowTableRename;
 
     @Inject
     public HiveMetadataFactory(
@@ -99,7 +99,7 @@ public class HiveMetadataFactory
             AccessControlMetadataFactory accessControlMetadataFactory,
             DirectoryLister directoryLister,
             PartitionProjectionService partitionProjectionService,
-            MetastoreTypeConfig metastoreTypeConfig)
+            @AllowHiveTableRename boolean allowTableRename)
     {
         this(
                 catalogName,
@@ -109,6 +109,7 @@ public class HiveMetadataFactory
                 hiveConfig.getMaxConcurrentFileRenames(),
                 hiveConfig.getMaxConcurrentMetastoreDrops(),
                 hiveConfig.getMaxConcurrentMetastoreUpdates(),
+                hiveConfig.getMaxPartitionDropsPerQuery(),
                 hiveConfig.isSkipDeletionForAlter(),
                 hiveConfig.isSkipTargetCleanupOnRollback(),
                 hiveConfig.getWritesToNonManagedTablesEnabled(),
@@ -133,7 +134,7 @@ public class HiveMetadataFactory
                 directoryLister,
                 hiveConfig.getPerTransactionFileStatusCacheMaximumSize(),
                 partitionProjectionService,
-                metastoreTypeConfig);
+                allowTableRename);
     }
 
     public HiveMetadataFactory(
@@ -144,6 +145,7 @@ public class HiveMetadataFactory
             int maxConcurrentFileRenames,
             int maxConcurrentMetastoreDrops,
             int maxConcurrentMetastoreUpdates,
+            long maxPartitionDropsPerQuery,
             boolean skipDeletionForAlter,
             boolean skipTargetCleanupOnRollback,
             boolean writesToNonManagedTablesEnabled,
@@ -168,7 +170,7 @@ public class HiveMetadataFactory
             DirectoryLister directoryLister,
             long perTransactionFileStatusCacheMaximumSize,
             PartitionProjectionService partitionProjectionService,
-            MetastoreTypeConfig metastoreTypeConfig)
+            boolean allowTableRename)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.skipDeletionForAlter = skipDeletionForAlter;
@@ -204,12 +206,12 @@ public class HiveMetadataFactory
         else {
             updateExecutor = new BoundedExecutor(executorService, maxConcurrentMetastoreUpdates);
         }
+        this.maxPartitionDropsPerQuery = maxPartitionDropsPerQuery;
         this.heartbeatService = requireNonNull(heartbeatService, "heartbeatService is null");
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
         this.perTransactionFileStatusCacheMaximumSize = perTransactionFileStatusCacheMaximumSize;
         this.partitionProjectionService = requireNonNull(partitionProjectionService, "partitionProjectionService is null");
-        requireNonNull(metastoreTypeConfig, "metastoreTypeConfig is null");
-        this.metastoreType = requireNonNull(metastoreTypeConfig.getMetastoreType(), "metastoreType is null");
+        this.allowTableRename = allowTableRename;
     }
 
     @Override
@@ -256,6 +258,7 @@ public class HiveMetadataFactory
                 accessControlMetadataFactory.create(metastore),
                 directoryLister,
                 partitionProjectionService,
-                metastoreType);
+                allowTableRename,
+                maxPartitionDropsPerQuery);
     }
 }

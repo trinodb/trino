@@ -24,11 +24,10 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.operator.scalar.ArrayConstructor;
 import io.trino.operator.scalar.FormatFunction;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
@@ -36,6 +35,8 @@ import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
@@ -63,7 +64,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
-import io.trino.sql.tree.ArrayConstructor;
+import io.trino.sql.tree.Array;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BinaryLiteral;
@@ -223,7 +224,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
@@ -243,7 +244,6 @@ import static io.trino.sql.analyzer.SemanticExceptions.missingAttributeException
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
-import static io.trino.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static io.trino.sql.tree.DereferenceExpression.isQualifiedAllFieldsReference;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.trino.sql.tree.FrameBound.Type.FOLLOWING;
@@ -633,7 +633,7 @@ public class ExpressionAnalyzer
                     if (node.getPrecision() != null) {
                         yield setExpressionType(node, createTimeType(node.getPrecision()));
                     }
-                    yield setExpressionType(node, TIME);
+                    yield setExpressionType(node, TIME_MILLIS);
                 }
                 case TIMESTAMP -> setExpressionType(node, createTimestampWithTimeZoneType(firstNonNull(node.getPrecision(), TimestampWithTimeZoneType.DEFAULT_PRECISION)));
                 case LOCALTIMESTAMP -> {
@@ -722,8 +722,7 @@ public class ExpressionAnalyzer
                             throw semanticException(COLUMN_NOT_FOUND, node, "Column %s prefixed with label %s cannot be resolved", unlabeledName, label);
                         }
                         Identifier unlabeled = qualifiedName.getOriginalParts().get(1);
-                        Optional<ResolvedField> resolvedField = context.getContext().getScope().tryResolveField(node, unlabeledName);
-                        if (resolvedField.isEmpty()) {
+                        if (context.getContext().getScope().tryResolveField(node, unlabeledName).isEmpty()) {
                             throw semanticException(COLUMN_NOT_FOUND, node, "Column %s prefixed with label %s cannot be resolved", unlabeledName, label);
                         }
                         // Correlation is not allowed in pattern recognition context. Visitor's context for pattern recognition has CorrelationSupport.DISALLOWED,
@@ -901,13 +900,8 @@ public class ExpressionAnalyzer
                 Type whenOperandType = process(whenOperand, context);
                 whenOperandTypes.add(whenOperandType);
 
-                Optional<Type> operandCommonType = typeCoercion.getCommonSuperType(commonType, whenOperandType);
-
-                if (operandCommonType.isEmpty()) {
-                    throw semanticException(TYPE_MISMATCH, whenOperand, "CASE operand type does not match WHEN clause operand type: %s vs %s", operandType, whenOperandType);
-                }
-
-                commonType = operandCommonType.get();
+                commonType = typeCoercion.getCommonSuperType(commonType, whenOperandType)
+                        .orElseThrow(() -> semanticException(TYPE_MISMATCH, whenOperand, "CASE operand type does not match WHEN clause operand type: %s vs %s", operandType, whenOperandType));
             }
 
             if (commonType != operandType) {
@@ -1019,7 +1013,7 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitArrayConstructor(ArrayConstructor node, StackableAstVisitorContext<Context> context)
+        protected Type visitArray(Array node, StackableAstVisitorContext<Context> context)
         {
             Type type = coerceToSingleType(context, "All ARRAY elements", node.getValues());
             Type arrayType = plannerContext.getTypeManager().getParameterizedType(ARRAY.getName(), ImmutableList.of(TypeSignatureParameter.typeParameter(type.getTypeSignature())));
@@ -1276,7 +1270,7 @@ public class ExpressionAnalyzer
                 throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
 
-            if (function.getSignature().getName().equalsIgnoreCase(ARRAY_CONSTRUCTOR)) {
+            if (function.getSignature().getName().equalsIgnoreCase(ArrayConstructor.NAME)) {
                 // After optimization, array constructor is rewritten to a function call.
                 // For historic reasons array constructor is allowed to have 254 arguments
                 if (node.getArguments().size() > 254) {
@@ -1505,10 +1499,8 @@ public class ExpressionAnalyzer
 
         private void analyzeFrameRangeOffset(Expression offsetValue, FrameBound.Type boundType, StackableAstVisitorContext<Context> context, ResolvedWindow window, Node originalNode)
         {
-            if (window.getOrderBy().isEmpty()) {
-                throw semanticException(MISSING_ORDER_BY, originalNode, "Window frame of type RANGE PRECEDING or FOLLOWING requires ORDER BY");
-            }
-            OrderBy orderBy = window.getOrderBy().get();
+            OrderBy orderBy = window.getOrderBy()
+                    .orElseThrow(() -> semanticException(MISSING_ORDER_BY, originalNode, "Window frame of type RANGE PRECEDING or FOLLOWING requires ORDER BY"));
             if (orderBy.getSortItems().size() != 1) {
                 throw semanticException(INVALID_ORDER_BY, orderBy, "Window frame of type RANGE PRECEDING or FOLLOWING requires single sort item in ORDER BY (actual: %s)", orderBy.getSortItems().size());
             }
@@ -1824,9 +1816,7 @@ public class ExpressionAnalyzer
                 if (labelRequired) {
                     throw semanticException(INVALID_ARGUMENTS, node, "Pattern navigation function %s must contain at least one column reference or CLASSIFIER()", name);
                 }
-                else {
-                    return ArgumentLabel.noLabel();
-                }
+                return ArgumentLabel.noLabel();
             }
 
             // Label consistency rules:
@@ -1884,12 +1874,12 @@ public class ExpressionAnalyzer
             if (!inputColumnLabels.isEmpty()) {
                 return ArgumentLabel.explicitLabel(getOnlyElement(inputColumnLabels));
             }
-            else if (!classifierLabels.isEmpty()) {
+            if (!classifierLabels.isEmpty()) {
                 return getOnlyElement(classifierLabels)
                         .map(ArgumentLabel::explicitLabel)
                         .orElse(ArgumentLabel.universalLabel());
             }
-            else if (!unlabeledInputColumns.isEmpty()) {
+            if (!unlabeledInputColumns.isEmpty()) {
                 return ArgumentLabel.universalLabel();
             }
             return ArgumentLabel.noLabel();
@@ -2516,9 +2506,7 @@ public class ExpressionAnalyzer
             if (node.getGroupingColumns().size() <= MAX_NUMBER_GROUPING_ARGUMENTS_INTEGER) {
                 return setExpressionType(node, INTEGER);
             }
-            else {
-                return setExpressionType(node, BIGINT);
-            }
+            return setExpressionType(node, BIGINT);
         }
 
         @Override
@@ -2815,12 +2803,10 @@ public class ExpressionAnalyzer
                     if (UNKNOWN.equals(type) || isCharacterStringType(type)) {
                         yield QualifiedName.of(VARCHAR_TO_JSON);
                     }
-                    else if (isStringType(type)) {
+                    if (isStringType(type)) {
                         yield QualifiedName.of(VARBINARY_TO_JSON);
                     }
-                    else {
-                        throw semanticException(TYPE_MISMATCH, node, format("Cannot read input of type %s as JSON using formatting %s", type, format));
-                    }
+                    throw semanticException(TYPE_MISMATCH, node, format("Cannot read input of type %s as JSON using formatting %s", type, format));
                 }
                 case UTF8 -> QualifiedName.of(VARBINARY_UTF8_TO_JSON);
                 case UTF16 -> QualifiedName.of(VARBINARY_UTF16_TO_JSON);
@@ -2842,12 +2828,10 @@ public class ExpressionAnalyzer
                     if (isCharacterStringType(type)) {
                         yield QualifiedName.of(JSON_TO_VARCHAR);
                     }
-                    else if (isStringType(type)) {
+                    if (isStringType(type)) {
                         yield QualifiedName.of(JSON_TO_VARBINARY);
                     }
-                    else {
-                        throw semanticException(TYPE_MISMATCH, node, format("Cannot output JSON value as %s using formatting %s", type, format));
-                    }
+                    throw semanticException(TYPE_MISMATCH, node, format("Cannot output JSON value as %s using formatting %s", type, format));
                 }
                 case UTF8 -> {
                     if (!VARBINARY.equals(type)) {

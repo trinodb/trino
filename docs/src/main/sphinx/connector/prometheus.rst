@@ -92,6 +92,47 @@ Prometheus can be setup to require a Authorization header with every query. The 
 ``prometheus.bearer.token.file`` allows for a bearer token to be read from the configured file. This file
 is optional and not required unless your Prometheus setup requires it.
 
+.. _prometheus-type-mapping:
+
+Type mapping
+------------
+
+Because Trino and Prometheus each support types that the other does not, this
+connector :ref:`modifies some types <type-mapping-overview>` when reading data.
+
+The connector returns fixed columns that have a defined mapping to Trino types
+according to the following table:
+
+.. list-table:: Prometheus column to Trino type mapping
+  :widths: 50, 50
+  :header-rows: 1
+
+  * - Prometheus column
+    - Trino type
+  * - ``labels``
+    - ``MAP(VARCHAR,VARCHAR)``
+  * - ``timestamp``
+    - ``TIMESTAMP(3) WITH TIMEZONE``
+  * - ``value``
+    - ``DOUBLE``
+
+No other types are supported.
+
+The following example query result shows how the Prometheus ``up`` metric is
+represented in Trino:
+
+.. code-block:: sql
+
+    SELECT * FROM prometheus.default.up;
+
+.. code-block:: text
+
+                            labels                         |           timestamp            | value
+    --------------------------------------------------------+--------------------------------+-------
+    {instance=localhost:9090, job=prometheus, __name__=up} | 2022-09-01 06:18:54.481 +09:00 |   1.0
+    {instance=localhost:9090, job=prometheus, __name__=up} | 2022-09-01 06:19:09.446 +09:00 |   1.0
+    (2 rows)
+
 .. _prometheus-sql-support:
 
 SQL support

@@ -53,7 +53,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -82,28 +82,20 @@ public class TestCassandraConnectorTest
     private CassandraServer server;
     private CassandraSession session;
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_TRUNCATE:
-                return true;
+            case SUPPORTS_TOPN_PUSHDOWN:
+                return false;
 
             case SUPPORTS_CREATE_SCHEMA:
                 return false;
 
-            case SUPPORTS_CREATE_VIEW:
-                return false;
-
             case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
             case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
-                return false;
-
             case SUPPORTS_RENAME_TABLE:
-                return false;
-
-            case SUPPORTS_ARRAY:
-            case SUPPORTS_ROW_TYPE:
                 return false;
 
             case SUPPORTS_ADD_COLUMN:
@@ -114,14 +106,19 @@ public class TestCassandraConnectorTest
             case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
 
-            case SUPPORTS_TOPN_PUSHDOWN:
+            case SUPPORTS_CREATE_VIEW:
                 return false;
 
             case SUPPORTS_NOT_NULL_CONSTRAINT:
                 return false;
 
             case SUPPORTS_DELETE:
+            case SUPPORTS_TRUNCATE:
                 return true;
+
+            case SUPPORTS_ARRAY:
+            case SUPPORTS_ROW_TYPE:
+                return false;
 
             default:
                 return super.hasBehavior(connectorBehavior);
@@ -1374,7 +1371,7 @@ public class TestCassandraConnectorTest
                 INTEGER,
                 BIGINT,
                 VARBINARY,
-                TIMESTAMP_WITH_TIME_ZONE,
+                TIMESTAMP_TZ_MILLIS,
                 createUnboundedVarcharType(),
                 BOOLEAN,
                 DOUBLE,

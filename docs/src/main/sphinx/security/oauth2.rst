@@ -147,7 +147,7 @@ The following configuration properties are available:
    * - ``http-server.authentication.oauth2.principal-field``
      - The field of the access token used for the Trino user principal. Defaults to ``sub``. Other commonly used fields include ``sAMAccountName``, ``name``, ``upn``, and ``email``.
    * - ``http-server.authentication.oauth2.groups-field``
-     - The field of the access token used for Trino groups. The corresponding claim value must be an array.
+     - Array-based field in the access token used to list group information for a user.
    * - ``http-server.authentication.oauth2.oidc.discovery``
      - Enable reading the `OIDC provider metadata <https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata>`_.
        Default is ``true``.
@@ -158,8 +158,7 @@ The following configuration properties are available:
        When a ``userinfo_endpoint`` value is supplied this URL is used to
        validate the OAuth 2.0 access token, and retrieve any associated claims.
        This flag allows ignoring the value provided in the metadata document.
-       Required for JWT access tokens which support local validation. Default is
-       ``false``.
+       Default is ``true``.
 
 Refresh tokens
 ^^^^^^^^^^^^^^

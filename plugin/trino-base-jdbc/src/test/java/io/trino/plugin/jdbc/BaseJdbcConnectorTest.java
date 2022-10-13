@@ -124,17 +124,18 @@ public abstract class BaseJdbcConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_DELETE:
-            case SUPPORTS_TRUNCATE:
+            case SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN:
+                // TODO support pushdown of complex expressions in predicates
+                return false;
 
             case SUPPORTS_DYNAMIC_FILTER_PUSHDOWN:
                 // Dynamic filters can be pushed down only if predicate push down is supported.
                 // It is possible for a connector to have predicate push down support but not push down dynamic filters.
                 return super.hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN);
 
-            case SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN:
-                // TODO support pushdown of complex expressions in predicates
-                return false;
+            case SUPPORTS_DELETE:
+            case SUPPORTS_TRUNCATE:
+                return true;
 
             default:
                 return super.hasBehavior(connectorBehavior);
@@ -1307,9 +1308,7 @@ public abstract class BaseJdbcConnectorTest
         if (condition) {
             return queryAssert.isFullyPushedDown();
         }
-        else {
-            return queryAssert.isNotFullyPushedDown(otherwiseExpected);
-        }
+        return queryAssert.isNotFullyPushedDown(otherwiseExpected);
     }
 
     protected void assertConditionallyOrderedPushedDown(

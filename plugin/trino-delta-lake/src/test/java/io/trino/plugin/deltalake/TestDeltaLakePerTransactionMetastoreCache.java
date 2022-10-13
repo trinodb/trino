@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.Reflection;
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
@@ -26,16 +27,15 @@ import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.thrift.DefaultThriftMetastoreClientFactory;
-import io.trino.plugin.hive.metastore.thrift.MetastoreLocator;
 import io.trino.plugin.hive.metastore.thrift.StaticMetastoreConfig;
-import io.trino.plugin.hive.metastore.thrift.StaticMetastoreLocator;
+import io.trino.plugin.hive.metastore.thrift.StaticTokenAwareMetastoreClientFactory;
 import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationModule;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreClientFactory;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreFactory;
-import io.trino.plugin.hive.metastore.thrift.TokenDelegationThriftMetastoreFactory;
+import io.trino.plugin.hive.metastore.thrift.TokenAwareMetastoreClientFactory;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.tpch.TpchEntity;
@@ -97,15 +97,15 @@ public class TestDeltaLakePerTransactionMetastoreCache
                     protected void setup(Binder binder)
                     {
                         newOptionalBinder(binder, ThriftMetastoreClientFactory.class).setDefault().to(DefaultThriftMetastoreClientFactory.class).in(Scopes.SINGLETON);
-                        binder.bind(MetastoreLocator.class).to(StaticMetastoreLocator.class).in(Scopes.SINGLETON);
+                        binder.bind(TokenAwareMetastoreClientFactory.class).to(StaticTokenAwareMetastoreClientFactory.class).in(Scopes.SINGLETON);
                         configBinder(binder).bindConfig(StaticMetastoreConfig.class);
                         configBinder(binder).bindConfig(ThriftMetastoreConfig.class);
-                        binder.bind(TokenDelegationThriftMetastoreFactory.class);
                         binder.bind(ThriftMetastoreFactory.class).to(ThriftHiveMetastoreFactory.class).in(Scopes.SINGLETON);
                         newExporter(binder).export(ThriftMetastoreFactory.class)
                                 .as(generator -> generator.generatedNameOf(ThriftHiveMetastore.class));
                         install(new ThriftMetastoreAuthenticationModule());
                         binder.bind(BridgingHiveMetastoreFactory.class).in(Scopes.SINGLETON);
+                        binder.bind(Key.get(boolean.class, AllowDeltaLakeManagedTableRename.class)).toInstance(false);
                     }
 
                     @Provides

@@ -16,7 +16,7 @@ Requirements
 
 To connect to a ClickHouse server, you need:
 
-* ClickHouse (version 21.3 or higher) or Altinity (version 20.8 or higher).
+* ClickHouse (version 21.8 or higher) or Altinity (version 20.8 or higher).
 * Network access from the Trino coordinator and workers to the ClickHouse
   server. Port 8123 is the default port.
 
@@ -91,6 +91,9 @@ For example, if you name the property file ``sales.properties``, Trino uses the
 configured connector to create a catalog named ``sales``.
 
 .. include:: jdbc-common-configurations.fragment
+
+.. |default_domain_compaction_threshold| replace:: ``1000``
+.. include:: jdbc-domain-compaction-threshold.fragment
 
 .. include:: jdbc-procedures.fragment
 
@@ -173,9 +176,10 @@ Type mapping
 ------------
 
 Because Trino and ClickHouse each support types that the other does not, this
-connector modifies some types when reading or writing data. Data types may not
-map the same way in both directions between Trino and the data source. Refer to
-the following sections for type mapping in each direction.
+connector :ref:`modifies some types <type-mapping-overview>` when reading or
+writing data. Data types may not map the same way in both directions between
+Trino and the data source. Refer to the following sections for type mapping in
+each direction.
 
 ClickHouse type to Trino type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

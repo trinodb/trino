@@ -30,8 +30,9 @@ import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskState;
 import io.trino.execution.TaskStatus;
+import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.execution.buffer.OutputBuffers;
-import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.failuredetector.FailureDetector;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
@@ -105,7 +106,7 @@ public class PipelinedStageExecution
 
     private final PipelinedStageStateMachine stateMachine;
     private final SqlStage stage;
-    private final Map<PlanFragmentId, OutputBufferManager> outputBufferManagers;
+    private final Map<PlanFragmentId, PipelinedOutputBufferManager> outputBufferManagers;
     private final TaskLifecycleListener taskLifecycleListener;
     private final FailureDetector failureDetector;
     private final Optional<int[]> bucketToPartition;
@@ -117,10 +118,8 @@ public class PipelinedStageExecution
     // current stage task tracking
     @GuardedBy("this")
     private final Set<TaskId> allTasks = new HashSet<>();
-    @GuardedBy("this")
-    private final Set<TaskId> finishedTasks = new HashSet<>();
-    @GuardedBy("this")
-    private final Set<TaskId> flushingTasks = new HashSet<>();
+    private final Set<TaskId> finishedTasks = ConcurrentHashMap.newKeySet();
+    private final Set<TaskId> flushingTasks = ConcurrentHashMap.newKeySet();
 
     // source task tracking
     @GuardedBy("this")
@@ -132,7 +131,7 @@ public class PipelinedStageExecution
 
     public static PipelinedStageExecution createPipelinedStageExecution(
             SqlStage stage,
-            Map<PlanFragmentId, OutputBufferManager> outputBufferManagers,
+            Map<PlanFragmentId, PipelinedOutputBufferManager> outputBufferManagers,
             TaskLifecycleListener taskLifecycleListener,
             FailureDetector failureDetector,
             Executor executor,
@@ -162,7 +161,7 @@ public class PipelinedStageExecution
     private PipelinedStageExecution(
             PipelinedStageStateMachine stateMachine,
             SqlStage stage,
-            Map<PlanFragmentId, OutputBufferManager> outputBufferManagers,
+            Map<PlanFragmentId, PipelinedOutputBufferManager> outputBufferManagers,
             TaskLifecycleListener taskLifecycleListener,
             FailureDetector failureDetector,
             Optional<int[]> bucketToPartition,
@@ -184,7 +183,7 @@ public class PipelinedStageExecution
         stateMachine.addStateChangeListener(state -> {
             if (!state.canScheduleMoreTasks()) {
                 taskLifecycleListener.noMoreTasks(stage.getFragment().getId());
-                updateSourceTasksOutputBuffers(OutputBufferManager::noMoreBuffers);
+                updateSourceTasksOutputBuffers(PipelinedOutputBufferManager::noMoreBuffers);
             }
         });
     }
@@ -218,29 +217,22 @@ public class PipelinedStageExecution
     }
 
     @Override
-    public synchronized void schedulingComplete()
+    public void schedulingComplete()
     {
         if (!stateMachine.transitionToScheduled()) {
             return;
         }
 
-        if (isFlushing()) {
+        if (isStageFlushing()) {
             stateMachine.transitionToFlushing();
         }
-        if (finishedTasks.containsAll(allTasks)) {
+        if (isStageFinished()) {
             stateMachine.transitionToFinished();
         }
 
         for (PlanNodeId partitionedSource : stage.getFragment().getPartitionedSources()) {
             schedulingComplete(partitionedSource);
         }
-    }
-
-    private synchronized boolean isFlushing()
-    {
-        // to transition to flushing, there must be at least one flushing task, and all others must be flushing or finished.
-        return !flushingTasks.isEmpty()
-                && allTasks.stream().allMatch(taskId -> finishedTasks.contains(taskId) || flushingTasks.contains(taskId));
     }
 
     @Override
@@ -339,13 +331,13 @@ public class PipelinedStageExecution
         return Optional.of(task);
     }
 
-    private synchronized void updateTaskStatus(TaskStatus taskStatus)
+    private void updateTaskStatus(TaskStatus taskStatus)
     {
         State stageState = stateMachine.getState();
         if (stageState.isDone()) {
             return;
         }
-
+        boolean newFlushingOrFinishedTaskObserved = false;
         TaskState taskState = taskStatus.getState();
 
         switch (taskState) {
@@ -366,11 +358,10 @@ public class PipelinedStageExecution
                 fail(new TrinoException(GENERIC_INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageState));
                 break;
             case FLUSHING:
-                flushingTasks.add(taskStatus.getTaskId());
+                newFlushingOrFinishedTaskObserved = addFlushingTask(taskStatus.getTaskId());
                 break;
             case FINISHED:
-                finishedTasks.add(taskStatus.getTaskId());
-                flushingTasks.remove(taskStatus.getTaskId());
+                newFlushingOrFinishedTaskObserved = addFinishedTask(taskStatus.getTaskId());
                 break;
             default:
         }
@@ -379,13 +370,54 @@ public class PipelinedStageExecution
             if (taskState == TaskState.RUNNING) {
                 stateMachine.transitionToRunning();
             }
-            if (isFlushing()) {
-                stateMachine.transitionToFlushing();
-            }
-            if (finishedTasks.containsAll(allTasks)) {
-                stateMachine.transitionToFinished();
+            // avoid extra synchronization if no new flushing or finished task was observed
+            if (newFlushingOrFinishedTaskObserved) {
+                if (isStageFlushing()) {
+                    stateMachine.transitionToFlushing();
+                }
+                if (isStageFinished()) {
+                    stateMachine.transitionToFinished();
+                }
             }
         }
+    }
+
+    private synchronized boolean isStageFlushing()
+    {
+        // to transition to flushing, there must be at least one flushing task, and all others must be flushing or finished.
+        return !flushingTasks.isEmpty()
+                && allTasks.stream().allMatch(taskId -> finishedTasks.contains(taskId) || flushingTasks.contains(taskId));
+    }
+
+    private synchronized boolean isStageFinished()
+    {
+        return finishedTasks.containsAll(allTasks);
+    }
+
+    private boolean addFlushingTask(TaskId taskId)
+    {
+        if (!flushingTasks.contains(taskId) && !finishedTasks.contains(taskId)) {
+            synchronized (this) {
+                // We need to check whether that task is not already finished. It could happen because of out of order of
+                // task status events
+                if (!finishedTasks.contains(taskId)) {
+                    return flushingTasks.add(taskId);
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean addFinishedTask(TaskId taskId)
+    {
+        if (!finishedTasks.contains(taskId)) {
+            synchronized (this) {
+                boolean added = finishedTasks.add(taskId);
+                flushingTasks.remove(taskId);
+                return added;
+            }
+        }
+        return false;
     }
 
     private ExecutionFailureInfo rewriteTransportFailure(ExecutionFailureInfo executionFailureInfo)
@@ -433,7 +465,7 @@ public class PipelinedStageExecution
 
         sourceTasks.put(fragmentId, sourceTask);
 
-        OutputBufferManager outputBufferManager = outputBufferManagers.get(fragmentId);
+        PipelinedOutputBufferManager outputBufferManager = outputBufferManagers.get(fragmentId);
         sourceTask.setOutputBuffers(outputBufferManager.getOutputBuffers());
 
         for (RemoteTask destinationTask : getAllTasks()) {
@@ -457,10 +489,10 @@ public class PipelinedStageExecution
         }
     }
 
-    private synchronized void updateSourceTasksOutputBuffers(Consumer<OutputBufferManager> updater)
+    private synchronized void updateSourceTasksOutputBuffers(Consumer<PipelinedOutputBufferManager> updater)
     {
         for (PlanFragmentId sourceFragment : exchangeSources.keySet()) {
-            OutputBufferManager outputBufferManager = outputBufferManagers.get(sourceFragment);
+            PipelinedOutputBufferManager outputBufferManager = outputBufferManagers.get(sourceFragment);
             updater.accept(outputBufferManager);
             for (RemoteTask sourceTask : sourceTasks.get(sourceFragment)) {
                 sourceTask.setOutputBuffers(outputBufferManager.getOutputBuffers());
@@ -485,7 +517,9 @@ public class PipelinedStageExecution
     @Override
     public boolean isAnyTaskBlocked()
     {
-        return getTaskStatuses().stream().anyMatch(TaskStatus::isOutputBufferOverutilized);
+        return getTaskStatuses().stream()
+                .map(TaskStatus::getOutputBufferStatus)
+                .anyMatch(OutputBufferStatus::isOverutilized);
     }
 
     @Override

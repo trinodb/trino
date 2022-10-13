@@ -100,15 +100,13 @@ public class ParquetSchemaConverter
         if (ROW.equals(type.getTypeSignature().getBase())) {
             return getRowType((RowType) type, name, parent, repetition);
         }
-        else if (MAP.equals(type.getTypeSignature().getBase())) {
+        if (MAP.equals(type.getTypeSignature().getBase())) {
             return getMapType((MapType) type, name, parent, repetition);
         }
-        else if (ARRAY.equals(type.getTypeSignature().getBase())) {
+        if (ARRAY.equals(type.getTypeSignature().getBase())) {
             return getArrayType((ArrayType) type, name, parent, repetition);
         }
-        else {
-            return getPrimitiveType(type, name, parent, repetition);
-        }
+        return getPrimitiveType(type, name, parent, repetition);
     }
 
     private org.apache.parquet.schema.Type getPrimitiveType(Type type, String name, List<String> parent, Repetition repetition)
@@ -186,7 +184,7 @@ public class ParquetSchemaConverter
     {
         Type elementType = type.getElementType();
         return Types.list(repetition)
-                .element(convert(elementType, "array", ImmutableList.<String>builder().addAll(parent).add(name).add("list").build(), OPTIONAL))
+                .element(convert(elementType, "element", ImmutableList.<String>builder().addAll(parent).add(name).add("list").build(), OPTIONAL))
                 .named(name);
     }
 

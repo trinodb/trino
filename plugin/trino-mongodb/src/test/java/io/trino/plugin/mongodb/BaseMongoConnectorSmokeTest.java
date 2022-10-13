@@ -19,6 +19,7 @@ import io.trino.testing.TestingConnectorBehavior;
 public abstract class BaseMongoConnectorSmokeTest
         extends BaseConnectorSmokeTest
 {
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {

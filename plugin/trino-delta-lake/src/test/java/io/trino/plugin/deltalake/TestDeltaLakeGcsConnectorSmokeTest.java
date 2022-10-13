@@ -127,6 +127,7 @@ public class TestDeltaLakeGcsConnectorSmokeTest
             case SUPPORTS_UPDATE:
             case SUPPORTS_MERGE:
                 return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }

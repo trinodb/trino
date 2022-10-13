@@ -41,6 +41,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.planprinter.IoPlanPrinter;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.ColumnConstraint;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.EstimatedStatsAndCost;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedDomain;
@@ -219,12 +220,16 @@ public abstract class BaseHiveConnectorTest
         return queryRunner;
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
+
+            case SUPPORTS_COMMENT_ON_VIEW:
+                return true;
 
             case SUPPORTS_CREATE_VIEW:
                 return true;
@@ -233,8 +238,6 @@ public abstract class BaseHiveConnectorTest
                 return false;
 
             case SUPPORTS_DELETE:
-                return true;
-
             case SUPPORTS_UPDATE:
                 return true;
 
@@ -243,9 +246,6 @@ public abstract class BaseHiveConnectorTest
                 return false;
 
             case SUPPORTS_MULTI_STATEMENT_WRITES:
-                return true;
-
-            case SUPPORTS_COMMENT_ON_VIEW:
                 return true;
 
             default:
@@ -1050,37 +1050,39 @@ public abstract class BaseHiveConnectorTest
                         ImmutableSet.of(
                                 new TableColumnInfo(
                                         new CatalogSchemaTableName(catalog, "tpch", "test_io_explain"),
-                                        ImmutableSet.of(
-                                                new ColumnConstraint(
-                                                        "orderkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY)),
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("2"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("2"), EXACTLY))))),
-                                                new ColumnConstraint(
-                                                        "processing",
-                                                        BOOLEAN,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("false"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("false"), EXACTLY))))),
-                                                new ColumnConstraint(
-                                                        "custkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.empty(), ABOVE),
-                                                                                new FormattedMarker(Optional.of("10"), EXACTLY)))))),
+                                        new IoPlanPrinter.Constraint(
+                                                false,
+                                                ImmutableSet.of(
+                                                        new ColumnConstraint(
+                                                                "orderkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY)),
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY))))),
+                                                        new ColumnConstraint(
+                                                                "processing",
+                                                                BOOLEAN,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("false"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("false"), EXACTLY))))),
+                                                        new ColumnConstraint(
+                                                                "custkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.empty(), ABOVE),
+                                                                                        new FormattedMarker(Optional.of("10"), EXACTLY))))))),
                                         estimate)),
                         Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_io_explain")),
                         estimate));
@@ -1098,25 +1100,27 @@ public abstract class BaseHiveConnectorTest
                         ImmutableSet.of(
                                 new TableColumnInfo(
                                         new CatalogSchemaTableName(catalog, "tpch", "test_io_explain"),
-                                        ImmutableSet.of(
-                                                new ColumnConstraint(
-                                                        "orderkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("199"), EXACTLY))))),
-                                                new ColumnConstraint(
-                                                        "custkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.empty(), ABOVE),
-                                                                                new FormattedMarker(Optional.of("10"), EXACTLY)))))),
+                                        new IoPlanPrinter.Constraint(
+                                                false,
+                                                ImmutableSet.of(
+                                                        new ColumnConstraint(
+                                                                "orderkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("199"), EXACTLY))))),
+                                                        new ColumnConstraint(
+                                                                "custkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.empty(), ABOVE),
+                                                                                        new FormattedMarker(Optional.of("10"), EXACTLY))))))),
                                         estimate)),
                         Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_io_explain")),
                         estimate));
@@ -1130,25 +1134,27 @@ public abstract class BaseHiveConnectorTest
                         ImmutableSet.of(
                                 new TableColumnInfo(
                                         new CatalogSchemaTableName(catalog, "tpch", "test_io_explain"),
-                                        ImmutableSet.of(
-                                                new ColumnConstraint(
-                                                        "orderkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("100"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("100"), EXACTLY))))),
-                                                new ColumnConstraint(
-                                                        "orderkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("100"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("100"), EXACTLY)))))),
+                                        new IoPlanPrinter.Constraint(
+                                                false,
+                                                ImmutableSet.of(
+                                                        new ColumnConstraint(
+                                                                "orderkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("100"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("100"), EXACTLY))))),
+                                                        new ColumnConstraint(
+                                                                "orderkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("100"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("100"), EXACTLY))))))),
                                         estimate)),
                         Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_io_explain")),
                         finalEstimate));
@@ -1171,37 +1177,39 @@ public abstract class BaseHiveConnectorTest
                         ImmutableSet.of(
                                 new TableColumnInfo(
                                         new CatalogSchemaTableName(catalog, "tpch", "test_io_explain_column_filters"),
-                                        ImmutableSet.of(
-                                                new ColumnConstraint(
-                                                        "orderkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY)),
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("2"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("2"), EXACTLY))))),
-                                                new ColumnConstraint(
-                                                        "custkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.empty(), ABOVE),
-                                                                                new FormattedMarker(Optional.of("10"), EXACTLY))))),
-                                                new ColumnConstraint(
-                                                        "orderstatus",
-                                                        VarcharType.createVarcharType(1),
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("P"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("P"), EXACTLY)))))),
+                                        new IoPlanPrinter.Constraint(
+                                                false,
+                                                ImmutableSet.of(
+                                                        new ColumnConstraint(
+                                                                "orderkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY)),
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY))))),
+                                                        new ColumnConstraint(
+                                                                "custkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.empty(), ABOVE),
+                                                                                        new FormattedMarker(Optional.of("10"), EXACTLY))))),
+                                                        new ColumnConstraint(
+                                                                "orderstatus",
+                                                                VarcharType.createVarcharType(1),
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("P"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("P"), EXACTLY))))))),
                                         estimate)),
                         Optional.empty(),
                         finalEstimate));
@@ -1212,40 +1220,42 @@ public abstract class BaseHiveConnectorTest
                         ImmutableSet.of(
                                 new TableColumnInfo(
                                         new CatalogSchemaTableName(catalog, "tpch", "test_io_explain_column_filters"),
-                                        ImmutableSet.of(
-                                                new ColumnConstraint(
-                                                        "orderkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY)),
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("2"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("2"), EXACTLY))))),
-                                                new ColumnConstraint(
-                                                        "orderstatus",
-                                                        VarcharType.createVarcharType(1),
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("P"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("P"), EXACTLY)),
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("S"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("S"), EXACTLY))))),
-                                                new ColumnConstraint(
-                                                        "custkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.empty(), ABOVE),
-                                                                                new FormattedMarker(Optional.of("10"), EXACTLY)))))),
+                                        new IoPlanPrinter.Constraint(
+                                                false,
+                                                ImmutableSet.of(
+                                                        new ColumnConstraint(
+                                                                "orderkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY)),
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY))))),
+                                                        new ColumnConstraint(
+                                                                "orderstatus",
+                                                                VarcharType.createVarcharType(1),
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("P"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("P"), EXACTLY)),
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("S"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("S"), EXACTLY))))),
+                                                        new ColumnConstraint(
+                                                                "custkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.empty(), ABOVE),
+                                                                                        new FormattedMarker(Optional.of("10"), EXACTLY))))))),
                                         estimate)),
                         Optional.empty(),
                         finalEstimate));
@@ -1256,33 +1266,57 @@ public abstract class BaseHiveConnectorTest
                         ImmutableSet.of(
                                 new TableColumnInfo(
                                         new CatalogSchemaTableName(catalog, "tpch", "test_io_explain_column_filters"),
-                                        ImmutableSet.of(
-                                                new ColumnConstraint(
-                                                        "orderkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY)),
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("2"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("2"), EXACTLY))))),
-                                                new ColumnConstraint(
-                                                        "custkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.empty(), ABOVE),
-                                                                                new FormattedMarker(Optional.of("10"), EXACTLY)))))),
+                                        new IoPlanPrinter.Constraint(
+                                                false,
+                                                ImmutableSet.of(
+                                                        new ColumnConstraint(
+                                                                "orderkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY)),
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY))))),
+                                                        new ColumnConstraint(
+                                                                "custkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.empty(), ABOVE),
+                                                                                        new FormattedMarker(Optional.of("10"), EXACTLY))))))),
                                         estimate)),
                         Optional.empty(),
                         finalEstimate));
 
         assertUpdate("DROP TABLE test_io_explain_column_filters");
+    }
+
+    @Test
+    public void testIoExplainWithEmptyPartitionedTable()
+    {
+        // Test IO explain a partitioned table with no data.
+        assertUpdate("CREATE TABLE test_io_explain_with_empty_partitioned_table WITH (partitioned_by = ARRAY['orderkey']) AS SELECT custkey, orderkey FROM orders WITH NO DATA", 0);
+
+        EstimatedStatsAndCost estimate = new EstimatedStatsAndCost(0.0, 0.0, 0.0, 0.0, 0.0);
+        MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT custkey, orderkey FROM test_io_explain_with_empty_partitioned_table");
+        assertEquals(
+                getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
+                new IoPlan(
+                        ImmutableSet.of(
+                                new TableColumnInfo(
+                                        new CatalogSchemaTableName(catalog, "tpch", "test_io_explain_with_empty_partitioned_table"),
+                                        new IoPlanPrinter.Constraint(true, ImmutableSet.of()),
+                                        estimate)),
+                        Optional.empty(),
+                        estimate));
+
+        assertUpdate("DROP TABLE test_io_explain_with_empty_partitioned_table");
     }
 
     @Test
@@ -1314,16 +1348,18 @@ public abstract class BaseHiveConnectorTest
                         ImmutableSet.of(
                                 new TableColumnInfo(
                                         new CatalogSchemaTableName(catalog, "tpch", "io_explain_test_no_filter"),
-                                        ImmutableSet.of(
-                                                new ColumnConstraint(
-                                                        "ds",
-                                                        VARCHAR,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("a"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("a"), EXACTLY)))))),
+                                        new IoPlanPrinter.Constraint(
+                                                false,
+                                                ImmutableSet.of(
+                                                        new ColumnConstraint(
+                                                                "ds",
+                                                                VARCHAR,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("a"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("a"), EXACTLY))))))),
                                         estimate)),
                         Optional.empty(),
                         finalEstimate));
@@ -1359,25 +1395,27 @@ public abstract class BaseHiveConnectorTest
                         ImmutableSet.of(
                                 new TableColumnInfo(
                                         new CatalogSchemaTableName(catalog, "tpch", "io_explain_test_filter_on_agg"),
-                                        ImmutableSet.of(
-                                                new ColumnConstraint(
-                                                        "ds",
-                                                        VARCHAR,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("a"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("a"), EXACTLY))))),
-                                                new ColumnConstraint(
-                                                        "b",
-                                                        VARCHAR,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("b"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("b"), EXACTLY)))))),
+                                        new IoPlanPrinter.Constraint(
+                                                false,
+                                                ImmutableSet.of(
+                                                        new ColumnConstraint(
+                                                                "ds",
+                                                                VARCHAR,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("a"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("a"), EXACTLY))))),
+                                                        new ColumnConstraint(
+                                                                "b",
+                                                                VARCHAR,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("b"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("b"), EXACTLY))))))),
                                         estimate)),
                         Optional.empty(),
                         finalEstimate));
@@ -1413,21 +1451,24 @@ public abstract class BaseHiveConnectorTest
                     type.getDisplayName());
 
             assertUpdate(query, 1);
+
             assertEquals(
                     getIoPlanCodec().fromJson((String) getOnlyElement(computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT * FROM test_types_table").getOnlyColumnAsSet())),
                     new IoPlan(
                             ImmutableSet.of(new TableColumnInfo(
                                     new CatalogSchemaTableName(catalog, "tpch", "test_types_table"),
-                                    ImmutableSet.of(
-                                            new ColumnConstraint(
-                                                    "my_col",
-                                                    type,
-                                                    new FormattedDomain(
-                                                            false,
-                                                            ImmutableSet.of(
-                                                                    new FormattedRange(
-                                                                            new FormattedMarker(Optional.of(entry.getKey().toString()), EXACTLY),
-                                                                            new FormattedMarker(Optional.of(entry.getKey().toString()), EXACTLY)))))),
+                                    new IoPlanPrinter.Constraint(
+                                            false,
+                                            ImmutableSet.of(
+                                                    new ColumnConstraint(
+                                                            "my_col",
+                                                            type,
+                                                            new FormattedDomain(
+                                                                    false,
+                                                                    ImmutableSet.of(
+                                                                            new FormattedRange(
+                                                                                    new FormattedMarker(Optional.of(entry.getKey().toString()), EXACTLY),
+                                                                                    new FormattedMarker(Optional.of(entry.getKey().toString()), EXACTLY))))))),
                                     estimate)),
                             Optional.empty(),
                             estimate),
@@ -3376,6 +3417,10 @@ public abstract class BaseHiveConnectorTest
         // insert 10 partitions with part1=part2
         assertUpdate("INSERT INTO " + tableName + " SELECT 'bar' foo, n part1, n part2 FROM UNNEST(sequence(1, 10)) a(n)", 10);
 
+        // verify can query less than 1000 partitions
+        assertThat(query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3 AND part1 IS NOT NULL"))
+                .matches("VALUES (VARCHAR 'bar', BIGINT '3', BIGINT '3')");
+
         // verify can query 1000 partitions
         assertThat(query("SELECT count(*) FROM " + tableName + " WHERE part1 IS NULL AND part2 < 1001"))
                 .matches("VALUES BIGINT '1000'");
@@ -3385,12 +3430,8 @@ public abstract class BaseHiveConnectorTest
                 .hasMessage("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName);
         assertThatThrownBy(() -> query("SELECT count(*) FROM " + tableName))
                 .hasMessage("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName);
-
-        // verify we can query with a predicate that is not representable as a TupleDomain
-        assertThat(query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3")) // may be translated to Domain.all
-                .matches("VALUES (VARCHAR 'bar', BIGINT '3', BIGINT '3')");
-        assertThat(query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3 AND part1 IS NOT NULL"))  // may be translated to Domain.all except nulls
-                .matches("VALUES (VARCHAR 'bar', BIGINT '3', BIGINT '3')");
+        assertThatThrownBy(() -> query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3")) // translated to Domain.all, all partitions must be scanned
+                .hasMessage("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName);
 
         // we are not constrained by hive.max-partitions-per-scan (=1000) when listing partitions
         assertThat(query("SELECT * FROM " + partitionsTable))
@@ -4941,7 +4982,7 @@ public abstract class BaseHiveConnectorTest
     public void testParquetTimestampPredicatePushdownOptimizedWriter(HiveTimestampPrecision timestampPrecision, LocalDateTime value)
     {
         Session session = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "experimental_parquet_optimized_writer_enabled", "true")
+                .setCatalogSessionProperty("hive", "parquet_optimized_writer_enabled", "true")
                 .build();
         doTestParquetTimestampPredicatePushdown(session, timestampPrecision, value);
     }
@@ -5054,7 +5095,7 @@ public abstract class BaseHiveConnectorTest
     {
         testParquetDictionaryPredicatePushdown(
                 Session.builder(getSession())
-                        .setCatalogSessionProperty("hive", "experimental_parquet_optimized_writer_enabled", "true")
+                        .setCatalogSessionProperty("hive", "parquet_optimized_writer_enabled", "true")
                         .build());
     }
 
@@ -8245,6 +8286,24 @@ public abstract class BaseHiveConnectorTest
                 "'Physical input read time' = \\{duration=.*}");
     }
 
+    @Test
+    public void testExplainAnalyzeScanFilterProjectWallTime()
+    {
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE VERBOSE SELECT nationkey * 2 FROM nation WHERE nationkey > 0",
+                "'Filter CPU time' = \\{duration=.*}",
+                "'Projection CPU time' = \\{duration=.*}");
+    }
+
+    @Test
+    public void testExplainAnalyzeFilterProjectWallTime()
+    {
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE VERBOSE SELECT * FROM (SELECT nationkey, count(*) cnt FROM nation GROUP BY 1) where cnt > 0",
+                "'Filter CPU time' = \\{duration=.*}",
+                "'Projection CPU time' = \\{duration=.*}");
+    }
+
     private static final Set<HiveStorageFormat> NAMED_COLUMN_ONLY_FORMATS = ImmutableSet.of(HiveStorageFormat.AVRO, HiveStorageFormat.JSON);
 
     @DataProvider
@@ -8301,6 +8360,7 @@ public abstract class BaseHiveConnectorTest
         Set<ColumnConstraint> constraints = getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet()))
                 .getInputTableColumnInfos().stream()
                 .findFirst().get()
+                .getConstraint()
                 .getColumnConstraints();
 
         assertTrue(constraints.containsAll(expected));
@@ -8354,7 +8414,7 @@ public abstract class BaseHiveConnectorTest
     private boolean isNativeParquetWriter(Session session, HiveStorageFormat storageFormat)
     {
         return storageFormat == HiveStorageFormat.PARQUET &&
-                "true".equals(session.getCatalogProperties("hive").get("experimental_parquet_optimized_writer_enabled"));
+                "true".equals(session.getCatalogProperties("hive").get("parquet_optimized_writer_enabled"));
     }
 
     private List<TestingHiveStorageFormat> getAllTestingHiveStorageFormat()
@@ -8370,12 +8430,12 @@ public abstract class BaseHiveConnectorTest
             if (hiveStorageFormat == HiveStorageFormat.PARQUET) {
                 formats.add(new TestingHiveStorageFormat(
                         Session.builder(session)
-                                .setCatalogSessionProperty(catalog, "experimental_parquet_optimized_writer_enabled", "false")
+                                .setCatalogSessionProperty(catalog, "parquet_optimized_writer_enabled", "false")
                                 .build(),
                         hiveStorageFormat));
                 formats.add(new TestingHiveStorageFormat(
                         Session.builder(session)
-                                .setCatalogSessionProperty(catalog, "experimental_parquet_optimized_writer_enabled", "true")
+                                .setCatalogSessionProperty(catalog, "parquet_optimized_writer_enabled", "true")
                                 .build(),
                         hiveStorageFormat));
                 continue;

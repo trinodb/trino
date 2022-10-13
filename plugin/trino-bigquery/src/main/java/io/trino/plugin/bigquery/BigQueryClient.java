@@ -71,11 +71,11 @@ public class BigQueryClient
     private final ViewMaterializationCache materializationCache;
     private final boolean caseInsensitiveNameMatching;
 
-    public BigQueryClient(BigQuery bigQuery, BigQueryConfig config, ViewMaterializationCache materializationCache)
+    public BigQueryClient(BigQuery bigQuery, boolean caseInsensitiveNameMatching, ViewMaterializationCache materializationCache)
     {
         this.bigQuery = requireNonNull(bigQuery, "bigQuery is null");
         this.materializationCache = requireNonNull(materializationCache, "materializationCache is null");
-        this.caseInsensitiveNameMatching = config.isCaseInsensitiveNameMatching();
+        this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
     }
 
     public Optional<RemoteDatabaseObject> toRemoteDataset(String projectId, String datasetName)
@@ -215,6 +215,18 @@ public class BigQueryClient
     Job create(JobInfo jobInfo)
     {
         return bigQuery.create(jobInfo);
+    }
+
+    public void executeUpdate(QueryJobConfiguration job)
+    {
+        log.debug("Execute query: %s", job.getQuery());
+        try {
+            bigQuery.query(job);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BigQueryException(BaseHttpServiceException.UNKNOWN_CODE, format("Failed to run the query [%s]", job.getQuery()), e);
+        }
     }
 
     public TableResult query(String sql, boolean useQueryResultsCache, CreateDisposition createDisposition)

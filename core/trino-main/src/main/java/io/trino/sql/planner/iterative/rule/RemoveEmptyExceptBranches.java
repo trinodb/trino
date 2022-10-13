@@ -61,19 +61,12 @@ public class RemoveEmptyExceptBranches
             return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
         }
 
-        boolean hasEmptyBranches = node.getSources().stream()
-                .skip(1) // first source is the set we're excluding rows from, so ignore it
-                .anyMatch(source -> isEmpty(source, context.getLookup()));
-
-        if (!hasEmptyBranches) {
-            return Result.empty();
-        }
-
+        boolean hasEmptyBranches = false;
         ImmutableList.Builder<PlanNode> newSourcesBuilder = ImmutableList.builder();
         ImmutableListMultimap.Builder<Symbol, Symbol> outputsToInputsBuilder = ImmutableListMultimap.builder();
-
         for (int i = 0; i < node.getSources().size(); i++) {
             PlanNode source = node.getSources().get(i);
+            // first source is the set we're excluding rows from, so treat it separately
             if (i == 0 || !isEmpty(source, context.getLookup())) {
                 newSourcesBuilder.add(source);
 
@@ -81,6 +74,13 @@ public class RemoveEmptyExceptBranches
                     outputsToInputsBuilder.put(column, node.getSymbolMapping().get(column).get(i));
                 }
             }
+            else {
+                hasEmptyBranches = true;
+            }
+        }
+
+        if (!hasEmptyBranches) {
+            return Result.empty();
         }
 
         List<PlanNode> newSources = newSourcesBuilder.build();

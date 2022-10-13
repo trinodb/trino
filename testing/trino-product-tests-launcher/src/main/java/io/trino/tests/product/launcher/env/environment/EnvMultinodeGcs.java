@@ -39,8 +39,8 @@ import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
-import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_HIVE_PROPERTIES;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_TRINO_HIVE_PROPERTIES;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static java.nio.file.attribute.PosixFilePermissions.fromString;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -64,7 +64,7 @@ public class EnvMultinodeGcs
     {
         super(ImmutableList.of(multinode, hadoop));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
-        this.hadoopImageVersion = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopImagesVersion();
+        this.hadoopImageVersion = environmentConfig.getHadoopImagesVersion();
     }
 
     @Override
@@ -83,7 +83,7 @@ public class EnvMultinodeGcs
             throw new UncheckedIOException(e);
         }
 
-        String containerGcpCredentialsFile = CONTAINER_PRESTO_ETC + "gcp-credentials.json";
+        String containerGcpCredentialsFile = CONTAINER_TRINO_ETC + "gcp-credentials.json";
         builder.configureContainer(HADOOP, container -> {
             container.setDockerImageName("ghcr.io/trinodb/testing/hdp3.1-hive:" + hadoopImageVersion);
             container.withCopyFileToContainer(
@@ -112,9 +112,9 @@ public class EnvMultinodeGcs
                 .withEnv("GCP_STORAGE_BUCKET", gcpStorageBucket)
                 .withEnv("GCP_TEST_DIRECTORY", gcsTestDirectory));
 
-        builder.addConnector("hive", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-gcs/hive.properties")), CONTAINER_PRESTO_HIVE_PROPERTIES);
-        builder.addConnector("delta", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-gcs/delta.properties")), CONTAINER_PRESTO_ETC + "/catalog/delta.properties");
-        builder.addConnector("iceberg", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-gcs/iceberg.properties")), CONTAINER_PRESTO_ETC + "/catalog/iceberg.properties");
+        builder.addConnector("hive", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-gcs/hive.properties")), CONTAINER_TRINO_HIVE_PROPERTIES);
+        builder.addConnector("delta", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-gcs/delta.properties")), CONTAINER_TRINO_ETC + "/catalog/delta.properties");
+        builder.addConnector("iceberg", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-gcs/iceberg.properties")), CONTAINER_TRINO_ETC + "/catalog/iceberg.properties");
 
         configureTempto(builder, dockerFiles.getDockerFilesHostDirectory("conf/environment/multinode-gcs/"));
     }

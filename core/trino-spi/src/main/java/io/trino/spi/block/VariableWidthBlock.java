@@ -34,11 +34,12 @@ import static io.trino.spi.block.BlockUtil.compactOffsets;
 import static io.trino.spi.block.BlockUtil.compactSlice;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.copyOffsetsAndAppendNull;
+import static java.lang.Math.toIntExact;
 
 public class VariableWidthBlock
         extends AbstractVariableWidthBlock
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(VariableWidthBlock.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(VariableWidthBlock.class).instanceSize());
 
     private final int arrayOffset;
     private final int positionCount;
@@ -83,6 +84,23 @@ public class VariableWidthBlock
 
         sizeInBytes = offsets[arrayOffset + positionCount] - offsets[arrayOffset] + ((Integer.BYTES + Byte.BYTES) * (long) positionCount);
         retainedSizeInBytes = INSTANCE_SIZE + slice.getRetainedSize() + sizeOf(valueIsNull) + sizeOf(offsets);
+    }
+
+    /**
+     * Gets the raw {@link Slice} that keeps the actual data bytes.
+     */
+    public Slice getRawSlice()
+    {
+        return slice;
+    }
+
+    /**
+     * Gets the offset of the value at the {@code position} in the {@link Slice} returned by {@link #getRawSlice())}.
+     */
+    public int getRawSliceOffset(int position)
+    {
+        checkReadablePosition(this, position);
+        return getPositionOffset(position);
     }
 
     @Override
@@ -166,7 +184,7 @@ public class VariableWidthBlock
         if (valueIsNull != null) {
             consumer.accept(valueIsNull, sizeOf(valueIsNull));
         }
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override

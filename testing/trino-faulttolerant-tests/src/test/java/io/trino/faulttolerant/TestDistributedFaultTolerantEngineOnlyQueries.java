@@ -62,6 +62,13 @@ public class TestDistributedFaultTolerantEngineOnlyQueries
 
     @Override
     @Test(enabled = false)
+    public void testExplainAnalyzeVerbose()
+    {
+        // Spooling exchange does not prove output buffer utilization histogram
+    }
+
+    @Override
+    @Test(enabled = false)
     public void testSelectiveLimit()
     {
         // FTE mode does not terminate query when limit is reached

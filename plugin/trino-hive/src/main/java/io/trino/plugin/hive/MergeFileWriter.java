@@ -73,7 +73,7 @@ public class MergeFileWriter
                 typeManager,
                 hiveRowType,
                 AcidOperation.MERGE);
-        this.partitionName = requireNonNull(partitionName, "partitionName is null").orElse("");
+        this.partitionName = partitionName.orElse("");
         this.inputColumns = requireNonNull(inputColumns, "inputColumns is null");
     }
 
@@ -110,9 +110,9 @@ public class MergeFileWriter
         Block mergedColumnsBlock = RowBlock.fromFieldBlocks(positionCount, Optional.empty(), dataColumns.toArray(new Block[]{}));
         Block currentTransactionBlock = RunLengthEncodedBlock.create(BIGINT, writeId, positionCount);
         Block[] blockArray = {
-                new RunLengthEncodedBlock(INSERT_OPERATION_BLOCK, positionCount),
+                RunLengthEncodedBlock.create(INSERT_OPERATION_BLOCK, positionCount),
                 currentTransactionBlock,
-                new RunLengthEncodedBlock(bucketValueBlock, positionCount),
+                RunLengthEncodedBlock.create(bucketValueBlock, positionCount),
                 createRowIdBlock(positionCount, insertRowCount),
                 currentTransactionBlock,
                 mergedColumnsBlock

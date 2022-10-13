@@ -1154,24 +1154,22 @@ public class PredicatePushDown
                             node.getDynamicFilters(),
                             node.getReorderJoinStatsAndCost());
                 }
-                else {
-                    return new JoinNode(
-                            node.getId(),
-                            canConvertToLeftJoin ? LEFT : RIGHT,
-                            node.getLeft(),
-                            node.getRight(),
-                            node.getCriteria(),
-                            node.getLeftOutputSymbols(),
-                            node.getRightOutputSymbols(),
-                            node.isMaySkipOutputDuplicates(),
-                            node.getFilter(),
-                            node.getLeftHashSymbol(),
-                            node.getRightHashSymbol(),
-                            node.getDistributionType(),
-                            node.isSpillable(),
-                            node.getDynamicFilters(),
-                            node.getReorderJoinStatsAndCost());
-                }
+                return new JoinNode(
+                        node.getId(),
+                        canConvertToLeftJoin ? LEFT : RIGHT,
+                        node.getLeft(),
+                        node.getRight(),
+                        node.getCriteria(),
+                        node.getLeftOutputSymbols(),
+                        node.getRightOutputSymbols(),
+                        node.isMaySkipOutputDuplicates(),
+                        node.getFilter(),
+                        node.getLeftHashSymbol(),
+                        node.getRightHashSymbol(),
+                        node.getDistributionType(),
+                        node.isSpillable(),
+                        node.getDynamicFilters(),
+                        node.getReorderJoinStatsAndCost());
             }
 
             if (node.getType() == JoinNode.Type.LEFT && !canConvertOuterToInner(node.getRight().getOutputSymbols(), inheritedPredicate) ||

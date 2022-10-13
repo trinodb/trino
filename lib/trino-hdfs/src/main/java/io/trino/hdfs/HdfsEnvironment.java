@@ -50,7 +50,6 @@ public class HdfsEnvironment
             HdfsAuthentication hdfsAuthentication)
     {
         this.hdfsConfiguration = requireNonNull(hdfsConfiguration, "hdfsConfiguration is null");
-        requireNonNull(config, "config is null");
         this.newFileInheritOwnership = config.isNewFileInheritOwnership();
         this.verifyChecksum = config.isVerifyChecksum();
         this.hdfsAuthentication = requireNonNull(hdfsAuthentication, "hdfsAuthentication is null");

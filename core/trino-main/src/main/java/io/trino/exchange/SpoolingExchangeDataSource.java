@@ -13,18 +13,13 @@
  */
 package io.trino.exchange;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.OperatorInfo;
 import io.trino.spi.exchange.ExchangeSource;
-import io.trino.spi.exchange.ExchangeSourceHandle;
 
-import java.util.List;
-
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static java.util.Objects.requireNonNull;
@@ -39,18 +34,13 @@ public class SpoolingExchangeDataSource
     // It doesn't have to be declared as volatile as the nullification of this variable doesn't have to be immediately visible to other threads.
     // However since close can be called at any moment this variable has to be accessed in a safe way (avoiding "check-then-use").
     private ExchangeSource exchangeSource;
-    private final List<ExchangeSourceHandle> exchangeSourceHandles;
     private final LocalMemoryContext systemMemoryContext;
     private volatile boolean closed;
 
-    public SpoolingExchangeDataSource(
-            ExchangeSource exchangeSource,
-            List<ExchangeSourceHandle> exchangeSourceHandles,
-            LocalMemoryContext systemMemoryContext)
+    public SpoolingExchangeDataSource(ExchangeSource exchangeSource, LocalMemoryContext systemMemoryContext)
     {
         // this assignment is expected to be followed by an assignment of a final field to ensure safe publication
         this.exchangeSource = requireNonNull(exchangeSource, "exchangeSource is null");
-        this.exchangeSourceHandles = ImmutableList.copyOf(requireNonNull(exchangeSourceHandles, "exchangeSourceHandles is null"));
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
 
@@ -96,23 +86,23 @@ public class SpoolingExchangeDataSource
     @Override
     public void addInput(ExchangeInput input)
     {
-        SpoolingExchangeInput exchangeInput = (SpoolingExchangeInput) input;
-        // Only a single input is expected when the spooling exchange is used.
-        // The engine adds the same input to every instance of the ExchangeOperator.
-        // Since the ExchangeDataSource is shared between ExchangeOperator instances
-        // the same input may be delivered multiple times.
-        checkState(
-                exchangeInput.getExchangeSourceHandles().equals(exchangeSourceHandles),
-                "exchange input is expected to contain an identical exchangeSourceHandles list: %s != %s",
-                exchangeInput.getExchangeSourceHandles(),
-                exchangeSourceHandles);
+        SpoolingExchangeInput spoolingExchangeInput = (SpoolingExchangeInput) input;
+        ExchangeSource exchangeSource = this.exchangeSource;
+        if (exchangeSource == null) {
+            return;
+        }
+        spoolingExchangeInput.getOutputSelector().ifPresent(exchangeSource::setOutputSelector);
+        exchangeSource.addSourceHandles(spoolingExchangeInput.getExchangeSourceHandles());
     }
 
     @Override
     public void noMoreInputs()
     {
-        // Only a single input is expected when the spooling exchange is used.
-        // Thus the assumption of "noMoreSplit" is made on construction.
+        ExchangeSource exchangeSource = this.exchangeSource;
+        if (exchangeSource == null) {
+            return;
+        }
+        exchangeSource.noMoreSourceHandles();
     }
 
     @Override

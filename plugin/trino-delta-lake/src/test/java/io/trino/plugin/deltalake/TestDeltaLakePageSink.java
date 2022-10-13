@@ -44,6 +44,7 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -191,6 +192,7 @@ public class TestDeltaLakePageSink
             handles.add(new DeltaLakeColumnHandle(
                     column.getColumnName(),
                     getTrinoType(column.getType()),
+                    OptionalInt.empty(),
                     column.getColumnName(),
                     getTrinoType(column.getType()),
                     REGULAR));

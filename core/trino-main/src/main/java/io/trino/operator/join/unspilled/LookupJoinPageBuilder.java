@@ -13,7 +13,6 @@
  */
 package io.trino.operator.join.unspilled;
 
-import io.trino.operator.join.JoinProbe;
 import io.trino.operator.join.LookupSource;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;

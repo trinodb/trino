@@ -79,7 +79,7 @@ public final class SessionPropertyManager
 
     public SessionPropertyManager(Set<SystemSessionPropertiesProvider> systemSessionProperties, CatalogServiceProvider<Map<String, PropertyMetadata<?>>> connectorSessionProperties)
     {
-        addSystemSessionProperties(requireNonNull(systemSessionProperties, "systemSessionProperties is null")
+        addSystemSessionProperties(systemSessionProperties
                 .stream()
                 .flatMap(provider -> provider.getSessionProperties().stream())
                 .collect(toImmutableList()));

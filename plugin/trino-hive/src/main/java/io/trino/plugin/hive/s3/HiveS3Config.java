@@ -35,7 +35,6 @@ import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
 
 @DefunctConfig("hive.s3.use-instance-credentials")
 public class HiveS3Config
@@ -43,6 +42,7 @@ public class HiveS3Config
     private String s3AwsAccessKey;
     private String s3AwsSecretKey;
     private String s3Endpoint;
+    private String s3Region;
     private TrinoS3StorageClass s3StorageClass = TrinoS3StorageClass.STANDARD;
     private TrinoS3SignerType s3SignerType;
     private String s3SignerClass;
@@ -116,6 +116,18 @@ public class HiveS3Config
     public HiveS3Config setS3Endpoint(String s3Endpoint)
     {
         this.s3Endpoint = s3Endpoint;
+        return this;
+    }
+
+    public String getS3Region()
+    {
+        return s3Region;
+    }
+
+    @Config("hive.s3.region")
+    public HiveS3Config setS3Region(String s3Region)
+    {
+        this.s3Region = s3Region;
         return this;
     }
 
@@ -539,9 +551,7 @@ public class HiveS3Config
     @Config("hive.s3.proxy.protocol")
     public HiveS3Config setS3ProxyProtocol(String s3ProxyProtocol)
     {
-        this.s3ProxyProtocol = TrinoS3Protocol.valueOf(
-                requireNonNull(s3ProxyProtocol, "s3ProxyProtocol is null")
-                        .toUpperCase(ENGLISH));
+        this.s3ProxyProtocol = TrinoS3Protocol.valueOf(s3ProxyProtocol.toUpperCase(ENGLISH));
         return this;
     }
 

@@ -16,19 +16,19 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionDependencies;
-import io.trino.metadata.FunctionDependencyDeclaration;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.aggregation.TypedSet;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionDependencyDeclaration;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -111,7 +111,7 @@ public final class MapToMapCast
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         checkArgument(boundSignature.getArity() == 1, "Expected arity to be 1");
         MapType fromMapType = (MapType) boundSignature.getArgumentType(0);
@@ -126,7 +126,7 @@ public final class MapToMapCast
         BlockPositionIsDistinctFrom keyEqual = blockTypeOperators.getDistinctFromOperator(toKeyType);
         BlockPositionHashCode keyHashCode = blockTypeOperators.getHashCodeOperator(toKeyType);
         MethodHandle target = MethodHandles.insertArguments(METHOD_HANDLE, 0, keyProcessor, valueProcessor, toMapType, keyEqual, keyHashCode);
-        return new ChoicesScalarFunctionImplementation(boundSignature, NULLABLE_RETURN, ImmutableList.of(NEVER_NULL), target);
+        return new ChoicesSpecializedSqlScalarFunction(boundSignature, NULLABLE_RETURN, ImmutableList.of(NEVER_NULL), target);
     }
 
     /**
@@ -138,7 +138,7 @@ public final class MapToMapCast
         // Get block position cast, with optional connector session
         FunctionNullability functionNullability = functionDependencies.getCastNullability(fromType, toType);
         InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(BLOCK_POSITION), functionNullability.isReturnNullable() ? NULLABLE_RETURN : FAIL_ON_NULL, true, false);
-        MethodHandle cast = functionDependencies.getCastInvoker(fromType, toType, invocationConvention).getMethodHandle();
+        MethodHandle cast = functionDependencies.getCastImplementation(fromType, toType, invocationConvention).getMethodHandle();
         // Normalize cast to have connector session as first argument
         if (cast.type().parameterArray()[0] != ConnectorSession.class) {
             cast = dropArguments(cast, 0, ConnectorSession.class);
@@ -179,21 +179,19 @@ public final class MapToMapCast
         if (javaType == Long.class) {
             return CHECK_LONG_IS_NOT_NULL;
         }
-        else if (javaType == Double.class) {
+        if (javaType == Double.class) {
             return CHECK_DOUBLE_IS_NOT_NULL;
         }
-        else if (javaType == Boolean.class) {
+        if (javaType == Boolean.class) {
             return CHECK_BOOLEAN_IS_NOT_NULL;
         }
-        else if (javaType == Slice.class) {
+        if (javaType == Slice.class) {
             return CHECK_SLICE_IS_NOT_NULL;
         }
-        else if (javaType == Block.class) {
+        if (javaType == Block.class) {
             return CHECK_BLOCK_IS_NOT_NULL;
         }
-        else {
-            throw new IllegalArgumentException("Unknown java type " + javaType);
-        }
+        throw new IllegalArgumentException("Unknown java type " + javaType);
     }
 
     @UsedByGeneratedCode

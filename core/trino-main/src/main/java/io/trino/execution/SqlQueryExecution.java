@@ -598,9 +598,9 @@ public class SqlQueryExecution
     }
 
     @Override
-    public void addOutputInfoListener(Consumer<QueryOutputInfo> listener)
+    public void setOutputInfoListener(Consumer<QueryOutputInfo> listener)
     {
-        stateMachine.addOutputInfoListener(listener);
+        stateMachine.setOutputInfoListener(listener);
     }
 
     @Override
@@ -781,7 +781,6 @@ public class SqlQueryExecution
                 TaskSourceFactory taskSourceFactory,
                 TaskDescriptorStorage taskDescriptorStorage)
         {
-            requireNonNull(config, "config is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
             this.scheduleSplitBatchSize = config.getScheduleSplitBatchSize();
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
@@ -799,7 +798,7 @@ public class SqlQueryExecution
             this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
             this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
             this.executionPolicies = requireNonNull(executionPolicies, "executionPolicies is null");
-            this.planOptimizers = requireNonNull(planOptimizersFactory, "planOptimizersFactory is null").get();
+            this.planOptimizers = planOptimizersFactory.get();
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
             this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");

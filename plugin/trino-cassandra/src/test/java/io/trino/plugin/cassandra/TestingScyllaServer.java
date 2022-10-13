@@ -52,13 +52,11 @@ public class TestingScyllaServer
     private final CassandraSession session;
 
     public TestingScyllaServer()
-            throws Exception
     {
         this("2.2.0");
     }
 
     public TestingScyllaServer(String version)
-            throws Exception
     {
         container = new GenericContainer<>("scylladb/scylla:" + version)
                 .withCommand("--smp", "1") // Limit SMP to run in a machine having many cores https://github.com/scylladb/scylla/issues/5638
@@ -74,7 +72,7 @@ public class TestingScyllaServer
 
         CqlSessionBuilder cqlSessionBuilder = CqlSession.builder()
                 .withApplicationName("TestCluster")
-                .addContactPoint(new InetSocketAddress(this.container.getContainerIpAddress(), this.container.getMappedPort(PORT)))
+                .addContactPoint(new InetSocketAddress(this.container.getHost(), this.container.getMappedPort(PORT)))
                 .withLocalDatacenter("datacenter1")
                 .withConfigLoader(config.build());
 
@@ -92,7 +90,7 @@ public class TestingScyllaServer
 
     public String getHost()
     {
-        return container.getContainerIpAddress();
+        return container.getHost();
     }
 
     public int getPort()

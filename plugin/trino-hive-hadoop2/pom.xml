@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>395-SNAPSHOT</version>
+        <version>400-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -83,6 +83,18 @@
         </dependency>
 
         <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-core</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-s3</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.qubole.rubix</groupId>
             <artifactId>rubix-presto-shaded</artifactId>
             <scope>runtime</scope>
@@ -147,6 +159,12 @@
         </dependency>
 
         <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-testing-containers</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>testing</artifactId>
             <scope>test</scope>
@@ -180,10 +198,12 @@
                             <excludes>
                                 <exclude>**/TestHive.java</exclude>
                                 <exclude>**/TestHiveAlluxioMetastore.java</exclude>
+                                <exclude>**/TestHiveThriftMetastoreWithS3.java</exclude>
                                 <exclude>**/TestHiveFileSystemS3.java</exclude>
                                 <exclude>**/TestHiveFileSystemS3SelectPushdown.java</exclude>
                                 <exclude>**/TestHiveFileSystemS3SelectJsonPushdown.java</exclude>
-                                <exclude>**/TestHiveFileSystemS3SelectPushdownWithSplits.java</exclude>
+                                <exclude>**/TestHiveFileSystemS3SelectCsvPushdownWithSplits.java</exclude>
+                                <exclude>**/TestHiveFileSystemS3SelectJsonPushdownWithSplits.java</exclude>
                                 <exclude>**/TestHiveFileSystemWasb.java</exclude>
                                 <exclude>**/TestHiveFileSystemAbfsAccessKey.java</exclude>
                                 <exclude>**/TestHiveFileSystemAbfsOAuth.java</exclude>
@@ -220,9 +240,10 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
+                                <include>**/TestHiveThriftMetastoreWithS3.java</include>
                                 <include>**/TestHiveFileSystemS3.java</include>
                                 <include>**/TestHiveFileSystemS3SelectPushdown.java</include>
-                                <include>**/TestHiveFileSystemS3SelectPushdownWithSplits.java</include>
+                                <include>**/TestHiveFileSystemS3SelectCsvPushdownWithSplits.java</include>
                             </includes>
                         </configuration>
                     </plugin>
@@ -239,6 +260,7 @@
                         <configuration>
                             <includes>
                                 <include>**/TestHiveFileSystemS3SelectJsonPushdown.java</include>
+                                <include>**/TestHiveFileSystemS3SelectJsonPushdownWithSplits.java</include>
                             </includes>
                         </configuration>
                     </plugin>

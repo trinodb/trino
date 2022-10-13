@@ -28,7 +28,6 @@ import io.trino.sql.planner.TypeProvider;
 import java.util.concurrent.Executor;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static io.trino.execution.SqlTaskExecution.createSqlTaskExecution;
 import static java.util.Objects.requireNonNull;
 
 public class SqlTaskExecutionFactory
@@ -53,7 +52,6 @@ public class SqlTaskExecutionFactory
         this.taskExecutor = requireNonNull(taskExecutor, "taskExecutor is null");
         this.planner = requireNonNull(planner, "planner is null");
         this.splitMonitor = requireNonNull(splitMonitor, "splitMonitor is null");
-        requireNonNull(config, "config is null");
         this.perOperatorCpuTimerEnabled = config.isPerOperatorCpuTimerEnabled();
         this.cpuTimerEnabled = config.isTaskCpuTimerEnabled();
     }
@@ -91,13 +89,13 @@ public class SqlTaskExecutionFactory
                 throw new RuntimeException(e);
             }
         }
-        return createSqlTaskExecution(
+        return new SqlTaskExecution(
                 taskStateMachine,
                 taskContext,
                 outputBuffer,
                 localExecutionPlan,
                 taskExecutor,
-                taskNotificationExecutor,
-                splitMonitor);
+                splitMonitor,
+                taskNotificationExecutor);
     }
 }

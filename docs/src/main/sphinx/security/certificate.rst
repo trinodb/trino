@@ -97,8 +97,8 @@ The following configuration properties are also available:
      - The path to a JSON file that contains a set of :doc:`user mapping
        rules </security/user-mapping>` for this authentication type.
 
-Use certificate authencation with clients
------------------------------------------
+Use certificate authentication with clients
+-------------------------------------------
 
 When using the Trino :doc:`CLI </client/cli>`, specify the
 ``--keystore-path`` and ``--keystore-password`` options as described

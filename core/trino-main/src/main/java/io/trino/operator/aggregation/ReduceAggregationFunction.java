@@ -14,12 +14,7 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.AggregationFunctionMetadata;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
-import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import io.trino.operator.aggregation.state.GenericBooleanState;
 import io.trino.operator.aggregation.state.GenericBooleanStateSerializer;
 import io.trino.operator.aggregation.state.GenericDoubleState;
@@ -29,16 +24,19 @@ import io.trino.operator.aggregation.state.GenericLongStateSerializer;
 import io.trino.operator.aggregation.state.StateCompiler;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.AggregationFunctionMetadata;
+import io.trino.spi.function.AggregationImplementation;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.lambda.BinaryFunctionInterface;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Optional;
 
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.STATE;
-import static io.trino.operator.aggregation.AggregationFunctionAdapter.normalizeInputMethod;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.TypeSignature.functionType;
 import static io.trino.util.Reflection.methodHandle;
@@ -84,60 +82,58 @@ public class ReduceAggregationFunction
     }
 
     @Override
-    public AggregationMetadata specialize(BoundSignature boundSignature)
+    public AggregationImplementation specialize(BoundSignature boundSignature)
     {
         Type inputType = boundSignature.getArgumentTypes().get(0);
         Type stateType = boundSignature.getArgumentTypes().get(1);
 
-        MethodHandle inputMethodHandle;
-        MethodHandle combineMethodHandle;
-        MethodHandle outputMethodHandle;
-        AccumulatorStateDescriptor<?> stateDescriptor;
-
         if (stateType.getJavaType() == long.class) {
-            inputMethodHandle = LONG_STATE_INPUT_FUNCTION;
-            combineMethodHandle = LONG_STATE_COMBINE_FUNCTION;
-            outputMethodHandle = LONG_STATE_OUTPUT_FUNCTION.bindTo(stateType);
-            stateDescriptor = new AccumulatorStateDescriptor<>(
-                    GenericLongState.class,
-                    new GenericLongStateSerializer(stateType),
-                    StateCompiler.generateStateFactory(GenericLongState.class));
+            return AggregationImplementation.builder()
+                    .inputFunction(normalizeInputMethod(boundSignature, inputType, LONG_STATE_INPUT_FUNCTION))
+                    .combineFunction(LONG_STATE_COMBINE_FUNCTION)
+                    .outputFunction(LONG_STATE_OUTPUT_FUNCTION.bindTo(stateType))
+                    .accumulatorStateDescriptor(
+                            GenericLongState.class,
+                            new GenericLongStateSerializer(stateType),
+                            StateCompiler.generateStateFactory(GenericLongState.class))
+                    .lambdaInterfaces(BinaryFunctionInterface.class, BinaryFunctionInterface.class)
+                    .build();
         }
-        else if (stateType.getJavaType() == double.class) {
-            inputMethodHandle = DOUBLE_STATE_INPUT_FUNCTION;
-            combineMethodHandle = DOUBLE_STATE_COMBINE_FUNCTION;
-            outputMethodHandle = DOUBLE_STATE_OUTPUT_FUNCTION.bindTo(stateType);
-            stateDescriptor = new AccumulatorStateDescriptor<>(
-                    GenericDoubleState.class,
-                    new GenericDoubleStateSerializer(stateType),
-                    StateCompiler.generateStateFactory(GenericDoubleState.class));
+        if (stateType.getJavaType() == double.class) {
+            return AggregationImplementation.builder()
+                    .inputFunction(normalizeInputMethod(boundSignature, inputType, DOUBLE_STATE_INPUT_FUNCTION))
+                    .combineFunction(DOUBLE_STATE_COMBINE_FUNCTION)
+                    .outputFunction(DOUBLE_STATE_OUTPUT_FUNCTION.bindTo(stateType))
+                    .accumulatorStateDescriptor(
+                            GenericDoubleState.class,
+                            new GenericDoubleStateSerializer(stateType),
+                            StateCompiler.generateStateFactory(GenericDoubleState.class))
+                    .lambdaInterfaces(BinaryFunctionInterface.class, BinaryFunctionInterface.class)
+                    .build();
         }
-        else if (stateType.getJavaType() == boolean.class) {
-            inputMethodHandle = BOOLEAN_STATE_INPUT_FUNCTION;
-            combineMethodHandle = BOOLEAN_STATE_COMBINE_FUNCTION;
-            outputMethodHandle = BOOLEAN_STATE_OUTPUT_FUNCTION.bindTo(stateType);
-            stateDescriptor = new AccumulatorStateDescriptor<>(
-                    GenericBooleanState.class,
-                    new GenericBooleanStateSerializer(stateType),
-                    StateCompiler.generateStateFactory(GenericBooleanState.class));
+        if (stateType.getJavaType() == boolean.class) {
+            return AggregationImplementation.builder()
+                    .inputFunction(normalizeInputMethod(boundSignature, inputType, BOOLEAN_STATE_INPUT_FUNCTION))
+                    .combineFunction(BOOLEAN_STATE_COMBINE_FUNCTION)
+                    .outputFunction(BOOLEAN_STATE_OUTPUT_FUNCTION.bindTo(stateType))
+                    .accumulatorStateDescriptor(
+                            GenericBooleanState.class,
+                            new GenericBooleanStateSerializer(stateType),
+                            StateCompiler.generateStateFactory(GenericBooleanState.class))
+                    .lambdaInterfaces(BinaryFunctionInterface.class, BinaryFunctionInterface.class)
+                    .build();
         }
-        else {
-            // State with Slice or Block as native container type is intentionally not supported yet,
-            // as it may result in excessive JVM memory usage of remembered set.
-            // See JDK-8017163.
-            throw new TrinoException(NOT_SUPPORTED, format("State type not supported for %s: %s", NAME, stateType.getDisplayName()));
-        }
+        // State with Slice or Block as native container type is intentionally not supported yet,
+        // as it may result in excessive JVM memory usage of remembered set.
+        // See JDK-8017163.
+        throw new TrinoException(NOT_SUPPORTED, format("State type not supported for %s: %s", NAME, stateType.getDisplayName()));
+    }
 
+    private static MethodHandle normalizeInputMethod(BoundSignature boundSignature, Type inputType, MethodHandle inputMethodHandle)
+    {
         inputMethodHandle = inputMethodHandle.asType(inputMethodHandle.type().changeParameterType(1, inputType.getJavaType()));
-        inputMethodHandle = normalizeInputMethod(inputMethodHandle, boundSignature, ImmutableList.of(STATE, INPUT_CHANNEL, INPUT_CHANNEL), 2);
-
-        return new AggregationMetadata(
-                inputMethodHandle,
-                Optional.empty(),
-                Optional.of(combineMethodHandle),
-                outputMethodHandle,
-                ImmutableList.of(stateDescriptor),
-                ImmutableList.of(BinaryFunctionInterface.class, BinaryFunctionInterface.class));
+        inputMethodHandle = AggregationFunctionAdapter.normalizeInputMethod(inputMethodHandle, boundSignature, ImmutableList.of(STATE, INPUT_CHANNEL, INPUT_CHANNEL), 2);
+        return inputMethodHandle;
     }
 
     public static void input(GenericLongState state, Object value, long initialStateValue, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)

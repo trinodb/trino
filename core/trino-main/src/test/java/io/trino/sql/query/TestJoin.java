@@ -101,17 +101,12 @@ public class TestJoin
                     t2 (id, x, y) AS (
                         VALUES
                             (1, 10, 'a'),
-                            (2, 10, 'b')),
-                    t AS (
-                        SELECT
-                            x
-                            , IF(t1.v = 0, 'cc', y) as z
-                        FROM t1 JOIN t2 ON (t1.id = t2.id))
-                SELECT *
-                FROM t
-                WHERE x = 10 AND z = 'b'
+                            (2, 10, 'b'))
+                SELECT x, y
+                FROM t1 JOIN t2 ON (t1.id = t2.id)
+                WHERE IF(t1.v = 0, 'cc', y) = 'b'
                 """))
-                .matches("VALUES (10, CAST('b' AS varchar(2)))");
+                .matches("VALUES (10, 'b')");
     }
 
     @Test

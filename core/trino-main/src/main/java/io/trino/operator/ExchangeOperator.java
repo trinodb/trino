@@ -29,6 +29,10 @@ import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.spi.exchange.ExchangeId;
 import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.ints.IntSet;
+
+import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -55,6 +59,9 @@ public class ExchangeOperator
         private final ExchangeManagerRegistry exchangeManagerRegistry;
         private ExchangeDataSource exchangeDataSource;
         private boolean closed;
+
+        private final NoMoreSplitsTracker noMoreSplitsTracker = new NoMoreSplitsTracker();
+        private int nextOperatorInstanceId;
 
         public ExchangeOperatorFactory(
                 int operatorId,
@@ -99,16 +106,28 @@ public class ExchangeOperator
                         retryPolicy,
                         exchangeManagerRegistry);
             }
-            return new ExchangeOperator(
+            int operatorInstanceId = nextOperatorInstanceId;
+            nextOperatorInstanceId++;
+            ExchangeOperator exchangeOperator = new ExchangeOperator(
                     operatorContext,
                     sourceId,
                     exchangeDataSource,
-                    serdeFactory.createPagesSerde());
+                    serdeFactory.createPagesSerde(),
+                    noMoreSplitsTracker,
+                    operatorInstanceId);
+            noMoreSplitsTracker.operatorAdded(operatorInstanceId);
+            return exchangeOperator;
         }
 
         @Override
         public void noMoreOperators()
         {
+            noMoreSplitsTracker.noMoreOperators();
+            if (noMoreSplitsTracker.isNoMoreSplits()) {
+                if (exchangeDataSource != null) {
+                    exchangeDataSource.noMoreInputs();
+                }
+            }
             closed = true;
         }
     }
@@ -117,18 +136,25 @@ public class ExchangeOperator
     private final PlanNodeId sourceId;
     private final ExchangeDataSource exchangeDataSource;
     private final PagesSerde serde;
+    private final NoMoreSplitsTracker noMoreSplitsTracker;
+    private final int operatorInstanceId;
+
     private ListenableFuture<Void> isBlocked = NOT_BLOCKED;
 
     public ExchangeOperator(
             OperatorContext operatorContext,
             PlanNodeId sourceId,
             ExchangeDataSource exchangeDataSource,
-            PagesSerde serde)
+            PagesSerde serde,
+            NoMoreSplitsTracker noMoreSplitsTracker,
+            int operatorInstanceId)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.sourceId = requireNonNull(sourceId, "sourceId is null");
         this.exchangeDataSource = requireNonNull(exchangeDataSource, "exchangeDataSource is null");
         this.serde = requireNonNull(serde, "serde is null");
+        this.noMoreSplitsTracker = requireNonNull(noMoreSplitsTracker, "noMoreSplitsTracker is null");
+        this.operatorInstanceId = operatorInstanceId;
 
         operatorContext.setInfoSupplier(exchangeDataSource::getInfo);
     }
@@ -154,7 +180,10 @@ public class ExchangeOperator
     @Override
     public void noMoreSplits()
     {
-        exchangeDataSource.noMoreInputs();
+        noMoreSplitsTracker.noMoreSplits(operatorInstanceId);
+        if (noMoreSplitsTracker.isNoMoreSplits()) {
+            exchangeDataSource.noMoreInputs();
+        }
     }
 
     @Override
@@ -219,5 +248,35 @@ public class ExchangeOperator
     public void close()
     {
         exchangeDataSource.close();
+    }
+
+    @ThreadSafe
+    private static class NoMoreSplitsTracker
+    {
+        private final IntSet allOperators = new IntOpenHashSet();
+        private final IntSet noMoreSplitsOperators = new IntOpenHashSet();
+        private boolean noMoreOperators;
+
+        public synchronized void operatorAdded(int operatorInstanceId)
+        {
+            checkState(!noMoreOperators, "noMoreOperators is set");
+            allOperators.add(operatorInstanceId);
+        }
+
+        public synchronized void noMoreOperators()
+        {
+            noMoreOperators = true;
+        }
+
+        public synchronized void noMoreSplits(int operatorInstanceId)
+        {
+            checkState(allOperators.contains(operatorInstanceId), "operatorInstanceId not found: %s", operatorInstanceId);
+            noMoreSplitsOperators.add(operatorInstanceId);
+        }
+
+        public synchronized boolean isNoMoreSplits()
+        {
+            return noMoreOperators && noMoreSplitsOperators.containsAll(allOperators);
+        }
     }
 }

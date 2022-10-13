@@ -101,7 +101,7 @@ public class IcebergFileWriterFactory
             FileFormatDataSourceStats readStats,
             OrcWriterConfig orcWriterConfig)
     {
-        checkArgument(!requireNonNull(orcWriterConfig, "orcWriterConfig is null").isUseLegacyVersion(), "the ORC writer shouldn't be configured to use a legacy version");
+        checkArgument(!orcWriterConfig.isUseLegacyVersion(), "the ORC writer shouldn't be configured to use a legacy version");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.readStats = requireNonNull(readStats, "readStats is null");
@@ -188,6 +188,7 @@ public class IcebergFileWriterFactory
                     outputStream,
                     rollbackAction,
                     fileColumnTypes,
+                    fileColumnNames,
                     convert(icebergSchema, "table"),
                     makeTypeMap(fileColumnTypes, fileColumnNames),
                     parquetWriterOptions,

@@ -34,13 +34,13 @@ import io.trino.plugin.hive.AbstractTestHive.Transaction;
 import io.trino.plugin.hive.aws.athena.PartitionProjectionService;
 import io.trino.plugin.hive.fs.FileSystemDirectoryLister;
 import io.trino.plugin.hive.fs.HiveFileIterator;
+import io.trino.plugin.hive.fs.TrinoFileStatus;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.ForwardingHiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.MetastoreTypeConfig;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
@@ -72,7 +72,6 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingNodeManager;
 import io.trino.type.BlockTypeOperators;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem;
 import org.testng.annotations.AfterClass;
@@ -216,7 +215,7 @@ public abstract class AbstractTestHiveFileSystem
                 SqlStandardAccessControlMetadata::new,
                 new FileSystemDirectoryLister(),
                 new PartitionProjectionService(config, ImmutableMap.of(), new TestingTypeManager()),
-                new MetastoreTypeConfig());
+                true);
         transactionManager = new HiveTransactionManager(metadataFactory);
         splitManager = new HiveSplitManager(
                 transactionManager,
@@ -233,7 +232,8 @@ public abstract class AbstractTestHiveFileSystem
                 config.getSplitLoaderConcurrency(),
                 config.getMaxSplitsPerSecond(),
                 config.getRecursiveDirWalkerEnabled(),
-                TESTING_TYPE_MANAGER);
+                TESTING_TYPE_MANAGER,
+                config.getMaxPartitionsPerScan());
         TypeOperators typeOperators = new TypeOperators();
         BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
         pageSinkProvider = new HivePageSinkProvider(
@@ -272,12 +272,14 @@ public abstract class AbstractTestHiveFileSystem
         return HiveFileSystemTestUtils.newTransaction(transactionManager);
     }
 
-    protected MaterializedResult readTable(SchemaTableName tableName) throws IOException
+    protected MaterializedResult readTable(SchemaTableName tableName)
+            throws IOException
     {
         return HiveFileSystemTestUtils.readTable(tableName, transactionManager, config, pageSourceProvider, splitManager);
     }
 
-    protected MaterializedResult filterTable(SchemaTableName tableName, List<ColumnHandle> projectedColumns) throws IOException
+    protected MaterializedResult filterTable(SchemaTableName tableName, List<ColumnHandle> projectedColumns)
+            throws IOException
     {
         return HiveFileSystemTestUtils.filterTable(tableName, projectedColumns, transactionManager, config, pageSourceProvider, splitManager);
     }
@@ -464,7 +466,7 @@ public abstract class AbstractTestHiveFileSystem
                 HiveFileIterator.NestedDirectoryPolicy.RECURSE,
                 false); // ignoreAbsentPartitions
 
-        List<Path> recursiveListing = Lists.newArrayList(Iterators.transform(recursiveIterator, LocatedFileStatus::getPath));
+        List<Path> recursiveListing = Lists.newArrayList(Iterators.transform(recursiveIterator, TrinoFileStatus::getPath));
         // Should not include directories, or files underneath hidden directories
         assertEqualsIgnoreOrder(recursiveListing, ImmutableList.of(nestedFile, baseFile));
 
@@ -476,7 +478,7 @@ public abstract class AbstractTestHiveFileSystem
                 new NamenodeStats(),
                 HiveFileIterator.NestedDirectoryPolicy.IGNORED,
                 false); // ignoreAbsentPartitions
-        List<Path> shallowListing = Lists.newArrayList(Iterators.transform(shallowIterator, LocatedFileStatus::getPath));
+        List<Path> shallowListing = Lists.newArrayList(Iterators.transform(shallowIterator, TrinoFileStatus::getPath));
         // Should not include any hidden files, folders, or nested files
         assertEqualsIgnoreOrder(shallowListing, ImmutableList.of(baseFile));
     }
@@ -611,15 +613,13 @@ public abstract class AbstractTestHiveFileSystem
         public void dropTable(String databaseName, String tableName, boolean deleteData)
         {
             try {
-                Optional<Table> table = getTable(databaseName, tableName);
-                if (table.isEmpty()) {
-                    throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
-                }
+                Table table = getTable(databaseName, tableName)
+                        .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
 
                 // hack to work around the metastore not being configured for S3 or other FS
                 List<String> locations = listAllDataPaths(databaseName, tableName);
 
-                Table.Builder tableBuilder = Table.builder(table.get());
+                Table.Builder tableBuilder = Table.builder(table);
                 tableBuilder.getStorageBuilder().setLocation("/");
 
                 // drop table
@@ -641,12 +641,9 @@ public abstract class AbstractTestHiveFileSystem
 
         public void updateTableLocation(String databaseName, String tableName, String location)
         {
-            Optional<Table> table = getTable(databaseName, tableName);
-            if (table.isEmpty()) {
-                throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
-            }
-
-            Table.Builder tableBuilder = Table.builder(table.get());
+            Table table = getTable(databaseName, tableName)
+                    .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+            Table.Builder tableBuilder = Table.builder(table);
             tableBuilder.getStorageBuilder().setLocation(location);
 
             // NOTE: this clears the permissions

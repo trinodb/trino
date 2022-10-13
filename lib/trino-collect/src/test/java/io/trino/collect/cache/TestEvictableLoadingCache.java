@@ -20,6 +20,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.testing.TestingTicker;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -36,6 +37,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
@@ -48,6 +50,7 @@ import static io.trino.collect.cache.CacheStatsAssertions.assertCacheStats;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newFixedThreadPool;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -78,26 +81,41 @@ public class TestEvictableLoadingCache
     public void testEvictBySize()
             throws Exception
     {
+        int maximumSize = 10;
+        AtomicInteger loads = new AtomicInteger();
         LoadingCache<Integer, String> cache = EvictableCacheBuilder.newBuilder()
-                .maximumSize(10)
-                .build(CacheLoader.from(key -> "abc" + key));
+                .maximumSize(maximumSize)
+                .build(CacheLoader.from(key -> {
+                    loads.incrementAndGet();
+                    return "abc" + key;
+                }));
 
         for (int i = 0; i < 10_000; i++) {
             assertEquals((Object) cache.get(i), "abc" + i);
         }
         cache.cleanUp();
-        assertEquals(cache.size(), 10);
-        assertEquals(((EvictableCache<?, ?>) cache).tokensCount(), 10);
+        assertEquals(cache.size(), maximumSize);
+        assertEquals(((EvictableCache<?, ?>) cache).tokensCount(), maximumSize);
+        assertEquals(loads.get(), 10_000);
+
+        // Ensure cache is effective, i.e. no new load
+        int lastKey = 10_000 - 1;
+        assertEquals((Object) cache.get(lastKey), "abc" + lastKey);
+        assertEquals(loads.get(), 10_000);
     }
 
     @Test(timeOut = TEST_TIMEOUT_MILLIS)
     public void testEvictByWeight()
             throws Exception
     {
+        AtomicInteger loads = new AtomicInteger();
         LoadingCache<Integer, String> cache = EvictableCacheBuilder.newBuilder()
                 .maximumWeight(20)
                 .weigher((Integer key, String value) -> value.length())
-                .build(CacheLoader.from(key -> Strings.repeat("a", key)));
+                .build(CacheLoader.from(key -> {
+                    loads.incrementAndGet();
+                    return Strings.repeat("a", key);
+                }));
 
         for (int i = 0; i < 10; i++) {
             assertEquals((Object) cache.get(i), Strings.repeat("a", i));
@@ -110,6 +128,85 @@ public class TestEvictableLoadingCache
         assertThat(cache.asMap().keySet().stream().mapToInt(i -> i).sum()).as("key sum").isLessThanOrEqualTo(20);
         assertThat(cache.asMap().values()).as("values").hasSize(cacheSize);
         assertThat(cache.asMap().values().stream().mapToInt(String::length).sum()).as("values length sum").isLessThanOrEqualTo(20);
+        assertEquals(loads.get(), 10);
+
+        // Ensure cache is effective, i.e. no new load
+        int lastKey = 10 - 1;
+        assertEquals((Object) cache.get(lastKey), Strings.repeat("a", lastKey));
+        assertEquals(loads.get(), 10);
+    }
+
+    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    public void testEvictByTime()
+    {
+        TestingTicker ticker = new TestingTicker();
+        int ttl = 100;
+        AtomicInteger loads = new AtomicInteger();
+        LoadingCache<Integer, String> cache = EvictableCacheBuilder.newBuilder()
+                .ticker(ticker)
+                .expireAfterWrite(ttl, TimeUnit.MILLISECONDS)
+                .build(CacheLoader.from(k -> {
+                    loads.incrementAndGet();
+                    return k + " ala ma kota";
+                }));
+
+        assertEquals(cache.getUnchecked(1), "1 ala ma kota");
+        ticker.increment(ttl, MILLISECONDS);
+        assertEquals(cache.getUnchecked(2), "2 ala ma kota");
+        cache.cleanUp();
+
+        // First entry should be expired and its token removed
+        int cacheSize = toIntExact(cache.size());
+        assertThat(cacheSize).as("cacheSize").isEqualTo(1);
+        assertThat(((EvictableCache<?, ?>) cache).tokensCount()).as("tokensCount").isEqualTo(cacheSize);
+        assertThat(cache.asMap().keySet()).as("keySet").hasSize(cacheSize);
+        assertThat(cache.asMap().values()).as("values").hasSize(cacheSize);
+        assertEquals(loads.get(), 2);
+    }
+
+    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    public void testPreserveValueLoadedAfterTimeExpiration()
+    {
+        TestingTicker ticker = new TestingTicker();
+        int ttl = 100;
+        AtomicInteger loads = new AtomicInteger();
+        LoadingCache<Integer, String> cache = EvictableCacheBuilder.newBuilder()
+                .ticker(ticker)
+                .expireAfterWrite(ttl, TimeUnit.MILLISECONDS)
+                .build(CacheLoader.from(k -> {
+                    loads.incrementAndGet();
+                    return k + " ala ma kota";
+                }));
+        int key = 11;
+
+        assertEquals(cache.getUnchecked(key), "11 ala ma kota");
+        assertThat(loads.get()).as("initial load count").isEqualTo(1);
+        assertThat(((EvictableCache<?, ?>) cache).tokensCount()).as("tokensCount").isEqualTo(1);
+
+        // Should be served from the cache
+        assertEquals(cache.getUnchecked(key), "11 ala ma kota");
+        assertThat(loads.get()).as("loads count should not change before value expires").isEqualTo(1);
+        assertThat(((EvictableCache<?, ?>) cache).tokensCount()).as("tokensCount").isEqualTo(1);
+
+        ticker.increment(ttl, MILLISECONDS);
+        // Should be reloaded
+        assertEquals(cache.getUnchecked(key), "11 ala ma kota");
+        assertThat(loads.get()).as("loads count should reflect reloading of value after expiration").isEqualTo(2);
+        // TODO (https://github.com/trinodb/trino/issues/14545) tokensCount should be 1; 0 means we lost the token for a live entry
+        assertThat(((EvictableCache<?, ?>) cache).tokensCount()).as("tokensCount").isEqualTo(0);
+
+        // Should be served from the cache
+        assertEquals(cache.getUnchecked(key), "11 ala ma kota");
+        // TODO (https://github.com/trinodb/trino/issues/14545) loads count should be 2; it got incremented because we lost the token for a live entry
+        assertThat(loads.get()).as("loads count should not change before value expires again").isEqualTo(3);
+        assertThat(((EvictableCache<?, ?>) cache).tokensCount()).as("tokensCount").isEqualTo(1);
+
+        // TODO (https://github.com/trinodb/trino/issues/14545) cache size should be 1; it is misreported, because there are two live entries for the same key, due to first token being lost
+        assertThat(cache.size()).as("cacheSize").isEqualTo(2);
+        assertThat(((EvictableCache<?, ?>) cache).tokensCount()).as("tokensCount").isEqualTo(1);
+        assertThat(cache.asMap().keySet()).as("keySet").hasSize(1);
+        // TODO (https://github.com/trinodb/trino/issues/14545) values size should be 1; it is misreported, because there are two live entries for the same key, due to first token being lost
+        assertThat(cache.asMap().values()).as("values").hasSize(2);
     }
 
     @Test(timeOut = TEST_TIMEOUT_MILLIS, dataProvider = "testDisabledCacheDataProvider")

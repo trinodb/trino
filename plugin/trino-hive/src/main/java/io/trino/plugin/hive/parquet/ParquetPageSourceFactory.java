@@ -19,13 +19,15 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.parquet.Field;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
+import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
+import io.trino.parquet.ParquetWriteValidation;
 import io.trino.parquet.predicate.Predicate;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
+import io.trino.parquet.reader.ParquetReaderColumn;
 import io.trino.parquet.reader.TrinoColumnIndexStore;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
@@ -41,7 +43,6 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.type.Type;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
@@ -72,14 +73,17 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.parquet.ParquetTypeUtils.constructField;
 import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
 import static io.trino.parquet.ParquetTypeUtils.getDescriptors;
 import static io.trino.parquet.ParquetTypeUtils.getParquetTypeByName;
 import static io.trino.parquet.ParquetTypeUtils.lookupColumnByName;
 import static io.trino.parquet.predicate.PredicateUtils.buildPredicate;
 import static io.trino.parquet.predicate.PredicateUtils.predicateMatches;
+import static io.trino.parquet.reader.ParquetReaderColumn.getParquetReaderFields;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
@@ -90,7 +94,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockS
 import static io.trino.plugin.hive.HiveSessionProperties.isParquetIgnoreStatistics;
 import static io.trino.plugin.hive.HiveSessionProperties.isParquetUseColumnIndex;
 import static io.trino.plugin.hive.HiveSessionProperties.isUseParquetColumnNames;
-import static io.trino.plugin.hive.parquet.HiveParquetColumnIOConverter.constructField;
+import static io.trino.plugin.hive.parquet.ParquetPageSource.handleException;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
@@ -134,10 +138,8 @@ public class ParquetPageSourceFactory
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.stats = requireNonNull(stats, "stats is null");
-        requireNonNull(config, "config is null");
-
         options = config.toParquetReaderOptions();
-        timeZone = requireNonNull(hiveConfig, "hiveConfig is null").getParquetDateTimeZone();
+        timeZone = hiveConfig.getParquetDateTimeZone();
     }
 
     @Override
@@ -176,7 +178,8 @@ public class ParquetPageSourceFactory
                 stats,
                 options.withIgnoreStatistics(isParquetIgnoreStatistics(session))
                         .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
-                        .withUseColumnIndex(isParquetUseColumnIndex(session))));
+                        .withUseColumnIndex(isParquetUseColumnIndex(session)),
+                Optional.empty()));
     }
 
     /**
@@ -191,7 +194,8 @@ public class ParquetPageSourceFactory
             boolean useColumnNames,
             DateTimeZone timeZone,
             FileFormatDataSourceStats stats,
-            ParquetReaderOptions options)
+            ParquetReaderOptions options,
+            Optional<ParquetWriteValidation> parquetWriteValidation)
     {
         // Ignore predicates on partial columns for now.
         effectivePredicate = effectivePredicate.filter((column, domain) -> column.isBaseColumn());
@@ -199,26 +203,15 @@ public class ParquetPageSourceFactory
         MessageType fileSchema;
         MessageType requestedSchema;
         MessageColumnIO messageColumn;
-        ParquetReader parquetReader;
         ParquetDataSource dataSource = null;
         try {
             dataSource = new TrinoParquetDataSource(inputFile, options, stats);
 
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource);
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, parquetWriteValidation);
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             fileSchema = fileMetaData.getSchema();
 
-            Optional<MessageType> message = projectSufficientColumns(columns)
-                    .map(projection -> projection.get().stream()
-                            .map(HiveColumnHandle.class::cast)
-                            .collect(toUnmodifiableList()))
-                    .orElse(columns).stream()
-                    .filter(column -> column.getColumnType() == REGULAR)
-                    .map(column -> getColumnType(column, fileSchema, useColumnNames))
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .map(type -> new MessageType(fileSchema.getName(), type))
-                    .reduce(MessageType::union);
+            Optional<MessageType> message = getParquetMessageType(columns, useColumnNames, fileSchema);
 
             requestedSchema = message.orElse(new MessageType(fileSchema.getName(), ImmutableList.of()));
             messageColumn = getColumnIO(fileSchema, requestedSchema);
@@ -238,7 +231,7 @@ public class ParquetPageSourceFactory
                 long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
                 Optional<ColumnIndexStore> columnIndex = getColumnIndexStore(dataSource, block, descriptorsByPath, parquetTupleDomain, options);
                 if (start <= firstDataPage && firstDataPage < start + length
-                        && predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, columnIndex)) {
+                        && predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, columnIndex, timeZone)) {
                     blocks.add(block);
                     blockStarts.add(nextStart);
                     columnIndexes.add(columnIndex);
@@ -252,47 +245,24 @@ public class ParquetPageSourceFactory
                                     .map(HiveColumnHandle.class::cast)
                                     .collect(toUnmodifiableList()))
                     .orElse(columns);
+            List<ParquetReaderColumn> parquetReaderColumns = createParquetReaderColumns(baseColumns, fileSchema, messageColumn, useColumnNames);
 
-            for (HiveColumnHandle column : baseColumns) {
-                checkArgument(column == PARQUET_ROW_INDEX_COLUMN || column.getColumnType() == REGULAR, "column type must be REGULAR: %s", column);
-            }
-
-            ImmutableList.Builder<Type> trinoTypes = ImmutableList.builder();
-            ImmutableList.Builder<Optional<Field>> internalFieldsBuilder = ImmutableList.builder();
-            ImmutableList.Builder<Boolean> rowIndexColumns = ImmutableList.builder();
-            for (HiveColumnHandle column : baseColumns) {
-                trinoTypes.add(column.getBaseType());
-                rowIndexColumns.add(column == PARQUET_ROW_INDEX_COLUMN);
-                if (column == PARQUET_ROW_INDEX_COLUMN) {
-                    internalFieldsBuilder.add(Optional.empty());
-                }
-                else {
-                    internalFieldsBuilder.add(Optional.ofNullable(getParquetType(column, fileSchema, useColumnNames))
-                            .flatMap(field -> {
-                                String columnName = useColumnNames ? column.getBaseColumnName() : fileSchema.getFields().get(column.getBaseHiveColumnIndex()).getName();
-                                return constructField(column.getBaseType(), lookupColumnByName(messageColumn, columnName));
-                            }));
-                }
-            }
-
-            List<Optional<Field>> internalFields = internalFieldsBuilder.build();
-            parquetReader = new ParquetReader(
-                    Optional.ofNullable(fileMetaData.getCreatedBy()),
-                    internalFields,
-                    blocks.build(),
-                    blockStarts.build(),
-                    dataSource,
-                    timeZone,
-                    newSimpleAggregatedMemoryContext(),
-                    options,
-                    parquetPredicate,
-                    columnIndexes.build());
-
+            ParquetDataSourceId dataSourceId = dataSource.getId();
             ConnectorPageSource parquetPageSource = new ParquetPageSource(
-                    parquetReader,
-                    trinoTypes.build(),
-                    rowIndexColumns.build(),
-                    internalFields);
+                    new ParquetReader(
+                            Optional.ofNullable(fileMetaData.getCreatedBy()),
+                            getParquetReaderFields(parquetReaderColumns),
+                            blocks.build(),
+                            blockStarts.build(),
+                            dataSource,
+                            timeZone,
+                            newSimpleAggregatedMemoryContext(),
+                            options,
+                            exception -> handleException(dataSourceId, exception),
+                            Optional.of(parquetPredicate),
+                            columnIndexes.build(),
+                            parquetWriteValidation),
+                    parquetReaderColumns);
             return new ReaderPageSource(parquetPageSource, readerProjections);
         }
         catch (Exception e) {
@@ -319,6 +289,22 @@ public class ParquetPageSourceFactory
             }
             throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
         }
+    }
+
+    public static Optional<MessageType> getParquetMessageType(List<HiveColumnHandle> columns, boolean useColumnNames, MessageType fileSchema)
+    {
+        Optional<MessageType> message = projectSufficientColumns(columns)
+                .map(projection -> projection.get().stream()
+                        .map(HiveColumnHandle.class::cast)
+                        .collect(toUnmodifiableList()))
+                .orElse(columns).stream()
+                .filter(column -> column.getColumnType() == REGULAR)
+                .map(column -> getColumnType(column, fileSchema, useColumnNames))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .map(type -> new MessageType(fileSchema.getName(), type))
+                .reduce(MessageType::union);
+        return message;
     }
 
     public static Optional<org.apache.parquet.schema.Type> getParquetType(GroupType groupType, boolean useParquetColumnNames, HiveColumnHandle column)
@@ -361,7 +347,7 @@ public class ParquetPageSourceFactory
         return Optional.of(new GroupType(baseType.getRepetition(), baseType.getName(), ImmutableList.of(type)));
     }
 
-    private static Optional<ColumnIndexStore> getColumnIndexStore(
+    public static Optional<ColumnIndexStore> getColumnIndexStore(
             ParquetDataSource dataSource,
             BlockMetaData blockMetadata,
             Map<List<String>, ColumnDescriptor> descriptorsByPath,
@@ -436,7 +422,7 @@ public class ParquetPageSourceFactory
         return TupleDomain.withColumnDomains(predicate.buildOrThrow());
     }
 
-    private static org.apache.parquet.schema.Type getParquetType(HiveColumnHandle column, MessageType messageType, boolean useParquetColumnNames)
+    public static org.apache.parquet.schema.Type getParquetType(HiveColumnHandle column, MessageType messageType, boolean useParquetColumnNames)
     {
         if (useParquetColumnNames) {
             return getParquetTypeByName(column.getBaseColumnName(), messageType);
@@ -446,5 +432,26 @@ public class ParquetPageSourceFactory
             return messageType.getType(column.getBaseHiveColumnIndex());
         }
         return null;
+    }
+
+    public static List<ParquetReaderColumn> createParquetReaderColumns(List<HiveColumnHandle> baseColumns, MessageType fileSchema, MessageColumnIO messageColumn, boolean useColumnNames)
+    {
+        for (HiveColumnHandle column : baseColumns) {
+            checkArgument(column == PARQUET_ROW_INDEX_COLUMN || column.getColumnType() == REGULAR, "column type must be REGULAR: %s", column);
+        }
+
+        return baseColumns.stream()
+                .map(column -> {
+                    boolean isRowIndexColumn = column == PARQUET_ROW_INDEX_COLUMN;
+                    return new ParquetReaderColumn(
+                            column.getBaseType(),
+                            isRowIndexColumn ? Optional.empty() : Optional.ofNullable(getParquetType(column, fileSchema, useColumnNames))
+                                    .flatMap(field -> {
+                                        String columnName = useColumnNames ? column.getBaseColumnName() : fileSchema.getFields().get(column.getBaseHiveColumnIndex()).getName();
+                                        return constructField(column.getBaseType(), lookupColumnByName(messageColumn, columnName));
+                                    }),
+                            isRowIndexColumn);
+                })
+                .collect(toImmutableList());
     }
 }

@@ -40,7 +40,7 @@ import static java.util.Objects.requireNonNull;
 public final class DefaultPagesHash
         implements PagesHash
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DefaultPagesHash.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(DefaultPagesHash.class).instanceSize());
     private static final DataSize CACHE_SIZE = DataSize.of(128, KILOBYTE);
     private final LongArrayList addresses;
     private final PagesHashStrategy pagesHashStrategy;
@@ -173,6 +173,78 @@ public final class DefaultPagesHash
             pos = (pos + 1) & mask;
         }
         return -1;
+    }
+
+    @Override
+    public int[] getAddressIndex(int[] positions, Page hashChannelsPage)
+    {
+        long[] hashes = new long[positions[positions.length - 1] + 1];
+        for (int i = 0; i < positions.length; i++) {
+            hashes[positions[i]] = pagesHashStrategy.hashRow(positions[i], hashChannelsPage);
+        }
+
+        return getAddressIndex(positions, hashChannelsPage, hashes);
+    }
+
+    @Override
+    public int[] getAddressIndex(int[] positions, Page hashChannelsPage, long[] rawHashes)
+    {
+        int positionCount = positions.length;
+        int[] hashPositions = new int[positionCount];
+
+        for (int i = 0; i < positionCount; i++) {
+            hashPositions[i] = getHashPosition(rawHashes[positions[i]], mask);
+        }
+
+        int[] found = new int[positionCount];
+        int foundCount = 0;
+        int[] result = new int[positionCount];
+        Arrays.fill(result, -1);
+        int[] foundKeys = new int[positionCount];
+
+        // Search for positions in the hash array. This is the most CPU-consuming part as
+        // it relies on random memory accesses
+        for (int i = 0; i < positionCount; i++) {
+            foundKeys[i] = keys[hashPositions[i]];
+        }
+        // Found positions are put into `found` array
+        for (int i = 0; i < positionCount; i++) {
+            if (foundKeys[i] != -1) {
+                found[foundCount++] = i;
+            }
+        }
+
+        // At this step we determine if the found keys were indeed the proper ones or it is a hash collision.
+        // The result array is updated for the found ones, while the collisions land into `remaining` array.
+        int[] remaining = found; // Rename for readability
+        int remainingCount = 0;
+        for (int i = 0; i < foundCount; i++) {
+            int index = found[i];
+            if (positionEqualsCurrentRowIgnoreNulls(foundKeys[index], (byte) rawHashes[positions[index]], positions[index], hashChannelsPage)) {
+                result[index] = foundKeys[index];
+            }
+            else {
+                remaining[remainingCount++] = index;
+            }
+        }
+
+        // At this point for any reasoable load factor of a hash array (< .75), there is no more than
+        // 10 - 15% of positions left. We search for them in a sequential order and update the result array.
+        for (int i = 0; i < remainingCount; i++) {
+            int index = remaining[i];
+            int position = (hashPositions[index] + 1) & mask; // hashPositions[index] position has already been checked
+
+            while (keys[position] != -1) {
+                if (positionEqualsCurrentRowIgnoreNulls(keys[position], (byte) rawHashes[positions[index]], positions[index], hashChannelsPage)) {
+                    result[index] = keys[position];
+                    break;
+                }
+                // increment position and mask to handler wrap around
+                position = (position + 1) & mask;
+            }
+        }
+
+        return result;
     }
 
     @Override

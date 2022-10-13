@@ -281,7 +281,7 @@ public class TestApplyTableScanRedirection
                                 new ColumnMetadata(SOURCE_COLUMN_NAME_A, VARCHAR),
                                 new ColumnMetadata(SOURCE_COLUMN_NAME_B, VARCHAR));
                     }
-                    else if (schemaTableName.equals(DESTINATION_TABLE)) {
+                    if (schemaTableName.equals(DESTINATION_TABLE)) {
                         return ImmutableList.of(
                                 new ColumnMetadata(DESTINATION_COLUMN_NAME_A, VARCHAR),
                                 new ColumnMetadata(DESTINATION_COLUMN_NAME_B, VARCHAR),

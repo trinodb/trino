@@ -30,7 +30,7 @@ import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.LazyOutputBuffer;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.buffer.OutputBuffers;
-import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.memory.QueryContext;
 import io.trino.operator.PipelineContext;
 import io.trino.operator.PipelineStatus;
@@ -204,11 +204,6 @@ public class SqlTask
         });
     }
 
-    public boolean isOutputBufferOverutilized()
-    {
-        return outputBuffer.isOverutilized();
-    }
-
     public SqlTaskIoStats getIoStats()
     {
         return taskHolderReference.get().getIoStats();
@@ -316,13 +311,15 @@ public class SqlTask
             }
             physicalWrittenDataSize = succinctBytes(physicalWrittenBytes);
             userMemoryReservation = taskContext.getMemoryReservation();
+            peakUserMemoryReservation = taskContext.getPeakMemoryReservation();
             revocableMemoryReservation = taskContext.getRevocableMemoryReservation();
             fullGcCount = taskContext.getFullGcCount();
             fullGcTime = taskContext.getFullGcTime();
             dynamicFiltersVersion = taskContext.getDynamicFiltersVersion();
         }
 
-        return new TaskStatus(taskStateMachine.getTaskId(),
+        return new TaskStatus(
+                taskStateMachine.getTaskId(),
                 taskInstanceId,
                 versionNumber,
                 state,
@@ -331,7 +328,7 @@ public class SqlTask
                 failures,
                 queuedPartitionedDrivers,
                 runningPartitionedDrivers,
-                isOutputBufferOverutilized(),
+                outputBuffer.getStatus(),
                 physicalWrittenDataSize,
                 userMemoryReservation,
                 peakUserMemoryReservation,
@@ -448,13 +445,12 @@ public class SqlTask
                             this::notifyStatusChanged);
                     taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
                     needsPlan.set(false);
+                    taskExecution.start();
                 }
             }
 
-            if (taskExecution != null) {
-                taskExecution.addSplitAssignments(splitAssignments);
-                taskExecution.getTaskContext().addDynamicFilter(dynamicFilterDomains);
-            }
+            taskExecution.addSplitAssignments(splitAssignments);
+            taskExecution.getTaskContext().addDynamicFilter(dynamicFilterDomains);
         }
         catch (Error e) {
             failed(e);
@@ -467,7 +463,7 @@ public class SqlTask
         return getTaskInfo();
     }
 
-    public ListenableFuture<BufferResult> getTaskResults(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
+    public ListenableFuture<BufferResult> getTaskResults(PipelinedOutputBuffers.OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
     {
         requireNonNull(bufferId, "bufferId is null");
         checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
@@ -475,14 +471,14 @@ public class SqlTask
         return outputBuffer.get(bufferId, startingSequenceId, maxSize);
     }
 
-    public void acknowledgeTaskResults(OutputBufferId bufferId, long sequenceId)
+    public void acknowledgeTaskResults(PipelinedOutputBuffers.OutputBufferId bufferId, long sequenceId)
     {
         requireNonNull(bufferId, "bufferId is null");
 
         outputBuffer.acknowledge(bufferId, sequenceId);
     }
 
-    public TaskInfo destroyTaskResults(OutputBufferId bufferId)
+    public TaskInfo destroyTaskResults(PipelinedOutputBuffers.OutputBufferId bufferId)
     {
         requireNonNull(bufferId, "bufferId is null");
 

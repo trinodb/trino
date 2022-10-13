@@ -55,7 +55,7 @@ public class AuthenticationFilter
         this.authenticators = ImmutableList.copyOf(requireNonNull(authenticators, "authenticators is null"));
         checkArgument(!authenticators.isEmpty(), "authenticators is empty");
         this.internalAuthenticationManager = requireNonNull(internalAuthenticationManager, "internalAuthenticationManager is null");
-        insecureAuthenticationOverHttpAllowed = requireNonNull(securityConfig, "securityConfig is null").isInsecureAuthenticationOverHttpAllowed();
+        insecureAuthenticationOverHttpAllowed = securityConfig.isInsecureAuthenticationOverHttpAllowed();
         this.insecureAuthenticator = requireNonNull(insecureAuthenticator, "insecureAuthenticator is null");
     }
 

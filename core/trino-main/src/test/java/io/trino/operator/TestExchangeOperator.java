@@ -272,6 +272,7 @@ public class TestExchangeOperator
 
         SourceOperator operator = operatorFactory.createOperator(driverContext);
         assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes(), 0);
+        operatorFactory.noMoreOperators();
         return operator;
     }
 
@@ -292,9 +293,7 @@ public class TestExchangeOperator
                 greaterThanZero = true;
                 break;
             }
-            else {
-                Thread.sleep(10);
-            }
+            Thread.sleep(10);
         }
         assertTrue(greaterThanZero);
 

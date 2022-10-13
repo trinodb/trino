@@ -25,14 +25,12 @@ import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
 import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.exchange.ExchangeManager;
-import io.trino.spi.exchange.ExchangeSource;
-import io.trino.spi.exchange.ExchangeSourceHandle;
 
-import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static java.util.Objects.requireNonNull;
 
 public class LazyExchangeDataSource
@@ -98,7 +96,7 @@ public class LazyExchangeDataSource
             return immediateVoidFuture();
         }
         if (!initializationFuture.isDone()) {
-            return initializationFuture;
+            return nonCancellationPropagating(initializationFuture);
         }
         ExchangeDataSource dataSource = delegate.get();
         if (dataSource == null) {
@@ -122,11 +120,8 @@ public class LazyExchangeDataSource
                     dataSource = new DirectExchangeDataSource(client);
                 }
                 else if (input instanceof SpoolingExchangeInput) {
-                    SpoolingExchangeInput spoolingExchangeInput = (SpoolingExchangeInput) input;
                     ExchangeManager exchangeManager = exchangeManagerRegistry.getExchangeManager();
-                    List<ExchangeSourceHandle> sourceHandles = spoolingExchangeInput.getExchangeSourceHandles();
-                    ExchangeSource exchangeSource = exchangeManager.createSource(sourceHandles);
-                    dataSource = new SpoolingExchangeDataSource(exchangeSource, sourceHandles, systemMemoryContext);
+                    dataSource = new SpoolingExchangeDataSource(exchangeManager.createSource(), systemMemoryContext);
                 }
                 else {
                     throw new IllegalArgumentException("Unexpected input: " + input);

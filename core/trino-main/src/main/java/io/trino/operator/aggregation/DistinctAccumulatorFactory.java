@@ -267,9 +267,7 @@ public class DistinctAccumulatorFactory
             if (!mask.isNull(0) && BOOLEAN.getBoolean(mask, 0)) {
                 return page;
             }
-            else {
-                return page.getPositions(new int[0], 0, 0);
-            }
+            return page.getPositions(new int[0], 0, 0);
         }
         boolean mayHaveNull = mask.mayHaveNull();
         int[] ids = new int[positions];

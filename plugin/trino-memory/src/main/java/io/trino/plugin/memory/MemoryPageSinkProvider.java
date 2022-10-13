@@ -46,7 +46,7 @@ public class MemoryPageSinkProvider
     @Inject
     public MemoryPageSinkProvider(MemoryPagesStore pagesStore, NodeManager nodeManager)
     {
-        this(pagesStore, requireNonNull(nodeManager, "nodeManager is null").getCurrentNode().getHostAndPort());
+        this(pagesStore, nodeManager.getCurrentNode().getHostAndPort());
     }
 
     @VisibleForTesting

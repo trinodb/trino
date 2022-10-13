@@ -235,9 +235,7 @@ public class DriverContext
         if (inputOperator != null) {
             return inputOperator.getInputDataSize();
         }
-        else {
-            return new CounterStat();
-        }
+        return new CounterStat();
     }
 
     public CounterStat getInputPositions()
@@ -246,9 +244,7 @@ public class DriverContext
         if (inputOperator != null) {
             return inputOperator.getInputPositions();
         }
-        else {
-            return new CounterStat();
-        }
+        return new CounterStat();
     }
 
     public CounterStat getOutputDataSize()
@@ -257,9 +253,7 @@ public class DriverContext
         if (inputOperator != null) {
             return inputOperator.getOutputDataSize();
         }
-        else {
-            return new CounterStat();
-        }
+        return new CounterStat();
     }
 
     public CounterStat getOutputPositions()
@@ -268,9 +262,7 @@ public class DriverContext
         if (inputOperator != null) {
             return inputOperator.getOutputPositions();
         }
-        else {
-            return new CounterStat();
-        }
+        return new CounterStat();
     }
 
     public long getPhysicalWrittenDataSize()

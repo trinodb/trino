@@ -109,7 +109,8 @@ public class DynamicFilterService
     private final Metadata metadata;
     private final FunctionManager functionManager;
     private final TypeOperators typeOperators;
-    private final DynamicFilterConfig dynamicFilterConfig;
+    private final DataSize largeMaxSizePerFilter;
+    private final DataSize smallMaxSizePerFilter;
     private final Map<QueryId, DynamicFilterContext> dynamicFilterContexts = new ConcurrentHashMap<>();
 
     @Inject
@@ -118,7 +119,8 @@ public class DynamicFilterService
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
-        this.dynamicFilterConfig = requireNonNull(dynamicFilterConfig, "dynamicFilterConfig is null");
+        this.largeMaxSizePerFilter = dynamicFilterConfig.getLargeMaxSizePerFilter();
+        this.smallMaxSizePerFilter = dynamicFilterConfig.getSmallMaxSizePerFilter();
     }
 
     public void registerQuery(SqlQueryExecution sqlQueryExecution, SubPlan fragmentedPlan)
@@ -162,9 +164,9 @@ public class DynamicFilterService
     private DataSize getDynamicFilterSizeLimit(Session session)
     {
         if (isEnableLargeDynamicFilters(session)) {
-            return dynamicFilterConfig.getLargeMaxSizePerFilter();
+            return largeMaxSizePerFilter;
         }
-        return dynamicFilterConfig.getSmallMaxSizePerFilter();
+        return smallMaxSizePerFilter;
     }
 
     public void registerQueryRetry(QueryId queryId, int attemptId)

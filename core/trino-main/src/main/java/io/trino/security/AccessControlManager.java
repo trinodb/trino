@@ -844,6 +844,31 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext securityContext, FunctionKind functionKind, QualifiedObjectName functionName, Identity grantee, boolean grantOption)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(functionKind, "functionKind is null");
+        requireNonNull(functionName, "functionName is null");
+
+        systemAuthorizationCheck(control -> control.checkCanGrantExecuteFunctionPrivilege(
+                securityContext.toSystemSecurityContext(),
+                functionKind,
+                functionName.asCatalogSchemaRoutineName(),
+                new TrinoPrincipal(PrincipalType.USER, grantee.getUser()),
+                grantOption));
+
+        catalogAuthorizationCheck(
+                functionName.getCatalogName(),
+                securityContext,
+                (control, context) -> control.checkCanGrantExecuteFunctionPrivilege(
+                        context,
+                        functionKind,
+                        functionName.asSchemaRoutineName(),
+                        new TrinoPrincipal(PrincipalType.USER, grantee.getUser()),
+                        grantOption));
+    }
+
+    @Override
     public void checkCanGrantSchemaPrivilege(SecurityContext securityContext, Privilege privilege, CatalogSchemaName schemaName, TrinoPrincipal grantee, boolean grantOption)
     {
         requireNonNull(securityContext, "securityContext is null");

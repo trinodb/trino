@@ -16,7 +16,6 @@ package io.trino.tests.product.hive;
 import io.trino.tempto.AfterTestWithContext;
 import io.trino.tempto.BeforeTestWithContext;
 import io.trino.tempto.ProductTest;
-import io.trino.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import static io.trino.tests.product.TestGroups.COMMENT;
@@ -100,8 +99,7 @@ public class TestComments
     private static String getTableComment(String catalogName, String schemaName, String tableName)
     {
         String sql = "SELECT comment FROM system.metadata.table_comments WHERE catalog_name = '" + catalogName + "' AND schema_name = '" + schemaName + "' AND table_name = '" + tableName + "'";
-        QueryResult result = onTrino().executeQuery(sql);
-        return (String) result.row(0).get(0);
+        return (String) onTrino().executeQuery(sql).getOnlyValue();
     }
 
     @Test(groups = COMMENT)
@@ -126,8 +124,8 @@ public class TestComments
                         "   c3 bigint\n" +
                         ")\\E(?s:.*)",
                 COMMENT_COLUMN_NAME);
-        QueryResult actualResult = onTrino().executeQuery("SHOW CREATE TABLE " + COMMENT_COLUMN_NAME);
-        assertThat((String) actualResult.row(0).get(0)).matches(createTableSqlPattern);
+        assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + COMMENT_COLUMN_NAME).getOnlyValue())
+                .matches(createTableSqlPattern);
 
         createTableSqlPattern = format("\\Q" +
                         "CREATE TABLE hive.default.%s (\n" +
@@ -138,8 +136,8 @@ public class TestComments
                 COMMENT_COLUMN_NAME);
 
         onTrino().executeQuery(format("COMMENT ON COLUMN %s.c1 IS 'new comment'", COMMENT_COLUMN_NAME));
-        actualResult = onTrino().executeQuery("SHOW CREATE TABLE " + COMMENT_COLUMN_NAME);
-        assertThat((String) actualResult.row(0).get(0)).matches(createTableSqlPattern);
+        assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + COMMENT_COLUMN_NAME).getOnlyValue())
+                .matches(createTableSqlPattern);
 
         createTableSqlPattern = format("\\Q" +
                         "CREATE TABLE hive.default.%s (\n" +
@@ -150,8 +148,8 @@ public class TestComments
                 COMMENT_COLUMN_NAME);
 
         onTrino().executeQuery(format("COMMENT ON COLUMN %s.c1 IS ''", COMMENT_COLUMN_NAME));
-        actualResult = onTrino().executeQuery("SHOW CREATE TABLE " + COMMENT_COLUMN_NAME);
-        assertThat((String) actualResult.row(0).get(0)).matches(createTableSqlPattern);
+        assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + COMMENT_COLUMN_NAME).getOnlyValue())
+                .matches(createTableSqlPattern);
 
         createTableSqlPattern = format("\\Q" +
                         "CREATE TABLE hive.default.%s (\n" +
@@ -162,7 +160,7 @@ public class TestComments
                 COMMENT_COLUMN_NAME);
 
         onTrino().executeQuery(format("COMMENT ON COLUMN %s.c1 IS NULL", COMMENT_COLUMN_NAME));
-        actualResult = onTrino().executeQuery("SHOW CREATE TABLE " + COMMENT_COLUMN_NAME);
-        assertThat((String) actualResult.row(0).get(0)).matches(createTableSqlPattern);
+        assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + COMMENT_COLUMN_NAME).getOnlyValue())
+                .matches(createTableSqlPattern);
     }
 }

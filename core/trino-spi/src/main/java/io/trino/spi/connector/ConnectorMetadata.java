@@ -15,9 +15,16 @@ package io.trino.spi.connector;
 
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
+import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.Variable;
+import io.trino.spi.function.AggregationFunctionMetadata;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencyDeclaration;
+import io.trino.spi.function.FunctionId;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.ptf.ConnectorTableFunctionHandle;
 import io.trino.spi.security.GrantInfo;
@@ -30,6 +37,7 @@ import io.trino.spi.statistics.TableStatisticsMetadata;
 
 import javax.annotation.Nullable;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -43,8 +51,10 @@ import java.util.stream.Collectors;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
+import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
 public interface ConnectorMetadata
@@ -55,7 +65,14 @@ public interface ConnectorMetadata
      */
     default boolean schemaExists(ConnectorSession session, String schemaName)
     {
-        return listSchemaNames(session).contains(schemaName);
+        if (!schemaName.equals(schemaName.toLowerCase(ENGLISH))) {
+            // Currently, Trino schemas are always lowercase, so this one cannot exist (https://github.com/trinodb/trino/issues/17)
+            return false;
+        }
+        return listSchemaNames(session).stream()
+                // Lower-casing is done by callers of listSchemaNames (see MetadataManager)
+                .map(schema -> schema.toLowerCase(ENGLISH))
+                .anyMatch(schemaName::equals);
     }
 
     /**
@@ -106,19 +123,6 @@ public interface ConnectorMetadata
             return tableHandle;
         }
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
-    }
-
-    /**
-     * Returns a table handle for the specified table name, or null if the connector does not contain the table.
-     * The returned table handle can contain information in analyzeProperties.
-     *
-     * @deprecated use {@link #getStatisticsCollectionMetadata(ConnectorSession, ConnectorTableHandle, Map)}
-     */
-    @Deprecated
-    @Nullable
-    default ConnectorTableHandle getTableHandleForStatisticsCollection(ConnectorSession session, SchemaTableName tableName, Map<String, Object> analyzeProperties)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support analyze");
     }
 
     /**
@@ -474,24 +478,10 @@ public interface ConnectorMetadata
 
     /**
      * Describe statistics that must be collected during a statistics collection
-     *
-     * @deprecated use {@link #getStatisticsCollectionMetadata(ConnectorSession, ConnectorTableHandle, Map)}
-     */
-    @Deprecated
-    default TableStatisticsMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableMetadata tableMetadata)
-    {
-        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandleForStatisticsCollection() is implemented without getStatisticsCollectionMetadata()");
-    }
-
-    /**
-     * Describe statistics that must be collected during a statistics collection
      */
     default ConnectorAnalyzeMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> analyzeProperties)
     {
-        SchemaTableName tableName = getTableMetadata(session, tableHandle).getTable();
-        ConnectorTableHandle analyzeHandle = getTableHandleForStatisticsCollection(session, tableName, analyzeProperties);
-        TableStatisticsMetadata statisticsMetadata = getStatisticsCollectionMetadata(session, getTableMetadata(session, analyzeHandle));
-        return new ConnectorAnalyzeMetadata(analyzeHandle, statisticsMetadata);
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support analyze");
     }
 
     /**
@@ -852,6 +842,46 @@ public interface ConnectorMetadata
     default Optional<ConnectorResolvedIndex> resolveIndex(ConnectorSession session, ConnectorTableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain)
     {
         return Optional.empty();
+    }
+
+    /**
+     * List available functions.
+     */
+    default Collection<FunctionMetadata> listFunctions(ConnectorSession session, String schemaName)
+    {
+        return List.of();
+    }
+
+    /**
+     * Get all functions with specified name.
+     */
+    default Collection<FunctionMetadata> getFunctions(ConnectorSession session, SchemaFunctionName name)
+    {
+        return List.of();
+    }
+
+    /**
+     * Return the function with the specified id.
+     */
+    default FunctionMetadata getFunctionMetadata(ConnectorSession session, FunctionId functionId)
+    {
+        throw new IllegalArgumentException("Unknown function " + functionId);
+    }
+
+    /**
+     * Returns the aggregation metadata for the aggregation function with the specified id.
+     */
+    default AggregationFunctionMetadata getAggregationFunctionMetadata(ConnectorSession session, FunctionId functionId)
+    {
+        throw new IllegalArgumentException("Unknown function " + functionId);
+    }
+
+    /**
+     * Returns the dependencies of the function with the specified id.
+     */
+    default FunctionDependencyDeclaration getFunctionDependencies(ConnectorSession session, FunctionId functionId, BoundSignature boundSignature)
+    {
+        throw new IllegalArgumentException("Unknown function " + functionId);
     }
 
     /**
@@ -1236,6 +1266,50 @@ public interface ConnectorMetadata
      * It is required that mapping is provided for *all* column handles exposed previously by both left and right join sources.
      * </p>
      */
+    default Optional<JoinApplicationResult<ConnectorTableHandle>> applyJoin(
+            ConnectorSession session,
+            JoinType joinType,
+            ConnectorTableHandle left,
+            ConnectorTableHandle right,
+            ConnectorExpression joinCondition,
+            Map<String, ColumnHandle> leftAssignments,
+            Map<String, ColumnHandle> rightAssignments,
+            JoinStatistics statistics)
+    {
+        List<JoinCondition> conditions;
+        if (joinCondition instanceof Call call && AND_FUNCTION_NAME.equals(call.getFunctionName())) {
+            conditions = new ArrayList<>(call.getArguments().size());
+            for (ConnectorExpression argument : call.getArguments()) {
+                if (Constant.TRUE.equals(argument)) {
+                    continue;
+                }
+                Optional<JoinCondition> condition = JoinCondition.from(argument, leftAssignments.keySet(), rightAssignments.keySet());
+                if (condition.isEmpty()) {
+                    // We would need to add a FilterNode on top of the result
+                    return Optional.empty();
+                }
+                conditions.add(condition.get());
+            }
+        }
+        else {
+            Optional<JoinCondition> condition = JoinCondition.from(joinCondition, leftAssignments.keySet(), rightAssignments.keySet());
+            if (condition.isEmpty()) {
+                return Optional.empty();
+            }
+            conditions = List.of(condition.get());
+        }
+        return applyJoin(
+                session,
+                joinType,
+                left,
+                right,
+                conditions,
+                leftAssignments,
+                rightAssignments,
+                statistics);
+    }
+
+    @Deprecated
     default Optional<JoinApplicationResult<ConnectorTableHandle>> applyJoin(
             ConnectorSession session,
             JoinType joinType,

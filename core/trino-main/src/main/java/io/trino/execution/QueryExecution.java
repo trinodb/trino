@@ -28,6 +28,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.planner.Plan;
 
 import java.util.List;
+import java.util.Queue;
 import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
@@ -41,7 +42,7 @@ public interface QueryExecution
 
     void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener);
 
-    void addOutputInfoListener(Consumer<QueryOutputInfo> listener);
+    void setOutputInfoListener(Consumer<QueryOutputInfo> listener);
 
     void outputTaskFailed(TaskId taskId, Throwable failure);
 
@@ -86,23 +87,23 @@ public interface QueryExecution
     }
 
     /**
-     * Output schema and buffer URIs for query.  The info will always contain column names and types.  Buffer locations will always
-     * contain the full location set, but may be empty.  Users of this data should keep a private copy of the seen buffers to
-     * handle out of order events from the listener.  Once noMoreBufferLocations is set the locations will never change, and
-     * it is guaranteed that all previously sent locations are contained in the buffer locations.
+     * The info will always contain column names and types.
+     * The {@code inputsQueue} is shared between {@link QueryOutputInfo} instances.
+     * It is guaranteed that no new entries will be added to {@code inputsQueue} after {@link QueryOutputInfo}
+     * with {@link #isNoMoreInputs()} {@code == true} is created.
      */
     class QueryOutputInfo
     {
         private final List<String> columnNames;
         private final List<Type> columnTypes;
-        private final List<ExchangeInput> inputs;
+        private final Queue<ExchangeInput> inputsQueue;
         private final boolean noMoreInputs;
 
-        public QueryOutputInfo(List<String> columnNames, List<Type> columnTypes, List<ExchangeInput> inputs, boolean noMoreInputs)
+        public QueryOutputInfo(List<String> columnNames, List<Type> columnTypes, Queue<ExchangeInput> inputsQueue, boolean noMoreInputs)
         {
             this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
             this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
-            this.inputs = ImmutableList.copyOf(requireNonNull(inputs, "inputs is null"));
+            this.inputsQueue = requireNonNull(inputsQueue, "inputsQueue is null");
             this.noMoreInputs = noMoreInputs;
         }
 
@@ -116,9 +117,15 @@ public interface QueryExecution
             return columnTypes;
         }
 
-        public List<ExchangeInput> getInputs()
+        public void drainInputs(Consumer<ExchangeInput> consumer)
         {
-            return inputs;
+            while (true) {
+                ExchangeInput input = inputsQueue.poll();
+                if (input == null) {
+                    break;
+                }
+                consumer.accept(input);
+            }
         }
 
         public boolean isNoMoreInputs()

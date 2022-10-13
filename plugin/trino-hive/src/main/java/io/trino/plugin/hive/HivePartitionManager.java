@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
-import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.Constraint;
@@ -42,33 +41,31 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.hive.HiveErrorCode.HIVE_EXCEEDED_PARTITION_LIMIT;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.computePartitionKeyFilter;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.toPartitionName;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucketFilter;
 import static io.trino.plugin.hive.util.HiveUtil.parsePartitionValue;
-import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 
 public class HivePartitionManager
 {
-    private final int maxPartitions;
+    private final int maxPartitionsForEagerLoad;
     private final int domainCompactionThreshold;
 
     @Inject
     public HivePartitionManager(HiveConfig hiveConfig)
     {
         this(
-                hiveConfig.getMaxPartitionsPerScan(),
+                hiveConfig.getMaxPartitionsForEagerLoad(),
                 hiveConfig.getDomainCompactionThreshold());
     }
 
     public HivePartitionManager(
-            int maxPartitions,
+            int maxPartitionsForEagerLoad,
             int domainCompactionThreshold)
     {
-        checkArgument(maxPartitions >= 1, "maxPartitions must be at least 1");
-        this.maxPartitions = maxPartitions;
+        checkArgument(maxPartitionsForEagerLoad >= 1, "maxPartitionsForEagerLoad must be at least 1");
+        this.maxPartitionsForEagerLoad = maxPartitionsForEagerLoad;
         checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
         this.domainCompactionThreshold = domainCompactionThreshold;
     }
@@ -154,25 +151,6 @@ public class HivePartitionManager
         return new HivePartitionResult(partitionColumns, Optional.empty(), partitionList, TupleDomain.all(), TupleDomain.all(), bucketHandle, Optional.empty());
     }
 
-    public List<HivePartition> getPartitionsAsList(HivePartitionResult partitionResult)
-    {
-        ImmutableList.Builder<HivePartition> partitionList = ImmutableList.builder();
-        int count = 0;
-        Iterator<HivePartition> iterator = partitionResult.getPartitions();
-        while (iterator.hasNext()) {
-            HivePartition partition = iterator.next();
-            if (count == maxPartitions) {
-                throw new TrinoException(HIVE_EXCEEDED_PARTITION_LIMIT, format(
-                        "Query over table '%s' can potentially read more than %s partitions",
-                        partition.getTableName(),
-                        maxPartitions));
-            }
-            partitionList.add(partition);
-            count++;
-        }
-        return partitionList.build();
-    }
-
     public HiveTableHandle applyPartitionResult(HiveTableHandle handle, HivePartitionResult partitions, Constraint constraint)
     {
         Optional<List<String>> partitionNames = partitions.getPartitionNames();
@@ -184,9 +162,9 @@ public class HivePartitionManager
         //    that can be applied on other join side (if the join is based on partition column),
         // 2. If additional predicate is passed as a part of Constraint. (specified via loadPartition). This delays the partition checks
         //    until we have additional filtering based on Constraint
-        if (canPartitionsBeLoaded(partitions) || constraint.predicate().isPresent()) {
+        if (canPartitionsBeLoaded(partitions)) {
             partitionNames = Optional.empty();
-            partitionList = Optional.of(getPartitionsAsList(partitions));
+            partitionList = Optional.of(ImmutableList.copyOf(partitions.getPartitions()));
             List<HiveColumnHandle> partitionColumns = partitions.getPartitionColumns();
             enforcedConstraint = partitions.getEffectivePredicate().filter((column, domain) -> partitionColumns.contains(column));
         }
@@ -210,21 +188,20 @@ public class HivePartitionManager
                 handle.getMaxScannedFileSize());
     }
 
-    public List<HivePartition> getOrLoadPartitions(SemiTransactionalHiveMetastore metastore, HiveTableHandle table)
+    public Iterator<HivePartition> getPartitions(SemiTransactionalHiveMetastore metastore, HiveTableHandle table)
     {
         // In case of partitions not being loaded, their permissible values are specified in `HiveTableHandle#getCompactEffectivePredicate,
         // so we do an intersection of getCompactEffectivePredicate and HiveTable's enforced constraint
         TupleDomain<ColumnHandle> summary = table.getEnforcedConstraint().intersect(
                 table.getCompactEffectivePredicate()
                         .transformKeys(ColumnHandle.class::cast));
-        return table.getPartitions().orElseGet(() ->
-                getPartitionsAsList(getPartitions(metastore, table, new Constraint(summary))));
+        return table.getPartitions().map(List::iterator).orElseGet(() -> getPartitions(metastore, table, new Constraint(summary)).getPartitions());
     }
 
     public boolean canPartitionsBeLoaded(HivePartitionResult partitionResult)
     {
         if (partitionResult.getPartitionNames().isPresent()) {
-            return partitionResult.getPartitionNames().orElseThrow().size() <= maxPartitions;
+            return partitionResult.getPartitionNames().orElseThrow().size() <= maxPartitionsForEagerLoad;
         }
         return true;
     }

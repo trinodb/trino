@@ -14,6 +14,7 @@
 package io.trino.plugin.redis;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
@@ -31,6 +32,7 @@ import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -41,7 +43,7 @@ import static java.util.Objects.requireNonNull;
 public class RedisSplitManager
         implements ConnectorSplitManager
 {
-    private final RedisConnectorConfig redisConnectorConfig;
+    private final Set<HostAddress> nodes;
     private final RedisJedisManager jedisManager;
 
     private static final long REDIS_MAX_SPLITS = 100;
@@ -52,7 +54,8 @@ public class RedisSplitManager
             RedisConnectorConfig redisConnectorConfig,
             RedisJedisManager jedisManager)
     {
-        this.redisConnectorConfig = requireNonNull(redisConnectorConfig, "redisConnectorConfig is null");
+        requireNonNull(redisConnectorConfig, "redisConnectorConfig is null");
+        this.nodes = ImmutableSet.copyOf(redisConnectorConfig.getNodes());
         this.jedisManager = requireNonNull(jedisManager, "jedisManager is null");
     }
 
@@ -66,7 +69,7 @@ public class RedisSplitManager
     {
         RedisTableHandle redisTableHandle = (RedisTableHandle) table;
 
-        List<HostAddress> nodes = new ArrayList<>(redisConnectorConfig.getNodes());
+        List<HostAddress> nodes = new ArrayList<>(this.nodes);
         Collections.shuffle(nodes);
 
         checkState(!nodes.isEmpty(), "No Redis nodes available");

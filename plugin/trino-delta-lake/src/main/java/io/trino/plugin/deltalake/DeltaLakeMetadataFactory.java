@@ -22,7 +22,6 @@ import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointWriterManager;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFactory;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.MetastoreTypeConfig;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.spi.NodeManager;
 import io.trino.spi.security.ConnectorIdentity;
@@ -54,12 +53,11 @@ public class DeltaLakeMetadataFactory
     private final int domainCompactionThreshold;
     private final boolean unsafeWritesEnabled;
     private final long checkpointWritingInterval;
-    private final boolean ignoreCheckpointWriteFailures;
     private final long perTransactionMetastoreCacheMaximumSize;
     private final boolean deleteSchemaLocationsFallback;
     private final boolean useUniqueTableLocation;
 
-    private final String metastoreType;
+    private final boolean allowManagedTableRename;
 
     @Inject
     public DeltaLakeMetadataFactory(
@@ -78,7 +76,7 @@ public class DeltaLakeMetadataFactory
             CheckpointWriterManager checkpointWriterManager,
             DeltaLakeRedirectionsProvider deltaLakeRedirectionsProvider,
             CachingExtendedStatisticsAccess statisticsAccess,
-            MetastoreTypeConfig metastoreTypeConfig)
+            @AllowDeltaLakeManagedTableRename boolean allowManagedTableRename)
     {
         this.hiveMetastoreFactory = requireNonNull(hiveMetastoreFactory, "hiveMetastore is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -94,16 +92,13 @@ public class DeltaLakeMetadataFactory
         this.checkpointWriterManager = requireNonNull(checkpointWriterManager, "checkpointWriterManager is null");
         this.deltaLakeRedirectionsProvider = requireNonNull(deltaLakeRedirectionsProvider, "deltaLakeRedirectionsProvider is null");
         this.statisticsAccess = requireNonNull(statisticsAccess, "statisticsAccess is null");
-        requireNonNull(deltaLakeConfig, "deltaLakeConfig is null");
         this.domainCompactionThreshold = deltaLakeConfig.getDomainCompactionThreshold();
         this.unsafeWritesEnabled = deltaLakeConfig.getUnsafeWritesEnabled();
         this.checkpointWritingInterval = deltaLakeConfig.getDefaultCheckpointWritingInterval();
-        this.ignoreCheckpointWriteFailures = deltaLakeConfig.isIgnoreCheckpointWriteFailures();
         this.perTransactionMetastoreCacheMaximumSize = deltaLakeConfig.getPerTransactionMetastoreCacheMaximumSize();
         this.deleteSchemaLocationsFallback = deltaLakeConfig.isDeleteSchemaLocationsFallback();
         this.useUniqueTableLocation = deltaLakeConfig.isUniqueTableLocation();
-        requireNonNull(metastoreTypeConfig, "metastoreTypeConfig is null");
-        this.metastoreType = requireNonNull(metastoreTypeConfig.getMetastoreType(), "metastoreType is null");
+        this.allowManagedTableRename = allowManagedTableRename;
     }
 
     public DeltaLakeMetadata create(ConnectorIdentity identity)
@@ -133,11 +128,10 @@ public class DeltaLakeMetadataFactory
                 nodeManager,
                 checkpointWriterManager,
                 checkpointWritingInterval,
-                ignoreCheckpointWriteFailures,
                 deleteSchemaLocationsFallback,
                 deltaLakeRedirectionsProvider,
                 statisticsAccess,
                 useUniqueTableLocation,
-                metastoreType);
+                allowManagedTableRename);
     }
 }

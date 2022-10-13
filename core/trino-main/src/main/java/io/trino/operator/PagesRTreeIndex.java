@@ -63,7 +63,7 @@ public class PagesRTreeIndex
 
     public static final class GeometryWithPosition
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GeometryWithPosition.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(GeometryWithPosition.class).instanceSize());
 
         private final OGCGeometry ogcGeometry;
         private final int partition;

@@ -125,7 +125,7 @@ public class RaptorPageSource
         return new Page(page.getPositionCount(), blocks);
     }
 
-    static TrinoException handleException(Exception exception)
+    public static TrinoException handleException(Exception exception)
     {
         if (exception instanceof TrinoException) {
             return (TrinoException) exception;
@@ -233,7 +233,7 @@ public class RaptorPageSource
         @Override
         public Block block(Page sourcePage, long filePosition)
         {
-            return new RunLengthEncodedBlock(shardUuidBlock, sourcePage.getPositionCount());
+            return RunLengthEncodedBlock.create(shardUuidBlock, sourcePage.getPositionCount());
         }
 
         @Override
@@ -288,8 +288,8 @@ public class RaptorPageSource
         @Override
         public Block block(Page sourcePage, long filePosition)
         {
-            Block bucketNumberBlock = new RunLengthEncodedBlock(bucketNumberValue, sourcePage.getPositionCount());
-            Block shardUuidBlock = new RunLengthEncodedBlock(shardUuidValue, sourcePage.getPositionCount());
+            Block bucketNumberBlock = RunLengthEncodedBlock.create(bucketNumberValue, sourcePage.getPositionCount());
+            Block shardUuidBlock = RunLengthEncodedBlock.create(shardUuidValue, sourcePage.getPositionCount());
             Block rowIdBlock = RowIdColumn.INSTANCE.block(sourcePage, filePosition);
             return RowBlock.fromFieldBlocks(
                     sourcePage.getPositionCount(),
@@ -315,7 +315,7 @@ public class RaptorPageSource
         @Override
         public Block block(Page sourcePage, long filePosition)
         {
-            return new RunLengthEncodedBlock(nullBlock, sourcePage.getPositionCount());
+            return RunLengthEncodedBlock.create(nullBlock, sourcePage.getPositionCount());
         }
 
         @Override
@@ -342,7 +342,7 @@ public class RaptorPageSource
         @Override
         public Block block(Page sourcePage, long filePosition)
         {
-            return new RunLengthEncodedBlock(bucketNumberBlock, sourcePage.getPositionCount());
+            return RunLengthEncodedBlock.create(bucketNumberBlock, sourcePage.getPositionCount());
         }
 
         @Override

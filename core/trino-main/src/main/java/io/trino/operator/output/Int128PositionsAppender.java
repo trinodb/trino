@@ -27,11 +27,12 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.output.PositionsAppenderUtil.calculateBlockResetSize;
 import static io.trino.operator.output.PositionsAppenderUtil.calculateNewArraySize;
 import static java.lang.Math.max;
+import static java.lang.Math.toIntExact;
 
 public class Int128PositionsAppender
         implements PositionsAppender
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int128PositionsAppender.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(Int128PositionsAppender.class).instanceSize());
     private static final Block NULL_VALUE_BLOCK = new Int128ArrayBlock(1, Optional.of(new boolean[] {true}), new long[2]);
 
     private boolean initialized;
@@ -101,9 +102,8 @@ public class Int128PositionsAppender
     }
 
     @Override
-    public void appendRle(RunLengthEncodedBlock block)
+    public void appendRle(Block block, int rlePositionCount)
     {
-        int rlePositionCount = block.getPositionCount();
         if (rlePositionCount == 0) {
             return;
         }
@@ -137,7 +137,7 @@ public class Int128PositionsAppender
             result = new Int128ArrayBlock(positionCount, hasNullValue ? Optional.of(valueIsNull) : Optional.empty(), values);
         }
         else {
-            result = new RunLengthEncodedBlock(NULL_VALUE_BLOCK, positionCount);
+            result = RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, positionCount);
         }
         reset();
         return result;

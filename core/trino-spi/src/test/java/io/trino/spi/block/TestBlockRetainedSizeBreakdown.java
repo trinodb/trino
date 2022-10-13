@@ -65,7 +65,7 @@ public class TestBlockRetainedSizeBreakdown
         for (int i = 0; i < keyIds.length; i++) {
             keyIds[i] = i;
         }
-        checkRetainedSize(new DictionaryBlock(EXPECTED_ENTRIES, keyDictionaryBlock, keyIds), false);
+        checkRetainedSize(DictionaryBlock.create(EXPECTED_ENTRIES, keyDictionaryBlock, keyIds), false);
     }
 
     @Test
@@ -89,7 +89,7 @@ public class TestBlockRetainedSizeBreakdown
     {
         BlockBuilder blockBuilder = new LongArrayBlockBuilder(null, 1);
         writeEntries(1, blockBuilder, BIGINT);
-        checkRetainedSize(new RunLengthEncodedBlock(blockBuilder.build(), 1), false);
+        checkRetainedSize(RunLengthEncodedBlock.create(blockBuilder.build(), 1), false);
     }
 
     @Test

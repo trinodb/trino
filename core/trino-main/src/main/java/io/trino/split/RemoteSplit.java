@@ -24,12 +24,13 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class RemoteSplit
         implements ConnectorSplit
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RemoteSplit.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(RemoteSplit.class).instanceSize());
 
     private final ExchangeInput exchangeInput;
 

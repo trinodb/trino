@@ -45,6 +45,7 @@ public abstract class BaseIcebergConnectorSmokeTest
         this.format = requireNonNull(format, "format is null");
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -62,6 +63,7 @@ public abstract class BaseIcebergConnectorSmokeTest
             case SUPPORTS_UPDATE:
             case SUPPORTS_MERGE:
                 return true;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
@@ -100,7 +102,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     }
 
     // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
-    @Test(timeOut = 60_000, invocationCount = 4)
+    @Test(timeOut = 120_000, invocationCount = 4)
     public void testDeleteRowsConcurrently()
             throws Exception
     {

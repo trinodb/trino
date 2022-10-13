@@ -88,7 +88,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -227,7 +227,7 @@ public class TestExpressionCompiler
         assertExecute("bound_timestamp", BIGINT, new DateTime(2001, 8, 22, 3, 4, 5, 321, UTC).getMillis());
         assertExecute("bound_pattern", VARCHAR, "%el%");
         assertExecute("bound_null_string", VARCHAR, null);
-        assertExecute("bound_timestamp_with_timezone", TIMESTAMP_WITH_TIME_ZONE, SqlTimestampWithTimeZone.newInstance(3, new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), 0, TimeZoneKey.getTimeZoneKey("Z")));
+        assertExecute("bound_timestamp_with_timezone", TIMESTAMP_TZ_MILLIS, SqlTimestampWithTimeZone.newInstance(3, new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), 0, TimeZoneKey.getTimeZoneKey("Z")));
         assertExecute("bound_binary_literal", VARBINARY, sqlVarbinary(0xAB));
 
         // todo enable when null output type is supported
@@ -1513,8 +1513,8 @@ public class TestExpressionCompiler
     public void testFunctionWithSessionCall()
             throws Exception
     {
-        assertExecute("now()", TIMESTAMP_WITH_TIME_ZONE, SqlTimestampWithTimeZone.fromInstant(3, TEST_SESSION.getStart(), TEST_SESSION.getTimeZoneKey().getZoneId()));
-        assertExecute("current_timestamp", TIMESTAMP_WITH_TIME_ZONE, SqlTimestampWithTimeZone.fromInstant(3, TEST_SESSION.getStart(), TEST_SESSION.getTimeZoneKey().getZoneId()));
+        assertExecute("now()", TIMESTAMP_TZ_MILLIS, SqlTimestampWithTimeZone.fromInstant(3, TEST_SESSION.getStart(), TEST_SESSION.getTimeZoneKey().getZoneId()));
+        assertExecute("current_timestamp", TIMESTAMP_TZ_MILLIS, SqlTimestampWithTimeZone.fromInstant(3, TEST_SESSION.getStart(), TEST_SESSION.getTimeZoneKey().getZoneId()));
 
         Futures.allAsList(futures).get();
     }

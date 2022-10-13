@@ -21,9 +21,18 @@ import com.google.common.io.Closer;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.StaticConnectorFactory;
+import io.trino.connector.TestingTableFunctions.DescriptorArgumentFunction;
+import io.trino.connector.TestingTableFunctions.MonomorphicStaticReturnTypeFunction;
+import io.trino.connector.TestingTableFunctions.OnlyPassThroughFunction;
+import io.trino.connector.TestingTableFunctions.PolymorphicStaticReturnTypeFunction;
+import io.trino.connector.TestingTableFunctions.TableArgumentFunction;
+import io.trino.connector.TestingTableFunctions.TableArgumentRowSemanticsFunction;
+import io.trino.connector.TestingTableFunctions.TwoScalarArgumentsFunction;
+import io.trino.connector.TestingTableFunctions.TwoTableArgumentsFunction;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TaskManagerConfig;
@@ -32,6 +41,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.AnalyzePropertyManager;
+import io.trino.metadata.CatalogTableFunctions;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.MaterializedViewDefinition;
@@ -40,7 +50,10 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SchemaPropertyManager;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.metadata.TableFunctionRegistry;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TableProceduresPropertyManager;
+import io.trino.metadata.TableProceduresRegistry;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.metadata.ViewColumn;
 import io.trino.metadata.ViewDefinition;
@@ -65,6 +78,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.OptimizerConfig;
@@ -76,6 +90,8 @@ import io.trino.testing.TestingAccessControlManager;
 import io.trino.testing.TestingMetadata;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.testing.assertions.TrinoExceptionAssert;
+import io.trino.transaction.NoOpTransactionManager;
+import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
@@ -97,6 +113,7 @@ import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_NAMED_QUERY;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_PARAMETER_NAME;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_PROPERTY;
+import static io.trino.spi.StandardErrorCode.DUPLICATE_RANGE_VARIABLE;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_WINDOW_NAME;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_AGGREGATE;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
@@ -106,6 +123,7 @@ import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_AGGREGATE;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
+import static io.trino.spi.StandardErrorCode.INVALID_COPARTITIONING;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LABEL;
 import static io.trino.spi.StandardErrorCode.INVALID_LIMIT_CLAUSE;
@@ -119,11 +137,13 @@ import static io.trino.spi.StandardErrorCode.INVALID_PROCESSING_MODE;
 import static io.trino.spi.StandardErrorCode.INVALID_RANGE;
 import static io.trino.spi.StandardErrorCode.INVALID_RECURSIVE_REFERENCE;
 import static io.trino.spi.StandardErrorCode.INVALID_ROW_PATTERN;
+import static io.trino.spi.StandardErrorCode.INVALID_TABLE_FUNCTION_INVOCATION;
 import static io.trino.spi.StandardErrorCode.INVALID_VIEW;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_MEASURE;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_REFERENCE;
 import static io.trino.spi.StandardErrorCode.MISMATCHED_COLUMN_ALIASES;
+import static io.trino.spi.StandardErrorCode.MISSING_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.trino.spi.StandardErrorCode.MISSING_COLUMN_ALIASES;
 import static io.trino.spi.StandardErrorCode.MISSING_COLUMN_NAME;
@@ -164,7 +184,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.analyzer.StatementAnalyzerFactory.createTestingStatementAnalyzerFactory;
 import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
 import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
@@ -180,6 +199,7 @@ import static java.util.Collections.emptyMap;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Test(singleThreaded = true)
 public class TestAnalyzer
@@ -3890,6 +3910,37 @@ public class TestAnalyzer
         assertFails("DELETE FROM v1 WHERE a = 1")
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:1: Deleting from views is not supported");
+        assertFails("DELETE FROM mv1")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: Deleting from materialized views is not supported");
+    }
+
+    @Test
+    public void testInvalidUpdate()
+    {
+        assertFails("UPDATE foo SET bar = 'test'")
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:1: Table 'tpch.s1.foo' does not exist");
+        assertFails("UPDATE v1 SET a = 2")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: Updating views is not supported");
+        assertFails("UPDATE mv1 SET a = 1")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: Updating materialized views is not supported");
+    }
+
+    @Test
+    public void testInvalidMerge()
+    {
+        assertFails("MERGE INTO foo USING bar ON foo.id = bar.id WHEN MATCHED THEN DELETE")
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:1: Table 'tpch.s1.foo' does not exist");
+        assertFails("MERGE INTO v1 USING t1 ON v1.a = t1.a WHEN MATCHED THEN DELETE")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: Merging into views is not supported");
+        assertFails("MERGE INTO mv1 USING t1 ON mv1.a = t1.a WHEN MATCHED THEN DELETE")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: Merging into materialized views is not supported");
     }
 
     @Test
@@ -6120,6 +6171,449 @@ public class TestAnalyzer
                 .hasMessage("line 1:8: 'JSON_ARRAY(b ABSENT ON NULL)' must be an aggregate expression or appear in GROUP BY clause");
     }
 
+    @Test
+    public void testTableFunctionNotFound()
+    {
+        assertFails("SELECT * FROM TABLE(non_existent_table_function())")
+                .hasErrorCode(FUNCTION_NOT_FOUND)
+                .hasMessage("line 1:21: Table function non_existent_table_function not registered");
+    }
+
+    @Test
+    public void testTableFunctionArguments()
+    {
+        assertFails("SELECT * FROM TABLE(system.two_arguments_function(1, 2, 3))")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:51: Too many arguments. Expected at most 2 arguments, got 3 arguments");
+
+        analyze("SELECT * FROM TABLE(system.two_arguments_function('foo'))");
+        analyze("SELECT * FROM TABLE(system.two_arguments_function(text => 'foo'))");
+        analyze("SELECT * FROM TABLE(system.two_arguments_function('foo', 1))");
+        analyze("SELECT * FROM TABLE(system.two_arguments_function(text => 'foo', number => 1))");
+
+        assertFails("SELECT * FROM TABLE(system.two_arguments_function('foo', number => 1))")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:51: All arguments must be passed by name or all must be passed positionally");
+        assertFails("SELECT * FROM TABLE(system.two_arguments_function(text => 'foo', 1))")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:51: All arguments must be passed by name or all must be passed positionally");
+
+        assertFails("SELECT * FROM TABLE(system.two_arguments_function(text => 'foo', text => 'bar'))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:66: Duplicate argument name: TEXT");
+        // argument names are resolved in the canonical form
+        assertFails("SELECT * FROM TABLE(system.two_arguments_function(text => 'foo', TeXt => 'bar'))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:66: Duplicate argument name: TEXT");
+
+        assertFails("SELECT * FROM TABLE(system.two_arguments_function(text => 'foo', bar => 'bar'))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:66: Unexpected argument name: BAR");
+
+        assertFails("SELECT * FROM TABLE(system.two_arguments_function(number => 1))")
+                .hasErrorCode(MISSING_ARGUMENT)
+                .hasMessage("line 1:51: Missing argument: TEXT");
+    }
+
+    @Test
+    public void testTableArgument()
+    {
+        // cannot pass a table function as the argument
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(input => my_schema.my_table_function(1)))")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:52: Invalid table argument INPUT. Table functions are not allowed as table function arguments");
+
+        assertThatThrownBy(() -> analyze("SELECT * FROM TABLE(system.table_argument_function(input => my_schema.my_table_function(arg => 1)))"))
+                .isInstanceOf(ParsingException.class)
+                .hasMessageContaining("line 1:93: mismatched input '=>'.");
+
+        // cannot pass a table function as the argument, also preceding nested table function with TABLE is incorrect
+        assertThatThrownBy(() -> analyze("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(my_schema.my_table_function(1))))"))
+                .isInstanceOf(ParsingException.class)
+                .hasMessageContaining("line 1:94: mismatched input '('.");
+
+        // a table passed as the argument must be preceded with TABLE
+        analyze("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(t1)))");
+
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(input => t1))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:52: Invalid argument INPUT. Expected table, got expression");
+
+        // a query passed as the argument must be preceded with TABLE
+        analyze("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT * FROM t1)))");
+
+        assertThatThrownBy(() -> analyze("SELECT * FROM TABLE(system.table_argument_function(input => SELECT * FROM t1))"))
+                .isInstanceOf(ParsingException.class)
+                .hasMessageContaining("line 1:61: mismatched input 'SELECT'.");
+
+        // query passed as the argument is correlated
+        analyze("""
+                SELECT *
+                FROM
+                t1
+                CROSS JOIN
+                LATERAL (SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT 1 WHERE a > 0))))
+                """);
+
+        // wrong argument type
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(input => 'foo'))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:52: Invalid argument INPUT. Expected table, got expression");
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(input => DESCRIPTOR(x int, y int)))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:52: Invalid argument INPUT. Expected table, got descriptor");
+    }
+
+    @Test
+    public void testTableArgumentProperties()
+    {
+        analyze("""
+                SELECT * FROM TABLE(system.table_argument_function(
+                    input => TABLE(t1)
+                                      PARTITION BY a
+                                      KEEP WHEN EMPTY
+                                      ORDER BY b))
+                """);
+
+        assertFails("SELECT * FROM TABLE(system.table_argument_row_semantics_function(input => TABLE(t1) PARTITION BY a))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:66: Invalid argument INPUT. Partitioning specified for table argument with row semantics");
+
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT 1 a) PARTITION BY b))")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:92: Column b is not present in the input relation");
+
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT 1 a) ORDER BY 1))")
+                .hasErrorCode(INVALID_COLUMN_REFERENCE)
+                .hasMessage("line 1:88: Expected column reference. Actual: 1");
+
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT approx_set(1) a) PARTITION BY a))")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:104: HyperLogLog is not comparable, and therefore cannot be used in PARTITION BY");
+
+        assertFails("SELECT * FROM TABLE(system.table_argument_row_semantics_function(input => TABLE(t1) ORDER BY a))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:66: Invalid argument INPUT. Ordering specified for table argument with row semantics");
+
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT 1 a) ORDER BY b))")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:88: Column b is not present in the input relation");
+
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT 1 a) ORDER BY 1))")
+                .hasErrorCode(INVALID_COLUMN_REFERENCE)
+                .hasMessage("line 1:88: Expected column reference. Actual: 1");
+
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT approx_set(1) a) ORDER BY a))")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:100: HyperLogLog is not orderable, and therefore cannot be used in ORDER BY");
+
+        assertFails("SELECT * FROM TABLE(system.table_argument_row_semantics_function(input => TABLE(t1) PRUNE WHEN EMPTY))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:85: Invalid argument INPUT. Empty behavior specified for table argument with row semantics");
+
+        assertFails("SELECT * FROM TABLE(system.table_argument_row_semantics_function(input => TABLE(t1) KEEP WHEN EMPTY))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:85: Invalid argument INPUT. Empty behavior specified for table argument with row semantics");
+    }
+
+    @Test
+    public void testDescriptorArgument()
+    {
+        analyze("SELECT * FROM TABLE(system.descriptor_argument_function(schema => DESCRIPTOR(x integer, y boolean)))");
+
+        assertFails("SELECT * FROM TABLE(system.descriptor_argument_function(schema => DESCRIPTOR(1 + 2)))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:57: Invalid descriptor argument SCHEMA. Descriptors should be formatted as 'DESCRIPTOR(name [type], ...)'");
+
+        assertFails("SELECT * FROM TABLE(system.descriptor_argument_function(schema => 1))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:57: Invalid argument SCHEMA. Expected descriptor, got expression");
+
+        assertFails("SELECT * FROM TABLE(system.descriptor_argument_function(schema => TABLE(t1)))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:57: Invalid argument SCHEMA. Expected descriptor, got table");
+
+        assertFails("SELECT * FROM TABLE(system.descriptor_argument_function(schema => DESCRIPTOR(x verybigint)))")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:80: Unknown type: verybigint");
+    }
+
+    @Test
+    public void testScalarArgument()
+    {
+        analyze("SELECT * FROM TABLE(system.two_arguments_function('foo', 1))");
+
+        assertFails("SELECT * FROM TABLE(system.two_arguments_function(text => 'a', number => DESCRIPTOR(x integer, y boolean)))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:64: Invalid argument NUMBER. Expected expression, got descriptor");
+
+        assertFails("SELECT * FROM TABLE(system.two_arguments_function(text => 'a', number => DESCRIPTOR(1 + 2)))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:64: 'descriptor' function is not allowed as a table function argument");
+
+        assertFails("SELECT * FROM TABLE(system.two_arguments_function(text => 'a', number => TABLE(t1)))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:64: Invalid argument NUMBER. Expected expression, got table");
+
+        assertFails("SELECT * FROM TABLE(system.two_arguments_function(text => 'a', number => (SELECT 1)))")
+                .hasErrorCode(EXPRESSION_NOT_CONSTANT)
+                .hasMessage("line 1:74: Constant expression cannot contain a subquery");
+    }
+
+    @Test
+    public void testCopartitioning()
+    {
+        // TABLE(t1) is matched by fully qualified name: tpch.s1.t1. It matches the second copartition item s1.t1.
+        // Aliased relation TABLE(SELECT 1, 2) t1(x, y) is matched by unqualified name. It matches the first copartition item t1.
+        analyze("""
+                SELECT * FROM TABLE(system.two_table_arguments_function(
+                    input1 => TABLE(t1) PARTITION BY (a, b),
+                    input2 => TABLE(SELECT 1, 2) t1(x, y) PARTITION BY (x, y)
+                    COPARTITION (t1, s1.t1)))
+                """);
+
+        // Copartition items t1, t2 are first matched to arguments by unqualified names, and when no match is found, by fully qualified names.
+        // TABLE(tpch.s1.t1) is matched by fully qualified name. It matches the first copartition item t1.
+        // TABLE(s1.t2) is matched by unqualified name: tpch.s1.t2. It matches the second copartition item t2.
+        analyze("""
+                SELECT * FROM TABLE(system.two_table_arguments_function(
+                    input1 => TABLE(tpch.s1.t1) PARTITION BY (a, b),
+                    input2 => TABLE(s1.t2) PARTITION BY (a, b)
+                    COPARTITION (t1, t2)))
+                """);
+
+        assertFails("""
+                SELECT * FROM TABLE(system.two_table_arguments_function(
+                    input1 => TABLE(t1) PARTITION BY (a, b),
+                    input2 => TABLE(t2) PARTITION BY (a, b)
+                    COPARTITION (t1, s1.foo)))
+                """)
+                .hasErrorCode(INVALID_COPARTITIONING)
+                .hasMessage("line 4:22: No table argument found for name: s1.foo");
+
+        // Both table arguments are matched by fully qualified name: tpch.s1.t1
+        assertFails("""
+                SELECT * FROM TABLE(system.two_table_arguments_function(
+                    input1 => TABLE(t1) PARTITION BY (a, b),
+                    input2 => TABLE(t1) PARTITION BY (a, b)
+                    COPARTITION (t1, t2)))
+                """)
+                .hasErrorCode(INVALID_COPARTITIONING)
+                .hasMessage("line 4:18: Ambiguous reference: multiple table arguments found for name: t1");
+
+        // Both table arguments are matched by unqualified name: t1
+        assertFails("""
+                SELECT * FROM TABLE(system.two_table_arguments_function(
+                    input1 => TABLE(SELECT 1, 2) t1(a, b) PARTITION BY (a, b),
+                    input2 => TABLE(SELECT 3, 4) t1(c, d) PARTITION BY (c, d)
+                    COPARTITION (t1, t2)))
+                """)
+                .hasErrorCode(INVALID_COPARTITIONING)
+                .hasMessage("line 4:18: Ambiguous reference: multiple table arguments found for name: t1");
+
+        assertFails("""
+                SELECT * FROM TABLE(system.two_table_arguments_function(
+                    input1 => TABLE(t1) PARTITION BY (a, b),
+                    input2 => TABLE(t2) PARTITION BY (a, b)
+                    COPARTITION (t1, t1)))
+                """)
+                .hasErrorCode(INVALID_COPARTITIONING)
+                .hasMessage("line 4:22: Multiple references to table argument: t1 in COPARTITION clause");
+    }
+
+    @Test
+    public void testCopartitionColumns()
+    {
+        assertFails("""
+                SELECT * FROM TABLE(system.two_table_arguments_function(
+                    input1 => TABLE(t1),
+                    input2 => TABLE(t2) PARTITION BY (a, b)
+                    COPARTITION (t1, t2)))
+                """)
+                .hasErrorCode(INVALID_COPARTITIONING)
+                .hasMessage("line 2:15: Table tpch.s1.t1 referenced in COPARTITION clause is not partitioned");
+
+        assertFails("""
+                SELECT * FROM TABLE(system.two_table_arguments_function(
+                    input1 => TABLE(t1) PARTITION BY (),
+                    input2 => TABLE(t2) PARTITION BY ()
+                    COPARTITION (t1, t2)))
+                """)
+                .hasErrorCode(INVALID_COPARTITIONING)
+                .hasMessage("line 2:15: No partitioning columns specified for table tpch.s1.t1 referenced in COPARTITION clause");
+
+        assertFails("""
+                SELECT * FROM TABLE(system.two_table_arguments_function(
+                    input1 => TABLE(t1) PARTITION BY (a, b),
+                    input2 => TABLE(t2) PARTITION BY (a)
+                    COPARTITION (t1, t2)))
+                """)
+                .hasErrorCode(INVALID_COPARTITIONING)
+                .hasMessage("line 4:18: Numbers of partitioning columns in copartitioned tables do not match");
+
+        assertFails("""
+                SELECT * FROM TABLE(system.two_table_arguments_function(
+                    input1 => TABLE(SELECT 1) t1(a) PARTITION BY (a),
+                    input2 => TABLE(SELECT 'x') t2(b) PARTITION BY (b)
+                    COPARTITION (t1, t2)))
+                """)
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 4:18: Partitioning columns in copartitioned tables have incompatible types");
+    }
+
+    @Test
+    public void testNullArguments()
+    {
+        // cannot pass null for table argument
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(input => null))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:52: Invalid argument INPUT. Expected table, got expression");
+
+        // the wrong way to pass null for descriptor
+        assertFails("SELECT * FROM TABLE(system.descriptor_argument_function(schema => null))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:57: Invalid argument SCHEMA. Expected descriptor, got expression");
+
+        // the right way to pass null for descriptor
+        analyze("SELECT * FROM TABLE(system.descriptor_argument_function(schema => CAST(null AS DESCRIPTOR)))");
+
+        // the default value for the argument schema is null
+        analyze("SELECT * FROM TABLE(system.descriptor_argument_function())");
+
+        analyze("SELECT * FROM TABLE(system.two_arguments_function(null, null))");
+
+        // the default value for the second argument is null
+        analyze("SELECT * FROM TABLE(system.two_arguments_function('a'))");
+    }
+
+    @Test
+    public void testTableFunctionInvocationContext()
+    {
+        // cannot specify relation alias for table function with ONLY PASS THROUGH return type
+        assertFails("SELECT * FROM TABLE(system.only_pass_through_function(TABLE(t1))) f(x)")
+                .hasErrorCode(INVALID_TABLE_FUNCTION_INVOCATION)
+                .hasMessage("line 1:21: Alias specified for table function with ONLY PASS THROUGH return type");
+
+        // per SQL standard, relation alias is required for table function with GENERIC TABLE return type. We don't require it.
+        analyze("SELECT * FROM TABLE(system.two_arguments_function('a', 1)) f(x)");
+        analyze("SELECT * FROM TABLE(system.two_arguments_function('a', 1))");
+
+        // per SQL standard, relation alias is required for table function with statically declared return type, only if the function is polymorphic.
+        // We don't require aliasing polymorphic functions.
+        analyze("SELECT * FROM TABLE(system.monomorphic_static_return_type_function())");
+        analyze("SELECT * FROM TABLE(system.monomorphic_static_return_type_function()) f(x, y)");
+        analyze("SELECT * FROM TABLE(system.polymorphic_static_return_type_function(input => TABLE(t1)))");
+        analyze("SELECT * FROM TABLE(system.polymorphic_static_return_type_function(input => TABLE(t1))) f(x, y)");
+
+        // TODO enable this test when ONLY PASS THROUGH functions are fully analyzed (currently they fail with NOT_SUPPORTED).
+        //  An ONLY PASS THROUGH function had to be used here, because it's the only kind which does not take an alias.
+//        // sampled
+//        assertFails("SELECT * FROM TABLE(system.only_pass_through_function(TABLE(t1))) TABLESAMPLE BERNOULLI (10)")
+//                .hasErrorCode(INVALID_TABLE_FUNCTION_INVOCATION)
+//                .hasMessage("line 1:21: Cannot apply sample to polymorphic table function invocation");
+
+        // TODO enable this test when ONLY PASS THROUGH functions are fully analyzed (currently they fail with NOT_SUPPORTED)
+        //  An ONLY PASS THROUGH function had to be used here, because it's the only kind which does not take an alias.
+//        // row pattern matching
+//        assertFails("""
+//                SELECT *
+//                FROM TABLE(system.only_pass_through_function(TABLE(t1)))
+//                MATCH_RECOGNIZE(
+//                    PATTERN (a*)
+//                    DEFINE a AS true)
+//                """)
+//                .hasErrorCode(INVALID_TABLE_FUNCTION_INVOCATION)
+//                .hasMessage("line 2:12: Cannot apply row pattern matching to polymorphic table function invocation");
+
+        // aliased + sampled
+        assertFails("SELECT * FROM TABLE(system.two_arguments_function('a', 1)) f(x) TABLESAMPLE BERNOULLI (10)")
+                .hasErrorCode(INVALID_TABLE_FUNCTION_INVOCATION)
+                .hasMessage("line 1:15: Cannot apply sample to polymorphic table function invocation");
+
+        // aliased + row pattern matching
+        assertFails("""
+                SELECT *
+                FROM TABLE(system.two_arguments_function('a', 1)) f(x)
+                MATCH_RECOGNIZE(
+                    PATTERN (a*)
+                    DEFINE a AS true
+                ) t(y)
+                """)
+                .hasErrorCode(INVALID_TABLE_FUNCTION_INVOCATION)
+                .hasMessage("line 2:6: Cannot apply row pattern matching to polymorphic table function invocation");
+
+        // TODO enable this test when ONLY PASS THROUGH functions are fully analyzed (currently they fail with NOT_SUPPORTED)
+        //  An ONLY PASS THROUGH function had to be used here, because it's the only kind which does not take an alias.
+//        // row pattern matching + sampled
+//        assertFails("""
+//                SELECT *
+//                FROM TABLE(system.only_pass_through_function(TABLE(t1)))
+//                MATCH_RECOGNIZE(
+//                    PATTERN (a*)
+//                    DEFINE a AS true)
+//                TABLESAMPLE BERNOULLI (10)
+//                """)
+//                .hasErrorCode(INVALID_TABLE_FUNCTION_INVOCATION)
+//                .hasMessage("line 2:12: Cannot apply row pattern matching to polymorphic table function invocation");
+
+        // aliased + row pattern matching + sampled
+        assertFails("""
+                SELECT *
+                FROM TABLE(system.two_arguments_function('a', 1)) f(x)
+                MATCH_RECOGNIZE(
+                    PATTERN (a*)
+                    DEFINE a AS true
+                ) t(y)
+                TABLESAMPLE BERNOULLI (10)
+                """)
+                .hasErrorCode(INVALID_TABLE_FUNCTION_INVOCATION)
+                .hasMessage("line 2:6: Cannot apply row pattern matching to polymorphic table function invocation");
+    }
+
+    @Test
+    public void testTableFunctionAliasing()
+    {
+        // case-insensitive name matching
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(TABLE(t1))) T1(x)")
+                .hasErrorCode(DUPLICATE_RANGE_VARIABLE)
+                .hasMessage("line 1:64: Relation alias: T1 is a duplicate of input table name: tpch.s1.t1");
+
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(TABLE(SELECT 1) T1(a))) t1(x)")
+                .hasErrorCode(DUPLICATE_RANGE_VARIABLE)
+                .hasMessage("line 1:76: Relation alias: t1 is a duplicate of input table name: t1");
+
+        analyze("SELECT * FROM TABLE(system.table_argument_function(TABLE(t1) t2)) T1(x)");
+
+        // the original returned relation type is ("column" : BOOLEAN)
+        analyze("SELECT column FROM TABLE(system.two_arguments_function('a', 1)) table_alias");
+
+        analyze("SELECT column_alias FROM TABLE(system.two_arguments_function('a', 1)) table_alias(column_alias)");
+
+        analyze("SELECT table_alias.column_alias FROM TABLE(system.two_arguments_function('a', 1)) table_alias(column_alias)");
+
+        assertFails("SELECT column FROM TABLE(system.two_arguments_function('a', 1)) table_alias(column_alias)")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:8: Column 'column' cannot be resolved");
+
+        assertFails("SELECT column FROM TABLE(system.two_arguments_function('a', 1)) table_alias(col1, col2, col3)")
+                .hasErrorCode(MISMATCHED_COLUMN_ALIASES)
+                .hasMessage("line 1:20: Column alias list has 3 entries but table function has 1 proper columns");
+
+        // the original returned relation type is ("a" : BOOLEAN, "b" : INTEGER)
+        analyze("SELECT column_alias_1, column_alias_2 FROM TABLE(system.monomorphic_static_return_type_function()) table_alias(column_alias_1, column_alias_2)");
+
+        assertFails("SELECT * FROM TABLE(system.monomorphic_static_return_type_function()) table_alias(col, col)")
+                .hasErrorCode(DUPLICATE_COLUMN_NAME)
+                .hasMessage("line 1:21: Duplicate name of table function proper column: col");
+
+        // case-insensitive name matching
+        assertFails("SELECT * FROM TABLE(system.monomorphic_static_return_type_function()) table_alias(col, COL)")
+                .hasErrorCode(DUPLICATE_COLUMN_NAME)
+                .hasMessage("line 1:21: Duplicate name of table function proper column: col");
+
+        // TODO test pass-through columns wen we support them: they mustn't be aliased, and must be referenced by the original range variables of their corresponding table arguments
+    }
+
     @BeforeClass
     public void setup()
     {
@@ -6478,7 +6972,34 @@ public class TestAnalyzer
                 new ColumnPropertyManager(CatalogServiceProvider.fail()),
                 tablePropertyManager,
                 new MaterializedViewPropertyManager(catalogName -> ImmutableMap.of()))));
-        StatementAnalyzerFactory statementAnalyzerFactory = createTestingStatementAnalyzerFactory(plannerContext, accessControl, tablePropertyManager, analyzePropertyManager);
+        StatementAnalyzerFactory statementAnalyzerFactory = new StatementAnalyzerFactory(
+                plannerContext,
+                new SqlParser(),
+                accessControl,
+                new NoOpTransactionManager()
+                {
+                    // needed to analyze table functions
+                    @Override
+                    public ConnectorTransactionHandle getConnectorTransaction(TransactionId transactionId, CatalogHandle catalogHandle)
+                    {
+                        return new ConnectorTransactionHandle() {};
+                    }
+                },
+                user -> ImmutableSet.of(),
+                new TableProceduresRegistry(CatalogServiceProvider.fail("procedures are not supported in testing analyzer")),
+                new TableFunctionRegistry(catalogName -> new CatalogTableFunctions(ImmutableList.of(
+                        new TwoScalarArgumentsFunction(),
+                        new TableArgumentFunction(),
+                        new TableArgumentRowSemanticsFunction(),
+                        new DescriptorArgumentFunction(),
+                        new TwoTableArgumentsFunction(),
+                        new OnlyPassThroughFunction(),
+                        new MonomorphicStaticReturnTypeFunction(),
+                        new PolymorphicStaticReturnTypeFunction()))),
+                new SessionPropertyManager(),
+                tablePropertyManager,
+                analyzePropertyManager,
+                new TableProceduresPropertyManager(CatalogServiceProvider.fail("procedures are not supported in testing analyzer")));
         AnalyzerFactory analyzerFactory = new AnalyzerFactory(statementAnalyzerFactory, statementRewrite);
         return analyzerFactory.createAnalyzer(
                 session,

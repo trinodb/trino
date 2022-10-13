@@ -120,11 +120,9 @@ public class DisjointSet<T>
         if (value.getParent() == null) {
             return element;
         }
-        else {
-            T root = findInternal(value.getParent());
-            value.setParent(root);
-            return root;
-        }
+        T root = findInternal(value.getParent());
+        value.setParent(root);
+        return root;
     }
 
     public Collection<Set<T>> getEquivalentClasses()

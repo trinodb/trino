@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
@@ -49,7 +50,6 @@ import io.trino.spi.QueryId;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.security.SelectedRole;
-import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
 import io.trino.transaction.TransactionId;
 
@@ -104,6 +104,8 @@ class Query
 
     @GuardedBy("this")
     private final ExchangeDataSource exchangeDataSource;
+    @GuardedBy("this")
+    private ListenableFuture<Void> exchangeDataSourceBlocked;
 
     private final Executor resultsProcessorExecutor;
     private final ScheduledExecutorService timeoutExecutor;
@@ -187,7 +189,7 @@ class Query
 
         Query result = new Query(session, slug, queryManager, queryInfoUrl, exchangeDataSource, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde);
 
-        result.queryManager.addOutputInfoListener(result.getQueryId(), result::setQueryOutputInfo);
+        result.queryManager.setOutputInfoListener(result.getQueryId(), result::setQueryOutputInfo);
 
         result.queryManager.addStateChangeListener(result.getQueryId(), state -> {
             // Wait for the query info to become available and close the exchange client if there is no output stage for the query results to be pulled from.
@@ -343,12 +345,30 @@ class Query
         return Futures.transform(futureStateChange, ignored -> getNextResult(token, uriInfo, targetResultSize), resultsProcessorExecutor);
     }
 
+    public synchronized void markResultsConsumedIfReady()
+    {
+        if (!resultsConsumed && exchangeDataSource.isFinished()) {
+            queryManager.resultsConsumed(queryId);
+        }
+    }
+
     private synchronized ListenableFuture<Void> getFutureStateChange()
     {
         // if the exchange client is open, wait for data
         if (!exchangeDataSource.isFinished()) {
-            return exchangeDataSource.isBlocked();
+            if (exchangeDataSourceBlocked != null && !exchangeDataSourceBlocked.isDone()) {
+                return exchangeDataSourceBlocked;
+            }
+            ListenableFuture<Void> blocked = exchangeDataSource.isBlocked();
+            if (blocked.isDone()) {
+                // not blocked
+                return immediateVoidFuture();
+            }
+            // cache future to avoid accumulation of callbacks on the underlying future
+            exchangeDataSourceBlocked = ignoreCancellation(blocked);
+            return exchangeDataSourceBlocked;
         }
+        exchangeDataSourceBlocked = null;
 
         if (!resultsConsumed) {
             return immediateVoidFuture();
@@ -362,6 +382,29 @@ class Query
         catch (NoSuchElementException e) {
             return immediateVoidFuture();
         }
+    }
+
+    /**
+     * Contrary to {@link Futures#nonCancellationPropagating(ListenableFuture)} this method returns a future that cannot be cancelled
+     * what allows it to be shared between multiple independent callers
+     */
+    private static ListenableFuture<Void> ignoreCancellation(ListenableFuture<Void> future)
+    {
+        return new AbstractFuture<Void>()
+        {
+            public AbstractFuture<Void> propagateFuture(ListenableFuture<? extends Void> future)
+            {
+                setFuture(future);
+                return this;
+            }
+
+            @Override
+            public boolean cancel(boolean mayInterruptIfRunning)
+            {
+                // ignore
+                return false;
+            }
+        }.propagateFuture(future);
     }
 
     private synchronized Optional<QueryResults> getCachedResult(long token)
@@ -424,7 +467,7 @@ class Query
             updateCount = updatedRowsCount.orElse(null);
         }
 
-        if (queryInfo.getOutputStage().isEmpty() || (exchangeDataSource.isFinished() && resultRows.isEmpty())) {
+        if (queryInfo.getOutputStage().isEmpty() || exchangeDataSource.isFinished()) {
             queryManager.resultsConsumed(queryId);
             resultsConsumed = true;
             // update query since the query might have been transitioned to the FINISHED state
@@ -500,13 +543,11 @@ class Query
 
     private synchronized QueryResultRows removePagesFromExchange(QueryInfo queryInfo, long targetResultBytes)
     {
-        // For queries with no output, return a fake boolean result for clients that require it.
         if (!resultsConsumed && queryInfo.getOutputStage().isEmpty()) {
             return queryResultRowsBuilder(session)
-                    .withSingleBooleanValue(createColumn("result", BooleanType.BOOLEAN, supportsParametricDateTime), true)
+                    .withColumnsAndTypes(ImmutableList.of(), ImmutableList.of())
                     .build();
         }
-
         // Remove as many pages as possible from the exchange until just greater than DESIRED_RESULT_BYTES
         // NOTE: it is critical that query results are created for the pages removed from the exchange
         // client while holding the lock because the query may transition to the finished state when the
@@ -582,7 +623,7 @@ class Query
             types = outputInfo.getColumnTypes();
         }
 
-        outputInfo.getInputs().forEach(exchangeDataSource::addInput);
+        outputInfo.drainInputs(exchangeDataSource::addInput);
         if (outputInfo.isNoMoreInputs()) {
             exchangeDataSource.noMoreInputs();
         }

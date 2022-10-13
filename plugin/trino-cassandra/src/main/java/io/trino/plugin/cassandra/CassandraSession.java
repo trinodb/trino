@@ -570,17 +570,15 @@ public class CassandraSession
                 if (timeLeft <= 0) {
                     throw e;
                 }
-                else {
-                    long delay = Math.min(schedule.nextDelay().toMillis(), timeLeft);
-                    log.warn(e.getMessage());
-                    log.warn("Reconnecting in %dms", delay);
-                    try {
-                        Thread.sleep(delay);
-                    }
-                    catch (InterruptedException interrupted) {
-                        Thread.currentThread().interrupt();
-                        throw new RuntimeException("interrupted", interrupted);
-                    }
+                long delay = Math.min(schedule.nextDelay().toMillis(), timeLeft);
+                log.warn(e.getMessage());
+                log.warn("Reconnecting in %dms", delay);
+                try {
+                    Thread.sleep(delay);
+                }
+                catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("interrupted", interrupted);
                 }
             }
         }

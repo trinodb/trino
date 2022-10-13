@@ -17,29 +17,46 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.likematcher.LikeMatcher;
 import io.trino.spi.TrinoException;
-import io.trino.spi.expression.StandardFunctions;
-import io.trino.type.LikeFunctions;
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.Optional;
 
-import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.type.LikeFunctions.isLikePattern;
 import static io.trino.type.LikeFunctions.likeChar;
 import static io.trino.type.LikeFunctions.likePattern;
 import static io.trino.type.LikeFunctions.likeVarchar;
 import static io.trino.type.LikeFunctions.patternConstantPrefixBytes;
 import static io.trino.type.LikeFunctions.unescapeLiteralLikePattern;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
 public class TestLikeFunctions
-        extends AbstractTestFunctions
 {
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
+    {
+        assertions = new QueryAssertions();
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
+    }
+
     private static Slice offsetHeapSlice(String value)
     {
         Slice source = Slices.utf8Slice(value);
@@ -49,33 +66,43 @@ public class TestLikeFunctions
     }
 
     @Test
-    public void testFunctionNameConstantsInSync()
-    {
-        // Test may need to be updated when this changes.
-        verify(StandardFunctions.LIKE_PATTERN_FUNCTION_NAME.getCatalogSchema().isEmpty());
-        assertEquals(StandardFunctions.LIKE_PATTERN_FUNCTION_NAME.getName(), LikeFunctions.LIKE_PATTERN_FUNCTION_NAME);
-    }
-
-    @Test
     public void testLikeBasic()
     {
         LikeMatcher matcher = LikeMatcher.compile(utf8Slice("f%b__").toStringUtf8(), Optional.empty());
         assertTrue(likeVarchar(utf8Slice("foobar"), matcher));
         assertTrue(likeVarchar(offsetHeapSlice("foobar"), matcher));
 
-        assertFunction("'foob' LIKE 'f%b__'", BOOLEAN, false);
-        assertFunction("'foob' LIKE 'f%b'", BOOLEAN, true);
+        assertThat(assertions.expression("a LIKE 'f%b__'")
+                .binding("a", "'foob'"))
+                .isEqualTo(false);
+        assertThat(assertions.expression("a LIKE 'f%b'")
+                .binding("a", "'foob'"))
+                .isEqualTo(true);
 
         // value with explicit type (formal type potentially longer than actual length)
-        assertFunction("CAST('foo' AS varchar(6)) LIKE 'foo '", BOOLEAN, false);
-        assertFunction("CAST('foo ' AS varchar(6)) LIKE 'foo '", BOOLEAN, true);
-        assertFunction("CAST('foo' AS varchar(6)) LIKE 'foo___'", BOOLEAN, false);
-        assertFunction("CAST('foo' AS varchar(6)) LIKE 'foo%'", BOOLEAN, true);
+        assertThat(assertions.expression("a LIKE 'foo '")
+                .binding("a", "CAST('foo' AS varchar(6))"))
+                .isEqualTo(false);
+        assertThat(assertions.expression("a LIKE 'foo '")
+                .binding("a", "CAST('foo ' AS varchar(6))"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("a LIKE 'foo___'")
+                .binding("a", "CAST('foo' AS varchar(6))"))
+                .isEqualTo(false);
+        assertThat(assertions.expression("a LIKE 'foo%'")
+                .binding("a", "CAST('foo' AS varchar(6))"))
+                .isEqualTo(true);
 
         // value and pattern with explicit type (formal type potentially longer than actual length)
-        assertFunction("CAST('foo' AS varchar(6)) LIKE CAST('foo' AS varchar(6))", BOOLEAN, true);
-        assertFunction("CAST('foo' AS varchar(6)) LIKE CAST('foo  ' AS varchar(3))", BOOLEAN, true); // pattern gets truncated
-        assertFunction("CAST('foo' AS varchar(6)) LIKE CAST('foo   ' AS varchar(6))", BOOLEAN, false);
+        assertThat(assertions.expression("a LIKE CAST('foo' AS varchar(6))")
+                .binding("a", "CAST('foo' AS varchar(6))"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("a LIKE CAST('foo  ' AS varchar(3))")
+                .binding("a", "CAST('foo' AS varchar(6))"))
+                .isEqualTo(true); // pattern gets truncated
+        assertThat(assertions.expression("a LIKE CAST('foo   ' AS varchar(6))")
+                .binding("a", "CAST('foo' AS varchar(6))"))
+                .isEqualTo(false);
     }
 
     @Test
@@ -90,35 +117,85 @@ public class TestLikeFunctions
         assertFalse(likeChar(7L, offsetHeapSlice("foob"), matcher));
 
         // pattern shorter than value length
-        assertFunction("CAST('foo' AS char(6)) LIKE 'foo'", BOOLEAN, false);
-        assertFunction("CAST('foo' AS char(6)) LIKE 'foo  '", BOOLEAN, false);
-        assertFunction("CAST('foo' AS char(6)) LIKE 'fo_'", BOOLEAN, false);
-        assertFunction("CAST('foo' AS char(6)) LIKE 'fo%'", BOOLEAN, true);
-        assertFunction("CAST('foo' AS char(6)) LIKE '%foo'", BOOLEAN, false);
-        assertFunction("CAST('foo' AS char(6)) LIKE '_oo'", BOOLEAN, false);
-        assertFunction("CAST('foob' AS char(6)) LIKE 'f%b__'", BOOLEAN, true);
-        assertFunction("CAST('foob' AS char(7)) LIKE 'f%b__'", BOOLEAN, false);
+        assertThat(assertions.expression("a LIKE 'foo'")
+                .binding("a", "CAST('foo' AS char(6))"))
+                .isEqualTo(false);
+        assertThat(assertions.expression("a LIKE 'foo  '")
+                .binding("a", "CAST('foo' AS char(6))"))
+                .isEqualTo(false);
+        assertThat(assertions.expression("a LIKE 'fo_'")
+                .binding("a", "CAST('foo' AS char(6))"))
+                .isEqualTo(false);
+        assertThat(assertions.expression("a LIKE 'fo%'")
+                .binding("a", "CAST('foo' AS char(6))"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("a LIKE '%foo'")
+                .binding("a", "CAST('foo' AS char(6))"))
+                .isEqualTo(false);
+        assertThat(assertions.expression("a LIKE '_oo'")
+                .binding("a", "CAST('foo' AS char(6))"))
+                .isEqualTo(false);
+        assertThat(assertions.expression("a LIKE 'f%b__'")
+                .binding("a", "CAST('foob' AS char(6))"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("a LIKE 'f%b__'")
+                .binding("a", "CAST('foob' AS char(7))"))
+                .isEqualTo(false);
 
         // pattern of length equal to value length
-        assertFunction("CAST('foo' AS char(3)) LIKE 'foo'", BOOLEAN, true);
-        assertFunction("CAST('jaźń' AS char(4)) LIKE 'jaźń'", BOOLEAN, true);
-        assertFunction("CAST('foo' AS char(3)) LIKE 'fob'", BOOLEAN, false);
-        assertFunction("CAST('foo' AS char(6)) LIKE 'foo   '", BOOLEAN, true);
-        assertFunction("CAST('foo' AS char(6)) LIKE 'foo __'", BOOLEAN, true);
-        assertFunction("CAST('foo' AS char(6)) LIKE '%%%%%%'", BOOLEAN, true);
+        assertThat(assertions.expression("a LIKE 'foo'")
+                .binding("a", "CAST('foo' AS char(3))"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("a LIKE 'jaźń'")
+                .binding("a", "CAST('jaźń' AS char(4))"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("a LIKE 'fob'")
+                .binding("a", "CAST('foo' AS char(3))"))
+                .isEqualTo(false);
+        assertThat(assertions.expression("a LIKE 'foo   '")
+                .binding("a", "CAST('foo' AS char(6))"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("a LIKE 'foo __'")
+                .binding("a", "CAST('foo' AS char(6))"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("a LIKE '%%%%%%'")
+                .binding("a", "CAST('foo' AS char(6))"))
+                .isEqualTo(true);
 
         // pattern longer than value length
-        assertFunction("CAST('foo' AS char(3)) LIKE '%%foo'", BOOLEAN, true);
-        assertFunction("CAST('foo' AS char(3)) LIKE 'f#_#_' ESCAPE '#'", BOOLEAN, false);
-        assertFunction("CAST('f__' AS char(3)) LIKE 'f#_#_' ESCAPE '#'", BOOLEAN, true);
-        assertFunction("CAST('foo' AS char(6)) LIKE 'foo    '", BOOLEAN, false);
-        assertFunction("CAST('foo' AS char(6)) LIKE 'foo __ '", BOOLEAN, false);
-        assertFunction("CAST('foo' AS char(6)) LIKE '_______'", BOOLEAN, false);
-        assertFunction("CAST('foo' AS char(6)) LIKE '%%%%%%%'", BOOLEAN, true);
-        assertFunction("CAST('foo' AS char(6)) LIKE 'foo   %%%%%%%'", BOOLEAN, true);
-        assertFunction("CAST('foo' AS char(6)) LIKE 'foo  %%%%%%% '", BOOLEAN, true);
-        assertFunction("CAST('foo' AS char(6)) LIKE 'foo  %%%%%%%  '", BOOLEAN, false);
-        assertFunction("CAST('foobar' AS char(6)) LIKE 'foobar%%%%%%%'", BOOLEAN, true);
+        assertThat(assertions.expression("a LIKE '%%foo'")
+                .binding("a", "CAST('foo' AS char(3))"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("a LIKE 'f#_#_' ESCAPE '#'")
+                .binding("a", "CAST('foo' AS char(3))"))
+                .isEqualTo(false);
+        assertThat(assertions.expression("a LIKE 'f#_#_' ESCAPE '#'")
+                .binding("a", "CAST('f__' AS char(3))"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("a LIKE 'foo    '")
+                .binding("a", "CAST('foo' AS char(6))"))
+                .isEqualTo(false);
+        assertThat(assertions.expression("a LIKE 'foo __ '")
+                .binding("a", "CAST('foo' AS char(6))"))
+                .isEqualTo(false);
+        assertThat(assertions.expression("a LIKE '_______'")
+                .binding("a", "CAST('foo' AS char(6))"))
+                .isEqualTo(false);
+        assertThat(assertions.expression("a LIKE '%%%%%%%'")
+                .binding("a", "CAST('foo' AS char(6))"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("a LIKE 'foo   %%%%%%%'")
+                .binding("a", "CAST('foo' AS char(6))"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("a LIKE 'foo  %%%%%%% '")
+                .binding("a", "CAST('foo' AS char(6))"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("a LIKE 'foo  %%%%%%%  '")
+                .binding("a", "CAST('foo' AS char(6))"))
+                .isEqualTo(false);
+        assertThat(assertions.expression("a LIKE 'foobar%%%%%%%'")
+                .binding("a", "CAST('foobar' AS char(6))"))
+                .isEqualTo(true);
     }
 
     @Test

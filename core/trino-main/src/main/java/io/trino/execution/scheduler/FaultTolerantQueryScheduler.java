@@ -15,15 +15,13 @@ package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.util.concurrent.Futures;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.concurrent.MoreFutures;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.log.Logger;
 import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.exchange.ExchangeInput;
 import io.trino.exchange.SpoolingExchangeInput;
 import io.trino.execution.BasicStageStats;
 import io.trino.execution.NodeTaskMap;
@@ -35,7 +33,6 @@ import io.trino.execution.StageId;
 import io.trino.execution.StageInfo;
 import io.trino.execution.TaskId;
 import io.trino.failuredetector.FailureDetector;
-import io.trino.metadata.InternalNode;
 import io.trino.metadata.Metadata;
 import io.trino.operator.RetryPolicy;
 import io.trino.server.DynamicFilterService;
@@ -44,8 +41,8 @@ import io.trino.spi.exchange.ExchangeContext;
 import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.exchange.ExchangeSourceHandle;
+import io.trino.spi.exchange.ExchangeSourceOutputSelector;
 import io.trino.sql.planner.NodePartitioningManager;
-import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.plan.PlanFragmentId;
@@ -61,22 +58,20 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
-import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Ticker.systemTicker;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.reverse;
+import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionPartitionCount;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.execution.QueryState.FINISHING;
+import static io.trino.execution.scheduler.Exchanges.getAllSourceHandles;
 import static io.trino.operator.RetryPolicy.TASK;
-import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -214,10 +209,12 @@ public class FaultTolerantQueryScheduler
         });
 
         Session session = queryStateMachine.getSession();
-        int partitionCount = getFaultTolerantExecutionPartitionCount(session);
-        Function<PartitioningHandle, BucketToPartition> bucketToPartitionCache = createBucketToPartitionCache(nodePartitioningManager, session, partitionCount);
+        FaultTolerantPartitioningSchemeFactory partitioningSchemeFactory = new FaultTolerantPartitioningSchemeFactory(
+                nodePartitioningManager,
+                session,
+                getFaultTolerantExecutionPartitionCount(session));
 
-        ImmutableList.Builder<FaultTolerantStageScheduler> schedulers = ImmutableList.builder();
+        Map<PlanFragmentId, FaultTolerantStageScheduler> schedulers = new HashMap<>();
         Map<PlanFragmentId, Exchange> exchanges = new HashMap<>();
         NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(session);
 
@@ -229,34 +226,33 @@ public class FaultTolerantQueryScheduler
 
             checkArgument(taskRetryAttemptsOverall >= 0, "taskRetryAttemptsOverall must be greater than or equal to 0: %s", taskRetryAttemptsOverall);
             AtomicInteger remainingTaskRetryAttemptsOverall = new AtomicInteger(taskRetryAttemptsOverall);
-            List<Exchange> outputStages = new ArrayList<>();
             for (SqlStage stage : stagesInReverseTopologicalOrder) {
                 PlanFragment fragment = stage.getFragment();
 
                 boolean outputStage = stageManager.getOutputStage().getStageId().equals(stage.getStageId());
                 ExchangeContext exchangeContext = new ExchangeContext(session.getQueryId(), new ExchangeId("external-exchange-" + stage.getStageId().getId()));
+                FaultTolerantPartitioningScheme sinkPartitioningScheme = partitioningSchemeFactory.get(fragment.getPartitioningScheme().getPartitioning().getHandle());
                 Exchange exchange = exchangeManager.createExchange(
                         exchangeContext,
-                        partitionCount,
+                        sinkPartitioningScheme.getPartitionCount(),
                         // order of output records for coordinator consumed stages must be preserved as the stage
                         // may produce sorted dataset (for example an output of a global OrderByOperator)
                         outputStage);
                 exchanges.put(fragment.getId(), exchange);
 
-                if (outputStage) {
-                    // output will be consumed by coordinator
-                    outputStages.add(exchange);
-                }
-
                 ImmutableMap.Builder<PlanFragmentId, Exchange> sourceExchanges = ImmutableMap.builder();
+                ImmutableMap.Builder<PlanFragmentId, FaultTolerantStageScheduler> sourceSchedulers = ImmutableMap.builder();
                 for (SqlStage childStage : stageManager.getChildren(fragment.getId())) {
                     PlanFragmentId childFragmentId = childStage.getFragment().getId();
                     Exchange sourceExchange = exchanges.get(childFragmentId);
                     verify(sourceExchange != null, "exchange not found for fragment: %s", childFragmentId);
                     sourceExchanges.put(childFragmentId, sourceExchange);
+                    FaultTolerantStageScheduler sourceScheduler = schedulers.get(childFragmentId);
+                    verify(sourceScheduler != null, "scheduler not found for fragment: %s", childFragmentId);
+                    sourceSchedulers.put(childFragmentId, sourceScheduler);
                 }
 
-                BucketToPartition inputBucketToPartition = bucketToPartitionCache.apply(fragment.getPartitioning());
+                FaultTolerantPartitioningScheme sourcePartitioningScheme = partitioningSchemeFactory.get(fragment.getPartitioning());
                 FaultTolerantStageScheduler scheduler = new FaultTolerantStageScheduler(
                         session,
                         stage,
@@ -269,45 +265,47 @@ public class FaultTolerantQueryScheduler
                         (future, delay) -> scheduledExecutorService.schedule(() -> future.set(null), delay.toMillis(), MILLISECONDS),
                         systemTicker(),
                         exchange,
-                        bucketToPartitionCache.apply(fragment.getPartitioningScheme().getPartitioning().getHandle()).getBucketToPartitionMap(),
+                        sinkPartitioningScheme,
+                        sourceSchedulers.buildOrThrow(),
                         sourceExchanges.buildOrThrow(),
-                        inputBucketToPartition.getBucketToPartitionMap(),
-                        inputBucketToPartition.getBucketNodeMap(),
+                        sourcePartitioningScheme,
                         remainingTaskRetryAttemptsOverall,
                         taskRetryAttemptsPerTask,
                         maxTasksWaitingForNodePerStage,
                         dynamicFilterService);
 
-                schedulers.add(scheduler);
-            }
+                schedulers.put(fragment.getId(), scheduler);
 
-            if (!stagesInReverseTopologicalOrder.isEmpty()) {
-                verify(!outputStages.isEmpty(), "coordinatorConsumedExchanges is empty");
-                List<ListenableFuture<List<ExchangeSourceHandle>>> futures = outputStages.stream()
-                        .map(Exchange::getSourceHandles)
-                        .map(MoreFutures::toListenableFuture)
-                        .collect(toImmutableList());
-                addSuccessCallback(Futures.allAsList(futures), result -> {
-                    List<ExchangeSourceHandle> handles = result.stream()
-                            .flatMap(List::stream)
-                            .collect(toImmutableList());
-                    ImmutableList.Builder<ExchangeInput> inputs = ImmutableList.builder();
-                    if (!handles.isEmpty()) {
-                        inputs.add(new SpoolingExchangeInput(handles));
-                    }
-                    queryStateMachine.updateInputsForQueryResults(inputs.build(), true);
-                });
+                if (outputStage) {
+                    ListenableFuture<List<ExchangeSourceHandle>> sourceHandles = getAllSourceHandles(exchange.getSourceHandles());
+                    addSuccessCallback(sourceHandles, handles -> {
+                        try {
+                            ExchangeSourceOutputSelector.Builder selector = ExchangeSourceOutputSelector.builder(ImmutableSet.of(exchange.getId()));
+                            Map<Integer, Integer> successfulAttempts = scheduler.getSuccessfulAttempts();
+                            successfulAttempts.forEach((taskPartitionId, attemptId) ->
+                                    selector.include(exchange.getId(), taskPartitionId, attemptId));
+                            selector.setPartitionCount(exchange.getId(), successfulAttempts.size());
+                            selector.setFinal();
+                            SpoolingExchangeInput input = new SpoolingExchangeInput(handles, Optional.of(selector.build()));
+                            queryStateMachine.updateInputsForQueryResults(ImmutableList.of(input), true);
+                        }
+                        catch (Throwable t) {
+                            queryStateMachine.transitionToFailed(t);
+                        }
+                    });
+                    addExceptionCallback(sourceHandles, queryStateMachine::transitionToFailed);
+                }
             }
 
             return new Scheduler(
                     queryStateMachine,
-                    schedulers.build(),
+                    ImmutableList.copyOf(schedulers.values()),
                     stageManager,
                     schedulerStats,
                     nodeAllocator);
         }
         catch (Throwable t) {
-            for (FaultTolerantStageScheduler scheduler : schedulers.build()) {
+            for (FaultTolerantStageScheduler scheduler : schedulers.values()) {
                 try {
                     scheduler.abort();
                 }
@@ -506,68 +504,6 @@ public class FaultTolerantQueryScheduler
             catch (Throwable t) {
                 log.warn(t, "Error closing node allocator for query: %s", queryStateMachine.getQueryId());
             }
-        }
-    }
-
-    private static Function<PartitioningHandle, BucketToPartition> createBucketToPartitionCache(NodePartitioningManager nodePartitioningManager, Session session, int partitionCount)
-    {
-        Map<PartitioningHandle, BucketToPartition> cachingMap = new HashMap<>();
-        return partitioningHandle ->
-                cachingMap.computeIfAbsent(
-                        partitioningHandle,
-                        handle -> createBucketToPartitionMap(session, partitionCount, handle, nodePartitioningManager));
-    }
-
-    private static BucketToPartition createBucketToPartitionMap(
-            Session session,
-            int partitionCount,
-            PartitioningHandle partitioningHandle,
-            NodePartitioningManager nodePartitioningManager)
-    {
-        if (partitioningHandle.equals(FIXED_HASH_DISTRIBUTION)) {
-            return new BucketToPartition(Optional.of(IntStream.range(0, partitionCount).toArray()), Optional.empty());
-        }
-        if (partitioningHandle.getCatalogHandle().isPresent()) {
-            BucketNodeMap bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle);
-            int bucketCount = bucketNodeMap.getBucketCount();
-            int[] bucketToPartition = new int[bucketCount];
-            // make sure all buckets mapped to the same node map to the same partition, such that locality requirements are respected in scheduling
-            Map<InternalNode, Integer> nodeToPartition = new HashMap<>();
-            int nextPartitionId = 0;
-            for (int bucket = 0; bucket < bucketCount; bucket++) {
-                InternalNode node = bucketNodeMap.getAssignedNode(bucket);
-                Integer partitionId = nodeToPartition.get(node);
-                if (partitionId == null) {
-                    partitionId = nextPartitionId;
-                    nextPartitionId++;
-                    nodeToPartition.put(node, partitionId);
-                }
-                bucketToPartition[bucket] = partitionId;
-            }
-            return new BucketToPartition(Optional.of(bucketToPartition), Optional.of(bucketNodeMap));
-        }
-        return new BucketToPartition(Optional.empty(), Optional.empty());
-    }
-
-    private static class BucketToPartition
-    {
-        private final Optional<int[]> bucketToPartitionMap;
-        private final Optional<BucketNodeMap> bucketNodeMap;
-
-        private BucketToPartition(Optional<int[]> bucketToPartitionMap, Optional<BucketNodeMap> bucketNodeMap)
-        {
-            this.bucketToPartitionMap = requireNonNull(bucketToPartitionMap, "bucketToPartitionMap is null");
-            this.bucketNodeMap = requireNonNull(bucketNodeMap, "bucketNodeMap is null");
-        }
-
-        public Optional<int[]> getBucketToPartitionMap()
-        {
-            return bucketToPartitionMap;
-        }
-
-        public Optional<BucketNodeMap> getBucketNodeMap()
-        {
-            return bucketNodeMap;
         }
     }
 

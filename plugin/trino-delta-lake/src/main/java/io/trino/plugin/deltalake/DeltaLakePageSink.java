@@ -496,12 +496,14 @@ public class DeltaLakePageSink
                     fileSystem.create(path),
                     rollbackAction,
                     parquetTypes,
+                    dataColumnNames,
                     schemaConverter.getMessageType(),
                     schemaConverter.getPrimitiveTypes(),
                     parquetWriterOptions,
                     identityMapping,
                     compressionCodecName,
                     trinoVersion,
+                    Optional.empty(),
                     Optional.empty());
         }
         catch (IOException e) {

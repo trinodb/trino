@@ -23,19 +23,20 @@ import static java.lang.String.format;
 public final class DeltaLakeTestUtils
 {
     public static final String DATABRICKS_104_RUNTIME_VERSION = "10.4";
+    public static final String DATABRICKS_91_RUNTIME_VERSION = "9.1";
 
     private DeltaLakeTestUtils() {}
 
     public static String getDatabricksRuntimeVersion()
     {
-        QueryResult result = onDelta().executeQuery("SELECT java_method('java.lang.System', 'getenv', 'DATABRICKS_RUNTIME_VERSION')");
-        return firstNonNull((String) result.row(0).get(0), "unknown");
+        return firstNonNull((String) onDelta().executeQuery("SELECT java_method('java.lang.System', 'getenv', 'DATABRICKS_RUNTIME_VERSION')").getOnlyValue(), "unknown");
     }
 
     public static String getColumnCommentOnTrino(String schemaName, String tableName, String columnName)
     {
-        QueryResult result = onTrino().executeQuery("SELECT comment FROM information_schema.columns WHERE table_schema = '" + schemaName + "' AND table_name = '" + tableName + "' AND column_name = '" + columnName + "'");
-        return (String) result.row(0).get(0);
+        return (String) onTrino()
+                .executeQuery("SELECT comment FROM information_schema.columns WHERE table_schema = '" + schemaName + "' AND table_name = '" + tableName + "' AND column_name = '" + columnName + "'")
+                .getOnlyValue();
     }
 
     public static String getColumnCommentOnDelta(String schemaName, String tableName, String columnName)

@@ -174,9 +174,7 @@ public class PinotSplitManager
             }
             return generateSplitsForSegmentBasedScan(pinotTableHandle, session);
         }
-        else {
-            return generateSplitForBrokerBasedScan(pinotTableHandle);
-        }
+        return generateSplitForBrokerBasedScan(pinotTableHandle);
     }
 
     private static boolean isBrokerQuery(ConnectorSession session, PinotTableHandle tableHandle)

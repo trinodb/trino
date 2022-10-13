@@ -45,7 +45,7 @@ public final class QueryCardinalityUtil
 
     public static boolean isScalar(PlanNode node, Lookup lookup)
     {
-        return Range.singleton(1L).encloses(extractCardinality(node, lookup));
+        return extractCardinality(node, lookup).isScalar();
     }
 
     public static boolean isAtMostScalar(PlanNode node)
@@ -60,7 +60,7 @@ public final class QueryCardinalityUtil
 
     public static boolean isAtMost(PlanNode node, Lookup lookup, long maxCardinality)
     {
-        return Range.closed(0L, maxCardinality).encloses(extractCardinality(node, lookup));
+        return extractCardinality(node, lookup).isAtMost(maxCardinality);
     }
 
     public static boolean isAtLeastScalar(PlanNode node, Lookup lookup)
@@ -70,7 +70,7 @@ public final class QueryCardinalityUtil
 
     public static boolean isAtLeast(PlanNode node, Lookup lookup, long minCardinality)
     {
-        return Range.atLeast(minCardinality).encloses(extractCardinality(node, lookup));
+        return extractCardinality(node, lookup).isAtLeast(minCardinality);
     }
 
     public static boolean isEmpty(PlanNode node, Lookup lookup)
@@ -78,14 +78,14 @@ public final class QueryCardinalityUtil
         return isAtMost(node, lookup, 0);
     }
 
-    public static Range<Long> extractCardinality(PlanNode node)
+    public static Cardinality extractCardinality(PlanNode node)
     {
         return extractCardinality(node, noLookup());
     }
 
-    public static Range<Long> extractCardinality(PlanNode node, Lookup lookup)
+    public static Cardinality extractCardinality(PlanNode node, Lookup lookup)
     {
-        return node.accept(new CardinalityExtractorPlanVisitor(lookup), null);
+        return new Cardinality(node.accept(new CardinalityExtractorPlanVisitor(lookup), null));
     }
 
     private static final class CardinalityExtractorPlanVisitor
@@ -119,7 +119,7 @@ public final class QueryCardinalityUtil
         @Override
         public Range<Long> visitAggregation(AggregationNode node, Void context)
         {
-            if (node.hasEmptyGroupingSet() && node.getGroupingSetCount() == 1) {
+            if (node.hasSingleGlobalAggregation()) {
                 // only single default aggregation which will produce exactly single row
                 return Range.singleton(1L);
             }
@@ -183,9 +183,7 @@ public final class QueryCardinalityUtil
             if (sourceCardinalityRange.hasUpperBound()) {
                 return Range.closed(lower, max(sourceCardinalityRange.upperEndpoint() - node.getCount(), 0L));
             }
-            else {
-                return Range.atLeast(lower);
-            }
+            return Range.atLeast(lower);
         }
 
         @Override
@@ -197,9 +195,7 @@ public final class QueryCardinalityUtil
                 if (sourceCardinalityRange.hasUpperBound()) {
                     return Range.closed(lower, sourceCardinalityRange.upperEndpoint());
                 }
-                else {
-                    return Range.atLeast(lower);
-                }
+                return Range.atLeast(lower);
             }
 
             return applyLimit(node.getSource(), node.getCount());

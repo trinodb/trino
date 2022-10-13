@@ -37,7 +37,7 @@ public final class ResourceGroupId
 
     public ResourceGroupId(ResourceGroupId parent, String name)
     {
-        this(append(requireNonNull(parent, "parent is null").segments, requireNonNull(name, "name is null")));
+        this(append(parent.segments, requireNonNull(name, "name is null")));
     }
 
     private static List<String> append(List<String> list, String element)

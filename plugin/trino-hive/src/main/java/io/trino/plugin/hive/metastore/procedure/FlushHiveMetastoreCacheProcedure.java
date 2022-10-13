@@ -42,17 +42,30 @@ public class FlushHiveMetastoreCacheProcedure
 
     private static final String PARAM_SCHEMA_NAME = "SCHEMA_NAME";
     private static final String PARAM_TABLE_NAME = "TABLE_NAME";
+    // Other procedures use plural naming, but it's kept for backward compatibility
+    @Deprecated
     private static final String PARAM_PARTITION_COLUMN = "PARTITION_COLUMN";
+    @Deprecated
     private static final String PARAM_PARTITION_VALUE = "PARTITION_VALUE";
+    private static final String PARAM_PARTITION_COLUMNS = "PARTITION_COLUMNS";
+    private static final String PARAM_PARTITION_VALUES = "PARTITION_VALUES";
 
     private static final String PROCEDURE_USAGE_EXAMPLES = format(
             "Valid usages:%n" +
                     " - '%1$s()'%n" +
+                    " - %1$s(%2$s => ..., %3$s => ...)" +
                     " - %1$s(%2$s => ..., %3$s => ..., %4$s => ARRAY['...'], %5$s => ARRAY['...'])",
             PROCEDURE_NAME,
             // Use lowercase parameter names per convention. In the usage example the names are not delimited.
             PARAM_SCHEMA_NAME.toLowerCase(ENGLISH),
             PARAM_TABLE_NAME.toLowerCase(ENGLISH),
+            PARAM_PARTITION_COLUMNS.toLowerCase(ENGLISH),
+            PARAM_PARTITION_VALUES.toLowerCase(ENGLISH));
+
+    private static final String INVALID_PARTITION_PARAMS_ERROR_MESSAGE = format(
+            "Procedure should only be invoked with single pair of partition definition named params: %1$s and %2$s or %3$s and %4$s",
+            PARAM_PARTITION_COLUMNS.toLowerCase(ENGLISH),
+            PARAM_PARTITION_VALUES.toLowerCase(ENGLISH),
             PARAM_PARTITION_COLUMN.toLowerCase(ENGLISH),
             PARAM_PARTITION_VALUE.toLowerCase(ENGLISH));
 
@@ -60,14 +73,13 @@ public class FlushHiveMetastoreCacheProcedure
 
     static {
         try {
-            FLUSH_HIVE_METASTORE_CACHE = lookup().unreflect(FlushHiveMetastoreCacheProcedure.class.getMethod("flushMetadataCache", String.class, String.class, String.class, List.class, List.class));
+            FLUSH_HIVE_METASTORE_CACHE = lookup().unreflect(FlushHiveMetastoreCacheProcedure.class.getMethod(
+                    "flushMetadataCache", String.class, String.class, List.class, List.class, List.class, List.class));
         }
         catch (ReflectiveOperationException e) {
             throw new AssertionError(e);
         }
     }
-
-    private static final String FAKE_PARAM_DEFAULT_VALUE = "procedure should only be invoked with named parameters";
 
     private final Optional<CachingHiveMetastore> cachingHiveMetastore;
 
@@ -84,23 +96,39 @@ public class FlushHiveMetastoreCacheProcedure
                 "system",
                 PROCEDURE_NAME,
                 ImmutableList.of(
-                        new Procedure.Argument("$FAKE_FIRST_PARAMETER", VARCHAR, false, FAKE_PARAM_DEFAULT_VALUE),
                         new Procedure.Argument(PARAM_SCHEMA_NAME, VARCHAR, false, null),
                         new Procedure.Argument(PARAM_TABLE_NAME, VARCHAR, false, null),
+                        new Procedure.Argument(PARAM_PARTITION_COLUMNS, new ArrayType(VARCHAR), false, null),
+                        new Procedure.Argument(PARAM_PARTITION_VALUES, new ArrayType(VARCHAR), false, null),
                         new Procedure.Argument(PARAM_PARTITION_COLUMN, new ArrayType(VARCHAR), false, null),
                         new Procedure.Argument(PARAM_PARTITION_VALUE, new ArrayType(VARCHAR), false, null)),
-                FLUSH_HIVE_METASTORE_CACHE.bindTo(this));
+                FLUSH_HIVE_METASTORE_CACHE.bindTo(this),
+                true);
     }
 
-    public void flushMetadataCache(String fakeParam, String schemaName, String tableName, List<String> partitionColumn, List<String> partitionValue)
+    public void flushMetadataCache(
+            String schemaName,
+            String tableName,
+            List<String> partitionColumns,
+            List<String> partitionValues,
+            List<String> partitionColumn,
+            List<String> partitionValue)
     {
-        checkState(FAKE_PARAM_DEFAULT_VALUE.equals(fakeParam), "Procedure should only be invoked with named parameters. " + PROCEDURE_USAGE_EXAMPLES);
+        Optional<List<String>> optionalPartitionColumns = Optional.ofNullable(partitionColumns);
+        Optional<List<String>> optionalPartitionValues = Optional.ofNullable(partitionValues);
+        Optional<List<String>> optionalPartitionColumn = Optional.ofNullable(partitionColumn);
+        Optional<List<String>> optionalPartitionValue = Optional.ofNullable(partitionValue);
+        checkState(partitionParamsUsed(optionalPartitionColumns, optionalPartitionValues, optionalPartitionColumn, optionalPartitionValue)
+                        || deprecatedPartitionParamsUsed(optionalPartitionColumns, optionalPartitionValues, optionalPartitionColumn, optionalPartitionValue)
+                        || partitionParamsNotUsed(optionalPartitionColumns, optionalPartitionValues, optionalPartitionColumn, optionalPartitionValue),
+                INVALID_PARTITION_PARAMS_ERROR_MESSAGE);
+
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             doFlushMetadataCache(
                     Optional.ofNullable(schemaName),
                     Optional.ofNullable(tableName),
-                    Optional.ofNullable(partitionColumn).orElse(ImmutableList.of()),
-                    Optional.ofNullable(partitionValue).orElse(ImmutableList.of()));
+                    optionalPartitionColumns.or(() -> optionalPartitionColumn).orElse(ImmutableList.of()),
+                    optionalPartitionValues.or(() -> optionalPartitionValue).orElse(ImmutableList.of()));
         }
     }
 
@@ -116,13 +144,48 @@ public class FlushHiveMetastoreCacheProcedure
         if (schemaName.isEmpty() && tableName.isEmpty() && partitionColumns.isEmpty()) {
             cachingHiveMetastore.flushCache();
         }
-        else if (schemaName.isPresent() && tableName.isPresent() && !partitionColumns.isEmpty()) {
-            cachingHiveMetastore.flushPartitionCache(schemaName.get(), tableName.get(), partitionColumns, partitionValues);
+        else if (schemaName.isPresent() && tableName.isPresent()) {
+            if (!partitionColumns.isEmpty()) {
+                cachingHiveMetastore.flushPartitionCache(schemaName.get(), tableName.get(), partitionColumns, partitionValues);
+            }
+            else {
+                cachingHiveMetastore.invalidateTable(schemaName.get(), tableName.get());
+            }
         }
         else {
             throw new TrinoException(
                     HiveErrorCode.HIVE_METASTORE_ERROR,
                     "Illegal parameter set passed. " + PROCEDURE_USAGE_EXAMPLES);
         }
+    }
+
+    private boolean partitionParamsNotUsed(
+            Optional<List<String>> partitionColumns,
+            Optional<List<String>> partitionValues,
+            Optional<List<String>> partitionColumn,
+            Optional<List<String>> partitionValue)
+    {
+        return partitionColumns.isEmpty() && partitionValues.isEmpty()
+                && partitionColumn.isEmpty() && partitionValue.isEmpty();
+    }
+
+    private boolean partitionParamsUsed(
+            Optional<List<String>> partitionColumns,
+            Optional<List<String>> partitionValues,
+            Optional<List<String>> partitionColumn,
+            Optional<List<String>> partitionValue)
+    {
+        return (partitionColumns.isPresent() || partitionValues.isPresent())
+                && partitionColumn.isEmpty() && partitionValue.isEmpty();
+    }
+
+    private boolean deprecatedPartitionParamsUsed(
+            Optional<List<String>> partitionColumns,
+            Optional<List<String>> partitionValues,
+            Optional<List<String>> partitionColumn,
+            Optional<List<String>> partitionValue)
+    {
+        return (partitionColumn.isPresent() || partitionValue.isPresent())
+                && partitionColumns.isEmpty() && partitionValues.isEmpty();
     }
 }
