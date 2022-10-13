@@ -81,19 +81,19 @@ import static java.util.stream.Collectors.toList;
 
 public enum BigQueryType
 {
-    BOOLEAN(BooleanType.BOOLEAN, BigQueryType::simpleToStringConverter),
-    BYTES(VarbinaryType.VARBINARY, BigQueryType::bytesToStringConverter),
-    DATE(DateType.DATE, BigQueryType::dateToStringConverter),
-    DATETIME(TimestampType.TIMESTAMP_MICROS, BigQueryType::datetimeToStringConverter),
-    FLOAT(DoubleType.DOUBLE, BigQueryType::floatToStringConverter),
-    GEOGRAPHY(VarcharType.VARCHAR, unsupportedToStringConverter()),
-    INTEGER(BigintType.BIGINT, BigQueryType::simpleToStringConverter),
-    NUMERIC(null, BigQueryType::numericToStringConverter),
-    BIGNUMERIC(null, BigQueryType::numericToStringConverter),
-    RECORD(null, unsupportedToStringConverter()),
-    STRING(createUnboundedVarcharType(), BigQueryType::stringToStringConverter),
-    TIME(TimeType.TIME_MICROS, BigQueryType::timeToStringConverter),
-    TIMESTAMP(TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS, BigQueryType::timestampToStringConverter);
+    BOOLEAN(BooleanType.BOOLEAN, BigQueryType::simpleToStringConverter, true),
+    BYTES(VarbinaryType.VARBINARY, BigQueryType::bytesToStringConverter, true),
+    DATE(DateType.DATE, BigQueryType::dateToStringConverter, true),
+    DATETIME(TimestampType.TIMESTAMP_MICROS, BigQueryType::datetimeToStringConverter, true),
+    FLOAT(DoubleType.DOUBLE, BigQueryType::floatToStringConverter, true),
+    GEOGRAPHY(VarcharType.VARCHAR, unsupportedToStringConverter(), false),
+    INTEGER(BigintType.BIGINT, BigQueryType::simpleToStringConverter, true),
+    NUMERIC(null, BigQueryType::numericToStringConverter, true),
+    BIGNUMERIC(null, BigQueryType::numericToStringConverter, true),
+    RECORD(null, unsupportedToStringConverter(), false),
+    STRING(createUnboundedVarcharType(), BigQueryType::stringToStringConverter, true),
+    TIME(TimeType.TIME_MICROS, BigQueryType::timeToStringConverter, true),
+    TIMESTAMP(TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS, BigQueryType::timestampToStringConverter, true);
 
     private static final int[] NANO_FACTOR = {
             -1, // 0, no need to multiply
@@ -112,17 +112,24 @@ public enum BigQueryType
 
     private final Type nativeType;
     private final OptionalToStringConverter toStringConverter;
+    private final boolean isPushDownSupported;
 
-    BigQueryType(Type nativeType, ToStringConverter toStringConverter)
+    BigQueryType(Type nativeType, ToStringConverter toStringConverter, boolean isPushDownSupported)
     {
-        this(nativeType, (OptionalToStringConverter) value -> Optional.of(toStringConverter.convertToString(value)));
+        this(nativeType, (OptionalToStringConverter) value -> Optional.of(toStringConverter.convertToString(value)), isPushDownSupported);
         requireNonNull(toStringConverter, "toStringConverter is null");
     }
 
-    BigQueryType(Type nativeType, OptionalToStringConverter toStringConverter)
+    BigQueryType(Type nativeType, OptionalToStringConverter toStringConverter, boolean isPushDownSupported)
     {
         this.nativeType = nativeType;
         this.toStringConverter = toStringConverter;
+        this.isPushDownSupported = isPushDownSupported;
+    }
+
+    public boolean isPushDownSupported()
+    {
+        return isPushDownSupported;
     }
 
     static RowType.Field toRawTypeField(Map.Entry<String, BigQueryType.Adaptor> entry)

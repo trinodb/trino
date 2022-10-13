@@ -16,7 +16,6 @@ package io.trino.plugin.bigquery;
 import com.google.cloud.bigquery.FieldValue;
 import com.google.cloud.bigquery.FieldValueList;
 import com.google.cloud.bigquery.JobInfo.CreateDisposition;
-import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableResult;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -47,7 +46,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.plugin.bigquery.BigQueryClient.selectSql;
+import static io.trino.plugin.bigquery.BigQueryClient.prepareSelectSql;
 import static io.trino.plugin.bigquery.BigQueryType.toTrinoTimestamp;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -97,20 +96,8 @@ public class BigQueryQueryPageSource
         checkArgument(columnNames.size() == columnTypes.size(), "columnNames and columnTypes sizes don't match");
         this.columnTypes = ImmutableList.copyOf(columnTypes);
         this.pageBuilder = new PageBuilder(columnTypes);
-        String sql = buildSql(table, client.getProjectId(), ImmutableList.copyOf(columnNames), filter);
+        String sql = prepareSelectSql(table, ImmutableList.copyOf(columnNames), filter);
         this.tableResult = client.query(sql, useQueryResultsCache, createDisposition);
-    }
-
-    private static String buildSql(BigQueryTableHandle table, String projectId, List<String> columnNames, Optional<String> filter)
-    {
-        if (table.getRelationHandle() instanceof BigQueryQueryRelationHandle queryRelationHandle) {
-            if (filter.isEmpty()) {
-                return queryRelationHandle.getQuery();
-            }
-            return "SELECT * FROM (" + queryRelationHandle.getQuery() + " ) WHERE " + filter.get();
-        }
-        TableId tableId = TableId.of(projectId, table.asPlainTable().getRemoteTableName().getDatasetName(), table.asPlainTable().getRemoteTableName().getTableName());
-        return selectSql(tableId, ImmutableList.copyOf(columnNames), filter);
     }
 
     @Override

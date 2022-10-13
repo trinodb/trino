@@ -265,16 +265,16 @@ public class BigQueryClient
         return requireNonNull(queryStatistics.getSchema(), "Cannot determine schema for query");
     }
 
-    public static String selectSql(TableId table, List<String> requiredColumns, Optional<String> filter)
+    public static String prepareSelectSql(BigQueryTableHandle table, List<String> requiredColumns, Optional<String> filter)
     {
         String columns = requiredColumns.stream().map(column -> format("`%s`", column)).collect(joining(","));
-        return selectSql(table, columns, filter);
+        return prepareSelectSql(table, columns, filter);
     }
 
-    private static String selectSql(TableId table, String formattedColumns, Optional<String> filter)
+    public static String prepareSelectSql(BigQueryTableHandle table, String formattedColumns, Optional<String> filter)
     {
-        String tableName = fullTableName(table);
-        String query = format("SELECT %s FROM `%s`", formattedColumns, tableName);
+        String tableName = getFrom(table);
+        String query = format("SELECT %s FROM %s", formattedColumns, tableName);
         if (filter.isEmpty()) {
             return query;
         }
@@ -287,6 +287,15 @@ public class BigQueryClient
                 requiredColumns.stream().map(column -> format("`%s`", column)).collect(joining(","));
 
         return selectSql(remoteTable.getTableId(), columns);
+    }
+
+    private static String getFrom(BigQueryTableHandle table)
+    {
+        if (table.getRelationHandle() instanceof BigQueryQueryRelationHandle queryRelationHandle) {
+            return "(%s)".formatted(queryRelationHandle.getQuery());
+        }
+        TableId tableId = table.asPlainTable().getRemoteTableName().toTableId();
+        return "`%s`".formatted(fullTableName(tableId));
     }
 
     // assuming the SELECT part is properly formatted, can be used to call functions such as COUNT and SUM
