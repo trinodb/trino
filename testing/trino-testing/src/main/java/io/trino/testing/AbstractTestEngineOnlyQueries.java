@@ -2097,6 +2097,29 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
+    public void testMergeQuantileDigest()
+    {
+        assertThat(query("""
+                WITH
+                    a(field_a, field_b) AS (
+                        VALUES (DOUBLE '10.3', 'group1'), (DOUBLE '11.3', 'group2')),
+                    b AS (
+                        SELECT CAST(qdigest_agg(field_a) AS varbinary) AS qdigest_binary
+                        FROM a GROUP BY field_b)
+                SELECT CAST(merge(CAST(qdigest_binary AS qdigest(double))) AS varbinary)
+                FROM b"""))
+                .matches("""
+                    VALUES X'
+                        00 7b 14 ae 47 e1 7a 84 3f 00 00 00 00 00 00 00
+                        00 00 00 00 00 00 00 00 00 9a 99 99 99 99 99 24
+                        40 9a 99 99 99 99 99 26 40 03 00 00 00 00 00 00
+                        00 00 00 00 f0 3f 9a 99 99 99 99 99 24 c0 00 00
+                        00 00 00 00 00 f0 3f 9a 99 99 99 99 99 26 c0 c7
+                        00 00 00 00 00 00 00 00 9a 99 99 99 99 99 24 c0'
+                    """);
+    }
+
+    @Test
     public void testValues()
     {
         assertQuery("VALUES 1, 2, 3, 4");
