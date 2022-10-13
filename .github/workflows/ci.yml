@@ -766,7 +766,7 @@ jobs:
           EOF
       - name: Build PT matrix (all)
         if: |
-          github.event.name != 'pull_request' ||
+          github.event_name != 'pull_request' ||
           steps.filter.outputs.product-tests == 'true' ||
           contains(github.event.pull_request.labels.*.name, 'tests:all') ||
           contains(github.event.pull_request.labels.*.name, 'tests:all-product')
@@ -775,7 +775,7 @@ jobs:
           ./.github/bin/build-pt-matrix-from-impacted-connectors.py -v -m .github/test-pt-matrix.yaml -o matrix.json
       - name: Build PT matrix (impacted-features)
         if: |
-          github.event.name == 'pull_request' &&
+          github.event_name == 'pull_request' &&
           steps.filter.outputs.product-tests == 'false' &&
           !contains(github.event.pull_request.labels.*.name, 'tests:all') &&
           !contains(github.event.pull_request.labels.*.name, 'product-tests:all')
