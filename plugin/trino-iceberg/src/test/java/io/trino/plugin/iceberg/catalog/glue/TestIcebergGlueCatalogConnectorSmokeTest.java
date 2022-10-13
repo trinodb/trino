@@ -160,9 +160,38 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
         }
     }
 
+    @Test
+    public void testCommentViewColumn()
+    {
+        // TODO: Consider moving to BaseConnectorSmokeTest
+        String viewColumnName = "regionkey";
+        try (TestView view = new TestView(getQueryRunner()::execute, "test_comment_view", "SELECT * FROM region")) {
+            // comment set
+            assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS 'new region key comment'");
+            assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo("new region key comment");
+
+            // comment updated
+            assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS 'updated region key comment'");
+            assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo("updated region key comment");
+
+            // comment set to empty
+            assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS ''");
+            assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo("");
+
+            // comment deleted
+            assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS NULL");
+            assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo(null);
+        }
+    }
+
     private String getTableComment(String tableName)
     {
         return (String) computeScalar("SELECT comment FROM system.metadata.table_comments WHERE catalog_name = 'iceberg' AND schema_name = '" + schemaName + "' AND table_name = '" + tableName + "'");
+    }
+
+    protected String getColumnComment(String tableName, String columnName)
+    {
+        return (String) computeScalar("SELECT comment FROM information_schema.columns WHERE table_schema = '" + getSession().getSchema().orElseThrow() + "' AND table_name = '" + tableName + "' AND column_name = '" + columnName + "'");
     }
 
     private String schemaPath()
