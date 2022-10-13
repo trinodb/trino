@@ -816,9 +816,9 @@ public final class MathFunctions
     @Description("Round to given number of decimal places")
     @ScalarFunction("round")
     @SqlType(StandardTypes.REAL)
-    public static long roundFloat(@SqlType(StandardTypes.REAL) long num)
+    public static long roundReal(@SqlType(StandardTypes.REAL) long num)
     {
-        return roundFloat(num, 0);
+        return roundReal(num, 0);
     }
 
     @Description("Round to given number of decimal places")
@@ -843,7 +843,7 @@ public final class MathFunctions
     @Description("Round to given number of decimal places")
     @ScalarFunction("round")
     @SqlType(StandardTypes.REAL)
-    public static long roundFloat(@SqlType(StandardTypes.REAL) long num, @SqlType(StandardTypes.INTEGER) long decimals)
+    public static long roundReal(@SqlType(StandardTypes.REAL) long num, @SqlType(StandardTypes.INTEGER) long decimals)
     {
         float numInFloat = intBitsToFloat((int) num);
         if (Float.isNaN(numInFloat) || Float.isInfinite(numInFloat)) {
