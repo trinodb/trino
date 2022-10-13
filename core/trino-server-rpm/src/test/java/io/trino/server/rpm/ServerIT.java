@@ -42,7 +42,7 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class ServerIT
 {
-    private static final String BASE_IMAGE = "ghcr.io/trinodb/testing/centos7-oj11";
+    private static final String BASE_IMAGE = "ghcr.io/trinodb/testing/centos7-oj17";
 
     @Parameters("rpm")
     @Test
