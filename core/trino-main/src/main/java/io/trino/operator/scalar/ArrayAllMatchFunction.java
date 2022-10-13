@@ -14,15 +14,20 @@
 package io.trino.operator.scalar;
 
 import io.trino.spi.block.Block;
+import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
-import io.trino.spi.function.TypeParameterSpecialization;
 import io.trino.spi.type.StandardTypes;
-import io.trino.spi.type.Type;
 
+import java.lang.invoke.MethodHandle;
+
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static java.lang.Boolean.FALSE;
 
 @Description("Returns true if all elements of the array match the given predicate")
@@ -32,110 +37,20 @@ public final class ArrayAllMatchFunction
     private ArrayAllMatchFunction() {}
 
     @TypeParameter("T")
-    @TypeParameterSpecialization(name = "T", nativeContainerType = Object.class)
     @SqlType(StandardTypes.BOOLEAN)
     @SqlNullable
-    public static Boolean allMatchObject(
-            @TypeParameter("T") Type elementType,
+    public static Boolean allMatch(
+            @OperatorDependency(operator = READ_VALUE, argumentTypes = "T", convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = FAIL_ON_NULL)) MethodHandle readValue,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("function(T, boolean)") ObjectToBooleanFunction function)
+            throws Throwable
     {
         boolean hasNullResult = false;
         int positionCount = arrayBlock.getPositionCount();
         for (int i = 0; i < positionCount; i++) {
             Object element = null;
             if (!arrayBlock.isNull(i)) {
-                element = elementType.getObject(arrayBlock, i);
-            }
-            Boolean match = function.apply(element);
-            if (FALSE.equals(match)) {
-                return false;
-            }
-            if (match == null) {
-                hasNullResult = true;
-            }
-        }
-        if (hasNullResult) {
-            return null;
-        }
-        return true;
-    }
-
-    @TypeParameter("T")
-    @TypeParameterSpecialization(name = "T", nativeContainerType = long.class)
-    @SqlType(StandardTypes.BOOLEAN)
-    @SqlNullable
-    public static Boolean allMatchLong(
-            @TypeParameter("T") Type elementType,
-            @SqlType("array(T)") Block arrayBlock,
-            @SqlType("function(T, boolean)") LongToBooleanFunction function)
-    {
-        boolean hasNullResult = false;
-        int positionCount = arrayBlock.getPositionCount();
-        for (int i = 0; i < positionCount; i++) {
-            Long element = null;
-            if (!arrayBlock.isNull(i)) {
-                element = elementType.getLong(arrayBlock, i);
-            }
-            Boolean match = function.apply(element);
-            if (FALSE.equals(match)) {
-                return false;
-            }
-            if (match == null) {
-                hasNullResult = true;
-            }
-        }
-        if (hasNullResult) {
-            return null;
-        }
-        return true;
-    }
-
-    @TypeParameter("T")
-    @TypeParameterSpecialization(name = "T", nativeContainerType = double.class)
-    @SqlType(StandardTypes.BOOLEAN)
-    @SqlNullable
-    public static Boolean allMatchDouble(
-            @TypeParameter("T") Type elementType,
-            @SqlType("array(T)") Block arrayBlock,
-            @SqlType("function(T, boolean)") DoubleToBooleanFunction function)
-    {
-        boolean hasNullResult = false;
-        int positionCount = arrayBlock.getPositionCount();
-        for (int i = 0; i < positionCount; i++) {
-            Double element = null;
-            if (!arrayBlock.isNull(i)) {
-                element = elementType.getDouble(arrayBlock, i);
-            }
-            Boolean match = function.apply(element);
-            if (FALSE.equals(match)) {
-                return false;
-            }
-            if (match == null) {
-                hasNullResult = true;
-            }
-        }
-        if (hasNullResult) {
-            return null;
-        }
-        return true;
-    }
-
-    @TypeParameter("T")
-    @TypeParameterSpecialization(name = "T", nativeContainerType = boolean.class)
-    @SqlType(StandardTypes.BOOLEAN)
-    @SqlNullable
-    public static Boolean allMatchBoolean(
-            @TypeParameter("T") Type elementType,
-            @SqlType("array(T)") Block arrayBlock,
-            @SqlType("function(T, boolean)") BooleanToBooleanFunction function)
-    {
-        boolean hasNullResult = false;
-        int positionCount = arrayBlock.getPositionCount();
-        for (int i = 0; i < positionCount; i++) {
-            Boolean element = null;
-            if (!arrayBlock.isNull(i)) {
-                element = elementType.getBoolean(arrayBlock, i);
+                element = readValue.invoke(arrayBlock, i);
             }
             Boolean match = function.apply(element);
             if (FALSE.equals(match)) {
