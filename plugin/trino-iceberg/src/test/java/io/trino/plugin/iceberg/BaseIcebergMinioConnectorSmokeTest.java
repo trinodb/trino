@@ -106,6 +106,10 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
         List<String> metadataFiles = hiveMinioDataLake.getMinioClient().listObjects(bucketName, "/%s/%s/metadata".formatted(schemaName, tableName));
         assertThat(metadataFiles).isNotEmpty().filteredOn(filePath -> filePath.contains("#")).isEmpty();
 
+        // Verify ALTER TABLE succeeds https://github.com/trinodb/trino/issues/14552
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN new_col int");
+        assertTableColumnNames(tableName, "col", "new_col");
+
         assertUpdate("DROP TABLE " + tableName);
     }
 
