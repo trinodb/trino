@@ -81,34 +81,34 @@ public abstract class AbstractRowEncoder
             appendNullValue();
         }
         else if (type == BOOLEAN) {
-            appendBoolean(type.getBoolean(block, position));
+            appendBoolean(BOOLEAN.getBoolean(block, position));
         }
         else if (type == BIGINT) {
-            appendLong(type.getLong(block, position));
+            appendLong(BIGINT.getLong(block, position));
         }
         else if (type == INTEGER) {
-            appendInt(toIntExact(type.getLong(block, position)));
+            appendInt(toIntExact(INTEGER.getLong(block, position)));
         }
         else if (type == SMALLINT) {
-            appendShort(Shorts.checkedCast(type.getLong(block, position)));
+            appendShort(Shorts.checkedCast(SMALLINT.getLong(block, position)));
         }
         else if (type == TINYINT) {
-            appendByte(SignedBytes.checkedCast(type.getLong(block, position)));
+            appendByte(SignedBytes.checkedCast(TINYINT.getLong(block, position)));
         }
         else if (type == DOUBLE) {
-            appendDouble(type.getDouble(block, position));
+            appendDouble(DOUBLE.getDouble(block, position));
         }
         else if (type == REAL) {
-            appendFloat(intBitsToFloat(toIntExact(type.getLong(block, position))));
+            appendFloat(intBitsToFloat(toIntExact(REAL.getLong(block, position))));
         }
-        else if (type instanceof VarcharType) {
-            appendString(type.getSlice(block, position).toStringUtf8());
+        else if (type instanceof VarcharType varcharType) {
+            appendString(varcharType.getSlice(block, position).toStringUtf8());
         }
-        else if (type instanceof VarbinaryType) {
-            appendByteBuffer(type.getSlice(block, position).toByteBuffer());
+        else if (type instanceof VarbinaryType varbinaryType) {
+            appendByteBuffer(varbinaryType.getSlice(block, position).toByteBuffer());
         }
         else if (type == DATE) {
-            appendSqlDate((SqlDate) type.getObjectValue(session, block, position));
+            appendSqlDate((SqlDate) DATE.getObjectValue(session, block, position));
         }
         else if (type instanceof TimeType) {
             appendSqlTime((SqlTime) type.getObjectValue(session, block, position));

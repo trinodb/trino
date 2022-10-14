@@ -155,30 +155,30 @@ public class KuduPageSink
             row.setNull(destChannel);
         }
         else if (TIMESTAMP_MILLIS.equals(type)) {
-            row.addLong(destChannel, truncateEpochMicrosToMillis(type.getLong(block, position)));
+            row.addLong(destChannel, truncateEpochMicrosToMillis(TIMESTAMP_MILLIS.getLong(block, position)));
         }
         else if (REAL.equals(type)) {
-            row.addFloat(destChannel, intBitsToFloat(toIntExact(type.getLong(block, position))));
+            row.addFloat(destChannel, intBitsToFloat(toIntExact(REAL.getLong(block, position))));
         }
         else if (BIGINT.equals(type)) {
-            row.addLong(destChannel, type.getLong(block, position));
+            row.addLong(destChannel, BIGINT.getLong(block, position));
         }
         else if (INTEGER.equals(type)) {
-            row.addInt(destChannel, toIntExact(type.getLong(block, position)));
+            row.addInt(destChannel, toIntExact(INTEGER.getLong(block, position)));
         }
         else if (SMALLINT.equals(type)) {
-            row.addShort(destChannel, Shorts.checkedCast(type.getLong(block, position)));
+            row.addShort(destChannel, Shorts.checkedCast(SMALLINT.getLong(block, position)));
         }
         else if (TINYINT.equals(type)) {
-            row.addByte(destChannel, SignedBytes.checkedCast(type.getLong(block, position)));
+            row.addByte(destChannel, SignedBytes.checkedCast(TINYINT.getLong(block, position)));
         }
         else if (BOOLEAN.equals(type)) {
-            row.addBoolean(destChannel, type.getBoolean(block, position));
+            row.addBoolean(destChannel, BOOLEAN.getBoolean(block, position));
         }
         else if (DOUBLE.equals(type)) {
-            row.addDouble(destChannel, type.getDouble(block, position));
+            row.addDouble(destChannel, DOUBLE.getDouble(block, position));
         }
-        else if (type instanceof VarcharType) {
+        else if (type instanceof VarcharType varcharType) {
             Type originalType = originalColumnTypes.get(destChannel);
             if (DATE.equals(originalType)) {
                 SqlDate date = (SqlDate) originalType.getObjectValue(connectorSession, block, position);
@@ -187,14 +187,14 @@ public class KuduPageSink
                 row.addStringUtf8(destChannel, bytes);
             }
             else {
-                row.addString(destChannel, type.getSlice(block, position).toStringUtf8());
+                row.addString(destChannel, varcharType.getSlice(block, position).toStringUtf8());
             }
         }
         else if (VARBINARY.equals(type)) {
-            row.addBinary(destChannel, type.getSlice(block, position).toByteBuffer());
+            row.addBinary(destChannel, VARBINARY.getSlice(block, position).toByteBuffer());
         }
-        else if (type instanceof DecimalType) {
-            SqlDecimal sqlDecimal = (SqlDecimal) type.getObjectValue(connectorSession, block, position);
+        else if (type instanceof DecimalType decimalType) {
+            SqlDecimal sqlDecimal = (SqlDecimal) decimalType.getObjectValue(connectorSession, block, position);
             row.addDecimal(destChannel, sqlDecimal.toBigDecimal());
         }
         else {
