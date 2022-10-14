@@ -70,38 +70,38 @@ public final class BigQueryTypeUtils
 
         // TODO https://github.com/trinodb/trino/issues/13741 Add support for time, timestamp with time zone, geography, map type
         if (type.equals(BOOLEAN)) {
-            return type.getBoolean(block, position);
+            return BOOLEAN.getBoolean(block, position);
         }
         if (type.equals(TINYINT)) {
-            return SignedBytes.checkedCast(type.getLong(block, position));
+            return SignedBytes.checkedCast(TINYINT.getLong(block, position));
         }
         if (type.equals(SMALLINT)) {
-            return Shorts.checkedCast(type.getLong(block, position));
+            return Shorts.checkedCast(SMALLINT.getLong(block, position));
         }
         if (type.equals(INTEGER)) {
-            return toIntExact(type.getLong(block, position));
+            return toIntExact(INTEGER.getLong(block, position));
         }
         if (type.equals(BIGINT)) {
-            return type.getLong(block, position);
+            return BIGINT.getLong(block, position);
         }
         if (type.equals(DOUBLE)) {
-            return type.getDouble(block, position);
+            return DOUBLE.getDouble(block, position);
         }
         if (type instanceof DecimalType) {
             return readBigDecimal((DecimalType) type, block, position).toString();
         }
-        if (type instanceof VarcharType) {
-            return type.getSlice(block, position).toStringUtf8();
+        if (type instanceof VarcharType varcharType) {
+            return varcharType.getSlice(block, position).toStringUtf8();
         }
         if (type.equals(VARBINARY)) {
-            return Base64.getEncoder().encodeToString(type.getSlice(block, position).getBytes());
+            return Base64.getEncoder().encodeToString(VARBINARY.getSlice(block, position).getBytes());
         }
         if (type.equals(DATE)) {
-            long days = type.getLong(block, position);
+            long days = DATE.getLong(block, position);
             return DATE_FORMATTER.format(LocalDate.ofEpochDay(days));
         }
         if (type.equals(TIMESTAMP_MICROS)) {
-            long epochMicros = type.getLong(block, position);
+            long epochMicros = TIMESTAMP_MICROS.getLong(block, position);
             long epochSeconds = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
             int nanoAdjustment = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
             return DATETIME_FORMATTER.format(toZonedDateTime(epochSeconds, nanoAdjustment, UTC));
@@ -121,7 +121,7 @@ public final class BigQueryTypeUtils
         if (type instanceof RowType rowType) {
             Block rowBlock = block.getObject(position, Block.class);
 
-            List<Type> fieldTypes = type.getTypeParameters();
+            List<Type> fieldTypes = rowType.getTypeParameters();
             if (fieldTypes.size() != rowBlock.getPositionCount()) {
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, "Expected row value field count does not match type field count");
             }
