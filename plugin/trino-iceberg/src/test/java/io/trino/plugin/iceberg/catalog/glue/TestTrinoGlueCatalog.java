@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
 import com.amazonaws.services.glue.model.CreateDatabaseRequest;
@@ -24,7 +23,6 @@ import io.airlift.log.Logger;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
-import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.IcebergMetadata;
@@ -61,6 +59,7 @@ public class TestTrinoGlueCatalog
     protected TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
     {
         TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT);
+        AWSGlueAsync glueClient = AWSGlueAsyncClientBuilder.defaultClient();
         return new TrinoGlueCatalog(
                 new CatalogName("catalog_name"),
                 fileSystemFactory,
@@ -68,10 +67,9 @@ public class TestTrinoGlueCatalog
                 new GlueIcebergTableOperationsProvider(
                         fileSystemFactory,
                         new GlueMetastoreStats(),
-                        new GlueHiveMetastoreConfig(),
-                        DefaultAWSCredentialsProviderChain.getInstance()),
+                        glueClient),
                 "test",
-                AWSGlueAsyncClientBuilder.defaultClient(),
+                glueClient,
                 new GlueMetastoreStats(),
                 Optional.empty(),
                 useUniqueTableLocations);
@@ -133,6 +131,7 @@ public class TestTrinoGlueCatalog
         tmpDirectory.toFile().deleteOnExit();
 
         TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT);
+        AWSGlueAsync glueClient = AWSGlueAsyncClientBuilder.defaultClient();
         TrinoCatalog catalogWithDefaultLocation = new TrinoGlueCatalog(
                 new CatalogName("catalog_name"),
                 fileSystemFactory,
@@ -140,10 +139,9 @@ public class TestTrinoGlueCatalog
                 new GlueIcebergTableOperationsProvider(
                         fileSystemFactory,
                         new GlueMetastoreStats(),
-                        new GlueHiveMetastoreConfig(),
-                        DefaultAWSCredentialsProviderChain.getInstance()),
+                        glueClient),
                 "test",
-                AWSGlueAsyncClientBuilder.defaultClient(),
+                glueClient,
                 new GlueMetastoreStats(),
                 Optional.of(tmpDirectory.toAbsolutePath().toString()),
                 false);

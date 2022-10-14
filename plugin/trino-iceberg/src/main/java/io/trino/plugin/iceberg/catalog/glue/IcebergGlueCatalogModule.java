@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.catalog.glue;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.services.glue.AWSGlueAsync;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
@@ -34,6 +35,7 @@ public class IcebergGlueCatalogModule
     {
         configBinder(binder).bindConfig(GlueHiveMetastoreConfig.class);
         binder.bind(GlueMetastoreStats.class).in(Scopes.SINGLETON);
+        binder.bind(AWSGlueAsync.class).toProvider(GlueClientProvider.class).in(Scopes.SINGLETON);
         newExporter(binder).export(GlueMetastoreStats.class).withGeneratedName();
         binder.bind(AWSCredentialsProvider.class).toProvider(GlueCredentialsProvider.class).in(Scopes.SINGLETON);
         binder.bind(IcebergTableOperationsProvider.class).to(GlueIcebergTableOperationsProvider.class).in(Scopes.SINGLETON);
