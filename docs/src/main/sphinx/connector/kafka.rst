@@ -472,22 +472,6 @@ used to resolve the subject name via the topic name. Note that a case
 insensitive match must be done, as identifiers cannot contain upper case
 characters.
 
-.. _kafka-sql-support:
-
-SQL support
------------
-
-The connector provides read and write access to data and metadata in Trino
-tables populated by Kafka topics. See :ref:`kafka-row-decoding` for more
-information.
-
-In addition to the :ref:`globally available <sql-globally-available>`
-and :ref:`read operation <sql-read-operations>` statements, the connector
-supports the following features:
-
-* :doc:`/sql/insert`, encoded to a specified data format. See also
-  :ref:`kafka-sql-inserts`.
-
 .. _kafka-sql-inserts:
 
 Kafka inserts
@@ -517,8 +501,21 @@ used as the target for a message. If a message includes a key, the producer will
 use a hash algorithm to choose the target partition for the message. The same
 key will always be assigned the same partition.
 
-Row encoding
+.. _kafka-type-mapping:
+
+Type mapping
 ------------
+
+Because Trino and Kafka each support types that the other does not, this
+connector :ref:`maps some types <type-mapping-overview>` when reading
+(:ref:`decoding <kafka-row-decoding>`) or writing (:ref:`encoding
+<kafka-row-encoding>`) data. Type mapping depends on the format (Raw, Avro,
+JSON, CSV).
+
+.. _kafka-row-encoding:
+
+Row encoding
+^^^^^^^^^^^^
 
 Encoding is required to allow writing data; it defines how table columns in
 Trino map to Kafka keys and message data.
@@ -540,7 +537,7 @@ The Kafka connector contains the following encoders:
     for the encoder to work.
 
 Raw encoder
-^^^^^^^^^^^
+"""""""""""
 
 The raw encoder formats the table columns as raw bytes using the mapping
 information specified in the
@@ -582,6 +579,8 @@ Trino data type                       ``dataFormat`` values
 ``BOOLEAN``                           ``BYTE``, ``SHORT``, ``INT``, ``LONG``
 ``VARCHAR`` / ``VARCHAR(x)``          ``BYTE``
 ===================================== =======================================
+
+No other types are supported.
 
 The ``mapping`` attribute specifies the range of bytes in a key or
 message used for encoding.
@@ -673,7 +672,7 @@ Example insert query for the above table definition::
     padding character.
 
 CSV encoder
-^^^^^^^^^^^
+"""""""""""
 
 The CSV encoder formats the values for each row as a line of
 comma-separated-values (CSV) using UTF-8 encoding. The CSV line is formatted
@@ -697,6 +696,8 @@ The following Trino data types are supported by the CSV encoder:
 * ``REAL``
 * ``BOOLEAN``
 * ``VARCHAR`` / ``VARCHAR(x)``
+
+No other types are supported.
 
 Column values are converted to strings before they are formatted as a CSV line.
 
@@ -738,7 +739,7 @@ Example insert query for the above table definition::
       VALUES (123456789, 'example text', TRUE);
 
 JSON encoder
-^^^^^^^^^^^^
+""""""""""""
 
 The JSON encoder maps table columns to JSON fields defined in the
 `table definition file <#table-definition-files>`__ according to
@@ -784,6 +785,8 @@ The following Trino data types are supported by the JSON encoder:
 |                                     |
 | ``TIMESTAMP WITH TIME ZONE``        |
 +-------------------------------------+
+
+No other types are supported.
 
 The following ``dataFormats`` are available for temporal data:
 
@@ -857,7 +860,7 @@ The following shows an example insert query for the preceding table definition::
       VALUES (123456789, 'example text', TIMESTAMP '2020-07-15 01:02:03.456');
 
 Avro encoder
-^^^^^^^^^^^^
+""""""""""""
 
 The Avro encoder serializes rows to Avro records as defined by the
 `Avro schema <https://avro.apache.org/docs/current/>`_.
@@ -900,6 +903,8 @@ Trino data type                       Avro data type
 ``BOOLEAN``                           ``BOOLEAN``
 ``VARCHAR`` / ``VARCHAR(x)``          ``STRING``
 ===================================== =======================================
+
+No other types are supported.
 
 The following example shows an Avro field definition in a `table definition file
 <#table-definition-files>`__ for a Kafka message:
@@ -974,7 +979,7 @@ The following is an example insert query for the preceding table definition::
 .. _kafka-row-decoding:
 
 Row decoding
-------------
+^^^^^^^^^^^^
 
 For key and message, a decoder is used to map message and key data onto table columns.
 
@@ -990,8 +995,8 @@ The Kafka connector contains the following decoders:
     If no table definition file exists for a table, the ``dummy`` decoder is used,
     which does not expose any columns.
 
-``raw`` decoder
-^^^^^^^^^^^^^^^
+Raw decoder
+"""""""""""
 
 The raw decoder supports reading of raw byte-based values from Kafka message
 or key, and converting it into Trino columns.
@@ -1031,6 +1036,8 @@ Trino data type                       Allowed ``dataFormat`` values
 ``VARCHAR`` / ``VARCHAR(x)``          ``BYTE``
 ===================================== =======================================
 
+No other types are supported.
+
 The ``mapping`` attribute specifies the range of the bytes in a key or
 message used for decoding. It can be one or two numbers separated by a colon (``<start>[:<end>]``).
 
@@ -1054,10 +1061,11 @@ A sequence of bytes is read from input message and decoded according to either:
 
 Length of decoded byte sequence is implied by the ``dataFormat``.
 
-For ``VARCHAR`` data type a sequence of bytes is interpreted according to UTF-8 encoding.
+For ``VARCHAR`` data type a sequence of bytes is interpreted according to UTF-8
+encoding.
 
-``csv`` decoder
-^^^^^^^^^^^^^^^
+CSV decoder
+"""""""""""
 
 The CSV decoder converts the bytes representing a message or key into a
 string using UTF-8 encoding and then interprets the result as a CSV
@@ -1088,9 +1096,10 @@ Table below lists supported Trino types, which can be used in ``type`` and decod
 | ``VARCHAR`` / ``VARCHAR(x)``        | Used as is                                                                     |
 +-------------------------------------+--------------------------------------------------------------------------------+
 
+No other types are supported.
 
-``json`` decoder
-^^^^^^^^^^^^^^^^
+JSON decoder
+""""""""""""
 
 The JSON decoder converts the bytes representing a message or key into a
 JSON according to :rfc:`4627`. Note that the message or key *MUST* convert
@@ -1136,9 +1145,10 @@ which can be specified via ``dataFormat`` attribute.
 | |                                   | ``seconds-since-epoch``                                                        |
 +-------------------------------------+--------------------------------------------------------------------------------+
 
+No other types are supported.
 
 Default field decoder
-^^^^^^^^^^^^^^^^^^^^^
++++++++++++++++++++++
 
 This is the standard field decoder, supporting all the Trino physical data
 types. A field value is transformed under JSON conversion rules into
@@ -1146,7 +1156,7 @@ boolean, long, double or string values. For non-date/time based columns,
 this decoder should be used.
 
 Date and time decoders
-^^^^^^^^^^^^^^^^^^^^^^
+++++++++++++++++++++++
 
 To convert values from JSON objects into Trino ``DATE``, ``TIME``, ``TIME WITH TIME ZONE``,
 ``TIMESTAMP`` or ``TIMESTAMP WITH TIME ZONE`` columns, special decoders must be selected using the
@@ -1163,8 +1173,8 @@ To convert values from JSON objects into Trino ``DATE``, ``TIME``, ``TIME WITH T
 For ``TIMESTAMP WITH TIME ZONE`` and ``TIME WITH TIME ZONE`` data types, if timezone information is present in decoded value, it will
 be used as Trino value. Otherwise result time zone will be set to ``UTC``.
 
-``avro`` decoder
-^^^^^^^^^^^^^^^^
+Avro decoder
+""""""""""""
 
 The Avro decoder converts the bytes representing a message or key in
 Avro format based on a schema. The message must have the Avro schema embedded.
@@ -1195,8 +1205,10 @@ Trino data type                       Allowed Avro data type
 ``MAP``                               ``MAP``
 ===================================== =======================================
 
+No other types are supported.
+
 Avro schema evolution
-"""""""""""""""""""""
++++++++++++++++++++++
 
 The Avro decoder supports schema evolution feature with backward compatibility. With backward compatibility,
 a newer schema can be used to read Avro data created with an older schema. Any change in the Avro schema must also be
@@ -1215,4 +1227,22 @@ The schema evolution behavior is as follows:
   produces a *default* value when table is using the new schema.
 
 * Changing type of column in the new schema:
-  If the type coercion is supported by Avro, then the conversion happens. An error is thrown for incompatible types.
+  If the type coercion is supported by Avro, then the conversion happens. An
+  error is thrown for incompatible types.
+
+.. _kafka-sql-support:
+
+SQL support
+-----------
+
+The connector provides read and write access to data and metadata in Trino
+tables populated by Kafka topics. See :ref:`kafka-row-decoding` for more
+information.
+
+In addition to the :ref:`globally available <sql-globally-available>`
+and :ref:`read operation <sql-read-operations>` statements, the connector
+supports the following features:
+
+* :doc:`/sql/insert`, encoded to a specified data format. See also
+  :ref:`kafka-sql-inserts`.
+
