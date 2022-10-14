@@ -198,7 +198,7 @@ public final class JdbcTableHandle
     @JsonIgnore
     public boolean isSynthetic()
     {
-        return !isNamedRelation() || !constraint.isAll() || sortOrder.isPresent() || limit.isPresent();
+        return !isNamedRelation() || !constraint.isAll() || !constraintExpressions.isEmpty() || sortOrder.isPresent() || limit.isPresent();
     }
 
     @JsonIgnore
