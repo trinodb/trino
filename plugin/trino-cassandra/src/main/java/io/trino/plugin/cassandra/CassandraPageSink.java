@@ -159,44 +159,44 @@ public class CassandraPageSink
             values.add(null);
         }
         else if (BOOLEAN.equals(type)) {
-            values.add(type.getBoolean(block, position));
+            values.add(BOOLEAN.getBoolean(block, position));
         }
         else if (BIGINT.equals(type)) {
-            values.add(type.getLong(block, position));
+            values.add(BIGINT.getLong(block, position));
         }
         else if (INTEGER.equals(type)) {
-            values.add(toIntExact(type.getLong(block, position)));
+            values.add(toIntExact(INTEGER.getLong(block, position)));
         }
         else if (SMALLINT.equals(type)) {
-            values.add(Shorts.checkedCast(type.getLong(block, position)));
+            values.add(Shorts.checkedCast(SMALLINT.getLong(block, position)));
         }
         else if (TINYINT.equals(type)) {
-            values.add(SignedBytes.checkedCast(type.getLong(block, position)));
+            values.add(SignedBytes.checkedCast(TINYINT.getLong(block, position)));
         }
         else if (DOUBLE.equals(type)) {
-            values.add(type.getDouble(block, position));
+            values.add(DOUBLE.getDouble(block, position));
         }
         else if (REAL.equals(type)) {
-            values.add(intBitsToFloat(toIntExact(type.getLong(block, position))));
+            values.add(intBitsToFloat(toIntExact(REAL.getLong(block, position))));
         }
         else if (DATE.equals(type)) {
-            values.add(toCassandraDate.apply(type.getLong(block, position)));
+            values.add(toCassandraDate.apply(DATE.getLong(block, position)));
         }
         else if (TIME_NANOS.equals(type)) {
             long value = type.getLong(block, position);
             values.add(LocalTime.ofNanoOfDay(roundDiv(value, PICOSECONDS_PER_NANOSECOND) % NANOSECONDS_PER_DAY));
         }
         else if (TIMESTAMP_TZ_MILLIS.equals(type)) {
-            values.add(Instant.ofEpochMilli(unpackMillisUtc(type.getLong(block, position))));
+            values.add(Instant.ofEpochMilli(unpackMillisUtc(TIMESTAMP_TZ_MILLIS.getLong(block, position))));
         }
-        else if (type instanceof VarcharType) {
-            values.add(type.getSlice(block, position).toStringUtf8());
+        else if (type instanceof VarcharType varcharType) {
+            values.add(varcharType.getSlice(block, position).toStringUtf8());
         }
         else if (VARBINARY.equals(type)) {
-            values.add(type.getSlice(block, position).toByteBuffer());
+            values.add(VARBINARY.getSlice(block, position).toByteBuffer());
         }
         else if (UuidType.UUID.equals(type)) {
-            values.add(trinoUuidToJavaUuid(type.getSlice(block, position)));
+            values.add(trinoUuidToJavaUuid(UuidType.UUID.getSlice(block, position)));
         }
         else if (cassandraTypeManager.isIpAddressType(type)) {
             values.add(InetAddresses.forString((String) type.getObjectValue(null, block, position)));

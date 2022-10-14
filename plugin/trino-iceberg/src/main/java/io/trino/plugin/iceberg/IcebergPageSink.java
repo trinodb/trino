@@ -29,18 +29,9 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SortOrder;
-import io.trino.spi.type.BigintType;
-import io.trino.spi.type.BooleanType;
-import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.DoubleType;
-import io.trino.spi.type.IntegerType;
-import io.trino.spi.type.RealType;
-import io.trino.spi.type.SmallintType;
-import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.iceberg.MetricsConfig;
@@ -75,11 +66,20 @@ import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
 import static io.trino.plugin.iceberg.PartitionTransforms.getColumnTransform;
 import static io.trino.plugin.iceberg.util.Timestamps.getTimestampTz;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToMicros;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.Decimals.readBigDecimal;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -450,41 +450,50 @@ public class IcebergPageSink
         if (block.isNull(position)) {
             return null;
         }
-        if (type instanceof BigintType) {
-            return type.getLong(block, position);
+        if (type.equals(BIGINT)) {
+            return BIGINT.getLong(block, position);
         }
-        if (type instanceof IntegerType || type instanceof SmallintType || type instanceof TinyintType || type instanceof DateType) {
-            return toIntExact(type.getLong(block, position));
+        if (type.equals(TINYINT)) {
+            return toIntExact(TINYINT.getLong(block, position));
         }
-        if (type instanceof BooleanType) {
-            return type.getBoolean(block, position);
+        if (type.equals(SMALLINT)) {
+            return toIntExact(SMALLINT.getLong(block, position));
         }
-        if (type instanceof DecimalType) {
-            return readBigDecimal((DecimalType) type, block, position);
+        if (type.equals(INTEGER)) {
+            return toIntExact(INTEGER.getLong(block, position));
         }
-        if (type instanceof RealType) {
-            return intBitsToFloat(toIntExact(type.getLong(block, position)));
+        if (type.equals(DATE)) {
+            return toIntExact(DATE.getLong(block, position));
         }
-        if (type instanceof DoubleType) {
-            return type.getDouble(block, position);
+        if (type.equals(BOOLEAN)) {
+            return BOOLEAN.getBoolean(block, position);
+        }
+        if (type instanceof DecimalType decimalType) {
+            return readBigDecimal(decimalType, block, position);
+        }
+        if (type.equals(REAL)) {
+            return intBitsToFloat(toIntExact(REAL.getLong(block, position)));
+        }
+        if (type.equals(DOUBLE)) {
+            return DOUBLE.getDouble(block, position);
         }
         if (type.equals(TIME_MICROS)) {
-            return type.getLong(block, position) / PICOSECONDS_PER_MICROSECOND;
+            return TIME_MICROS.getLong(block, position) / PICOSECONDS_PER_MICROSECOND;
         }
         if (type.equals(TIMESTAMP_MICROS)) {
-            return type.getLong(block, position);
+            return TIMESTAMP_MICROS.getLong(block, position);
         }
         if (type.equals(TIMESTAMP_TZ_MICROS)) {
             return timestampTzToMicros(getTimestampTz(block, position));
         }
-        if (type instanceof VarbinaryType) {
-            return type.getSlice(block, position).getBytes();
+        if (type instanceof VarbinaryType varbinaryType) {
+            return varbinaryType.getSlice(block, position).getBytes();
         }
-        if (type instanceof VarcharType) {
-            return type.getSlice(block, position).toStringUtf8();
+        if (type instanceof VarcharType varcharType) {
+            return varcharType.getSlice(block, position).toStringUtf8();
         }
-        if (type instanceof UuidType) {
-            return trinoUuidToJavaUuid(type.getSlice(block, position));
+        if (type.equals(UUID)) {
+            return trinoUuidToJavaUuid(UUID.getSlice(block, position));
         }
         throw new UnsupportedOperationException("Type not supported as partition column: " + type.getDisplayName());
     }
