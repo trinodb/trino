@@ -575,7 +575,7 @@ Configure a catalog rules file
 ------------------------------
 
 The configuration file is specified in JSON format. This file is composed of
-the folowing sections, each of which is a list of rules that are processed in
+the following sections, each of which is a list of rules that are processed in
 order from top to bottom:
 
 1. ``schemas``
