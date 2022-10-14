@@ -819,9 +819,6 @@ public class DeltaLakeMetadata
         }
         Path targetPath = new Path(location);
         ensurePathExists(session, targetPath);
-
-        HdfsContext hdfsContext = new HdfsContext(session);
-        createDirectory(hdfsContext, hdfsEnvironment, targetPath);
         checkPathContainsNoFiles(session, targetPath);
 
         setRollback(() -> deleteRecursivelyIfExists(new HdfsContext(session), hdfsEnvironment, targetPath));
