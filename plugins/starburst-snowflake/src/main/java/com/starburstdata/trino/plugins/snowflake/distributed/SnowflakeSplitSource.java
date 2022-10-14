@@ -341,7 +341,8 @@ public class SnowflakeSplitSource
                 hiveConfig.getSplitLoaderConcurrency(),
                 hiveConfig.getMaxSplitsPerSecond(),
                 hiveConfig.getRecursiveDirWalkerEnabled(),
-                typeManager);
+                typeManager,
+                hiveConfig.getMaxPartitionsPerScan());
     }
 
     private SemiTransactionalHiveMetastore getSemiTransactionalHiveMetastore(HiveConfig hiveConfig, HdfsEnvironment hdfsEnvironment)
