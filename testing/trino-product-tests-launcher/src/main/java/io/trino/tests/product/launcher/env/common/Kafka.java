@@ -61,11 +61,23 @@ public class Kafka
                 .containerDependsOn(KAFKA, ZOOKEEPER)
                 .containerDependsOn(SCHEMA_REGISTRY, KAFKA);
 
-        MountableFile logConfigFile = forHostPath(configDir.getPath("log.properties"));
         builder.configureContainers(container -> {
             if (isTrinoContainer(container.getLogicalName())) {
+                MountableFile logConfigFile = forHostPath(configDir.getPath("log.properties"));
                 container.withCopyFileToContainer(logConfigFile, CONTAINER_TRINO_ETC + "/log.properties");
             }
+        });
+
+        // Confluent Docker entry point script overwrites /etc/kafka/log4j.properties
+        // Modify the template directly instead
+        builder.configureContainer(KAFKA, container -> {
+            MountableFile logConfigFile = forHostPath(configDir.getPath("log4j-kafka.properties.template"));
+            container.withCopyFileToContainer(logConfigFile, "/etc/confluent/docker/log4j.properties.template");
+        });
+
+        builder.configureContainer(SCHEMA_REGISTRY, container -> {
+            MountableFile logConfigFile = forHostPath(configDir.getPath("log4j-schema-registry.properties.template"));
+            container.withCopyFileToContainer(logConfigFile, "/etc/confluent/docker/log4j.properties.template");
         });
     }
 
