@@ -170,21 +170,16 @@ public class TestEvictableCache
         ticker.increment(ttl, MILLISECONDS);
         // Should be reloaded
         assertEquals(cache.get(key, () -> "new value"), "new value");
-        // TODO (https://github.com/trinodb/trino/issues/14545) tokensCount should be 1; 0 means we lost the token for a live entry
-        assertThat(((EvictableCache<?, ?>) cache).tokensCount()).as("tokensCount").isEqualTo(0);
+        assertThat(((EvictableCache<?, ?>) cache).tokensCount()).as("tokensCount").isEqualTo(1);
 
         // Should be served from the cache
-        // TODO (https://github.com/trinodb/trino/issues/14545) this should return "new value" inserted into the cache above; it's not doing that due to the token being lost
-        assertEquals(cache.get(key, () -> "something yet different"), "something yet different");
-        // TODO (https://github.com/trinodb/trino/issues/14545) loads count should be 2; it got incremented because we lost the token for a live entry
+        assertEquals(cache.get(key, () -> "something yet different"), "new value");
         assertThat(((EvictableCache<?, ?>) cache).tokensCount()).as("tokensCount").isEqualTo(1);
 
-        // TODO (https://github.com/trinodb/trino/issues/14545) cache size should be 1; it is misreported, because there are two live entries for the same key, due to first token being lost
-        assertThat(cache.size()).as("cacheSize").isEqualTo(2);
+        assertThat(cache.size()).as("cacheSize").isEqualTo(1);
         assertThat(((EvictableCache<?, ?>) cache).tokensCount()).as("tokensCount").isEqualTo(1);
         assertThat(cache.asMap().keySet()).as("keySet").hasSize(1);
-        // TODO (https://github.com/trinodb/trino/issues/14545) values size should be 1; it is misreported, because there are two live entries for the same key, due to first token being lost
-        assertThat(cache.asMap().values()).as("values").hasSize(2);
+        assertThat(cache.asMap().values()).as("values").hasSize(1);
     }
 
     @Test(timeOut = TEST_TIMEOUT_MILLIS)
