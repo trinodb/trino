@@ -31,6 +31,7 @@ import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.testing.TestingConnectorSession;
+import org.jetbrains.annotations.NotNull;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -55,6 +56,7 @@ import java.util.stream.Stream;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.plugin.jdbc.TestCachingJdbcClient.CachingJdbcCache.STATISTICS_CACHE;
+import static io.trino.plugin.jdbc.TestCachingJdbcClient.CachingJdbcCache.TABLE_HANDLES_BY_NAME_CACHE;
 import static io.trino.plugin.jdbc.TestCachingJdbcClient.CachingJdbcCache.TABLE_HANDLES_BY_QUERY_CACHE;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
@@ -274,6 +276,38 @@ public class TestCachingJdbcClient
     }
 
     @Test
+    public void testTableHandleInvalidatedOnColumnsModifications()
+    {
+        JdbcTableHandle table = createTable(new SchemaTableName(schema, "a_table"));
+        JdbcColumnHandle existingColumn = addColumn(table, "a_column");
+
+        // warm-up cache
+        assertTableHandlesByNameCacheIsInvalidated(table);
+        JdbcColumnHandle newColumn = addColumn(cachingJdbcClient, table, "new_column");
+        assertTableHandlesByNameCacheIsInvalidated(table);
+        cachingJdbcClient.setColumnComment(SESSION, table, newColumn, Optional.empty());
+        assertTableHandlesByNameCacheIsInvalidated(table);
+        cachingJdbcClient.renameColumn(SESSION, table, newColumn, "new_column_name");
+        assertTableHandlesByNameCacheIsInvalidated(table);
+        cachingJdbcClient.dropColumn(SESSION, table, existingColumn);
+        assertTableHandlesByNameCacheIsInvalidated(table);
+
+        dropTable(table);
+    }
+
+    private void assertTableHandlesByNameCacheIsInvalidated(JdbcTableHandle table)
+    {
+        SchemaTableName tableName = table.asPlainTable().getSchemaTableName();
+
+        assertCacheStats(cachingJdbcClient, TABLE_HANDLES_BY_NAME_CACHE).misses(1).loads(1).afterRunning(() -> {
+            assertThat(cachingJdbcClient.getTableHandle(SESSION, tableName).orElseThrow()).isEqualTo(table);
+        });
+        assertCacheStats(cachingJdbcClient, TABLE_HANDLES_BY_NAME_CACHE).hits(1).afterRunning(() -> {
+            assertThat(cachingJdbcClient.getTableHandle(SESSION, tableName).orElseThrow()).isEqualTo(table);
+        });
+    }
+
+    @Test
     public void testEmptyTableHandleIsCachedWhenCacheMissingIsTrue()
     {
         SchemaTableName phantomTable = new SchemaTableName(schema, "phantom_table");
@@ -302,6 +336,11 @@ public class TestCachingJdbcClient
     {
         jdbcClient.createTable(SESSION, new ConnectorTableMetadata(phantomTable, emptyList()));
         return jdbcClient.getTableHandle(SESSION, phantomTable).orElseThrow();
+    }
+
+    private void dropTable(JdbcTableHandle tableHandle)
+    {
+        jdbcClient.dropTable(SESSION, tableHandle);
     }
 
     private void dropTable(SchemaTableName phantomTable)
@@ -820,9 +859,15 @@ public class TestCachingJdbcClient
 
     private JdbcColumnHandle addColumn(JdbcTableHandle tableHandle, String columnName)
     {
+        return addColumn(jdbcClient, tableHandle, columnName);
+    }
+
+    @NotNull
+    private JdbcColumnHandle addColumn(JdbcClient client, JdbcTableHandle tableHandle, String columnName)
+    {
         ColumnMetadata columnMetadata = new ColumnMetadata(columnName, INTEGER);
-        jdbcClient.addColumn(SESSION, tableHandle, columnMetadata);
-        return jdbcClient.getColumns(SESSION, tableHandle)
+        client.addColumn(SESSION, tableHandle, columnMetadata);
+        return client.getColumns(SESSION, tableHandle)
                 .stream()
                 .filter(jdbcColumnHandle -> jdbcColumnHandle.getColumnMetadata().equals(columnMetadata))
                 .findAny()
@@ -995,6 +1040,7 @@ public class TestCachingJdbcClient
     {
         TABLE_NAMES_CACHE(CachingJdbcClient::getTableNamesCacheStats),
         TABLE_HANDLES_BY_QUERY_CACHE(CachingJdbcClient::getTableHandlesByQueryCacheStats),
+        TABLE_HANDLES_BY_NAME_CACHE(CachingJdbcClient::getTableHandlesByNameCacheStats),
         COLUMNS_CACHE(CachingJdbcClient::getColumnsCacheStats),
         STATISTICS_CACHE(CachingJdbcClient::getStatisticsCacheStats),
         /**/;

@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
@@ -107,6 +108,13 @@ class TestingH2JdbcClient
     {
         // Don't return a comment until the connector supports creating tables with comment
         return Optional.empty();
+    }
+
+    @Override
+    public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
+    {
+        // do not throw when invoked, however do not allow to set non-empty comment until the connector supports setting column comments
+        verify(comment.isEmpty(), "This connector does not support setting column comments");
     }
 
     @Override
