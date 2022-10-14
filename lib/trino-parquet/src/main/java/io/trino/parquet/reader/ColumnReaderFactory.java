@@ -22,6 +22,7 @@ import io.trino.spi.type.AbstractLongType;
 import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.TimeType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
@@ -108,6 +109,12 @@ public final class ColumnReaderFactory
                 }
                 throw unsupportedException(type, field);
             }
+            if (type instanceof TimeType && primitiveType == INT64) {
+                if (annotation instanceof TimeLogicalTypeAnnotation timeAnnotation && timeAnnotation.getUnit() == MICROS) {
+                    return new FlatColumnReader<>(field, ValueDecoders::getTimeMicrosDecoder, LONG_ADAPTER);
+                }
+                throw unsupportedException(type, field);
+            }
             if (type instanceof AbstractLongType && primitiveType == INT64) {
                 if (BIGINT.equals(type) && annotation instanceof TimestampLogicalTypeAnnotation) {
                     return new FlatColumnReader<>(field, ValueDecoders::getLongDecoder, LONG_ADAPTER);
@@ -115,6 +122,7 @@ public final class ColumnReaderFactory
                 if (isIntegerAnnotation(annotation)) {
                     return new FlatColumnReader<>(field, ValueDecoders::getLongDecoder, LONG_ADAPTER);
                 }
+                throw unsupportedException(type, field);
             }
             if (REAL.equals(type) && primitiveType == FLOAT) {
                 return new FlatColumnReader<>(field, ValueDecoders::getRealDecoder, INT_ADAPTER);
