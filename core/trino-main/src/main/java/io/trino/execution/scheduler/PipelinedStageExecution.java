@@ -60,6 +60,7 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -395,7 +396,11 @@ public class PipelinedStageExecution
 
     private synchronized boolean isStageFinished()
     {
-        return finishedTasks.containsAll(allTasks);
+        boolean finished = finishedTasks.size() == allTasks.size();
+        if (finished) {
+            checkState(finishedTasks.containsAll(allTasks), "Finished tasks should contain all tasks");
+        }
+        return finished;
     }
 
     private boolean addFlushingTask(TaskId taskId)
