@@ -347,7 +347,8 @@ public class WorkProcessorPipelineSourceOperator
                                 context.metrics.get(),
                                 context.inputPositions.get(),
                                 new Duration(context.operatorTiming.getCpuNanos(), NANOSECONDS).convertTo(SECONDS).getValue(),
-                                new Duration(context.operatorTiming.getWallNanos(), NANOSECONDS).convertTo(SECONDS).getValue()),
+                                new Duration(context.operatorTiming.getWallNanos(), NANOSECONDS).convertTo(SECONDS).getValue(),
+                                new Duration(context.blockedWallNanos.get(), NANOSECONDS).convertTo(SECONDS).getValue()),
                         getConnectorMetrics(context.connectorMetrics.get(), context.readTimeNanos.get()),
 
                         DataSize.ofBytes(0),
