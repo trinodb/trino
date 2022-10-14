@@ -511,12 +511,13 @@ public class OperatorContext
                 .orElseGet(() -> ImmutableList.of(getOperatorStats()));
     }
 
-    public static Metrics getOperatorMetrics(Metrics operatorMetrics, long inputPositions, double cpuTimeSeconds, double wallTimeSeconds)
+    public static Metrics getOperatorMetrics(Metrics operatorMetrics, long inputPositions, double cpuTimeSeconds, double wallTimeSeconds, double blockedWallSeconds)
     {
         return operatorMetrics.mergeWith(new Metrics(ImmutableMap.of(
                 "Input rows distribution", TDigestHistogram.fromValue(inputPositions),
                 "CPU time distribution (s)", TDigestHistogram.fromValue(cpuTimeSeconds),
-                "Wall time distribution (s)", TDigestHistogram.fromValue(wallTimeSeconds))));
+                "Wall time distribution (s)", TDigestHistogram.fromValue(wallTimeSeconds),
+                "Blocked time distribution (s)", TDigestHistogram.fromValue(blockedWallSeconds))));
     }
 
     public static Metrics getConnectorMetrics(Metrics connectorMetrics, long physicalInputReadTimeNanos)
@@ -574,7 +575,8 @@ public class OperatorContext
                         metrics.get(),
                         inputPositionsCount,
                         new Duration(addInputTiming.getCpuNanos() + getOutputTiming.getCpuNanos() + finishTiming.getCpuNanos(), NANOSECONDS).convertTo(SECONDS).getValue(),
-                        new Duration(addInputTiming.getWallNanos() + getOutputTiming.getWallNanos() + finishTiming.getWallNanos(), NANOSECONDS).convertTo(SECONDS).getValue()),
+                        new Duration(addInputTiming.getWallNanos() + getOutputTiming.getWallNanos() + finishTiming.getWallNanos(), NANOSECONDS).convertTo(SECONDS).getValue(),
+                        new Duration(blockedWallNanos.get(), NANOSECONDS).convertTo(SECONDS).getValue()),
                 getConnectorMetrics(connectorMetrics.get(), physicalInputReadTimeNanos.get()),
 
                 DataSize.ofBytes(physicalWrittenDataSize.get()),
