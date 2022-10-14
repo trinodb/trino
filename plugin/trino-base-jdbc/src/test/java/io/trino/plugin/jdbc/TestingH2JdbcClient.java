@@ -110,6 +110,16 @@ class TestingH2JdbcClient
     }
 
     @Override
+    public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
+    {
+        // Ignore (not fail) when comment is empty for testing purposes.
+        // however do not allow to set non-empty comment, not to have increased expectations from the invoking test
+        if (comment.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column comments");
+        }
+    }
+
+    @Override
     public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
     {
         // GROUP BY with GROUPING SETS is not supported

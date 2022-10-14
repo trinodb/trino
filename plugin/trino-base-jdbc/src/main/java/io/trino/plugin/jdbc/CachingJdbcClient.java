@@ -418,28 +418,28 @@ public class CachingJdbcClient
     public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
     {
         delegate.setColumnComment(session, handle, column, comment);
-        invalidateColumnsCache(handle.asPlainTable().getSchemaTableName());
+        invalidateTableCaches(handle.asPlainTable().getSchemaTableName());
     }
 
     @Override
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
     {
         delegate.addColumn(session, handle, column);
-        invalidateColumnsCache(handle.asPlainTable().getSchemaTableName());
+        invalidateTableCaches(handle.asPlainTable().getSchemaTableName());
     }
 
     @Override
     public void dropColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
     {
         delegate.dropColumn(session, handle, column);
-        invalidateColumnsCache(handle.asPlainTable().getSchemaTableName());
+        invalidateTableCaches(handle.asPlainTable().getSchemaTableName());
     }
 
     @Override
     public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
         delegate.renameColumn(session, handle, jdbcColumn, newColumnName);
-        invalidateColumnsCache(handle.asPlainTable().getSchemaTableName());
+        invalidateTableCaches(handle.asPlainTable().getSchemaTableName());
     }
 
     @Override
@@ -582,6 +582,12 @@ public class CachingJdbcClient
     CacheStats getTableNamesCacheStats()
     {
         return tableNamesCache.stats();
+    }
+
+    @VisibleForTesting
+    CacheStats getTableHandlesByNameCacheStats()
+    {
+        return tableHandlesByNameCache.stats();
     }
 
     @VisibleForTesting
