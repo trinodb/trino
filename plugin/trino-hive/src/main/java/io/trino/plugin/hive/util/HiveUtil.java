@@ -38,7 +38,6 @@ import io.trino.plugin.hive.avro.TrinoAvroSerDe;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.hive.type.Category;
 import io.trino.plugin.hive.type.StructTypeInfo;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
@@ -694,11 +693,6 @@ public final class HiveUtil
     public static boolean isStructuralType(Type type)
     {
         return (type instanceof ArrayType) || (type instanceof MapType) || (type instanceof RowType);
-    }
-
-    public static boolean isStructuralType(HiveType hiveType)
-    {
-        return hiveType.getCategory() == Category.LIST || hiveType.getCategory() == Category.MAP || hiveType.getCategory() == Category.STRUCT || hiveType.getCategory() == Category.UNION;
     }
 
     public static boolean booleanPartitionKey(String value, String name)

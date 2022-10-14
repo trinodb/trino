@@ -540,7 +540,7 @@ public class GenericHiveRecordCursor<K, V extends Writable>
         else if (type instanceof CharType) {
             parseStringColumn(column);
         }
-        else if (isStructuralType(hiveTypes[column])) {
+        else if (isStructuralType(type)) {
             parseObjectColumn(column);
         }
         else if (DATE.equals(type)) {
