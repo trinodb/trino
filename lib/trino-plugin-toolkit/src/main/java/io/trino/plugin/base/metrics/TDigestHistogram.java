@@ -77,6 +77,8 @@ public class TDigestHistogram
         return (long) digest.getCount();
     }
 
+    // Below are extra properties that make it easy to read and parse serialized distribution
+    // in operator summaries and event listener.
     @JsonProperty
     public synchronized double getMin()
     {
