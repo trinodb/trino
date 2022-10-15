@@ -71,7 +71,7 @@ public class SnowflakeSplitManager
     {
         JdbcTableHandle jdbcTableHandle = (JdbcTableHandle) table;
         List<JdbcColumnHandle> columns = jdbcTableHandle.getColumns()
-                .orElseGet(() -> connector.get().getMetadata(transaction)
+                .orElseGet(() -> connector.get().getMetadata(session, transaction)
                         .getColumnHandles(session, table)
                         .values().stream()
                         .map(JdbcColumnHandle.class::cast)

@@ -19,20 +19,25 @@ import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.trino.spi.block.MethodHandleUtil.methodHandle;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
 public class FlushStatisticsCacheProcedure
         implements Provider<Procedure>
 {
-    private static final MethodHandle FLUSH_STATISTICS_CACHE = methodHandle(
-            FlushStatisticsCacheProcedure.class,
-            "flushStatisticsCache",
-            String.class,
-            String.class);
+    private static final MethodHandle FLUSH_STATISTICS_CACHE;
 
     private final CachingJdbcClient cachingJdbcClient;
+
+    static {
+        try {
+            FLUSH_STATISTICS_CACHE = lookup().unreflect(FlushStatisticsCacheProcedure.class.getMethod("flushStatisticsCache", String.class, String.class));
+        }
+        catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
 
     @Inject
     public FlushStatisticsCacheProcedure(CachingJdbcClient cachingJdbcClient)
