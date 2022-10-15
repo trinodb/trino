@@ -56,6 +56,7 @@ import org.apache.pinot.spi.data.readers.GenericRow;
 import org.apache.pinot.spi.data.readers.RecordReader;
 import org.apache.pinot.spi.utils.builder.TableNameBuilder;
 import org.testcontainers.shaded.org.bouncycastle.util.encoders.Hex;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -73,6 +74,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -143,6 +145,37 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
     protected boolean isLatestVersion()
     {
         return getPinotImageName().equals(PINOT_LATEST_IMAGE_NAME);
+    }
+
+    @Override
+    @BeforeClass
+    public void init()
+            throws Exception
+    {
+        super.init();
+        // Ensure test tables are available in Pinot with expected number of rows.
+        validateTableRows(ALL_TYPES_TABLE, MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES);
+        validateTableRows(MIXED_CASE_COLUMN_NAMES_TABLE, 4);
+        validateTableRows(MIXED_CASE_DISTINCT_TABLE, 4);
+        validateTableRows(TOO_MANY_ROWS_TABLE, MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1);
+        validateTableRows(TOO_MANY_BROKER_ROWS_TABLE, MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES + 1);
+        validateTableRows(MIXED_CASE_TABLE_NAME, 4);
+        validateTableRows(JSON_TABLE, 7);
+        validateTableRows(JSON_TYPE_TABLE, 3);
+        validateTableRows(RESERVED_KEYWORD_TABLE, 2);
+        validateTableRows(QUOTES_IN_COLUMN_NAME_TABLE, 2);
+        validateTableRows(DUPLICATE_VALUES_IN_COLUMNS_TABLE, 5);
+        validateTableRows("region", getQueryRunner().execute("SELECT * FROM tpch.tiny.region").getRowCount());
+        validateTableRows("nation", getQueryRunner().execute("SELECT * FROM tpch.tiny.nation").getRowCount());
+    }
+
+    private void validateTableRows(String tableName, int expectedRows)
+    {
+        assertQueryEventually(
+                getQueryRunner().getDefaultSession(),
+                "SELECT COUNT(*) FROM " + tableName,
+                "VALUES '" + expectedRows + "'",
+                new io.airlift.units.Duration(10, TimeUnit.SECONDS));
     }
 
     @Override

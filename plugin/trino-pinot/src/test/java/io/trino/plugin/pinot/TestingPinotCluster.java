@@ -48,6 +48,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -85,51 +86,50 @@ public class TestingPinotCluster
     private final GenericContainer<?> server;
     private final GenericContainer<?> zookeeper;
     private final HttpClient httpClient;
-    private final Closer closer = Closer.create();
     private final boolean secured;
 
     public TestingPinotCluster(Network network, boolean secured, String pinotImageName)
     {
-        httpClient = closer.register(new JettyHttpClient());
+        httpClient = new JettyHttpClient();
         zookeeper = new GenericContainer<>(parse("zookeeper:3.5.6"))
                 .withStartupAttempts(3)
+                .withStartupTimeout(Duration.ofMinutes(2))
                 .withNetwork(network)
                 .withNetworkAliases(ZOOKEEPER_INTERNAL_HOST)
                 .withEnv("ZOOKEEPER_CLIENT_PORT", String.valueOf(ZOOKEEPER_PORT))
                 .withExposedPorts(ZOOKEEPER_PORT);
-        closer.register(zookeeper::stop);
 
         String controllerConfig = secured ? "/var/pinot/controller/config/pinot-controller-secured.conf" : "/var/pinot/controller/config/pinot-controller.conf";
         controller = new GenericContainer<>(parse(pinotImageName))
                 .withStartupAttempts(3)
+                .withStartupTimeout(Duration.ofMinutes(2))
                 .withNetwork(network)
                 .withClasspathResourceMapping("/pinot-controller", "/var/pinot/controller/config", BindMode.READ_ONLY)
                 .withEnv("JAVA_OPTS", "-Xmx512m -Dlog4j2.configurationFile=/opt/pinot/conf/pinot-controller-log4j2.xml -Dplugins.dir=/opt/pinot/plugins")
                 .withCommand("StartController", "-configFileName", controllerConfig)
                 .withNetworkAliases("pinot-controller", "localhost")
                 .withExposedPorts(CONTROLLER_PORT);
-        closer.register(controller::stop);
 
         String brokerConfig = secured ? "/var/pinot/broker/config/pinot-broker-secured.conf" : "/var/pinot/broker/config/pinot-broker.conf";
         broker = new GenericContainer<>(parse(pinotImageName))
                 .withStartupAttempts(3)
+                .withStartupTimeout(Duration.ofMinutes(2))
                 .withNetwork(network)
                 .withClasspathResourceMapping("/pinot-broker", "/var/pinot/broker/config", BindMode.READ_ONLY)
                 .withEnv("JAVA_OPTS", "-Xmx512m -Dlog4j2.configurationFile=/opt/pinot/conf/pinot-broker-log4j2.xml -Dplugins.dir=/opt/pinot/plugins")
                 .withCommand("StartBroker", "-clusterName", "pinot", "-zkAddress", getZookeeperInternalHostPort(), "-configFileName", brokerConfig)
                 .withNetworkAliases("pinot-broker", "localhost")
                 .withExposedPorts(BROKER_PORT);
-        closer.register(broker::stop);
 
         server = new GenericContainer<>(parse(pinotImageName))
                 .withStartupAttempts(3)
+                .withStartupTimeout(Duration.ofMinutes(2))
                 .withNetwork(network)
                 .withClasspathResourceMapping("/pinot-server", "/var/pinot/server/config", BindMode.READ_ONLY)
                 .withEnv("JAVA_OPTS", "-Xmx512m -Dlog4j2.configurationFile=/opt/pinot/conf/pinot-server-log4j2.xml -Dplugins.dir=/opt/pinot/plugins")
                 .withCommand("StartServer", "-clusterName", "pinot", "-zkAddress", getZookeeperInternalHostPort(), "-configFileName", "/var/pinot/server/config/pinot-server.conf")
                 .withNetworkAliases("pinot-server", "localhost")
                 .withExposedPorts(SERVER_PORT, SERVER_ADMIN_PORT, GRPC_PORT);
-        closer.register(server::stop);
 
         this.secured = secured;
     }
@@ -146,7 +146,13 @@ public class TestingPinotCluster
     public void close()
             throws IOException
     {
-        closer.close();
+        try (Closer closer = Closer.create()) {
+            closer.register(zookeeper::stop);
+            closer.register(controller::stop);
+            closer.register(broker::stop);
+            closer.register(server::stop);
+            closer.register(httpClient);
+        }
     }
 
     private static String getZookeeperInternalHostPort()

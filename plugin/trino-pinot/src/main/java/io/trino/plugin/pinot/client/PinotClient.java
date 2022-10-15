@@ -93,6 +93,7 @@ import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_AMBIGUOUS_TABLE_NAME;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_EXCEPTION;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_UNABLE_TO_FIND_BROKER;
+import static io.trino.plugin.pinot.PinotErrorCode.PINOT_UNCLASSIFIED_ERROR;
 import static io.trino.plugin.pinot.PinotMetadata.SCHEMA_NAME;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -117,6 +118,8 @@ public class PinotClient
     private static final String ROUTING_TABLE_API_TEMPLATE = "debug/routingTable/%s";
     private static final String TIME_BOUNDARY_API_TEMPLATE = "debug/timeBoundary/%s";
     private static final String QUERY_URL_PATH = "query/sql";
+    private static final int DEFAULT_HTTP_RETRY_COUNT = 10;
+    private static final int DEFAULT_RETRY_INTERVAL = 1000;
 
     private final List<URI> controllerUrls;
     private final HttpClient httpClient;
@@ -270,18 +273,21 @@ public class PinotClient
 
     protected Multimap<String, String> getAllTables()
     {
-        List<String> allTables = sendHttpGetToControllerJson(GET_ALL_TABLES_API_TEMPLATE, tablesJsonCodec).getTables();
-        ImmutableListMultimap.Builder<String, String> builder = ImmutableListMultimap.builder();
-        for (String table : allTables) {
-            builder.put(table.toLowerCase(ENGLISH), table);
-        }
-        return builder.build();
+        return doWithRetries(DEFAULT_HTTP_RETRY_COUNT, retryNumber -> {
+            List<String> allTables =
+                    sendHttpGetToControllerJson(GET_ALL_TABLES_API_TEMPLATE, tablesJsonCodec).getTables();
+            ImmutableListMultimap.Builder<String, String> builder = ImmutableListMultimap.builder();
+            for (String table : allTables) {
+                builder.put(table.toLowerCase(ENGLISH), table);
+            }
+            return builder.build();
+        });
     }
 
     public Schema getTableSchema(String table)
             throws Exception
     {
-        return sendHttpGetToControllerJson(format(TABLE_SCHEMA_API_TEMPLATE, table), schemaJsonCodec);
+        return doWithRetries(DEFAULT_HTTP_RETRY_COUNT, retryNumber -> sendHttpGetToControllerJson(format(TABLE_SCHEMA_API_TEMPLATE, table), schemaJsonCodec));
     }
 
     public List<String> getPinotTableNames()
@@ -361,63 +367,73 @@ public class PinotClient
     @VisibleForTesting
     public List<String> getAllBrokersForTable(String table)
     {
-        ArrayList<String> brokers = sendHttpGetToControllerJson(format(TABLE_INSTANCES_API_TEMPLATE, table), brokersForTableJsonCodec)
-                .getBrokers().stream()
-                .flatMap(broker -> broker.getInstances().stream())
-                .distinct()
-                .map(brokerToParse -> {
-                    Matcher matcher = BROKER_PATTERN.matcher(brokerToParse);
-                    if (matcher.matches() && matcher.groupCount() == 2) {
-                        return pinotHostMapper.getBrokerHost(matcher.group(1), matcher.group(2));
-                    }
-                    throw new PinotException(
-                            PINOT_UNABLE_TO_FIND_BROKER,
-                            Optional.empty(),
-                            format("Cannot parse %s in the broker instance", brokerToParse));
-                })
-                .collect(Collectors.toCollection(ArrayList::new));
-        Collections.shuffle(brokers);
-        return ImmutableList.copyOf(brokers);
+        return doWithRetries(DEFAULT_HTTP_RETRY_COUNT, retryNumber -> {
+            ArrayList<String> brokers = sendHttpGetToControllerJson(format(TABLE_INSTANCES_API_TEMPLATE, table), brokersForTableJsonCodec)
+                    .getBrokers().stream()
+                    .flatMap(broker -> broker.getInstances().stream())
+                    .distinct()
+                    .map(brokerToParse -> {
+                        Matcher matcher = BROKER_PATTERN.matcher(brokerToParse);
+                        if (matcher.matches() && matcher.groupCount() == 2) {
+                            return pinotHostMapper.getBrokerHost(matcher.group(1), matcher.group(2));
+                        }
+                        throw new PinotException(
+                                PINOT_UNABLE_TO_FIND_BROKER,
+                                Optional.empty(),
+                                format("Cannot parse %s in the broker instance", brokerToParse));
+                    })
+                    .collect(Collectors.toCollection(ArrayList::new));
+            Collections.shuffle(brokers);
+            return ImmutableList.copyOf(brokers);
+        });
     }
 
     public String getBrokerHost(String table)
     {
-        try {
-            List<String> brokers = brokersForTableCache.get(table);
-            if (brokers.isEmpty()) {
-                throw new PinotException(PINOT_UNABLE_TO_FIND_BROKER, Optional.empty(), "No valid brokers found for " + table);
+        return doWithRetries(DEFAULT_HTTP_RETRY_COUNT, retryNumber -> {
+            try {
+                List<String> brokers = brokersForTableCache.get(table);
+                if (brokers.isEmpty()) {
+                    throw new PinotException(PINOT_UNABLE_TO_FIND_BROKER, Optional.empty(),
+                            "No valid brokers found for " + table, true);
+                }
+                return brokers.get(ThreadLocalRandom.current().nextInt(brokers.size()));
             }
-            return brokers.get(ThreadLocalRandom.current().nextInt(brokers.size()));
-        }
-        catch (ExecutionException e) {
-            Throwable throwable = e.getCause();
-            if (throwable instanceof PinotException) {
-                throw (PinotException) throwable;
+            catch (ExecutionException e) {
+                Throwable throwable = e.getCause();
+                if (throwable instanceof PinotException) {
+                    throw (PinotException) throwable;
+                }
+                throw new PinotException(PINOT_UNABLE_TO_FIND_BROKER, Optional.empty(),
+                        "Error when getting brokers for table " + table, true, throwable);
             }
-            throw new PinotException(PINOT_UNABLE_TO_FIND_BROKER, Optional.empty(), "Error when getting brokers for table " + table, throwable);
-        }
+        });
     }
 
     public Map<String, Map<String, List<String>>> getRoutingTableForTable(String tableName)
     {
-        Map<String, Map<String, List<String>>> routingTable = sendHttpGetToBrokerJson(tableName, format(ROUTING_TABLE_API_TEMPLATE, tableName), ROUTING_TABLE_CODEC);
-        ImmutableMap.Builder<String, Map<String, List<String>>> routingTableMap = ImmutableMap.builder();
-        for (Map.Entry<String, Map<String, List<String>>> entry : routingTable.entrySet()) {
-            String tableNameWithType = entry.getKey();
-            if (!entry.getValue().isEmpty() && tableName.equals(extractRawTableName(tableNameWithType))) {
-                ImmutableMap.Builder<String, List<String>> segmentBuilder = ImmutableMap.builder();
-                for (Map.Entry<String, List<String>> segmentEntry : entry.getValue().entrySet()) {
-                    if (!segmentEntry.getValue().isEmpty()) {
-                        segmentBuilder.put(segmentEntry.getKey(), segmentEntry.getValue());
+        return doWithRetries(DEFAULT_HTTP_RETRY_COUNT, retryNumber -> {
+            Map<String, Map<String, List<String>>> routingTable =
+                    sendHttpGetToBrokerJson(tableName, format(ROUTING_TABLE_API_TEMPLATE, tableName),
+                            ROUTING_TABLE_CODEC);
+            ImmutableMap.Builder<String, Map<String, List<String>>> routingTableMap = ImmutableMap.builder();
+            for (Map.Entry<String, Map<String, List<String>>> entry : routingTable.entrySet()) {
+                String tableNameWithType = entry.getKey();
+                if (!entry.getValue().isEmpty() && tableName.equals(extractRawTableName(tableNameWithType))) {
+                    ImmutableMap.Builder<String, List<String>> segmentBuilder = ImmutableMap.builder();
+                    for (Map.Entry<String, List<String>> segmentEntry : entry.getValue().entrySet()) {
+                        if (!segmentEntry.getValue().isEmpty()) {
+                            segmentBuilder.put(segmentEntry.getKey(), segmentEntry.getValue());
+                        }
+                    }
+                    Map<String, List<String>> segmentMap = segmentBuilder.buildOrThrow();
+                    if (!segmentMap.isEmpty()) {
+                        routingTableMap.put(tableNameWithType, segmentMap);
                     }
                 }
-                Map<String, List<String>> segmentMap = segmentBuilder.buildOrThrow();
-                if (!segmentMap.isEmpty()) {
-                    routingTableMap.put(tableNameWithType, segmentMap);
-                }
             }
-        }
-        return routingTableMap.buildOrThrow();
+            return routingTableMap.buildOrThrow();
+        });
     }
 
     public static class TimeBoundary
@@ -458,16 +474,19 @@ public class PinotClient
 
     public TimeBoundary getTimeBoundaryForTable(String table)
     {
-        try {
-            return sendHttpGetToBrokerJson(table, format(TIME_BOUNDARY_API_TEMPLATE, table), timeBoundaryJsonCodec);
-        }
-        catch (Exception e) {
-            String[] errorMessageSplits = e.getMessage().split(" ");
-            if (errorMessageSplits.length >= 4 && errorMessageSplits[3].equalsIgnoreCase(TIME_BOUNDARY_NOT_FOUND_ERROR_CODE)) {
-                return timeBoundaryJsonCodec.fromJson("{}");
+        return doWithRetries(DEFAULT_HTTP_RETRY_COUNT, retryNumber -> {
+            try {
+                return sendHttpGetToBrokerJson(table, format(TIME_BOUNDARY_API_TEMPLATE, table), timeBoundaryJsonCodec);
             }
-            throw e;
-        }
+            catch (Exception e) {
+                String[] errorMessageSplits = e.getMessage().split(" ");
+                if (errorMessageSplits.length >= 4 && errorMessageSplits[3].equalsIgnoreCase(
+                        TIME_BOUNDARY_NOT_FOUND_ERROR_CODE)) {
+                    return timeBoundaryJsonCodec.fromJson("{}");
+                }
+                throw e;
+            }
+        });
     }
 
     public static class QueryRequest
@@ -560,7 +579,8 @@ public class PinotClient
                 throw new PinotException(
                         PINOT_EXCEPTION,
                         Optional.of(query.getQuery()),
-                        format("Query %s encountered exception %s", query.getQuery(), processingExceptionMessage));
+                        format("Query %s encountered exception %s", query.getQuery(), processingExceptionMessage),
+                        true);
             }
             if (response.getNumServersQueried() == 0 || response.getNumServersResponded() == 0 || response.getNumServersQueried() > response.getNumServersResponded()) {
                 throw new PinotInsufficientServerResponseException(query, response.getNumServersResponded(), response.getNumServersQueried());
@@ -624,18 +644,37 @@ public class PinotClient
 
     public static <T> T doWithRetries(int retries, Function<Integer, T> caller)
     {
+        return doWithRetries(retries, caller, DEFAULT_RETRY_INTERVAL);
+    }
+
+    public static <T> T doWithRetries(int retries, Function<Integer, T> caller, int retryInterval)
+    {
         PinotException firstError = null;
         checkState(retries > 0, "Invalid num of retries %s", retries);
         for (int i = 0; i < retries; ++i) {
             try {
                 return caller.apply(i);
             }
-            catch (PinotException e) {
-                if (firstError == null) {
-                    firstError = e;
+            catch (Exception e) {
+                if (e instanceof PinotException pinotException) {
+                    if (firstError == null) {
+                        firstError = pinotException;
+                    }
+                    if (!pinotException.isRetryable()) {
+                        throw pinotException;
+                    }
                 }
-                if (!e.isRetryable()) {
-                    throw e;
+                else {
+                    if (firstError == null) {
+                        firstError = new PinotException(PINOT_UNCLASSIFIED_ERROR, Optional.empty(),
+                                "Unexpected exception", e);
+                    }
+                }
+                try {
+                    Thread.sleep(retryInterval);
+                }
+                catch (InterruptedException ex) {
+                    // Sleep interrupted, ignore
                 }
             }
         }
