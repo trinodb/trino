@@ -676,6 +676,41 @@ public class TestEvictableLoadingCache
         }
     }
 
+    @Test(dataProvider = "disabledCacheImplementations", dataProviderClass = TestEvictableCache.class)
+    public void testPutOnEmptyCacheImplementation(EvictableCacheBuilder.DisabledCacheImplementation disabledCacheImplementation)
+    {
+        LoadingCache<Object, Object> cache = EvictableCacheBuilder.newBuilder()
+                .maximumSize(0)
+                .disabledCacheImplementation(disabledCacheImplementation)
+                .build(CacheLoader.from(key -> key));
+        Map<Object, Object> cacheMap = cache.asMap();
+
+        int key = 0;
+        int value = 1;
+        assertThat(cacheMap.put(key, value)).isNull();
+        assertThat(cacheMap.put(key, value)).isNull();
+        assertThat(cacheMap.putIfAbsent(key, value)).isNull();
+        assertThat(cacheMap.putIfAbsent(key, value)).isNull();
+    }
+
+    @Test
+    public void testPutOnNonEmptyCacheImplementation()
+    {
+        LoadingCache<Object, Object> cache = EvictableCacheBuilder.newBuilder()
+                .maximumSize(10)
+                .build(CacheLoader.from(key -> key));
+        Map<Object, Object> cacheMap = cache.asMap();
+
+        int key = 0;
+        int value = 1;
+        assertThatThrownBy(() -> cacheMap.put(key, value))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessage("The operation is not supported, as in inherently races with cache invalidation. Use get(key, callable) instead.");
+        assertThatThrownBy(() -> cacheMap.putIfAbsent(key, value))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessage("The operation is not supported, as in inherently races with cache invalidation");
+    }
+
     /**
      * A class implementing value-based equality taking into account some fields, but not all.
      * This is definitely discouraged, but still may happen in practice.

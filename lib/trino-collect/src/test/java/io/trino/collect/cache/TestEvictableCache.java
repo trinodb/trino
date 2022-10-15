@@ -20,12 +20,14 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.testing.TestingTicker;
+import io.trino.collect.cache.EvictableCacheBuilder.DisabledCacheImplementation;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -38,11 +40,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.collect.cache.CacheStatsAssertions.assertCacheStats;
+import static io.trino.testing.DataProviders.toDataProvider;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newFixedThreadPool;
@@ -541,5 +545,47 @@ public class TestEvictableCache
             executor.shutdownNow();
             executor.awaitTermination(10, SECONDS);
         }
+    }
+
+    @Test(dataProvider = "disabledCacheImplementations")
+    public void testPutOnEmptyCacheImplementation(DisabledCacheImplementation disabledCacheImplementation)
+    {
+        Cache<Object, Object> cache = EvictableCacheBuilder.newBuilder()
+                .maximumSize(0)
+                .disabledCacheImplementation(disabledCacheImplementation)
+                .build();
+        Map<Object, Object> cacheMap = cache.asMap();
+
+        int key = 0;
+        int value = 1;
+        assertThat(cacheMap.put(key, value)).isNull();
+        assertThat(cacheMap.put(key, value)).isNull();
+        assertThat(cacheMap.putIfAbsent(key, value)).isNull();
+        assertThat(cacheMap.putIfAbsent(key, value)).isNull();
+    }
+
+    @Test
+    public void testPutOnNonEmptyCacheImplementation()
+    {
+        Cache<Object, Object> cache = EvictableCacheBuilder.newBuilder()
+                .maximumSize(10)
+                .build();
+        Map<Object, Object> cacheMap = cache.asMap();
+
+        int key = 0;
+        int value = 1;
+        assertThatThrownBy(() -> cacheMap.put(key, value))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessage("The operation is not supported, as in inherently races with cache invalidation. Use get(key, callable) instead.");
+        assertThatThrownBy(() -> cacheMap.putIfAbsent(key, value))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessage("The operation is not supported, as in inherently races with cache invalidation");
+    }
+
+    @DataProvider
+    public static Object[][] disabledCacheImplementations()
+    {
+        return Stream.of(DisabledCacheImplementation.values())
+                .collect(toDataProvider());
     }
 }
