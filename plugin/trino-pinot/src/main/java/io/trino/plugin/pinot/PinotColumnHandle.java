@@ -26,7 +26,6 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.pinot.PinotMetadata.PINOT_COLUMN_NAME_PROPERTY;
-import static io.trino.plugin.pinot.query.DynamicTablePqlExtractor.quoteIdentifier;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -70,11 +69,6 @@ public class PinotColumnHandle
         checkState((pushedDownAggregateFunctionName.isPresent() && aggregate) || pushedDownAggregateFunctionName.isEmpty(), "Unexpected arguments: aggregate is false but pushed down aggregation is present");
         this.pushedDownAggregateFunctionName = pushedDownAggregateFunctionName;
         this.pushedDownAggregateFunctionArgument = pushedDownAggregateFunctionArgument;
-    }
-
-    public static PinotColumnHandle fromNonAggregateColumnHandle(PinotColumnHandle columnHandle)
-    {
-        return new PinotColumnHandle(columnHandle.getColumnName(), columnHandle.getDataType(), quoteIdentifier(columnHandle.getColumnName()), false, false, true, Optional.empty(), Optional.empty());
     }
 
     public static PinotColumnHandle fromColumnMetadata(ColumnMetadata columnMetadata)

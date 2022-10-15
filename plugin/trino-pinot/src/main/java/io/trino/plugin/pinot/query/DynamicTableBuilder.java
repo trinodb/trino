@@ -46,7 +46,6 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.pinot.PinotColumnHandle.fromNonAggregateColumnHandle;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_EXCEPTION;
 import static io.trino.plugin.pinot.query.PinotExpressionRewriter.rewriteExpression;
 import static io.trino.plugin.pinot.query.PinotPatterns.WILDCARD;
@@ -141,7 +140,8 @@ public final class DynamicTableBuilder
             // Since Pinot doesn't support subqueries yet, we can only have one occurrence of SELECT *
             if (expressionContext.getType() == ExpressionContext.Type.IDENTIFIER && expressionContext.getIdentifier().equals(WILDCARD)) {
                 pinotColumnsBuilder.addAll(columnHandles.values().stream()
-                        .map(handle -> fromNonAggregateColumnHandle((PinotColumnHandle) handle))
+                        .map(PinotColumnHandle.class::cast)
+                        .map(PinotMetadata::toNonAggregateColumnHandle)
                         .collect(toImmutableList()));
             }
             else {
