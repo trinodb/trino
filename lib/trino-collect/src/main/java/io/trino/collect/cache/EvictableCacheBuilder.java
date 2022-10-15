@@ -13,6 +13,7 @@
  */
 package io.trino.collect.cache;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -126,9 +127,7 @@ public final class EvictableCacheBuilder<K, V>
      */
     public EvictableCacheBuilder<K, V> shareResultsAndFailuresEvenIfDisabled()
     {
-        checkState(!disabledCacheImplementation.isPresent(), "disabledCacheImplementation already set");
-        disabledCacheImplementation = Optional.of(DisabledCacheImplementation.GUAVA);
-        return this;
+        return disabledCacheImplementation(DisabledCacheImplementation.GUAVA);
     }
 
     /**
@@ -137,8 +136,14 @@ public final class EvictableCacheBuilder<K, V>
      */
     public EvictableCacheBuilder<K, V> shareNothingWhenDisabled()
     {
+        return disabledCacheImplementation(DisabledCacheImplementation.NOOP);
+    }
+
+    @VisibleForTesting
+    EvictableCacheBuilder<K, V> disabledCacheImplementation(DisabledCacheImplementation cacheImplementation)
+    {
         checkState(!disabledCacheImplementation.isPresent(), "disabledCacheImplementation already set");
-        disabledCacheImplementation = Optional.of(DisabledCacheImplementation.NOOP);
+        disabledCacheImplementation = Optional.of(cacheImplementation);
         return this;
     }
 
@@ -237,7 +242,8 @@ public final class EvictableCacheBuilder<K, V>
         return Duration.ofNanos(unit.toNanos(duration));
     }
 
-    private enum DisabledCacheImplementation
+    @VisibleForTesting
+    enum DisabledCacheImplementation
     {
         NOOP,
         GUAVA,
