@@ -49,6 +49,7 @@ public class ExchangeS3Config
     private int asyncClientConcurrency = 100;
     private int asyncClientMaxPendingConnectionAcquires = 10000;
     private Duration connectionAcquisitionTimeout = new Duration(1, MINUTES);
+    private boolean s3PathStyleAccess;
     private Optional<String> gcsJsonKeyFilePath = Optional.empty();
     private Optional<String> gcsJsonKey = Optional.empty();
 
@@ -220,6 +221,19 @@ public class ExchangeS3Config
     public ExchangeS3Config setConnectionAcquisitionTimeout(Duration connectionAcquisitionTimeout)
     {
         this.connectionAcquisitionTimeout = connectionAcquisitionTimeout;
+        return this;
+    }
+
+    public boolean isS3PathStyleAccess()
+    {
+        return s3PathStyleAccess;
+    }
+
+    @Config("exchange.s3.path-style-access")
+    @ConfigDescription("Use path-style access for all request to S3")
+    public ExchangeS3Config setS3PathStyleAccess(boolean s3PathStyleAccess)
+    {
+        this.s3PathStyleAccess = s3PathStyleAccess;
         return this;
     }
 

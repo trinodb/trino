@@ -53,6 +53,7 @@ import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3AsyncClientBuilder;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
+import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.AbortMultipartUploadResponse;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
@@ -171,6 +172,7 @@ public class S3FileSystemExchangeStorage
         S3AsyncClient client = createS3AsyncClient(
                 credentialsProvider,
                 overrideConfig,
+                config.isS3PathStyleAccess(),
                 config.getAsyncClientConcurrency(),
                 config.getAsyncClientMaxPendingConnectionAcquires(),
                 config.getConnectionAcquisitionTimeout());
@@ -471,6 +473,7 @@ public class S3FileSystemExchangeStorage
     private S3AsyncClient createS3AsyncClient(
             AwsCredentialsProvider credentialsProvider,
             ClientOverrideConfiguration overrideConfig,
+            boolean isS3PathStyleAccess,
             int maxConcurrency,
             int maxPendingConnectionAcquires,
             Duration connectionAcquisitionTimeout)
@@ -478,6 +481,9 @@ public class S3FileSystemExchangeStorage
         S3AsyncClientBuilder clientBuilder = S3AsyncClient.builder()
                 .credentialsProvider(credentialsProvider)
                 .overrideConfiguration(overrideConfig)
+                .serviceConfiguration(S3Configuration.builder()
+                        .pathStyleAccessEnabled(isS3PathStyleAccess)
+                        .build())
                 .httpClientBuilder(NettyNioAsyncHttpClient.builder()
                         .maxConcurrency(maxConcurrency)
                         .maxPendingConnectionAcquires(maxPendingConnectionAcquires)
