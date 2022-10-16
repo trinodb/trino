@@ -28,6 +28,7 @@ import io.trino.sql.planner.SystemPartitioningHandle.SystemPartitionFunction.Rou
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.IntStream;
@@ -66,6 +67,26 @@ public final class MergePartitioningHandle
     public Optional<PartitioningScheme> getUpdatePartitioning()
     {
         return updatePartitioning;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        MergePartitioningHandle that = (MergePartitioningHandle) o;
+        return insertPartitioning.equals(that.insertPartitioning) &&
+                updatePartitioning.equals(that.updatePartitioning);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(insertPartitioning, updatePartitioning);
     }
 
     @Override
