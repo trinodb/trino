@@ -1989,6 +1989,7 @@ public class TestHiveTransactionalTable
             onTrino().executeQuery("SET SESSION writer_min_size = '4kB'");
             onTrino().executeQuery("SET SESSION task_scale_writers_enabled = false");
             onTrino().executeQuery("SET SESSION task_writer_count = 4");
+            onTrino().executeQuery("SET SESSION task_partitioned_writer_count = 4");
             onTrino().executeQuery("SET SESSION hive.target_max_file_size = '1MB'");
 
             onTrino().executeQuery(

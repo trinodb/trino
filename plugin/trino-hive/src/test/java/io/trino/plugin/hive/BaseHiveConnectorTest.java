@@ -1923,6 +1923,7 @@ public abstract class BaseHiveConnectorTest
         // verify the default behavior is one file per node per partition
         Session session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
+                .setSystemProperty("task_partitioned_writer_count", "1")
                 // task scale writers should be disabled since we want to write a single file
                 .setSystemProperty("task_scale_writers_enabled", "false")
                 .setSystemProperty("scale_writers", "false")
@@ -1936,6 +1937,7 @@ public abstract class BaseHiveConnectorTest
         DataSize maxSize = DataSize.of(1, MEGABYTE);
         session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
+                .setSystemProperty("task_partitioned_writer_count", "1")
                 // task scale writers should be disabled since we want to write with a single task writer
                 .setSystemProperty("task_scale_writers_enabled", "false")
                 .setCatalogSessionProperty("hive", "target_max_file_size", maxSize.toString())
@@ -8327,6 +8329,7 @@ public abstract class BaseHiveConnectorTest
     {
         return Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "4")
+                .setSystemProperty("task_partitioned_writer_count", "4")
                 .setSystemProperty("task_scale_writers_enabled", "false")
                 .build();
     }
