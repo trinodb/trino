@@ -48,6 +48,7 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.JoinNode.Type;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.OffsetNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -816,6 +817,11 @@ public final class PlanMatchPattern
     public static PlanMatchPattern enforceSingleRow(PlanMatchPattern source)
     {
         return node(EnforceSingleRowNode.class, source);
+    }
+
+    public static PlanMatchPattern mergeWriter(PlanMatchPattern source)
+    {
+        return node(MergeWriterNode.class, source);
     }
 
     public static PlanMatchPattern tableWriter(List<String> columns, List<String> columnNames, PlanMatchPattern source)
