@@ -81,6 +81,8 @@ public class TaskManagerConfig
     // more resources, hence potentially affect the other concurrent queries in the cluster.
     private int scaleWritersMaxWriterCount = 8;
     private int writerCount = 1;
+    // cap partitioned task writer count to 32 in order to avoid small pages produced by local partitioning exchanges
+    private int partitionedWriterCount = min(nextPowerOfTwo(getAvailablePhysicalProcessorCount()), 32);
     // cap task concurrency to 32 in order to avoid small pages produced by local partitioning exchanges
     private int taskConcurrency = min(nextPowerOfTwo(getAvailablePhysicalProcessorCount()), 32);
     private int httpResponseThreads = 100;
@@ -418,17 +420,31 @@ public class TaskManagerConfig
     }
 
     @Min(1)
-    @PowerOfTwo
     public int getWriterCount()
     {
         return writerCount;
     }
 
     @Config("task.writer-count")
-    @ConfigDescription("Number of writers per task")
+    @ConfigDescription("Number of local parallel table writers per task when prefer partitioning and task writer scaling are not used")
     public TaskManagerConfig setWriterCount(int writerCount)
     {
         this.writerCount = writerCount;
+        return this;
+    }
+
+    @Min(1)
+    @PowerOfTwo
+    public int getPartitionedWriterCount()
+    {
+        return partitionedWriterCount;
+    }
+
+    @Config("task.partitioned-writer-count")
+    @ConfigDescription("Number of local parallel table writers per task when prefer partitioning is used")
+    public TaskManagerConfig setPartitionedWriterCount(int partitionedWriterCount)
+    {
+        this.partitionedWriterCount = partitionedWriterCount;
         return this;
     }
 
