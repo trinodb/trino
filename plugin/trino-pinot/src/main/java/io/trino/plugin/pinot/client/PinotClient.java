@@ -155,7 +155,6 @@ public class PinotClient
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)).jsonCodec(Schema.class);
         this.brokerResponseCodec = requireNonNull(brokerResponseCodec, "brokerResponseCodec is null");
         this.pinotHostMapper = requireNonNull(pinotHostMapper, "pinotHostMapper is null");
-        requireNonNull(config, "config is null");
         this.scheme = config.isTlsEnabled() ? "https" : "http";
         this.proxyEnabled = config.getProxyEnabled();
 
