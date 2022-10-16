@@ -298,6 +298,7 @@ import static io.trino.SystemSessionProperties.getAggregationOperatorUnspillMemo
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
 import static io.trino.SystemSessionProperties.getTaskConcurrency;
+import static io.trino.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static io.trino.SystemSessionProperties.getTaskScaleWritersMaxWriterCount;
 import static io.trino.SystemSessionProperties.getTaskWriterCount;
 import static io.trino.SystemSessionProperties.getWriterMinSize;
@@ -3171,8 +3172,7 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitTableWriter(TableWriterNode node, LocalExecutionPlanContext context)
         {
             // Set table writer count
-            int writerCount = isLocalScaledWriterExchange(node.getSource()) ? getTaskScaleWritersMaxWriterCount(session) : getTaskWriterCount(session);
-            context.setDriverInstanceCount(writerCount);
+            context.setDriverInstanceCount(getWriterCount(session, node.getPartitioningScheme(), node.getSource()));
 
             PhysicalOperation source = node.getSource().accept(this, context);
 
@@ -3371,8 +3371,7 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitTableExecute(TableExecuteNode node, LocalExecutionPlanContext context)
         {
             // Set table writer count
-            int writerCount = isLocalScaledWriterExchange(node.getSource()) ? getTaskScaleWritersMaxWriterCount(session) : getTaskWriterCount(session);
-            context.setDriverInstanceCount(writerCount);
+            context.setDriverInstanceCount(getWriterCount(session, node.getPartitioningScheme(), node.getSource()));
 
             PhysicalOperation source = node.getSource().accept(this, context);
 
@@ -3397,10 +3396,21 @@ public class LocalExecutionPlanner
             return new PhysicalOperation(operatorFactory, outputMapping.buildOrThrow(), context, source);
         }
 
+        private int getWriterCount(Session session, Optional<PartitioningScheme> partitioningScheme, PlanNode source)
+        {
+            return partitioningScheme
+                    .map(scheme -> getTaskPartitionedWriterCount(session))
+                    .orElseGet(() -> isLocalScaledWriterExchange(source) ? getTaskScaleWritersMaxWriterCount(session) : getTaskWriterCount(session));
+        }
+
         @Override
         public PhysicalOperation visitMergeWriter(MergeWriterNode node, LocalExecutionPlanContext context)
         {
-            context.setDriverInstanceCount(getTaskWriterCount(session));
+            // Todo: Implement writer scaling for merge. https://github.com/trinodb/trino/issues/14622
+            int writerCount = node.getPartitioningScheme()
+                    .map(scheme -> getTaskPartitionedWriterCount(session))
+                    .orElseGet(() -> getTaskWriterCount(session));
+            context.setDriverInstanceCount(writerCount);
 
             PhysicalOperation source = node.getSource().accept(this, context);
 
