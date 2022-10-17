@@ -155,5 +155,32 @@ public final class QueryExecutors
         };
     }
 
+    public static QueryExecutor onHudi()
+    {
+        return new QueryExecutor()
+        {
+            private final QueryExecutor delegate = testContext().getDependency(QueryExecutor.class, "hudi");
+
+            @Override
+            public QueryResult executeQuery(String sql, QueryParam... params)
+                    throws QueryExecutionException
+            {
+                return delegate.executeQuery(sql, params);
+            }
+
+            @Override
+            public Connection getConnection()
+            {
+                return delegate.getConnection();
+            }
+
+            @Override
+            public void close()
+            {
+                delegate.close();
+            }
+        };
+    }
+
     private QueryExecutors() {}
 }
