@@ -390,8 +390,7 @@ public class PipelinedStageExecution
     private synchronized boolean isStageFlushing()
     {
         // to transition to flushing, there must be at least one flushing task, and all others must be flushing or finished.
-        return !flushingTasks.isEmpty()
-                && allTasks.stream().allMatch(taskId -> finishedTasks.contains(taskId) || flushingTasks.contains(taskId));
+        return !flushingTasks.isEmpty() && allTasks.size() == finishedTasks.size() + flushingTasks.size();
     }
 
     private synchronized boolean isStageFinished()
