@@ -618,9 +618,6 @@ jobs:
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       product-tests-changed: ${{ steps.filter.outputs.product-tests }}
-      have_azure_secrets: ${{ steps.check-secrets.outputs.have_azure_secrets }}
-      have_databricks_secrets: ${{ steps.check-databricks-secrets.outputs.have_databricks_secrets }}
-      have_gcp_secrets: ${{ steps.check-gcp-secrets.outputs.have_gcp_secrets }}
     steps:
       - uses: actions/checkout@v3
         with:
@@ -644,42 +641,6 @@ jobs:
           distribution: 'zulu'
           java-version: 17
           cache: 'maven'
-      - name: Check secrets
-        run: |
-          if [[ "${{ secrets.AZURE_ABFS_CONTAINER }}" != "" && \
-                "${{ secrets.AZURE_ABFS_ACCOUNT }}" != "" && \
-                "${{ secrets.AZURE_ABFS_ACCESSKEY }}" != ""
-          ]]; \
-          then
-            echo "Secrets to run product tests were configured in the repo"
-            echo "::set-output name=have_azure_secrets::true"
-          else
-            echo "Secrets to run product tests were not configured in the repo"
-            echo "::set-output name=have_azure_secrets::false"
-          fi
-        id: check-secrets
-      - name: Check Delta Databricks secrets
-        id: check-databricks-secrets
-        run: |
-          if [[ "${{ secrets.DATABRICKS_TOKEN }}" != "" ]]; \
-          then
-            echo "Secrets to run Delta Databricks product tests were configured in the repo"
-            echo "::set-output name=have_databricks_secrets::true"
-          else
-            echo "Secrets to run Delta Databricks product tests were not configured in the repo"
-            echo "::set-output name=have_databricks_secrets::false"
-          fi
-      - name: Check GCP secrets
-        id: check-gcp-secrets
-        run: |
-          if [[ "${{ secrets.GCP_CREDENTIALS_KEY }}" != "" ]]; \
-          then
-            echo "Secrets to run GCP product tests were configured in the repo"
-            echo "::set-output name=have_gcp_secrets::true"
-          else
-            echo "Secrets to run GCP product tests were not configured in the repo"
-            echo "::set-output name=have_gcp_secrets::false"
-          fi
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -733,19 +694,21 @@ jobs:
               config: default
             - suite: suite-azure
               ignore exclusion if: >-
-                ${{ needs.build-pt.outputs.have_azure_secrets == 'true' }}
+                ${{ secrets.AZURE_ABFS_CONTAINER != '' &&
+                    secrets.AZURE_ABFS_ACCOUNT != '' &&
+                    secrets.AZURE_ABFS_ACCESSKEY != '' }}
 
             - suite: suite-gcs
               config: default
             - suite: suite-gcs
               ignore exclusion if: >-
-                ${{ needs.build-pt.outputs.have_gcp_secrets == 'true' }}
+                ${{ secrets.GCP_CREDENTIALS_KEY != '' }}
 
             - suite: suite-delta-lake-databricks
               config: hdp3
             - suite: suite-delta-lake-databricks
               ignore exclusion if: >-
-                ${{ needs.build-pt.outputs.have_databricks_secrets == 'true' }}
+                ${{ secrets.DATABRICKS_TOKEN != '' }}
 
           ignore exclusion if:
             # Do not use this property outside of the matrix configuration.
