@@ -516,7 +516,7 @@ public class OperatorContext
         return operatorMetrics.mergeWith(new Metrics(ImmutableMap.of(
                 "Input rows distribution", TDigestHistogram.fromValue(inputPositions),
                 "CPU time distribution (s)", TDigestHistogram.fromValue(cpuTimeSeconds),
-                "Wall time distribution (s)", TDigestHistogram.fromValue(wallTimeSeconds),
+                "Scheduled time distribution (s)", TDigestHistogram.fromValue(wallTimeSeconds),
                 "Blocked time distribution (s)", TDigestHistogram.fromValue(blockedWallSeconds))));
     }
 
