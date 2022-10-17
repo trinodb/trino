@@ -864,6 +864,9 @@ jobs:
             # this suite is not meant to be run with different configs
             - config: default
               suite: suite-iceberg
+            # this suite is not meant to be run with different configs
+            - config: default
+              suite: suite-hudi
           EOF
       - name: Build PT matrix (all)
         if: |
