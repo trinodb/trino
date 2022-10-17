@@ -140,7 +140,7 @@ public abstract class BaseJdbcClient
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
             return listSchemas(connection).stream()
-                    .map(remoteSchemaName -> identifierMapping.fromRemoteSchemaName(remoteSchemaName))
+                    .map(identifierMapping::fromRemoteSchemaName)
                     .collect(toImmutableSet());
         }
         catch (SQLException e) {
