@@ -29,7 +29,10 @@ import org.apache.parquet.column.values.ValuesReader;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.parquet.ParquetReaderUtils.castToByte;
@@ -481,6 +484,42 @@ public class ApacheParquetValueDecoders
             for (int i = 0; i < length; i++) {
                 byte[] value = delegate.readBytes().getBytes();
                 values.add(value, i + offsetsIndex);
+            }
+        }
+
+        @Override
+        public void skip(int n)
+        {
+            delegate.skip(n);
+        }
+    }
+
+    public static final class UuidApacheParquetValueDecoder
+            implements ValueDecoder<long[]>
+    {
+        private static final VarHandle LONG_ARRAY_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
+
+        private final ValuesReader delegate;
+
+        public UuidApacheParquetValueDecoder(ValuesReader delegate)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+        }
+
+        @Override
+        public void init(SimpleSliceInputStream input)
+        {
+            initialize(input, delegate);
+        }
+
+        @Override
+        public void read(long[] values, int offset, int length)
+        {
+            int endOffset = (offset + length) * 2;
+            for (int currentOutputOffset = offset * 2; currentOutputOffset < endOffset; currentOutputOffset += 2) {
+                byte[] data = delegate.readBytes().getBytes();
+                values[currentOutputOffset] = (long) LONG_ARRAY_HANDLE.get(data, 0);
+                values[currentOutputOffset + 1] = (long) LONG_ARRAY_HANDLE.get(data, Long.BYTES);
             }
         }
 
