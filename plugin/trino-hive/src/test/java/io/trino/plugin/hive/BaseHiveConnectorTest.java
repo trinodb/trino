@@ -3922,6 +3922,7 @@ public abstract class BaseHiveConnectorTest
                     storageFormat);
             assertUpdate(
                     Session.builder(session)
+                            .setSystemProperty("task_writer_count", "1")
                             .setSystemProperty("scale_writers", "true")
                             .setSystemProperty("task_scale_writers_enabled", "false")
                             .setSystemProperty("writer_min_size", "32MB")
@@ -3946,6 +3947,7 @@ public abstract class BaseHiveConnectorTest
                     storageFormat);
             assertUpdate(
                     Session.builder(session)
+                            .setSystemProperty("task_writer_count", "1")
                             .setSystemProperty("scale_writers", "true")
                             .setSystemProperty("task_scale_writers_enabled", "false")
                             .setSystemProperty("writer_min_size", "1MB")
