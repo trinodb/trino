@@ -728,7 +728,7 @@ jobs:
             #   actual value of the property, and will therefore not be excluded.
             # - If the expression evaluates to false, it will match the actual
             #   value of the property, and the exclusion will apply normally.
-            - "false"
+            - false # intentionally a boolean instead of string like other matrix keys to make it easier to evaluate expressions
           include:
             # this suite is not meant to be run with different configs
             - config: default
