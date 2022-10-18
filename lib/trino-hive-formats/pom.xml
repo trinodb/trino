@@ -80,6 +80,12 @@
             <artifactId>jol-core</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.xerial.snappy</groupId>
+            <artifactId>snappy-java</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- for hadoop compression -->
         <dependency>
             <groupId>io.trino.hadoop</groupId>
