@@ -1126,6 +1126,12 @@ public class GlueHiveMetastore
         return ImmutableSet.of();
     }
 
+    @Override
+    public void checkSupportsTransactions()
+    {
+        throw new TrinoException(NOT_SUPPORTED, "Glue does not support ACID tables");
+    }
+
     static class StatsRecordingAsyncHandler<Request extends AmazonWebServiceRequest, Result>
             implements AsyncHandler<Request, Result>
     {

@@ -1369,6 +1369,11 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
+    public void checkSupportsHiveAcidTransactions()
+    {
+        delegate.checkSupportsTransactions();
+    }
+
     public void beginQuery(ConnectorSession session)
     {
         String queryId = session.getQueryId();
