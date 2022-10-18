@@ -64,9 +64,8 @@ public final class TrinoTypes
         if (type instanceof TimestampType) {
             // Iceberg supports timestamp only with microsecond precision
             checkArgument(((TimestampType) type).getPrecision() == 6, "Unexpected type: %s", type);
-            // TODO update the code here when type implements getRange
-            verify(type.getRange().isEmpty(), "Type %s unexpectedly returned a range", type);
-            return getAdjacentValue(Long.MIN_VALUE, Long.MAX_VALUE, (long) value, Direction.PREV);
+            Range typeRange = type.getRange().orElseThrow();
+            return getAdjacentValue((long) typeRange.getMin(), (long) typeRange.getMax(), (long) value, Direction.PREV);
         }
 
         if (type instanceof TimestampWithTimeZoneType) {
@@ -119,9 +118,8 @@ public final class TrinoTypes
         if (type instanceof TimestampType) {
             // Iceberg supports timestamp only with microsecond precision
             checkArgument(((TimestampType) type).getPrecision() == 6, "Unexpected type: %s", type);
-            // TODO update the code here when type implements getRange
-            verify(type.getRange().isEmpty(), "Type %s unexpectedly returned a range", type);
-            return getAdjacentValue(Long.MIN_VALUE, Long.MAX_VALUE, (long) value, Direction.NEXT);
+            Range typeRange = type.getRange().orElseThrow();
+            return getAdjacentValue((long) typeRange.getMin(), (long) typeRange.getMax(), (long) value, Direction.NEXT);
         }
 
         if (type instanceof TimestampWithTimeZoneType) {
