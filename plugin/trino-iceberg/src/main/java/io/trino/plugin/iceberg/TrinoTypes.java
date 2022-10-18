@@ -57,9 +57,8 @@ public final class TrinoTypes
         }
 
         if (type == DATE) {
-            // TODO update the code here when type implements getRange
-            verify(type.getRange().isEmpty(), "Type %s unexpectedly returned a range", type);
-            return getAdjacentValue(Integer.MIN_VALUE, Integer.MAX_VALUE, (long) value, Direction.PREV);
+            Range typeRange = type.getRange().orElseThrow();
+            return getAdjacentValue((long) typeRange.getMin(), (long) typeRange.getMax(), (long) value, Direction.PREV);
         }
 
         if (type instanceof TimestampType) {
@@ -113,9 +112,8 @@ public final class TrinoTypes
         }
 
         if (type == DATE) {
-            // TODO update the code here when type implements getRange
-            verify(type.getRange().isEmpty(), "Type %s unexpectedly returned a range", type);
-            return getAdjacentValue(Integer.MIN_VALUE, Integer.MAX_VALUE, (long) value, Direction.NEXT);
+            Range typeRange = type.getRange().orElseThrow();
+            return getAdjacentValue((long) typeRange.getMin(), (long) typeRange.getMax(), (long) value, Direction.NEXT);
         }
 
         if (type instanceof TimestampType) {
