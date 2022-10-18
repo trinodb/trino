@@ -1446,6 +1446,9 @@ public class ThriftHiveMetastore
     }
 
     @Override
+    public void checkSupportsTransactions() {}
+
+    @Override
     public long openTransaction(AcidTransactionOwner transactionOwner)
     {
         requireNonNull(transactionOwner, "transactionOwner is null");
