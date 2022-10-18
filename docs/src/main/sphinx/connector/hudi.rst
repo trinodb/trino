@@ -157,11 +157,3 @@ Here are some sample queries:
     ------------+--------+
      2018-08-31 |  99  |
     (1 rows)
-
-Reading Hudi tables with the Hive connector
--------------------------------------------
-
-Hudi tables can also be accessed with a catalog using the Hive connector. The supported query types
-with the Hive connector are same as that of Hudi connector. To query Hudi tables on Trino, place
-the `hudi-trino-bundle <https://repo.maven.apache.org/maven2/org/apache/hudi/hudi-trino-bundle>`_
-JAR file into the Hive connector installation ``<trino_install>/plugin/hive``.
