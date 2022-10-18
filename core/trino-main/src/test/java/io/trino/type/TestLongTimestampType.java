@@ -17,8 +17,13 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.SqlTimestamp;
+import io.trino.spi.type.Type.Range;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
 
 import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
+import static io.trino.spi.type.TimestampType.createTimestampType;
+import static org.testng.Assert.assertEquals;
 
 public class TestLongTimestampType
         extends AbstractTestType
@@ -50,5 +55,34 @@ public class TestLongTimestampType
     {
         LongTimestamp timestamp = (LongTimestamp) value;
         return new LongTimestamp(timestamp.getEpochMicros() + 1, 0);
+    }
+
+    @Override
+    public void testRange()
+    {
+        Range range = type.getRange().orElseThrow();
+        assertEquals(range.getMin(), new LongTimestamp(Long.MIN_VALUE, 0));
+        assertEquals(range.getMax(), new LongTimestamp(Long.MAX_VALUE, 999_000));
+    }
+
+    @Test(dataProvider = "testRangeEveryPrecisionDataProvider")
+    public void testRangeEveryPrecision(int precision, LongTimestamp expectedMax)
+    {
+        Range range = createTimestampType(precision).getRange().orElseThrow();
+        assertEquals(range.getMin(), new LongTimestamp(Long.MIN_VALUE, 0));
+        assertEquals(range.getMax(), expectedMax);
+    }
+
+    @DataProvider
+    public static Object[][] testRangeEveryPrecisionDataProvider()
+    {
+        return new Object[][] {
+                {7, new LongTimestamp(Long.MAX_VALUE, 900_000)},
+                {8, new LongTimestamp(Long.MAX_VALUE, 990_000)},
+                {9, new LongTimestamp(Long.MAX_VALUE, 999_000)},
+                {10, new LongTimestamp(Long.MAX_VALUE, 999_900)},
+                {11, new LongTimestamp(Long.MAX_VALUE, 999_990)},
+                {12, new LongTimestamp(Long.MAX_VALUE, 999_999)},
+        };
     }
 }
