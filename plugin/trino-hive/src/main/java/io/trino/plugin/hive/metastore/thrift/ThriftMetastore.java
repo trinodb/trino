@@ -43,6 +43,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public interface ThriftMetastore
 {
@@ -127,6 +128,11 @@ public interface ThriftMetastore
         }
 
         return Optional.of(table.getSd().getCols());
+    }
+
+    default void checkSupportsTransactions()
+    {
+        throw new TrinoException(NOT_SUPPORTED, getClass().getSimpleName() + " does not support ACID tables");
     }
 
     default long openTransaction(AcidTransactionOwner transactionOwner)

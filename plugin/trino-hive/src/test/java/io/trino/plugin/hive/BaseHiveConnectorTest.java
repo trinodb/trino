@@ -4120,8 +4120,7 @@ public abstract class BaseHiveConnectorTest
                         "   orc_bloom_filter_columns = ARRAY['c1','c 2'],\n" +
                         "   orc_bloom_filter_fpp = 7E-1,\n" +
                         "   partitioned_by = ARRAY['c5'],\n" +
-                        "   sorted_by = ARRAY['c1','c 2 DESC'],\n" +
-                        "   transactional = true\n" +
+                        "   sorted_by = ARRAY['c1','c 2 DESC']\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
@@ -8335,6 +8334,13 @@ public abstract class BaseHiveConnectorTest
                 "EXPLAIN ANALYZE VERBOSE SELECT * FROM (SELECT nationkey, count(*) cnt FROM nation GROUP BY 1) where cnt > 0",
                 "'Filter CPU time' = \\{duration=.*}",
                 "'Projection CPU time' = \\{duration=.*}");
+    }
+
+    @Test
+    public void testCreateAcidTableUnsupported()
+    {
+        assertQueryFails("CREATE TABLE acid_unsupported (x int) WITH (transactional = true)", "FileHiveMetastore does not support ACID tables");
+        assertQueryFails("CREATE TABLE acid_unsupported WITH (transactional = true) AS SELECT 123 x", "FileHiveMetastore does not support ACID tables");
     }
 
     private static final Set<HiveStorageFormat> NAMED_COLUMN_ONLY_FORMATS = ImmutableSet.of(HiveStorageFormat.AVRO, HiveStorageFormat.JSON);
