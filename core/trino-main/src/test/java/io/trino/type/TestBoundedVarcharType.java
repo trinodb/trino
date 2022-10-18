@@ -19,7 +19,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import org.testng.annotations.Test;
 
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static org.testng.Assert.assertEquals;
@@ -55,10 +54,10 @@ public class TestBoundedVarcharType
         return Slices.utf8Slice(((Slice) value).toStringUtf8() + "_");
     }
 
-    @Test
+    @Override
     public void testRange()
     {
-        Type.Range range = type.getRange().get();
+        Type.Range range = type.getRange().orElseThrow();
 
         String expectedMax = new StringBuilder()
                 .appendCodePoint(Character.MAX_CODE_POINT)
@@ -69,7 +68,7 @@ public class TestBoundedVarcharType
                 .appendCodePoint(Character.MAX_CODE_POINT)
                 .toString();
 
-        assertEquals(Slices.utf8Slice(""), range.getMin());
-        assertEquals(Slices.utf8Slice(expectedMax), range.getMax());
+        assertEquals(range.getMin(), Slices.utf8Slice(""));
+        assertEquals(range.getMax(), Slices.utf8Slice(expectedMax));
     }
 }
