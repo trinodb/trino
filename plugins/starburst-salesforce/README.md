@@ -47,10 +47,10 @@ mvn deploy:deploy-file \
 -Dfile=/path/to/cdata-salesforce-jdbc.jar \
 -DgroupId=com.cdata \
 -DartifactId=salesforce-jdbc \
--Dversion=2021-2 \
+-Dversion=2022-3 \
 -Dpackaging=jar \
 -DrepositoryId=starburstdata.releases \
--Durl=https://maven.starburstdata.net/starburstdata-artifacts/releases
+-Durl=https://starburstdata-sep-cicd-843985043183.d.codeartifact.us-east-2.amazonaws.com/maven/releases/
 ```
 
 ## Custom Tables and Columns in Salesforce
