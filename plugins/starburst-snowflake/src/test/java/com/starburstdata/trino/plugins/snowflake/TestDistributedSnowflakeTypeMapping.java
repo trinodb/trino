@@ -148,6 +148,11 @@ public class TestDistributedSnowflakeTypeMapping
                 // negative epoch
                 .addRoundTrip("TIMESTAMP", "CAST('1969-12-31 23:59:59.9999999995' AS TIMESTAMP(9))", createTimestampType(3), "TIMESTAMP '1970-01-01 00:00:00.000'")
 
+                // around Julian/Gregorian switch
+                .addRoundTrip("TIMESTAMP", "TIMESTAMP '1582-10-04 00:00:00.000000000'", createTimestampType(3), "TIMESTAMP '1582-10-04 00:00:00.000'") // before julian->gregorian switch
+                .addRoundTrip("TIMESTAMP", "TIMESTAMP '1582-10-05 00:00:00.000000000'", createTimestampType(3), "TIMESTAMP '1582-10-05 00:00:00.000'") // begin julian->gregorian switch
+                .addRoundTrip("TIMESTAMP", "TIMESTAMP '1582-10-14 00:00:00.000000000'", createTimestampType(3), "TIMESTAMP '1582-10-14 00:00:00.000'") // end julian->gregorian switch
+
                 .execute(getQueryRunner(), trinoCreateAsSelect())
                 .execute(getQueryRunner(), trinoCreateAndInsert());
     }
