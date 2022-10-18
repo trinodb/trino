@@ -16,8 +16,10 @@ package io.trino.type;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.SqlDate;
+import io.trino.spi.type.Type.Range;
 
 import static io.trino.spi.type.DateType.DATE;
+import static org.testng.Assert.assertEquals;
 
 public class TestDateType
         extends AbstractTestType
@@ -48,5 +50,13 @@ public class TestDateType
     protected Object getGreaterValue(Object value)
     {
         return ((Long) value) + 1;
+    }
+
+    @Override
+    public void testRange()
+    {
+        Range range = type.getRange().orElseThrow();
+        assertEquals(range.getMin(), (long) Integer.MIN_VALUE);
+        assertEquals(range.getMax(), (long) Integer.MAX_VALUE);
     }
 }
