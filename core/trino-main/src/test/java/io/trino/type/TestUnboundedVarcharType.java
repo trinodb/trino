@@ -17,23 +17,20 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.type.Type;
-import io.trino.spi.type.VarcharType;
 import org.testng.annotations.Test;
 
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.spi.type.VarcharType.createVarcharType;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestVarcharType
+public class TestUnboundedVarcharType
         extends AbstractTestType
 {
-    public TestVarcharType()
+    public TestUnboundedVarcharType()
     {
         super(VARCHAR, String.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    private static Block createTestBlock()
     {
         BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 15);
         VARCHAR.writeString(blockBuilder, "apple");
@@ -59,19 +56,7 @@ public class TestVarcharType
     @Test
     public void testRange()
     {
-        VarcharType type = createVarcharType(5);
-
-        Type.Range range = type.getRange().get();
-
-        String expectedMax = new StringBuilder()
-                .appendCodePoint(Character.MAX_CODE_POINT)
-                .appendCodePoint(Character.MAX_CODE_POINT)
-                .appendCodePoint(Character.MAX_CODE_POINT)
-                .appendCodePoint(Character.MAX_CODE_POINT)
-                .appendCodePoint(Character.MAX_CODE_POINT)
-                .toString();
-
-        assertEquals(Slices.utf8Slice(""), range.getMin());
-        assertEquals(Slices.utf8Slice(expectedMax), range.getMax());
+        assertThat(type.getRange())
+                .isEmpty();
     }
 }
