@@ -47,7 +47,7 @@ public class TestDeltaLakeDatabricksDelete
         assertQueryFailure(() -> onDelta().executeQuery("DELETE FROM default." + tableName + " WHERE a = 1"))
                 .hasMessageContaining("This table is configured to only allow appends");
         assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM default." + tableName + " WHERE a = 1"))
-                .hasMessageContaining("Cannot delete rows from a table with 'delta.appendOnly' set to true");
+                .hasMessageContaining("Cannot modify rows from a table with 'delta.appendOnly' set to true");
 
         assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
                 .containsOnly(row(1, 11), row(2, 12));

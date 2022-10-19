@@ -507,10 +507,6 @@ provider when it's possible to create pages directly. The conversion of
 individual records from a record set provider into pages adds overheads during
 query execution.
 
-To add support for updating and/or deleting rows in a connector, it needs
-to implement a ``ConnectorPageSourceProvider`` that returns
-an ``UpdatablePageSource``. See :doc:`delete-and-update` for more.
-
 .. _connector-page-sink-provider:
 
 ConnectorPageSinkProvider

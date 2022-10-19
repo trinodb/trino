@@ -241,7 +241,7 @@ public class TestHiveSparkCompatibility
                         "CLUSTERED BY (a_key) INTO 3 BUCKETS");
 
         assertQueryFailure(() -> onTrino().executeQuery("UPDATE default." + hiveTableName + " SET a_value = 100 WHERE a_key = 1"))
-                .hasMessageContaining("Updating Spark bucketed tables is not supported");
+                .hasMessageContaining("Merging into Spark bucketed tables is not supported");
 
         onSpark().executeQuery("DROP TABLE " + hiveTableName);
     }
@@ -257,7 +257,7 @@ public class TestHiveSparkCompatibility
                         "CLUSTERED BY (a_key) INTO 3 BUCKETS");
 
         assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM default." + hiveTableName + " WHERE a_key = 1"))
-                .hasMessageContaining("Deleting from Spark bucketed tables is not supported");
+                .hasMessageContaining("Merging into Spark bucketed tables is not supported");
 
         onSpark().executeQuery("DROP TABLE " + hiveTableName);
     }

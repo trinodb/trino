@@ -1539,7 +1539,7 @@ public class DeltaLakeMetadata
     {
         DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;
         if (isAppendOnly(handle.getMetadataEntry())) {
-            throw new TrinoException(NOT_SUPPORTED, "Cannot update rows from a table with '" + APPEND_ONLY_CONFIGURATION_KEY + "' set to true");
+            throw new TrinoException(NOT_SUPPORTED, "Cannot modify rows from a table with '" + APPEND_ONLY_CONFIGURATION_KEY + "' set to true");
         }
         if (!allowWrite(session, handle)) {
             String fileSystem = new Path(handle.getLocation()).toUri().getScheme();

@@ -829,7 +829,17 @@ public class DefaultJdbcMetadata
     @Override
     public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
     {
-        throw new TrinoException(NOT_SUPPORTED, "Unsupported delete");
+        throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
+    }
+
+    @Override
+    public ColumnHandle getMergeRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        // The column is used for row-level merge, which is not supported, but it's required during analysis anyway.
+        return new JdbcColumnHandle(
+                "$merge_row_id",
+                new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
+                BIGINT);
     }
 
     @Override
