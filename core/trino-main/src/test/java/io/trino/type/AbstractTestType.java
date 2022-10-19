@@ -23,6 +23,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -480,6 +481,9 @@ public abstract class AbstractTestType
         }
         if (type.getJavaType() == Slice.class) {
             return Slices.utf8Slice("_");
+        }
+        if (type.getJavaType() == LongTimestamp.class) {
+            return new LongTimestamp(1, 0);
         }
         if (type instanceof ArrayType) {
             ArrayType arrayType = (ArrayType) type;
