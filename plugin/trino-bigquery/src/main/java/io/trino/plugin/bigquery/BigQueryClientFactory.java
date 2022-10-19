@@ -19,6 +19,7 @@ import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.common.cache.CacheBuilder;
+import io.airlift.units.Duration;
 import io.trino.collect.cache.NonEvictableCache;
 import io.trino.spi.connector.ConnectorSession;
 
@@ -40,6 +41,7 @@ public class BigQueryClientFactory
     private final ViewMaterializationCache materializationCache;
     private final HeaderProvider headerProvider;
     private final NonEvictableCache<IdentityCacheMapping.IdentityCacheKey, BigQueryClient> clientCache;
+    private final Duration metadataCacheTtl;
 
     @Inject
     public BigQueryClientFactory(
@@ -56,6 +58,7 @@ public class BigQueryClientFactory
         this.caseInsensitiveNameMatching = bigQueryConfig.isCaseInsensitiveNameMatching();
         this.materializationCache = requireNonNull(materializationCache, "materializationCache is null");
         this.headerProvider = requireNonNull(headerProvider, "headerProvider is null");
+        this.metadataCacheTtl = bigQueryConfig.getMetadataCacheTtl();
 
         CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder()
                 .expireAfterWrite(bigQueryConfig.getServiceCacheTtl().toMillis(), MILLISECONDS);
@@ -72,7 +75,7 @@ public class BigQueryClientFactory
 
     protected BigQueryClient createBigQueryClient(ConnectorSession session)
     {
-        return new BigQueryClient(createBigQuery(session), caseInsensitiveNameMatching, materializationCache);
+        return new BigQueryClient(createBigQuery(session), caseInsensitiveNameMatching, materializationCache, metadataCacheTtl);
     }
 
     protected BigQuery createBigQuery(ConnectorSession session)

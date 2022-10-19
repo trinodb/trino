@@ -33,9 +33,12 @@ import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
 import com.google.cloud.bigquery.TableResult;
 import com.google.cloud.http.BaseHttpServiceException;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.trino.collect.cache.EvictableCacheBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.TableNotFoundException;
 
@@ -45,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 
 import static com.google.cloud.bigquery.JobStatistics.QueryStatistics.StatementType.SELECT;
@@ -58,9 +62,11 @@ import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_AMBIGUOUS_OBJECT_NAME;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_INVALID_STATEMENT;
+import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_LISTING_DATASET_ERROR;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.joining;
 
 public class BigQueryClient
@@ -70,12 +76,17 @@ public class BigQueryClient
     private final BigQuery bigQuery;
     private final ViewMaterializationCache materializationCache;
     private final boolean caseInsensitiveNameMatching;
+    private final LoadingCache<String, List<Dataset>> remoteDatasetCache;
 
-    public BigQueryClient(BigQuery bigQuery, boolean caseInsensitiveNameMatching, ViewMaterializationCache materializationCache)
+    public BigQueryClient(BigQuery bigQuery, boolean caseInsensitiveNameMatching, ViewMaterializationCache materializationCache, Duration metadataCacheTtl)
     {
         this.bigQuery = requireNonNull(bigQuery, "bigQuery is null");
         this.materializationCache = requireNonNull(materializationCache, "materializationCache is null");
         this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
+        this.remoteDatasetCache = EvictableCacheBuilder.newBuilder()
+                .expireAfterWrite(metadataCacheTtl.toMillis(), MILLISECONDS)
+                .shareNothingWhenDisabled()
+                .build(CacheLoader.from(this::listDatasetsFromBigQuery));
     }
 
     public Optional<RemoteDatabaseObject> toRemoteDataset(String projectId, String datasetName)
@@ -175,7 +186,18 @@ public class BigQueryClient
 
     public Iterable<Dataset> listDatasets(String projectId)
     {
-        return bigQuery.listDatasets(projectId).iterateAll();
+        try {
+            return remoteDatasetCache.get(projectId);
+        }
+        catch (ExecutionException e) {
+            throw new TrinoException(BIGQUERY_LISTING_DATASET_ERROR, "Failed to retrieve datasets from BigQuery", e);
+        }
+    }
+
+    private List<Dataset> listDatasetsFromBigQuery(String projectId)
+    {
+        return stream(bigQuery.listDatasets(projectId).iterateAll())
+                .collect(toImmutableList());
     }
 
     public Iterable<Table> listTables(DatasetId remoteDatasetId, TableDefinition.Type... types)

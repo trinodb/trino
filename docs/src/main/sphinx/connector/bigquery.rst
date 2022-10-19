@@ -133,6 +133,8 @@ Property                                              Description               
                                                       ``BIGNUMERIC`` and ``TIMESTAMP`` types are unsupported.        ``false``
 ``bigquery.views-cache-ttl``                          Duration for which the materialization of a view will be       ``15m``
                                                       cached and reused. Set to ``0ms`` to disable the cache.
+``bigquery.metadata.cache-ttl``                       Duration for which metadata retrieved from BigQuery            ``0ms``
+                                                      is cached and reused. Set to ``0ms`` to disable the cache.
 ``bigquery.max-read-rows-retries``                    The number of retries in case of retryable server issues       ``3``
 ``bigquery.credentials-key``                          The base64 encoded credentials key                             None. See the `requirements <#requirements>`_ section.
 ``bigquery.credentials-file``                         The path to the JSON credentials file                          None. See the `requirements <#requirements>`_ section.
