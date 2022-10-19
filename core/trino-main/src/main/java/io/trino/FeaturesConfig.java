@@ -69,7 +69,7 @@ public class FeaturesConfig
     static final String SPILL_ENABLED = "spill-enabled";
     public static final String SPILLER_SPILL_PATH = "spiller-spill-path";
 
-    private boolean legacyUpdateDeleteImplementation = true;
+    private boolean legacyUpdateDeleteImplementation;
 
     private boolean redistributeWrites = true;
     private boolean scaleWriters = true;

@@ -70,6 +70,7 @@ import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
 import static io.trino.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
+import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
@@ -3395,7 +3396,7 @@ public abstract class BaseConnectorTest
 
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_delete", "(regionkey int)")) {
-            assertQueryFails("DELETE FROM " + table.getName(), "This connector does not support deletes");
+            assertQueryFails("DELETE FROM " + table.getName(), MODIFYING_ROWS_MESSAGE);
         }
     }
 
@@ -3409,7 +3410,7 @@ public abstract class BaseConnectorTest
 
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_row_level_delete", "(regionkey int)")) {
-            assertQueryFails("DELETE FROM " + table.getName() + " WHERE regionkey = 2", "This connector does not support deletes");
+            assertQueryFails("DELETE FROM " + table.getName() + " WHERE regionkey = 2", MODIFYING_ROWS_MESSAGE);
         }
     }
 
@@ -3440,7 +3441,7 @@ public abstract class BaseConnectorTest
     {
         if (!hasBehavior(SUPPORTS_UPDATE)) {
             // Note this change is a no-op, if actually run
-            assertQueryFails("UPDATE nation SET nationkey = nationkey + regionkey WHERE regionkey < 1", "This connector does not support updates");
+            assertQueryFails("UPDATE nation SET nationkey = nationkey + regionkey WHERE regionkey < 1", MODIFYING_ROWS_MESSAGE);
             return;
         }
 
@@ -3668,7 +3669,7 @@ public abstract class BaseConnectorTest
     {
         if (!hasBehavior(SUPPORTS_UPDATE)) {
             // Note this change is a no-op, if actually run
-            assertQueryFails("UPDATE nation SET nationkey = nationkey + regionkey WHERE regionkey < 1", "This connector does not support updates");
+            assertQueryFails("UPDATE nation SET nationkey = nationkey + regionkey WHERE regionkey < 1", MODIFYING_ROWS_MESSAGE);
             return;
         }
 
@@ -3683,6 +3684,20 @@ public abstract class BaseConnectorTest
 
             assertUpdate("UPDATE " + tableName + " SET b = b * 2 WHERE b = 22", 1);
             assertQuery("SELECT * FROM " + tableName, "VALUES (0, 2, 3), (11, 12, 14), (21, 44, 23)");
+        }
+    }
+
+    @Test
+    public void testUpdateRowType()
+    {
+        if (!hasBehavior(SUPPORTS_UPDATE)) {
+            // Note this change is a no-op, if actually run
+            assertQueryFails("UPDATE nation SET nationkey = nationkey + regionkey WHERE regionkey < 1", MODIFYING_ROWS_MESSAGE);
+            return;
+        }
+
+        if (!hasBehavior(SUPPORTS_ROW_TYPE)) {
+            return;
         }
 
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_with_predicates_on_row_types", "(int_t INT, row_t ROW(f1 INT, f2 INT))")) {
@@ -3704,7 +3719,7 @@ public abstract class BaseConnectorTest
     {
         if (!hasBehavior(SUPPORTS_UPDATE)) {
             // Note this change is a no-op, if actually run
-            assertQueryFails("UPDATE nation SET nationkey = nationkey + regionkey WHERE regionkey < 1", "This connector does not support updates");
+            assertQueryFails("UPDATE nation SET nationkey = nationkey + regionkey WHERE regionkey < 1", MODIFYING_ROWS_MESSAGE);
             return;
         }
 
@@ -4868,6 +4883,24 @@ public abstract class BaseConnectorTest
                 " ON (t.nation_name = s.nation_name)\n" +
                 " WHEN MATCHED THEN UPDATE SET region_name = CAST(TRY(5/0) AS VARCHAR)"))
                 .hasMessage("Assigning NULL to non-null MERGE target table column region_name");
+
+        assertUpdate("DROP TABLE " + targetTable);
+    }
+
+    @Test
+    public void testMergeAllColumnsReversed()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_MERGE) && hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT));
+
+        String targetTable = "merge_update_columns_reversed_" + randomNameSuffix();
+        assertUpdate(createTableForWrites("CREATE TABLE " + targetTable + " (a, b, c) AS VALUES (1, 2, 3)"), 1);
+        assertUpdate("""
+                MERGE INTO %s t USING (VALUES(1)) AS s(a) ON (t.a = s.a)
+                    WHEN MATCHED THEN UPDATE
+                        SET c = 100, b = 42, a = 0
+                """.formatted(targetTable),
+                1);
+        assertQuery("SELECT * FROM " + targetTable, "VALUES (0, 42, 100)");
 
         assertUpdate("DROP TABLE " + targetTable);
     }

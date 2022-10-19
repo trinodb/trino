@@ -139,10 +139,14 @@ public class TestDeltaLakeUpdate
                         "CREATE TABLE " + tableName + " (a, b, c) WITH (location = '" + getLocationForTable(tableName) + "', partitioned_by = ARRAY['b']) " +
                         "AS VALUES (1, 2, 3), (1, 2, 4), (3, 2, 1), (null, null, null), (1, 1, 1)",
                 "VALUES 5");
-        assertQueryFails("UPDATE " + tableName + " SET b = 42", "Updating table partition columns is not supported");
-        assertQueryFails("UPDATE " + tableName + " SET b = 42 WHERE a = 1", "Updating table partition columns is not supported");
-        assertQueryFails("UPDATE " + tableName + " SET b = 42 WHERE b = 1", "Updating table partition columns is not supported");
-        assertQueryFails("UPDATE " + tableName + " SET b = 42 WHERE a = 1 AND b = 2", "Updating table partition columns is not supported");
+        assertUpdate("UPDATE " + tableName + " SET b = 42", 5);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 42, 3), (1, 42, 4), (3, 42, 1), (null, 42, null), (1, 42, 1)");
+        assertUpdate("UPDATE " + tableName + " SET b = 42", 5);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 42, 3), (1, 42, 4), (3, 42, 1), (null, 42, null), (1, 42, 1)");
+        assertUpdate("UPDATE " + tableName + " SET b = 32 WHERE a IS NULL", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 42, 3), (1, 42, 4), (3, 42, 1), (null, 32, null), (1, 42, 1)");
+        assertUpdate("UPDATE " + tableName + " SET a = 12, b = 5 WHERE b = 42 AND c < 3", 2);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 42, 3), (1, 42, 4), (12, 5, 1), (null, 32, null), (12, 5, 1)");
     }
 
     @Test
