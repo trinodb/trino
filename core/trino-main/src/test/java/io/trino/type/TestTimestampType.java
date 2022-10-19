@@ -47,6 +47,6 @@ public class TestTimestampType
     @Override
     protected Object getGreaterValue(Object value)
     {
-        return ((Long) value) + 1;
+        return ((Long) value) + 1_000;
     }
 }
