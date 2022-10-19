@@ -77,7 +77,7 @@ public abstract class AbstractTestType
 
     private final Class<?> objectValueType;
     private final Block testBlock;
-    private final Type type;
+    protected final Type type;
     private final TypeOperators typeOperators;
     protected final BlockTypeOperators blockTypeOperators;
     private final BlockPositionEqual equalOperator;
