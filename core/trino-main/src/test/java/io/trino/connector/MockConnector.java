@@ -822,6 +822,12 @@ public class MockConnector
         {
             return new MockPageSink();
         }
+
+        @Override
+        public ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle, ConnectorPageSinkId pageSinkId)
+        {
+            return new MockPageSink();
+        }
     }
 
     private static class MockPageSink

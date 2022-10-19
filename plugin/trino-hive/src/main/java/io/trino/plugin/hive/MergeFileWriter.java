@@ -93,7 +93,6 @@ public class MergeFileWriter
         });
         mergePage.getInsertionsPage().ifPresent(insertPage -> {
             Page orcInsertPage = buildInsertPage(insertPage, transaction.getWriteId(), inputColumns, bucketValueBlock, insertRowCount);
-            insertRowCount += insertPage.getPositionCount();
             getOrCreateInsertFileWriter().appendRows(orcInsertPage);
             insertRowCount += insertPage.getPositionCount();
         });
@@ -171,7 +170,7 @@ public class MergeFileWriter
     public PartitionUpdateAndMergeResults getPartitionUpdateAndMergeResults(PartitionUpdate partitionUpdate)
     {
         return new PartitionUpdateAndMergeResults(
-                partitionUpdate,
+                partitionUpdate.withRowCount(insertRowCount - deleteRowCount),
                 insertRowCount,
                 insertFileWriter.isPresent() ? Optional.of(deltaDirectory.toString()) : Optional.empty(),
                 deleteRowCount,
