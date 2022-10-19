@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>130</version>
+        <version>131-SNAPSHOT</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -45,6 +45,7 @@
         <air.modernizer.java-version>8</air.modernizer.java-version>
 
         <air.release.preparation-goals>clean verify -DskipTests</air.release.preparation-goals>
+        <air.staging.profile-id>3275892c20a21</air.staging.profile-id>
 
         <dep.accumulo.version>1.7.4</dep.accumulo.version>
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
