@@ -56,7 +56,7 @@ import static java.util.Objects.requireNonNull;
 public class MultiChannelGroupByHash
         implements GroupByHash
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MultiChannelGroupByHash.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(MultiChannelGroupByHash.class).instanceSize());
     private static final float FILL_RATIO = 0.75f;
     private static final int BATCH_SIZE = 1024;
     // Max (page value count / cumulative dictionary size) to trigger the low cardinality case
@@ -174,7 +174,8 @@ public class MultiChannelGroupByHash
                 currentPageBuilder.getRetainedSizeInBytes() +
                 sizeOf(groupIdsByHash) +
                 sizeOf(rawHashByHashPosition) +
-                preallocatedMemoryInBytes;
+                preallocatedMemoryInBytes +
+                (dictionaryLookBack != null ? dictionaryLookBack.getRetainedSizeInBytes() : 0);
     }
 
     @Override
@@ -543,6 +544,7 @@ public class MultiChannelGroupByHash
 
     private static final class DictionaryLookBack
     {
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(DictionaryLookBack.class).instanceSize());
         private final Block dictionary;
         private final int[] processed;
 
@@ -571,6 +573,13 @@ public class MultiChannelGroupByHash
         public void setProcessed(int position, int groupId)
         {
             processed[position] = groupId;
+        }
+
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE +
+                    sizeOf(processed) +
+                    dictionary.getRetainedSizeInBytes();
         }
     }
 

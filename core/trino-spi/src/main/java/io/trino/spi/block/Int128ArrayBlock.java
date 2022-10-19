@@ -30,11 +30,12 @@ import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.ensureCapacity;
+import static java.lang.Math.toIntExact;
 
 public class Int128ArrayBlock
         implements Block
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int128ArrayBlock.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(Int128ArrayBlock.class).instanceSize());
     public static final int INT128_BYTES = Long.BYTES + Long.BYTES;
     public static final int SIZE_IN_BYTES_PER_POSITION = INT128_BYTES + Byte.BYTES;
 

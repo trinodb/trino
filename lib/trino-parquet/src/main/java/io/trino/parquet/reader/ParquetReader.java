@@ -40,6 +40,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.metrics.Metric;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -93,6 +94,7 @@ public class ParquetReader
     private static final int INITIAL_BATCH_SIZE = 1;
     private static final int BATCH_SIZE_GROWTH_FACTOR = 2;
     public static final String PARQUET_CODEC_METRIC_PREFIX = "ParquetReaderCompressionFormat_";
+    public static final String COLUMN_INDEX_ROWS_FILTERED = "ParquetColumnIndexRowsFiltered";
 
     private final Optional<String> fileCreatedBy;
     private final List<BlockMetaData> blocks;
@@ -134,6 +136,8 @@ public class ParquetReader
     private final Map<ColumnPath, ColumnDescriptor> paths = new HashMap<>();
     private final ParquetBlockFactory blockFactory;
     private final Map<String, Metric<?>> codecMetrics;
+
+    private long columnIndexRowsFiltered = -1;
 
     public ParquetReader(
             Optional<String> fileCreatedBy,
@@ -231,6 +235,8 @@ public class ParquetReader
                         totalDataSize += range.getLength();
                         ranges.put(new ChunkKey(columnId, rowGroup), range);
                     }
+                    // Initialize columnIndexRowsFiltered only when column indexes are found and used
+                    columnIndexRowsFiltered = 0;
                 }
                 // Update the metrics which records the codecs used along with data size
                 codecMetrics.merge(
@@ -324,6 +330,7 @@ public class ParquetReader
             if (columnIndexStore.get(currentRowGroup).isPresent()) {
                 currentGroupRowRanges = getRowRanges(filter.get(), currentRowGroup);
                 long rowCount = currentGroupRowRanges.rowCount();
+                columnIndexRowsFiltered += currentGroupRowCount - rowCount;
                 if (rowCount == 0) {
                     return false;
                 }
@@ -438,7 +445,7 @@ public class ParquetReader
             List<Slice> slices = allocateBlock(fieldId);
             columnReader.setPageReader(createPageReader(slices, metadata, columnDescriptor, offsetIndex), currentGroupRowRanges);
         }
-        ColumnChunk columnChunk = columnReader.readPrimitive(field);
+        ColumnChunk columnChunk = columnReader.readPrimitive();
 
         // update max size per primitive column chunk
         long bytesPerCell = columnChunk.getBlock().getSizeInBytes() / batchSize;
@@ -451,9 +458,15 @@ public class ParquetReader
         return columnChunk;
     }
 
-    public Map<String, Metric<?>> getCodecMetrics()
+    public Metrics getMetrics()
     {
-        return codecMetrics;
+        ImmutableMap.Builder<String, Metric<?>> metrics = ImmutableMap.<String, Metric<?>>builder()
+                .putAll(codecMetrics);
+        if (columnIndexRowsFiltered >= 0) {
+            metrics.put(COLUMN_INDEX_ROWS_FILTERED, new LongCount(columnIndexRowsFiltered));
+        }
+
+        return new Metrics(metrics.buildOrThrow());
     }
 
     private PageReader createPageReader(List<Slice> slices, ColumnChunkMetaData metadata, ColumnDescriptor columnDescriptor, OffsetIndex offsetIndex)

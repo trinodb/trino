@@ -34,6 +34,7 @@ import io.trino.plugin.hive.AbstractTestHive.Transaction;
 import io.trino.plugin.hive.aws.athena.PartitionProjectionService;
 import io.trino.plugin.hive.fs.FileSystemDirectoryLister;
 import io.trino.plugin.hive.fs.HiveFileIterator;
+import io.trino.plugin.hive.fs.TrinoFileStatus;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.ForwardingHiveMetastore;
@@ -71,7 +72,6 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingNodeManager;
 import io.trino.type.BlockTypeOperators;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem;
 import org.testng.annotations.AfterClass;
@@ -232,7 +232,8 @@ public abstract class AbstractTestHiveFileSystem
                 config.getSplitLoaderConcurrency(),
                 config.getMaxSplitsPerSecond(),
                 config.getRecursiveDirWalkerEnabled(),
-                TESTING_TYPE_MANAGER);
+                TESTING_TYPE_MANAGER,
+                config.getMaxPartitionsPerScan());
         TypeOperators typeOperators = new TypeOperators();
         BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
         pageSinkProvider = new HivePageSinkProvider(
@@ -271,12 +272,14 @@ public abstract class AbstractTestHiveFileSystem
         return HiveFileSystemTestUtils.newTransaction(transactionManager);
     }
 
-    protected MaterializedResult readTable(SchemaTableName tableName) throws IOException
+    protected MaterializedResult readTable(SchemaTableName tableName)
+            throws IOException
     {
         return HiveFileSystemTestUtils.readTable(tableName, transactionManager, config, pageSourceProvider, splitManager);
     }
 
-    protected MaterializedResult filterTable(SchemaTableName tableName, List<ColumnHandle> projectedColumns) throws IOException
+    protected MaterializedResult filterTable(SchemaTableName tableName, List<ColumnHandle> projectedColumns)
+            throws IOException
     {
         return HiveFileSystemTestUtils.filterTable(tableName, projectedColumns, transactionManager, config, pageSourceProvider, splitManager);
     }
@@ -463,7 +466,7 @@ public abstract class AbstractTestHiveFileSystem
                 HiveFileIterator.NestedDirectoryPolicy.RECURSE,
                 false); // ignoreAbsentPartitions
 
-        List<Path> recursiveListing = Lists.newArrayList(Iterators.transform(recursiveIterator, LocatedFileStatus::getPath));
+        List<Path> recursiveListing = Lists.newArrayList(Iterators.transform(recursiveIterator, TrinoFileStatus::getPath));
         // Should not include directories, or files underneath hidden directories
         assertEqualsIgnoreOrder(recursiveListing, ImmutableList.of(nestedFile, baseFile));
 
@@ -475,7 +478,7 @@ public abstract class AbstractTestHiveFileSystem
                 new NamenodeStats(),
                 HiveFileIterator.NestedDirectoryPolicy.IGNORED,
                 false); // ignoreAbsentPartitions
-        List<Path> shallowListing = Lists.newArrayList(Iterators.transform(shallowIterator, LocatedFileStatus::getPath));
+        List<Path> shallowListing = Lists.newArrayList(Iterators.transform(shallowIterator, TrinoFileStatus::getPath));
         // Should not include any hidden files, folders, or nested files
         assertEqualsIgnoreOrder(shallowListing, ImmutableList.of(baseFile));
     }

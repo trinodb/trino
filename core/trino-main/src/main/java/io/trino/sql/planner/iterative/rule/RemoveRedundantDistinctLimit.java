@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.optimizations.Cardinality;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.ValuesNode;
@@ -25,8 +26,7 @@ import io.trino.sql.planner.plan.ValuesNode;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
-import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
+import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.Patterns.distinctLimit;
@@ -55,10 +55,11 @@ public class RemoveRedundantDistinctLimit
         if (node.getLimit() == 0) {
             return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
         }
-        if (isScalar(node.getSource(), context.getLookup())) {
+        Cardinality sourceCardinality = extractCardinality(node.getSource(), context.getLookup());
+        if (sourceCardinality.isScalar()) {
             return Result.ofPlanNode(node.getSource());
         }
-        if (isAtMost(node.getSource(), context.getLookup(), node.getLimit())) {
+        if (sourceCardinality.isAtMost(node.getLimit())) {
             return Result.ofPlanNode(new AggregationNode(
                     node.getId(),
                     node.getSource(),

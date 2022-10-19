@@ -57,6 +57,7 @@ import static io.trino.operator.WorkProcessor.ProcessState.Type.FINISHED;
 import static io.trino.operator.project.MergePages.mergePages;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class WorkProcessorPipelineSourceOperator
         implements SourceOperator
@@ -342,7 +343,12 @@ public class WorkProcessorPipelineSourceOperator
                         context.outputPositions.get(),
 
                         context.dynamicFilterSplitsProcessed.get(),
-                        getOperatorMetrics(context.metrics.get(), context.inputPositions.get()),
+                        getOperatorMetrics(
+                                context.metrics.get(),
+                                context.inputPositions.get(),
+                                new Duration(context.operatorTiming.getCpuNanos(), NANOSECONDS).convertTo(SECONDS).getValue(),
+                                new Duration(context.operatorTiming.getWallNanos(), NANOSECONDS).convertTo(SECONDS).getValue(),
+                                new Duration(context.blockedWallNanos.get(), NANOSECONDS).convertTo(SECONDS).getValue()),
                         getConnectorMetrics(context.connectorMetrics.get(), context.readTimeNanos.get()),
 
                         DataSize.ofBytes(0),

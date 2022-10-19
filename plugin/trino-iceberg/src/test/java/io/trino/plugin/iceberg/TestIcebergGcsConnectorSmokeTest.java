@@ -41,6 +41,7 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Base64;
 
 import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_SCHEMA;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -119,12 +120,14 @@ public class TestIcebergGcsConnectorSmokeTest
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        if (connectorBehavior == TestingConnectorBehavior.SUPPORTS_RENAME_SCHEMA) {
-            // GCS tests use the Hive Metastore catalog which does not support renaming schemas
-            return false;
-        }
+        switch (connectorBehavior) {
+            case SUPPORTS_RENAME_SCHEMA:
+                // GCS tests use the Hive Metastore catalog which does not support renaming schemas
+                return false;
 
-        return super.hasBehavior(connectorBehavior);
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
     }
 
     @Override

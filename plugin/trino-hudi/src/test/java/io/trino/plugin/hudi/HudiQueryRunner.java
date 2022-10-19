@@ -22,7 +22,6 @@ import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hudi.testing.HudiTablesInitializer;
 import io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer;
-import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.testing.DistributedQueryRunner;
 
@@ -37,23 +36,19 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class HudiQueryRunner
 {
-    public static final CatalogSchemaName HUDI_TESTS = new CatalogSchemaName("hudi", "tests");
+    private static final String SCHEMA_NAME = "tests";
 
     private HudiQueryRunner() {}
 
     public static DistributedQueryRunner createHudiQueryRunner(
-            Map<String, String> serverConfig,
-            Map<String, String> connectorConfig,
+            Map<String, String> extraProperties,
+            Map<String, String> connectorProperties,
             HudiTablesInitializer dataLoader)
             throws Exception
     {
-        Session session = testSessionBuilder()
-                .setCatalog(HUDI_TESTS.getCatalogName())
-                .setSchema(HUDI_TESTS.getSchemaName())
-                .build();
         DistributedQueryRunner queryRunner = DistributedQueryRunner
-                .builder(session)
-                .setExtraProperties(serverConfig)
+                .builder(createSession())
+                .setExtraProperties(extraProperties)
                 .build();
 
         Path coordinatorBaseDir = queryRunner.getCoordinator().getBaseDataDir();
@@ -62,7 +57,7 @@ public final class HudiQueryRunner
 
         // create testing database
         Database database = Database.builder()
-                .setDatabaseName(HUDI_TESTS.getSchemaName())
+                .setDatabaseName(SCHEMA_NAME)
                 .setOwnerName(Optional.of("public"))
                 .setOwnerType(Optional.of(PrincipalType.ROLE))
                 .build();
@@ -74,34 +69,31 @@ public final class HudiQueryRunner
         }
 
         queryRunner.installPlugin(new TestingHudiPlugin(Optional.of(metastore)));
-        queryRunner.createCatalog(
-                "hudi",
-                HUDI_TESTS.getCatalogName(),
-                connectorConfig);
+        queryRunner.createCatalog("hudi", "hudi", connectorProperties);
 
         String dataDir = coordinatorBaseDir.resolve("data").toString();
-        dataLoader.initializeTables(queryRunner, metastore, HUDI_TESTS, dataDir, newEmptyConfiguration());
+        dataLoader.initializeTables(queryRunner, metastore, SCHEMA_NAME, dataDir, newEmptyConfiguration());
         return queryRunner;
     }
 
+    private static Session createSession()
+    {
+        return testSessionBuilder()
+                .setCatalog("hudi")
+                .setSchema(SCHEMA_NAME)
+                .build();
+    }
+
     public static void main(String[] args)
-            throws InterruptedException
+            throws Exception
     {
         Logging.initialize();
         Logger log = Logger.get(HudiQueryRunner.class);
 
-        DistributedQueryRunner queryRunner = null;
-        try (DistributedQueryRunner runner = createHudiQueryRunner(
+        DistributedQueryRunner queryRunner = createHudiQueryRunner(
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),
-                new ResourceHudiTablesInitializer())) {
-            queryRunner = runner;
-        }
-        catch (Throwable t) {
-            log.error(t);
-            System.exit(1);
-        }
-        Thread.sleep(100);
+                new ResourceHudiTablesInitializer());
 
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());

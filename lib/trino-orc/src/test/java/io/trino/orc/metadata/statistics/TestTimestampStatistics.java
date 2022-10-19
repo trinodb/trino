@@ -18,11 +18,12 @@ import org.testng.annotations.Test;
 
 import static java.lang.Long.MAX_VALUE;
 import static java.lang.Long.MIN_VALUE;
+import static java.lang.Math.toIntExact;
 
 public class TestTimestampStatistics
         extends AbstractRangeStatisticsTest<TimestampStatistics, Long>
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TimestampStatistics.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TimestampStatistics.class).instanceSize());
 
     @Override
     protected TimestampStatistics getCreateStatistics(Long min, Long max)

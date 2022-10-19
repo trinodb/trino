@@ -67,6 +67,7 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -76,6 +77,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -276,6 +278,7 @@ public class TestFaultTolerantStageScheduler
             tasks = remoteTaskFactory.getTasks();
             assertThat(tasks).hasSize(6);
             assertThat(tasks).containsKey(getTaskId(4, 0));
+            assertTrue(sinkExchange.isNoMoreSinks());
 
             // not finished yet, will be finished when all tasks succeed
             assertFalse(scheduler.isFinished());
@@ -301,6 +304,8 @@ public class TestFaultTolerantStageScheduler
                     new TestingExchangeSinkHandle(2),
                     new TestingExchangeSinkHandle(3),
                     new TestingExchangeSinkHandle(4));
+
+            assertTrue(sinkExchange.isAllRequiredSinksFinished());
 
             assertTrue(scheduler.isFinished());
         }
@@ -819,7 +824,9 @@ public class TestFaultTolerantStageScheduler
             scheduler.schedule();
             assertThat(remoteTaskFactory.getTasks()).hasSize(2);
             remoteTaskFactory.getTasks().values().forEach(task -> {
-                assertThat(task.getSplits().values()).hasSize(2);
+                Collection<Split> splits = task.getSplits().values();
+                // 2 normal splits + 1 split containing an output selector
+                assertThat(splits).hasSize(3);
                 task.finish();
             });
             assertThat(scheduler.isFinished()).isTrue();
@@ -856,6 +863,11 @@ public class TestFaultTolerantStageScheduler
             public void close() {}
         };
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
+            TestingExchange sourceExchange1 = new TestingExchange();
+            sourceExchange1.setSourceHandles(ImmutableList.of());
+            TestingExchange sourceExchange2 = new TestingExchange();
+            sourceExchange2.setSourceHandles(ImmutableList.of());
+            TestingExchange sinkExchange = new TestingExchange();
             FaultTolerantStageScheduler scheduler = createFaultTolerantTaskScheduler(
                     remoteTaskFactory,
                     (session, fragment, exchangeSourceHandles, getSplitTimeRecorder, bucketToPartition) -> {
@@ -863,8 +875,10 @@ public class TestFaultTolerantStageScheduler
                         return taskSource;
                     },
                     nodeAllocator,
-                    new TestingExchange(),
-                    ImmutableMap.of(),
+                    sinkExchange,
+                    ImmutableMap.of(
+                            SOURCE_FRAGMENT_ID_1, sourceExchange1,
+                            SOURCE_FRAGMENT_ID_2, sourceExchange2),
                     1,
                     1);
 
@@ -885,6 +899,8 @@ public class TestFaultTolerantStageScheduler
 
             future.set(ImmutableList.of());
             assertTrue(scheduler.isFinished());
+            assertTrue(sinkExchange.isNoMoreSinks());
+            assertTrue(sinkExchange.isAllRequiredSinksFinished());
         }
     }
 
@@ -920,9 +936,60 @@ public class TestFaultTolerantStageScheduler
     {
         TaskDescriptorStorage taskDescriptorStorage = new TaskDescriptorStorage(DataSize.of(10, MEGABYTE));
         taskDescriptorStorage.initialize(SESSION.getQueryId());
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getFunctionManager(), PLANNER_CONTEXT.getTypeOperators(), new DynamicFilterConfig());
+        return createStageScheduler(
+                session,
+                createSqlStage(createIntermediatePlanFragment(), remoteTaskFactory),
+                nodeAllocator,
+                retryAttempts,
+                maxTasksWaitingForNodePerStage,
+                taskDescriptorStorage,
+                taskSourceFactory,
+                dynamicFilterService,
+                sinkExchange,
+                sourceExchanges.entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, entry -> {
+                    FaultTolerantStageScheduler sourceScheduler = createStageScheduler(
+                            session,
+                            createSqlStage(createLeafPlanFragment(entry.getKey()), remoteTaskFactory),
+                            nodeAllocator,
+                            retryAttempts,
+                            maxTasksWaitingForNodePerStage,
+                            taskDescriptorStorage,
+                            new TestingTaskSourceFactory(Optional.empty(), ImmutableList.of(), 1),
+                            dynamicFilterService,
+                            entry.getValue(),
+                            ImmutableMap.of(),
+                            ImmutableMap.of());
+                    while (!sourceScheduler.isFinished()) {
+                        try {
+                            sourceScheduler.schedule();
+                        }
+                        catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                    return sourceScheduler;
+                })),
+                sourceExchanges);
+    }
+
+    private FaultTolerantStageScheduler createStageScheduler(
+            Session session,
+            SqlStage stage,
+            NodeAllocator nodeAllocator,
+            int retryAttempts,
+            int maxTasksWaitingForNodePerStage,
+            TaskDescriptorStorage taskDescriptorStorage,
+            TaskSourceFactory taskSourceFactory,
+            DynamicFilterService dynamicFilterService,
+            Exchange sinkExchange,
+            Map<PlanFragmentId, FaultTolerantStageScheduler> sourceSchedulers,
+            Map<PlanFragmentId, Exchange> sourceExchanges)
+    {
+        FaultTolerantPartitioningScheme partitioningScheme = new FaultTolerantPartitioningScheme(3, Optional.empty(), Optional.empty(), Optional.empty());
         return new FaultTolerantStageScheduler(
                 session,
-                createSqlStage(remoteTaskFactory),
+                stage,
                 new NoOpFailureDetector(),
                 taskSourceFactory,
                 nodeAllocator,
@@ -932,18 +999,18 @@ public class TestFaultTolerantStageScheduler
                 futureCompletor,
                 ticker,
                 sinkExchange,
-                new FaultTolerantPartitioningScheme(3, Optional.empty(), Optional.empty(), Optional.empty()),
+                partitioningScheme,
+                sourceSchedulers,
                 sourceExchanges,
-                new FaultTolerantPartitioningScheme(3, Optional.empty(), Optional.empty(), Optional.empty()),
+                partitioningScheme,
                 new AtomicInteger(retryAttempts),
                 retryAttempts,
                 maxTasksWaitingForNodePerStage,
-                new DynamicFilterService(PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getFunctionManager(), PLANNER_CONTEXT.getTypeOperators(), new DynamicFilterConfig()));
+                dynamicFilterService);
     }
 
-    private SqlStage createSqlStage(RemoteTaskFactory remoteTaskFactory)
+    private SqlStage createSqlStage(PlanFragment fragment, RemoteTaskFactory remoteTaskFactory)
     {
-        PlanFragment fragment = createPlanFragment();
         return SqlStage.createSqlStage(
                 STAGE_ID,
                 fragment,
@@ -956,7 +1023,7 @@ public class TestFaultTolerantStageScheduler
                 new SplitSchedulerStats());
     }
 
-    private PlanFragment createPlanFragment()
+    private PlanFragment createIntermediatePlanFragment()
     {
         Symbol probeColumnSymbol = new Symbol("probe_column");
         Symbol buildColumnSymbol = new Symbol("build_column");
@@ -998,6 +1065,29 @@ public class TestFaultTolerantStageScheduler
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(TABLE_SCAN_NODE_ID),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(probeColumnSymbol, buildColumnSymbol)),
+                StatsAndCosts.empty(),
+                ImmutableList.of(),
+                Optional.empty());
+    }
+
+    private PlanFragment createLeafPlanFragment(PlanFragmentId fragmentId)
+    {
+        Symbol outputColumn = new Symbol("output_column");
+        return new PlanFragment(
+                fragmentId,
+                new TableScanNode(
+                        TABLE_SCAN_NODE_ID,
+                        TEST_TABLE_HANDLE,
+                        ImmutableList.of(outputColumn),
+                        ImmutableMap.of(outputColumn, new TestingColumnHandle("column")),
+                        TupleDomain.none(),
+                        Optional.empty(),
+                        false,
+                        Optional.empty()),
+                ImmutableMap.of(outputColumn, VARCHAR),
+                SOURCE_DISTRIBUTION,
+                ImmutableList.of(TABLE_SCAN_NODE_ID),
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(outputColumn)),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
                 Optional.empty());

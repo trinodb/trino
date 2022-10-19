@@ -24,11 +24,12 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class Split
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Split.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(Split.class).instanceSize());
 
     private final CatalogHandle catalogHandle;
     private final ConnectorSplit connectorSplit;

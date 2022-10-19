@@ -34,7 +34,6 @@ import org.intellij.lang.annotations.Language;
 
 import java.io.Closeable;
 import java.net.URI;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -157,7 +156,7 @@ public abstract class AbstractTestingTrinoClient<T>
                 .catalog(session.getCatalog().orElse(null))
                 .schema(session.getSchema().orElse(null))
                 .path(session.getPath().toString())
-                .timeZone(ZoneId.of(session.getTimeZoneKey().getId()))
+                .timeZone(session.getTimeZoneKey().getZoneId())
                 .locale(session.getLocale())
                 .resourceEstimates(resourceEstimates.buildOrThrow())
                 .properties(properties.buildOrThrow())
@@ -218,6 +217,13 @@ public abstract class AbstractTestingTrinoClient<T>
         return columns.stream()
                 .map(Column::getType)
                 .map(trinoServer.getTypeManager()::fromSqlType)
+                .collect(toImmutableList());
+    }
+
+    protected List<String> getNames(List<Column> columns)
+    {
+        return columns.stream()
+                .map(Column::getName)
                 .collect(toImmutableList());
     }
 }

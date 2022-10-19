@@ -13,13 +13,18 @@
  */
 package io.trino.plugin.kafka.util;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
 import io.airlift.json.JsonCodec;
 import io.trino.plugin.kafka.KafkaTopicDescription;
+import io.trino.plugin.kafka.KafkaTopicFieldDescription;
+import io.trino.plugin.kafka.KafkaTopicFieldGroup;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.Type;
 
 import java.io.IOException;
 import java.util.AbstractMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -44,5 +49,46 @@ public final class TestUtils
         return new AbstractMap.SimpleImmutableEntry<>(
                 schemaTableName,
                 new KafkaTopicDescription(schemaTableName.getTableName(), Optional.of(schemaTableName.getSchemaName()), topicName, Optional.empty(), Optional.empty()));
+    }
+
+    public static KafkaTopicDescription createDescription(SchemaTableName schemaTableName, KafkaTopicFieldDescription key, List<KafkaTopicFieldDescription> fields)
+    {
+        return new KafkaTopicDescription(
+                schemaTableName.getTableName(),
+                Optional.of(schemaTableName.getSchemaName()),
+                schemaTableName.getTableName(),
+                Optional.of(new KafkaTopicFieldGroup("json", Optional.empty(), Optional.empty(), ImmutableList.of(key))),
+                Optional.of(new KafkaTopicFieldGroup("json", Optional.empty(), Optional.empty(), fields)));
+    }
+
+    public static KafkaTopicDescription createDescription(String name, String schema, String topic, Optional<KafkaTopicFieldGroup> message)
+    {
+        return new KafkaTopicDescription(name, Optional.of(schema), topic, Optional.empty(), message);
+    }
+
+    public static Optional<KafkaTopicFieldGroup> createFieldGroup(String dataFormat, List<KafkaTopicFieldDescription> fields)
+    {
+        return Optional.of(new KafkaTopicFieldGroup(dataFormat, Optional.empty(), Optional.empty(), fields));
+    }
+
+    public static KafkaTopicFieldDescription createOneFieldDescription(String name, Type type)
+    {
+        return new KafkaTopicFieldDescription(name, type, name, null, null, null, false);
+    }
+
+    public static KafkaTopicFieldDescription createOneFieldDescription(String name, Type type, String dataFormat)
+    {
+        return new KafkaTopicFieldDescription(name, type, name, null, dataFormat, null, false);
+    }
+
+    public static KafkaTopicFieldDescription createOneFieldDescription(String name, Type type, String dataFormat, Optional<String> formatHint)
+    {
+        return formatHint.map(s -> new KafkaTopicFieldDescription(name, type, name, null, dataFormat, s, false))
+                .orElseGet(() -> new KafkaTopicFieldDescription(name, type, name, null, dataFormat, null, false));
+    }
+
+    public static KafkaTopicFieldDescription createOneFieldDescription(String name, Type type, String mapping, String dataFormat)
+    {
+        return new KafkaTopicFieldDescription(name, type, mapping, null, dataFormat, null, false);
     }
 }

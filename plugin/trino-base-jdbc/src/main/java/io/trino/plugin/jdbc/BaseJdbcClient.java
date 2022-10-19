@@ -140,7 +140,7 @@ public abstract class BaseJdbcClient
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
             return listSchemas(connection).stream()
-                    .map(remoteSchemaName -> identifierMapping.fromRemoteSchemaName(remoteSchemaName))
+                    .map(identifierMapping::fromRemoteSchemaName)
                     .collect(toImmutableSet());
         }
         catch (SQLException e) {
@@ -345,8 +345,8 @@ public abstract class BaseJdbcClient
         RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
         return metadata.getColumns(
                 remoteTableName.getCatalogName().orElse(null),
-                escapeNamePattern(remoteTableName.getSchemaName(), metadata.getSearchStringEscape()).orElse(null),
-                escapeNamePattern(remoteTableName.getTableName(), metadata.getSearchStringEscape()),
+                escapeObjectNameForMetadataQuery(remoteTableName.getSchemaName(), metadata.getSearchStringEscape()).orElse(null),
+                escapeObjectNameForMetadataQuery(remoteTableName.getTableName(), metadata.getSearchStringEscape()),
                 null);
     }
 
@@ -667,7 +667,12 @@ public abstract class BaseJdbcClient
                         .map(this::quoted)
                         .collect(joining(", ")),
                 quoted(catalogName, schemaName, tableName));
-        execute(connection, sql);
+        try {
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
     }
 
     protected String generateTemporaryTableName()
@@ -702,20 +707,20 @@ public abstract class BaseJdbcClient
             ConnectorIdentity identity = session.getIdentity();
             String newRemoteSchemaName = identifierMapping.toRemoteSchemaName(identity, connection, newSchemaName);
             String newRemoteTableName = identifierMapping.toRemoteTableName(identity, connection, newRemoteSchemaName, newTableName);
-            String sql = renameTableSql(catalogName, remoteSchemaName, remoteTableName, newRemoteSchemaName, newRemoteTableName);
-            execute(connection, sql);
+            renameTable(session, connection, catalogName, remoteSchemaName, remoteTableName, newRemoteSchemaName, newRemoteTableName);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
-    protected String renameTableSql(String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
+    protected void renameTable(ConnectorSession session, Connection connection, String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
+            throws SQLException
     {
-        return format(
+        execute(connection, format(
                 "ALTER TABLE %s RENAME TO %s",
                 quoted(catalogName, remoteSchemaName, remoteTableName),
-                quoted(catalogName, newRemoteSchemaName, newRemoteTableName));
+                quoted(catalogName, newRemoteSchemaName, newRemoteTableName)));
     }
 
     @Override
@@ -783,21 +788,21 @@ public abstract class BaseJdbcClient
         try (Connection connection = connectionFactory.openConnection(session)) {
             String newRemoteColumnName = identifierMapping.toRemoteColumnName(connection, newColumnName);
             verifyColumnName(connection.getMetaData(), newRemoteColumnName);
-            String sql = renameColumnSql(handle, jdbcColumn, newRemoteColumnName);
-            execute(connection, sql);
+            renameColumn(session, connection, handle.asPlainTable().getRemoteTableName(), jdbcColumn.getColumnName(), newRemoteColumnName);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
-    protected String renameColumnSql(JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newRemoteColumnName)
+    protected void renameColumn(ConnectorSession session, Connection connection, RemoteTableName remoteTableName, String remoteColumnName, String newRemoteColumnName)
+            throws SQLException
     {
-        return format(
+        execute(connection, format(
                 "ALTER TABLE %s RENAME COLUMN %s TO %s",
-                quoted(handle.asPlainTable().getRemoteTableName()),
-                quoted(jdbcColumn.getColumnName()),
-                quoted(newRemoteColumnName));
+                quoted(remoteTableName),
+                quoted(remoteColumnName),
+                quoted(newRemoteColumnName)));
     }
 
     @Override
@@ -875,8 +880,8 @@ public abstract class BaseJdbcClient
         DatabaseMetaData metadata = connection.getMetaData();
         return metadata.getTables(
                 connection.getCatalog(),
-                escapeNamePattern(remoteSchemaName, metadata.getSearchStringEscape()).orElse(null),
-                escapeNamePattern(remoteTableName, metadata.getSearchStringEscape()).orElse(null),
+                escapeObjectNameForMetadataQuery(remoteSchemaName, metadata.getSearchStringEscape()).orElse(null),
+                escapeObjectNameForMetadataQuery(remoteTableName, metadata.getSearchStringEscape()).orElse(null),
                 getTableTypes().map(types -> types.toArray(String[]::new)).orElse(null));
     }
 
@@ -904,16 +909,17 @@ public abstract class BaseJdbcClient
         try (Connection connection = connectionFactory.openConnection(session)) {
             schemaName = identifierMapping.toRemoteSchemaName(identity, connection, schemaName);
             verifySchemaName(connection.getMetaData(), schemaName);
-            execute(connection, createSchemaSql(schemaName));
+            createSchema(session, connection, schemaName);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
-    protected String createSchemaSql(String schemaName)
+    protected void createSchema(ConnectorSession session, Connection connection, String remoteSchemaName)
+            throws SQLException
     {
-        return "CREATE SCHEMA " + quoted(schemaName);
+        execute(connection, "CREATE SCHEMA " + quoted(remoteSchemaName));
     }
 
     @Override
@@ -922,16 +928,17 @@ public abstract class BaseJdbcClient
         ConnectorIdentity identity = session.getIdentity();
         try (Connection connection = connectionFactory.openConnection(session)) {
             schemaName = identifierMapping.toRemoteSchemaName(identity, connection, schemaName);
-            execute(connection, dropSchemaSql(schemaName));
+            dropSchema(session, connection, schemaName);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
-    protected String dropSchemaSql(String schemaName)
+    protected void dropSchema(ConnectorSession session, Connection connection, String remoteSchemaName)
+            throws SQLException
     {
-        return "DROP SCHEMA " + quoted(schemaName);
+        execute(connection, "DROP SCHEMA " + quoted(remoteSchemaName));
     }
 
     @Override
@@ -942,16 +949,17 @@ public abstract class BaseJdbcClient
             String remoteSchemaName = identifierMapping.toRemoteSchemaName(identity, connection, schemaName);
             String newRemoteSchemaName = identifierMapping.toRemoteSchemaName(identity, connection, newSchemaName);
             verifySchemaName(connection.getMetaData(), newRemoteSchemaName);
-            execute(connection, renameSchemaSql(remoteSchemaName, newRemoteSchemaName));
+            renameSchema(session, connection, remoteSchemaName, newRemoteSchemaName);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
-    protected String renameSchemaSql(String remoteSchemaName, String newRemoteSchemaName)
+    protected void renameSchema(ConnectorSession session, Connection connection, String remoteSchemaName, String newRemoteSchemaName)
+            throws SQLException
     {
-        return "ALTER SCHEMA " + quoted(remoteSchemaName) + " RENAME TO " + quoted(newRemoteSchemaName);
+        execute(connection, "ALTER SCHEMA " + quoted(remoteSchemaName) + " RENAME TO " + quoted(newRemoteSchemaName));
     }
 
     protected void execute(ConnectorSession session, String query)
@@ -965,15 +973,15 @@ public abstract class BaseJdbcClient
     }
 
     protected void execute(Connection connection, String query)
+            throws SQLException
     {
         try (Statement statement = connection.createStatement()) {
             log.debug("Execute: %s", query);
             statement.execute(query);
         }
         catch (SQLException e) {
-            TrinoException exception = new TrinoException(JDBC_ERROR, e);
-            exception.addSuppressed(new RuntimeException("Query: " + query));
-            throw exception;
+            e.addSuppressed(new RuntimeException("Query: " + query));
+            throw e;
         }
     }
 
@@ -1137,12 +1145,12 @@ public abstract class BaseJdbcClient
         return "'" + value.replace("'", "''") + "'";
     }
 
-    protected static Optional<String> escapeNamePattern(Optional<String> name, String escape)
+    protected Optional<String> escapeObjectNameForMetadataQuery(Optional<String> name, String escape)
     {
-        return name.map(string -> escapeNamePattern(string, escape));
+        return name.map(string -> escapeObjectNameForMetadataQuery(string, escape));
     }
 
-    private static String escapeNamePattern(String name, String escape)
+    protected String escapeObjectNameForMetadataQuery(String name, String escape)
     {
         requireNonNull(name, "name is null");
         requireNonNull(escape, "escape is null");

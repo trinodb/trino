@@ -42,6 +42,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveType.toHiveType;
+import static io.trino.plugin.iceberg.IcebergUtil.fixBrokenMetadataLocation;
 import static io.trino.plugin.iceberg.IcebergUtil.getLocationProvider;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
@@ -61,7 +62,7 @@ public abstract class AbstractIcebergTableOperations
 
     protected static final String METADATA_FOLDER_NAME = "metadata";
 
-    protected static final StorageFormat STORAGE_FORMAT = StorageFormat.create(
+    public static final StorageFormat ICEBERG_METASTORE_STORAGE_FORMAT = StorageFormat.create(
             LazySimpleSerDe.class.getName(),
             FileInputFormat.class.getName(),
             FileOutputFormat.class.getName());
@@ -125,7 +126,7 @@ public abstract class AbstractIcebergTableOperations
             refreshFromMetadataLocation(null);
             return currentMetadata;
         }
-        refreshFromMetadataLocation(getRefreshedLocation(invalidateCaches));
+        refreshFromMetadataLocation(fixBrokenMetadataLocation(getRefreshedLocation(invalidateCaches)));
         return currentMetadata;
     }
 

@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -42,7 +43,7 @@ import static java.util.Objects.requireNonNull;
  */
 public final class Domain
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Domain.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(Domain.class).instanceSize());
 
     public static final int DEFAULT_COMPACTION_THRESHOLD = 32;
 

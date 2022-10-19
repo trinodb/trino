@@ -22,6 +22,7 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.execution.QueryManager;
 import io.trino.operator.OperatorStats;
+import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
@@ -40,11 +41,13 @@ import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.union;
@@ -65,6 +68,7 @@ import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
+import static java.util.Comparator.comparing;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -93,6 +97,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             "old_timestamps",
             "nested_timestamps",
             "nested_timestamps_parquet_stats",
+            "json_stats_on_row_type",
             "parquet_stats_missing",
             "uppercase_columns",
             "default_partitions",
@@ -183,7 +188,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         }
     }
 
-    protected void verifySupportsInsert()
+    protected void skipUnlessInsertsSupported()
     {
         if (!hasBehavior(SUPPORTS_INSERT)) {
             String tableName = "verify_insert_failure_" + randomTableSuffix();
@@ -599,7 +604,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testCreateTableWithSchemaLocation()
     {
-        verifySupportsInsert();
+        skipUnlessInsertsSupported();
 
         String tableName = "table1_with_curr_schema_loc_" + randomTableSuffix();
         String tableName2 = "table2_with_curr_schema_loc_" + randomTableSuffix();
@@ -639,7 +644,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testRenameExternalTable()
     {
-        verifySupportsInsert();
+        skipUnlessInsertsSupported();
 
         String oldTable = "test_external_table_rename_old_" + randomTableSuffix();
 
@@ -675,7 +680,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testRenameExternalTableAcrossSchemas()
     {
-        verifySupportsInsert();
+        skipUnlessInsertsSupported();
 
         String oldTable = "test_rename_old_" + randomTableSuffix();
         assertUpdate(format("CREATE TABLE %s (a bigint, b double) WITH (location = '%s')", oldTable, getLocationForTable(bucketName, oldTable)));
@@ -832,6 +837,59 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     }
 
     @Test
+    public void testConvertJsonStatisticsToParquetOnRowType()
+            throws Exception
+    {
+        skipUnlessInsertsSupported();
+
+        assertQuery("SELECT count(*) FROM json_stats_on_row_type", "VALUES 2");
+        String transactionLogDirectory = "json_stats_on_row_type/_delta_log";
+        String newTransactionFile = getLocationForTable(bucketName, "json_stats_on_row_type") + "/_delta_log/00000000000000000004.json";
+        String newCheckpointFile = getLocationForTable(bucketName, "json_stats_on_row_type") + "/_delta_log/00000000000000000004.checkpoint.parquet";
+        assertThat(getTableFiles(transactionLogDirectory))
+                .doesNotContain(newTransactionFile, newCheckpointFile);
+
+        assertUpdate("INSERT INTO json_stats_on_row_type SELECT CAST(row(3) AS row(x bigint)), CAST(row(row('test insert')) AS row(y row(nested varchar)))", 1);
+        assertThat(getTableFiles(transactionLogDirectory))
+                .contains(newTransactionFile, newCheckpointFile);
+        assertThat(getAddFileEntries("json_stats_on_row_type")).hasSize(3);
+
+        // The first two entries created by Databricks have column stats. The last one doesn't have column stats because the connector doesn't support collecting it on row columns.
+        List<AddFileEntry> addFileEntries = getAddFileEntries("json_stats_on_row_type").stream().sorted(comparing(AddFileEntry::getModificationTime)).collect(toImmutableList());
+        assertThat(addFileEntries).hasSize(3);
+        assertJsonStatistics(
+                addFileEntries.get(0),
+                "{" +
+                        "\"numRecords\":1," +
+                        "\"minValues\":{\"nested_struct_col\":{\"y\":{\"nested\":\"test\"}},\"struct_col\":{\"x\":1}}," +
+                        "\"maxValues\":{\"nested_struct_col\":{\"y\":{\"nested\":\"test\"}},\"struct_col\":{\"x\":1}}," +
+                        "\"nullCount\":{\"struct_col\":{\"x\":0},\"nested_struct_col\":{\"y\":{\"nested\":0}}}" +
+                        "}");
+        assertJsonStatistics(
+                addFileEntries.get(1),
+                "{" +
+                        "\"numRecords\":1," +
+                        "\"minValues\":{\"nested_struct_col\":{\"y\":{}},\"struct_col\":{}}," +
+                        "\"maxValues\":{\"nested_struct_col\":{\"y\":{}},\"struct_col\":{}}," +
+                        "\"nullCount\":{\"struct_col\":{\"x\":1},\"nested_struct_col\":{\"y\":{\"nested\":1}}}" +
+                        "}");
+        assertJsonStatistics(
+                addFileEntries.get(2),
+                "{\"numRecords\":1,\"minValues\":{},\"maxValues\":{},\"nullCount\":{}}");
+    }
+
+    private List<AddFileEntry> getAddFileEntries(String tableName)
+            throws IOException
+    {
+        return TestingDeltaLakeUtils.getAddFileEntries(getLocationForTable(bucketName, tableName));
+    }
+
+    private void assertJsonStatistics(AddFileEntry addFileEntry, @Language("JSON") String jsonStatistics)
+    {
+        assertEquals(addFileEntry.getStatsString().orElseThrow(), jsonStatistics);
+    }
+
+    @Test
     public void testMissingParquetStats()
     {
         assertQuery("SELECT count(*) FROM parquet_stats_missing WHERE i IS NULL", "VALUES 1");
@@ -852,7 +910,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testInsertIntoNonLowercaseColumnTable()
     {
-        verifySupportsInsert();
+        skipUnlessInsertsSupported();
 
         assertQuery(
                 "SELECT * FROM insert_nonlowercase_columns",
@@ -890,7 +948,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testInsertNestedNonLowercaseColumns()
     {
-        verifySupportsInsert();
+        skipUnlessInsertsSupported();
 
         assertQuery(
                 "SELECT an_int, nested.lower_case_string, nested.upper_case_string, nested.mixed_case_string FROM insert_nested_nonlowercase_columns",
@@ -931,7 +989,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testInsertIntoPartitionedTable()
     {
-        verifySupportsInsert();
+        skipUnlessInsertsSupported();
 
         String tableName = "test_insert_partitioned_" + randomTableSuffix();
         assertUpdate(
@@ -956,7 +1014,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testInsertIntoPartitionedNonLowercaseColumnTable()
     {
-        verifySupportsInsert();
+        skipUnlessInsertsSupported();
 
         assertQuery(
                 "SELECT * FROM insert_nonlowercase_columns_partitioned",
@@ -998,7 +1056,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testPartialInsert()
     {
-        verifySupportsInsert();
+        skipUnlessInsertsSupported();
 
         String tableName = "test_partial_insert_" + randomTableSuffix();
         assertUpdate(
@@ -1015,7 +1073,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testPartialInsertIntoPartitionedTable()
     {
-        verifySupportsInsert();
+        skipUnlessInsertsSupported();
 
         String tableName = "test_partial_insert_partitioned_" + randomTableSuffix();
         assertUpdate(
@@ -1037,7 +1095,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testInsertColumnOrdering()
     {
-        verifySupportsInsert();
+        skipUnlessInsertsSupported();
 
         String tableName = "test_insert_column_ordering_" + randomTableSuffix();
         assertUpdate(
@@ -1075,7 +1133,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testCheckpointing()
     {
-        verifySupportsInsert();
+        skipUnlessInsertsSupported();
 
         String tableName = "test_insert_checkpointing_" + randomTableSuffix();
         assertUpdate(
@@ -1114,7 +1172,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test(dataProvider = "testCheckpointWriteStatsAsStructDataProvider")
     public void testCheckpointWriteStatsAsStruct(String type, String inputValue, String nullsFraction, String statsValue)
     {
-        verifySupportsInsert();
+        skipUnlessInsertsSupported();
 
         String tableName = "test_checkpoint_write_stats_as_struct_" + randomTableSuffix();
 
@@ -1161,7 +1219,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testCheckpointWriteStatsAsStructWithPartiallyUnsupportedColumnStats()
     {
-        verifySupportsInsert();
+        skipUnlessInsertsSupported();
 
         String tableName = "test_checkpoint_write_stats_as_struct_partially_unsupported_" + randomTableSuffix();
 
@@ -1216,7 +1274,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     private void testDeltaLakeTableLocationChanged(boolean fewerEntries, boolean firstPartitioned, boolean secondPartitioned)
             throws Exception
     {
-        verifySupportsInsert();
+        skipUnlessInsertsSupported();
 
         // Create a table with a bunch of transaction log entries
         String tableName = "test_table_location_changed_" + randomTableSuffix();
@@ -1343,7 +1401,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testStatsSplitPruningBasedOnSepCreatedCheckpoint()
     {
-        verifySupportsInsert();
+        skipUnlessInsertsSupported();
 
         String tableName = "test_sep_checkpoint_stats_pruning_" + randomTableSuffix();
         String transactionLogDirectory = format("%s/_delta_log", tableName);
@@ -1384,7 +1442,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testStatsSplitPruningBasedOnSepCreatedCheckpointOnTopOfCheckpointWithJustStructStats()
     {
-        verifySupportsInsert();
+        skipUnlessInsertsSupported();
 
         String tableName = "test_sep_checkpoint_stats_pruning_struct_stats_" + randomTableSuffix();
         createTableFromResources(tableName, "databricks/pruning/parquet_struct_statistics", getQueryRunner());
@@ -1422,7 +1480,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     public void testVacuum()
             throws Exception
     {
-        verifySupportsInsert();
+        skipUnlessInsertsSupported();
 
         String catalog = getSession().getCatalog().orElseThrow();
         String tableName = "test_vacuum" + randomTableSuffix();
@@ -1509,7 +1567,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testOptimize()
     {
-        verifySupportsInsert();
+        skipUnlessInsertsSupported();
 
         String tableName = "test_optimize_" + randomTableSuffix();
         String tableLocation = getLocationForTable(bucketName, tableName);
@@ -1573,7 +1631,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testOptimizeWithPartitionedTable()
     {
-        verifySupportsInsert();
+        skipUnlessInsertsSupported();
 
         String tableName = "test_optimize_partitioned_table_" + randomTableSuffix();
         String tableLocation = getLocationForTable(bucketName, tableName);
@@ -1610,7 +1668,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testOptimizeWithEnforcedRepartitioning()
     {
-        verifySupportsInsert();
+        skipUnlessInsertsSupported();
 
         Session currentSession = testSessionBuilder()
                 .setCatalog(getQueryRunner().getDefaultSession().getCatalog())
@@ -1717,7 +1775,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testOptimizeUsingForcedPartitioning()
     {
-        verifySupportsInsert();
+        skipUnlessInsertsSupported();
 
         String tableName = "test_optimize_partitioned_table_" + randomTableSuffix();
         String tableLocation = getLocationForTable(bucketName, tableName);

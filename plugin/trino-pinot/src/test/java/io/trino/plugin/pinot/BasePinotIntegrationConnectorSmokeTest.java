@@ -66,6 +66,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -81,6 +83,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
 import static io.trino.plugin.pinot.PinotQueryRunner.createPinotQueryRunner;
+import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_LATEST_IMAGE_NAME;
 import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_PREVIOUS_IMAGE_NAME;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
@@ -135,6 +138,11 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
     protected String getPinotImageName()
     {
         return PINOT_PREVIOUS_IMAGE_NAME;
+    }
+
+    protected boolean isLatestVersion()
+    {
+        return getPinotImageName().equals(PINOT_LATEST_IMAGE_NAME);
     }
 
     @Override
@@ -298,9 +306,13 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
                     .set("updatedAt", initialUpdatedAt.plusMillis(i * 1000).toEpochMilli())
                     .build()));
         }
-        // Add a null row, verify it was not ingested as pinot does not accept null time column values.
-        // The data is verified in testBrokerQueryWithTooManyRowsForSegmentQuery
-        tooManyRowsRecordsBuilder.add(new ProducerRecord<>(TOO_MANY_ROWS_TABLE, "key" + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES, new GenericRecordBuilder(tooManyRowsAvroSchema).build()));
+        // For pinot 0.11.0+: rows with null time column values are ingested
+        // Only add a null row with a null time column for pinot < 0.11.0
+        if (!isLatestVersion()) {
+            // Add a null row, verify it was not ingested as pinot does not accept null time column values.
+            // The data is verified in testBrokerQueryWithTooManyRowsForSegmentQuery
+            tooManyRowsRecordsBuilder.add(new ProducerRecord<>(TOO_MANY_ROWS_TABLE, "key" + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES, new GenericRecordBuilder(tooManyRowsAvroSchema).build()));
+        }
         kafka.sendMessages(tooManyRowsRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("too_many_rows_schema.json"), TOO_MANY_ROWS_TABLE);
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("too_many_rows_realtimeSpec.json"), TOO_MANY_ROWS_TABLE);
@@ -663,14 +675,17 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("nation_realtimeSpec.json"), nationTableName);
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_CREATE_SCHEMA,
-                    SUPPORTS_CREATE_TABLE,
-                    SUPPORTS_INSERT,
-                    SUPPORTS_RENAME_TABLE -> false;
+            case SUPPORTS_CREATE_SCHEMA -> false;
+
+            case SUPPORTS_CREATE_TABLE, SUPPORTS_RENAME_TABLE -> false;
+
+            case SUPPORTS_INSERT -> false;
+
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -698,7 +713,7 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
     private static Path createSegment(InputStream tableConfigInputStream, InputStream pinotSchemaInputStream, RecordReader recordReader, String outputDirectory, int sequenceId)
     {
         try {
-            org.apache.pinot.spi.data.Schema pinotSchema = org.apache.pinot.spi.data.Schema.fromInputSteam(pinotSchemaInputStream);
+            org.apache.pinot.spi.data.Schema pinotSchema = org.apache.pinot.spi.data.Schema.fromInputStream(pinotSchemaInputStream);
             TableConfig tableConfig = inputStreamToObject(tableConfigInputStream, TableConfig.class);
             String tableName = TableNameBuilder.extractRawTableName(tableConfig.getTableName());
             String timeColumnName = tableConfig.getValidationConfig().getTimeColumnName();
@@ -1312,7 +1327,7 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
         // Pinot broker requests do not handle limits greater than Integer.MAX_VALUE
         // Note that -2147483648 is due to an integer overflow in Pinot: https://github.com/apache/pinot/issues/7242
         assertQueryFails("SELECT * FROM \"SELECT string_col, long_col FROM " + ALL_TYPES_TABLE + " LIMIT " + ((long) Integer.MAX_VALUE + 1) + "\"",
-                "Query select \"string_col\", \"long_col\" from alltypes limit -2147483648 encountered exception org.apache.pinot.common.response.broker.QueryProcessingException@\\w+ with query \"select \"string_col\", \"long_col\" from alltypes limit -2147483648\"");
+                "(?s)Query select \"string_col\", \"long_col\" from alltypes limit -2147483648 encountered exception .* with query \"select \"string_col\", \"long_col\" from alltypes limit -2147483648\"");
 
         List<String> tooManyBrokerRowsTableValues = new ArrayList<>();
         for (int i = 0; i < MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES; i++) {
@@ -1546,19 +1561,6 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
                 .isFullyPushedDown();
         assertThat(query("SELECT string_col, long_col FROM " + ALL_TYPES_TABLE + "  WHERE int_col >0 AND bool_col = false LIMIT " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES))
                 .isNotFullyPushedDown(LimitNode.class);
-    }
-
-    @Test
-    public void testPredicatePushdown()
-    {
-        assertThat(query("SELECT timestamp_col FROM " + ALL_TYPES_TABLE + " WHERE timestamp_col < TIMESTAMP '1971-01-01 00:00:00.000'"))
-                .isFullyPushedDown();
-    }
-
-    @Override
-    public void testCreateTable()
-    {
-        assertQueryFails("CREATE TABLE test_create_table (col INT)", "This connector does not support creating tables");
     }
 
     /**
@@ -2439,8 +2441,20 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
     @Test
     public void testTimestamp()
     {
-        assertThat(query("SELECT ts FROM alltypes order by ts LIMIT 1")).matches("VALUES (TIMESTAMP '1970-01-01 00:00:00.000')");
-        assertThat(query("SELECT min(ts) FROM alltypes")).matches("VALUES (TIMESTAMP '1970-01-01 00:00:00.000')");
+        assertThat(query("SELECT ts FROM " + ALL_TYPES_TABLE + " ORDER BY ts LIMIT 1")).matches("VALUES (TIMESTAMP '1970-01-01 00:00:00.000')");
+        assertThat(query("SELECT min(ts) FROM " + ALL_TYPES_TABLE)).matches("VALUES (TIMESTAMP '1970-01-01 00:00:00.000')");
+        assertThat(query("SELECT max(ts) FROM " + ALL_TYPES_TABLE)).isFullyPushedDown();
+        assertThat(query("SELECT ts FROM " + ALL_TYPES_TABLE + " ORDER BY ts DESC LIMIT 1")).matches("SELECT max(ts) FROM " + ALL_TYPES_TABLE);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").withZone(ZoneId.of("UTC"));
+        for (int i = 0, step = 1200; i < MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES - 2; i++) {
+            String initialUpdatedAtStr = formatter.format(initialUpdatedAt.plusMillis(i * step));
+            assertThat(query("SELECT ts FROM " + ALL_TYPES_TABLE + " WHERE ts >= TIMESTAMP '" + initialUpdatedAtStr + "' ORDER BY ts LIMIT 1"))
+                    .matches("SELECT ts FROM " + ALL_TYPES_TABLE + " WHERE ts <= TIMESTAMP '" + initialUpdatedAtStr + "' ORDER BY ts DESC LIMIT 1");
+            assertThat(query("SELECT ts FROM " + ALL_TYPES_TABLE + " WHERE ts = TIMESTAMP '" + initialUpdatedAtStr + "' LIMIT 1"))
+                    .matches("VALUES (TIMESTAMP '" + initialUpdatedAtStr + "')");
+        }
+        assertThat(query("SELECT timestamp_col FROM " + ALL_TYPES_TABLE + " WHERE timestamp_col < TIMESTAMP '1971-01-01 00:00:00.000'")).isFullyPushedDown();
+        assertThat(query("SELECT timestamp_col FROM " + ALL_TYPES_TABLE + " WHERE timestamp_col < TIMESTAMP '1970-01-01 00:00:00.000'")).isFullyPushedDown();
     }
 
     @Test

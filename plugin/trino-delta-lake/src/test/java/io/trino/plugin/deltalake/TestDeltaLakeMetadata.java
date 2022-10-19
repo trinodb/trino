@@ -85,7 +85,7 @@ import static io.trino.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.TimestampType.TIMESTAMP;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.Locale.ENGLISH;
@@ -98,7 +98,7 @@ public class TestDeltaLakeMetadata
 
     private static final ColumnMetadata BIGINT_COLUMN_1 = new ColumnMetadata("bigint_column1", BIGINT);
     private static final ColumnMetadata BIGINT_COLUMN_2 = new ColumnMetadata("bigint_column2", BIGINT);
-    private static final ColumnMetadata TIMESTAMP_COLUMN = new ColumnMetadata("timestamp_column", TIMESTAMP);
+    private static final ColumnMetadata TIMESTAMP_COLUMN = new ColumnMetadata("timestamp_column", TIMESTAMP_MILLIS);
     private static final ColumnMetadata MISSING_COLUMN = new ColumnMetadata("missing_column", BIGINT);
 
     private static final DeltaLakeColumnHandle BOOLEAN_COLUMN_HANDLE =

@@ -64,6 +64,7 @@ public class PinotConfig
     private boolean aggregationPushdownEnabled = true;
     private boolean countDistinctPushdownEnabled = true;
     private boolean grpcEnabled = true;
+    private boolean proxyEnabled;
     private DataSize targetSegmentPageSize = DataSize.of(1, MEGABYTE);
 
     @NotEmpty(message = "pinot.controller-urls cannot be empty")
@@ -245,6 +246,18 @@ public class PinotConfig
         return "https".equalsIgnoreCase(getControllerUrls().get(0).getScheme());
     }
 
+    public boolean getProxyEnabled()
+    {
+        return proxyEnabled;
+    }
+
+    @Config("pinot.proxy.enabled")
+    public PinotConfig setProxyEnabled(boolean proxyEnabled)
+    {
+        this.proxyEnabled = proxyEnabled;
+        return this;
+    }
+
     public DataSize getTargetSegmentPageSize()
     {
         return this.targetSegmentPageSize;
@@ -272,5 +285,14 @@ public class PinotConfig
                 .map(URI::getScheme)
                 .distinct()
                 .count() == 1;
+    }
+
+    @AssertTrue(message = "Using the rest proxy requires GRPC to be enabled by setting pinot.grpc.enabled=true")
+    public boolean proxyRestAndGrpcAreRequired()
+    {
+        if (proxyEnabled) {
+            return grpcEnabled;
+        }
+        return true;
     }
 }

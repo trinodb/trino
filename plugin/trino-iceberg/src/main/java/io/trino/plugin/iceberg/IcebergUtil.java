@@ -76,6 +76,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -146,6 +147,7 @@ import static org.apache.iceberg.types.Type.TypeID.FIXED;
 
 public final class IcebergUtil
 {
+    public static final String METADATA_FILE_EXTENSION = ".metadata.json";
     private static final Pattern SIMPLE_NAME = Pattern.compile("[a-z][a-z0-9]*");
 
     private IcebergUtil() {}
@@ -622,5 +624,26 @@ public final class IcebergUtil
         if (!allColumns.containsAll(orcBloomFilterColumns)) {
             throw new TrinoException(INVALID_TABLE_PROPERTY, format("Orc bloom filter columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(orcBloomFilterColumns), allColumns)));
         }
+    }
+
+    public static String fixBrokenMetadataLocation(String location)
+    {
+        // Version 393-394 stored metadata location with double slash https://github.com/trinodb/trino/commit/e95fdcc7d1ec110b10977d17458e06fc4e6f217d#diff-9bbb7c0b6168f0e6b4732136f9a97f820aa082b04efb5609b6138afc118831d7R46
+        // e.g. s3://bucket/db/table//metadata/00001.metadata.json
+        // It caused failure when accessing S3 objects https://github.com/trinodb/trino/issues/14299
+        // Version 395 fixed the above issue by removing trailing slash https://github.com/trinodb/trino/pull/13984,
+        // but the change was insufficient for existing table cases created by 393 and 394. This method covers existing table cases.
+        String fileName = fileName(location);
+        String correctSuffix = "/metadata/" + fileName;
+        String brokenSuffix = "//metadata/" + fileName;
+        if (!location.endsWith(brokenSuffix)) {
+            return location;
+        }
+        return location.replaceFirst(Pattern.quote(brokenSuffix) + "$", Matcher.quoteReplacement(correctSuffix));
+    }
+
+    public static String fileName(String path)
+    {
+        return path.substring(path.lastIndexOf('/') + 1);
     }
 }

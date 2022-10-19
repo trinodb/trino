@@ -55,9 +55,11 @@ import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
+import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.security.AccessControlMetadata;
 import io.trino.spi.NodeManager;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -95,6 +97,9 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.GrantInfo;
+import io.trino.spi.security.Privilege;
+import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.ColumnStatisticType;
@@ -168,6 +173,7 @@ import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMe
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_VALUE;
 import static io.trino.plugin.deltalake.procedure.DeltaLakeTableProcedureId.OPTIMIZE;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.APPEND_ONLY_CONFIGURATION_KEY;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.changeDataFeedEnabled;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractColumnMetadata;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractPartitionColumns;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
@@ -177,6 +183,7 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ge
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnMappingMode;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnsMetadata;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnsNullability;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getGeneratedColumnExpressions;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isAppendOnly;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeSchemaAsJson;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeStatsAsJson;
@@ -259,7 +266,9 @@ public class DeltaLakeMetadata
     // The required writer version used by tables created by Trino
     private static final int WRITER_VERSION = 2;
     // The highest writer version Trino supports writing to
-    private static final int MAX_WRITER_VERSION = 3;
+    private static final int MAX_WRITER_VERSION = 4;
+    // This constant should be used only for a new table
+    private static final ProtocolEntry DEFAULT_PROTOCOL = new ProtocolEntry(READER_VERSION, WRITER_VERSION);
     // Matches the dummy column Databricks stores in the metastore
     private static final List<Column> DUMMY_DATA_COLUMNS = ImmutableList.of(
             new Column("col", HiveType.toHiveType(new ArrayType(VarcharType.createUnboundedVarcharType())), Optional.empty()));
@@ -272,6 +281,7 @@ public class DeltaLakeMetadata
     private final TrinoFileSystemFactory fileSystemFactory;
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
+    private final AccessControlMetadata accessControlMetadata;
     private final CheckpointWriterManager checkpointWriterManager;
     private final long defaultCheckpointInterval;
     private final int domainCompactionThreshold;
@@ -294,6 +304,7 @@ public class DeltaLakeMetadata
             TrinoFileSystemFactory fileSystemFactory,
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
+            AccessControlMetadata accessControlMetadata,
             int domainCompactionThreshold,
             boolean unsafeWritesEnabled,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
@@ -313,6 +324,7 @@ public class DeltaLakeMetadata
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.accessControlMetadata = requireNonNull(accessControlMetadata, "accessControlMetadata is null");
         this.domainCompactionThreshold = domainCompactionThreshold;
         this.unsafeWritesEnabled = unsafeWritesEnabled;
         this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");
@@ -708,7 +720,8 @@ public class DeltaLakeMetadata
                         session,
                         nodeVersion,
                         nodeId,
-                        tableMetadata.getComment());
+                        tableMetadata.getComment(),
+                        DEFAULT_PROTOCOL);
 
                 setRollback(() -> deleteRecursivelyIfExists(new HdfsContext(session), hdfsEnvironment, deltaLogDirectory));
                 transactionLogWriter.flush();
@@ -806,9 +819,6 @@ public class DeltaLakeMetadata
         }
         Path targetPath = new Path(location);
         ensurePathExists(session, targetPath);
-
-        HdfsContext hdfsContext = new HdfsContext(session);
-        createDirectory(hdfsContext, hdfsEnvironment, targetPath);
         checkPathContainsNoFiles(session, targetPath);
 
         setRollback(() -> deleteRecursivelyIfExists(new HdfsContext(session), hdfsEnvironment, targetPath));
@@ -974,7 +984,8 @@ public class DeltaLakeMetadata
                     session,
                     nodeVersion,
                     nodeId,
-                    handle.getComment());
+                    handle.getComment(),
+                    DEFAULT_PROTOCOL);
             appendAddFileEntries(transactionLogWriter, dataFileInfos, handle.getPartitionedBy(), true);
             transactionLogWriter.flush();
             PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner().orElseThrow());
@@ -1053,7 +1064,8 @@ public class DeltaLakeMetadata
                     session,
                     nodeVersion,
                     nodeId,
-                    comment);
+                    comment,
+                    getProtocolEntry(session, handle.getSchemaTableName()));
             transactionLogWriter.flush();
         }
         catch (Exception e) {
@@ -1100,7 +1112,8 @@ public class DeltaLakeMetadata
                     session,
                     nodeVersion,
                     nodeId,
-                    Optional.ofNullable(deltaLakeTableHandle.getMetadataEntry().getDescription()));
+                    Optional.ofNullable(deltaLakeTableHandle.getMetadataEntry().getDescription()),
+                    getProtocolEntry(session, deltaLakeTableHandle.getSchemaTableName()));
             transactionLogWriter.flush();
         }
         catch (Exception e) {
@@ -1158,7 +1171,8 @@ public class DeltaLakeMetadata
                     session,
                     nodeVersion,
                     nodeId,
-                    Optional.ofNullable(handle.getMetadataEntry().getDescription()));
+                    Optional.ofNullable(handle.getMetadataEntry().getDescription()),
+                    getProtocolEntry(session, handle.getSchemaTableName()));
             transactionLogWriter.flush();
         }
         catch (Exception e) {
@@ -1180,7 +1194,8 @@ public class DeltaLakeMetadata
             ConnectorSession session,
             String nodeVersion,
             String nodeId,
-            Optional<String> comment)
+            Optional<String> comment,
+            ProtocolEntry protocolEntry)
     {
         long createdTime = System.currentTimeMillis();
         transactionLogWriter.appendCommitInfoEntry(
@@ -1198,7 +1213,7 @@ public class DeltaLakeMetadata
                         ISOLATION_LEVEL,
                         true));
 
-        transactionLogWriter.appendProtocolEntry(new ProtocolEntry(READER_VERSION, WRITER_VERSION));
+        transactionLogWriter.appendProtocolEntry(protocolEntry);
 
         transactionLogWriter.appendMetadataEntry(
                 new MetadataEntry(
@@ -1251,6 +1266,7 @@ public class DeltaLakeMetadata
         if (!getCheckConstraints(table.getMetadataEntry()).isEmpty()) {
             throw new TrinoException(NOT_SUPPORTED, "Writing to tables with CHECK constraints is not supported");
         }
+        checkUnsupportedGeneratedColumns(table.getMetadataEntry());
         checkSupportedWriterVersion(session, table.getSchemaTableName());
 
         List<DeltaLakeColumnHandle> inputColumns = columns.stream()
@@ -1384,6 +1400,10 @@ public class DeltaLakeMetadata
         if (!getCheckConstraints(handle.getMetadataEntry()).isEmpty()) {
             throw new TrinoException(NOT_SUPPORTED, "Writing to tables with CHECK constraints is not supported");
         }
+        checkUnsupportedGeneratedColumns(handle.getMetadataEntry());
+        if (changeDataFeedEnabled(handle.getMetadataEntry())) {
+            throw new TrinoException(NOT_SUPPORTED, "Writing to tables with Change Data Feed enabled is not supported");
+        }
         checkSupportedWriterVersion(session, handle.getSchemaTableName());
 
         return DeltaLakeTableHandle.forDelete(
@@ -1446,6 +1466,10 @@ public class DeltaLakeMetadata
         }
         if (!getCheckConstraints(handle.getMetadataEntry()).isEmpty()) {
             throw new TrinoException(NOT_SUPPORTED, "Writing to tables with CHECK constraints is not supported");
+        }
+        checkUnsupportedGeneratedColumns(handle.getMetadataEntry());
+        if (changeDataFeedEnabled(handle.getMetadataEntry())) {
+            throw new TrinoException(NOT_SUPPORTED, "Writing to tables with Change Data Feed enabled is not supported");
         }
         checkSupportedWriterVersion(session, handle.getSchemaTableName());
 
@@ -1516,6 +1540,10 @@ public class DeltaLakeMetadata
         }
         if (!getCheckConstraints(handle.getMetadataEntry()).isEmpty()) {
             throw new TrinoException(NOT_SUPPORTED, "Writing to tables with CHECK constraints is not supported");
+        }
+        checkUnsupportedGeneratedColumns(handle.getMetadataEntry());
+        if (changeDataFeedEnabled(handle.getMetadataEntry())) {
+            throw new TrinoException(NOT_SUPPORTED, "Writing to tables with Change Data Feed enabled is not supported");
         }
         checkSupportedWriterVersion(session, handle.getSchemaTableName());
 
@@ -1815,14 +1843,27 @@ public class DeltaLakeMetadata
         }
     }
 
+    private void checkUnsupportedGeneratedColumns(MetadataEntry metadataEntry)
+    {
+        Map<String, String> columnGeneratedExpressions = getGeneratedColumnExpressions(metadataEntry);
+        if (!columnGeneratedExpressions.isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "Writing to tables with generated columns is not supported");
+        }
+    }
+
     private void checkSupportedWriterVersion(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        int requiredWriterVersion = metastore.getProtocol(session, metastore.getSnapshot(schemaTableName, session)).getMinWriterVersion();
+        int requiredWriterVersion = getProtocolEntry(session, schemaTableName).getMinWriterVersion();
         if (requiredWriterVersion > MAX_WRITER_VERSION) {
             throw new TrinoException(
                     NOT_SUPPORTED,
                     format("Table %s requires Delta Lake writer version %d which is not supported", schemaTableName, requiredWriterVersion));
         }
+    }
+
+    private ProtocolEntry getProtocolEntry(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        return metastore.getProtocol(session, metastore.getSnapshot(schemaTableName, session));
     }
 
     private List<DeltaLakeColumnHandle> getUnmodifiedColumns(DeltaLakeTableHandle tableHandle, List<ColumnHandle> updatedColumns)
@@ -2011,6 +2052,83 @@ public class DeltaLakeMetadata
         return db.map(DeltaLakeSchemaProperties::fromDatabase).orElseThrow(() -> new SchemaNotFoundException(schema));
     }
 
+    @Override
+    public void createRole(ConnectorSession session, String role, Optional<TrinoPrincipal> grantor)
+    {
+        accessControlMetadata.createRole(session, role, grantor.map(HivePrincipal::from));
+    }
+
+    @Override
+    public void dropRole(ConnectorSession session, String role)
+    {
+        accessControlMetadata.dropRole(session, role);
+    }
+
+    @Override
+    public Set<String> listRoles(ConnectorSession session)
+    {
+        return accessControlMetadata.listRoles(session);
+    }
+
+    @Override
+    public Set<RoleGrant> listRoleGrants(ConnectorSession session, TrinoPrincipal principal)
+    {
+        return ImmutableSet.copyOf(accessControlMetadata.listRoleGrants(session, HivePrincipal.from(principal)));
+    }
+
+    @Override
+    public void grantRoles(ConnectorSession session, Set<String> roles, Set<TrinoPrincipal> grantees, boolean withAdminOption, Optional<TrinoPrincipal> grantor)
+    {
+        accessControlMetadata.grantRoles(session, roles, HivePrincipal.from(grantees), withAdminOption, grantor.map(HivePrincipal::from));
+    }
+
+    @Override
+    public void revokeRoles(ConnectorSession session, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOptionFor, Optional<TrinoPrincipal> grantor)
+    {
+        accessControlMetadata.revokeRoles(session, roles, HivePrincipal.from(grantees), adminOptionFor, grantor.map(HivePrincipal::from));
+    }
+
+    @Override
+    public Set<RoleGrant> listApplicableRoles(ConnectorSession session, TrinoPrincipal principal)
+    {
+        return accessControlMetadata.listApplicableRoles(session, HivePrincipal.from(principal));
+    }
+
+    @Override
+    public Set<String> listEnabledRoles(ConnectorSession session)
+    {
+        return accessControlMetadata.listEnabledRoles(session);
+    }
+
+    @Override
+    public void grantTablePrivileges(ConnectorSession session, SchemaTableName schemaTableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+    {
+        accessControlMetadata.grantTablePrivileges(session, schemaTableName, privileges, HivePrincipal.from(grantee), grantOption);
+    }
+
+    @Override
+    public void revokeTablePrivileges(ConnectorSession session, SchemaTableName schemaTableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+    {
+        accessControlMetadata.revokeTablePrivileges(session, schemaTableName, privileges, HivePrincipal.from(grantee), grantOption);
+    }
+
+    @Override
+    public List<GrantInfo> listTablePrivileges(ConnectorSession session, SchemaTablePrefix schemaTablePrefix)
+    {
+        return accessControlMetadata.listTablePrivileges(session, listTables(session, schemaTablePrefix));
+    }
+
+    private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        if (prefix.getTable().isEmpty()) {
+            return listTables(session, prefix.getSchema());
+        }
+        SchemaTableName tableName = prefix.toSchemaTableName();
+        return metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
+                .map(table -> ImmutableList.of(tableName))
+                .orElse(ImmutableList.of());
+    }
+
     private void setRollback(Runnable action)
     {
         checkState(rollbackAction.compareAndSet(null, action), "rollback action is already set");
@@ -2126,9 +2244,10 @@ public class DeltaLakeMetadata
     public ConnectorAnalyzeMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> analyzeProperties)
     {
         if (!isExtendedStatisticsEnabled(session)) {
-            throw new TrinoException(
-                    NOT_SUPPORTED,
-                    "ANALYZE not supported if extended statistics are disabled. Enable via delta.extended-statistics.enabled config property or extended_statistics_enabled session property.");
+            throw new TrinoException(NOT_SUPPORTED, format(
+                    "ANALYZE not supported if extended statistics are disabled. Enable via %s config property or %s session property.",
+                    DeltaLakeConfig.EXTENDED_STATISTICS_ENABLED,
+                    DeltaLakeSessionProperties.EXTENDED_STATISTICS_ENABLED));
         }
 
         DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;

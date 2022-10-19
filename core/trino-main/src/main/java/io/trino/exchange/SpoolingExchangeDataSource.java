@@ -91,6 +91,7 @@ public class SpoolingExchangeDataSource
         if (exchangeSource == null) {
             return;
         }
+        spoolingExchangeInput.getOutputSelector().ifPresent(exchangeSource::setOutputSelector);
         exchangeSource.addSourceHandles(spoolingExchangeInput.getExchangeSourceHandles());
     }
 

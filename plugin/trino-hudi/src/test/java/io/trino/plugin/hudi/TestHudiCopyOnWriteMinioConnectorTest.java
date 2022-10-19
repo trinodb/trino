@@ -13,13 +13,33 @@
  */
 package io.trino.plugin.hudi;
 
+import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.hudi.testing.TpchHudiTablesInitializer;
+import io.trino.testing.QueryRunner;
+
+import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static org.apache.hudi.common.model.HoodieTableType.COPY_ON_WRITE;
 
 public class TestHudiCopyOnWriteMinioConnectorTest
         extends BaseHudiMinioConnectorTest
 {
-    public TestHudiCopyOnWriteMinioConnectorTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(COPY_ON_WRITE);
+        String bucketName = "test-hudi-connector-" + randomTableSuffix();
+        hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName, HIVE3_IMAGE));
+        hiveMinioDataLake.start();
+        hiveMinioDataLake.getMinioClient().ensureBucketExists(bucketName);
+
+        return S3HudiQueryRunner.create(
+                ImmutableMap.of(),
+                ImmutableMap.<String, String>builder()
+                        .put("hudi.columns-to-hide", columnsToHide())
+                        .buildOrThrow(),
+                new TpchHudiTablesInitializer(COPY_ON_WRITE, REQUIRED_TPCH_TABLES),
+                hiveMinioDataLake);
     }
 }

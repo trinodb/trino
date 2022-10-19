@@ -13,10 +13,13 @@
  */
 package io.trino.plugin.deltalake.transactionlog;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.type.DecodedTimestamp;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ColumnarRow;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DateType;
@@ -56,6 +59,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.parquet.ParquetTimestampUtils.decodeInt96Timestamp;
+import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -67,6 +71,7 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
@@ -76,6 +81,7 @@ import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_INSTANT;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.temporal.ChronoUnit.MILLIS;
+import static java.util.Objects.requireNonNull;
 
 public class DeltaLakeParquetStatisticsUtils
 {
@@ -154,8 +160,7 @@ public class DeltaLakeParquetStatisticsUtils
         Map<String, Object> jsonValues = new HashMap<>();
         for (Map.Entry<String, Object> value : values.entrySet()) {
             Type type = columnTypeMapping.get(value.getKey());
-            // TODO: Add support for row type
-            if (type instanceof ArrayType || type instanceof MapType || type instanceof RowType) {
+            if (type instanceof ArrayType || type instanceof MapType) {
                 continue;
             }
             jsonValues.put(value.getKey(), toJsonValue(columnTypeMapping.get(value.getKey()), value.getValue()));
@@ -197,6 +202,19 @@ public class DeltaLakeParquetStatisticsUtils
             Instant ts = Instant.ofEpochMilli(unpackMillisUtc((long) value));
             return ISO_INSTANT.format(ZonedDateTime.ofInstant(ts, UTC));
         }
+        if (type instanceof RowType rowType) {
+            Block rowBlock = (Block) value;
+            ImmutableMap.Builder<String, Object> fieldValues = ImmutableMap.builder();
+            for (int i = 0; i < rowBlock.getPositionCount(); i++) {
+                RowType.Field field = rowType.getFields().get(i);
+                Object fieldValue = readNativeValue(field.getType(), rowBlock.getChildren().get(i), i);
+                Object jsonValue = toJsonValue(field.getType(), fieldValue);
+                if (jsonValue != null) {
+                    fieldValues.put(field.getName().orElseThrow(), jsonValue);
+                }
+            }
+            return fieldValues.buildOrThrow();
+        }
 
         throw new UnsupportedOperationException("Unsupported type: " + type);
     }
@@ -220,6 +238,36 @@ public class DeltaLakeParquetStatisticsUtils
         return allStats.entrySet().stream()
                 .filter(entry -> entry.getValue() != null && entry.getValue().isPresent())
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().get()));
+    }
+
+    public static Map<String, Object> toNullCounts(Map<String, Type> columnTypeMapping, Map<String, Object> values)
+    {
+        ImmutableMap.Builder<String, Object> nullCounts = ImmutableMap.builderWithExpectedSize(values.size());
+        for (Map.Entry<String, Object> value : values.entrySet()) {
+            Type type = columnTypeMapping.get(value.getKey());
+            requireNonNull(type, "type is null");
+            nullCounts.put(value.getKey(), toNullCount(type, value.getValue()));
+        }
+        return nullCounts.buildOrThrow();
+    }
+
+    private static Object toNullCount(Type type, Object value)
+    {
+        if (type instanceof RowType rowType) {
+            ColumnarRow row = toColumnarRow((Block) value);
+            ImmutableMap.Builder<String, Object> nullCounts = ImmutableMap.builderWithExpectedSize(row.getPositionCount());
+            for (int i = 0; i < row.getPositionCount(); i++) {
+                RowType.Field field = rowType.getFields().get(i);
+                if (field.getType() instanceof RowType) {
+                    nullCounts.put(field.getName().orElseThrow(), toNullCount(field.getType(), row.getField(i)));
+                }
+                else {
+                    nullCounts.put(field.getName().orElseThrow(), BIGINT.getLong(row.getField(i), 0));
+                }
+            }
+            return nullCounts.buildOrThrow();
+        }
+        return value;
     }
 
     private static Optional<Object> getMin(Type type, Statistics<?> statistics)

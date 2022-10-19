@@ -67,7 +67,7 @@ public class GeneratedPageProjection
     @Override
     public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
     {
-        blockBuilder = blockBuilder.newBlockBuilderLike(null);
+        blockBuilder = blockBuilder.newBlockBuilderLike(selectedPositions.size(), null);
         try {
             return (Work<Block>) pageProjectionWorkFactory.invoke(blockBuilder, session, page, selectedPositions);
         }

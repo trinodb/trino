@@ -53,7 +53,7 @@ import static java.util.Objects.requireNonNull;
 public class ListColumnReader
         implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ListColumnReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ListColumnReader.class).instanceSize());
 
     private final Type elementType;
     private final OrcColumn column;

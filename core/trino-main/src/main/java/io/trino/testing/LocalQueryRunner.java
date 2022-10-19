@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
 import io.airlift.node.NodeInfo;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
@@ -299,8 +300,8 @@ public class LocalQueryRunner
 
     private final TaskManagerConfig taskManagerConfig;
     private final boolean alwaysRevokeMemory;
-    @Deprecated // TODO do not keep mutable config instance on a field
-    private final NodeSpillConfig nodeSpillConfig;
+    private final DataSize maxSpillPerNode;
+    private final DataSize queryMaxSpillPerNode;
     private final OptimizerConfig optimizerConfig;
     private final OperatorFactories operatorFactories;
     private final StatementAnalyzerFactory statementAnalyzerFactory;
@@ -336,7 +337,9 @@ public class LocalQueryRunner
         checkArgument(defaultSession.getTransactionId().isEmpty() || !withInitialTransaction, "Already in transaction");
 
         this.taskManagerConfig = new TaskManagerConfig().setTaskConcurrency(4);
-        this.nodeSpillConfig = requireNonNull(nodeSpillConfig, "nodeSpillConfig is null");
+        requireNonNull(nodeSpillConfig, "nodeSpillConfig is null");
+        this.maxSpillPerNode = nodeSpillConfig.getMaxSpillPerNode();
+        this.queryMaxSpillPerNode = nodeSpillConfig.getQueryMaxSpillPerNode();
         this.operatorFactories = requireNonNull(operatorFactories, "operatorFactories is null");
         this.alwaysRevokeMemory = alwaysRevokeMemory;
         this.notificationExecutor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-executor-%s"));
@@ -828,8 +831,8 @@ public class LocalQueryRunner
             });
 
             TaskContext taskContext = TestingTaskContext.builder(notificationExecutor, yieldExecutor, session)
-                    .setMaxSpillSize(nodeSpillConfig.getMaxSpillPerNode())
-                    .setQueryMaxSpillSize(nodeSpillConfig.getQueryMaxSpillPerNode())
+                    .setMaxSpillSize(maxSpillPerNode)
+                    .setQueryMaxSpillSize(queryMaxSpillPerNode)
                     .build();
 
             Plan plan = createPlan(session, sql, WarningCollector.NOOP);

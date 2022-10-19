@@ -141,6 +141,10 @@ public abstract class BaseConnectorTest
 {
     private static final Logger log = Logger.get(BaseConnectorTest.class);
 
+    /**
+     * Make sure to group related behaviours together in the order and grouping they are declared in {@link TestingConnectorBehavior}.
+     * If required, annotate the method with {@code @SuppressWarnings("DuplicateBranchesInSwitch")}.
+     */
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return connectorBehavior.hasBehaviorByDefault(this::hasBehavior);
@@ -2250,13 +2254,13 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
 
         String tableName = "test_long_column" + randomTableSuffix();
-        String basColumnName = "col";
+        String baseColumnName = "col";
 
         int maxLength = maxColumnNameLength()
                 // Assume 2^16 is enough for most use cases. Add a bit more to ensure 2^16 isn't actual limit.
                 .orElse(65536 + 5);
 
-        String validColumnName = basColumnName + "z".repeat(maxLength - basColumnName.length());
+        String validColumnName = baseColumnName + "z".repeat(maxLength - baseColumnName.length());
         assertUpdate("CREATE TABLE " + tableName + " (" + validColumnName + " bigint)");
         assertTrue(columnExists(tableName, validColumnName));
         assertUpdate("DROP TABLE " + tableName);
@@ -2281,12 +2285,12 @@ public abstract class BaseConnectorTest
         String tableName = "test_long_column" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x", 1);
 
-        String basColumnName = "col";
+        String baseColumnName = "col";
         int maxLength = maxColumnNameLength()
                 // Assume 2^16 is enough for most use cases. Add a bit more to ensure 2^16 isn't actual limit.
                 .orElse(65536 + 5);
 
-        String validTargetColumnName = basColumnName + "z".repeat(maxLength - basColumnName.length());
+        String validTargetColumnName = baseColumnName + "z".repeat(maxLength - baseColumnName.length());
         assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN " + validTargetColumnName + " int");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
         assertQuery("SELECT x FROM " + tableName, "VALUES 123");
@@ -4453,6 +4457,50 @@ public abstract class BaseConnectorTest
                 2);
 
         assertQuery("SELECT * FROM " + targetTable, "VALUES ('Aaron', 11, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 9, 'Centreville'), ('Dave', 22, 'Darbyshire')");
+
+        assertUpdate("DROP TABLE " + targetTable);
+    }
+
+    @Test
+    public void testMergeFalseJoinCondition()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_MERGE));
+
+        String targetTable = "merge_join_false_" + randomTableSuffix();
+        assertUpdate(createTableForWrites(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", targetTable)));
+
+        assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 11, 'Antioch'), ('Bill', 7, 'Buena')", targetTable), 2);
+
+        // Test a literal false
+        assertUpdate("""
+                MERGE INTO %s t USING (VALUES ('Carol', 9, 'Centreville')) AS s(customer, purchases, address)
+                  ON (FALSE)
+                    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)
+                """.formatted(targetTable),
+                1);
+
+        assertQuery("SELECT * FROM " + targetTable, "VALUES ('Aaron', 11, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 9, 'Centreville')");
+
+        // Test a constant-folded false expression
+        assertUpdate("""
+                MERGE INTO %s t USING (VALUES ('Dave', 22, 'Darbyshire')) AS s(customer, purchases, address)
+                  ON (t.customer != t.customer)
+                    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)
+                """.formatted(targetTable),
+                1);
+
+        assertQuery("SELECT * FROM " + targetTable, "VALUES ('Aaron', 11, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 9, 'Centreville'), ('Dave', 22, 'Darbyshire')");
+
+        // Test a more complicated constant-folded false expression
+        assertUpdate("""
+                MERGE INTO %s t USING (VALUES ('Ed', 7, 'Etherville')) AS s(customer, purchases, address)
+                  ON (23 - (12 + 10) > 1)
+                    WHEN MATCHED THEN UPDATE SET customer = concat(s.customer, '_fooled_you')
+                    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)
+                """.formatted(targetTable),
+                1);
+
+        assertQuery("SELECT * FROM " + targetTable, "VALUES ('Aaron', 11, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 9, 'Centreville'), ('Dave', 22, 'Darbyshire'), ('Ed', 7, 'Etherville')");
 
         assertUpdate("DROP TABLE " + targetTable);
     }

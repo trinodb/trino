@@ -49,6 +49,7 @@ import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.split.RemoteSplit;
 import io.trino.split.SplitSource;
 import io.trino.split.SplitSource.SplitBatch;
+import io.trino.sql.planner.MergePartitioningHandle;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.SplitSourceFactory;
@@ -161,7 +162,8 @@ public class StageTaskSourceFactory
                     exchangeSourceHandles,
                     getFaultTolerantExecutionTargetTaskInputSize(session));
         }
-        if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.getCatalogHandle().isPresent()) {
+        if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.getCatalogHandle().isPresent() ||
+                (partitioning.getConnectorHandle() instanceof MergePartitioningHandle)) {
             return HashDistributionTaskSource.create(
                     session,
                     fragment,
@@ -919,7 +921,7 @@ public class StageTaskSourceFactory
     @VisibleForTesting
     static Split createRemoteSplit(Collection<ExchangeSourceHandle> exchangeSourceHandles)
     {
-        return new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(new SpoolingExchangeInput(ImmutableList.copyOf(exchangeSourceHandles))));
+        return new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(new SpoolingExchangeInput(ImmutableList.copyOf(exchangeSourceHandles), Optional.empty())));
     }
 
     private static class LoadedSplits

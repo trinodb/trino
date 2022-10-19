@@ -58,7 +58,6 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -103,7 +102,7 @@ public class TestDeltaLakeSchemaSupport
                 ColumnMetadata.builder().setName("a").setType(DATE).setNullable(true).build());
         testSinglePrimitiveFieldSchema(
                 "{\"type\":\"struct\",\"fields\":[{\"name\":\"a\",\"type\":\"timestamp\",\"nullable\":true,\"metadata\":{}}]}",
-                ColumnMetadata.builder().setName("a").setType(TIMESTAMP_WITH_TIME_ZONE).setNullable(true).build());
+                ColumnMetadata.builder().setName("a").setType(TIMESTAMP_TZ_MILLIS).setNullable(true).build());
     }
 
     private void testSinglePrimitiveFieldSchema(String json, ColumnMetadata metadata)

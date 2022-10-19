@@ -876,7 +876,7 @@ public class TestIcebergSparkCompatibility
 
         QueryResult queryResult = onTrino().executeQuery(format("SELECT file_path FROM %s", trinoTableName("\"" + baseTableName + "$files\"")));
         assertThat(queryResult).hasRowsCount(1).hasColumnsCount(1);
-        assertTrue(((String) queryResult.row(0).get(0)).contains(dataPath));
+        assertTrue(((String) queryResult.getOnlyValue()).contains(dataPath));
 
         // TODO: support path override in Iceberg table creation: https://github.com/trinodb/trino/issues/8861
         assertQueryFailure(() -> onTrino().executeQuery("DROP TABLE " + trinoTableName))
@@ -905,7 +905,7 @@ public class TestIcebergSparkCompatibility
 
         QueryResult queryResult = onTrino().executeQuery(format("SELECT file_path FROM %s", trinoTableName("\"" + baseTableName + "$files\"")));
         assertThat(queryResult).hasRowsCount(1).hasColumnsCount(1);
-        assertTrue(((String) queryResult.row(0).get(0)).contains(dataPath));
+        assertTrue(((String) queryResult.getOnlyValue()).contains(dataPath));
 
         assertQueryFailure(() -> onTrino().executeQuery("DROP TABLE " + trinoTableName))
                 .hasMessageContaining("contains Iceberg path override properties and cannot be dropped from Trino");
@@ -2183,9 +2183,28 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testTrinoAnalyzeWithNonLowercaseColumnName()
+    {
+        String baseTableName = "test_trino_analyze_with_uppercase_filed" + randomTableSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onSpark().executeQuery("CREATE TABLE " + sparkTableName + "(col1 INT, COL2 INT) USING ICEBERG");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (1, 1)");
+        onTrino().executeQuery("SET SESSION " + TRINO_CATALOG + ".experimental_extended_statistics_enabled = true");
+        onTrino().executeQuery("ANALYZE " + trinoTableName);
+
+        // We're not verifying results of ANALYZE (covered by non-product tests), but we're verifying table is readable.
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(row(1, 1));
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(row(1, 1));
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
+    }
+
     private int calculateMetadataFilesForPartitionedTable(String tableName)
     {
-        String dataFilePath = onTrino().executeQuery(format("SELECT file_path FROM iceberg.default.\"%s$files\" limit 1", tableName)).row(0).get(0).toString();
+        String dataFilePath = (String) onTrino().executeQuery(format("SELECT file_path FROM iceberg.default.\"%s$files\" limit 1", tableName)).getOnlyValue();
         String partitionPath = dataFilePath.substring(0, dataFilePath.lastIndexOf("/"));
         String dataFolderPath = partitionPath.substring(0, partitionPath.lastIndexOf("/"));
         String tableFolderPath = dataFolderPath.substring(0, dataFolderPath.lastIndexOf("/"));

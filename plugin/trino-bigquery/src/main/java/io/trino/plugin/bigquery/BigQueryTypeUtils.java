@@ -13,10 +13,13 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
@@ -25,7 +28,12 @@ import javax.annotation.Nullable;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
+import static io.trino.plugin.bigquery.BigQueryType.toZonedDateTime;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -33,13 +41,21 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
+import static java.time.ZoneOffset.UTC;
+import static java.util.Collections.unmodifiableMap;
 
 public final class BigQueryTypeUtils
 {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
+    private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSSSS");
 
     private BigQueryTypeUtils() {}
 
@@ -50,7 +66,7 @@ public final class BigQueryTypeUtils
             return null;
         }
 
-        // TODO https://github.com/trinodb/trino/issues/13741 Add support for decimal, time, timestamp, timestamp with time zone, geography, array, map, row type
+        // TODO https://github.com/trinodb/trino/issues/13741 Add support for decimal, time, timestamp with time zone, geography, map type
         if (type.equals(BOOLEAN)) {
             return type.getBoolean(block, position);
         }
@@ -78,6 +94,40 @@ public final class BigQueryTypeUtils
         if (type.equals(DATE)) {
             long days = type.getLong(block, position);
             return DATE_FORMATTER.format(LocalDate.ofEpochDay(days));
+        }
+        if (type.equals(TIMESTAMP_MICROS)) {
+            long epochMicros = type.getLong(block, position);
+            long epochSeconds = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
+            int nanoAdjustment = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
+            return DATETIME_FORMATTER.format(toZonedDateTime(epochSeconds, nanoAdjustment, UTC));
+        }
+        if (type instanceof ArrayType arrayType) {
+            Block arrayBlock = block.getObject(position, Block.class);
+            ImmutableList.Builder<Object> list = ImmutableList.builderWithExpectedSize(arrayBlock.getPositionCount());
+            for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
+                Object element = readNativeValue(arrayType.getElementType(), arrayBlock, i);
+                if (element == null) {
+                    throw new TrinoException(NOT_SUPPORTED, "BigQuery does not support null elements in arrays");
+                }
+                list.add(element);
+            }
+            return list.build();
+        }
+        if (type instanceof RowType rowType) {
+            Block rowBlock = block.getObject(position, Block.class);
+
+            List<Type> fieldTypes = type.getTypeParameters();
+            if (fieldTypes.size() != rowBlock.getPositionCount()) {
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Expected row value field count does not match type field count");
+            }
+
+            Map<String, Object> rowValue = new HashMap<>();
+            for (int i = 0; i < rowBlock.getPositionCount(); i++) {
+                String fieldName = rowType.getFields().get(i).getName().orElseThrow(() -> new IllegalArgumentException("Field name must exist in BigQuery"));
+                Object fieldValue = readNativeValue(fieldTypes.get(i), rowBlock, i);
+                rowValue.put(fieldName, fieldValue);
+            }
+            return unmodifiableMap(rowValue);
         }
 
         throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + type);

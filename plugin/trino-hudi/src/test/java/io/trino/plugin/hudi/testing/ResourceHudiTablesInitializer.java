@@ -26,16 +26,15 @@ import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.testing.QueryRunner;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hudi.common.model.HoodieTableType;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -46,6 +45,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.google.common.io.Resources.getResource;
 import static io.trino.plugin.hive.HivePartitionManager.extractPartitionValues;
 import static io.trino.plugin.hive.HiveType.HIVE_DOUBLE;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
@@ -63,20 +63,20 @@ public class ResourceHudiTablesInitializer
     public void initializeTables(
             QueryRunner queryRunner,
             HiveMetastore metastore,
-            CatalogSchemaName hudiCatalogSchema,
+            String schemaName,
             String dataDir,
             Configuration conf)
             throws Exception
     {
         Path basePath = Path.of(dataDir);
-        copyDir(Paths.get("src/test/resources/hudi-testing-data"), basePath);
+        copyDir(new File(getResource("hudi-testing-data").toURI()).toPath(), basePath);
         Logger.get(getClass()).info("Prepared table data in %s", basePath);
 
         for (TestingTable table : TestingTable.values()) {
             String tableName = table.getTableName();
             createTable(
                     metastore,
-                    hudiCatalogSchema,
+                    schemaName,
                     basePath.resolve(tableName),
                     tableName,
                     table.getDataColumns(),
@@ -87,7 +87,7 @@ public class ResourceHudiTablesInitializer
 
     private void createTable(
             HiveMetastore metastore,
-            CatalogSchemaName hudiCatalogSchema,
+            String schemaName,
             Path tablePath,
             String tableName,
             List<Column> dataColumns,
@@ -97,7 +97,7 @@ public class ResourceHudiTablesInitializer
         StorageFormat storageFormat = StorageFormat.fromHiveStorageFormat(HiveStorageFormat.PARQUET);
 
         Table table = Table.builder()
-                .setDatabaseName(hudiCatalogSchema.getSchemaName())
+                .setDatabaseName(schemaName)
                 .setTableName(tableName)
                 .setTableType(TableType.EXTERNAL_TABLE.name())
                 .setOwner(Optional.of("public"))
@@ -113,7 +113,7 @@ public class ResourceHudiTablesInitializer
         List<PartitionWithStatistics> partitionsToAdd = new ArrayList<>();
         partitions.forEach((partitionName, partitionPath) -> {
             Partition partition = Partition.builder()
-                    .setDatabaseName(hudiCatalogSchema.getSchemaName())
+                    .setDatabaseName(schemaName)
                     .setTableName(tableName)
                     .setValues(extractPartitionValues(partitionName))
                     .withStorage(storageBuilder -> storageBuilder
@@ -123,7 +123,7 @@ public class ResourceHudiTablesInitializer
                     .build();
             partitionsToAdd.add(new PartitionWithStatistics(partition, partitionName, PartitionStatistics.empty()));
         });
-        metastore.addPartitions(hudiCatalogSchema.getSchemaName(), tableName, partitionsToAdd);
+        metastore.addPartitions(schemaName, tableName, partitionsToAdd);
     }
 
     private static Column column(String name, HiveType type)

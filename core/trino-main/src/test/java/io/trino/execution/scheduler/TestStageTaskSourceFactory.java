@@ -72,6 +72,7 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.execution.scheduler.StageTaskSourceFactory.createRemoteSplits;
 import static io.trino.operator.ExchangeOperator.REMOTE_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static java.lang.Math.toIntExact;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -957,7 +958,7 @@ public class TestStageTaskSourceFactory
     private static class TestingConnectorSplit
             implements ConnectorSplit
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(TestingConnectorSplit.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TestingConnectorSplit.class).instanceSize());
 
         private final int id;
         private final OptionalInt bucket;

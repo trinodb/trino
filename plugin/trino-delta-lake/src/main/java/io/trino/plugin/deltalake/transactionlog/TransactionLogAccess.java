@@ -112,6 +112,7 @@ public class TransactionLogAccess
 
         tableSnapshots = EvictableCacheBuilder.newBuilder()
                 .expireAfterWrite(deltaLakeConfig.getMetadataCacheTtl().toMillis(), TimeUnit.MILLISECONDS)
+                .maximumSize(deltaLakeConfig.getMetadataCacheMaxSize())
                 .shareNothingWhenDisabled()
                 .recordStats()
                 .build();
@@ -220,7 +221,7 @@ public class TransactionLogAccess
                 }
                 catch (MissingTransactionLogException e) {
                     // Reset the cached table when there are transaction files which are newer than
-                    // the cached table version which are already garbage colllected.
+                    // the cached table version which are already garbage collected.
                     List<AddFileEntry> activeFiles = loadActiveFiles(tableSnapshot, session);
                     updatedCacheEntry = new DeltaLakeDataFileCacheEntry(tableSnapshot.getVersion(), activeFiles);
                 }

@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.plugin.hive.containers.HiveHadoop;
@@ -74,12 +75,14 @@ public final class DeltaLakeQueryRunner
             super(defaultSession);
         }
 
+        @CanIgnoreReturnValue
         public Builder setCatalogName(String catalogName)
         {
             this.catalogName = catalogName;
             return self();
         }
 
+        @CanIgnoreReturnValue
         public Builder setDeltaProperties(Map<String, String> deltaProperties)
         {
             this.deltaProperties = ImmutableMap.<String, String>builder()
@@ -209,7 +212,7 @@ public final class DeltaLakeQueryRunner
         Builder builder = builder(session);
         extraProperties.forEach(builder::addExtraProperty);
         coordinatorProperties.forEach(builder::setSingleCoordinatorProperty);
-        DistributedQueryRunner queryRunner = builder
+        return builder
                 .setCatalogName(catalogName)
                 .setAdditionalSetup(additionalSetup)
                 .setDeltaProperties(ImmutableMap.<String, String>builder()
@@ -218,7 +221,6 @@ public final class DeltaLakeQueryRunner
                         .putAll(connectorProperties)
                         .buildOrThrow())
                 .build();
-        return queryRunner;
     }
 
     private static String requiredNonEmptySystemProperty(String propertyName)

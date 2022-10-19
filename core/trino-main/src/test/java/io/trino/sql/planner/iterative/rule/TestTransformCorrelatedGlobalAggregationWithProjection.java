@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.planner.plan.JoinNode;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -130,12 +129,11 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                 .matches(
                         project(ImmutableMap.of("corr", expression("corr"), "expr", expression("(\"sum_1\" + 1)")),
                                 aggregation(ImmutableMap.of("sum_1", functionCall("sum", ImmutableList.of("a"))),
-                                        join(JoinNode.Type.LEFT,
-                                                ImmutableList.of(),
-                                                assignUniqueId("unique",
-                                                        values(ImmutableMap.of("corr", 0))),
-                                                project(ImmutableMap.of("non_null", expression("true")),
-                                                        values(ImmutableMap.of("a", 0, "b", 1)))))));
+                                        join(LEFT, builder -> builder
+                                                .left(assignUniqueId("unique",
+                                                        values(ImmutableMap.of("corr", 0))))
+                                                .right(project(ImmutableMap.of("non_null", expression("true")),
+                                                        values(ImmutableMap.of("a", 0, "b", 1))))))));
     }
 
     @Test
@@ -170,18 +168,18 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                                                 ImmutableMap.of(),
                                                 Optional.empty(),
                                                 SINGLE,
-                                                join(
-                                                        LEFT,
-                                                        ImmutableList.of(),
-                                                        Optional.of("b > corr"),
-                                                        assignUniqueId(
-                                                                "unique",
-                                                                values("corr")),
-                                                        project(
-                                                                ImmutableMap.of("non_null", expression("true")),
-                                                                filter(
-                                                                        "true",
-                                                                        values("a", "b"))))))));
+                                                join(LEFT, builder -> builder
+                                                        .filter("b > corr")
+                                                        .left(
+                                                                assignUniqueId(
+                                                                        "unique",
+                                                                        values("corr")))
+                                                        .right(
+                                                                project(
+                                                                        ImmutableMap.of("non_null", expression("true")),
+                                                                        filter(
+                                                                                "true",
+                                                                                values("a", "b")))))))));
     }
 
     @Test
@@ -213,23 +211,23 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                                         ImmutableList.of("non_null"),
                                         Optional.empty(),
                                         SINGLE,
-                                        join(
-                                                LEFT,
-                                                ImmutableList.of(),
-                                                Optional.of("b = corr"),
-                                                assignUniqueId(
-                                                        "unique",
-                                                        values("corr")),
-                                                project(
-                                                        ImmutableMap.of("non_null", expression("true")),
-                                                        aggregation(
-                                                                singleGroupingSet("a", "b"),
-                                                                ImmutableMap.of(),
-                                                                Optional.empty(),
-                                                                SINGLE,
-                                                                filter(
-                                                                        "true",
-                                                                        values("a", "b"))))))));
+                                        join(LEFT, builder -> builder
+                                                .filter("b = corr")
+                                                .left(
+                                                        assignUniqueId(
+                                                                "unique",
+                                                                values("corr")))
+                                                .right(
+                                                        project(
+                                                                ImmutableMap.of("non_null", expression("true")),
+                                                                aggregation(
+                                                                        singleGroupingSet("a", "b"),
+                                                                        ImmutableMap.of(),
+                                                                        Optional.empty(),
+                                                                        SINGLE,
+                                                                        filter(
+                                                                                "true",
+                                                                                values("a", "b")))))))));
     }
 
     @Test
@@ -255,11 +253,10 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                                         SINGLE,
                                         project(
                                                 ImmutableMap.of("new_mask", expression("mask AND non_null")),
-                                                join(JoinNode.Type.LEFT,
-                                                        ImmutableList.of(),
-                                                        assignUniqueId("unique",
-                                                                values(ImmutableMap.of("corr", 0))),
-                                                        project(ImmutableMap.of("non_null", expression("true")),
-                                                                values(ImmutableMap.of("a", 0, "mask", 1))))))));
+                                                join(LEFT, builder -> builder
+                                                        .left(assignUniqueId("unique",
+                                                                values(ImmutableMap.of("corr", 0))))
+                                                        .right(project(ImmutableMap.of("non_null", expression("true")),
+                                                                values(ImmutableMap.of("a", 0, "mask", 1)))))))));
     }
 }

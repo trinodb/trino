@@ -101,18 +101,18 @@ public class TestUnaliasSymbolReferences
                             Optional.empty(),
                             ImmutableMap.of(dynamicFilterId1, buildAlias1, dynamicFilterId2, buildAlias2));
                 },
-                join(
-                        INNER,
-                        ImmutableList.of(),
-                        ImmutableMap.of("probeColumn1", "column", "probeColumn2", "column"),
-                        filter(
-                                TRUE_LITERAL,
+                join(INNER, builder -> builder
+                        .dynamicFilter(ImmutableMap.of("probeColumn1", "column", "probeColumn2", "column"))
+                        .left(
                                 filter(
                                         TRUE_LITERAL,
-                                        tableScan(
-                                                probeTable,
-                                                ImmutableMap.of("probeColumn1", "suppkey", "probeColumn2", "nationkey")))),
-                        project(tableScan(buildTable, ImmutableMap.of("column", "nationkey")))));
+                                        filter(
+                                                TRUE_LITERAL,
+                                                tableScan(
+                                                        probeTable,
+                                                        ImmutableMap.of("probeColumn1", "suppkey", "probeColumn2", "nationkey")))))
+                        .right(
+                                project(tableScan(buildTable, ImmutableMap.of("column", "nationkey"))))));
     }
 
     private void assertOptimizedPlan(PlanOptimizer optimizer, PlanCreator planCreator, PlanMatchPattern pattern)

@@ -63,25 +63,35 @@ public class TestKuduConnectorTest
         }
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_TOPN_PUSHDOWN:
+                return false;
+
+            case SUPPORTS_RENAME_SCHEMA:
+                return false;
+
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
+                return false;
+
+            case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_COMMENT_ON_COLUMN:
+                return false;
+
+            case SUPPORTS_NOT_NULL_CONSTRAINT:
+                return false;
+
             case SUPPORTS_DELETE:
             case SUPPORTS_MERGE:
                 return true;
-            case SUPPORTS_RENAME_SCHEMA:
-            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
-            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
-            case SUPPORTS_COMMENT_ON_TABLE:
-            case SUPPORTS_COMMENT_ON_COLUMN:
-            case SUPPORTS_ARRAY:
-            case SUPPORTS_NOT_NULL_CONSTRAINT:
-            case SUPPORTS_TOPN_PUSHDOWN:
-            case SUPPORTS_NEGATIVE_DATE:
-                return false;
 
+            case SUPPORTS_ARRAY:
             case SUPPORTS_ROW_TYPE:
+            case SUPPORTS_NEGATIVE_DATE:
                 return false;
 
             default:
@@ -442,11 +452,11 @@ public class TestKuduConnectorTest
     {
         // Overridden because DDL in base class can't create Kudu table due to lack of primary key and required table properties
         String tableName = "test_long_column" + randomTableSuffix();
-        String basColumnName = "col";
+        String baseColumnName = "col";
 
         int maxLength = maxColumnNameLength().orElseThrow();
 
-        String validColumnName = basColumnName + "z".repeat(maxLength - basColumnName.length());
+        String validColumnName = baseColumnName + "z".repeat(maxLength - baseColumnName.length());
         assertUpdate("CREATE TABLE " + tableName + " (" +
                 "id INT WITH (primary_key=true)," +
                 validColumnName + " bigint)" +

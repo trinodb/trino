@@ -13,61 +13,44 @@
  */
 package io.trino.plugin.hudi;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hudi.testing.TpchHudiTablesInitializer;
 import io.trino.testing.BaseConnectorTest;
-import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import org.apache.hudi.common.model.HoodieTableType;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static io.trino.plugin.hudi.HudiQueryRunner.createHudiQueryRunner;
 import static org.apache.hudi.common.model.HoodieRecord.HOODIE_META_COLUMNS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseHudiConnectorTest
         extends BaseConnectorTest
 {
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        return createHudiQueryRunner(
-                ImmutableMap.of(),
-                ImmutableMap.of("hudi.columns-to-hide", columnsToHide()),
-                new TpchHudiTablesInitializer(getHoodieTableType(), REQUIRED_TPCH_TABLES));
-    }
-
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            // Optimizer
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
-            // DDL and DML on schemas and tables
             case SUPPORTS_CREATE_SCHEMA:
+                return false;
+
             case SUPPORTS_CREATE_TABLE:
-            case SUPPORTS_CREATE_TABLE_WITH_DATA:
-            case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_RENAME_TABLE:
                 return false;
 
-            // DDL and DML on columns
             case SUPPORTS_ADD_COLUMN:
-            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
-            case SUPPORTS_COMMENT_ON_COLUMN:
             case SUPPORTS_RENAME_COLUMN:
                 return false;
 
-            // Writing capabilities
-            case SUPPORTS_DELETE:
+            case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_COMMENT_ON_COLUMN:
+                return false;
+
             case SUPPORTS_INSERT:
-            case SUPPORTS_MULTI_STATEMENT_WRITES:
                 return false;
 
             default:
@@ -96,9 +79,14 @@ public abstract class BaseHudiConnectorTest
                         ")");
     }
 
-    protected abstract HoodieTableType getHoodieTableType();
+    @Test
+    public void testHideHiveSysSchema()
+    {
+        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain("sys");
+        assertQueryFails("SHOW TABLES IN hudi.sys", ".*Schema 'sys' does not exist");
+    }
 
-    static String columnsToHide()
+    protected static String columnsToHide()
     {
         List<String> columns = new ArrayList<>(HOODIE_META_COLUMNS.size() + 1);
         columns.addAll(HOODIE_META_COLUMNS);

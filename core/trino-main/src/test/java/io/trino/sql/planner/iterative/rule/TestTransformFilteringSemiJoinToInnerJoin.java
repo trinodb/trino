@@ -24,7 +24,6 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
@@ -58,17 +57,17 @@ public class TestTransformFilteringSemiJoinToInnerJoin
                 })
                 .matches(project(
                         ImmutableMap.of("a", PlanMatchPattern.expression("a"), "a_in_b", PlanMatchPattern.expression("true")),
-                        join(
-                                INNER,
-                                ImmutableList.of(equiJoinClause("a", "b")),
-                                Optional.of("a > 5"),
-                                values("a"),
-                                aggregation(
-                                        singleGroupingSet("b"),
-                                        ImmutableMap.of(),
-                                        Optional.empty(),
-                                        SINGLE,
-                                        values("b")))));
+                        join(INNER, builder -> builder
+                                .equiCriteria("a", "b")
+                                .filter("a > 5")
+                                .left(values("a"))
+                                .right(
+                                        aggregation(
+                                                singleGroupingSet("b"),
+                                                ImmutableMap.of(),
+                                                Optional.empty(),
+                                                SINGLE,
+                                                values("b"))))));
     }
 
     @Test
@@ -93,17 +92,16 @@ public class TestTransformFilteringSemiJoinToInnerJoin
                 })
                 .matches(project(
                         ImmutableMap.of("a", PlanMatchPattern.expression("a"), "a_in_b", PlanMatchPattern.expression("true")),
-                        join(
-                                INNER,
-                                ImmutableList.of(equiJoinClause("a", "b")),
-                                Optional.empty(),
-                                values("a"),
-                                aggregation(
-                                        singleGroupingSet("b"),
-                                        ImmutableMap.of(),
-                                        Optional.empty(),
-                                        SINGLE,
-                                        values("b")))));
+                        join(INNER, builder -> builder
+                                .equiCriteria("a", "b")
+                                .left(values("a"))
+                                .right(
+                                        aggregation(
+                                                singleGroupingSet("b"),
+                                                ImmutableMap.of(),
+                                                Optional.empty(),
+                                                SINGLE,
+                                                values("b"))))));
     }
 
     @Test

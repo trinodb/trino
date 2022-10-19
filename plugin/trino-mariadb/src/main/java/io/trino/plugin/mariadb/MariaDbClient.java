@@ -246,7 +246,7 @@ public class MariaDbClient
         return metadata.getTables(
                 schemaName.orElse(null),
                 null,
-                escapeNamePattern(tableName, metadata.getSearchStringEscape()).orElse(null),
+                escapeObjectNameForMetadataQuery(tableName, metadata.getSearchStringEscape()).orElse(null),
                 getTableTypes().map(types -> types.toArray(String[]::new)).orElse(null));
     }
 
@@ -443,29 +443,25 @@ public class MariaDbClient
     }
 
     @Override
-    public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
+    protected void renameColumn(ConnectorSession session, Connection connection, RemoteTableName remoteTableName, String remoteColumnName, String newRemoteColumnName)
+            throws SQLException
     {
-        try (Connection connection = connectionFactory.openConnection(session)) {
-            String newRemoteColumnName = getIdentifierMapping().toRemoteColumnName(connection, newColumnName);
-            RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
+        try {
             // MariaDB versions earlier than 10.5.2 do not support the RENAME COLUMN syntax
             // ALTER TABLE ... CHANGE statement exists in th old versions, but it requires providing all attributes of the column
             String sql = format(
                     "ALTER TABLE %s RENAME COLUMN %s TO %s",
                     quoted(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()),
-                    quoted(jdbcColumn.getColumnName()),
+                    quoted(remoteColumnName),
                     quoted(newRemoteColumnName));
             execute(connection, sql);
         }
-        catch (TrinoException e) {
+        catch (SQLSyntaxErrorException syntaxError) {
             // Note: SQLSyntaxErrorException can be thrown also when column name is invalid
-            if (e.getCause() instanceof SQLSyntaxErrorException syntaxError && syntaxError.getErrorCode() == PARSE_ERROR) {
-                throw new TrinoException(NOT_SUPPORTED, "Rename column not supported for the MariaDB server version", e);
+            if (syntaxError.getErrorCode() == PARSE_ERROR) {
+                throw new TrinoException(NOT_SUPPORTED, "Rename column not supported for the MariaDB server version", syntaxError);
             }
-            throw e;
-        }
-        catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw syntaxError;
         }
     }
 
@@ -478,7 +474,12 @@ public class MariaDbClient
                 tableCopyFormat,
                 quoted(catalogName, schemaName, newTableName),
                 quoted(catalogName, schemaName, tableName));
-        execute(connection, sql);
+        try {
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
     }
 
     @Override

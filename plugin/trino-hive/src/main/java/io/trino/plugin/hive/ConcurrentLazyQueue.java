@@ -17,14 +17,16 @@ import javax.annotation.concurrent.GuardedBy;
 
 import java.util.Iterator;
 
+import static java.util.Objects.requireNonNull;
+
 public class ConcurrentLazyQueue<E>
 {
     @GuardedBy("this")
     private final Iterator<E> iterator;
 
-    public ConcurrentLazyQueue(Iterable<E> iterable)
+    public ConcurrentLazyQueue(Iterator<E> iterator)
     {
-        this.iterator = iterable.iterator();
+        this.iterator = requireNonNull(iterator, "iterator is null");
     }
 
     public synchronized boolean isEmpty()

@@ -45,7 +45,6 @@ import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAS
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.DynamicFilterPattern;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
@@ -81,24 +80,25 @@ public class TestAddDynamicFilterSource
                 "SELECT l.suppkey FROM lineitem l, supplier s WHERE l.suppkey = s.suppkey",
                 withJoinDistributionType(joinDistributionType),
                 anyTree(
-                        join(
-                                INNER,
-                                ImmutableList.of(equiJoinClause("LINEITEM_SK", "SUPPLIER_SK")),
-                                ImmutableMap.of("LINEITEM_SK", "SUPPLIER_SK"),
-                                anyTree(
-                                        node(
-                                                FilterNode.class,
-                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_SK", "suppkey")))
-                                                .with(numberOfDynamicFilters(1))),
-                                exchange(
-                                        LOCAL,
-                                        exchange(
-                                                REMOTE,
-                                                joinDistributionType == PARTITIONED ? REPARTITION : REPLICATE,
+                        join(INNER, builder -> builder
+                                .equiCriteria("LINEITEM_SK", "SUPPLIER_SK")
+                                .dynamicFilter("LINEITEM_SK", "SUPPLIER_SK")
+                                .left(
+                                        anyTree(
                                                 node(
-                                                        DynamicFilterSourceNode.class,
-                                                        project(
-                                                                tableScan("supplier", ImmutableMap.of("SUPPLIER_SK", "suppkey")))))))));
+                                                        FilterNode.class,
+                                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_SK", "suppkey")))
+                                                        .with(numberOfDynamicFilters(1))))
+                                .right(
+                                        exchange(
+                                                LOCAL,
+                                                exchange(
+                                                        REMOTE,
+                                                        joinDistributionType == PARTITIONED ? REPARTITION : REPLICATE,
+                                                        node(
+                                                                DynamicFilterSourceNode.class,
+                                                                project(
+                                                                        tableScan("supplier", ImmutableMap.of("SUPPLIER_SK", "suppkey"))))))))));
     }
 
     @Test(dataProvider = "joinDistributionTypes")
@@ -139,51 +139,52 @@ public class TestAddDynamicFilterSource
                 "SELECT l.suppkey FROM lineitem l JOIN (SELECT suppkey FROM supplier UNION ALL SELECT suppkey FROM supplier) s ON l.suppkey = s.suppkey",
                 withJoinDistributionType(BROADCAST),
                 anyTree(
-                        join(
-                                INNER,
-                                ImmutableList.of(equiJoinClause("LINEITEM_SK", "SUPPLIER_SK")),
-                                ImmutableMap.of("LINEITEM_SK", "SUPPLIER_SK"),
-                                anyTree(
-                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_SK", "suppkey"))),
-                                exchange(
-                                        LOCAL,
+                        join(INNER, builder -> builder
+                                .equiCriteria("LINEITEM_SK", "SUPPLIER_SK")
+                                .dynamicFilter("LINEITEM_SK", "SUPPLIER_SK")
+                                .left(
+                                        anyTree(
+                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_SK", "suppkey"))))
+                                .right(
                                         exchange(
-                                                REMOTE,
-                                                REPLICATE,
-                                                node(
-                                                        DynamicFilterSourceNode.class,
-                                                        exchange(
-                                                                REMOTE,
-                                                                Optional.empty(),
-                                                                Optional.empty(),
-                                                                ImmutableList.of(),
-                                                                ImmutableSet.of(),
-                                                                Optional.empty(),
-                                                                ImmutableList.of("SUPPLIER_SK"),
-                                                                project(tableScan("supplier", ImmutableMap.of("SUPPLIER_SK_1", "suppkey"))),
-                                                                project(tableScan("supplier", ImmutableMap.of("SUPPLIER_SK_2", "suppkey"))))))))));
+                                                LOCAL,
+                                                exchange(
+                                                        REMOTE,
+                                                        REPLICATE,
+                                                        node(
+                                                                DynamicFilterSourceNode.class,
+                                                                exchange(
+                                                                        REMOTE,
+                                                                        Optional.empty(),
+                                                                        Optional.empty(),
+                                                                        ImmutableList.of(),
+                                                                        ImmutableSet.of(),
+                                                                        Optional.empty(),
+                                                                        ImmutableList.of("SUPPLIER_SK"),
+                                                                        project(tableScan("supplier", ImmutableMap.of("SUPPLIER_SK_1", "suppkey"))),
+                                                                        project(tableScan("supplier", ImmutableMap.of("SUPPLIER_SK_2", "suppkey")))))))))));
 
         // TODO: Add support for cases where the build side has multiple sources
         assertDistributedPlan(
                 "SELECT l.suppkey FROM lineitem l JOIN (SELECT suppkey FROM supplier UNION ALL SELECT suppkey FROM supplier) s ON l.suppkey = s.suppkey",
                 withJoinDistributionType(PARTITIONED),
                 anyTree(
-                        join(
-                                INNER,
-                                ImmutableList.of(equiJoinClause("LINEITEM_SK", "SUPPLIER_SK")),
-                                ImmutableMap.of(),
-                                anyTree(
-                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_SK", "suppkey"))),
-                                exchange(
-                                        LOCAL,
-                                        Optional.empty(),
-                                        Optional.empty(),
-                                        ImmutableList.of(),
-                                        ImmutableSet.of(),
-                                        Optional.empty(),
-                                        ImmutableList.of("SUPPLIER_SK"),
-                                        exchange(project(tableScan("supplier", ImmutableMap.of("SUPPLIER_SK_1", "suppkey")))),
-                                        exchange(project(tableScan("supplier", ImmutableMap.of("SUPPLIER_SK_2", "suppkey"))))))));
+                        join(INNER, builder -> builder
+                                .equiCriteria("LINEITEM_SK", "SUPPLIER_SK")
+                                .left(
+                                        anyTree(
+                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_SK", "suppkey"))))
+                                .right(
+                                        exchange(
+                                                LOCAL,
+                                                Optional.empty(),
+                                                Optional.empty(),
+                                                ImmutableList.of(),
+                                                ImmutableSet.of(),
+                                                Optional.empty(),
+                                                ImmutableList.of("SUPPLIER_SK"),
+                                                exchange(project(tableScan("supplier", ImmutableMap.of("SUPPLIER_SK_1", "suppkey")))),
+                                                exchange(project(tableScan("supplier", ImmutableMap.of("SUPPLIER_SK_2", "suppkey")))))))));
     }
 
     @Test
@@ -193,40 +194,39 @@ public class TestAddDynamicFilterSource
                 "SELECT o.orderkey FROM orders o, lineitem l WHERE o.orderkey BETWEEN l.orderkey AND l.partkey",
                 anyTree(
                         filter("O_ORDERKEY BETWEEN L_ORDERKEY AND L_PARTKEY",
-                                join(
-                                        INNER,
-                                        ImmutableList.of(),
-                                        ImmutableList.of(
+                                join(INNER, builder -> builder
+                                        .dynamicFilter(ImmutableList.of(
                                                 new DynamicFilterPattern("O_ORDERKEY", GREATER_THAN_OR_EQUAL, "L_ORDERKEY"),
-                                                new DynamicFilterPattern("O_ORDERKEY", LESS_THAN_OR_EQUAL, "L_PARTKEY")),
-                                        filter(
-                                                TRUE_LITERAL,
-                                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))),
-                                        exchange(
-                                                LOCAL,
+                                                new DynamicFilterPattern("O_ORDERKEY", LESS_THAN_OR_EQUAL, "L_PARTKEY")))
+                                        .left(
+                                                filter(
+                                                        TRUE_LITERAL,
+                                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))
+                                        .right(
                                                 exchange(
-                                                        REMOTE,
-                                                        node(
-                                                                DynamicFilterSourceNode.class,
-                                                                tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey", "L_PARTKEY", "partkey")))))))));
+                                                        LOCAL,
+                                                        exchange(
+                                                                REMOTE,
+                                                                node(
+                                                                        DynamicFilterSourceNode.class,
+                                                                        tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey", "L_PARTKEY", "partkey"))))))))));
 
         // TODO: Add support for dynamic filters in the below case
         assertDistributedPlan(
                 "SELECT o.orderkey FROM orders o, lineitem l WHERE o.orderkey >= l.orderkey AND o.orderkey <= l.partkey - 1",
                 anyTree(
                         filter("O_ORDERKEY >= L_ORDERKEY AND O_ORDERKEY <= expr",
-                                join(
-                                        INNER,
-                                        ImmutableList.of(),
-                                        ImmutableList.of(),
-                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")),
-                                        exchange(
-                                                LOCAL,
-                                                project(
-                                                        ImmutableMap.of("expr", expression("L_PARTKEY - BIGINT '1'")),
-                                                        exchange(
-                                                                REMOTE,
-                                                                tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey", "L_PARTKEY", "partkey")))))))));
+                                join(INNER, builder -> builder
+                                        .left(
+                                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")))
+                                        .right(
+                                                exchange(
+                                                        LOCAL,
+                                                        project(
+                                                                ImmutableMap.of("expr", expression("L_PARTKEY - BIGINT '1'")),
+                                                                exchange(
+                                                                        REMOTE,
+                                                                        tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey", "L_PARTKEY", "partkey"))))))))));
     }
 
     @Test
@@ -237,17 +237,17 @@ public class TestAddDynamicFilterSource
                 "SELECT * FROM lineitem JOIN (SELECT suppkey FROM supplier GROUP BY 1) s ON lineitem.suppkey = s.suppkey",
                 withJoinDistributionType(PARTITIONED),
                 anyTree(
-                        join(
-                                INNER,
-                                ImmutableList.of(equiJoinClause("LINEITEM_SK", "SUPPLIER_SK")),
-                                ImmutableMap.of(),
-                                exchange(
-                                        REMOTE,
-                                        REPARTITION,
-                                        project(
-                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_SK", "suppkey")))),
-                                anyTree(
-                                        tableScan("supplier", ImmutableMap.of("SUPPLIER_SK", "suppkey"))))));
+                        join(INNER, builder -> builder
+                                .equiCriteria("LINEITEM_SK", "SUPPLIER_SK")
+                                .left(
+                                        exchange(
+                                                REMOTE,
+                                                REPARTITION,
+                                                project(
+                                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_SK", "suppkey")))))
+                                .right(
+                                        anyTree(
+                                                tableScan("supplier", ImmutableMap.of("SUPPLIER_SK", "suppkey")))))));
     }
 
     private Matcher numberOfDynamicFilters(int numberOfDynamicFilters)

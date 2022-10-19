@@ -111,8 +111,8 @@ writing data. Data types may not map the same way in both directions between
 Trino and the data source. Refer to the following sections for type mapping in
 each direction.
 
-MySQL to Trino read type mapping
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+MySQL to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The connector maps MySQL types to the corresponding Trino types following
 this table:
@@ -196,8 +196,8 @@ this table:
 
 No other types are supported.
 
-Trino to MySQL write type mapping
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Trino to MySQL type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The connector maps Trino types to the corresponding MySQL types following
 this table:
@@ -256,19 +256,7 @@ No other types are supported.
 
 .. _mysql-decimal-handling:
 
-Decimal type handling
-^^^^^^^^^^^^^^^^^^^^^
-
-``DECIMAL`` types with precision larger than 38 can be mapped to a Trino ``DECIMAL``
-by setting the ``decimal-mapping`` configuration property or the ``decimal_mapping`` session property to
-``allow_overflow``. The scale of the resulting type is controlled via the ``decimal-default-scale``
-configuration property or the ``decimal-rounding-mode`` session property. The precision is always 38.
-
-By default, values that require rounding or truncation to fit will cause a failure at runtime. This behavior
-is controlled via the ``decimal-rounding-mode`` configuration property or the ``decimal_rounding_mode`` session
-property, which can be set to ``UNNECESSARY`` (the default),
-``UP``, ``DOWN``, ``CEILING``, ``FLOOR``, ``HALF_UP``, ``HALF_DOWN``, or ``HALF_EVEN``
-(see `RoundingMode <https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/math/RoundingMode.html#enum.constant.summary>`_).
+.. include:: decimal-type-handling.fragment
 
 .. include:: jdbc-type-mapping.fragment
 

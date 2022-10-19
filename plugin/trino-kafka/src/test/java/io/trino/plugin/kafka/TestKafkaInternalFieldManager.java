@@ -19,7 +19,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.trino.plugin.kafka.KafkaInternalFieldManager.PARTITION_ID_FIELD;
+import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.PARTITION_ID_FIELD;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestKafkaInternalFieldManager
@@ -30,12 +30,13 @@ public class TestKafkaInternalFieldManager
         KafkaInternalFieldManager.InternalField internalField =
                 new KafkaInternalFieldManager.InternalField(
                         PARTITION_ID_FIELD,
+                        "internal_field_name",
                         "Partition Id",
                         BigintType.BIGINT);
 
         KafkaColumnHandle kafkaColumnHandle =
                 new KafkaColumnHandle(
-                        PARTITION_ID_FIELD,
+                        "internal_field_name",
                         BigintType.BIGINT,
                         null,
                         null,
@@ -46,14 +47,15 @@ public class TestKafkaInternalFieldManager
 
         ColumnMetadata columnMetadata =
                 ColumnMetadata.builder()
-                        .setName(PARTITION_ID_FIELD)
+                        .setName("internal_field_name")
                         .setType(BigintType.BIGINT)
                         .setComment(Optional.of("Partition Id"))
                         .setHidden(false)
                         .build();
 
-        assertThat(internalField.getColumnName()).isEqualTo(PARTITION_ID_FIELD);
-        assertThat(internalField.getColumnHandle(0, false)).isEqualTo(kafkaColumnHandle);
+        assertThat(internalField.getInternalFieldId()).isEqualTo(PARTITION_ID_FIELD);
+        assertThat(internalField.getColumnName()).isEqualTo("internal_field_name");
+        assertThat(internalField.getColumnHandle(false)).isEqualTo(kafkaColumnHandle);
         assertThat(internalField.getColumnMetadata(false)).isEqualTo(columnMetadata);
     }
 }

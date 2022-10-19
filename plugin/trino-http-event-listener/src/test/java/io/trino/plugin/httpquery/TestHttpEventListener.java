@@ -27,6 +27,7 @@ import io.trino.spi.eventlistener.QueryMetadata;
 import io.trino.spi.eventlistener.QueryStatistics;
 import io.trino.spi.eventlistener.SplitCompletedEvent;
 import io.trino.spi.eventlistener.SplitStatistics;
+import io.trino.spi.eventlistener.StageOutputBufferUtilization;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.session.ResourceEstimates;
@@ -179,6 +180,7 @@ public class TestHttpEventListener
                 0,
                 true,
                 Collections.emptyList(),
+                List.of(new StageOutputBufferUtilization(0, 10, 0.1, 0.5, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99, 0.0, 1.0, Duration.ofSeconds(1234))),
                 Collections.emptyList(),
                 Optional.empty());
 

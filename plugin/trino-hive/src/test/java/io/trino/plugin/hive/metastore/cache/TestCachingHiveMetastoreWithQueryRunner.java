@@ -146,7 +146,7 @@ public class TestCachingHiveMetastoreWithQueryRunner
         String illegalParameterMessage = "Illegal parameter set passed. Valid usages:\n" +
                 " - 'flush_metadata_cache()'\n" +
                 " - flush_metadata_cache(schema_name => ..., table_name => ...)" +
-                " - flush_metadata_cache(schema_name => ..., table_name => ..., partition_column => ARRAY['...'], partition_value => ARRAY['...'])";
+                " - flush_metadata_cache(schema_name => ..., table_name => ..., partition_columns => ARRAY['...'], partition_values => ARRAY['...'])";
 
         assertThatThrownBy(() -> getQueryRunner().execute("CALL system.flush_metadata_cache('dummy_schema')"))
                 .hasMessageContaining("Only named arguments are allowed for this procedure");
@@ -156,6 +156,17 @@ public class TestCachingHiveMetastoreWithQueryRunner
 
         assertThatThrownBy(() -> getQueryRunner().execute("CALL system.flush_metadata_cache(schema_name => 'dummy_schema', table_name => 'dummy_table', partition_column => ARRAY['dummy_partition'])"))
                 .hasMessage("Parameters partition_column and partition_value should have same length");
+
+        assertThatThrownBy(
+                () -> getQueryRunner().execute("CALL system.flush_metadata_cache(" +
+                        "partition_columns => ARRAY['example'], " +
+                        "partition_values => ARRAY['0'], " +
+                        "partition_column => ARRAY['example'], " +
+                        "partition_value => ARRAY['0']" +
+                        ")"))
+                .hasMessage(
+                        "Procedure should only be invoked with single pair of partition definition named params: " +
+                                "partition_columns and partition_values or partition_column and partition_value");
     }
 
     @Test

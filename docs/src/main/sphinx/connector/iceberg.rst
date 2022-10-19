@@ -50,6 +50,9 @@ metastore service (HMS) or AWS Glue. The catalog type is determined by the
 ``iceberg.catalog.type`` property, it can be set to either ``HIVE_METASTORE``
 or ``GLUE``.
 
+
+.. _iceberg-hive-catalog:
+
 Hive metastore catalog
 ^^^^^^^^^^^^^^^^^^^^^^
 
@@ -63,6 +66,8 @@ configuration properties as the Hive connector. At a minimum,
 
     connector.name=iceberg
     hive.metastore.uri=thrift://localhost:9083
+
+.. _iceberg-glue-catalog:
 
 Glue catalog
 ^^^^^^^^^^^^
@@ -222,25 +227,150 @@ Iceberg. In addition to the :ref:`globally available <sql-globally-available>`
 and :ref:`read operation <sql-read-operations>` statements, the connector
 supports the following features:
 
-* :doc:`/sql/insert`
-* :doc:`/sql/delete`, see also :ref:`iceberg-delete`
-* :doc:`/sql/update`
-* :doc:`/sql/merge`
-* :ref:`sql-schema-table-management`, see also :ref:`iceberg-tables`
-* :ref:`sql-materialized-view-management`, see also
-  :ref:`iceberg-materialized-views`
-* :ref:`sql-view-management`
+* :ref:`sql-write-operations`:
+
+  * :ref:`iceberg-schema-table-management` and :ref:`iceberg-tables`
+  * :ref:`iceberg-data-management`
+  * :ref:`sql-view-management`
+  * :ref:`sql-materialized-view-management`, see also :ref:`iceberg-materialized-views`
+
+.. _iceberg-schema-table-management:
+
+Schema and table management
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The :ref:`sql-schema-table-management` functionality includes support for:
+
+* :doc:`/sql/create-schema`
+* :doc:`/sql/drop-schema`
+* :doc:`/sql/alter-schema`
+* :doc:`/sql/create-table`
+* :doc:`/sql/create-table-as`
+* :doc:`/sql/drop-table`
+* :doc:`/sql/alter-table`
+* :doc:`/sql/comment`
+
+.. _iceberg-create-schema:
+
+CREATE SCHEMA
+~~~~~~~~~~~~~
+
+The connector supports creating schemas. You can create a schema with or without
+a specified location.
+
+You can create a schema with the :doc:`/sql/create-schema` statement and the
+``location`` schema property. The tables in this schema, which have no explicit
+``location`` set in :doc:`/sql/create-table` statement, are located in a
+subdirectory under the directory corresponding to the schema location.
+
+Create a schema on S3::
+
+  CREATE SCHEMA iceberg.my_s3_schema
+  WITH (location = 's3://my-bucket/a/path/');
+
+Create a schema on a S3 compatible object storage such as MinIO::
+
+  CREATE SCHEMA iceberg.my_s3a_schema
+  WITH (location = 's3a://my-bucket/a/path/');
+
+Create a schema on HDFS::
+
+  CREATE SCHEMA iceberg.my_hdfs_schema
+  WITH (location='hdfs://hadoop-master:9000/user/hive/warehouse/a/path/');
+
+Optionally, on HDFS, the location can be omitted::
+
+  CREATE SCHEMA iceberg.my_hdfs_schema;
+
+.. _iceberg-create-table:
+
+Creating tables
+~~~~~~~~~~~~~~~
+
+The Iceberg connector supports creating tables using the :doc:`CREATE
+TABLE </sql/create-table>` syntax. Optionally specify the
+:ref:`table properties <iceberg-table-properties>` supported by this connector::
+
+    CREATE TABLE my_table (
+        c1 integer,
+        c2 date,
+        c3 double
+    )
+    WITH (
+        format = 'PARQUET',
+        partitioning = ARRAY['c1', 'c2'],
+        location = 's3://my-bucket/a/path/'
+    );
+
+When the ``location`` table property is omitted, the content of the table
+is stored in a subdirectory under the directory corresponding to the
+schema location.
+
+The Iceberg connector supports creating tables using the :doc:`CREATE
+TABLE AS </sql/create-table-as>` with :doc:`SELECT </sql/select>` syntax::
+
+    CREATE TABLE tiny_nation
+    WITH (
+        format = 'PARQUET'
+    )
+    AS
+        SELECT *
+        FROM nation
+        WHERE nationkey < 10;
+
+Another flavor of creating tables with :doc:`CREATE TABLE AS </sql/create-table-as>`
+is with :doc:`VALUES </sql/values>` syntax::
+
+    CREATE TABLE yearly_clicks (
+        year,
+        clicks
+    )
+    WITH (
+        partitioning = ARRAY['year']
+    )
+    AS VALUES
+        (2021, 10000),
+        (2022, 20000);
+
+``NOT NULL`` column constraint
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Iceberg connector supports setting ``NOT NULL`` constraints on the table columns.
+
+The ``NOT NULL`` constraint can be set on the columns, while creating tables by
+using the :doc:`CREATE TABLE </sql/create-table>` syntax::
+
+    CREATE TABLE my_table (
+        year INTEGER NOT NULL,
+        name VARCHAR NOT NULL,
+        age INTEGER,
+        address VARCHAR
+    );
+
+When trying to insert/update data in the table, the query fails if trying
+to set ``NULL`` value on a column having the ``NOT NULL`` constraint.
+
+DROP TABLE
+~~~~~~~~~~
+
+The Iceberg connector supports dropping a table by using the :doc:`/sql/drop-table`
+syntax. When the command succeeds, both the data of the Iceberg table and also the
+information related to the table in the metastore service are removed.
+Dropping tables which have their data/metadata stored in a different location than
+the table's corresponding base directory on the object store is not supported.
+
+.. _iceberg-comment:
 
 .. _iceberg-alter-table-execute:
 
 ALTER TABLE EXECUTE
-^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~
 
 The connector supports the following commands for use with
 :ref:`ALTER TABLE EXECUTE <alter-table-execute>`.
 
 optimize
-~~~~~~~~
+""""""""
 
 The ``optimize`` command is used for rewriting the active content
 of the specified table so that it is merged into fewer but
@@ -274,7 +404,7 @@ to the filter:
     WHERE partition_key = 1
 
 expire_snapshots
-~~~~~~~~~~~~~~~~
+""""""""""""""""
 
 The ``expire_snapshots`` command removes all snapshots and all related metadata and data files.
 Regularly expiring snapshots is recommended to delete data files that are no longer needed,
@@ -293,7 +423,7 @@ otherwise the procedure will fail with similar message:
 The default value for this property is ``7d``.
 
 remove_orphan_files
-~~~~~~~~~~~~~~~~~~~
+"""""""""""""""""""
 
 The ``remove_orphan_files`` command removes all files from table's data directory which are
 not linked from metadata files and that are older than the value of ``retention_threshold`` parameter.
@@ -310,10 +440,24 @@ otherwise the procedure will fail with similar message:
 ``Retention specified (1.00d) is shorter than the minimum retention configured in the system (7.00d)``.
 The default value for this property is ``7d``.
 
+.. _drop-extended-stats:
+
+drop_extended_stats
+~~~~~~~~~~~~~~~~~~~
+
+This is an experimental command to remove extended statistics from the table.
+
+``drop_extended_stats`` can be run as follows:
+
+.. code-block:: sql
+
+  SET SESSION my_catalog.experimental_extended_statistics_enabled = true;
+  ALTER TABLE test_table EXECUTE drop_extended_stats
+
 .. _iceberg-alter-table-set-properties:
 
 ALTER TABLE SET PROPERTIES
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The connector supports modifying the properties on existing tables using
 :ref:`ALTER TABLE SET PROPERTIES <alter-table-set-properties>`.
@@ -338,19 +482,78 @@ Or to set the column ``my_new_partition_column`` as a partition column on a tabl
 
 The current values of a table's properties can be shown using :doc:`SHOW CREATE TABLE </sql/show-create-table>`.
 
-.. _iceberg-type-mapping:
+COMMENT
+~~~~~~~
+
+The Iceberg connector supports setting comments on the following objects:
+
+- tables
+- views
+- table columns
+
+The ``COMMENT`` option is supported on both the table and
+the table columns for the :doc:`/sql/create-table` operation.
+
+The ``COMMENT`` option is supported for adding table columns
+through the :doc:`/sql/alter-table` operations.
+
+The connector supports the command :doc:`COMMENT </sql/comment>` for setting
+comments on existing entities.
+
+.. _iceberg-data-management:
+
+Data management
+^^^^^^^^^^^^^^^
+
+The :ref:`sql-data-management` functionality includes support for ``INSERT``,
+``UPDATE``, ``DELETE``, and ``MERGE`` statements.
+
+.. _iceberg-delete:
+
+Deletion by partition
+~~~~~~~~~~~~~~~~~~~~~
+
+For partitioned tables, the Iceberg connector supports the deletion of entire
+partitions if the ``WHERE`` clause specifies filters only on the identity-transformed
+partitioning columns, that can match entire partitions. Given the table definition
+from :ref:`Partitioned Tables <iceberg-tables>` section,
+the following SQL statement deletes all partitions for which ``country`` is ``US``::
+
+    DELETE FROM iceberg.testdb.customer_orders
+    WHERE country = 'US'
+
+A partition delete is performed if the ``WHERE`` clause meets these conditions.
+
+Row level deletion
+~~~~~~~~~~~~~~~~~~
+
+Tables using v2 of the Iceberg specification support deletion of individual rows
+by writing position delete files.
 
 Type mapping
 ------------
 
-Both Iceberg and Trino have types that are not supported by the Iceberg
-connector. The following sections explain their type mapping.
+The connector reads and writes data into the supported data file formats Avro,
+ORC, and Parquet, following the Iceberg specification.
+
+Because Trino and Iceberg each support types that the other does not, this
+connector :ref:`modifies some types <type-mapping-overview>` when reading or
+writing data. Data types may not map the same way in both directions between
+Trino and the data source. Refer to the following sections for type mapping in
+each direction.
+
+The Iceberg specification includes supported data types and the mapping to the
+formating in the Avro, ORC, or Parquet files:
+
+* `Iceberg to Avro <https://iceberg.apache.org/spec/#avro>`_
+* `Iceberg to ORC <https://iceberg.apache.org/spec/#orc>`_
+* `Iceberg to Parquet <https://iceberg.apache.org/spec/#parquet>`_
 
 Iceberg to Trino type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Trino supports selecting Iceberg data types. The following table shows the
-Iceberg to Trino type mapping:
+The connector maps Iceberg types to the corresponding Trino types following this
+table:
 
 .. list-table:: Iceberg to Trino type mapping
   :widths: 40, 60
@@ -384,6 +587,8 @@ Iceberg to Trino type mapping:
     - ``UUID``
   * - ``BINARY``
     - ``VARBINARY``
+  * - ``FIXED (L)``
+    - ``VARBINARY``
   * - ``STRUCT(...)``
     - ``ROW(...)``
   * - ``LIST(e)``
@@ -391,68 +596,54 @@ Iceberg to Trino type mapping:
   * - ``MAP(k,v)``
     - ``MAP(k,v)``
 
+No other types are supported.
+
 Trino to Iceberg type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Trino supports creating tables with the following types in Iceberg. The table
-shows the mappings from Trino to Iceberg data types:
-
+The connector maps Trino types to the corresponding Iceberg types following
+this table:
 
 .. list-table:: Trino to Iceberg type mapping
-  :widths: 25, 30, 45
+  :widths: 40, 60
   :header-rows: 1
 
   * - Trino type
     - Iceberg type
-    - Notes
   * - ``BOOLEAN``
     - ``BOOLEAN``
-    -
   * - ``INTEGER``
     - ``INT``
-    -
   * - ``BIGINT``
     - ``LONG``
-    -
   * - ``REAL``
     - ``FLOAT``
-    -
   * - ``DOUBLE``
     - ``DOUBLE``
-    -
   * - ``DECIMAL(p,s)``
     - ``DECIMAL(p,s)``
-    -
   * - ``DATE``
     - ``DATE``
-    -
   * - ``TIME(6)``
     - ``TIME``
-    - Other precisions not supported
   * - ``TIMESTAMP(6)``
     - ``TIMESTAMP``
-    - Other precisions not supported
   * - ``TIMESTAMP(6) WITH TIME ZONE``
     - ``TIMESTAMPTZ``
-    - Other precisions not supported
-  * - ``VARCHAR, VARCHAR(n)``
+  * - ``VARCHAR``
     - ``STRING``
-    -
   * - ``UUID``
     - ``UUID``
-    -
   * - ``VARBINARY``
     - ``BINARY``
-    -
   * - ``ROW(...)``
     - ``STRUCT(...)``
-    - All fields must have a name
   * - ``ARRAY(e)``
     - ``LIST(e)``
-    -
   * - ``MAP(k,v)``
     - ``MAP(k,v)``
-    -
+
+No other types are supported.
 
 .. _iceberg-tables:
 
@@ -498,30 +689,8 @@ In this example, the table is partitioned by the month of ``order_date``, a hash
         country VARCHAR)
     WITH (partitioning = ARRAY['month(order_date)', 'bucket(account_number, 10)', 'country'])
 
-.. _iceberg-delete:
-
-Deletion by partition
-^^^^^^^^^^^^^^^^^^^^^
-
-For partitioned tables, the Iceberg connector supports the deletion of entire
-partitions if the ``WHERE`` clause specifies filters only on the identity-transformed
-partitioning columns, that can match entire partitions. Given the table definition
-above, this SQL will delete all partitions for which ``country`` is ``US``::
-
-    DELETE FROM iceberg.testdb.customer_orders
-    WHERE country = 'US'
-
-Tables using either v1 or v2 of the Iceberg specification will perform a partition
-delete if the ``WHERE`` clause meets these conditions.
-
-Row level deletion
-^^^^^^^^^^^^^^^^^^
-
-Tables using v2 of the Iceberg specification support deletion of individual rows
-by writing position delete files.
-
-Snapshots
----------
+Rolling back to a previous snapshot
+-----------------------------------
 
 Iceberg supports a "snapshot" model of data, where table snapshots are
 identified by a snapshot ID.
@@ -574,8 +743,8 @@ the state of the table to a previous snapshot id::
 Schema evolution
 ----------------
 
-Iceberg and the Iceberg connector support schema evolution, with safe
-column add, drop, reorder and rename operations, including in nested structures.
+Iceberg supports schema evolution, with safe column add, drop, reorder
+and rename operations, including in nested structures.
 Table partitioning can also be changed and the connector can still
 query data created before the partitioning change.
 
@@ -1031,3 +1200,37 @@ like a normal view, and the data is queried directly from the base tables.
 
 Dropping a materialized view with :doc:`/sql/drop-materialized-view` removes
 the definition and the storage table.
+
+Table statistics
+----------------
+
+There is experimental support to collect column statistics which can be enabled by
+setting the ``iceberg.experimental.extended-statistics.enabled`` catalog
+configuration property or the corresponding
+``experimental_extended_statistics_enabled`` session property to ``true``.
+Enabling this configuration allows executing :doc:`/sql/analyze` statement to gather statistics.
+
+.. _iceberg_analyze:
+
+Updating table statistics
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If your queries are complex and include joining large data sets,
+running :doc:`/sql/analyze` on tables may improve query performance
+by collecting statistical information about the data::
+
+    ANALYZE table_name
+
+This query collects statistics for all columns.
+
+On wide tables, collecting statistics for all columns can be expensive.
+It is also typically unnecessary - statistics are
+only useful on specific columns, like join keys, predicates, or grouping keys. You can
+specify a subset of columns to analyzed with the optional ``columns`` property::
+
+    ANALYZE table_name WITH (columns = ARRAY['col_1', 'col_2'])
+
+This query collects statistics for columns ``col_1`` and ``col_2``.
+
+Note that if statistics were previously collected for all columns, they need to be dropped
+using :ref:`drop_extended_stats <drop-extended-stats>` command before re-analyzing.

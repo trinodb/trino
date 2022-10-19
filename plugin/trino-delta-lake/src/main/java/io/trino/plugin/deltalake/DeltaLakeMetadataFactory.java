@@ -41,6 +41,7 @@ public class DeltaLakeMetadataFactory
     private final HdfsEnvironment hdfsEnvironment;
     private final TransactionLogAccess transactionLogAccess;
     private final TypeManager typeManager;
+    private final DeltaLakeAccessControlMetadataFactory accessControlMetadataFactory;
     private final JsonCodec<DataFileInfo> dataFileInfoCodec;
     private final JsonCodec<DeltaLakeUpdateResult> updateResultJsonCodec;
     private final JsonCodec<DeltaLakeMergeResult> mergeResultJsonCodec;
@@ -65,6 +66,7 @@ public class DeltaLakeMetadataFactory
             HdfsEnvironment hdfsEnvironment,
             TransactionLogAccess transactionLogAccess,
             TypeManager typeManager,
+            DeltaLakeAccessControlMetadataFactory accessControlMetadataFactory,
             DeltaLakeConfig deltaLakeConfig,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
             JsonCodec<DeltaLakeUpdateResult> updateResultJsonCodec,
@@ -81,6 +83,7 @@ public class DeltaLakeMetadataFactory
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.accessControlMetadataFactory = requireNonNull(accessControlMetadataFactory, "accessControlMetadataFactory is null");
         this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");
         this.updateResultJsonCodec = requireNonNull(updateResultJsonCodec, "updateResultJsonCodec is null");
         this.mergeResultJsonCodec = requireNonNull(mergeResultJsonCodec, "mergeResultJsonCodec is null");
@@ -115,6 +118,7 @@ public class DeltaLakeMetadataFactory
                 fileSystemFactory,
                 hdfsEnvironment,
                 typeManager,
+                accessControlMetadataFactory.create(cachingHiveMetastore),
                 domainCompactionThreshold,
                 unsafeWritesEnabled,
                 dataFileInfoCodec,

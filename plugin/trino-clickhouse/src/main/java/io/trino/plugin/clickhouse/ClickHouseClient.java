@@ -181,7 +181,7 @@ public class ClickHouseClient
     // An empty character means that the table doesn't have a comment in ClickHouse
     private static final String NO_COMMENT = "";
 
-    public static final int CLICK_HOUSE_MAX_LIST_EXPRESSIONS = 1_000;
+    public static final int DEFAULT_DOMAIN_COMPACTION_THRESHOLD = 1_000;
 
     private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
@@ -257,7 +257,12 @@ public class ClickHouseClient
                 "CREATE TABLE %s AS %s ",
                 quoted(null, schemaName, newTableName),
                 quoted(null, schemaName, tableName));
-        execute(connection, sql);
+        try {
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
     }
 
     @Override
@@ -382,21 +387,24 @@ public class ClickHouseClient
     }
 
     @Override
-    public void createSchema(ConnectorSession session, String schemaName)
+    protected void createSchema(ConnectorSession session, Connection connection, String remoteSchemaName)
+            throws SQLException
     {
-        execute(session, "CREATE DATABASE " + quoted(schemaName));
+        execute(connection, "CREATE DATABASE " + quoted(remoteSchemaName));
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName)
+    protected void dropSchema(ConnectorSession session, Connection connection, String remoteSchemaName)
+            throws SQLException
     {
-        execute(session, "DROP DATABASE " + quoted(schemaName));
+        execute(connection, "DROP DATABASE " + quoted(remoteSchemaName));
     }
 
     @Override
-    protected String renameSchemaSql(String remoteSchemaName, String newRemoteSchemaName)
+    protected void renameSchema(ConnectorSession session, Connection connection, String remoteSchemaName, String newRemoteSchemaName)
+            throws SQLException
     {
-        return "RENAME DATABASE " + quoted(remoteSchemaName) + " TO " + quoted(newRemoteSchemaName);
+        execute(connection, "RENAME DATABASE " + quoted(remoteSchemaName) + " TO " + quoted(newRemoteSchemaName));
     }
 
     @Override
@@ -413,15 +421,6 @@ public class ClickHouseClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
-    }
-
-    @Override
-    protected String renameColumnSql(JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newRemoteColumnName)
-    {
-        return format("ALTER TABLE %s RENAME COLUMN %s TO %s ",
-                quoted(handle.asPlainTable().getRemoteTableName()),
-                quoted(jdbcColumn.getColumnName()),
-                quoted(newRemoteColumnName));
     }
 
     @Override
@@ -458,20 +457,14 @@ public class ClickHouseClient
     }
 
     @Override
-    public void dropTable(ConnectorSession session, JdbcTableHandle handle)
+    protected void renameTable(ConnectorSession session, Connection connection, String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
+            throws SQLException
     {
-        String sql = "DROP TABLE " + quoted(handle.asPlainTable().getRemoteTableName());
-        execute(session, sql);
-    }
-
-    @Override
-    protected String renameTableSql(String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
-    {
-        return format("RENAME TABLE %s.%s TO %s.%s",
+        execute(connection, format("RENAME TABLE %s.%s TO %s.%s",
                 quoted(remoteSchemaName),
                 quoted(remoteTableName),
                 quoted(newRemoteSchemaName),
-                quoted(newRemoteTableName));
+                quoted(newRemoteTableName)));
     }
 
     @Override

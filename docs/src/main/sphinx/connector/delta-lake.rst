@@ -90,6 +90,9 @@ values. Typical usage does not require you to configure them.
       - Frequency of checks for metadata updates, equivalent to transactions, to
         update the metadata cache specified in :ref:`prop-type-duration`.
       - ``5m``
+    * - ``delta.metadata.cache-size``
+      - The maximum number of Delta table metadata entries to cache.
+      - 1000
     * - ``delta.metadata.live-files.cache-size``
       - Amount of memory allocated for caching information about files. Needs
         to be specified in :ref:`prop-type-data-size` values such as ``64MB``.
@@ -248,6 +251,9 @@ configure processing of Parquet files.
     * - ``parquet_writer_page_size``
       - The maximum page size created by the Parquet writer.
       - ``1MB``
+    * - ``parquet_writer_batch_size``
+      - Maximum number of rows processed by the parquet writer in a batch.
+      - ``10000``
 
 .. _delta-lake-authorization:
 
@@ -290,6 +296,11 @@ connector :ref:`modifies some types <type-mapping-overview>` when reading or
 writing data. Data types may not map the same way in both directions between
 Trino and the data source. Refer to the following sections for type mapping in
 each direction.
+
+See the `Delta Transaction Log specification
+<https://github.com/delta-io/delta/blob/master/PROTOCOL.md#primitive-types>`_
+for more information about supported data types in the Delta Lake table format
+specification.
 
 Delta Lake to Trino type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

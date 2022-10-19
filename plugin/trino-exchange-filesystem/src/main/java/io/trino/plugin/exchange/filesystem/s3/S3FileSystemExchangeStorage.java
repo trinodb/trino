@@ -29,6 +29,7 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
@@ -52,6 +53,7 @@ import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3AsyncClientBuilder;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
+import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.AbortMultipartUploadResponse;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
@@ -96,6 +98,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -126,7 +129,10 @@ import static software.amazon.awssdk.core.client.config.SdkAdvancedClientOption.
 public class S3FileSystemExchangeStorage
         implements FileSystemExchangeStorage
 {
-    public enum CompatibilityMode {
+    private static final Logger log = Logger.get(S3FileSystemExchangeStorage.class);
+
+    public enum CompatibilityMode
+    {
         AWS,
         GCP
     }
@@ -163,12 +169,27 @@ public class S3FileSystemExchangeStorage
                 .putAdvancedOption(USER_AGENT_PREFIX, "")
                 .putAdvancedOption(USER_AGENT_SUFFIX, "Trino-exchange")
                 .build();
-        this.s3AsyncClient = createS3AsyncClient(
+        S3AsyncClient client = createS3AsyncClient(
                 credentialsProvider,
                 overrideConfig,
+                config.isS3PathStyleAccess(),
                 config.getAsyncClientConcurrency(),
                 config.getAsyncClientMaxPendingConnectionAcquires(),
                 config.getConnectionAcquisitionTimeout());
+        this.s3AsyncClient = new S3AsyncClientWrapper(client)
+        {
+            @Override
+            protected void handle(RequestType requestType, CompletableFuture<?> responseFuture)
+            {
+                stats.requestStarted(requestType);
+                responseFuture.whenComplete((result, failure) -> {
+                    if (failure != null && failure.getMessage() != null && failure.getMessage().contains("Maximum pending connection acquisitions exceeded")) {
+                        log.error(failure, "Encountered 'Maximum pending connection acquisitions exceeded' error. Active requests: %s", stats.getActiveRequestsSummary());
+                    }
+                    stats.requestCompleted(requestType);
+                });
+            }
+        };
 
         if (compatibilityMode == GCP) {
             Optional<String> gcsJsonKeyFilePath = config.getGcsJsonKeyFilePath();
@@ -452,6 +473,7 @@ public class S3FileSystemExchangeStorage
     private S3AsyncClient createS3AsyncClient(
             AwsCredentialsProvider credentialsProvider,
             ClientOverrideConfiguration overrideConfig,
+            boolean isS3PathStyleAccess,
             int maxConcurrency,
             int maxPendingConnectionAcquires,
             Duration connectionAcquisitionTimeout)
@@ -459,6 +481,9 @@ public class S3FileSystemExchangeStorage
         S3AsyncClientBuilder clientBuilder = S3AsyncClient.builder()
                 .credentialsProvider(credentialsProvider)
                 .overrideConfiguration(overrideConfig)
+                .serviceConfiguration(S3Configuration.builder()
+                        .pathStyleAccessEnabled(isS3PathStyleAccess)
+                        .build())
                 .httpClientBuilder(NettyNioAsyncHttpClient.builder()
                         .maxConcurrency(maxConcurrency)
                         .maxPendingConnectionAcquires(maxPendingConnectionAcquires)
@@ -474,7 +499,7 @@ public class S3FileSystemExchangeStorage
     private static class S3ExchangeStorageReader
             implements ExchangeStorageReader
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(S3ExchangeStorageReader.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(S3ExchangeStorageReader.class).instanceSize());
 
         private final S3FileSystemExchangeStorageStats stats;
         private final S3AsyncClient s3AsyncClient;
@@ -655,7 +680,7 @@ public class S3FileSystemExchangeStorage
     private static class S3ExchangeStorageWriter
             implements ExchangeStorageWriter
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(S3ExchangeStorageWriter.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(S3ExchangeStorageWriter.class).instanceSize());
 
         private final S3FileSystemExchangeStorageStats stats;
         private final S3AsyncClient s3AsyncClient;

@@ -469,6 +469,18 @@ public class FileBasedAccessControl
     }
 
     @Override
+    public void checkCanGrantExecuteFunctionPrivilege(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName functionName, TrinoPrincipal grantee, boolean grantOption)
+    {
+        switch (functionKind) {
+            case SCALAR, AGGREGATE, WINDOW:
+                return;
+            case TABLE:
+                denyExecuteFunction(functionName.toString());
+        }
+        throw new UnsupportedOperationException("Unsupported function kind: " + functionKind);
+    }
+
+    @Override
     public void checkCanSetMaterializedViewProperties(ConnectorSecurityContext context, SchemaTableName materializedViewName, Map<String, Optional<Object>> properties)
     {
         if (!checkTablePermission(context, materializedViewName, OWNERSHIP)) {

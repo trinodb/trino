@@ -856,6 +856,16 @@ public class AccessControlManager
                 functionName.asCatalogSchemaRoutineName(),
                 new TrinoPrincipal(PrincipalType.USER, grantee.getUser()),
                 grantOption));
+
+        catalogAuthorizationCheck(
+                functionName.getCatalogName(),
+                securityContext,
+                (control, context) -> control.checkCanGrantExecuteFunctionPrivilege(
+                        context,
+                        functionKind,
+                        functionName.asSchemaRoutineName(),
+                        new TrinoPrincipal(PrincipalType.USER, grantee.getUser()),
+                        grantOption));
     }
 
     @Override

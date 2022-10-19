@@ -98,6 +98,29 @@ may prevent the limit from being reached. Running queries on the ``information_s
 table without a schema and table name filter may lead to hitting the limit, as this requires
 fetching the sheet data for every table, unless it is already cached.
 
+Type mapping
+------------
+
+Because Trino and Google Sheets each support types that the other does not, this
+connector :ref:`modifies some types <type-mapping-overview>` when reading data.
+
+Google Sheets type to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps Google Sheets types to the corresponding Trino types
+following this table:
+
+.. list-table:: Google Sheets type to Trino type mapping
+  :widths: 30, 20
+  :header-rows: 1
+
+  * - Google Sheets type
+    - Trino type
+  * - ``TEXT``
+    - ``VARCHAR``
+
+No other types are supported.
+
 .. _google-sheets-sql-support:
 
 SQL support

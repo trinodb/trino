@@ -60,7 +60,6 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
@@ -300,37 +299,43 @@ public class SqlServerClient
     }
 
     @Override
-    protected void renameTable(ConnectorSession session, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
+    protected void renameTable(ConnectorSession session, Connection connection, String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
+            throws SQLException
     {
-        if (!schemaName.equals(newTable.getSchemaName())) {
+        // sp_rename treats first argument as SQL object name, so it needs to be properly quoted and escaped.
+        // The second argument is treated literally.
+        if (!remoteSchemaName.equals(newRemoteSchemaName)) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
         }
+        String fullTableFromName = DOT_JOINER.join(
+                quoted(catalogName),
+                quoted(remoteSchemaName),
+                quoted(remoteTableName));
 
-        super.renameTable(session, catalogName, schemaName, tableName, newTable);
+        try (CallableStatement renameTable = connection.prepareCall("exec sp_rename ?, ?")) {
+            renameTable.setString(1, fullTableFromName);
+            renameTable.setString(2, newRemoteTableName);
+            renameTable.execute();
+        }
     }
 
     @Override
-    protected String renameTableSql(String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
+    protected void renameColumn(ConnectorSession session, Connection connection, RemoteTableName remoteTableName, String remoteColumnName, String newRemoteColumnName)
+            throws SQLException
     {
-        return format(
-                "sp_rename %s, %s",
-                singleQuote(catalogName, remoteSchemaName, remoteTableName),
-                singleQuote(newRemoteTableName));
-    }
+        // sp_rename treats first argument as SQL object name, so it needs to be properly quoted and escaped.
+        // The second arqgument is treated literally.
+        String columnFrom = DOT_JOINER.join(
+                quoted(remoteTableName.getCatalogName().orElseThrow()),
+                quoted(remoteTableName.getSchemaName().orElseThrow()),
+                quoted(remoteTableName.getTableName()),
+                quoted(remoteColumnName));
 
-    @Override
-    protected String renameColumnSql(JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newRemoteColumnName)
-    {
-        RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
-        return format(
-                "sp_rename %s, %s, 'COLUMN'",
-                singleQuote(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName(), "[" + escape(jdbcColumn.getColumnName()) + "]"),
-                "[" + newRemoteColumnName + "]");
-    }
-
-    private static String escape(String name)
-    {
-        return name.replace("'", "''");
+        try (CallableStatement renameColumn = connection.prepareCall("exec sp_rename ?, ?, 'COLUMN'")) {
+            renameColumn.setString(1, columnFrom);
+            renameColumn.setString(2, newRemoteColumnName);
+            renameColumn.execute();
+        }
     }
 
     @Override
@@ -349,7 +354,12 @@ public class SqlServerClient
                         .collect(joining(", ")),
                 quoted(catalogName, schemaName, newTableName),
                 quoted(catalogName, schemaName, tableName));
-        execute(connection, sql);
+        try {
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
     }
 
     @Override
@@ -474,8 +484,7 @@ public class SqlServerClient
         if (type == DOUBLE) {
             return WriteMapping.doubleMapping("double precision", doubleWriteFunction());
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
             if (decimalType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
@@ -483,8 +492,7 @@ public class SqlServerClient
             return WriteMapping.objectMapping(dataType, longDecimalWriteFunction(decimalType));
         }
 
-        if (type instanceof VarcharType) {
-            VarcharType varcharType = (VarcharType) type;
+        if (type instanceof VarcharType varcharType) {
             String dataType;
             if (varcharType.isUnbounded() || varcharType.getBoundedLength() > 4000) {
                 dataType = "nvarchar(max)";
@@ -495,8 +503,7 @@ public class SqlServerClient
             return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
         }
 
-        if (type instanceof CharType) {
-            CharType charType = (CharType) type;
+        if (type instanceof CharType charType) {
             String dataType;
             if (charType.getLength() > 4000) {
                 dataType = "nvarchar(max)";
@@ -515,15 +522,13 @@ public class SqlServerClient
             return WriteMapping.longMapping("date", sqlServerDateWriteFunction());
         }
 
-        if (type instanceof TimeType) {
-            TimeType timeType = (TimeType) type;
+        if (type instanceof TimeType timeType) {
             int precision = min(timeType.getPrecision(), MAX_SUPPORTED_TEMPORAL_PRECISION);
             String dataType = format("time(%d)", precision);
             return WriteMapping.longMapping(dataType, sqlServerTimeWriteFunction(precision));
         }
 
-        if (type instanceof TimestampType) {
-            TimestampType timestampType = (TimestampType) type;
+        if (type instanceof TimestampType timestampType) {
             int precision = min(timestampType.getPrecision(), MAX_SUPPORTED_TEMPORAL_PRECISION);
             String dataType = format("datetime2(%d)", precision);
             if (timestampType.getPrecision() <= MAX_SHORT_PRECISION) {
@@ -673,6 +678,26 @@ public class SqlServerClient
             }
         }
         return columnNameToStatisticsName;
+    }
+
+    // SQL Server has non-standard LIKE semantics:
+    // https://learn.microsoft.com/en-us/sql/t-sql/language-elements/like-transact-sql?redirectedfrom=MSDN&view=sql-server-ver16#arguments
+    // and apparently this applies to DatabaseMetaData calls too.@Override
+    @Override
+    protected String escapeObjectNameForMetadataQuery(String name, String escape)
+    {
+        requireNonNull(name, "name is null");
+        requireNonNull(escape, "escape is null");
+        checkArgument(!escape.isEmpty(), "Escape string must not be empty");
+        checkArgument(!escape.equals("_"), "Escape string must not be '_'");
+        checkArgument(!escape.equals("%"), "Escape string must not be '%'");
+        name = name.replace(escape, escape + escape);
+        name = name.replace("_", escape + "_");
+        name = name.replace("%", escape + "%");
+        // SQLServer also treats [ and ] as wildcard characters
+        name = name.replace("]", escape + "]");
+        name = name.replace("[", escape + "[");
+        return name;
     }
 
     @Override
@@ -960,16 +985,6 @@ public class SqlServerClient
         return connection;
     }
 
-    private static String singleQuote(String... objects)
-    {
-        return singleQuote(DOT_JOINER.join(objects));
-    }
-
-    private static String singleQuote(String literal)
-    {
-        return "\'" + literal + "\'";
-    }
-
     public static ColumnMapping varbinaryColumnMapping()
     {
         return ColumnMapping.sliceMapping(
@@ -1066,7 +1081,7 @@ public class SqlServerClient
             return handle.createQuery("SELECT object_id(:table)")
                     .bind("table", format("%s.%s.%s", catalog, schema, tableName))
                     .mapTo(Long.class)
-                    .findOnly();
+                    .one();
         }
 
         Long getRowCount(long tableObjectId)
@@ -1078,7 +1093,7 @@ public class SqlServerClient
                             "AND index_id IN (0, 1)") // 0 = heap, 1 = clustered index, 2 or greater = non-clustered index
                     .bind("object_id", tableObjectId)
                     .mapTo(Long.class)
-                    .findOnly();
+                    .one();
         }
 
         List<String> getSingleColumnStatistics(long tableObjectId)

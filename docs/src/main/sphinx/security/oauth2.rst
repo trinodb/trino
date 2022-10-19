@@ -41,12 +41,14 @@ values to set corresponding OAuth2 authentication configuration properties:
 
 .. warning::
 
-  In situation when Authorization Server is issuing JSON Web Tokens (JWTs) but the
-  metadata document contains ``userinfo_endpoint`` Trino will use this endpoint to
-  check the validity of OAuth2 access tokens. This is unnecessary as JWTs can be
-  inspected locally and using them against ``userinfo_endpoint`` may even result
-  in authentication failure. In this case set:
-  ``http-server.authentication.oauth2.oidc.use-userinfo-endpoint=false`` which
+  If the authorization server is issuing JSON Web Tokens (JWTs) and the
+  metadata document contains ``userinfo_endpoint``, Trino uses this endpoint to
+  check the validity of OAuth2 access tokens. Since JWTs can be inspected
+  locally, using them against ``userinfo_endpoint`` may result in authentication
+  failure. In this case, set the
+  ``http-server.authentication.oauth2.oidc.use-userinfo-endpoint`` configuration
+  property to ``false``
+  (``http-server.authentication.oauth2.oidc.use-userinfo-endpoint=false``). This
   instructs Trino to ignore ``userinfo_endpoint`` and inspect tokens locally.
 
 This functionality is enabled by default but can be turned off with:
@@ -147,7 +149,7 @@ The following configuration properties are available:
    * - ``http-server.authentication.oauth2.principal-field``
      - The field of the access token used for the Trino user principal. Defaults to ``sub``. Other commonly used fields include ``sAMAccountName``, ``name``, ``upn``, and ``email``.
    * - ``http-server.authentication.oauth2.groups-field``
-     - The field of the access token used for Trino groups. The corresponding claim value must be an array.
+     - Array-based field in the access token used to list group information for a user.
    * - ``http-server.authentication.oauth2.oidc.discovery``
      - Enable reading the `OIDC provider metadata <https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata>`_.
        Default is ``true``.

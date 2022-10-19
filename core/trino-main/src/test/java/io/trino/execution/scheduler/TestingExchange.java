@@ -16,6 +16,7 @@ package io.trino.execution.scheduler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.exchange.Exchange;
+import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.exchange.ExchangeSinkHandle;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.spi.exchange.ExchangeSourceHandle;
@@ -30,15 +31,25 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
+import static io.trino.spi.exchange.ExchangeId.createRandomExchangeId;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class TestingExchange
         implements Exchange
 {
+    private final ExchangeId exchangeId = createRandomExchangeId();
     private final Set<TestingExchangeSinkHandle> finishedSinks = newConcurrentHashSet();
     private final Set<TestingExchangeSinkHandle> allSinks = newConcurrentHashSet();
     private final AtomicBoolean noMoreSinks = new AtomicBoolean();
     private final CompletableFuture<List<ExchangeSourceHandle>> sourceHandles = new CompletableFuture<>();
+    private final AtomicBoolean allRequiredSinksFinished = new AtomicBoolean();
+
+    @Override
+    public ExchangeId getId()
+    {
+        return exchangeId;
+    }
 
     @Override
     public ExchangeSinkHandle addSink(int taskPartitionId)
@@ -75,6 +86,17 @@ public class TestingExchange
     public void sinkFinished(ExchangeSinkHandle sinkHandle, int taskAttemptId)
     {
         finishedSinks.add((TestingExchangeSinkHandle) sinkHandle);
+    }
+
+    @Override
+    public void allRequiredSinksFinished()
+    {
+        allRequiredSinksFinished.set(true);
+    }
+
+    public boolean isAllRequiredSinksFinished()
+    {
+        return allRequiredSinksFinished.get();
     }
 
     public Set<TestingExchangeSinkHandle> getFinishedSinkHandles()
@@ -134,7 +156,7 @@ public class TestingExchange
     public static class TestingExchangeSourceHandle
             implements ExchangeSourceHandle
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(TestingExchangeSourceHandle.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TestingExchangeSourceHandle.class).instanceSize());
 
         private final int partitionId;
         private final long sizeInBytes;

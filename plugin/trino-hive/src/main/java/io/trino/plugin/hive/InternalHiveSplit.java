@@ -39,11 +39,11 @@ import static java.util.Objects.requireNonNull;
 @NotThreadSafe
 public class InternalHiveSplit
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(InternalHiveSplit.class).instanceSize() +
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(InternalHiveSplit.class).instanceSize() +
             ClassLayout.parseClass(String.class).instanceSize() +
             ClassLayout.parseClass(Properties.class).instanceSize() +
             ClassLayout.parseClass(String.class).instanceSize() +
-            ClassLayout.parseClass(OptionalInt.class).instanceSize();
+            ClassLayout.parseClass(OptionalInt.class).instanceSize());
 
     private final String path;
     private final long end;
@@ -277,9 +277,9 @@ public class InternalHiveSplit
 
     public static class InternalHiveBlock
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(InternalHiveBlock.class).instanceSize();
-        private static final int HOST_ADDRESS_INSTANCE_SIZE = ClassLayout.parseClass(HostAddress.class).instanceSize() +
-                ClassLayout.parseClass(String.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(InternalHiveBlock.class).instanceSize());
+        private static final int HOST_ADDRESS_INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(HostAddress.class).instanceSize() +
+                ClassLayout.parseClass(String.class).instanceSize());
 
         private final long start;
         private final long end;

@@ -61,6 +61,7 @@ public class HudiSplitFactory
                         fileSplit.getStart(),
                         fileSplit.getLength(),
                         fileStatus.getLen(),
+                        fileStatus.getModificationTime(),
                         ImmutableList.of(),
                         hudiTableHandle.getRegularPredicates(),
                         partitionKeys,

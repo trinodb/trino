@@ -143,7 +143,7 @@ public class TestDynamicTable
         String query = "SELECT string_col, long_col" +
                 " FROM " + tableName + " WHERE string_col = CAST(123 AS STRING) AND long_col = CAST('123' AS LONG) LIMIT 60";
         String expected = "select \"string_col\", \"long_col\" from primitive_types_table " +
-                "where AND((\"string_col\") = (CAST('123' AS string)), (\"long_col\") = (CAST('123' AS long))) limit 60";
+                "where AND((\"string_col\") = '123', (\"long_col\") = '123') limit 60";
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
         assertEquals(extractPql(dynamicTable, TupleDomain.all()), expected);
     }

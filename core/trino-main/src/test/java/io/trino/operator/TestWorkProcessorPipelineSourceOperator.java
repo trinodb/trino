@@ -205,14 +205,14 @@ public class TestWorkProcessorPipelineSourceOperator
         assertEquals(operatorStats.get(2).getOutputDataSize().toBytes(), 45);
 
         assertThat(operatorStats.get(1).getMetrics().getMetrics())
-                .hasSize(2)
+                .hasSize(5)
                 .containsEntry("testOperatorMetric", new LongCount(1));
 
         // assert source operator stats are correct
         OperatorStats sourceOperatorStats = operatorStats.get(0);
 
         assertThat(sourceOperatorStats.getMetrics().getMetrics())
-                .hasSize(3)
+                .hasSize(6)
                 .containsEntry("testSourceMetric", new LongCount(1))
                 .containsEntry("testSourceClosed", new LongCount(1));
         assertEquals(sourceOperatorStats.getConnectorMetrics().getMetrics(), ImmutableMap.of(
@@ -250,7 +250,7 @@ public class TestWorkProcessorPipelineSourceOperator
         // assert pipeline metrics
         List<OperatorStats> operatorSummaries = pipelineStats.getOperatorSummaries();
         assertThat(operatorSummaries.get(0).getMetrics().getMetrics())
-                .hasSize(3)
+                .hasSize(6)
                 .containsEntry("testSourceMetric", new LongCount(1))
                 .containsEntry("testSourceClosed", new LongCount(1));
         assertEquals(operatorSummaries.get(0).getConnectorMetrics().getMetrics(), ImmutableMap.of(
@@ -258,7 +258,7 @@ public class TestWorkProcessorPipelineSourceOperator
                 "testSourceConnectorClosed", new LongCount(1),
                 "Physical input read time", new DurationTiming(new Duration(7, NANOSECONDS))));
         assertThat(operatorSummaries.get(1).getMetrics().getMetrics())
-                .hasSize(2)
+                .hasSize(5)
                 .containsEntry("testOperatorMetric", new LongCount(1));
     }
 

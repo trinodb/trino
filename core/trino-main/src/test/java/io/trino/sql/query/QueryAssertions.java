@@ -128,10 +128,10 @@ public class QueryAssertions
         return function(mangleOperatorName(operator), arguments);
     }
 
-    public ExpressionAssertProvider function(String name, @Language("SQL") String... arguments)
+    public ExpressionAssertProvider function(String name, List<String> arguments)
     {
         ImmutableList.Builder<String> builder = ImmutableList.builder();
-        for (int i = 0; i < arguments.length; i++) {
+        for (int i = 0; i < arguments.size(); i++) {
             builder.add("a" + i);
         }
 
@@ -140,11 +140,16 @@ public class QueryAssertions
                 name,
                 String.join(",", names)));
 
-        for (int i = 0; i < arguments.length; i++) {
-            assertion.binding(names.get(i), arguments[i]);
+        for (int i = 0; i < arguments.size(); i++) {
+            assertion.binding(names.get(i), arguments.get(i));
         }
 
         return assertion;
+    }
+
+    public ExpressionAssertProvider function(String name, @Language("SQL") String... arguments)
+    {
+        return function(name, Arrays.asList(arguments));
     }
 
     public ExpressionAssertProvider expression(@Language("SQL") String expression, Session session)
@@ -313,6 +318,8 @@ public class QueryAssertions
             this.skipResultsCorrectnessCheckForPushdown = skipResultsCorrectnessCheckForPushdown;
         }
 
+        // TODO for better readability, replace this with `exceptColumns(String... columnNamesToExclude)` leveraging MaterializedResult.getColumnNames
+        @Deprecated
         public QueryAssert projected(int... columns)
         {
             return new QueryAssert(
@@ -583,7 +590,7 @@ public class QueryAssertions
         public Result evaluate()
         {
             if (bindings.isEmpty()) {
-                return run("VALUES %s".formatted(expression));
+                return run("VALUES ROW(%s)".formatted(expression));
             }
             else {
                 List<Map.Entry<String, String>> entries = ImmutableList.copyOf(bindings.entrySet());
@@ -603,7 +610,7 @@ public class QueryAssertions
                 Result full = run("""
                         SELECT %s
                         FROM (
-                            VALUES (%s)
+                            VALUES ROW(%s)
                         ) t(%s)
                         WHERE rand() >= 0
                         """
@@ -615,7 +622,7 @@ public class QueryAssertions
                 Result withConstantFolding = run("""
                         SELECT %s
                         FROM (
-                            VALUES (%s)
+                            VALUES ROW(%s)
                         ) t(%s)
                         """
                         .formatted(

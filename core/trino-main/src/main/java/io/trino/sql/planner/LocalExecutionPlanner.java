@@ -402,8 +402,22 @@ public class LocalExecutionPlanner
     private final JoinCompiler joinCompiler;
     private final OperatorFactories operatorFactories;
     private final OrderingCompiler orderingCompiler;
-    @Deprecated // TODO do not keep mutable config instance on a field
-    private final DynamicFilterConfig dynamicFilterConfig;
+    private final int largeBroadcastMaxDistinctValuesPerDriver;
+    private final int largePartitionedMaxDistinctValuesPerDriver;
+    private final int smallBroadcastMaxDistinctValuesPerDriver;
+    private final int smallPartitionedMaxDistinctValuesPerDriver;
+    private final DataSize largeBroadcastMaxSizePerDriver;
+    private final DataSize largePartitionedMaxSizePerDriver;
+    private final DataSize smallBroadcastMaxSizePerDriver;
+    private final DataSize smallPartitionedMaxSizePerDriver;
+    private final int largeBroadcastRangeRowLimitPerDriver;
+    private final int largePartitionedRangeRowLimitPerDriver;
+    private final int smallBroadcastRangeRowLimitPerDriver;
+    private final int smallPartitionedRangeRowLimitPerDriver;
+    private final DataSize largeBroadcastMaxSizePerOperator;
+    private final DataSize largePartitionedMaxSizePerOperator;
+    private final DataSize smallBroadcastMaxSizePerOperator;
+    private final DataSize smallPartitionedMaxSizePerOperator;
     private final BlockTypeOperators blockTypeOperators;
     private final TableExecuteContextManager tableExecuteContextManager;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
@@ -467,7 +481,22 @@ public class LocalExecutionPlanner
         this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
         this.operatorFactories = requireNonNull(operatorFactories, "operatorFactories is null");
         this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
-        this.dynamicFilterConfig = requireNonNull(dynamicFilterConfig, "dynamicFilterConfig is null");
+        this.largeBroadcastMaxDistinctValuesPerDriver = dynamicFilterConfig.getLargeBroadcastMaxDistinctValuesPerDriver();
+        this.smallBroadcastMaxDistinctValuesPerDriver = dynamicFilterConfig.getSmallBroadcastMaxDistinctValuesPerDriver();
+        this.smallPartitionedMaxDistinctValuesPerDriver = dynamicFilterConfig.getSmallPartitionedMaxDistinctValuesPerDriver();
+        this.largeBroadcastMaxSizePerDriver = dynamicFilterConfig.getLargeBroadcastMaxSizePerDriver();
+        this.largePartitionedMaxSizePerDriver = dynamicFilterConfig.getLargePartitionedMaxSizePerDriver();
+        this.smallBroadcastMaxSizePerDriver = dynamicFilterConfig.getSmallBroadcastMaxSizePerDriver();
+        this.smallPartitionedMaxSizePerDriver = dynamicFilterConfig.getSmallPartitionedMaxSizePerDriver();
+        this.largeBroadcastRangeRowLimitPerDriver = dynamicFilterConfig.getLargeBroadcastRangeRowLimitPerDriver();
+        this.largePartitionedRangeRowLimitPerDriver = dynamicFilterConfig.getLargePartitionedRangeRowLimitPerDriver();
+        this.smallBroadcastRangeRowLimitPerDriver = dynamicFilterConfig.getSmallBroadcastRangeRowLimitPerDriver();
+        this.smallPartitionedRangeRowLimitPerDriver = dynamicFilterConfig.getSmallPartitionedRangeRowLimitPerDriver();
+        this.largeBroadcastMaxSizePerOperator = dynamicFilterConfig.getLargeBroadcastMaxSizePerOperator();
+        this.largePartitionedMaxSizePerOperator = dynamicFilterConfig.getLargePartitionedMaxSizePerOperator();
+        this.smallBroadcastMaxSizePerOperator = dynamicFilterConfig.getSmallBroadcastMaxSizePerOperator();
+        this.smallPartitionedMaxSizePerOperator = dynamicFilterConfig.getSmallPartitionedMaxSizePerOperator();
+        this.largePartitionedMaxDistinctValuesPerDriver = dynamicFilterConfig.getLargePartitionedMaxDistinctValuesPerDriver();
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
         this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
@@ -3374,7 +3403,10 @@ public class LocalExecutionPlanner
             context.setDriverInstanceCount(getTaskWriterCount(session));
 
             PhysicalOperation source = node.getSource().accept(this, context);
-            OperatorFactory operatorFactory = new MergeWriterOperatorFactory(context.getNextOperatorId(), node.getId(), pageSinkManager, node.getTarget(), session);
+
+            Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(node.getProjectedSymbols(), source.getLayout());
+
+            OperatorFactory operatorFactory = new MergeWriterOperatorFactory(context.getNextOperatorId(), node.getId(), pageSinkManager, node.getTarget(), session, pagePreprocessor);
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
         }
 
@@ -3395,6 +3427,9 @@ public class LocalExecutionPlanner
                     .map(nodeLayout::get)
                     .collect(toImmutableList());
 
+            List<Symbol> expectedLayout = node.getSource().getOutputSymbols();
+            Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(expectedLayout, source.getLayout());
+
             OperatorFactory operatorFactory = MergeProcessorOperator.createOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
@@ -3402,7 +3437,8 @@ public class LocalExecutionPlanner
                     rowIdChannel,
                     mergeRowChannel,
                     redistributionColumns,
-                    dataColumnChannels);
+                    dataColumnChannels,
+                    pagePreprocessor);
             return new PhysicalOperation(operatorFactory, nodeLayout, context, source);
         }
 
@@ -3931,56 +3967,56 @@ public class LocalExecutionPlanner
     {
         if (isEnableLargeDynamicFilters(session)) {
             if (isReplicatedJoin) {
-                return dynamicFilterConfig.getLargeBroadcastMaxDistinctValuesPerDriver();
+                return largeBroadcastMaxDistinctValuesPerDriver;
             }
-            return dynamicFilterConfig.getLargePartitionedMaxDistinctValuesPerDriver();
+            return largePartitionedMaxDistinctValuesPerDriver;
         }
         if (isReplicatedJoin) {
-            return dynamicFilterConfig.getSmallBroadcastMaxDistinctValuesPerDriver();
+            return smallBroadcastMaxDistinctValuesPerDriver;
         }
-        return dynamicFilterConfig.getSmallPartitionedMaxDistinctValuesPerDriver();
+        return smallPartitionedMaxDistinctValuesPerDriver;
     }
 
     private DataSize getDynamicFilteringMaxSizePerDriver(Session session, boolean isReplicatedJoin)
     {
         if (isEnableLargeDynamicFilters(session)) {
             if (isReplicatedJoin) {
-                return dynamicFilterConfig.getLargeBroadcastMaxSizePerDriver();
+                return largeBroadcastMaxSizePerDriver;
             }
-            return dynamicFilterConfig.getLargePartitionedMaxSizePerDriver();
+            return largePartitionedMaxSizePerDriver;
         }
         if (isReplicatedJoin) {
-            return dynamicFilterConfig.getSmallBroadcastMaxSizePerDriver();
+            return smallBroadcastMaxSizePerDriver;
         }
-        return dynamicFilterConfig.getSmallPartitionedMaxSizePerDriver();
+        return smallPartitionedMaxSizePerDriver;
     }
 
     private int getDynamicFilteringRangeRowLimitPerDriver(Session session, boolean isReplicatedJoin)
     {
         if (isEnableLargeDynamicFilters(session)) {
             if (isReplicatedJoin) {
-                return dynamicFilterConfig.getLargeBroadcastRangeRowLimitPerDriver();
+                return largeBroadcastRangeRowLimitPerDriver;
             }
-            return dynamicFilterConfig.getLargePartitionedRangeRowLimitPerDriver();
+            return largePartitionedRangeRowLimitPerDriver;
         }
         if (isReplicatedJoin) {
-            return dynamicFilterConfig.getSmallBroadcastRangeRowLimitPerDriver();
+            return smallBroadcastRangeRowLimitPerDriver;
         }
-        return dynamicFilterConfig.getSmallPartitionedRangeRowLimitPerDriver();
+        return smallPartitionedRangeRowLimitPerDriver;
     }
 
     private DataSize getDynamicFilteringMaxSizePerOperator(Session session, boolean isReplicatedJoin)
     {
         if (isEnableLargeDynamicFilters(session)) {
             if (isReplicatedJoin) {
-                return dynamicFilterConfig.getLargeBroadcastMaxSizePerOperator();
+                return largeBroadcastMaxSizePerOperator;
             }
-            return dynamicFilterConfig.getLargePartitionedMaxSizePerOperator();
+            return largePartitionedMaxSizePerOperator;
         }
         if (isReplicatedJoin) {
-            return dynamicFilterConfig.getSmallBroadcastMaxSizePerOperator();
+            return smallBroadcastMaxSizePerOperator;
         }
-        return dynamicFilterConfig.getSmallPartitionedMaxSizePerOperator();
+        return smallPartitionedMaxSizePerOperator;
     }
 
     private static List<Type> getTypes(List<Expression> expressions, Map<NodeRef<Expression>, Type> expressionTypes)

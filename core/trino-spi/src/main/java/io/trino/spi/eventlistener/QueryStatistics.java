@@ -67,6 +67,7 @@ public class QueryStatistics
     private final boolean complete;
 
     private final List<StageCpuDistribution> cpuTimeDistribution;
+    private final List<StageOutputBufferUtilization> outputBufferUtilization;
 
     /**
      * Operator summaries serialized to JSON. Serialization format and structure
@@ -116,6 +117,7 @@ public class QueryStatistics
             int completedSplits,
             boolean complete,
             List<StageCpuDistribution> cpuTimeDistribution,
+            List<StageOutputBufferUtilization> outputBufferUtilization,
             List<String> operatorSummaries,
             Optional<String> planNodeStatsAndCosts)
     {
@@ -154,6 +156,7 @@ public class QueryStatistics
         this.completedSplits = completedSplits;
         this.complete = complete;
         this.cpuTimeDistribution = requireNonNull(cpuTimeDistribution, "cpuTimeDistribution is null");
+        this.outputBufferUtilization = requireNonNull(outputBufferUtilization, "outputBufferUtilization is null");
         this.operatorSummaries = requireNonNull(operatorSummaries, "operatorSummaries is null");
         this.planNodeStatsAndCosts = requireNonNull(planNodeStatsAndCosts, "planNodeStatsAndCosts is null");
     }
@@ -366,6 +369,12 @@ public class QueryStatistics
     public List<StageCpuDistribution> getCpuTimeDistribution()
     {
         return cpuTimeDistribution;
+    }
+
+    @JsonProperty
+    public List<StageOutputBufferUtilization> getOutputBufferUtilization()
+    {
+        return outputBufferUtilization;
     }
 
     @JsonProperty

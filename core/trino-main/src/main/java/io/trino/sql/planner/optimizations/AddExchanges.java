@@ -40,6 +40,7 @@ import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
+import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ChildReplacer;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
@@ -1305,6 +1306,14 @@ public class AddExchanges
             return withDerivedProperties(
                     ChildReplacer.replaceChildren(node, ImmutableList.of(child.getNode())),
                     child.getProperties());
+        }
+
+        @Override
+        public PlanWithProperties visitAssignUniqueId(AssignUniqueId node, PreferredProperties preferredProperties)
+        {
+            PreferredProperties translatedPreferred = preferredProperties.translate(symbol -> node.getIdColumn().equals(symbol) ? Optional.empty() : Optional.of(symbol));
+
+            return rebaseAndDeriveProperties(node, planChild(node, translatedPreferred));
         }
 
         private PlanWithProperties rebaseAndDeriveProperties(PlanNode node, List<PlanWithProperties> children)

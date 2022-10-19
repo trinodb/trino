@@ -220,12 +220,16 @@ public abstract class BaseHiveConnectorTest
         return queryRunner;
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
+
+            case SUPPORTS_COMMENT_ON_VIEW:
+                return true;
 
             case SUPPORTS_CREATE_VIEW:
                 return true;
@@ -234,8 +238,6 @@ public abstract class BaseHiveConnectorTest
                 return false;
 
             case SUPPORTS_DELETE:
-                return true;
-
             case SUPPORTS_UPDATE:
                 return true;
 
@@ -244,9 +246,6 @@ public abstract class BaseHiveConnectorTest
                 return false;
 
             case SUPPORTS_MULTI_STATEMENT_WRITES:
-                return true;
-
-            case SUPPORTS_COMMENT_ON_VIEW:
                 return true;
 
             default:
@@ -3418,6 +3417,10 @@ public abstract class BaseHiveConnectorTest
         // insert 10 partitions with part1=part2
         assertUpdate("INSERT INTO " + tableName + " SELECT 'bar' foo, n part1, n part2 FROM UNNEST(sequence(1, 10)) a(n)", 10);
 
+        // verify can query less than 1000 partitions
+        assertThat(query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3 AND part1 IS NOT NULL"))
+                .matches("VALUES (VARCHAR 'bar', BIGINT '3', BIGINT '3')");
+
         // verify can query 1000 partitions
         assertThat(query("SELECT count(*) FROM " + tableName + " WHERE part1 IS NULL AND part2 < 1001"))
                 .matches("VALUES BIGINT '1000'");
@@ -3427,12 +3430,8 @@ public abstract class BaseHiveConnectorTest
                 .hasMessage("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName);
         assertThatThrownBy(() -> query("SELECT count(*) FROM " + tableName))
                 .hasMessage("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName);
-
-        // verify we can query with a predicate that is not representable as a TupleDomain
-        assertThat(query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3")) // may be translated to Domain.all
-                .matches("VALUES (VARCHAR 'bar', BIGINT '3', BIGINT '3')");
-        assertThat(query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3 AND part1 IS NOT NULL"))  // may be translated to Domain.all except nulls
-                .matches("VALUES (VARCHAR 'bar', BIGINT '3', BIGINT '3')");
+        assertThatThrownBy(() -> query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3")) // translated to Domain.all, all partitions must be scanned
+                .hasMessage("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName);
 
         // we are not constrained by hive.max-partitions-per-scan (=1000) when listing partitions
         assertThat(query("SELECT * FROM " + partitionsTable))

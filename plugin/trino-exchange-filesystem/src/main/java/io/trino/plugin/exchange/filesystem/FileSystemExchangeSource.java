@@ -15,10 +15,14 @@ package io.trino.plugin.exchange.filesystem;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.slice.Slice;
 import io.trino.spi.exchange.ExchangeSource;
 import io.trino.spi.exchange.ExchangeSourceHandle;
+import io.trino.spi.exchange.ExchangeSourceOutputSelector;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -38,10 +42,12 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
-import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
+import static io.trino.spi.exchange.ExchangeSourceOutputSelector.Selection.INCLUDED;
 import static java.util.Objects.requireNonNull;
 
 public class FileSystemExchangeSource
@@ -51,27 +57,32 @@ public class FileSystemExchangeSource
     private final FileSystemExchangeStats stats;
     private final int maxPageStorageSize;
     private final int exchangeSourceConcurrentReaders;
+    private final int maxFilesPerReader;
 
     private final Queue<ExchangeSourceFile> files = new ConcurrentLinkedQueue<>();
     @GuardedBy("this")
     private boolean noMoreFiles;
     @GuardedBy("this")
-    private SettableFuture<Void> blockedOnSourceHandles = SettableFuture.create();
+    private ExchangeSourceOutputSelector currentSelector;
+    @GuardedBy("this")
+    private SettableFuture<Void> blockedOnFiles = SettableFuture.create();
 
     private final AtomicReference<List<ExchangeStorageReader>> readers = new AtomicReference<>(ImmutableList.of());
-    private final AtomicReference<CompletableFuture<Void>> blocked = new AtomicReference<>();
+    private final AtomicReference<ListenableFuture<Void>> blocked = new AtomicReference<>();
     private final AtomicBoolean closed = new AtomicBoolean();
 
     public FileSystemExchangeSource(
             FileSystemExchangeStorage exchangeStorage,
             FileSystemExchangeStats stats,
             int maxPageStorageSize,
-            int exchangeSourceConcurrentReaders)
+            int exchangeSourceConcurrentReaders,
+            int maxFilesPerReader)
     {
         this.exchangeStorage = requireNonNull(exchangeStorage, "exchangeStorage is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.maxPageStorageSize = maxPageStorageSize;
         this.exchangeSourceConcurrentReaders = exchangeSourceConcurrentReaders;
+        this.maxFilesPerReader = maxFilesPerReader;
     }
 
     @Override
@@ -92,15 +103,28 @@ public class FileSystemExchangeSource
     }
 
     @Override
+    public synchronized void setOutputSelector(ExchangeSourceOutputSelector newSelector)
+    {
+        if (currentSelector != null) {
+            if (currentSelector.getVersion() >= newSelector.getVersion()) {
+                return;
+            }
+            currentSelector.checkValidTransition(newSelector);
+        }
+        currentSelector = newSelector;
+        closeAndCreateReadersIfNecessary();
+    }
+
+    @Override
     public CompletableFuture<Void> isBlocked()
     {
         if (closed.get()) {
             return NOT_BLOCKED;
         }
 
-        CompletableFuture<Void> blocked = this.blocked.get();
+        ListenableFuture<Void> blocked = this.blocked.get();
         if (blocked != null && !blocked.isDone()) {
-            return blocked;
+            return nonCancellationPropagatingCompletableFuture(blocked);
         }
 
         List<ExchangeStorageReader> readers = this.readers.get();
@@ -113,23 +137,43 @@ public class FileSystemExchangeSource
         }
 
         synchronized (this) {
-            if (!blockedOnSourceHandles.isDone()) {
-                blocked = toCompletableFuture(nonCancellationPropagating(blockedOnSourceHandles));
+            if (!blockedOnFiles.isDone()) {
+                blocked = blockedOnFiles;
             }
             else if (readers.isEmpty()) {
-                blocked = NOT_BLOCKED;
+                // not blocked
+                blocked = immediateVoidFuture();
             }
             else {
-                blocked = toCompletableFuture(
-                        nonCancellationPropagating(
-                                whenAnyComplete(readers.stream()
-                                        .map(ExchangeStorageReader::isBlocked)
-                                        .collect(toImmutableList()))));
+                blocked = whenAnyComplete(readers.stream()
+                        .map(ExchangeStorageReader::isBlocked)
+                        .collect(toImmutableList()));
             }
             blocked = stats.getExchangeSourceBlocked().record(blocked);
             this.blocked.set(blocked);
-            return blocked;
         }
+
+        return nonCancellationPropagatingCompletableFuture(blocked);
+    }
+
+    private static CompletableFuture<Void> nonCancellationPropagatingCompletableFuture(ListenableFuture<Void> future)
+    {
+        CompletableFuture<Void> result = new CompletableFuture<>();
+        Futures.addCallback(future, new FutureCallback<>()
+        {
+            @Override
+            public void onSuccess(Void value)
+            {
+                result.complete(value);
+            }
+
+            @Override
+            public void onFailure(Throwable t)
+            {
+                result.completeExceptionally(t);
+            }
+        }, directExecutor());
+        return result;
     }
 
     @Override
@@ -209,9 +253,13 @@ public class FileSystemExchangeSource
             return;
         }
 
-        SettableFuture<Void> blockedOnSourceHandlesToBeUnblocked = null;
+        SettableFuture<Void> blockedOnFilesToBeUnblocked = null;
         synchronized (this) {
             if (closed.get()) {
+                return;
+            }
+
+            if (currentSelector == null || !currentSelector.isFinal()) {
                 return;
             }
 
@@ -227,12 +275,19 @@ public class FileSystemExchangeSource
             try {
                 while (activeReaders.size() < exchangeSourceConcurrentReaders && !files.isEmpty()) {
                     ImmutableList.Builder<ExchangeSourceFile> readerFiles = ImmutableList.builder();
+                    int readerFileCount = 0;
                     long readerFileSize = 0;
                     while (!files.isEmpty()) {
                         ExchangeSourceFile file = files.peek();
-                        if (readerFileSize == 0 || readerFileSize + file.getFileSize() <= maxPageStorageSize + exchangeStorage.getWriteBufferSize()) {
+                        verify(currentSelector.getSelection(file.getExchangeId(), file.getSourceTaskPartitionId(), file.getSourceTaskAttemptId()) == INCLUDED,
+                                "%s.%s.%s is not marked as included by the engine",
+                                file.getExchangeId(),
+                                file.getSourceTaskPartitionId(),
+                                file.getSourceTaskAttemptId());
+                        if (readerFileCount == 0 || ((readerFileSize + file.getFileSize() <= maxPageStorageSize + exchangeStorage.getWriteBufferSize()) && readerFileCount < maxFilesPerReader)) {
                             readerFiles.add(file);
                             readerFileSize += file.getFileSize();
+                            readerFileCount++;
                             files.poll();
                         }
                         else {
@@ -243,15 +298,15 @@ public class FileSystemExchangeSource
                 }
                 if (activeReaders.isEmpty()) {
                     if (noMoreFiles) {
-                        blockedOnSourceHandlesToBeUnblocked = blockedOnSourceHandles;
+                        blockedOnFilesToBeUnblocked = blockedOnFiles;
                         close();
                     }
-                    else if (blockedOnSourceHandles.isDone()) {
-                        blockedOnSourceHandles = SettableFuture.create();
+                    else if (blockedOnFiles.isDone()) {
+                        blockedOnFiles = SettableFuture.create();
                     }
                 }
-                else if (!blockedOnSourceHandles.isDone()) {
-                    blockedOnSourceHandlesToBeUnblocked = blockedOnSourceHandles;
+                else if (!blockedOnFiles.isDone()) {
+                    blockedOnFilesToBeUnblocked = blockedOnFiles;
                 }
                 this.readers.set(ImmutableList.copyOf(activeReaders));
             }
@@ -269,8 +324,8 @@ public class FileSystemExchangeSource
                 throw t;
             }
         }
-        if (blockedOnSourceHandlesToBeUnblocked != null) {
-            blockedOnSourceHandlesToBeUnblocked.set(null);
+        if (blockedOnFilesToBeUnblocked != null) {
+            blockedOnFilesToBeUnblocked.set(null);
         }
     }
 
@@ -296,11 +351,14 @@ public class FileSystemExchangeSource
                     Optional<SecretKey> secretKey = handle.getSecretKey().map(key -> new SecretKeySpec(key, 0, key.length, "AES"));
                     return new AbstractMap.SimpleEntry<>(handle, secretKey);
                 })
-                .flatMap(entry -> entry.getKey().getFiles().stream().map(fileStatus ->
+                .flatMap(entry -> entry.getKey().getFiles().stream().map(sourceFile ->
                         new ExchangeSourceFile(
-                                URI.create(fileStatus.getFilePath()),
+                                URI.create(sourceFile.getFilePath()),
                                 entry.getValue(),
-                                fileStatus.getFileSize())))
+                                sourceFile.getFileSize(),
+                                entry.getKey().getExchangeId(),
+                                sourceFile.getSourceTaskPartitionId(),
+                                sourceFile.getSourceTaskAttemptId())))
                 .collect(toImmutableList());
     }
 }

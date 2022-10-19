@@ -34,6 +34,8 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
 import io.trino.plugin.hive.HiveApplyProjectionUtil;
 import io.trino.plugin.hive.HiveApplyProjectionUtil.ProjectedColumnRepresentation;
 import io.trino.plugin.hive.HiveWrittenPartitions;
+import io.trino.plugin.iceberg.aggregation.DataSketchStateSerializer;
+import io.trino.plugin.iceberg.aggregation.IcebergThetaSketchForStats;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.procedure.IcebergDropExtendedStatsHandle;
 import io.trino.plugin.iceberg.procedure.IcebergExpireSnapshotsHandle;
@@ -93,9 +95,10 @@ import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeOperators;
+import org.apache.datasketches.theta.CompactSketch;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.DeleteFile;
@@ -105,11 +108,12 @@ import org.apache.iceberg.FileMetadata;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.IsolationLevel;
 import org.apache.iceberg.ManifestFile;
+import org.apache.iceberg.ManifestFiles;
+import org.apache.iceberg.ManifestReader;
 import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
-import org.apache.iceberg.ReachableFileUtil;
 import org.apache.iceberg.RewriteFiles;
 import org.apache.iceberg.RowDelta;
 import org.apache.iceberg.Schema;
@@ -149,10 +153,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -165,9 +169,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Maps.transformValues;
 import static com.google.common.collect.Sets.difference;
-import static com.google.common.collect.Sets.union;
-import static com.google.common.collect.Streams.concat;
-import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.hive.HiveApplyProjectionUtil.extractSupportedProjectedColumns;
 import static io.trino.plugin.hive.HiveApplyProjectionUtil.replaceWithNewVariables;
@@ -202,6 +203,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPER
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergUtil.canEnforceColumnConstraintInSpecs;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
+import static io.trino.plugin.iceberg.IcebergUtil.fileName;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileFormat;
@@ -229,11 +231,11 @@ import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
-import static io.trino.spi.predicate.Utils.blockToNativeValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.UuidType.UUID;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.groupingBy;
@@ -263,28 +265,34 @@ public class IcebergMetadata
     public static final String ORC_BLOOM_FILTER_COLUMNS_KEY = "orc.bloom.filter.columns";
     public static final String ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
 
-    private static final FunctionName NUMBER_OF_DISTINCT_VALUES = new FunctionName("approx_distinct");
+    private static final String NUMBER_OF_DISTINCT_VALUES_NAME = "NUMBER_OF_DISTINCT_VALUES";
+    private static final FunctionName NUMBER_OF_DISTINCT_VALUES_FUNCTION = new FunctionName(IcebergThetaSketchForStats.NAME);
 
     private final TypeManager typeManager;
-    private final TypeOperators typeOperators;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
     private final TrinoCatalog catalog;
     private final TrinoFileSystemFactory fileSystemFactory;
+
+    private final Map<IcebergTableHandle, TableStatistics> tableStatisticsCache = new ConcurrentHashMap<>();
 
     private Transaction transaction;
 
     public IcebergMetadata(
             TypeManager typeManager,
-            TypeOperators typeOperators,
             JsonCodec<CommitTaskData> commitTaskCodec,
             TrinoCatalog catalog,
             TrinoFileSystemFactory fileSystemFactory)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+    }
+
+    @Override
+    public boolean schemaExists(ConnectorSession session, String schemaName)
+    {
+        return catalog.namespaceExists(session, schemaName);
     }
 
     @Override
@@ -478,8 +486,7 @@ public class IcebergMetadata
             Supplier<List<FileScanTask>> lazyFiles = Suppliers.memoize(() -> {
                 TableScan tableScan = icebergTable.newScan()
                         .useSnapshot(table.getSnapshotId().get())
-                        .filter(toIcebergExpression(enforcedPredicate))
-                        .includeColumnStats();
+                        .filter(toIcebergExpression(enforcedPredicate));
 
                 try (CloseableIterable<FileScanTask> iterator = tableScan.planFiles()) {
                     return ImmutableList.copyOf(iterator);
@@ -1233,39 +1240,55 @@ public class IcebergMetadata
 
         long expireTimestampMillis = session.getStart().toEpochMilli() - retention.toMillis();
         removeOrphanFiles(table, session, executeHandle.getSchemaTableName(), expireTimestampMillis);
-        removeOrphanMetadataFiles(table, session, executeHandle.getSchemaTableName(), expireTimestampMillis);
     }
 
     private void removeOrphanFiles(Table table, ConnectorSession session, SchemaTableName schemaTableName, long expireTimestamp)
     {
-        Set<String> validDataFilePaths = stream(table.snapshots())
-                .map(Snapshot::snapshotId)
-                .flatMap(snapshotId -> stream(table.newScan().useSnapshot(snapshotId).planFiles()))
-                .map(fileScanTask -> fileName(fileScanTask.file().path().toString()))
-                .collect(toImmutableSet());
-        Set<String> validDeleteFilePaths = stream(table.snapshots())
-                .map(Snapshot::snapshotId)
-                .flatMap(snapshotId -> stream(table.newScan().useSnapshot(snapshotId).planFiles()))
-                .flatMap(fileScanTask -> fileScanTask.deletes().stream().map(file -> fileName(file.path().toString())))
-                .collect(Collectors.toUnmodifiableSet());
-        scanAndDeleteInvalidFiles(table, session, schemaTableName, expireTimestamp, union(validDataFilePaths, validDeleteFilePaths), "/data");
+        Set<String> processedManifestFilePaths = new HashSet<>();
+        // Similarly to issues like https://github.com/trinodb/trino/issues/13759, equivalent paths may have different String
+        // representations due to things like double slashes. Using file names may result in retaining files which could be removed.
+        // However, in practice Iceberg metadata and data files have UUIDs in their names which makes this unlikely.
+        ImmutableSet.Builder<String> validMetadataFileNames = ImmutableSet.builder();
+        ImmutableSet.Builder<String> validDataFileNames = ImmutableSet.builder();
+
+        for (Snapshot snapshot : table.snapshots()) {
+            if (snapshot.manifestListLocation() != null) {
+                validMetadataFileNames.add(fileName(snapshot.manifestListLocation()));
+            }
+
+            for (ManifestFile manifest : snapshot.allManifests(table.io())) {
+                if (!processedManifestFilePaths.add(manifest.path())) {
+                    // Already read this manifest
+                    continue;
+                }
+
+                validMetadataFileNames.add(fileName(manifest.path()));
+                try (ManifestReader<? extends ContentFile<?>> manifestReader = readerForManifest(table, manifest)) {
+                    for (ContentFile<?> contentFile : manifestReader) {
+                        validDataFileNames.add(fileName(contentFile.path().toString()));
+                    }
+                }
+                catch (IOException e) {
+                    throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Unable to list manifest file content from " + manifest.path(), e);
+                }
+            }
+        }
+
+        metadataFileLocations(table, false).stream()
+                .map(IcebergUtil::fileName)
+                .forEach(validMetadataFileNames::add);
+        validMetadataFileNames.add(fileName(versionHintLocation(table)));
+
+        scanAndDeleteInvalidFiles(table, session, schemaTableName, expireTimestamp, validDataFileNames.build(), "data");
+        scanAndDeleteInvalidFiles(table, session, schemaTableName, expireTimestamp, validMetadataFileNames.build(), "metadata");
     }
 
-    private void removeOrphanMetadataFiles(Table table, ConnectorSession session, SchemaTableName schemaTableName, long expireTimestamp)
+    private static ManifestReader<? extends ContentFile<?>> readerForManifest(Table table, ManifestFile manifest)
     {
-        ImmutableSet<String> manifests = stream(table.snapshots())
-                .flatMap(snapshot -> snapshot.allManifests(table.io()).stream())
-                .map(ManifestFile::path)
-                .collect(toImmutableSet());
-        List<String> manifestLists = ReachableFileUtil.manifestListLocations(table);
-        List<String> otherMetadataFiles = concat(
-                metadataFileLocations(table, false).stream(),
-                Stream.of(versionHintLocation(table)))
-                .collect(toImmutableList());
-        Set<String> validMetadataFiles = concat(manifests.stream(), manifestLists.stream(), otherMetadataFiles.stream())
-                .map(IcebergMetadata::fileName)
-                .collect(toImmutableSet());
-        scanAndDeleteInvalidFiles(table, session, schemaTableName, expireTimestamp, validMetadataFiles, "metadata");
+        return switch (manifest.content()) {
+            case DATA -> ManifestFiles.read(manifest, table.io());
+            case DELETES -> ManifestFiles.readDeleteManifest(manifest, table.io(), table.specs());
+        };
     }
 
     private void scanAndDeleteInvalidFiles(Table table, ConnectorSession session, SchemaTableName schemaTableName, long expireTimestamp, Set<String> validFiles, String subfolder)
@@ -1287,11 +1310,6 @@ public class IcebergMetadata
         catch (IOException e) {
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed accessing data for table: " + schemaTableName, e);
         }
-    }
-
-    private static String fileName(String path)
-    {
-        return path.substring(path.lastIndexOf('/') + 1);
     }
 
     @Override
@@ -1467,8 +1485,9 @@ public class IcebergMetadata
         }
 
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, handle);
-        Set<String> allDataColumnNames = tableMetadata.getColumns().stream()
+        Set<String> allScalarColumnNames = tableMetadata.getColumns().stream()
                 .filter(column -> !column.isHidden())
+                .filter(column -> column.getType().getTypeParameters().isEmpty()) // is scalar type
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableSet());
 
@@ -1478,19 +1497,18 @@ public class IcebergMetadata
                     if (columnNames.isEmpty()) {
                         throw new TrinoException(INVALID_ANALYZE_PROPERTY, "Cannot specify empty list of columns for analysis");
                     }
-                    if (!allDataColumnNames.containsAll(columnNames)) {
+                    if (!allScalarColumnNames.containsAll(columnNames)) {
                         throw new TrinoException(
                                 INVALID_ANALYZE_PROPERTY,
-                                format("Invalid columns specified for analysis: %s", Sets.difference(columnNames, allDataColumnNames)));
+                                format("Invalid columns specified for analysis: %s", Sets.difference(columnNames, allScalarColumnNames)));
                     }
                     return columnNames;
                 })
-                .orElse(allDataColumnNames);
+                .orElse(allScalarColumnNames);
 
         Set<ColumnStatisticMetadata> columnStatistics = tableMetadata.getColumns().stream()
                 .filter(column -> analyzeColumnNames.contains(column.getName()))
-                // TODO: add support for NDV summary/sketch, but using Theta sketch, not HLL; see https://github.com/apache/iceberg-docs/pull/69
-                .map(column -> new ColumnStatisticMetadata(column.getName(), NUMBER_OF_DISTINCT_VALUES))
+                .map(column -> new ColumnStatisticMetadata(column.getName(), NUMBER_OF_DISTINCT_VALUES_NAME, NUMBER_OF_DISTINCT_VALUES_FUNCTION))
                 .collect(toImmutableSet());
 
         return new ConnectorAnalyzeMetadata(
@@ -1512,7 +1530,7 @@ public class IcebergMetadata
     {
         UpdateProperties updateProperties = transaction.updateProperties();
         Map<String, Integer> columnNameToId = transaction.table().schema().columns().stream()
-                .collect(toImmutableMap(Types.NestedField::name, Types.NestedField::fieldId));
+                .collect(toImmutableMap(nestedField -> nestedField.name().toLowerCase(ENGLISH), Types.NestedField::fieldId));
         Set<Integer> columnIds = columnNameToId.values().stream()
                 .collect(toImmutableSet());
 
@@ -1535,13 +1553,14 @@ public class IcebergMetadata
             verify(computedStatistic.getTableStatistics().isEmpty(), "Unexpected table statistics");
             for (Map.Entry<ColumnStatisticMetadata, Block> entry : computedStatistic.getColumnStatistics().entrySet()) {
                 ColumnStatisticMetadata statisticMetadata = entry.getKey();
-                if (statisticMetadata.getAggregation().equals(NUMBER_OF_DISTINCT_VALUES)) {
-                    long ndv = (long) blockToNativeValue(BIGINT, entry.getValue());
+                if (statisticMetadata.getConnectorAggregationId().equals(NUMBER_OF_DISTINCT_VALUES_NAME)) {
                     Integer columnId = verifyNotNull(
                             columnNameToId.get(statisticMetadata.getColumnName()),
                             "Column not found in table: [%s]",
                             statisticMetadata.getColumnName());
-                    updateProperties.set(TRINO_STATS_NDV_FORMAT.formatted(columnId), Long.toString(ndv));
+                    CompactSketch sketch = DataSketchStateSerializer.deserialize(entry.getValue(), 0);
+                    // TODO: store whole sketch to support updates, see also https://github.com/apache/iceberg-docs/pull/69
+                    updateProperties.set(TRINO_STATS_NDV_FORMAT.formatted(columnId), Long.toString((long) sketch.getEstimate()));
                 }
                 else {
                     throw new UnsupportedOperationException("Unsupported statistic: " + statisticMetadata);
@@ -1960,7 +1979,7 @@ public class IcebergMetadata
                         (columnHandle.getType() == UUID && !(domain.isOnlyNull() || domain.getValues().isAll()))) {
                     unsupported.put(columnHandle, domain);
                 }
-                else if (canEnforceColumnConstraintInSpecs(typeOperators, icebergTable, partitionSpecIds, columnHandle, domain)) {
+                else if (canEnforceColumnConstraintInSpecs(typeManager.getTypeOperators(), icebergTable, partitionSpecIds, columnHandle, domain)) {
                     newEnforced.put(columnHandle, domain);
                 }
                 else if (isMetadataColumnId(columnHandle.getId())) {
@@ -2128,9 +2147,36 @@ public class IcebergMetadata
             return TableStatistics.empty();
         }
 
-        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
-        Table icebergTable = catalog.loadTable(session, handle.getSchemaTableName());
-        return TableStatisticsMaker.getTableStatistics(typeManager, session, handle, icebergTable);
+        IcebergTableHandle originalHandle = (IcebergTableHandle) tableHandle;
+        // Certain table handle attributes are not applicable to select queries (which need stats).
+        // If this changes, the caching logic may here may need to be revised.
+        checkArgument(originalHandle.getUpdatedColumns().isEmpty(), "Unexpected updated columns");
+        checkArgument(!originalHandle.isRecordScannedFiles(), "Unexpected scanned files recording set");
+        checkArgument(originalHandle.getMaxScannedFileSize().isEmpty(), "Unexpected max scanned file size set");
+
+        return tableStatisticsCache.computeIfAbsent(
+                new IcebergTableHandle(
+                        originalHandle.getSchemaName(),
+                        originalHandle.getTableName(),
+                        originalHandle.getTableType(),
+                        originalHandle.getSnapshotId(),
+                        originalHandle.getTableSchemaJson(),
+                        originalHandle.getPartitionSpecJson(),
+                        originalHandle.getFormatVersion(),
+                        originalHandle.getUnenforcedPredicate(),
+                        originalHandle.getEnforcedPredicate(),
+                        ImmutableSet.of(), // projectedColumns don't affect stats
+                        originalHandle.getNameMappingJson(),
+                        originalHandle.getTableLocation(),
+                        originalHandle.getStorageProperties(),
+                        NO_RETRIES, // retry mode doesn't affect stats
+                        originalHandle.getUpdatedColumns(),
+                        originalHandle.isRecordScannedFiles(),
+                        originalHandle.getMaxScannedFileSize()),
+                handle -> {
+                    Table icebergTable = catalog.loadTable(session, handle.getSchemaTableName());
+                    return TableStatisticsMaker.getTableStatistics(typeManager, session, handle, icebergTable);
+                });
     }
 
     @Override

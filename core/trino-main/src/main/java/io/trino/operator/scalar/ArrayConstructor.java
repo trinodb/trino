@@ -65,13 +65,15 @@ import static java.util.Collections.nCopies;
 public final class ArrayConstructor
         extends SqlScalarFunction
 {
+    public static final String NAME = "$array";
+
     public static final ArrayConstructor ARRAY_CONSTRUCTOR = new ArrayConstructor();
 
     public ArrayConstructor()
     {
         super(FunctionMetadata.scalarBuilder()
                 .signature(Signature.builder()
-                        .name("array_constructor")
+                        .name(NAME)
                         .typeVariable("E")
                         .returnType(arrayType(new TypeSignature("E")))
                         .argumentType(new TypeSignature("E"))

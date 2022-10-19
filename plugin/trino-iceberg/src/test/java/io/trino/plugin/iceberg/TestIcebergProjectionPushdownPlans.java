@@ -47,7 +47,6 @@ import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestin
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -212,28 +211,29 @@ public class TestIcebergProjectionPushdownPlans
                                         "expr_0_x", expression("expr_0[1]"),
                                         "expr_0", expression("expr_0"),
                                         "expr_0_y", expression("expr_0[2]")),
-                                join(
-                                        INNER,
-                                        ImmutableList.of(equiJoinClause("t_expr_1", "s_expr_1")),
-                                        anyTree(
-                                                filter(
-                                                        "x = BIGINT '2'",
+                                join(INNER, builder -> builder
+                                        .equiCriteria("t_expr_1", "s_expr_1")
+                                        .left(
+                                                anyTree(
+                                                        filter(
+                                                                "x = BIGINT '2'",
+                                                                tableScan(
+                                                                        table -> {
+                                                                            IcebergTableHandle icebergTableHandle = (IcebergTableHandle) table;
+                                                                            TupleDomain<IcebergColumnHandle> unenforcedConstraint = icebergTableHandle.getUnenforcedPredicate();
+                                                                            Set<IcebergColumnHandle> expectedProjections = ImmutableSet.of(column0Handle, column1Handle, columnX);
+                                                                            TupleDomain<IcebergColumnHandle> expectedUnenforcedConstraint = TupleDomain.withColumnDomains(
+                                                                                    ImmutableMap.of(columnX, Domain.singleValue(BIGINT, 2L)));
+                                                                            return icebergTableHandle.getProjectedColumns().equals(expectedProjections) &&
+                                                                                    unenforcedConstraint.equals(expectedUnenforcedConstraint);
+                                                                        },
+                                                                        TupleDomain.all(),
+                                                                        ImmutableMap.of("x", equalTo(columnX), "expr_0", equalTo(column0Handle), "t_expr_1", equalTo(column1Handle))))))
+                                        .right(
+                                                anyTree(
                                                         tableScan(
-                                                                table -> {
-                                                                    IcebergTableHandle icebergTableHandle = (IcebergTableHandle) table;
-                                                                    TupleDomain<IcebergColumnHandle> unenforcedConstraint = icebergTableHandle.getUnenforcedPredicate();
-                                                                    Set<IcebergColumnHandle> expectedProjections = ImmutableSet.of(column0Handle, column1Handle, columnX);
-                                                                    TupleDomain<IcebergColumnHandle> expectedUnenforcedConstraint = TupleDomain.withColumnDomains(
-                                                                            ImmutableMap.of(columnX, Domain.singleValue(BIGINT, 2L)));
-                                                                    return icebergTableHandle.getProjectedColumns().equals(expectedProjections) &&
-                                                                            unenforcedConstraint.equals(expectedUnenforcedConstraint);
-                                                                },
+                                                                equalTo(((IcebergTableHandle) tableHandle.get().getConnectorHandle()).withProjectedColumns(Set.of(column1Handle))),
                                                                 TupleDomain.all(),
-                                                                ImmutableMap.of("x", equalTo(columnX), "expr_0", equalTo(column0Handle), "t_expr_1", equalTo(column1Handle))))),
-                                        anyTree(
-                                                tableScan(
-                                                        equalTo(((IcebergTableHandle) tableHandle.get().getConnectorHandle()).withProjectedColumns(Set.of(column1Handle))),
-                                                        TupleDomain.all(),
-                                                        ImmutableMap.of("s_expr_1", equalTo(column1Handle))))))));
+                                                                ImmutableMap.of("s_expr_1", equalTo(column1Handle)))))))));
     }
 }

@@ -95,23 +95,7 @@ This property is required; there is no default. A connection url or seeds must b
 
 As MongoDB is a document database, there is no fixed schema information in the system. So a special collection in each MongoDB database should define the schema of all tables. Please refer the :ref:`table-definition-label` section for the details.
 
-At startup, the connector tries to guess the data type of fields based on the mapping in the following table.
-
-================== ================ ================================================
-MongoDB            Trino            Notes
-================== ================ ================================================
-``Boolean``        ``BOOLEAN``
-``Int32``          ``BIGINT``
-``Int64``          ``BIGINT``
-``Double``         ``DOUBLE``
-``Date``           ``TIMESTAMP(3)``
-``String``         ``VARCHAR``
-``Binary``         ``VARBINARY``
-``ObjectId``       ``ObjectId``
-``Object``         ``ROW``
-``Array``          ``ARRAY``        Map to ``ROW`` if the element type is not unique
-``DBRef``          ``ROW``
-================== ================ ================================================
+At startup, the connector tries to guess the data type of fields based on the :ref:`type mapping <mongodb-type-mapping>`.
 
 The initial guess can be incorrect for your specific collection. In that case, you need to modify it manually. Please refer the :ref:`table-definition-label` section for the details.
 
@@ -367,6 +351,99 @@ In Trino, the same can be achieved with this query:
     FROM collection
     WHERE _id > timestamp_objectid(TIMESTAMP '2021-08-07 17:51:36 +00:00');
 
+.. _mongodb-type-mapping:
+
+Type mapping
+------------
+
+Because Trino and MongoDB each support types that the other does not, this
+connector :ref:`modifies some types <type-mapping-overview>` when reading or
+writing data. Data types may not map the same way in both directions between
+Trino and the data source. Refer to the following sections for type mapping in
+each direction.
+
+MongoDB to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps MongoDB types to the corresponding Trino types following
+this table:
+
+.. list-table:: MongoDB to Trino type mapping
+  :widths: 30, 20, 50
+  :header-rows: 1
+
+  * - MongoDB type
+    - Trino type
+    - Notes
+  * - ``Boolean``
+    - ``BOOLEAN``
+    -
+  * - ``Int32``
+    - ``BIGINT``
+    -
+  * - ``Int64``
+    - ``BIGINT``
+    -
+  * - ``Double``
+    - ``DOUBLE``
+    -
+  * - ``Date``
+    - ``TIMESTAMP(3)``
+    -
+  * - ``String``
+    - ``VARCHAR``
+    -
+  * - ``Binary``
+    - ``VARBINARY``
+    -
+  * - ``ObjectId``
+    - ``ObjectId``
+    -
+  * - ``Object``
+    - ``ROW``
+    -
+  * - ``Array``
+    - ``ARRAY``
+    -   Map to ``ROW`` if the element type is not unique.
+  * - ``DBRef``
+    - ``ROW``
+    -
+
+No other types are supported.
+
+Trino to MongoDB type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps Trino types to the corresponding MongoDB types following
+this table:
+
+.. list-table:: Trino to MongoDB type mapping
+  :widths: 30, 20
+  :header-rows: 1
+
+  * - Trino type
+    - MongoDB type
+  * - ``BOOLEAN``
+    - ``Boolean``
+  * - ``BIGINT``
+    - ``Int64``
+  * - ``DOUBLE``
+    - ``Double``
+  * - ``TIMESTAMP(3)``
+    - ``Date``
+  * - ``VARCHAR``
+    - ``String``
+  * - ``VARBINARY``
+    - ``Binary``
+  * - ``ObjectId``
+    - ``ObjectId``
+  * - ``ROW``
+    - ``Object``
+  * - ``ARRAY``
+    - ``Array``
+
+No other types are supported.
+
 .. _mongodb-sql-support:
 
 SQL support
@@ -392,3 +469,33 @@ ALTER TABLE
 The connector supports ``ALTER TABLE RENAME TO``, ``ALTER TABLE ADD COLUMN``
 and ``ALTER TABLE DROP COLUMN`` operations.
 Other uses of ``ALTER TABLE`` are not supported.
+
+Table functions
+---------------
+
+The connector provides specific :doc:`table functions </functions/table>` to
+access MongoDB.
+
+.. _mongodb-query-function:
+
+``query(database, collection, filter) -> table``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``query`` function allows you to query the underlying MongoDB directly. It
+requires syntax native to MongoDB, because the full query is pushed down and
+processed by MongoDB. This can be useful for accessing native features which are
+not available in Trino or for improving query performance in situations where
+running a query natively may be faster.
+
+For example, get all rows where ``regionkey`` field is 0::
+
+    SELECT
+      *
+    FROM
+      TABLE(
+        mongodb.system.query(
+          database => 'tpch',
+          collection => 'region',
+          filter => '{ regionkey: 0 }'
+        )
+      );

@@ -31,11 +31,12 @@ import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
 import static io.trino.spi.block.Int96ArrayBlock.INT96_BYTES;
 import static java.lang.Math.max;
+import static java.lang.Math.toIntExact;
 
 public class Int96ArrayBlockBuilder
         implements BlockBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int96ArrayBlockBuilder.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(Int96ArrayBlockBuilder.class).instanceSize());
     private static final Block NULL_VALUE_BLOCK = new Int96ArrayBlock(0, 1, new boolean[] {true}, new long[1], new int[1]);
 
     @Nullable

@@ -65,6 +65,7 @@ public class HiveMetadataFactory
     private final BoundedExecutor renameExecution;
     private final BoundedExecutor dropExecutor;
     private final Executor updateExecutor;
+    private final long maxPartitionDropsPerQuery;
     private final String trinoVersion;
     private final HiveRedirectionsProvider hiveRedirectionsProvider;
     private final Set<SystemTableProvider> systemTableProviders;
@@ -108,6 +109,7 @@ public class HiveMetadataFactory
                 hiveConfig.getMaxConcurrentFileRenames(),
                 hiveConfig.getMaxConcurrentMetastoreDrops(),
                 hiveConfig.getMaxConcurrentMetastoreUpdates(),
+                hiveConfig.getMaxPartitionDropsPerQuery(),
                 hiveConfig.isSkipDeletionForAlter(),
                 hiveConfig.isSkipTargetCleanupOnRollback(),
                 hiveConfig.getWritesToNonManagedTablesEnabled(),
@@ -143,6 +145,7 @@ public class HiveMetadataFactory
             int maxConcurrentFileRenames,
             int maxConcurrentMetastoreDrops,
             int maxConcurrentMetastoreUpdates,
+            long maxPartitionDropsPerQuery,
             boolean skipDeletionForAlter,
             boolean skipTargetCleanupOnRollback,
             boolean writesToNonManagedTablesEnabled,
@@ -203,6 +206,7 @@ public class HiveMetadataFactory
         else {
             updateExecutor = new BoundedExecutor(executorService, maxConcurrentMetastoreUpdates);
         }
+        this.maxPartitionDropsPerQuery = maxPartitionDropsPerQuery;
         this.heartbeatService = requireNonNull(heartbeatService, "heartbeatService is null");
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
         this.perTransactionFileStatusCacheMaximumSize = perTransactionFileStatusCacheMaximumSize;
@@ -254,6 +258,7 @@ public class HiveMetadataFactory
                 accessControlMetadataFactory.create(metastore),
                 directoryLister,
                 partitionProjectionService,
-                allowTableRename);
+                allowTableRename,
+                maxPartitionDropsPerQuery);
     }
 }

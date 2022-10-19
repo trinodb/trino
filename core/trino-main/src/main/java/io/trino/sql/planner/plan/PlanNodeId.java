@@ -20,12 +20,13 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.concurrent.Immutable;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class PlanNodeId
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(PlanNodeId.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(PlanNodeId.class).instanceSize());
 
     private final String id;
 

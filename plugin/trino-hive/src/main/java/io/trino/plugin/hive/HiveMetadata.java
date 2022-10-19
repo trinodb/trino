@@ -107,7 +107,6 @@ import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
-import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatisticType;
 import io.trino.spi.statistics.TableStatistics;
@@ -372,6 +371,7 @@ public class HiveMetadata
     private final DirectoryLister directoryLister;
     private final PartitionProjectionService partitionProjectionService;
     private final boolean allowTableRename;
+    private final long maxPartitionDropsPerQuery;
 
     public HiveMetadata(
             CatalogName catalogName,
@@ -396,7 +396,8 @@ public class HiveMetadata
             AccessControlMetadata accessControlMetadata,
             DirectoryLister directoryLister,
             PartitionProjectionService partitionProjectionService,
-            boolean allowTableRename)
+            boolean allowTableRename,
+            long maxPartitionDropsPerQuery)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -421,6 +422,7 @@ public class HiveMetadata
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
         this.partitionProjectionService = requireNonNull(partitionProjectionService, "partitionProjectionService is null");
         this.allowTableRename = allowTableRename;
+        this.maxPartitionDropsPerQuery = maxPartitionDropsPerQuery;
     }
 
     @Override
@@ -805,7 +807,7 @@ public class HiveMetadata
         // Note that the computation is not persisted in the table handle, so can be redone many times
         // TODO: https://github.com/trinodb/trino/issues/10980.
         if (partitionManager.canPartitionsBeLoaded(partitionResult)) {
-            List<HivePartition> partitions = partitionManager.getPartitionsAsList(partitionResult);
+            List<HivePartition> partitions = ImmutableList.copyOf(partitionResult.getPartitions());
             return hiveStatisticsProvider.getTableStatistics(session, hiveTableHandle.getSchemaTableName(), columns, columnTypes, partitions);
         }
         return TableStatistics.empty();
@@ -1374,7 +1376,7 @@ public class HiveMetadata
             }
 
             ImmutableMap.Builder<List<String>, PartitionStatistics> partitionStatistics = ImmutableMap.builder();
-            Map<String, Set<ColumnStatisticType>> columnStatisticTypes = hiveColumnHandles.stream()
+            Map<String, Set<HiveColumnStatisticType>> columnStatisticTypes = hiveColumnHandles.stream()
                     .filter(columnHandle -> !partitionColumnNames.contains(columnHandle.getName()))
                     .filter(column -> !column.isHidden())
                     .collect(toImmutableMap(HiveColumnHandle::getName, column -> ImmutableSet.copyOf(metastore.getSupportedColumnStatistics(column.getType()))));
@@ -2702,6 +2704,20 @@ public class HiveMetadata
     }
 
     @Override
+    public Optional<ConnectorPartitioningHandle> getUpdateLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return getInsertLayout(session, tableHandle)
+                .flatMap(ConnectorTableLayout::getPartitioning)
+                .map(HivePartitioningHandle.class::cast)
+                .map(handle -> new HiveUpdateHandle(
+                        handle.getBucketingVersion(),
+                        handle.getBucketCount(),
+                        handle.getHiveTypes(),
+                        handle.getMaxCompatibleBucketCount(),
+                        handle.isUsePartitionedBucketing()));
+    }
+
+    @Override
     public Optional<ConnectorTableHandle> applyDelete(ConnectorSession session, ConnectorTableHandle handle)
     {
         Map<String, String> parameters = ((HiveTableHandle) handle).getTableParameters()
@@ -2722,8 +2738,20 @@ public class HiveMetadata
             metastore.truncateUnpartitionedTable(session, handle.getSchemaName(), handle.getTableName());
         }
         else {
-            for (HivePartition hivePartition : partitionManager.getOrLoadPartitions(metastore, handle)) {
-                metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), toPartitionValues(hivePartition.getPartitionId()), true);
+            Iterator<HivePartition> partitions = partitionManager.getPartitions(metastore, handle);
+            List<String> partitionIds = new ArrayList<>();
+            while (partitions.hasNext()) {
+                partitionIds.add(partitions.next().getPartitionId());
+                if (partitionIds.size() > maxPartitionDropsPerQuery) {
+                    throw new TrinoException(
+                            NOT_SUPPORTED,
+                            format(
+                                    "Failed to drop partitions. The number of partitions to be dropped is greater than the maximum allowed partitions (%s).",
+                                    maxPartitionDropsPerQuery));
+                }
+            }
+            for (String partitionId : partitionIds) {
+                metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), toPartitionValues(partitionId), true);
             }
         }
         // it is too expensive to determine the exact number of deleted rows
@@ -2750,7 +2778,7 @@ public class HiveMetadata
                         // TODO: https://github.com/trinodb/trino/issues/10980.
                         HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, table, new Constraint(hiveTable.getEnforcedConstraint()));
                         if (partitionManager.canPartitionsBeLoaded(partitionResult)) {
-                            return Optional.of(partitionManager.getPartitionsAsList(partitionResult));
+                            return Optional.of(ImmutableList.copyOf(partitionResult.getPartitions()));
                         }
                         return Optional.empty();
                     });
@@ -3275,10 +3303,10 @@ public class HiveMetadata
         return getColumnStatisticMetadata(columnMetadata.getName(), metastore.getSupportedColumnStatistics(columnMetadata.getType()));
     }
 
-    private List<ColumnStatisticMetadata> getColumnStatisticMetadata(String columnName, Set<ColumnStatisticType> statisticTypes)
+    private List<ColumnStatisticMetadata> getColumnStatisticMetadata(String columnName, Set<HiveColumnStatisticType> statisticTypes)
     {
         return statisticTypes.stream()
-                .map(type -> new ColumnStatisticMetadata(columnName, type))
+                .map(type -> type.createColumnStatisticMetadata(columnName))
                 .collect(toImmutableList());
     }
 

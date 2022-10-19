@@ -35,6 +35,7 @@ public class TestHiveConnectorSmokeTest
                 .build();
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -46,11 +47,7 @@ public class TestHiveConnectorSmokeTest
                 return true;
 
             case SUPPORTS_DELETE:
-                return true;
-
             case SUPPORTS_UPDATE:
-                return true;
-
             case SUPPORTS_MERGE:
                 return true;
 

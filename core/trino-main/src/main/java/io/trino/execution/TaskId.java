@@ -25,11 +25,12 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.trino.spi.QueryId.parseDottedId;
 import static java.lang.Integer.parseInt;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class TaskId
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TaskId.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TaskId.class).instanceSize());
 
     @JsonCreator
     public static TaskId valueOf(String taskId)

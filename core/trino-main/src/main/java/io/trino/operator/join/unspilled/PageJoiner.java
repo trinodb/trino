@@ -18,11 +18,10 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.ProcessorContext;
 import io.trino.operator.WorkProcessor;
-import io.trino.operator.join.JoinProbe;
-import io.trino.operator.join.JoinProbe.JoinProbeFactory;
 import io.trino.operator.join.JoinStatisticsCounter;
 import io.trino.operator.join.LookupJoinOperatorFactory.JoinType;
 import io.trino.operator.join.LookupSource;
+import io.trino.operator.join.unspilled.JoinProbe.JoinProbeFactory;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 
@@ -31,7 +30,6 @@ import javax.annotation.Nullable;
 import java.io.Closeable;
 import java.util.List;
 
-import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
@@ -97,17 +95,10 @@ public class PageJoiner
     {
         boolean finishing = probePage == null;
 
-        if (probe == null) {
-            if (!finishing) {
-                // create new probe for next probe page
-                probe = joinProbeFactory.createJoinProbe(probePage);
-            }
-            else {
-                close();
-                return finished();
-            }
+        if (probe == null && finishing) {
+            close();
+            return finished();
         }
-        verify(probe != null, "no probe to work with");
 
         if (lookupSource == null) {
             if (!lookupSourceFuture.isDone()) {
@@ -116,6 +107,9 @@ public class PageJoiner
 
             lookupSource = requireNonNull(getDone(lookupSourceFuture));
             statisticsCounter.updateLookupSourcePositions(lookupSource.getJoinPositionCount());
+        }
+        if (probe == null) {
+            probe = joinProbeFactory.createJoinProbe(probePage, lookupSource);
         }
 
         processProbe(lookupSource);
@@ -153,7 +147,7 @@ public class PageJoiner
                 }
                 statisticsCounter.recordProbe(joinSourcePositions);
             }
-            if (!advanceProbePosition(lookupSource)) {
+            if (!advanceProbePosition()) {
                 break;
             }
         }
@@ -211,14 +205,14 @@ public class PageJoiner
     /**
      * @return whether there are more positions on probe side
      */
-    private boolean advanceProbePosition(LookupSource lookupSource)
+    private boolean advanceProbePosition()
     {
         if (!probe.advanceNextPosition()) {
             return false;
         }
 
         // update join position
-        joinPosition = probe.getCurrentJoinPosition(lookupSource);
+        joinPosition = probe.getCurrentJoinPosition();
         // reset row join state for next row
         joinSourcePositions = 0;
         currentProbePositionProducedRow = false;

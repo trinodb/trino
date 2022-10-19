@@ -523,7 +523,7 @@ public class HashGenerationOptimizer
                 newHashSymbols.put(preferredHashSymbol, symbolAllocator.newHashSymbol());
             }
 
-            // rewrite partition function to include new symbols (and precomputed hash
+            // rewrite partition function to include new symbols (and precomputed hash)
             partitioningScheme = new PartitioningScheme(
                     partitioningScheme.getPartitioning(),
                     ImmutableList.<Symbol>builder()
@@ -690,7 +690,7 @@ public class HashGenerationOptimizer
                 return new PlanWithProperties(node, ImmutableMap.of());
             }
 
-            // There is not requirement to produce hash symbols and only preference for symbols
+            // There is no requirement to produce hash symbols and only preference for symbols
             PlanWithProperties source = planAndEnforce(Iterables.getOnlyElement(node.getSources()), new HashComputationSet(), alwaysPruneExtraHashSymbols, preferredHashes);
             PlanNode result = replaceChildren(node, ImmutableList.of(source.getNode()));
 

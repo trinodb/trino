@@ -1,0 +1,221 @@
+{
+  "format-version" : 1,
+  "table-uuid" : "395ab586-8db1-4e23-a5f2-09baa77292e4",
+  "location" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc-part/warehouse",
+  "last-updated-ms" : 1663708904266,
+  "last-column-id" : 14,
+  "schema" : {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "w_warehouse_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "w_warehouse_id",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "w_warehouse_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 4,
+      "name" : "w_warehouse_sq_ft",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 5,
+      "name" : "w_street_number",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 6,
+      "name" : "w_street_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 7,
+      "name" : "w_street_type",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 8,
+      "name" : "w_suite_number",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 9,
+      "name" : "w_city",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 10,
+      "name" : "w_county",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 11,
+      "name" : "w_state",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 12,
+      "name" : "w_zip",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 13,
+      "name" : "w_country",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 14,
+      "name" : "w_gmt_offset",
+      "required" : false,
+      "type" : "decimal(5, 2)"
+    } ]
+  },
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "w_warehouse_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "w_warehouse_id",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "w_warehouse_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 4,
+      "name" : "w_warehouse_sq_ft",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 5,
+      "name" : "w_street_number",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 6,
+      "name" : "w_street_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 7,
+      "name" : "w_street_type",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 8,
+      "name" : "w_suite_number",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 9,
+      "name" : "w_city",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 10,
+      "name" : "w_county",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 11,
+      "name" : "w_state",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 12,
+      "name" : "w_zip",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 13,
+      "name" : "w_country",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 14,
+      "name" : "w_gmt_offset",
+      "required" : false,
+      "type" : "decimal(5, 2)"
+    } ]
+  } ],
+  "partition-spec" : [ ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "trino.stats.ndv.7.ndv" : "13",
+    "trino.stats.ndv.2.ndv" : "20",
+    "trino.stats.ndv.4.ndv" : "19",
+    "trino.stats.ndv.5.ndv" : "18",
+    "trino.stats.ndv.9.ndv" : "12",
+    "trino.stats.ndv.14.ndv" : "3",
+    "trino.stats.ndv.12.ndv" : "18",
+    "trino.stats.ndv.10.ndv" : "14",
+    "trino.stats.ndv.8.ndv" : "17",
+    "trino.stats.ndv.1.ndv" : "20",
+    "trino.stats.ndv.3.ndv" : "19",
+    "trino.stats.ndv.6.ndv" : "19",
+    "write.format.default" : "ORC",
+    "trino.stats.ndv.13.ndv" : "1",
+    "trino.stats.ndv.11.ndv" : "13"
+  },
+  "current-snapshot-id" : 464364136890993501,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 464364136890993501,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "snapshot-id" : 464364136890993501,
+    "timestamp-ms" : 1648044153184,
+    "summary" : {
+      "operation" : "append",
+      "added-data-files" : "1",
+      "added-records" : "20",
+      "added-files-size" : "3323",
+      "changed-partition-count" : "1",
+      "total-records" : "20",
+      "total-files-size" : "3323",
+      "total-data-files" : "1",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc-part/warehouse/metadata/snap-464364136890993501-1-0815941f-2631-4f48-8c06-40256d90839d.avro",
+    "schema-id" : 0
+  } ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1648044153184,
+    "snapshot-id" : 464364136890993501
+  } ],
+  "metadata-log" : [ {
+    "timestamp-ms" : 1648044153184,
+    "metadata-file" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc-part/warehouse/metadata/00000-336a387d-27d5-4f9b-b277-5c4a1cd22f06.metadata.json"
+  } ]
+}

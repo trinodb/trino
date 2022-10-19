@@ -280,6 +280,10 @@ public class BigQueryStoragePageSource
     @Override
     public long getMemoryUsage()
     {
+        if (split.getDataSize().isPresent()) {
+            return split.getDataSize().getAsInt() + pageBuilder.getSizeInBytes();
+        }
+
         return 0;
     }
 

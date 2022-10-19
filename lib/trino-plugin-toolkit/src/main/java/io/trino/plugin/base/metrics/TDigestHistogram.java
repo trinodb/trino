@@ -38,6 +38,18 @@ public class TDigestHistogram
     @JsonDeserialize(converter = Base64ToTDigestConverter.class)
     private final TDigest digest;
 
+    public static TDigestHistogram fromValue(double value)
+    {
+        return fromValue(value, 1);
+    }
+
+    public static TDigestHistogram fromValue(double value, double weight)
+    {
+        TDigest digest = new TDigest();
+        digest.add(value, weight);
+        return new TDigestHistogram(digest);
+    }
+
     @JsonCreator
     public TDigestHistogram(TDigest digest)
     {
@@ -65,6 +77,8 @@ public class TDigestHistogram
         return (long) digest.getCount();
     }
 
+    // Below are extra properties that make it easy to read and parse serialized distribution
+    // in operator summaries and event listener.
     @JsonProperty
     public synchronized double getMin()
     {

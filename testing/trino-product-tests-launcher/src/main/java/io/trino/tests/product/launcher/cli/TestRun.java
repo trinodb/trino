@@ -54,6 +54,8 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.server.PluginReader.CONNECTOR;
+import static io.trino.server.PluginReader.PASSWORD_AUTHENTICATOR;
 import static io.trino.tests.product.launcher.cli.Commands.runCommand;
 import static io.trino.tests.product.launcher.env.DockerContainer.cleanOrCreateHostPath;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
@@ -275,8 +277,8 @@ public final class TestRun
             }, toList())));
             // see PluginReader. printPluginFeatures() for all possible feature prefixes
             Map<String, Supplier<List<String>>> environmentFeaturesByName = Map.of(
-                    "connector", environment::getConfiguredConnectors,
-                    "passwordAuthenticator", environment::getConfiguredPasswordAuthenticators);
+                    CONNECTOR, environment::getConfiguredConnectors,
+                    PASSWORD_AUTHENTICATOR, environment::getConfiguredPasswordAuthenticators);
             for (Map.Entry<String, List<String>> entry : featuresByName.entrySet()) {
                 String name = entry.getKey();
                 List<String> features = entry.getValue();

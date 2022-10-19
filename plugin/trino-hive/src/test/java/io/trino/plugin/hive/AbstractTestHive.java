@@ -34,6 +34,8 @@ import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.hive.LocationService.WriteInfo;
 import io.trino.plugin.hive.aws.athena.PartitionProjectionService;
 import io.trino.plugin.hive.fs.DirectoryLister;
+import io.trino.plugin.hive.fs.TrinoFileStatus;
+import io.trino.plugin.hive.fs.TrinoFileStatusRemoteIterator;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -132,7 +134,6 @@ import io.trino.testing.TestingNodeManager;
 import io.trino.type.BlockTypeOperators;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.hive.metastore.TableType;
@@ -185,7 +186,6 @@ import static com.google.common.collect.Streams.stream;
 import static com.google.common.hash.Hashing.sha256;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -291,7 +291,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -310,7 +310,6 @@ import static java.nio.file.Files.createTempDirectory;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -821,6 +820,7 @@ public abstract class AbstractTestHive
                 10,
                 10,
                 10,
+                100_000,
                 false,
                 false,
                 false,
@@ -835,7 +835,7 @@ public abstract class AbstractTestHive
                 NOOP_METADATA_PROVIDER,
                 locationService,
                 partitionUpdateCodec,
-                newFixedThreadPool(2),
+                executor,
                 heartbeatService,
                 TEST_SERVER_VERSION,
                 (session, tableHandle) -> {
@@ -880,7 +880,7 @@ public abstract class AbstractTestHive
                 partitionManager,
                 new NamenodeStats(),
                 hdfsEnvironment,
-                directExecutor(),
+                executor,
                 new CounterStat(),
                 100,
                 hiveConfig.getMaxOutstandingSplitsSize(),
@@ -890,7 +890,8 @@ public abstract class AbstractTestHive
                 hiveConfig.getSplitLoaderConcurrency(),
                 hiveConfig.getMaxSplitsPerSecond(),
                 false,
-                TESTING_TYPE_MANAGER);
+                TESTING_TYPE_MANAGER,
+                hiveConfig.getMaxPartitionsPerScan());
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(hiveConfig, hdfsEnvironment),
                 hdfsEnvironment,
@@ -1560,13 +1561,13 @@ public abstract class AbstractTestHive
                 metadata.beginQuery(session);
 
                 ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
-                getSplits(splitManager, transaction, session, tableHandle);
+                getAllSplits(getSplits(splitManager, transaction, session, tableHandle));
 
                 // directory should be listed initially
                 assertEquals(countingDirectoryLister.getListCount(), initListCount + 1);
 
                 // directory content should be cached
-                getSplits(splitManager, transaction, session, tableHandle);
+                getAllSplits(getSplits(splitManager, transaction, session, tableHandle));
                 assertEquals(countingDirectoryLister.getListCount(), initListCount + 1);
             }
 
@@ -1576,7 +1577,7 @@ public abstract class AbstractTestHive
                 metadata.beginQuery(session);
 
                 ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
-                getSplits(splitManager, transaction, session, tableHandle);
+                getAllSplits(getSplits(splitManager, transaction, session, tableHandle));
 
                 // directory should be listed again in new transaction
                 assertEquals(countingDirectoryLister.getListCount(), initListCount + 2);
@@ -5290,7 +5291,7 @@ public abstract class AbstractTestHive
                 else if (TIMESTAMP_MILLIS.equals(column.getType())) {
                     assertInstanceOf(value, SqlTimestamp.class);
                 }
-                else if (TIMESTAMP_WITH_TIME_ZONE.equals(column.getType())) {
+                else if (TIMESTAMP_TZ_MILLIS.equals(column.getType())) {
                     assertInstanceOf(value, SqlTimestampWithTimeZone.class);
                 }
                 else if (DATE.equals(column.getType())) {
@@ -6174,19 +6175,19 @@ public abstract class AbstractTestHive
         private final AtomicInteger listCount = new AtomicInteger();
 
         @Override
-        public RemoteIterator<LocatedFileStatus> list(FileSystem fs, Table table, Path path)
+        public RemoteIterator<TrinoFileStatus> list(FileSystem fs, Table table, Path path)
                 throws IOException
         {
             listCount.incrementAndGet();
-            return fs.listLocatedStatus(path);
+            return new TrinoFileStatusRemoteIterator(fs.listLocatedStatus(path));
         }
 
         @Override
-        public RemoteIterator<LocatedFileStatus> listFilesRecursively(FileSystem fs, Table table, Path path)
+        public RemoteIterator<TrinoFileStatus> listFilesRecursively(FileSystem fs, Table table, Path path)
                 throws IOException
         {
             listCount.incrementAndGet();
-            return fs.listFiles(path, true);
+            return new TrinoFileStatusRemoteIterator(fs.listFiles(path, true));
         }
 
         public int getListCount()

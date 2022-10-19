@@ -33,6 +33,8 @@ public final class FaultTolerantExecutionConnectorTestHelper
                 // to trigger spilling
                 .put("exchange.deduplication-buffer-size", "1kB")
                 .put("fault-tolerant-execution-task-memory", "1GB")
+                // limit number of threads to detect potential thread leaks
+                .put("query.executor-pool-size", "10")
                 .buildOrThrow();
     }
 }

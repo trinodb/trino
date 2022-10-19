@@ -63,21 +63,33 @@ public class TestBigQueryConnectorTest
                 ImmutableMap.of());
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
             case SUPPORTS_TOPN_PUSHDOWN:
+                return false;
+
             case SUPPORTS_RENAME_SCHEMA:
+                return false;
+
             case SUPPORTS_RENAME_TABLE:
-            case SUPPORTS_NOT_NULL_CONSTRAINT:
-            case SUPPORTS_DELETE:
+                return false;
+
             case SUPPORTS_ADD_COLUMN:
             case SUPPORTS_RENAME_COLUMN:
-            case SUPPORTS_NEGATIVE_DATE:
-            case SUPPORTS_ARRAY:
-            case SUPPORTS_ROW_TYPE:
                 return false;
+
+            case SUPPORTS_NOT_NULL_CONSTRAINT:
+                return false;
+
+            case SUPPORTS_TRUNCATE:
+                return true;
+
+            case SUPPORTS_NEGATIVE_DATE:
+                return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
@@ -215,7 +227,6 @@ public class TestBigQueryConnectorTest
             case "time(6)":
             case "timestamp":
             case "timestamp(3)":
-            case "timestamp(6)":
             case "timestamp(3) with time zone":
             case "timestamp(6) with time zone":
                 return Optional.of(dataMappingTestSetup.asUnsupported());
@@ -750,9 +761,10 @@ public class TestBigQueryConnectorTest
     @Override
     public void testInsertArray()
     {
-        // Override because base test expects failure when creating a table (not insert)
+        // Override because the connector disallows writing a NULL in ARRAY
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_array_", "(a ARRAY<DOUBLE>, b ARRAY<BIGINT>)")) {
-            assertQueryFails("INSERT INTO " + table.getName() + " (a, b) VALUES (ARRAY[1.23E1], ARRAY[1.23E1])", "\\QUnsupported type: array(double)");
+            assertUpdate("INSERT INTO " + table.getName() + " (a, b) VALUES (ARRAY[1.23E1], ARRAY[1.23E1])", 1);
+            assertQuery("SELECT a[1], b[1] FROM " + table.getName(), "VALUES (12.3, 12)");
         }
     }
 

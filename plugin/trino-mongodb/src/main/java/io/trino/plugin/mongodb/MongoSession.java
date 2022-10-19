@@ -57,6 +57,10 @@ import org.bson.Document;
 import org.bson.types.Binary;
 import org.bson.types.ObjectId;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -78,15 +82,21 @@ import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static io.trino.spi.HostAddress.fromParts;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.trino.spi.type.Timestamps.roundDiv;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -105,6 +115,7 @@ public class MongoSession
     private static final String FIELDS_TYPE_KEY = "type";
     private static final String FIELDS_HIDDEN_KEY = "hidden";
 
+    private static final String AND_OP = "$and";
     private static final String OR_OP = "$or";
 
     private static final String EQ_OP = "$eq";
@@ -337,7 +348,7 @@ public class MongoSession
             columnHandles.add(columnHandle);
         }
 
-        MongoTableHandle tableHandle = new MongoTableHandle(schemaTableName);
+        MongoTableHandle tableHandle = new MongoTableHandle(schemaTableName, Optional.empty());
         return new MongoTable(tableHandle, columnHandles.build(), getIndexes(schemaName, tableName), getComment(tableMeta));
     }
 
@@ -395,16 +406,25 @@ public class MongoSession
             output.append(column.getName(), 1);
         }
         MongoCollection<Document> collection = getCollection(tableHandle.getSchemaTableName());
-        Document query = buildQuery(tableHandle.getConstraint());
-        FindIterable<Document> iterable = collection.find(query).projection(output);
+        Document filter = buildFilter(tableHandle);
+        FindIterable<Document> iterable = collection.find(filter).projection(output);
         tableHandle.getLimit().ifPresent(iterable::limit);
-        log.debug("Find documents: collection: %s, filter: %s, projection: %s", tableHandle.getSchemaTableName(), query.toJson(), output.toJson());
+        log.debug("Find documents: collection: %s, filter: %s, projection: %s", tableHandle.getSchemaTableName(), filter.toJson(), output);
 
         if (cursorBatchSize != 0) {
             iterable.batchSize(cursorBatchSize);
         }
 
         return iterable.iterator();
+    }
+
+    static Document buildFilter(MongoTableHandle table)
+    {
+        // Use $and operator because Document.putAll method overwrites existing entries where the key already exists
+        ImmutableList.Builder<Document> filter = ImmutableList.builder();
+        table.getFilter().ifPresent(filter::add);
+        filter.add(buildQuery(table.getConstraint()));
+        return andPredicate(filter.build());
     }
 
     @VisibleForTesting
@@ -516,6 +536,28 @@ public class MongoSession
             return Optional.of(((Slice) trinoNativeValue).toStringUtf8());
         }
 
+        if (type == DATE) {
+            long days = (long) trinoNativeValue;
+            return Optional.of(LocalDate.ofEpochDay(days));
+        }
+
+        if (type == TIME_MILLIS) {
+            long picos = (long) trinoNativeValue;
+            return Optional.of(LocalTime.ofNanoOfDay(roundDiv(picos, PICOSECONDS_PER_NANOSECOND)));
+        }
+
+        if (type == TIMESTAMP_MILLIS) {
+            long millisUtc = (long) trinoNativeValue;
+            Instant instant = Instant.ofEpochMilli(millisUtc);
+            return Optional.of(LocalDateTime.ofInstant(instant, UTC));
+        }
+
+        if (type == TIMESTAMP_TZ_MILLIS) {
+            long millisUtc = (long) trinoNativeValue;
+            Instant instant = Instant.ofEpochMilli(millisUtc);
+            return Optional.of(LocalDateTime.ofInstant(instant, UTC));
+        }
+
         return Optional.empty();
     }
 
@@ -531,6 +573,15 @@ public class MongoSession
             return values.get(0);
         }
         return new Document(OR_OP, values);
+    }
+
+    private static Document andPredicate(List<Document> values)
+    {
+        checkState(!values.isEmpty());
+        if (values.size() == 1) {
+            return values.get(0);
+        }
+        return new Document(AND_OP, values);
     }
 
     private static Document isNullPredicate()

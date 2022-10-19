@@ -54,6 +54,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
+import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
 public interface ConnectorMetadata
@@ -64,7 +65,14 @@ public interface ConnectorMetadata
      */
     default boolean schemaExists(ConnectorSession session, String schemaName)
     {
-        return listSchemaNames(session).contains(schemaName);
+        if (!schemaName.equals(schemaName.toLowerCase(ENGLISH))) {
+            // Currently, Trino schemas are always lowercase, so this one cannot exist (https://github.com/trinodb/trino/issues/17)
+            return false;
+        }
+        return listSchemaNames(session).stream()
+                // Lower-casing is done by callers of listSchemaNames (see MetadataManager)
+                .map(schema -> schema.toLowerCase(ENGLISH))
+                .anyMatch(schemaName::equals);
     }
 
     /**
@@ -242,6 +250,7 @@ public interface ConnectorMetadata
 
     /**
      * List table, view and materialized view names, possibly filtered by schema. An empty list is returned if none match.
+     * An empty list is returned also when schema name does not refer to an existing schema.
      */
     default List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
@@ -762,6 +771,10 @@ public interface ConnectorMetadata
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping views");
     }
 
+    /**
+     * List view names, possibly filtered by schema. An empty list is returned if none match.
+     * An empty list is returned also when schema name does not refer to an existing schema.
+     */
     default List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
     {
         return emptyList();
@@ -1380,7 +1393,8 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Get the names that match the specified table prefix (never null).
+     * List materialized view names, possibly filtered by schema. An empty list is returned if none match.
+     * An empty list is returned also when schema name does not refer to an existing schema.
      */
     default List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> schemaName)
     {

@@ -20,7 +20,6 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.ICEBERG;
@@ -103,8 +102,8 @@ public class TestIcebergOptimize
 
     private long getCurrentSnapshotId(String catalog, String schema, String tableName)
     {
-        return (long) getOnlyElement(getOnlyElement(onTrino().executeQuery(
-                format("SELECT snapshot_id FROM %s.%s.\"%s$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", catalog, schema, tableName)).rows()));
+        return (long) onTrino().executeQuery(format("SELECT snapshot_id FROM %s.%s.\"%s$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", catalog, schema, tableName))
+                .getOnlyValue();
     }
 
     private static String sparkTableName(String tableName)
