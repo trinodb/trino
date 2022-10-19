@@ -45,7 +45,7 @@ public class HiveMinioDataLake
     private final Minio minio;
     private final HiveHadoop hiveHadoop;
 
-    private final AutoCloseableCloser closer = AutoCloseableCloser.create();
+    private final AutoCloseableCloser closer = AutoCloseableCloser.create(true);
 
     private State state = State.INITIAL;
     private MinioClient minioClient;
