@@ -757,7 +757,8 @@ public final class DomainTranslator
                     case GREATER_THAN_OR_EQUAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.greaterThanOrEqual(type, value)), complement), false));
                     case LESS_THAN -> Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.lessThan(type, value)), complement), false));
                     case LESS_THAN_OR_EQUAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.lessThanOrEqual(type, value)), complement), false));
-                    case NOT_EQUAL ->
+                    case NOT_EQUAL -> value instanceof Slice && ((Slice) value).length() == 0 ?
+                            Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.greaterThan(type, value)), complement), false)) :
                             Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.lessThan(type, value), Range.greaterThan(type, value)), complement), false));
                     case IS_DISTINCT_FROM ->
                         // Need to potential complement the whole domain for IS_DISTINCT_FROM since it is null-aware
