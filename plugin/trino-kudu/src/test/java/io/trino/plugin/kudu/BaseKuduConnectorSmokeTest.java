@@ -16,10 +16,14 @@ package io.trino.plugin.kudu;
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunnerTpch;
+import static io.trino.plugin.kudu.TestKuduConnectorTest.REGION_COLUMNS;
+import static io.trino.plugin.kudu.TestKuduConnectorTest.createKuduTableForWrites;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseKuduConnectorSmokeTest
@@ -97,5 +101,51 @@ public abstract class BaseKuduConnectorSmokeTest
                         "   partition_by_range_columns = ARRAY['row_uuid'],\n" +
                         "   range_partitions = '[{\"lower\":null,\"upper\":null}]'\n" +
                         ")");
+    }
+
+    @Test
+    @Override
+    public void testDeleteAllDataFromTable()
+    {
+        String tableName = "test_delete_all_data_" + randomTableSuffix();
+        assertUpdate(createKuduTableForWrites("CREATE TABLE %s %s".formatted(tableName, REGION_COLUMNS)));
+        assertUpdate("INSERT INTO %s SELECT * FROM region".formatted(tableName), 5);
+
+        assertUpdate("DELETE FROM " + tableName, 5);
+        assertQuery("SELECT count(*) FROM " + tableName, "VALUES 0");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    @Override
+    public void testRowLevelDelete()
+    {
+        String tableName = "test_row_delete_" + randomTableSuffix();
+        assertUpdate(createKuduTableForWrites("CREATE TABLE %s %s".formatted(tableName, REGION_COLUMNS)));
+        assertUpdate("INSERT INTO %s SELECT * FROM region".formatted(tableName), 5);
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE regionkey = 2", 1);
+        assertThat(query("SELECT * FROM " + tableName + " WHERE regionkey = 2"))
+                .returnsEmptyResult();
+        assertThat(query("SELECT cast(regionkey AS integer) FROM " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES 0, 1, 3, 4");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    @Override
+    public void testUpdate()
+    {
+        String tableName = "test_update_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE %s %s".formatted(tableName, getCreateTableDefaultDefinition()));
+        assertUpdate("INSERT INTO " + tableName + " (a, b) SELECT regionkey, regionkey * 2.5 FROM region", "SELECT count(*) FROM region");
+        assertThat(query("SELECT a, b FROM " + tableName))
+                .matches(expectedValues("(0, 0.0), (1, 2.5), (2, 5.0), (3, 7.5), (4, 10.0)"));
+
+        assertUpdate("UPDATE " + tableName + " SET b = b + 1.2 WHERE a % 2 = 0", 3);
+        assertThat(query("SELECT a, b FROM " + tableName))
+                .matches(expectedValues("(0, 1.2), (1, 2.5), (2, 6.2), (3, 7.5), (4, 11.2)"));
+        assertUpdate("DROP TABLE " + tableName);
     }
 }

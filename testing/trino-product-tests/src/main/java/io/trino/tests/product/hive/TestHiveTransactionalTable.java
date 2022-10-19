@@ -52,6 +52,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.hive.HiveMetadata.MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
@@ -993,7 +994,7 @@ public class TestHiveTransactionalTable
             onTrino().executeQuery(format("CREATE TABLE %s (a_string varchar) WITH (format = 'ORC', transactional = true)", tableName));
             onTrino().executeQuery("START TRANSACTION");
             assertQueryFailure(() -> onTrino().executeQuery(format("UPDATE %s SET a_string = 'Commander Bun Bun'", tableName)))
-                    .hasMessageContaining("Updating transactional tables is not supported in explicit transactions (use autocommit mode)");
+                    .hasMessageContaining("Merging into Hive transactional tables is not supported in explicit transactions (use autocommit mode)");
         });
     }
 
@@ -1004,7 +1005,7 @@ public class TestHiveTransactionalTable
             onTrino().executeQuery(format("CREATE TABLE %s (a_string varchar) WITH (format = 'ORC', transactional = true)", tableName));
             onTrino().executeQuery("START TRANSACTION");
             assertQueryFailure(() -> onTrino().executeQuery(format("DELETE FROM %s WHERE a_string = 'Commander Bun Bun'", tableName)))
-                    .hasMessageContaining("Deleting from Hive transactional tables is not supported in explicit transactions (use autocommit mode)");
+                    .hasMessageContaining("Merging into Hive transactional tables is not supported in explicit transactions (use autocommit mode)");
         });
     }
 
@@ -1184,7 +1185,7 @@ public class TestHiveTransactionalTable
 
             log.info("About to fail update");
             assertQueryFailure(() -> onTrino().executeQuery(format("UPDATE %s SET purchase = 'bread' WHERE customer = 'Fred'", tableName)))
-                    .hasMessageContaining("Hive update is only supported for ACID transactional tables");
+                    .hasMessageContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
         });
     }
 
@@ -1201,7 +1202,7 @@ public class TestHiveTransactionalTable
 
             log.info("About to fail update");
             assertQueryFailure(() -> onTrino().executeQuery(format("UPDATE %s SET purchase = 'bread' WHERE customer = 'Fred'", tableName)))
-                    .hasMessageContaining("Hive update is only supported for ACID transactional tables");
+                    .hasMessageContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
         });
     }
 
@@ -1216,7 +1217,7 @@ public class TestHiveTransactionalTable
 
             log.info("About to fail delete");
             assertQueryFailure(() -> onTrino().executeQuery(format("DELETE FROM %s WHERE customer = 'Fred'", tableName)))
-                    .hasMessageContaining("Deletes must match whole partitions for non-transactional tables");
+                    .hasMessageContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
         });
     }
 
@@ -1233,12 +1234,12 @@ public class TestHiveTransactionalTable
 
             log.info("About to fail delete");
             assertQueryFailure(() -> onTrino().executeQuery(format("DELETE FROM %s WHERE customer = 'Fred'", tableName)))
-                    .hasMessageContaining("Deletes must match whole partitions for non-transactional tables");
+                    .hasMessageContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
         });
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    public void testAcidUpdateFailUpdatePartitionKey()
+    public void testAcidUpdateSucceedUpdatingPartitionKey()
     {
         withTemporaryTable("fail_update_partition_key", true, true, NONE, tableName -> {
             onTrino().executeQuery(format("CREATE TABLE %s (col1 INT, col2 VARCHAR, col3 BIGINT) WITH (transactional = true, partitioned_by = ARRAY['col3'])", tableName));
@@ -1246,14 +1247,16 @@ public class TestHiveTransactionalTable
             log.info("About to insert");
             onTrino().executeQuery(format("INSERT INTO %s (col1, col2, col3) VALUES (17, 'S1', 7)", tableName));
 
-            log.info("About to fail update");
-            assertQueryFailure(() -> onTrino().executeQuery(format("UPDATE %s SET col3 = 17 WHERE col3 = 7", tableName)))
-                    .hasMessageContaining("Updating Hive table partition columns is not supported");
+            log.info("About to succeed updating the partition key");
+            onTrino().executeQuery(format("UPDATE %s SET col3 = 17 WHERE col3 = 7", tableName));
+
+            log.info("Verify the update");
+            verifySelectForTrinoAndHive("SELECT * FROM " + tableName, "true", row(17, "S1", 17));
         });
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    public void testAcidUpdateFailUpdateBucketColumn()
+    public void testAcidUpdateSucceedUpdatingBucketColumn()
     {
         withTemporaryTable("fail_update_bucket_column", true, true, NONE, tableName -> {
             onHive().executeQuery(format("CREATE TABLE %s (customer STRING, purchase STRING) CLUSTERED BY (purchase) INTO 3 BUCKETS STORED AS ORC TBLPROPERTIES ('transactional' = 'true')", tableName));
@@ -1261,9 +1264,11 @@ public class TestHiveTransactionalTable
             log.info("About to insert");
             onTrino().executeQuery(format("INSERT INTO %s (customer, purchase) VALUES ('Fred', 'cards')", tableName));
 
-            log.info("About to fail update");
-            assertQueryFailure(() -> onTrino().executeQuery(format("UPDATE %s SET purchase = 'bread' WHERE customer = 'Fred'", tableName)))
-                    .hasMessageContaining("Updating Hive table bucket columns is not supported");
+            log.info("About to succeed updating bucket column");
+            onTrino().executeQuery(format("UPDATE %s SET purchase = 'bread' WHERE customer = 'Fred'", tableName));
+
+            log.info("Verifying update");
+            verifySelectForTrinoAndHive("SELECT * FROM " + tableName, "true", row("Fred", "bread"));
         });
     }
 

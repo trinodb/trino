@@ -39,6 +39,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.sqlserver.DataCompression.NONE;
 import static io.trino.plugin.sqlserver.DataCompression.PAGE;
 import static io.trino.plugin.sqlserver.DataCompression.ROW;
+import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
@@ -410,7 +411,7 @@ public abstract class BaseSqlServerConnectorTest
     public void testDeleteWithLike()
     {
         assertThatThrownBy(super::testDeleteWithLike)
-                .hasStackTraceContaining("TrinoException: Unsupported delete");
+                .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
     }
 
     @Test(dataProvider = "dataCompression")

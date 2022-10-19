@@ -486,7 +486,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
             assertUpdate("UPDATE " + table.getName() + " SET a = 'new column'", 2);
             Stopwatch timeSinceUpdate = Stopwatch.createStarted();
             Set<String> updatedFiles = getActiveFiles(table.getName());
-            assertThat(updatedFiles).hasSize(2).doesNotContainAnyElementsOf(initialFiles);
+            assertThat(updatedFiles).hasSize(1).doesNotContainAnyElementsOf(initialFiles);
             assertThat(getAllDataFilesFromTableDirectory(table.getName())).isEqualTo(union(initialFiles, updatedFiles));
 
             assertQuery(

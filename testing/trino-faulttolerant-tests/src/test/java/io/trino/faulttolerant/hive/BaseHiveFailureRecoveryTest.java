@@ -21,6 +21,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.plugin.hive.HiveMetadata.MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -54,7 +55,7 @@ public abstract class BaseHiveFailureRecoveryTest
     public void testDelete()
     {
         assertThatThrownBy(super::testDelete)
-                .hasMessageContaining("Deletes must match whole partitions for non-transactional tables");
+                .hasMessageContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Override
@@ -62,7 +63,7 @@ public abstract class BaseHiveFailureRecoveryTest
     public void testDeleteWithSubquery()
     {
         assertThatThrownBy(super::testDelete)
-                .hasMessageContaining("Deletes must match whole partitions for non-transactional tables");
+                .hasMessageContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Override
@@ -70,7 +71,7 @@ public abstract class BaseHiveFailureRecoveryTest
     public void testUpdate()
     {
         assertThatThrownBy(super::testUpdate)
-                .hasMessageContaining("Hive update is only supported for ACID transactional tables");
+                .hasMessageContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Override
@@ -78,14 +79,14 @@ public abstract class BaseHiveFailureRecoveryTest
     public void testUpdateWithSubquery()
     {
         assertThatThrownBy(super::testUpdateWithSubquery)
-                .hasMessageContaining("Hive update is only supported for ACID transactional tables");
+                .hasMessageContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Override
     public void testMerge()
     {
         assertThatThrownBy(super::testMerge)
-                .hasMessageContaining("Hive merge is only supported for transactional tables");
+                .hasMessageContaining("Modifying Hive table rows is only supported for transactional tables");
     }
 
     @Override
@@ -161,6 +162,6 @@ public abstract class BaseHiveFailureRecoveryTest
                     Optional.of("CREATE TABLE <table> WITH (partitioned_by = ARRAY['p']) AS SELECT *, 0 p FROM orders"),
                     "DELETE FROM <table> WHERE p = (SELECT min(nationkey) FROM nation)",
                     Optional.of("DROP TABLE <table>"));
-        }).hasMessageContaining("Deletes must match whole partitions for non-transactional tables");
+        }).hasMessageContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 }

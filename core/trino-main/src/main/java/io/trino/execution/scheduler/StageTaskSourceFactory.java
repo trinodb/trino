@@ -157,6 +157,10 @@ public class StageTaskSourceFactory
     {
         PartitioningHandle partitioning = fragment.getPartitioning();
 
+        if (partitioning.getConnectorHandle() instanceof MergePartitioningHandle mergeHandle) {
+            return mergeHandle.getTaskSource(handle -> create(session, fragment.withPartitioning(handle), exchangeSourceHandles, getSplitTimeRecorder, sourcePartitioningScheme));
+        }
+
         if (partitioning.equals(SINGLE_DISTRIBUTION) || partitioning.equals(COORDINATOR_DISTRIBUTION)) {
             return SingleDistributionTaskSource.create(fragment, exchangeSourceHandles, nodeManager, partitioning.equals(COORDINATOR_DISTRIBUTION));
         }
