@@ -24,6 +24,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDe
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -44,6 +45,7 @@ public class TestBigQueryConfig
                 .setCaseInsensitiveNameMatching(false)
                 .setViewsCacheTtl(new Duration(15, MINUTES))
                 .setServiceCacheTtl(new Duration(3, MINUTES))
+                .setMetadataCacheTtl(new Duration(0, MILLISECONDS))
                 .setViewsEnabled(false)
                 .setQueryResultsCacheEnabled(false)
                 .setRpcInitialChannelCount(1)
@@ -69,6 +71,7 @@ public class TestBigQueryConfig
                 .put("bigquery.case-insensitive-name-matching", "true")
                 .put("bigquery.views-cache-ttl", "1m")
                 .put("bigquery.service-cache-ttl", "10d")
+                .put("bigquery.metadata.cache-ttl", "5d")
                 .put("bigquery.query-results-cache.enabled", "true")
                 .put("bigquery.channel-pool.initial-size", "11")
                 .put("bigquery.channel-pool.min-size", "12")
@@ -90,6 +93,7 @@ public class TestBigQueryConfig
                 .setCaseInsensitiveNameMatching(true)
                 .setViewsCacheTtl(new Duration(1, MINUTES))
                 .setServiceCacheTtl(new Duration(10, DAYS))
+                .setMetadataCacheTtl(new Duration(5, DAYS))
                 .setQueryResultsCacheEnabled(true)
                 .setRpcInitialChannelCount(11)
                 .setRpcMinChannelCount(12)

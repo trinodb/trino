@@ -29,6 +29,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig("bigquery.case-insensitive-name-matching.cache-ttl")
@@ -51,6 +52,7 @@ public class BigQueryConfig
     private boolean caseInsensitiveNameMatching;
     private Duration viewsCacheTtl = new Duration(15, MINUTES);
     private Duration serviceCacheTtl = new Duration(3, MINUTES);
+    private Duration metadataCacheTtl = new Duration(0, MILLISECONDS);
     private boolean queryResultsCacheEnabled;
 
     private int rpcInitialChannelCount = 1;
@@ -219,6 +221,21 @@ public class BigQueryConfig
     public BigQueryConfig setServiceCacheTtl(Duration serviceCacheTtl)
     {
         this.serviceCacheTtl = serviceCacheTtl;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("0ms")
+    public Duration getMetadataCacheTtl()
+    {
+        return metadataCacheTtl;
+    }
+
+    @Config("bigquery.metadata.cache-ttl")
+    @ConfigDescription("Duration for which BigQuery client metadata is cached after listing")
+    public BigQueryConfig setMetadataCacheTtl(Duration metadataCacheTtl)
+    {
+        this.metadataCacheTtl = metadataCacheTtl;
         return this;
     }
 
