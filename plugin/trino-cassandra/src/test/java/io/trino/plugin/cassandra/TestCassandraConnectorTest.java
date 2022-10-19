@@ -48,6 +48,7 @@ import static io.trino.plugin.cassandra.TestCassandraTable.clusterColumn;
 import static io.trino.plugin.cassandra.TestCassandraTable.columnsValue;
 import static io.trino.plugin.cassandra.TestCassandraTable.generalColumn;
 import static io.trino.plugin.cassandra.TestCassandraTable.partitionColumn;
+import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -1265,56 +1266,56 @@ public class TestCassandraConnectorTest
     public void testDeleteWithLike()
     {
         assertThatThrownBy(super::testDeleteWithLike)
-                .hasStackTraceContaining("Delete without primary key or partition key is not supported");
+                .hasStackTraceContaining(MODIFYING_ROWS_MESSAGE);
     }
 
     @Override
     public void testDeleteWithComplexPredicate()
     {
         assertThatThrownBy(super::testDeleteWithComplexPredicate)
-                .hasStackTraceContaining("Delete without primary key or partition key is not supported");
+                .hasStackTraceContaining(MODIFYING_ROWS_MESSAGE);
     }
 
     @Override
     public void testDeleteWithSemiJoin()
     {
         assertThatThrownBy(super::testDeleteWithSemiJoin)
-                .hasStackTraceContaining("Delete without primary key or partition key is not supported");
+                .hasStackTraceContaining(MODIFYING_ROWS_MESSAGE);
     }
 
     @Override
     public void testDeleteWithSubquery()
     {
         assertThatThrownBy(super::testDeleteWithSubquery)
-                .hasStackTraceContaining("Delete without primary key or partition key is not supported");
+                .hasStackTraceContaining(MODIFYING_ROWS_MESSAGE);
     }
 
     @Override
     public void testExplainAnalyzeWithDeleteWithSubquery()
     {
         assertThatThrownBy(super::testExplainAnalyzeWithDeleteWithSubquery)
-                .hasStackTraceContaining("Delete without primary key or partition key is not supported");
+                .hasStackTraceContaining(MODIFYING_ROWS_MESSAGE);
     }
 
     @Override
     public void testDeleteWithVarcharPredicate()
     {
         assertThatThrownBy(super::testDeleteWithVarcharPredicate)
-                .hasStackTraceContaining("Delete without primary key or partition key is not supported");
+                .hasStackTraceContaining(MODIFYING_ROWS_MESSAGE);
     }
 
     @Override
     public void testDeleteAllDataFromTable()
     {
         assertThatThrownBy(super::testDeleteAllDataFromTable)
-                .hasStackTraceContaining("Deleting without partition key is not supported");
+                .hasStackTraceContaining(MODIFYING_ROWS_MESSAGE);
     }
 
     @Override
     public void testRowLevelDelete()
     {
         assertThatThrownBy(super::testRowLevelDelete)
-                .hasStackTraceContaining("Delete without primary key or partition key is not supported");
+                .hasStackTraceContaining(MODIFYING_ROWS_MESSAGE);
     }
 
     @Override

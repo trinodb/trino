@@ -115,6 +115,7 @@ import static io.trino.plugin.hive.HiveColumnHandle.FILE_MODIFIED_TIME_COLUMN_NA
 import static io.trino.plugin.hive.HiveColumnHandle.FILE_SIZE_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.PARTITION_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.PATH_COLUMN_NAME;
+import static io.trino.plugin.hive.HiveMetadata.MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE;
 import static io.trino.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
 import static io.trino.plugin.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static io.trino.plugin.hive.HiveQueryRunner.createBucketedSession;
@@ -271,42 +272,42 @@ public abstract class BaseHiveConnectorTest
     public void testDelete()
     {
         assertThatThrownBy(super::testDelete)
-                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+                .hasStackTraceContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Override
     public void testDeleteWithLike()
     {
         assertThatThrownBy(super::testDeleteWithLike)
-                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+                .hasStackTraceContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Override
     public void testDeleteWithComplexPredicate()
     {
         assertThatThrownBy(super::testDeleteWithComplexPredicate)
-                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+                .hasStackTraceContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Override
     public void testDeleteWithSemiJoin()
     {
         assertThatThrownBy(super::testDeleteWithSemiJoin)
-                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+                .hasStackTraceContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Override
     public void testDeleteWithSubquery()
     {
         assertThatThrownBy(super::testDeleteWithSubquery)
-                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+                .hasStackTraceContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Override
     public void testUpdate()
     {
         assertThatThrownBy(super::testUpdate)
-                .hasMessage("Hive update is only supported for ACID transactional tables");
+                .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Override
@@ -317,42 +318,49 @@ public abstract class BaseHiveConnectorTest
         assertThatThrownBy(super::testUpdateRowConcurrently)
                 .hasMessage("Unexpected concurrent update failure")
                 .getCause()
-                .hasMessage("Hive update is only supported for ACID transactional tables");
+                .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Override
     public void testUpdateWithPredicates()
     {
         assertThatThrownBy(super::testUpdateWithPredicates)
-                .hasMessage("Hive update is only supported for ACID transactional tables");
+                .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
+    }
+
+    @Override
+    public void testUpdateRowType()
+    {
+        assertThatThrownBy(super::testUpdateRowType)
+                .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Override
     public void testUpdateAllValues()
     {
         assertThatThrownBy(super::testUpdateAllValues)
-                .hasMessage("Hive update is only supported for ACID transactional tables");
+                .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Override
     public void testExplainAnalyzeWithDeleteWithSubquery()
     {
         assertThatThrownBy(super::testExplainAnalyzeWithDeleteWithSubquery)
-                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+                .hasStackTraceContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Override
     public void testDeleteWithVarcharPredicate()
     {
         assertThatThrownBy(super::testDeleteWithVarcharPredicate)
-                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+                .hasStackTraceContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Override
     public void testRowLevelDelete()
     {
         assertThatThrownBy(super::testRowLevelDelete)
-                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+                .hasStackTraceContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Test(dataProvider = "queryPartitionFilterRequiredSchemasDataProvider")
@@ -3634,7 +3642,7 @@ public abstract class BaseHiveConnectorTest
 
         assertThatThrownBy(() -> getQueryRunner().execute("DELETE FROM test_metadata_delete WHERE ORDER_KEY=1"))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessage("Deletes must match whole partitions for non-transactional tables");
+                .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
 
         assertQuery("SELECT * FROM test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'O' AND linenumber<>3");
 

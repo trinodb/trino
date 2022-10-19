@@ -16,6 +16,8 @@ package io.trino.sql.planner;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.google.common.base.VerifyException;
+import io.trino.execution.scheduler.FaultTolerantPartitioningScheme;
+import io.trino.execution.scheduler.TaskSource;
 import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.PartitionFunction;
 import io.trino.spi.Page;
@@ -114,6 +116,40 @@ public final class MergePartitioningHandle
         }
 
         return optionalInsertMap.orElseGet(optionalUpdateMap::orElseThrow);
+    }
+
+    public FaultTolerantPartitioningScheme getFaultTolerantScheme(Function<PartitioningHandle, FaultTolerantPartitioningScheme> getMap)
+    {
+        Optional<FaultTolerantPartitioningScheme> optionalInsertMap = insertPartitioning.map(scheme -> scheme.getPartitioning().getHandle()).map(getMap);
+        Optional<FaultTolerantPartitioningScheme> optionalUpdateMap = updatePartitioning.map(scheme -> scheme.getPartitioning().getHandle()).map(getMap);
+
+        if (optionalInsertMap.isPresent() && optionalUpdateMap.isPresent()) {
+            FaultTolerantPartitioningScheme insertMap = optionalInsertMap.get();
+            FaultTolerantPartitioningScheme updateMap = optionalUpdateMap.get();
+            if (!equalBucketToPartitionMaps(insertMap, updateMap)) {
+                throw new TrinoException(NOT_SUPPORTED, "Insert and update layout have mismatched BucketNodeMap");
+            }
+        }
+
+        return optionalInsertMap.orElseGet(optionalUpdateMap::orElseThrow);
+    }
+
+    boolean equalBucketToPartitionMaps(FaultTolerantPartitioningScheme insertScheme, FaultTolerantPartitioningScheme updateScheme)
+    {
+        boolean insertPresent = insertScheme.getBucketToPartitionMap().isPresent();
+        if (insertPresent != updateScheme.getBucketToPartitionMap().isPresent()) {
+            return false;
+        }
+        if (!insertPresent) {
+            return true;
+        }
+        return Arrays.equals(insertScheme.getBucketToPartitionMap().get(), updateScheme.getBucketToPartitionMap().get());
+    }
+
+    public TaskSource getTaskSource(Function<PartitioningHandle, TaskSource> getMap)
+    {
+        return insertPartitioning.map(scheme -> scheme.getPartitioning().getHandle()).map(getMap)
+                .orElseGet(updatePartitioning.map(scheme -> scheme.getPartitioning().getHandle()).map(getMap)::orElseThrow);
     }
 
     public PartitionFunction getPartitionFunction(PartitionFunctionLookup partitionFunctionLookup, List<Type> types, int[] bucketToPartition)

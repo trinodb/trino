@@ -9,6 +9,12 @@ of ``ConnectorMergeSink``, which is typically layered on top of a
 methods to get a "rowId" column handle; get the row change paradigm;
 and to start and complete the ``MERGE`` operation.
 
+The Trino engine machinery used to implement SQL ``MERGE`` has now
+been used to support SQL ``DELETE`` and ``UPDATE``, replacing the
+previous implementations.  This means that all a connector needs to
+do is implementv support for SQL ``MERGE``, and the connector gets
+all the DML operations.
+
 Standard SQL ``MERGE``
 ----------------------
 

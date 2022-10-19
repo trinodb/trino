@@ -97,6 +97,7 @@ public abstract class BaseRaptorConnectorTest
                 return false;
 
             case SUPPORTS_DELETE:
+            case SUPPORTS_UPDATE:
             case SUPPORTS_MERGE:
                 return true;
 
@@ -112,6 +113,12 @@ public abstract class BaseRaptorConnectorTest
     protected TestTable createTableWithDefaultColumns()
     {
         throw new SkipException("Raptor connector does not support column default values");
+    }
+
+    @Override
+    protected void verifyConcurrentUpdateFailurePermissible(Exception e)
+    {
+        assertThat(e).hasMessageContaining("Table was updated by a different transaction. Please retry the operation.");
     }
 
     @Test

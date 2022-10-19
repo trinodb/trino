@@ -303,6 +303,12 @@ public class MongoMetadata
     }
 
     @Override
+    public ColumnHandle getMergeRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return new MongoColumnHandle("$merge_row_id", BIGINT, true, Optional.empty());
+    }
+
+    @Override
     public Optional<ConnectorTableHandle> applyDelete(ConnectorSession session, ConnectorTableHandle handle)
     {
         return Optional.of(handle);

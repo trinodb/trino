@@ -53,7 +53,7 @@ public class TestDeltaLakeDatabricksUpdates
         assertQueryFailure(() -> onDelta().executeQuery("UPDATE default." + tableName + " SET a = a + 1"))
                 .hasMessageContaining("This table is configured to only allow appends");
         assertQueryFailure(() -> onTrino().executeQuery("UPDATE default." + tableName + " SET a = a + 1"))
-                .hasMessageContaining("Cannot update rows from a table with 'delta.appendOnly' set to true");
+                .hasMessageContaining("Cannot modify rows from a table with 'delta.appendOnly' set to true");
 
         assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
                 .containsOnly(row(1, 11), row(2, 12));

@@ -60,6 +60,7 @@ import static io.trino.spi.StandardErrorCode.MULTI_CATALOG_WRITE_CONFLICT;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.READ_ONLY_VIOLATION;
 import static io.trino.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
+import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
@@ -441,7 +442,7 @@ public class InMemoryTransactionManager
                 throw new TrinoException(MULTI_CATALOG_WRITE_CONFLICT, "Multi-catalog writes not supported in a single transaction. Already wrote to catalog " + writtenCatalogName);
             }
             if (catalogMetadata.isSingleStatementWritesOnly() && !autoCommitContext) {
-                throw new TrinoException(AUTOCOMMIT_WRITE_CONFLICT, "Catalog only supports writes using autocommit: " + catalogMetadata.getCatalogName());
+                throw new TrinoException(AUTOCOMMIT_WRITE_CONFLICT, MODIFYING_ROWS_MESSAGE + ": " + catalogMetadata.getCatalogName());
             }
         }
 

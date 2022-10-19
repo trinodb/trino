@@ -22,6 +22,7 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 
 import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_DELETE_DATA;
+import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -68,7 +69,7 @@ public abstract class BaseCassandraConnectorSmokeTest
     public void testDeleteAllDataFromTable()
     {
         assertThatThrownBy(super::testDeleteAllDataFromTable)
-                .hasMessageContaining("Deleting without partition key is not supported");
+                .hasMessageContaining(MODIFYING_ROWS_MESSAGE);
     }
 
     @Test

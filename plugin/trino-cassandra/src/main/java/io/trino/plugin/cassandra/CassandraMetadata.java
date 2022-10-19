@@ -408,6 +408,12 @@ public class CassandraMetadata
     }
 
     @Override
+    public ColumnHandle getMergeRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return new CassandraColumnHandle("$update_row_id", 0, CassandraTypes.TEXT, false, false, false, true);
+    }
+
+    @Override
     public Optional<ConnectorTableHandle> applyDelete(ConnectorSession session, ConnectorTableHandle handle)
     {
         return Optional.of(handle);
@@ -418,7 +424,7 @@ public class CassandraMetadata
     {
         CassandraTableHandle handle = (CassandraTableHandle) deleteHandle;
         List<CassandraPartition> partitions = handle.getPartitions()
-                .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Deleting without partition key is not supported"));
+                .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE));
         if (partitions.isEmpty()) {
             // there are no records of a given partition key
             return OptionalLong.empty();
