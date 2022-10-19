@@ -45,10 +45,15 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 public class TestingTableFunctions
 {
     private static final String SCHEMA_NAME = "system";
-    private static final ConnectorTableFunctionHandle HANDLE = new ConnectorTableFunctionHandle() {};
+    private static final String TABLE_NAME = "table";
+    private static final String COLUMN_NAME = "column";
+    private static final ConnectorTableFunctionHandle HANDLE = new TestingTableFunctionHandle();
     private static final TableFunctionAnalysis ANALYSIS = TableFunctionAnalysis.builder()
             .handle(HANDLE)
-            .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field("column", Optional.of(BOOLEAN)))))
+            .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field(COLUMN_NAME, Optional.of(BOOLEAN)))))
+            .build();
+    private static final TableFunctionAnalysis NO_DESCRIPTOR_ANALYSIS = TableFunctionAnalysis.builder()
+            .handle(HANDLE)
             .build();
 
     /**
@@ -252,9 +257,7 @@ public class TestingTableFunctions
         @Override
         public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
-            return TableFunctionAnalysis.builder()
-                    .handle(HANDLE)
-                    .build();
+            return NO_DESCRIPTOR_ANALYSIS;
         }
     }
 
@@ -275,9 +278,7 @@ public class TestingTableFunctions
         @Override
         public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
-            return TableFunctionAnalysis.builder()
-                    .handle(HANDLE)
-                    .build();
+            return NO_DESCRIPTOR_ANALYSIS;
         }
     }
 
@@ -300,9 +301,7 @@ public class TestingTableFunctions
         @Override
         public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
-            return TableFunctionAnalysis.builder()
-                    .handle(HANDLE)
-                    .build();
+            return NO_DESCRIPTOR_ANALYSIS;
         }
     }
 
@@ -326,9 +325,26 @@ public class TestingTableFunctions
         @Override
         public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
         {
-            return TableFunctionAnalysis.builder()
-                    .handle(HANDLE)
-                    .build();
+            return NO_DESCRIPTOR_ANALYSIS;
+        }
+    }
+
+    public static class TestingTableFunctionHandle
+            implements ConnectorTableFunctionHandle
+    {
+        private final MockConnectorTableHandle tableHandle;
+
+        public TestingTableFunctionHandle()
+        {
+            this.tableHandle = new MockConnectorTableHandle(
+                    new SchemaTableName(SCHEMA_NAME, TABLE_NAME),
+                    TupleDomain.all(),
+                    Optional.of(ImmutableList.of(new MockConnectorColumnHandle(COLUMN_NAME, BOOLEAN))));
+        }
+
+        public MockConnectorTableHandle getTableHandle()
+        {
+            return tableHandle;
         }
     }
 }
