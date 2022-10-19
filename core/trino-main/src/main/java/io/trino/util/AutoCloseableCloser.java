@@ -26,12 +26,21 @@ public final class AutoCloseableCloser
         implements AutoCloseable
 {
     private final Deque<AutoCloseable> stack = new ArrayDeque<>(4);
+    private final boolean reverseOrder;
 
-    private AutoCloseableCloser() {}
+    private AutoCloseableCloser(boolean reverseOrder)
+    {
+        this.reverseOrder = reverseOrder;
+    }
 
     public static AutoCloseableCloser create()
     {
-        return new AutoCloseableCloser();
+        return new AutoCloseableCloser(false);
+    }
+
+    public static AutoCloseableCloser create(boolean reverseOrder)
+    {
+        return new AutoCloseableCloser(reverseOrder);
     }
 
     public <C extends AutoCloseable> C register(C closeable)
@@ -47,7 +56,13 @@ public final class AutoCloseableCloser
     {
         Throwable rootCause = null;
         while (!stack.isEmpty()) {
-            AutoCloseable closeable = stack.removeFirst();
+            AutoCloseable closeable;
+            if (!reverseOrder) {
+                closeable = stack.removeFirst();
+            }
+            else {
+                closeable = stack.removeLast();
+            }
             try {
                 closeable.close();
             }
