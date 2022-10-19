@@ -51,7 +51,6 @@ import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.FilterFileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.viewfs.ViewFileSystem;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
@@ -96,6 +95,7 @@ import java.util.Properties;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.BaseEncoding.base16;
+import static io.trino.filesystem.FileSystemUtils.getRawFileSystem;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
@@ -493,14 +493,6 @@ public final class HiveWriteUtils
         catch (IOException e) {
             throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
         }
-    }
-
-    public static FileSystem getRawFileSystem(FileSystem fileSystem)
-    {
-        if (fileSystem instanceof FilterFileSystem) {
-            return getRawFileSystem(((FilterFileSystem) fileSystem).getRawFileSystem());
-        }
-        return fileSystem;
     }
 
     private static boolean isDirectory(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
