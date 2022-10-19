@@ -107,6 +107,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -441,7 +442,7 @@ public class DruidJdbcClient
     public OptionalLong delete(ConnectorSession session, JdbcTableHandle handle)
     {
         // DELETE statement is not yet support in Druid (Avatica JDBC, see https://issues.apache.org/jira/browse/CALCITE-706)
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support deletes");
+        throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
     }
 
     @Override

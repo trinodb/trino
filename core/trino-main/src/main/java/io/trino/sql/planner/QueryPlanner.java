@@ -26,7 +26,6 @@ import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableLayout;
 import io.trino.metadata.TableMetadata;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SortOrder;
@@ -47,7 +46,6 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.LimitNode;
@@ -62,12 +60,9 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.trino.sql.planner.plan.TableWriterNode.MergeParadigmAndTypes;
 import io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
-import io.trino.sql.planner.plan.TableWriterNode.UpdateTarget;
 import io.trino.sql.planner.plan.UnionNode;
-import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.Cast;
@@ -157,8 +152,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
-import static io.trino.sql.analyzer.Analysis.PLAN_DELETE_USING_MERGE;
-import static io.trino.sql.analyzer.Analysis.PLAN_UPDATE_USING_MERGE;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.isNumericType;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.GroupingOperationRewriter.rewriteGroupingOperation;
@@ -184,7 +177,6 @@ import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
 
 class QueryPlanner
 {
@@ -514,16 +506,6 @@ class QueryPlanner
 
     public PlanNode plan(Delete node)
     {
-        if (PLAN_DELETE_USING_MERGE) {
-            return planDeleteUsingMergeWriterNode(node);
-        }
-        else {
-            return planDeleteUsingDeleteNode(node);
-        }
-    }
-
-    private MergeWriterNode planDeleteUsingMergeWriterNode(Delete node)
-    {
         Table table = node.getTable();
         TableHandle handle = analysis.getTableHandle(table);
 
@@ -610,144 +592,7 @@ class QueryPlanner
                 outputs);
     }
 
-    private DeleteNode planDeleteUsingDeleteNode(Delete node)
-    {
-        Table table = node.getTable();
-        TableHandle handle = analysis.getTableHandle(table);
-
-        // create table scan
-        RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
-                .process(table, null);
-
-        PlanBuilder builder = newPlanBuilder(relationPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
-        if (node.getWhere().isPresent()) {
-            builder = filter(builder, node.getWhere().get(), node);
-        }
-
-        // create delete node
-        Symbol rowId = builder.translate(analysis.getRowIdField(table));
-        List<Symbol> outputs = ImmutableList.of(
-                symbolAllocator.newSymbol("partialrows", BIGINT),
-                symbolAllocator.newSymbol("fragment", VARBINARY));
-
-        return new DeleteNode(
-                idAllocator.getNextId(),
-                builder.getRoot(),
-                new DeleteTarget(
-                        Optional.empty(),
-                        plannerContext.getMetadata().getTableMetadata(session, handle).getTable()),
-                rowId,
-                outputs);
-    }
-
     public PlanNode plan(Update node)
-    {
-        if (PLAN_UPDATE_USING_MERGE) {
-            return planUpdateUsingMergeWriterNode(node);
-        }
-        else {
-            return planUpdateUsingUpdateNode(node);
-        }
-    }
-
-    private PlanNode planUpdateUsingUpdateNode(Update node)
-    {
-        Table table = node.getTable();
-        TableHandle handle = analysis.getTableHandle(table);
-
-        Metadata metadata = plannerContext.getMetadata();
-        // TODO obtaining metadata should not happen here https://github.com/trinodb/trino/issues/13740
-        TableMetadata tableMetadata = metadata.getTableMetadata(session, handle);
-        Map<String, ColumnHandle> columnMap = metadata.getColumnHandles(session, handle);
-        List<ColumnMetadata> columnsMetadata = tableMetadata.getColumns();
-
-        List<String> targetColumnNames = node.getAssignments().stream()
-                .map(assignment -> assignment.getName().getValue())
-                .collect(toImmutableList());
-
-        // Create lists of columnnames and SET expressions, in table column order
-        ImmutableList.Builder<String> updatedColumnNamesBuilder = ImmutableList.builder();
-        ImmutableList.Builder<ColumnHandle> updatedColumnHandlesBuilder = ImmutableList.builder();
-        ImmutableList.Builder<Expression> orderedColumnValuesBuilder = ImmutableList.builder();
-        for (ColumnMetadata columnMetadata : columnsMetadata) {
-            String name = columnMetadata.getName();
-            int index = targetColumnNames.indexOf(name);
-            if (index >= 0) {
-                updatedColumnNamesBuilder.add(name);
-                updatedColumnHandlesBuilder.add(requireNonNull(columnMap.get(name), "columnMap didn't contain name"));
-                orderedColumnValuesBuilder.add(node.getAssignments().get(index).getValue());
-            }
-        }
-        List<String> updatedColumnNames = updatedColumnNamesBuilder.build();
-        List<ColumnHandle> updatedColumnHandles = updatedColumnHandlesBuilder.build();
-        List<Expression> orderedColumnValues = orderedColumnValuesBuilder.build();
-
-        // create table scan
-        RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
-                .process(table, null);
-
-        PlanBuilder builder = newPlanBuilder(relationPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
-
-        if (node.getWhere().isPresent()) {
-            builder = filter(builder, node.getWhere().get(), node);
-        }
-
-        builder = subqueryPlanner.handleSubqueries(builder, orderedColumnValues, analysis.getSubqueries(node));
-        builder = builder.appendProjections(orderedColumnValues, symbolAllocator, idAllocator);
-
-        PlanAndMappings planAndMappings = coerce(builder, orderedColumnValues, analysis, idAllocator, symbolAllocator, typeCoercion);
-        builder = planAndMappings.getSubPlan();
-
-        ImmutableList.Builder<Symbol> updatedColumnValuesBuilder = ImmutableList.builder();
-        Assignments.Builder assignmentsBuilder = Assignments.builder();
-        assignmentsBuilder.putIdentities(builder.getRoot().getOutputSymbols());
-        Map<String, ColumnMetadata> columnNameToMetadata = columnsMetadata.stream()
-                .collect(toImmutableMap(ColumnMetadata::getName, identity()));
-
-        for (int i = 0; i < updatedColumnNames.size(); i++) {
-            String columName = updatedColumnNames.get(i);
-            ColumnMetadata columnMetadata = columnNameToMetadata.get(columName);
-            Symbol output = symbolAllocator.newSymbol(columName, columnMetadata.getType());
-            updatedColumnValuesBuilder.add(output);
-            Expression expression = planAndMappings.get(orderedColumnValues.get(i)).toSymbolReference();
-            if (!columnMetadata.isNullable()) {
-                expression = new CoalesceExpression(expression, new Cast(
-                        failFunction(
-                                metadata,
-                                session,
-                                INVALID_ARGUMENTS,
-                                "NULL value not allowed for NOT NULL column: " + columName),
-                        toSqlType(columnMetadata.getType())));
-            }
-            assignmentsBuilder.put(output, expression);
-        }
-
-        builder = builder.withNewRoot(new ProjectNode(idAllocator.getNextId(), builder.getRoot(), assignmentsBuilder.build()));
-        Symbol rowId = builder.translate(analysis.getRowIdField(table));
-        updatedColumnValuesBuilder.add(rowId);
-
-        List<Symbol> outputs = ImmutableList.of(
-                symbolAllocator.newSymbol("partialrows", BIGINT),
-                symbolAllocator.newSymbol("fragment", VARBINARY));
-
-        Optional<PlanNodeId> tableScanId = getIdForLeftTableScan(relationPlan.getRoot());
-        checkArgument(tableScanId.isPresent(), "tableScanId not present");
-
-        // create update node
-        return new UpdateNode(
-                idAllocator.getNextId(),
-                builder.getRoot(),
-                new UpdateTarget(
-                        Optional.empty(),
-                        tableMetadata.getTable(),
-                        updatedColumnNames,
-                        updatedColumnHandles),
-                rowId,
-                updatedColumnValuesBuilder.build(),
-                outputs);
-    }
-
-    private PlanNode planUpdateUsingMergeWriterNode(Update node)
     {
         MergeAnalysis mergeAnalysis = analysis.getMergeAnalysis().orElseThrow();
         Table table = mergeAnalysis.getTargetTable();

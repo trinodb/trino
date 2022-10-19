@@ -22,6 +22,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.regex.Pattern;
 
+import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
@@ -198,7 +199,7 @@ public abstract class BaseConnectorSmokeTest
 
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_delete", "AS SELECT * FROM region")) {
-            assertQueryFails("DELETE FROM " + table.getName(), "This connector does not support deletes");
+            assertQueryFails("DELETE FROM " + table.getName(), MODIFYING_ROWS_MESSAGE);
         }
     }
 
@@ -212,7 +213,7 @@ public abstract class BaseConnectorSmokeTest
 
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_row_level_delete", "AS SELECT * FROM region")) {
-            assertQueryFails("DELETE FROM " + table.getName() + " WHERE regionkey = 2", "This connector does not support deletes");
+            assertQueryFails("DELETE FROM " + table.getName() + " WHERE regionkey = 2", MODIFYING_ROWS_MESSAGE);
         }
     }
 
@@ -247,7 +248,7 @@ public abstract class BaseConnectorSmokeTest
     {
         if (!hasBehavior(SUPPORTS_UPDATE)) {
             // Note this change is a no-op, if actually run
-            assertQueryFails("UPDATE nation SET nationkey = nationkey + regionkey WHERE regionkey < 1", "This connector does not support updates");
+            assertQueryFails("UPDATE nation SET nationkey = nationkey + regionkey WHERE regionkey < 1", MODIFYING_ROWS_MESSAGE);
             return;
         }
 
@@ -273,7 +274,7 @@ public abstract class BaseConnectorSmokeTest
             // Note this change is a no-op, if actually run
             assertQueryFails("MERGE INTO nation n USING nation s ON (n.nationkey = s.nationkey) " +
                             "WHEN MATCHED AND n.regionkey < 1 THEN UPDATE SET nationkey = 5",
-                    "This connector does not support merges");
+                    MODIFYING_ROWS_MESSAGE);
             return;
         }
 

@@ -204,6 +204,26 @@ public class PlanFragment
                 this.activeCatalogs);
     }
 
+    public PlanFragment withPartitioning(PartitioningHandle partitioning)
+    {
+        if (jsonRepresentation.isEmpty()) {
+            return this;
+        }
+        return new PlanFragment(
+                this.id,
+                this.root,
+                this.symbols,
+                partitioning,
+                this.partitionedSources,
+                this.partitionedSourcesSet,
+                this.types,
+                this.partitionedSourceNodes,
+                this.remoteSourceNodes,
+                this.partitioningScheme,
+                this.statsAndCosts,
+                this.activeCatalogs);
+    }
+
     public List<Type> getTypes()
     {
         return types;

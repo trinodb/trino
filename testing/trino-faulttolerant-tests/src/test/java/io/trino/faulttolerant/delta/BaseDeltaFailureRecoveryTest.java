@@ -86,14 +86,12 @@ public abstract class BaseDeltaFailureRecoveryTest
                 .finishesSuccessfully();
 
         // DELETE plan is too simplistic for testing with `intermediateDistributedStage`
-        assertThatThrownBy(() ->
-                assertThatQuery(deleteQuery)
-                        .withSetupQuery(setupQuery)
-                        .withCleanupQuery(cleanupQuery)
-                        .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
-                        .at(intermediateDistributedStage())
-                        .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE)))
-                .hasMessageContaining("stage not found");
+        assertThatQuery(deleteQuery)
+                .withSetupQuery(setupQuery)
+                .withCleanupQuery(cleanupQuery)
+                .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                .at(intermediateDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
 
         assertThatQuery(deleteQuery)
                 .withSetupQuery(setupQuery)
@@ -171,14 +169,12 @@ public abstract class BaseDeltaFailureRecoveryTest
                 .finishesSuccessfully();
 
         // UPDATE plan is too simplistic for testing with `intermediateDistributedStage`
-        assertThatThrownBy(() ->
-                assertThatQuery(updateQuery)
-                        .withSetupQuery(setupQuery)
-                        .withCleanupQuery(cleanupQuery)
-                        .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
-                        .at(intermediateDistributedStage())
-                        .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE)))
-                .hasMessageContaining("stage not found");
+        assertThatQuery(updateQuery)
+                .withSetupQuery(setupQuery)
+                .withCleanupQuery(cleanupQuery)
+                .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                .at(intermediateDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
 
         assertThatQuery(updateQuery)
                 .withSetupQuery(setupQuery)

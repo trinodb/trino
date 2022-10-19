@@ -18,6 +18,7 @@ import io.trino.tempto.ProductTest;
 import io.trino.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
 
+import static io.trino.plugin.hive.HiveMetadata.MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.AUTHORIZATION;
@@ -99,7 +100,7 @@ public class TestSqlStandardAccessControlChecks
 
         aliceExecutor.executeQuery(format("GRANT UPDATE ON %s TO bob", tableName));
         assertQueryFailure(() -> bobExecutor.executeQuery(format("UPDATE %s SET month=3, day=22", tableName)))
-                .hasMessageContaining("Hive update is only supported for ACID transactional tables");
+                .hasMessageContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})

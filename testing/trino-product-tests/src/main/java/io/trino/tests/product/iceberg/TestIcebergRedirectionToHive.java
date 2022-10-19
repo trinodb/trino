@@ -23,6 +23,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.hive.HiveMetadata.MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
@@ -219,7 +220,7 @@ public class TestIcebergRedirectionToHive
         createHiveTable(hiveTableName, true);
 
         assertQueryFailure(() -> onTrino().executeQuery("UPDATE " + icebergTableName + " SET nationkey = nationkey + 100 WHERE regionkey = 1"))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Hive update is only supported for ACID transactional tables");
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): " + MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
 
         onTrino().executeQuery("DROP TABLE " + hiveTableName);
     }

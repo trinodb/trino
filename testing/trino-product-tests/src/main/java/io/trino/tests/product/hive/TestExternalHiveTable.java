@@ -22,6 +22,7 @@ import io.trino.tempto.fulfillment.table.TableInstance;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import org.testng.annotations.Test;
 
+import static io.trino.plugin.hive.HiveMetadata.MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE;
 import static io.trino.tempto.Requirements.compose;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
@@ -124,7 +125,7 @@ public class TestExternalHiveTable
                 .hasRowsCount(3 * NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT);
 
         assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM hive.default." + EXTERNAL_TABLE_NAME + " WHERE p_name IS NOT NULL"))
-                .hasMessageContaining("Deletes must match whole partitions for non-transactional tables");
+                .hasMessageContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
 
         onTrino().executeQuery("DELETE FROM hive.default." + EXTERNAL_TABLE_NAME + " WHERE p_regionkey = 1");
         assertThat(onTrino().executeQuery("SELECT * FROM " + EXTERNAL_TABLE_NAME))
