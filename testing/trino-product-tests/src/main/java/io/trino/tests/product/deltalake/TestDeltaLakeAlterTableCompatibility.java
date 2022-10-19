@@ -264,9 +264,11 @@ public class TestDeltaLakeAlterTableCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testTrinoPreservesReaderAndWriterVersions()
     {
+        // Databricks 7.3 doesn't support 'delta.minReaderVersion' and 'delta.minWriterVersion' table properties
+        // Writing those properties to protocol entry in COMMENT and ADD COLUMN statements is fine
         String tableName = "test_trino_preserves_versions_" + randomTableSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
