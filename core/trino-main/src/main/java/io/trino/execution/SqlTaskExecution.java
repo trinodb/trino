@@ -244,6 +244,9 @@ public class SqlTaskExecution
                                 .filter(scheduledSplit -> scheduledSplit.getSequenceId() > currentMaxAcknowledgedSplit)
                                 .collect(toImmutableSet()),
                         assignment.isNoMoreSplits()))
+                // drop assignments containing no unacknowledged splits
+                // the noMoreSplits signal acknowledgement is not tracked but it is okay to deliver it more than once
+                .filter(assignment -> !assignment.getSplits().isEmpty() || assignment.isNoMoreSplits())
                 .collect(toList());
 
         // update task with new assignments
