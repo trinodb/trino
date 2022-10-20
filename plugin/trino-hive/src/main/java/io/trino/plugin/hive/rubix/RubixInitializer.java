@@ -47,21 +47,8 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.propagateIfPossible;
-import static com.qubole.rubix.spi.CacheConfig.enableHeartbeat;
-import static com.qubole.rubix.spi.CacheConfig.setBookKeeperServerPort;
-import static com.qubole.rubix.spi.CacheConfig.setCacheDataDirPrefix;
-import static com.qubole.rubix.spi.CacheConfig.setCacheDataEnabled;
-import static com.qubole.rubix.spi.CacheConfig.setCacheDataExpirationAfterWrite;
-import static com.qubole.rubix.spi.CacheConfig.setCacheDataFullnessPercentage;
-import static com.qubole.rubix.spi.CacheConfig.setCacheDataOnMasterEnabled;
-import static com.qubole.rubix.spi.CacheConfig.setClusterNodeRefreshTime;
-import static com.qubole.rubix.spi.CacheConfig.setCoordinatorHostName;
-import static com.qubole.rubix.spi.CacheConfig.setDataTransferServerPort;
-import static com.qubole.rubix.spi.CacheConfig.setEmbeddedMode;
-import static com.qubole.rubix.spi.CacheConfig.setIsParallelWarmupEnabled;
-import static com.qubole.rubix.spi.CacheConfig.setMetricsReporters;
-import static com.qubole.rubix.spi.CacheConfig.setOnMaster;
-import static com.qubole.rubix.spi.CacheConfig.setPrestoClusterManager;
+import static com.qubole.rubix.spi.CacheConfig.*;
+import static com.qubole.rubix.spi.CacheConfig.setStaleFileInfoExpiryPeriod;
 import static io.trino.hdfs.ConfigurationUtils.getInitialConfiguration;
 import static io.trino.hdfs.DynamicConfigurationProvider.setCacheKey;
 import static io.trino.plugin.hive.rubix.RubixInitializer.Owner.PRESTO;
@@ -284,7 +271,7 @@ public class RubixInitializer
         // Perform standard HDFS configuration initialization.
         hdfsConfigurationInitializer.initializeConfiguration(configuration);
         updateRubixConfiguration(configuration, RUBIX);
-        setCacheKey(configuration, "rubix_internal");
+        setCacheKey(configuration, "rubix_enabled");
 
         return configuration;
     }
@@ -295,6 +282,9 @@ public class RubixInitializer
         setCacheDataEnabled(config, true);
         setOnMaster(config, nodeManager.getCurrentNode().isCoordinator());
         setCoordinatorHostName(config, masterAddress.getHostText());
+
+        setFileStalenessCheck(config, false);
+        setStaleFileInfoExpiryPeriod(config, 86000);
 
         setIsParallelWarmupEnabled(config, parallelWarmupEnabled);
         setCacheDataExpirationAfterWrite(config, cacheTtlMillis);

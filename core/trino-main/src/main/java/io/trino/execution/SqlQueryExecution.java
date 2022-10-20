@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.SetThreadName;
+import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -42,6 +43,7 @@ import io.trino.operator.ForScheduler;
 import io.trino.operator.RetryPolicy;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.DynamicFilterService;
+import io.trino.server.GracefulShutdownHandler;
 import io.trino.server.protocol.Slug;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
@@ -102,6 +104,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class SqlQueryExecution
         implements QueryExecution
 {
+    private static final Logger log = Logger.get(SqlQueryExecution.class);
+
     private final QueryStateMachine stateMachine;
     private final Slug slug;
     private final PlannerContext plannerContext;
@@ -248,6 +252,7 @@ public class SqlQueryExecution
             WarningCollector warningCollector,
             AnalyzerFactory analyzerFactory)
     {
+        log.info("Palani: Analysis started");
         stateMachine.beginAnalysis();
 
         requireNonNull(preparedQuery, "preparedQuery is null");
@@ -269,7 +274,7 @@ public class SqlQueryExecution
         stateMachine.setRoutines(analysis.getRoutines());
 
         stateMachine.endAnalysis();
-
+        log.info("Palani: Analysis complete");
         return analysis;
     }
 

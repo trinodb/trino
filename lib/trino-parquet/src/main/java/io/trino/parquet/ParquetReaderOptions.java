@@ -30,6 +30,8 @@ public class ParquetReaderOptions
     private final DataSize maxBufferSize;
     private final boolean useColumnIndex;
 
+    private final boolean useBloomFilterIndex;
+
     public ParquetReaderOptions()
     {
         ignoreStatistics = false;
@@ -37,6 +39,7 @@ public class ParquetReaderOptions
         maxMergeDistance = DEFAULT_MAX_MERGE_DISTANCE;
         maxBufferSize = DEFAULT_MAX_BUFFER_SIZE;
         useColumnIndex = true;
+        this.useBloomFilterIndex = true;
     }
 
     private ParquetReaderOptions(
@@ -44,13 +47,15 @@ public class ParquetReaderOptions
             DataSize maxReadBlockSize,
             DataSize maxMergeDistance,
             DataSize maxBufferSize,
-            boolean useColumnIndex)
+            boolean useColumnIndex,
+            boolean useBloomFilterIndex)
     {
         this.ignoreStatistics = ignoreStatistics;
         this.maxReadBlockSize = requireNonNull(maxReadBlockSize, "maxReadBlockSize is null");
         this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
         this.maxBufferSize = requireNonNull(maxBufferSize, "maxBufferSize is null");
         this.useColumnIndex = useColumnIndex;
+        this.useBloomFilterIndex = useBloomFilterIndex;
     }
 
     public boolean isIgnoreStatistics()
@@ -85,7 +90,13 @@ public class ParquetReaderOptions
                 maxReadBlockSize,
                 maxMergeDistance,
                 maxBufferSize,
-                useColumnIndex);
+                useColumnIndex,
+                this.useBloomFilterIndex);
+    }
+
+    public boolean isUseBloomFilterIndex()
+    {
+        return useBloomFilterIndex;
     }
 
     public ParquetReaderOptions withMaxReadBlockSize(DataSize maxReadBlockSize)
@@ -95,7 +106,8 @@ public class ParquetReaderOptions
                 maxReadBlockSize,
                 maxMergeDistance,
                 maxBufferSize,
-                useColumnIndex);
+                useColumnIndex,
+                useBloomFilterIndex);
     }
 
     public ParquetReaderOptions withMaxMergeDistance(DataSize maxMergeDistance)
@@ -105,7 +117,8 @@ public class ParquetReaderOptions
                 maxReadBlockSize,
                 maxMergeDistance,
                 maxBufferSize,
-                useColumnIndex);
+                useColumnIndex,
+                useBloomFilterIndex);
     }
 
     public ParquetReaderOptions withMaxBufferSize(DataSize maxBufferSize)
@@ -115,7 +128,8 @@ public class ParquetReaderOptions
                 maxReadBlockSize,
                 maxMergeDistance,
                 maxBufferSize,
-                useColumnIndex);
+                useColumnIndex,
+                useBloomFilterIndex);
     }
 
     public ParquetReaderOptions withUseColumnIndex(boolean useColumnIndex)
@@ -125,6 +139,18 @@ public class ParquetReaderOptions
                 maxReadBlockSize,
                 maxMergeDistance,
                 maxBufferSize,
-                useColumnIndex);
+                useColumnIndex,
+                useBloomFilterIndex);
+    }
+
+    public ParquetReaderOptions withUseBloomFilterIndex(boolean useBloomFilterIndex)
+    {
+        return new ParquetReaderOptions(
+                ignoreStatistics,
+                maxReadBlockSize,
+                maxMergeDistance,
+                maxBufferSize,
+                useColumnIndex,
+                useBloomFilterIndex);
     }
 }

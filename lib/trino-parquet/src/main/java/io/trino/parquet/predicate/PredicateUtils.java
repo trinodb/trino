@@ -18,8 +18,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
+import io.trino.parquet.BloomFilterStore;
 import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetEncoding;
@@ -50,6 +52,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.parquet.BloomFilterStore.bloomFilterEnabled;
 import static io.trino.parquet.ParquetCompressionUtils.decompress;
 import static io.trino.parquet.ParquetTypeUtils.getParquetEncoding;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -65,6 +68,7 @@ import static org.apache.parquet.column.Encoding.RLE;
 
 public final class PredicateUtils
 {
+    private static final Logger log = Logger.get(PredicateUtils.class);
     private PredicateUtils() {}
 
     public static boolean isStatisticsOverflow(Type type, long min, long max)
@@ -123,10 +127,10 @@ public final class PredicateUtils
     public static boolean predicateMatches(Predicate parquetPredicate, BlockMetaData block, ParquetDataSource dataSource, Map<List<String>, ColumnDescriptor> descriptorsByPath, TupleDomain<ColumnDescriptor> parquetTupleDomain)
             throws IOException
     {
-        return predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, Optional.empty());
+        return predicateMatches(parquetPredicate, block, "", dataSource, descriptorsByPath, parquetTupleDomain, Optional.empty(), Optional.empty());
     }
 
-    public static boolean predicateMatches(Predicate parquetPredicate, BlockMetaData block, ParquetDataSource dataSource, Map<List<String>, ColumnDescriptor> descriptorsByPath, TupleDomain<ColumnDescriptor> parquetTupleDomain, Optional<ColumnIndexStore> columnIndexStore)
+    public static boolean predicateMatches(Predicate parquetPredicate, BlockMetaData block, String filename, ParquetDataSource dataSource, Map<List<String>, ColumnDescriptor> descriptorsByPath, TupleDomain<ColumnDescriptor> parquetTupleDomain, Optional<ColumnIndexStore> columnIndexStore, Optional<BloomFilterStore> bloomFilterStore)
             throws IOException
     {
         Map<ColumnDescriptor, Statistics<?>> columnStatistics = getStatistics(block, descriptorsByPath);
@@ -136,6 +140,19 @@ public final class PredicateUtils
 
         // Page stats is finer grained but relatively more expensive, so we do the filtering after above block filtering.
         if (columnIndexStore.isPresent() && !parquetPredicate.matches(block.getRowCount(), columnIndexStore.get(), dataSource.getId())) {
+            return false;
+        }
+
+        Optional<List<ColumnDescriptor>> candidateColumns = parquetPredicate.getIndexLookupCandidates(block.getRowCount(), columnStatistics, dataSource.getId());
+        Predicate indexPredicate = new TupleDomainParquetPredicate(parquetTupleDomain, candidateColumns.get(), DateTimeZone.UTC);
+
+        if (bloomFilterStore.isPresent() && !bloomFilterPredicatesMatch(
+                indexPredicate,
+                ImmutableSet.copyOf(candidateColumns.get()),
+                block,
+                filename,
+                bloomFilterStore.get(),
+                descriptorsByPath)) {
             return false;
         }
 
@@ -155,6 +172,28 @@ public final class PredicateUtils
             }
         }
         return statistics.buildOrThrow();
+    }
+
+    private static boolean bloomFilterPredicatesMatch(
+            Predicate parquetPredicate,
+            Set<ColumnDescriptor> candidateColumns,
+            BlockMetaData blockMetadata,
+            String filename,
+            BloomFilterStore bloomFilterStore,
+            Map<List<String>, ColumnDescriptor> descriptorsByPath)
+    {
+        for (ColumnChunkMetaData columnMetaData : blockMetadata.getColumns()) {
+            ColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(columnMetaData.getPath().toArray()));
+            if (descriptor == null || !candidateColumns.contains(descriptor)) {
+                continue;
+            }
+
+            if (bloomFilterEnabled(columnMetaData) && !parquetPredicate.matches(filename, String.valueOf(blockMetadata.getOrdinal()), descriptor, columnMetaData, bloomFilterStore)) {
+                log.info("Bloom filter skipping row group with rows " + blockMetadata.getRowCount());
+                return false;
+            }
+        }
+        return true;
     }
 
     private static boolean dictionaryPredicatesMatch(Predicate parquetPredicate, BlockMetaData blockMetadata, ParquetDataSource dataSource, Map<List<String>, ColumnDescriptor> descriptorsByPath, TupleDomain<ColumnDescriptor> parquetTupleDomain)

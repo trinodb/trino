@@ -2276,7 +2276,8 @@ public class IcebergMetadata
     @Override
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
-        return catalog.getMaterializedView(session, viewName);
+        Optional<ConnectorMaterializedViewDefinition> result =  catalog.getMaterializedView(session, viewName);
+        return result;
     }
 
     @Override

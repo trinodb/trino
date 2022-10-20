@@ -19,10 +19,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.common.io.Closer;
+import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.parquet.reader.MetadataReader;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.util.DataFileWithDeleteFiles;
 import io.trino.spi.SplitWeight;
@@ -93,6 +95,8 @@ import static org.apache.iceberg.types.Conversions.fromByteBuffer;
 public class IcebergSplitSource
         implements ConnectorSplitSource
 {
+    private static final Logger log = Logger.get(IcebergSplitSource.class);
+
     private static final ConnectorSplitBatch EMPTY_BATCH = new ConnectorSplitBatch(ImmutableList.of(), false);
     private static final ConnectorSplitBatch NO_MORE_SPLITS_BATCH = new ConnectorSplitBatch(ImmutableList.of(), true);
 
@@ -267,6 +271,7 @@ public class IcebergSplitSource
             }
             splits.add(icebergSplit);
         }
+        log.info("Split source complete");
         return completedFuture(new ConnectorSplitBatch(splits.build(), isFinished()));
     }
 

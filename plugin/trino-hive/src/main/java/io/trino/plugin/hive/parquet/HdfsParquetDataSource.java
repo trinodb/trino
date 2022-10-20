@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.parquet;
 
+import alluxio.exception.status.UnimplementedException;
 import io.airlift.slice.Slice;
 import io.trino.hdfs.FSDataInputStreamTail;
 import io.trino.parquet.AbstractParquetDataSource;
@@ -21,6 +22,7 @@ import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.spi.TrinoException;
 import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.parquet.io.SeekableInputStream;
 
 import java.io.IOException;
 
@@ -43,6 +45,11 @@ public class HdfsParquetDataSource
         super(id, estimatedSize, options);
         this.inputStream = inputStream;
         this.stats = stats;
+    }
+
+    @Override
+    public SeekableInputStream seekableInputStream() {
+        throw new RuntimeException("There is no seekable input stream");
     }
 
     @Override

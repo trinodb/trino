@@ -18,6 +18,7 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.parquet.BloomFilterStore;
 import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSourceId;
@@ -27,17 +28,15 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
-import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Int128;
-import io.trino.spi.type.TimestampType;
-import io.trino.spi.type.Type;
-import io.trino.spi.type.VarcharType;
+import io.trino.spi.type.*;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.statistics.Statistics;
+import org.apache.parquet.column.values.bloomfilter.BloomFilter;
 import org.apache.parquet.filter2.predicate.FilterApi;
 import org.apache.parquet.filter2.predicate.FilterPredicate;
 import org.apache.parquet.filter2.predicate.Operators;
 import org.apache.parquet.filter2.predicate.UserDefinedPredicate;
+import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.internal.column.columnindex.ColumnIndex;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
@@ -49,10 +48,7 @@ import org.joda.time.DateTimeZone;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -70,6 +66,8 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.util.Objects.requireNonNull;
@@ -144,6 +142,80 @@ public class TupleDomainParquetPredicate
         return effectivePredicateDomain == null || effectivePredicateMatches(effectivePredicateDomain, dictionary);
     }
 
+    private Optional<Collection<Object>> extractDiscreteValues(ValueSet valueSet)
+    {
+        if (!valueSet.isDiscreteSet()) {
+            return valueSet.tryExpandRanges(32); //TODO
+        }
+
+        return Optional.of(valueSet.getDiscreteSet());
+    }
+
+    @Override
+    public boolean matches(String filename, String blockId, ColumnDescriptor columnDescriptor, ColumnChunkMetaData columnMetaData, BloomFilterStore bloomFilterStore) {
+        requireNonNull(bloomFilterStore, "bloomFilterStore is null");
+
+        if (effectivePredicate.isNone()) {
+            return false;
+        }
+        Map<ColumnDescriptor, Domain> effectivePredicateDomains = effectivePredicate.getDomains()
+                .orElseThrow(() -> new IllegalStateException("Effective predicate other than none should have domains"));
+
+        if (!effectivePredicateDomains.containsKey(columnDescriptor)) {
+            return true;
+        }
+
+        Domain effectivePredicateDomain = effectivePredicateDomains.get(columnDescriptor);
+        // the bloom filter bitset contains only non-null values so isn't helpful
+        if (effectivePredicateDomain.isNullAllowed()) {
+            return true;
+        }
+        Optional<BloomFilter> bloomFilterOptional = bloomFilterStore.readBloomFilter(filename, blockId, columnMetaData);
+        if (!bloomFilterOptional.isPresent()) {
+            return true;
+        }
+        BloomFilter bloomFilter = bloomFilterOptional.get();
+        Optional<Collection<Object>> discreteValues = extractDiscreteValues(effectivePredicateDomain.getValues());
+        if (discreteValues.isEmpty()) {
+            // values are not discrete, so bloom filter isn't helpful
+            return true;
+        }
+        return discreteValues.get().stream().anyMatch(value -> {
+            Type type = effectivePredicateDomain.getType();
+            return mightInBloomFilter(bloomFilter, value, type);
+        });
+    }
+
+    private static boolean mightInBloomFilter(BloomFilter bloomFilter, Object predicateValue, Type sqlType)
+    {
+        try {
+            long hashValue = getBloomFilterHash(bloomFilter, predicateValue, sqlType);
+            return bloomFilter.findHash(hashValue);
+        }
+        catch (UnsupportedOperationException unsupportedOperationException) {
+            return true;
+        }
+    }
+
+    @VisibleForTesting
+    public static long getBloomFilterHash(BloomFilter bloomFilter, Object predicateValue, Type sqlType)
+            throws UnsupportedOperationException {
+        // todo: support TIMESTAMP, and DECIMAL
+        long hashValue;
+        if (sqlType == TINYINT || sqlType == SMALLINT || sqlType == INTEGER || sqlType == BIGINT || sqlType == DATE) {
+            hashValue = bloomFilter.hash(asLong(predicateValue));
+        } else if (sqlType == DOUBLE) {
+            hashValue = bloomFilter.hash(predicateValue);
+        } else if (sqlType == REAL) {
+            hashValue = bloomFilter.hash(intBitsToFloat(toIntExact(((Number) predicateValue).intValue())));
+        } else if (sqlType instanceof VarcharType || sqlType instanceof CharType || sqlType instanceof VarbinaryType || sqlType instanceof UuidType) {
+            hashValue = bloomFilter.hash(Binary.fromConstantByteBuffer(((Slice) predicateValue).toByteBuffer()));
+        } else {
+            throw new UnsupportedOperationException("Unsupported type " + sqlType);
+        }
+
+        return hashValue;
+    }
     @Override
     public boolean matches(long numberOfRows, ColumnIndexStore columnIndexStore, ParquetDataSourceId id)
             throws ParquetCorruptionException
@@ -396,6 +468,51 @@ public class TupleDomainParquetPredicate
         }
 
         return Domain.create(ValueSet.all(type), hasNullValue);
+    }
+
+    public Optional<List<ColumnDescriptor>> getIndexLookupCandidates(long numberOfRows, Map<ColumnDescriptor, Statistics<?>> statistics, ParquetDataSourceId id)
+            throws ParquetCorruptionException
+    {
+        if (numberOfRows == 0) {
+            return Optional.empty();
+        }
+        if (effectivePredicate.isNone()) {
+            return Optional.empty();
+        }
+        Map<ColumnDescriptor, Domain> effectivePredicateDomains = effectivePredicate.getDomains()
+                .orElseThrow(() -> new IllegalStateException("Effective predicate other than none should have domains"));
+
+        ImmutableList.Builder<ColumnDescriptor> candidateColumns = ImmutableList.builder();
+        for (ColumnDescriptor column : columns) {
+            Domain effectivePredicateDomain = effectivePredicateDomains.get(column);
+            if (effectivePredicateDomain == null) {
+                continue;
+            }
+
+            Statistics<?> columnStatistics = statistics.get(column);
+            if (columnStatistics == null || columnStatistics.isEmpty()) {
+                // no stats for column
+                candidateColumns.add(column);
+                continue;
+            }
+
+            Domain domain = getDomain(
+                    column,
+                    effectivePredicateDomain.getType(),
+                    numberOfRows,
+                    columnStatistics,
+                    id,
+                    timeZone);
+            if (!effectivePredicateDomain.overlaps(domain)) {
+                return Optional.empty();
+            }
+            // If the predicate domain on a column includes the entire domain from column row-group statistics,
+            // then more granular statistics from page stats or dictionary for this column will not help to eliminate the row-group.
+            if (!effectivePredicateDomain.contains(domain)) {
+                candidateColumns.add(column);
+            }
+        }
+        return Optional.of(candidateColumns.build());
     }
 
     @VisibleForTesting

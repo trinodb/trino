@@ -13,14 +13,17 @@
  */
 package io.trino.parquet.predicate;
 
+import io.trino.parquet.BloomFilterStore;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSourceId;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.filter2.predicate.FilterPredicate;
+import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.joda.time.DateTimeZone;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -46,6 +49,9 @@ public interface Predicate
      */
     boolean matches(DictionaryDescriptor dictionary);
 
+    boolean matches(String filename, String blockId, ColumnDescriptor columnDescriptor, ColumnChunkMetaData columnMetaData, BloomFilterStore bloomFilterStore);
+
+
     /**
      * Should the Parquet Reader process a file section with the specified statistics.
      *
@@ -64,4 +70,6 @@ public interface Predicate
      * @return Converted Parquet filter or null if conversion not possible
      */
     Optional<FilterPredicate> toParquetFilter(DateTimeZone timeZone);
+
+    Optional<List<ColumnDescriptor>> getIndexLookupCandidates(long numberOfRows, Map<ColumnDescriptor, Statistics<?>> statistics, ParquetDataSourceId id) throws ParquetCorruptionException;
 }

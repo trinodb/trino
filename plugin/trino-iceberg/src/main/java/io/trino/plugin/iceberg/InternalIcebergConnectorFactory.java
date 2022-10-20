@@ -36,6 +36,8 @@ import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.azure.HiveAzureModule;
 import io.trino.plugin.hive.gcs.HiveGcsModule;
+import io.trino.plugin.hive.rubix.RubixEnabledConfig;
+import io.trino.plugin.hive.rubix.RubixModule;
 import io.trino.plugin.hive.s3.HiveS3Module;
 import io.trino.plugin.iceberg.catalog.IcebergCatalogModule;
 import io.trino.spi.NodeManager;
@@ -62,6 +64,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 
 public final class InternalIcebergConnectorFactory
 {
@@ -91,6 +94,7 @@ public final class InternalIcebergConnectorFactory
                     new HiveAzureModule(),
                     new HdfsAuthenticationModule(),
                     new MBeanServerModule(),
+                    conditionalModule(RubixEnabledConfig.class, RubixEnabledConfig::isCacheEnabled, new RubixModule()),
                     binder -> {
                         binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.parquet.ChunkKey;
@@ -89,6 +90,8 @@ import static java.util.Objects.requireNonNull;
 public class ParquetReader
         implements Closeable
 {
+    private static final Logger log = Logger.get(ParquetReader.class);
+
     private static final int MAX_VECTOR_LENGTH = 1024;
     private static final int INITIAL_BATCH_SIZE = 1;
     private static final int BATCH_SIZE_GROWTH_FACTOR = 2;
@@ -330,6 +333,17 @@ public class ParquetReader
                 currentGroupRowCount = rowCount;
             }
         }
+
+//        if(filter.isPresent()) {
+//            var columns = currentBlockMetadata.getColumns();
+//            for(int i=0;i<columns.size(); ++i) {
+//                ColumnChunkMetaData columnChunkMetaData = columns.get(i);
+//                if(columnChunkMetaData.getBloomFilterOffset() > 0L) {
+//                    log.info(String.format("Column has bloom filter %s", columnChunkMetaData.getPath().toString()));
+//
+//                }
+//            }
+//        }
         nextRowInGroup = 0L;
         initializeColumnReaders();
         return true;

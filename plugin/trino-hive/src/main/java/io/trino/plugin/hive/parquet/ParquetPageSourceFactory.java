@@ -19,11 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.parquet.ParquetCorruptionException;
-import io.trino.parquet.ParquetDataSource;
-import io.trino.parquet.ParquetDataSourceId;
-import io.trino.parquet.ParquetReaderOptions;
-import io.trino.parquet.ParquetWriteValidation;
+import io.trino.parquet.*;
 import io.trino.parquet.predicate.Predicate;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
@@ -178,7 +174,8 @@ public class ParquetPageSourceFactory
                 stats,
                 options.withIgnoreStatistics(isParquetIgnoreStatistics(session))
                         .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
-                        .withUseColumnIndex(isParquetUseColumnIndex(session)),
+                        .withUseColumnIndex(isParquetUseColumnIndex(session))
+                        .withUseBloomFilterIndex(true),
                 Optional.empty()));
     }
 
@@ -240,8 +237,9 @@ public class ParquetPageSourceFactory
             for (BlockMetaData block : parquetMetadata.getBlocks()) {
                 long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
                 Optional<ColumnIndexStore> columnIndex = getColumnIndexStore(dataSource, block, descriptorsByPath, parquetTupleDomain, options);
+                Optional<BloomFilterStore> bloomFilterStore = getBloomFilterStore(dataSource, options);
                 if (start <= firstDataPage && firstDataPage < start + length
-                        && predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, columnIndex)) {
+                        && predicateMatches(parquetPredicate, block, inputFile.location(), dataSource, descriptorsByPath, parquetTupleDomain, columnIndex, bloomFilterStore)) {
                     blocks.add(block);
                     blockStarts.add(nextStart);
                     columnIndexes.add(columnIndex);
@@ -299,6 +297,14 @@ public class ParquetPageSourceFactory
             }
             throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
         }
+    }
+
+    public static Optional<BloomFilterStore> getBloomFilterStore(ParquetDataSource dataSource, ParquetReaderOptions options)
+    {
+        if (!options.isUseBloomFilterIndex()) {
+            return Optional.empty();
+        }
+        return Optional.of(new BloomFilterStore(dataSource));
     }
 
     public static Optional<org.apache.parquet.schema.Type> getParquetType(GroupType groupType, boolean useParquetColumnNames, HiveColumnHandle column)
