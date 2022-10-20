@@ -413,6 +413,11 @@ the property may be configured for:
        a request.
      - ``10``
      - Any S3-compatible storage
+   * - ``exchange.s3.path-style-access``
+     - Enables using `path-style access <https://docs.aws.amazon.com/AmazonS3/latest/userguide/VirtualHosting.html#path-style-access>`_
+       for all requests to S3.
+     - ``false``
+     - Any S3-compatible storage
    * - ``exchange.s3.upload.part-size``
      - Part size for S3 multi-part upload.
      - ``5MB``
