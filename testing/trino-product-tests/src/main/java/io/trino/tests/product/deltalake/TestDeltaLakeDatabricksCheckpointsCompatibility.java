@@ -125,7 +125,8 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    // Disabled due to flakiness per https://nineinchnick.github.io/trino-cicd/reports/flaky/
+    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS}, enabled = false)
     public void testTrinoUsesCheckpointInterval()
     {
         String tableName = "test_dl_checkpoints_compat_" + randomTableSuffix();

@@ -716,6 +716,11 @@ public class TestKuduConnectorTest
         assertThat(query("SELECT name FROM nation LIMIT 30")).isNotFullyPushedDown(LimitNode.class); // Use high limit for result determinism
     }
 
+    // Empty override is to disable test due to flakiness per https://nineinchnick.github.io/trino-cicd/reports/flaky/
+    @Test(enabled = false)
+    @Override
+    public void testAggregation() {}
+
     @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {

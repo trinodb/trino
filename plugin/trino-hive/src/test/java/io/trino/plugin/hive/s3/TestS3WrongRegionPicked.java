@@ -23,7 +23,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestS3WrongRegionPicked
 {
-    @Test
+    // Disabled due to flakiness per https://nineinchnick.github.io/trino-cicd/reports/flaky/
+    @Test(enabled = false)
     public void testS3WrongRegionSelection()
             throws Exception
     {
