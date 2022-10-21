@@ -473,6 +473,7 @@ jobs:
             - { modules: plugin/trino-redis }
             - { modules: plugin/trino-singlestore }
             - { modules: plugin/trino-sqlserver }
+            - { modules: testing/trino-faulttolerant-tests, profile: default }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive-1 }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive-2 }
