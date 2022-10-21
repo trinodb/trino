@@ -531,9 +531,9 @@ public class PipelinedStageExecution
     }
 
     @Override
-    public void recordGetSplitTime(long start)
+    public void recordGetSplitTime(PlanNodeId planNodeId, long start)
     {
-        stage.recordGetSplitTime(start);
+        stage.recordGetSplitTime(planNodeId, start);
     }
 
     @Override

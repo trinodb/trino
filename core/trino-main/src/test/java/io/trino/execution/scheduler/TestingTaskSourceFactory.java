@@ -34,7 +34,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.LongConsumer;
+import java.util.function.BiConsumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -69,7 +69,7 @@ public class TestingTaskSourceFactory
             Session session,
             PlanFragment fragment,
             Multimap<PlanFragmentId, ExchangeSourceHandle> exchangeSourceHandles,
-            LongConsumer getSplitTimeRecorder,
+            BiConsumer<PlanNodeId, Long> getSplitTimeRecorder,
             FaultTolerantPartitioningScheme sourcePartitioningScheme)
     {
         List<PlanNodeId> partitionedSources = fragment.getPartitionedSources();

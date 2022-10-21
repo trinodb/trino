@@ -47,6 +47,7 @@ public class StageStats
     private final DateTime schedulingComplete;
 
     private final DistributionSnapshot getSplitDistribution;
+    private final List<TableGetSplitDistribution> tableGetSplitDistribution;
 
     private final int totalTasks;
     private final int runningTasks;
@@ -122,6 +123,7 @@ public class StageStats
             @JsonProperty("schedulingComplete") DateTime schedulingComplete,
 
             @JsonProperty("getSplitDistribution") DistributionSnapshot getSplitDistribution,
+            @JsonProperty("tableGetSplitDistribution") List<TableGetSplitDistribution> tableGetSplitDistribution,
 
             @JsonProperty("totalTasks") int totalTasks,
             @JsonProperty("runningTasks") int runningTasks,
@@ -282,6 +284,7 @@ public class StageStats
         this.gcInfo = requireNonNull(gcInfo, "gcInfo is null");
 
         this.operatorSummaries = ImmutableList.copyOf(requireNonNull(operatorSummaries, "operatorSummaries is null"));
+        this.tableGetSplitDistribution = ImmutableList.copyOf(requireNonNull(tableGetSplitDistribution, "tableGetSplitDistribution is null"));
     }
 
     @JsonProperty
@@ -294,6 +297,12 @@ public class StageStats
     public DistributionSnapshot getGetSplitDistribution()
     {
         return getSplitDistribution;
+    }
+
+    @JsonProperty
+    public List<TableGetSplitDistribution> getTableGetSplitDistribution()
+    {
+        return tableGetSplitDistribution;
     }
 
     @JsonProperty
@@ -669,6 +678,7 @@ public class StageStats
         return new StageStats(
                 null,
                 new Distribution().snapshot(),
+                ImmutableList.of(),
                 0,
                 0,
                 0,

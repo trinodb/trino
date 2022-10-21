@@ -51,6 +51,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.LongConsumer;
 import java.util.function.Supplier;
@@ -83,7 +84,7 @@ class EventDrivenTaskSource
     private final int splitBatchSize;
     private final long targetExchangeSplitSizeInBytes;
     private final FaultTolerantPartitioningScheme sourcePartitioningScheme;
-    private final LongConsumer getSplitTimeRecorder;
+    private final BiConsumer<PlanNodeId, Long> getSplitTimeRecorder;
     private final SetMultimap<PlanNodeId, PlanFragmentId> remoteSourceFragments;
 
     @GuardedBy("this")
@@ -114,7 +115,7 @@ class EventDrivenTaskSource
             int splitBatchSize,
             long targetExchangeSplitSizeInBytes,
             FaultTolerantPartitioningScheme sourcePartitioningScheme,
-            LongConsumer getSplitTimeRecorder)
+            BiConsumer<PlanNodeId, Long> getSplitTimeRecorder)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
@@ -228,7 +229,7 @@ class EventDrivenTaskSource
                     }
                 },
                 splitBatchSize,
-                getSplitTimeRecorder);
+                (time) -> getSplitTimeRecorder.accept(remoteSourceNodeId, time));
     }
 
     private SplitLoader createTableScanSplitLoader(PlanNodeId planNodeId, SplitSource splitSource)
@@ -272,7 +273,7 @@ class EventDrivenTaskSource
                     }
                 },
                 splitBatchSize,
-                getSplitTimeRecorder);
+                (time) -> getSplitTimeRecorder.accept(planNodeId, time));
     }
 
     private PlanNodeId getRemoteSourceNode(PlanFragmentId fragmentId)

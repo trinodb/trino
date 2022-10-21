@@ -37,7 +37,7 @@ public class TestStageStats
             new DateTime(0),
 
             getTestDistribution(1),
-
+            ImmutableList.of(),
             4,
             5,
             6,
@@ -130,7 +130,7 @@ public class TestStageStats
         assertEquals(actual.getSchedulingComplete().getMillis(), 0);
 
         assertEquals(actual.getGetSplitDistribution().getCount(), 1.0);
-
+        assertEquals(actual.getTableGetSplitDistribution(), ImmutableList.of());
         assertEquals(actual.getTotalTasks(), 4);
         assertEquals(actual.getRunningTasks(), 5);
         assertEquals(actual.getCompletedTasks(), 6);

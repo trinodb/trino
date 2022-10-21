@@ -42,6 +42,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -51,6 +52,7 @@ import java.util.function.Supplier;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.execution.StageState.ABORTED;
@@ -84,6 +86,7 @@ public class StageStateMachine
 
     private final AtomicReference<DateTime> schedulingComplete = new AtomicReference<>();
     private final Distribution getSplitDistribution = new Distribution();
+    private final Map<PlanNodeId, Distribution> tableGetSplitDistribution = new ConcurrentHashMap<>();
 
     private final AtomicLong peakUserMemory = new AtomicLong();
     private final AtomicLong peakRevocableMemory = new AtomicLong();
@@ -546,10 +549,15 @@ public class StageStateMachine
             }
         }
 
+        List<TableGetSplitDistribution> tableGetSplitDistributions = tableGetSplitDistribution.entrySet().stream()
+                .map(entry -> new TableGetSplitDistribution(entry.getKey(), entry.getValue().snapshot()))
+                .collect(toImmutableList());
+
         StageStats stageStats = new StageStats(
                 schedulingComplete.get(),
                 getSplitDistribution.snapshot(),
 
+                tableGetSplitDistributions,
                 totalTasks,
                 runningTasks,
                 completedTasks,
@@ -638,10 +646,13 @@ public class StageStateMachine
                 failureInfo);
     }
 
-    public void recordGetSplitTime(long startNanos)
+    public void recordGetSplitTime(PlanNodeId planNodeId, long startNanos)
     {
+        requireNonNull(planNodeId, "planNodeId is null");
         long elapsedNanos = System.nanoTime() - startNanos;
         getSplitDistribution.add(elapsedNanos);
+        tableGetSplitDistribution.computeIfAbsent(planNodeId, (key) -> new Distribution())
+                .add(elapsedNanos);
         scheduledStats.getGetSplitTime().add(elapsedNanos, NANOSECONDS);
     }
 

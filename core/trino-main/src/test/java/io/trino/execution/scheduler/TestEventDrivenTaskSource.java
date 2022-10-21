@@ -418,7 +418,7 @@ public class TestEventDrivenTaskSource
                 1,
                 1,
                 partitioningScheme,
-                (getSplitDuration) -> getSplitInvocations.incrementAndGet())) {
+                (planNodeId, getSplitDuration) -> getSplitInvocations.incrementAndGet())) {
             taskSource.start();
             try {
                 if (taskSourceCallback instanceof FailingTaskSourceCallback callback) {

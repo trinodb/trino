@@ -334,7 +334,7 @@ public class TestPhasedExecutionSchedule
         }
 
         @Override
-        public void recordGetSplitTime(long start)
+        public void recordGetSplitTime(PlanNodeId planNodeId, long start)
         {
             throw new UnsupportedOperationException();
         }

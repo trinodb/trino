@@ -72,7 +72,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-import java.util.function.LongConsumer;
+import java.util.function.BiConsumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -152,7 +152,7 @@ public class StageTaskSourceFactory
             Session session,
             PlanFragment fragment,
             Multimap<PlanFragmentId, ExchangeSourceHandle> exchangeSourceHandles,
-            LongConsumer getSplitTimeRecorder,
+            BiConsumer<PlanNodeId, Long> getSplitTimeRecorder,
             FaultTolerantPartitioningScheme sourcePartitioningScheme)
     {
         PartitioningHandle partitioning = fragment.getPartitioning();
@@ -359,7 +359,7 @@ public class StageTaskSourceFactory
         private final ListMultimap<PlanNodeId, ExchangeSourceHandle> replicatedExchangeSourceHandles;
 
         private final int splitBatchSize;
-        private final LongConsumer getSplitTimeRecorder;
+        private final BiConsumer<PlanNodeId, Long> getSplitTimeRecorder;
         private final FaultTolerantPartitioningScheme sourcePartitioningScheme;
         private final Optional<CatalogHandle> catalogRequirement;
         private final long targetPartitionSourceSizeInBytes; // compared data read from ExchangeSources
@@ -379,7 +379,7 @@ public class StageTaskSourceFactory
                 SplitSourceFactory splitSourceFactory,
                 Multimap<PlanFragmentId, ExchangeSourceHandle> exchangeSourceHandles,
                 int splitBatchSize,
-                LongConsumer getSplitTimeRecorder,
+                BiConsumer<PlanNodeId, Long> getSplitTimeRecorder,
                 FaultTolerantPartitioningScheme sourcePartitioningScheme,
                 long targetPartitionSplitWeight,
                 DataSize targetPartitionSourceSize,
@@ -431,7 +431,7 @@ public class StageTaskSourceFactory
                 ListMultimap<PlanNodeId, ExchangeSourceHandle> partitionedExchangeSourceHandles,
                 ListMultimap<PlanNodeId, ExchangeSourceHandle> replicatedExchangeSourceHandles,
                 int splitBatchSize,
-                LongConsumer getSplitTimeRecorder,
+                BiConsumer<PlanNodeId, Long> getSplitTimeRecorder,
                 FaultTolerantPartitioningScheme sourcePartitioningScheme,
                 Optional<CatalogHandle> catalogRequirement,
                 long targetPartitionSplitWeight,
@@ -642,7 +642,7 @@ public class StageTaskSourceFactory
         private final SplitSource splitSource;
         private final ListMultimap<PlanNodeId, Split> replicatedSplits;
         private final int splitBatchSize;
-        private final LongConsumer getSplitTimeRecorder;
+        private final BiConsumer<PlanNodeId, Long> getSplitTimeRecorder;
         private final Optional<CatalogHandle> catalogRequirement;
         private final int minPartitionSplitCount;
         private final long targetPartitionSplitWeight;
@@ -670,7 +670,7 @@ public class StageTaskSourceFactory
                 Multimap<PlanFragmentId, ExchangeSourceHandle> exchangeSourceHandles,
                 TableExecuteContextManager tableExecuteContextManager,
                 int splitBatchSize,
-                LongConsumer getSplitTimeRecorder,
+                BiConsumer<PlanNodeId, Long> getSplitTimeRecorder,
                 int minPartitionSplitCount,
                 long targetPartitionSplitWeight,
                 int maxPartitionSplitCount,
@@ -711,7 +711,7 @@ public class StageTaskSourceFactory
                 SplitSource splitSource,
                 ListMultimap<PlanNodeId, Split> replicatedSplits,
                 int splitBatchSize,
-                LongConsumer getSplitTimeRecorder,
+                BiConsumer<PlanNodeId, Long> getSplitTimeRecorder,
                 Optional<CatalogHandle> catalogRequirement,
                 int minPartitionSplitCount,
                 long targetPartitionSplitWeight,
@@ -750,7 +750,7 @@ public class StageTaskSourceFactory
             currentSplitBatchFuture = splitSource.getNextBatch(splitBatchSize);
 
             long start = System.nanoTime();
-            addSuccessCallback(currentSplitBatchFuture, () -> getSplitTimeRecorder.accept(start));
+            addSuccessCallback(currentSplitBatchFuture, () -> getSplitTimeRecorder.accept(partitionedSourceNodeId, start));
 
             return Futures.transform(
                     currentSplitBatchFuture,
@@ -956,14 +956,14 @@ public class StageTaskSourceFactory
         private final PlanNodeId planNodeId;
         private final SplitSource splitSource;
         private final int splitBatchSize;
-        private final LongConsumer getSplitTimeRecorder;
+        private final BiConsumer<PlanNodeId, Long> getSplitTimeRecorder;
         private final Executor executor;
         @GuardedBy("this")
         private final List<Split> loadedSplits = new ArrayList<>();
         @GuardedBy("this")
         private ListenableFuture<SplitBatch> currentSplitBatch = immediateFuture(null);
 
-        SplitLoadingFuture(PlanNodeId planNodeId, SplitSource splitSource, int splitBatchSize, LongConsumer getSplitTimeRecorder, Executor executor)
+        SplitLoadingFuture(PlanNodeId planNodeId, SplitSource splitSource, int splitBatchSize, BiConsumer<PlanNodeId, Long> getSplitTimeRecorder, Executor executor)
         {
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.splitSource = requireNonNull(splitSource, "splitSource is null");
@@ -990,7 +990,7 @@ public class StageTaskSourceFactory
                         @Override
                         public void onSuccess(SplitBatch splitBatch)
                         {
-                            getSplitTimeRecorder.accept(start);
+                            getSplitTimeRecorder.accept(planNodeId, start);
                             synchronized (SplitLoadingFuture.this) {
                                 loadedSplits.addAll(splitBatch.getSplits());
 

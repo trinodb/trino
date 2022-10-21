@@ -18,8 +18,9 @@ import io.trino.Session;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanFragmentId;
+import io.trino.sql.planner.plan.PlanNodeId;
 
-import java.util.function.LongConsumer;
+import java.util.function.BiConsumer;
 
 /**
  * Deprecated in favor of {@link EventDrivenTaskSourceFactory}
@@ -31,6 +32,6 @@ public interface TaskSourceFactory
             Session session,
             PlanFragment fragment,
             Multimap<PlanFragmentId, ExchangeSourceHandle> exchangeSourceHandles,
-            LongConsumer getSplitTimeRecorder,
+            BiConsumer<PlanNodeId, Long> getSplitTimeRecorder,
             FaultTolerantPartitioningScheme sourcePartitioningScheme);
 }

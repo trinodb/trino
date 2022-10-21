@@ -41,7 +41,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-import java.util.function.LongConsumer;
+import java.util.function.BiConsumer;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -102,7 +102,7 @@ public class EventDrivenTaskSourceFactory
             PlanFragment fragment,
             Map<PlanFragmentId, Exchange> sourceExchanges,
             FaultTolerantPartitioningScheme sourcePartitioningScheme,
-            LongConsumer getSplitTimeRecorder,
+            BiConsumer<PlanNodeId, Long> getSplitTimeRecorder,
             Map<PlanNodeId, OutputDataSizeEstimate> outputDataSizeEstimates)
     {
         ImmutableMap.Builder<PlanFragmentId, PlanNodeId> remoteSources = ImmutableMap.builder();

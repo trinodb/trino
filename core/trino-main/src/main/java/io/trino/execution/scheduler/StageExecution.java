@@ -58,7 +58,7 @@ public interface StageExecution
 
     void abort();
 
-    void recordGetSplitTime(long start);
+    void recordGetSplitTime(PlanNodeId plainNodeId, long start);
 
     Optional<RemoteTask> scheduleTask(
             InternalNode node,
