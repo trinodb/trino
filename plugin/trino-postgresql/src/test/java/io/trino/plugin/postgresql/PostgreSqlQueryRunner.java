@@ -19,10 +19,12 @@ import io.trino.Session;
 import io.trino.plugin.jmx.JmxPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -42,10 +44,24 @@ public final class PostgreSqlQueryRunner
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
+        return createPostgreSqlQueryRunner(server, extraProperties, Map.of(), connectorProperties, tables, runner -> {});
+    }
+
+    public static DistributedQueryRunner createPostgreSqlQueryRunner(
+            TestingPostgreSqlServer server,
+            Map<String, String> extraProperties,
+            Map<String, String> coordinatorProperties,
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> tables,
+            Consumer<QueryRunner> moreSetup)
+            throws Exception
+    {
         DistributedQueryRunner queryRunner = null;
         try {
             queryRunner = DistributedQueryRunner.builder(createSession())
                     .setExtraProperties(extraProperties)
+                    .setCoordinatorProperties(coordinatorProperties)
+                    .setAdditionalSetup(moreSetup)
                     .build();
 
             queryRunner.installPlugin(new TpchPlugin());
