@@ -252,7 +252,7 @@ public abstract class BaseFailureRecoveryTest
     public void testUserFailure()
     {
         assertThatThrownBy(() -> getQueryRunner().execute("SELECT * FROM nation WHERE regionKey / nationKey - 1 = 0"))
-                .hasMessageContaining("Division by zero");
+                .hasMessageMatching("(?i).*Division by zero.*"); // some errors come back with different casing.
 
         assertThatQuery("SELECT * FROM nation")
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.USER_ERROR))
