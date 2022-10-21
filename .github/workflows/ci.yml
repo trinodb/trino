@@ -486,7 +486,7 @@ jobs:
           EOF
           ./.github/bin/build-matrix-from-impacted.py -v -i gib-impacted.log -m .github/test-matrix.yaml -o matrix.json
           echo "Matrix: $(jq '.' matrix.json)"
-          echo "::set-output name=matrix::$(jq -c '.' matrix.json)"
+          echo "matrix=$(jq -c '.' matrix.json)" >> $GITHUB_OUTPUT
 
   test:
     runs-on: ubuntu-latest
@@ -798,7 +798,7 @@ jobs:
       - id: set-matrix
         run: |
           echo "Matrix: $(jq '.' matrix.json)"
-          echo "::set-output name=matrix::$(cat matrix.json)"
+          echo "matrix=$(cat matrix.json)" >> $GITHUB_OUTPUT
       - name: Clean local Maven repo
         # Avoid creating a cache entry because this job doesn't download all dependencies
         if: steps.cache.outputs.cache-hit != 'true'
