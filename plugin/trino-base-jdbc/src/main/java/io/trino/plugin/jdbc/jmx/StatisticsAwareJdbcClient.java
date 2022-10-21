@@ -265,9 +265,9 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
+    public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
     {
-        stats.getCommitCreateTable().wrap(() -> delegate().commitCreateTable(session, handle));
+        stats.getCommitCreateTable().wrap(() -> delegate().commitCreateTable(session, handle, pageSinkIds));
     }
 
     @Override
@@ -277,9 +277,9 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle)
+    public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
     {
-        stats.getFinishInsertTable().wrap(() -> delegate().finishInsertTable(session, handle));
+        stats.getFinishInsertTable().wrap(() -> delegate().finishInsertTable(session, handle, pageSinkIds));
     }
 
     @Override
@@ -292,6 +292,12 @@ public final class StatisticsAwareJdbcClient
     public void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
         stats.getRollbackCreateTable().wrap(() -> delegate().rollbackCreateTable(session, handle));
+    }
+
+    @Override
+    public boolean supportsRetries()
+    {
+        return delegate().supportsRetries();
     }
 
     @Override

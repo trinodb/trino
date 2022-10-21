@@ -284,7 +284,7 @@ public class PostgreSqlClient
             TypeManager typeManager,
             IdentifierMapping identifierMapping)
     {
-        super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
+        super(config, "\"", connectionFactory, queryBuilder, identifierMapping, true);
         this.jsonType = typeManager.getType(new TypeSignature(JSON));
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
         this.varcharMapType = (MapType) typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
