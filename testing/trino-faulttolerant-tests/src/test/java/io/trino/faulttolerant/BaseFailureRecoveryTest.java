@@ -501,7 +501,7 @@ public abstract class BaseFailureRecoveryTest
     {
         private final String query;
         private Session session = getQueryRunner().getDefaultSession();
-        private Optional<Function<MaterializedResult, Integer>> stageSelector;
+        private Optional<Function<MaterializedResult, Integer>> stageSelector = Optional.empty();
         private Optional<InjectedFailureType> failureType = Optional.empty();
         private Optional<ErrorType> errorType = Optional.empty();
         private Optional<String> setup = Optional.empty();
@@ -630,6 +630,17 @@ public abstract class BaseFailureRecoveryTest
             }
 
             return new ExecutionResult(resultWithQueryId, updatedTableContent, updatedTableStatistics);
+        }
+
+        public void isCoordinatorOnly()
+        {
+            verifyFailureTypeAndStageSelector();
+            ExecutionResult result = executeExpected();
+            StageStats rootStage = result.getQueryResult().getStatementStats().get().getRootStage();
+            List<StageStats> subStages = rootStage.getSubStages();
+
+            assertThat(rootStage.isCoordinatorOnly()).isTrue();
+            assertThat(subStages).isEmpty();
         }
 
         public void finishesSuccessfully()

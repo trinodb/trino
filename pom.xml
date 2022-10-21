@@ -442,6 +442,13 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-mysql</artifactId>
+                <type>test-jar</type>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-orc</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -499,6 +506,19 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-plugin-toolkit</artifactId>
+                <type>test-jar</type>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-postgresql</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-postgresql</artifactId>
                 <type>test-jar</type>
                 <version>${project.version}</version>
             </dependency>

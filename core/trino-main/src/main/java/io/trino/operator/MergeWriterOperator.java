@@ -17,6 +17,7 @@ import io.trino.Session;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorMergeSink;
+import io.trino.split.PageSinkId;
 import io.trino.split.PageSinkManager;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
@@ -59,7 +60,7 @@ public class MergeWriterOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, MergeWriterOperator.class.getSimpleName());
-            ConnectorMergeSink mergeSink = pageSinkManager.createMergeSink(session, target.getMergeHandle().orElseThrow());
+            ConnectorMergeSink mergeSink = pageSinkManager.createMergeSink(session, target.getMergeHandle().orElseThrow(), PageSinkId.fromTaskId(driverContext.getTaskId()));
             return new MergeWriterOperator(context, mergeSink, pagePreprocessor);
         }
 

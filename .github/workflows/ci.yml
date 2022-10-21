@@ -103,7 +103,7 @@ jobs:
         run: |
           set -x
           # Fake identity to tag rebased commits with.
-          # These commits will be discarded, but the important part is that `git rebase` executes commands between all commits. 
+          # These commits will be discarded, but the important part is that `git rebase` executes commands between all commits.
           git config user.name "Compile all commits builder"
           git config user.email "compile-all-commits@trino.io"
           # Show the entire PR branch and the base ref all the way to the fork point.
@@ -477,6 +477,8 @@ jobs:
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive-1 }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive-2 }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-iceberg }
+            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-postgresql }
+            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-mysql }
             - { modules: testing/trino-tests }
           EOF
           ./.github/bin/build-matrix-from-impacted.py -v -i gib-impacted.log -m .github/test-matrix.yaml -o matrix.json
