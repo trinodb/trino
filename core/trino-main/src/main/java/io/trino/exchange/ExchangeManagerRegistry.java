@@ -20,6 +20,7 @@ import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.exchange.ExchangeManagerFactory;
 
+import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.io.File;
@@ -104,6 +105,19 @@ public class ExchangeManagerRegistry
             throw new TrinoException(EXCHANGE_MANAGER_NOT_CONFIGURED, "Exchange manager must be configured for the failure recovery capabilities to be fully functional");
         }
         return exchangeManager;
+    }
+
+    @PreDestroy
+    public void shutdown()
+    {
+        try {
+            if (this.exchangeManager != null) {
+                exchangeManager.shutdown();
+            }
+        }
+        catch (Throwable t) {
+            log.error(t, "Error shutting down exchange manager: %s", exchangeManager);
+        }
     }
 
     private static Map<String, String> loadProperties(File configFile)
