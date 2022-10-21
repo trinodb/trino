@@ -214,7 +214,7 @@ public class SqlServerAuthenticationModule
         public void setup(Binder binder)
         {
             install(new AuthToLocalModule());
-            binder.install(new AuthenticationBasedIdentityCacheMappingModule());
+            install(new AuthenticationBasedIdentityCacheMappingModule());
             binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).to(SqlServerImpersonatingConnectionFactory.class).in(SINGLETON);
         }
     }
