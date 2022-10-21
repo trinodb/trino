@@ -447,7 +447,11 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes>
-                                <exclude>**/io/trino/faulttolerant/Test*.java</exclude>
+                                <exclude>**/io/trino/faulttolerant/delta/Test*.java</exclude>
+                                <exclude>**/io/trino/faulttolerant/hive/Test*.java</exclude>
+                                <exclude>**/io/trino/faulttolerant/iceberg/Test*.java</exclude>
+                                <exclude>**/io/trino/faulttolerant/mysql/Test*.java</exclude>
+                                <exclude>**/io/trino/faulttolerant/postgresql/Test*.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -541,7 +545,7 @@
                         <configuration>
                             <threadCount>4</threadCount>
                             <includes>
-                                <include>**/io/trino/faulttolerant/postgresql/Test*FailureRecoveryTest.java</include>
+                                <include>**/io/trino/faulttolerant/postgresql/Test*.java</include>
                             </includes>
                         </configuration>
                     </plugin>
@@ -559,7 +563,7 @@
                         <configuration>
                             <threadCount>4</threadCount>
                             <includes>
-                                <include>**/io/trino/faulttolerant/mysql/Test*FailureRecoveryTest.java</include>
+                                <include>**/io/trino/faulttolerant/mysql/Test*.java</include>
                             </includes>
                         </configuration>
                     </plugin>
