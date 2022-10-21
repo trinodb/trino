@@ -14,13 +14,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Get milestone from pom.xml
         run: |
           .github/bin/retry ./mvnw -v
           echo "MILESTONE_NUMBER=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout | cut -d- -f1)" >> $GITHUB_ENV
       - name: Set milestone to PR
-        uses: actions/github-script@v4
+        uses: actions/github-script@v6
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
