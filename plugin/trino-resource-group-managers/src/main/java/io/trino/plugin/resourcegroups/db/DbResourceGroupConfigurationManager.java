@@ -73,6 +73,7 @@ public class DbResourceGroupConfigurationManager
     private static final Logger log = Logger.get(DbResourceGroupConfigurationManager.class);
     private final ResourceGroupsDao dao;
     private final ConcurrentMap<ResourceGroupId, ResourceGroup> groups = new ConcurrentHashMap<>();
+    private final int maxInterval;
     @GuardedBy("this")
     private Map<ResourceGroupIdTemplate, ResourceGroupSpec> resourceGroupSpecs = new HashMap<>();
     private final ConcurrentMap<ResourceGroupIdTemplate, List<ResourceGroupId>> configuredGroups = new ConcurrentHashMap<>();
@@ -97,6 +98,7 @@ public class DbResourceGroupConfigurationManager
         this.maxRefreshInterval = config.getMaxRefreshInterval();
         this.exactMatchSelectorEnabled = config.getExactMatchSelectorEnabled();
         this.dao = dao;
+        this.maxInterval = config.getMaxInterval();
         load();
     }
 
@@ -129,7 +131,7 @@ public class DbResourceGroupConfigurationManager
     public void start()
     {
         if (started.compareAndSet(false, true)) {
-            configExecutor.scheduleWithFixedDelay(this::load, 1, 1, TimeUnit.SECONDS);
+            configExecutor.scheduleWithFixedDelay(this::load, maxInterval, maxInterval, TimeUnit.SECONDS);
         }
     }
 
