@@ -1,0 +1,15 @@
+syntax = "proto2";
+
+message schema {
+  optional string stringColumn = 1 [default = "Default"];
+  optional uint32 integerColumn = 2 [default = 314];
+  optional uint64 longColumn = 3 [default = 314];
+  optional double doubleColumn = 4 [default = 3.14];
+  optional float floatColumn = 5;
+  optional bool booleanColumn = 6;
+  enum Number {
+    ONE = 0;
+    TWO = 2;
+  };
+  optional Number numberColumn = 7;
+}

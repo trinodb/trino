@@ -1,0 +1,41 @@
+{
+  "tableName": "read_basic_datatypes_protobuf",
+  "schemaName": "product_tests",
+  "topicName": "read_basic_datatypes_protobuf",
+  "message": {
+    "dataFormat": "protobuf",
+    "dataSchema": "/docker/presto-product-tests/conf/presto/etc/catalog/kafka/basic_datatypes.proto",
+    "fields": [
+      {
+        "name": "a_varchar",
+        "type": "VARCHAR",
+        "mapping": "a_varchar"
+      },
+      {
+        "name": "b_integer",
+        "type": "INTEGER",
+        "mapping": "b_integer"
+      },
+      {
+        "name": "c_bigint",
+        "type": "BIGINT",
+        "mapping": "c_bigint"
+      },
+      {
+        "name": "d_double",
+        "type": "DOUBLE",
+        "mapping": "d_double"
+      },
+      {
+        "name": "e_real",
+        "type": "REAL",
+        "mapping": "e_float"
+      },
+      {
+        "name": "f_boolean",
+        "type": "BOOLEAN",
+        "mapping": "f_boolean"
+      }
+    ]
+  }
+}

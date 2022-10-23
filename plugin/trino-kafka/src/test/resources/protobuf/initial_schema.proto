@@ -1,0 +1,6 @@
+syntax = "proto3";
+
+message schema {
+  string col_1 = 1 ;
+  uint64 col_2 = 2;
+}
