@@ -19,6 +19,7 @@ import io.trino.plugin.jdbc.DefaultJdbcMetadata;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcNamedRelationHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
+import io.trino.plugin.jdbc.QueryEventListener;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
@@ -51,6 +52,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -74,9 +76,9 @@ public class PhoenixMetadata
     private final IdentifierMapping identifierMapping;
 
     @Inject
-    public PhoenixMetadata(PhoenixClient phoenixClient, IdentifierMapping identifierMapping)
+    public PhoenixMetadata(PhoenixClient phoenixClient, IdentifierMapping identifierMapping, Set<QueryEventListener> queryEventListeners)
     {
-        super(phoenixClient, false);
+        super(phoenixClient, false, queryEventListeners);
         this.phoenixClient = requireNonNull(phoenixClient, "phoenixClient is null");
         this.identifierMapping = requireNonNull(identifierMapping, "identifierMapping is null");
     }

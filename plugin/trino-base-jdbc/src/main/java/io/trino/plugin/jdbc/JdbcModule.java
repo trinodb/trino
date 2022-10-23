@@ -106,6 +106,8 @@ public class JdbcModule
                 .setDefault()
                 .toProvider(MoreExecutors::newDirectExecutorService)
                 .in(Scopes.SINGLETON);
+
+        newSetBinder(binder, QueryEventListener.class);
     }
 
     public static Multibinder<SessionPropertiesProvider> sessionPropertiesProviderBinder(Binder binder)
