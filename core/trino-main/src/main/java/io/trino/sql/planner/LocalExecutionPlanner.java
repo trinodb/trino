@@ -3533,7 +3533,6 @@ public class LocalExecutionPlanner
                     Optional.empty(),
                     maxLocalExchangeBufferSize,
                     blockTypeOperators,
-                    context.getTaskContext()::getPhysicalWrittenDataSize,
                     getWriterMinSize(session));
 
             List<Symbol> expectedLayout = node.getInputs().get(0);
@@ -3611,7 +3610,6 @@ public class LocalExecutionPlanner
                     hashChannel,
                     maxLocalExchangeBufferSize,
                     blockTypeOperators,
-                    context.getTaskContext()::getPhysicalWrittenDataSize,
                     getWriterMinSize(session));
             for (int i = 0; i < node.getSources().size(); i++) {
                 DriverFactoryParameters driverFactoryParameters = driverFactoryParametersList.get(i);

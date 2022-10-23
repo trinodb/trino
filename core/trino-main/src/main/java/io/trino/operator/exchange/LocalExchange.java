@@ -13,7 +13,6 @@
  */
 package io.trino.operator.exchange;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.XxHash64;
@@ -41,6 +40,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -67,6 +67,9 @@ public class LocalExchange
 
     private final LocalExchangeMemoryManager memoryManager;
 
+    // Physical written bytes for each writer in the same order as source buffers
+    private final List<Supplier<Long>> physicalWrittenBytesSuppliers = new CopyOnWriteArrayList<>();
+
     @GuardedBy("this")
     private boolean allSourcesFinished;
 
@@ -92,7 +95,6 @@ public class LocalExchange
             Optional<Integer> partitionHashChannel,
             DataSize maxBufferedBytes,
             BlockTypeOperators blockTypeOperators,
-            Supplier<Long> physicalWrittenBytesSupplier,
             DataSize writerMinSize)
     {
         ImmutableList.Builder<LocalExchangeSource> sources = ImmutableList.builder();
@@ -128,7 +130,14 @@ public class LocalExchange
                     buffers,
                     memoryManager,
                     maxBufferedBytes.toBytes(),
-                    physicalWrittenBytesSupplier,
+                    () -> {
+                        // Avoid using stream api for performance reasons
+                        long physicalWrittenBytes = 0;
+                        for (Supplier<Long> physicalWrittenBytesSupplier : physicalWrittenBytesSuppliers) {
+                            physicalWrittenBytes += physicalWrittenBytesSupplier.get();
+                        }
+                        return physicalWrittenBytes;
+                    },
                     writerMinSize);
         }
         else if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.getCatalogHandle().isPresent() ||
@@ -173,18 +182,13 @@ public class LocalExchange
         return newFactory;
     }
 
-    public synchronized LocalExchangeSource getNextSource()
+    public synchronized LocalExchangeSource getNextSource(Supplier<Long> physicalWrittenBytesSupplier)
     {
         checkState(nextSourceIndex < sources.size(), "All operators already created");
         LocalExchangeSource result = sources.get(nextSourceIndex);
+        physicalWrittenBytesSuppliers.add(physicalWrittenBytesSupplier);
         nextSourceIndex++;
         return result;
-    }
-
-    @VisibleForTesting
-    LocalExchangeSource getSource(int partitionIndex)
-    {
-        return sources.get(partitionIndex);
     }
 
     private static Function<Page, Page> createPartitionPagePreparer(PartitioningHandle partitioning, List<Integer> partitionChannels)
