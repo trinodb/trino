@@ -50,7 +50,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
@@ -79,7 +78,6 @@ public class TestLocalExchange
     private static final DataSize LOCAL_EXCHANGE_MAX_BUFFERED_BYTES = DataSize.of(32, DataSize.Unit.MEGABYTE);
     private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(new TypeOperators());
     private static final Session SESSION = testSessionBuilder().build();
-    private static final Supplier<Long> PHYSICAL_WRITTEN_BYTES_SUPPLIER = () -> DataSize.of(32, DataSize.Unit.MEGABYTE).toBytes();
     private static final DataSize WRITER_MIN_SIZE = DataSize.of(32, DataSize.Unit.MEGABYTE);
 
     private final ConcurrentMap<CatalogHandle, ConnectorNodePartitioningProvider> partitionManagers = new ConcurrentHashMap<>();
@@ -115,7 +113,6 @@ public class TestLocalExchange
                 Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(99)),
                 TYPE_OPERATOR_FACTORY,
-                PHYSICAL_WRITTEN_BYTES_SUPPLIER,
                 WRITER_MIN_SIZE);
 
         run(localExchange, exchange -> {
@@ -125,7 +122,7 @@ public class TestLocalExchange
             LocalExchangeSinkFactory sinkFactory = exchange.createSinkFactory();
             sinkFactory.noMoreSinkFactories();
 
-            LocalExchangeSource source = exchange.getSource(0);
+            LocalExchangeSource source = getNextSource(exchange);
             assertSource(source, 0);
 
             LocalExchangeSink sink = sinkFactory.createSink();
@@ -189,7 +186,6 @@ public class TestLocalExchange
                 Optional.empty(),
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATOR_FACTORY,
-                PHYSICAL_WRITTEN_BYTES_SUPPLIER,
                 WRITER_MIN_SIZE);
 
         run(localExchange, exchange -> {
@@ -204,10 +200,10 @@ public class TestLocalExchange
             assertSinkCanWrite(sinkB);
             sinkFactory.close();
 
-            LocalExchangeSource sourceA = exchange.getSource(0);
+            LocalExchangeSource sourceA = getNextSource(exchange);
             assertSource(sourceA, 0);
 
-            LocalExchangeSource sourceB = exchange.getSource(1);
+            LocalExchangeSource sourceB = getNextSource(exchange);
             assertSource(sourceB, 0);
 
             sinkA.addPage(createPage(0));
@@ -278,7 +274,6 @@ public class TestLocalExchange
                 Optional.empty(),
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATOR_FACTORY,
-                PHYSICAL_WRITTEN_BYTES_SUPPLIER,
                 WRITER_MIN_SIZE);
 
         run(localExchange, exchange -> {
@@ -291,10 +286,10 @@ public class TestLocalExchange
             assertSinkCanWrite(sink);
             sinkFactory.close();
 
-            LocalExchangeSource sourceA = exchange.getSource(0);
+            LocalExchangeSource sourceA = getNextSource(exchange);
             assertSource(sourceA, 0);
 
-            LocalExchangeSource sourceB = exchange.getSource(1);
+            LocalExchangeSource sourceB = getNextSource(exchange);
             assertSource(sourceB, 0);
 
             for (int i = 0; i < 100; i++) {
@@ -318,7 +313,6 @@ public class TestLocalExchange
     @Test
     public void testScaleWriter()
     {
-        AtomicLong physicalWrittenBytes = new AtomicLong(0);
         LocalExchange localExchange = new LocalExchange(
                 nodePartitioningManager,
                 SESSION,
@@ -329,7 +323,6 @@ public class TestLocalExchange
                 Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(4)),
                 TYPE_OPERATOR_FACTORY,
-                physicalWrittenBytes::get,
                 DataSize.ofBytes(retainedSizeOfPages(2)));
 
         run(localExchange, exchange -> {
@@ -342,13 +335,16 @@ public class TestLocalExchange
             assertSinkCanWrite(sink);
             sinkFactory.close();
 
-            LocalExchangeSource sourceA = exchange.getSource(0);
+            AtomicLong physicalWrittenBytesA = new AtomicLong(0);
+            LocalExchangeSource sourceA = exchange.getNextSource(physicalWrittenBytesA::get);
             assertSource(sourceA, 0);
 
-            LocalExchangeSource sourceB = exchange.getSource(1);
+            AtomicLong physicalWrittenBytesB = new AtomicLong(0);
+            LocalExchangeSource sourceB = exchange.getNextSource(physicalWrittenBytesB::get);
             assertSource(sourceB, 0);
 
-            LocalExchangeSource sourceC = exchange.getSource(2);
+            AtomicLong physicalWrittenBytesC = new AtomicLong(0);
+            LocalExchangeSource sourceC = exchange.getNextSource(physicalWrittenBytesC::get);
             assertSource(sourceC, 0);
 
             sink.addPage(createPage(0));
@@ -358,7 +354,7 @@ public class TestLocalExchange
             assertEquals(sourceC.getBufferInfo().getBufferedPages(), 0);
 
             // writer min file and buffered data size limits are exceeded, so we should see pages in sourceB
-            physicalWrittenBytes.set(retainedSizeOfPages(2));
+            physicalWrittenBytesA.set(retainedSizeOfPages(2));
             sink.addPage(createPage(0));
             assertEquals(sourceA.getBufferInfo().getBufferedPages(), 2);
             assertEquals(sourceB.getBufferInfo().getBufferedPages(), 1);
@@ -368,7 +364,7 @@ public class TestLocalExchange
             assertRemovePage(sourceA, createPage(0));
 
             // no limit is breached, so we should see round-robin distribution across sourceA and sourceB
-            physicalWrittenBytes.set(retainedSizeOfPages(3));
+            physicalWrittenBytesB.set(retainedSizeOfPages(1));
             sink.addPage(createPage(0));
             sink.addPage(createPage(0));
             sink.addPage(createPage(0));
@@ -378,7 +374,8 @@ public class TestLocalExchange
 
             // writer min file and buffered data size limits are exceeded again, but according to
             // round-robin sourceB should receive a page
-            physicalWrittenBytes.set(retainedSizeOfPages(6));
+            physicalWrittenBytesA.set(retainedSizeOfPages(4));
+            physicalWrittenBytesB.set(retainedSizeOfPages(2));
             sink.addPage(createPage(0));
             assertEquals(sourceA.getBufferInfo().getBufferedPages(), 2);
             assertEquals(sourceB.getBufferInfo().getBufferedPages(), 3);
@@ -388,7 +385,7 @@ public class TestLocalExchange
             assertRemoveAllPages(sourceA, createPage(0));
 
             // sourceC should receive a page
-            physicalWrittenBytes.set(retainedSizeOfPages(7));
+            physicalWrittenBytesB.set(retainedSizeOfPages(3));
             sink.addPage(createPage(0));
             assertEquals(sourceA.getBufferInfo().getBufferedPages(), 0);
             assertEquals(sourceB.getBufferInfo().getBufferedPages(), 3);
@@ -399,7 +396,6 @@ public class TestLocalExchange
     @Test
     public void testNoWriterScalingWhenOnlyBufferSizeLimitIsExceeded()
     {
-        AtomicLong physicalWrittenBytes = new AtomicLong(0);
         LocalExchange localExchange = new LocalExchange(
                 nodePartitioningManager,
                 SESSION,
@@ -410,7 +406,6 @@ public class TestLocalExchange
                 Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(4)),
                 TYPE_OPERATOR_FACTORY,
-                physicalWrittenBytes::get,
                 DataSize.ofBytes(retainedSizeOfPages(2)));
 
         run(localExchange, exchange -> {
@@ -423,13 +418,13 @@ public class TestLocalExchange
             assertSinkCanWrite(sink);
             sinkFactory.close();
 
-            LocalExchangeSource sourceA = exchange.getSource(0);
+            LocalExchangeSource sourceA = getNextSource(exchange);
             assertSource(sourceA, 0);
 
-            LocalExchangeSource sourceB = exchange.getSource(1);
+            LocalExchangeSource sourceB = getNextSource(exchange);
             assertSource(sourceB, 0);
 
-            LocalExchangeSource sourceC = exchange.getSource(2);
+            LocalExchangeSource sourceC = getNextSource(exchange);
             assertSource(sourceC, 0);
 
             range(0, 6).forEach(i -> sink.addPage(createPage(0)));
@@ -442,7 +437,6 @@ public class TestLocalExchange
     @Test
     public void testNoWriterScalingWhenOnlyWriterMinSizeLimitIsExceeded()
     {
-        AtomicLong physicalWrittenBytes = new AtomicLong(0);
         LocalExchange localExchange = new LocalExchange(
                 nodePartitioningManager,
                 SESSION,
@@ -453,7 +447,6 @@ public class TestLocalExchange
                 Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(20)),
                 TYPE_OPERATOR_FACTORY,
-                physicalWrittenBytes::get,
                 DataSize.ofBytes(retainedSizeOfPages(2)));
 
         run(localExchange, exchange -> {
@@ -466,17 +459,18 @@ public class TestLocalExchange
             assertSinkCanWrite(sink);
             sinkFactory.close();
 
-            LocalExchangeSource sourceA = exchange.getSource(0);
+            AtomicLong physicalWrittenBytesA = new AtomicLong(0);
+            LocalExchangeSource sourceA = exchange.getNextSource(physicalWrittenBytesA::get);
             assertSource(sourceA, 0);
 
-            LocalExchangeSource sourceB = exchange.getSource(1);
+            LocalExchangeSource sourceB = getNextSource(exchange);
             assertSource(sourceB, 0);
 
-            LocalExchangeSource sourceC = exchange.getSource(2);
+            LocalExchangeSource sourceC = getNextSource(exchange);
             assertSource(sourceC, 0);
 
             range(0, 8).forEach(i -> sink.addPage(createPage(0)));
-            physicalWrittenBytes.set(retainedSizeOfPages(8));
+            physicalWrittenBytesA.set(retainedSizeOfPages(8));
             sink.addPage(createPage(0));
             assertEquals(sourceA.getBufferInfo().getBufferedPages(), 9);
             assertEquals(sourceB.getBufferInfo().getBufferedPages(), 0);
@@ -497,7 +491,6 @@ public class TestLocalExchange
                 Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(1)),
                 TYPE_OPERATOR_FACTORY,
-                PHYSICAL_WRITTEN_BYTES_SUPPLIER,
                 WRITER_MIN_SIZE);
 
         run(localExchange, exchange -> {
@@ -512,10 +505,10 @@ public class TestLocalExchange
             assertSinkCanWrite(sinkB);
             sinkFactory.close();
 
-            LocalExchangeSource sourceA = exchange.getSource(0);
+            LocalExchangeSource sourceA = getNextSource(exchange);
             assertSource(sourceA, 0);
 
-            LocalExchangeSource sourceB = exchange.getSource(1);
+            LocalExchangeSource sourceB = getNextSource(exchange);
             assertSource(sourceB, 0);
 
             sinkA.addPage(createPage(0));
@@ -565,7 +558,6 @@ public class TestLocalExchange
                 Optional.empty(),
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATOR_FACTORY,
-                PHYSICAL_WRITTEN_BYTES_SUPPLIER,
                 WRITER_MIN_SIZE);
 
         run(localExchange, exchange -> {
@@ -578,10 +570,10 @@ public class TestLocalExchange
             assertSinkCanWrite(sink);
             sinkFactory.close();
 
-            LocalExchangeSource sourceA = exchange.getSource(0);
+            LocalExchangeSource sourceA = getNextSource(exchange);
             assertSource(sourceA, 0);
 
-            LocalExchangeSource sourceB = exchange.getSource(1);
+            LocalExchangeSource sourceB = getNextSource(exchange);
             assertSource(sourceB, 0);
 
             sink.addPage(createPage(0));
@@ -662,7 +654,6 @@ public class TestLocalExchange
                 Optional.empty(),
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATOR_FACTORY,
-                PHYSICAL_WRITTEN_BYTES_SUPPLIER,
                 WRITER_MIN_SIZE);
 
         run(localExchange, exchange -> {
@@ -675,11 +666,11 @@ public class TestLocalExchange
             assertSinkCanWrite(sink);
             sinkFactory.close();
 
-            LocalExchangeSource sourceA = exchange.getSource(1);
-            assertSource(sourceA, 0);
-
-            LocalExchangeSource sourceB = exchange.getSource(0);
+            LocalExchangeSource sourceB = getNextSource(exchange);
             assertSource(sourceB, 0);
+
+            LocalExchangeSource sourceA = getNextSource(exchange);
+            assertSource(sourceA, 0);
 
             Page pageA = SequencePageBuilder.createSequencePage(types, 1, 100, 42);
             sink.addPage(pageA);
@@ -714,7 +705,6 @@ public class TestLocalExchange
                 Optional.empty(),
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATOR_FACTORY,
-                PHYSICAL_WRITTEN_BYTES_SUPPLIER,
                 WRITER_MIN_SIZE);
 
         run(localExchange, exchange -> {
@@ -729,10 +719,10 @@ public class TestLocalExchange
             assertSinkCanWrite(sinkB);
             sinkFactory.close();
 
-            LocalExchangeSource sourceA = exchange.getSource(0);
+            LocalExchangeSource sourceA = getNextSource(exchange);
             assertSource(sourceA, 0);
 
-            LocalExchangeSource sourceB = exchange.getSource(1);
+            LocalExchangeSource sourceB = getNextSource(exchange);
             assertSource(sourceB, 0);
 
             sourceA.finish();
@@ -762,7 +752,6 @@ public class TestLocalExchange
                 Optional.empty(),
                 DataSize.ofBytes(1),
                 TYPE_OPERATOR_FACTORY,
-                PHYSICAL_WRITTEN_BYTES_SUPPLIER,
                 WRITER_MIN_SIZE);
 
         run(localExchange, exchange -> {
@@ -783,10 +772,10 @@ public class TestLocalExchange
 
             sinkFactory.close();
 
-            LocalExchangeSource sourceA = exchange.getSource(0);
+            LocalExchangeSource sourceA = getNextSource(exchange);
             assertSource(sourceA, 0);
 
-            LocalExchangeSource sourceB = exchange.getSource(1);
+            LocalExchangeSource sourceB = getNextSource(exchange);
             assertSource(sourceB, 0);
 
             sinkA.addPage(createPage(0));
@@ -826,6 +815,11 @@ public class TestLocalExchange
     private void run(LocalExchange localExchange, Consumer<LocalExchange> test)
     {
         test.accept(localExchange);
+    }
+
+    private LocalExchangeSource getNextSource(LocalExchange exchange)
+    {
+        return exchange.getNextSource(() -> DataSize.of(0, DataSize.Unit.MEGABYTE).toBytes());
     }
 
     private static void assertSource(LocalExchangeSource source, int pageCount)
