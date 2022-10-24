@@ -43,8 +43,13 @@ depending on the desired :ref:`retry policy <fte-retry-policy>`.
   * Fault-tolerant execution of :ref:`read operations <sql-read-operations>` is
     supported by all connectors.
   * Fault tolerant execution of :ref:`write operations <sql-write-operations>`
-    is only supported by the :doc:`/connector/delta-lake`,
-    :doc:`/connector/hive`, and :doc:`/connector/iceberg`.
+    is supported by the following connectors:
+
+    * :doc:`/connector/delta-lake`
+    * :doc:`/connector/hive`
+    * :doc:`/connector/iceberg`
+    * :doc:`/connector/mysql`
+    * :doc:`/connector/postgresql`
 
 The following configuration properties control the behavior of fault-tolerant
 execution on a Trino cluster:
