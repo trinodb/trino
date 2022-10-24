@@ -76,7 +76,7 @@ import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewAdditionalProperties.STORAGE_SCHEMA;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.encodeMaterializedViewData;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.fromConnectorMaterializedViewDefinition;
-import static io.trino.plugin.iceberg.IcebergSchemaProperties.getSchemaLocation;
+import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getHiveCatalogName;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.isIcebergTable;
@@ -177,24 +177,28 @@ public class TrinoHiveCatalog
     @Override
     public void createNamespace(ConnectorSession session, String namespace, Map<String, Object> properties, TrinoPrincipal owner)
     {
-        Optional<String> location = getSchemaLocation(properties).map(uri -> {
-            try {
-                fileSystemFactory.create(session).newInputFile(uri).exists();
+        Database.Builder database = Database.builder()
+                .setDatabaseName(namespace)
+                .setOwnerType(isUsingSystemSecurity ? Optional.empty() : Optional.of(owner.getType()))
+                .setOwnerName(isUsingSystemSecurity ? Optional.empty() : Optional.of(owner.getName()));
+
+        properties.forEach((property, value) -> {
+            switch (property) {
+                case LOCATION_PROPERTY -> {
+                    String location = (String) value;
+                    try {
+                        fileSystemFactory.create(session).newInputFile(location).exists();
+                    }
+                    catch (IOException e) {
+                        throw new TrinoException(INVALID_SCHEMA_PROPERTY, "Invalid location URI: " + location, e);
+                    }
+                    database.setLocation(Optional.of(location));
+                }
+                default -> throw new IllegalArgumentException("Unrecognized property: " + property);
             }
-            catch (IOException e) {
-                throw new TrinoException(INVALID_SCHEMA_PROPERTY, "Invalid location URI: " + uri, e);
-            }
-            return uri;
         });
 
-        Database database = Database.builder()
-                .setDatabaseName(namespace)
-                .setLocation(location)
-                .setOwnerType(isUsingSystemSecurity ? Optional.empty() : Optional.of(owner.getType()))
-                .setOwnerName(isUsingSystemSecurity ? Optional.empty() : Optional.of(owner.getName()))
-                .build();
-
-        metastore.createDatabase(database);
+        metastore.createDatabase(database.build());
     }
 
     @Override
