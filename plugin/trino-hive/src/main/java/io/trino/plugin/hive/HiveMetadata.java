@@ -2338,10 +2338,6 @@ public class HiveMetadata
             throw new TrinoException(NOT_SUPPORTED, "OPTIMIZE procedure must be explicitly enabled via " + NON_TRANSACTIONAL_OPTIMIZE_ENABLED + " session property");
         }
 
-        if (retryMode != NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "OPTIMIZE procedure is not supported with query retries enabled");
-        }
-
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
         SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
 
