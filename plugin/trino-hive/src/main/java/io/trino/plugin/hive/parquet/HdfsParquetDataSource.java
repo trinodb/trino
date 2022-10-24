@@ -14,13 +14,12 @@
 package io.trino.plugin.hive.parquet;
 
 import io.airlift.slice.Slice;
-import io.trino.hdfs.FSDataInputStreamTail;
+import io.trino.filesystem.TrinoInput;
 import io.trino.parquet.AbstractParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.spi.TrinoException;
-import org.apache.hadoop.fs.FSDataInputStream;
 
 import java.io.IOException;
 
@@ -30,18 +29,18 @@ import static java.lang.String.format;
 public class HdfsParquetDataSource
         extends AbstractParquetDataSource
 {
-    private final FSDataInputStream inputStream;
+    private final TrinoInput input;
     private final FileFormatDataSourceStats stats;
 
     public HdfsParquetDataSource(
             ParquetDataSourceId id,
             long estimatedSize,
-            FSDataInputStream inputStream,
+            TrinoInput input,
             FileFormatDataSourceStats stats,
             ParquetReaderOptions options)
     {
         super(id, estimatedSize, options);
-        this.inputStream = inputStream;
+        this.input = input;
         this.stats = stats;
     }
 
@@ -49,7 +48,7 @@ public class HdfsParquetDataSource
     public void close()
             throws IOException
     {
-        inputStream.close();
+        input.close();
     }
 
     @Override
@@ -58,8 +57,7 @@ public class HdfsParquetDataSource
         try {
             //  Handle potentially imprecise file lengths by reading the footer
             long readStart = System.nanoTime();
-            FSDataInputStreamTail fileTail = FSDataInputStreamTail.readTail(getId().toString(), getEstimatedSize(), inputStream, length);
-            Slice tailSlice = fileTail.getTailSlice();
+            Slice tailSlice = input.readTail(length);
             stats.readDataBytesPerSecond(tailSlice.length(), System.nanoTime() - readStart);
             return tailSlice;
         }
@@ -73,7 +71,7 @@ public class HdfsParquetDataSource
     {
         try {
             long readStart = System.nanoTime();
-            inputStream.readFully(position, buffer, bufferOffset, bufferLength);
+            input.readFully(position, buffer, bufferOffset, bufferLength);
             stats.readDataBytesPerSecond(bufferLength, System.nanoTime() - readStart);
         }
         catch (IOException e) {

@@ -22,6 +22,8 @@ import io.airlift.concurrent.MoreFutures;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.parquet.writer.ParquetSchemaConverter;
@@ -99,6 +101,7 @@ public class DeltaLakePageSink
 
     private final PageIndexer pageIndexer;
     private final HdfsEnvironment hdfsEnvironment;
+    private final TrinoFileSystemFactory fileSystemFactory;
 
     private final int maxOpenWriters;
 
@@ -125,6 +128,7 @@ public class DeltaLakePageSink
             List<String> originalPartitionColumns,
             PageIndexerFactory pageIndexerFactory,
             HdfsEnvironment hdfsEnvironment,
+            TrinoFileSystemFactory fileSystemFactory,
             int maxOpenWriters,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
             String outputPath,
@@ -138,6 +142,7 @@ public class DeltaLakePageSink
         requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
 
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.maxOpenWriters = maxOpenWriters;
         this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");
 
@@ -385,7 +390,7 @@ public class DeltaLakePageSink
 
             FileWriter fileWriter;
             if (isOptimizedParquetWriter) {
-                fileWriter = createParquetFileWriter(filePath);
+                fileWriter = createParquetFileWriter(filePath.toString());
             }
             else {
                 fileWriter = createRecordFileWriter(filePath);
@@ -459,7 +464,7 @@ public class DeltaLakePageSink
                 .collect(toList());
     }
 
-    private FileWriter createParquetFileWriter(Path path)
+    private FileWriter createParquetFileWriter(String path)
     {
         ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
                 .setMaxBlockSize(getParquetWriterBlockSize(session))
@@ -468,9 +473,9 @@ public class DeltaLakePageSink
         CompressionCodecName compressionCodecName = getCompressionCodec(session).getParquetCompressionCodec();
 
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getIdentity(), path, conf);
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             Callable<Void> rollbackAction = () -> {
-                fileSystem.delete(path, false);
+                fileSystem.deleteFile(path);
                 return null;
             };
 
@@ -493,7 +498,7 @@ public class DeltaLakePageSink
 
             ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(parquetTypes, dataColumnNames, false, false);
             return new ParquetFileWriter(
-                    fileSystem.create(path),
+                    fileSystem.newOutputFile(path),
                     rollbackAction,
                     parquetTypes,
                     dataColumnNames,
@@ -506,7 +511,7 @@ public class DeltaLakePageSink
                     Optional.empty(),
                     Optional.empty());
         }
-        catch (IOException e) {
+        catch (RuntimeException e) {
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Error creating Parquet file", e);
         }
     }

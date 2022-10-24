@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoOutputFile;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.spi.type.Type;
@@ -23,7 +24,6 @@ import org.apache.iceberg.io.InputFile;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.MessageType;
 
-import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -42,7 +42,7 @@ public class IcebergParquetFileWriter
 
     public IcebergParquetFileWriter(
             MetricsConfig metricsConfig,
-            OutputStream outputStream,
+            TrinoOutputFile outputFile,
             Callable<Void> rollbackAction,
             List<Type> fileColumnTypes,
             List<String> fileColumnNames,
@@ -55,7 +55,7 @@ public class IcebergParquetFileWriter
             String outputPath,
             TrinoFileSystem fileSystem)
     {
-        super(outputStream,
+        super(outputFile,
                 rollbackAction,
                 fileColumnTypes,
                 fileColumnNames,

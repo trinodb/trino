@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.hdfs.HdfsContext;
@@ -176,14 +177,13 @@ public class DeltaLakeMergeSink
         try {
             Path rootTablePath = new Path(rootTableLocation);
             String sourceRelativePath = rootTablePath.toUri().relativize(sourcePath.toUri()).toString();
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsContext(session.getIdentity()), rootTablePath);
 
             Path targetPath = new Path(sourcePath.getParent(), session.getQueryId() + "_" + randomUUID());
             String targetRelativePath = rootTablePath.toUri().relativize(targetPath.toUri()).toString();
-            FileWriter fileWriter = createParquetFileWriter(fileSystem, targetPath, dataColumns);
+            FileWriter fileWriter = createParquetFileWriter(targetPath.toString(), dataColumns);
 
             DeltaLakeWriter writer = new DeltaLakeWriter(
-                    fileSystem,
+                    hdfsEnvironment.getFileSystem(new HdfsContext(session.getIdentity()), rootTablePath),
                     fileWriter,
                     rootTablePath,
                     targetRelativePath,
@@ -201,17 +201,18 @@ public class DeltaLakeMergeSink
         }
     }
 
-    private FileWriter createParquetFileWriter(FileSystem fileSystem, Path path, List<DeltaLakeColumnHandle> dataColumns)
+    private FileWriter createParquetFileWriter(String path, List<DeltaLakeColumnHandle> dataColumns)
     {
         ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
                 .setMaxBlockSize(getParquetWriterBlockSize(session))
                 .setMaxPageSize(getParquetWriterPageSize(session))
                 .build();
         CompressionCodecName compressionCodecName = getCompressionCodec(session).getParquetCompressionCodec();
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
 
         try {
             Callable<Void> rollbackAction = () -> {
-                fileSystem.delete(path, false);
+                fileSystem.deleteFile(path);
                 return null;
             };
 
@@ -236,7 +237,7 @@ public class DeltaLakeMergeSink
                     false);
 
             return new ParquetFileWriter(
-                    fileSystem.create(path),
+                    fileSystem.newOutputFile(path),
                     rollbackAction,
                     parquetTypes,
                     dataColumnNames,
@@ -249,7 +250,7 @@ public class DeltaLakeMergeSink
                     Optional.empty(),
                     Optional.empty());
         }
-        catch (IOException e) {
+        catch (RuntimeException e) {
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Error creating Parquet file", e);
         }
     }

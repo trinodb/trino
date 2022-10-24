@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.parquet;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.filesystem.TrinoOutputFile;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.writer.ParquetWriter;
 import io.trino.parquet.writer.ParquetWriterOptions;
@@ -62,7 +63,7 @@ public class ParquetFileWriter
     private long validationCpuNanos;
 
     public ParquetFileWriter(
-            OutputStream outputStream,
+            TrinoOutputFile outputFile,
             Callable<Void> rollbackAction,
             List<Type> fileColumnTypes,
             List<String> fileColumnNames,
@@ -75,32 +76,37 @@ public class ParquetFileWriter
             Optional<DateTimeZone> parquetTimeZone,
             Optional<Supplier<ParquetDataSource>> validationInputFactory)
     {
-        requireNonNull(outputStream, "outputStream is null");
-        requireNonNull(trinoVersion, "trinoVersion is null");
-        this.validationInputFactory = requireNonNull(validationInputFactory, "validationInputFactory is null");
+        try {
+            OutputStream outputStream = requireNonNull(outputFile, "outputFile is null").create();
+            requireNonNull(trinoVersion, "trinoVersion is null");
+            this.validationInputFactory = requireNonNull(validationInputFactory, "validationInputFactory is null");
 
-        this.parquetWriter = new ParquetWriter(
-                outputStream,
-                messageType,
-                primitiveTypes,
-                parquetWriterOptions,
-                compressionCodecName,
-                trinoVersion,
-                parquetTimeZone,
-                validationInputFactory.isPresent()
-                        ? Optional.of(new ParquetWriteValidationBuilder(fileColumnTypes, fileColumnNames))
-                        : Optional.empty());
+            this.parquetWriter = new ParquetWriter(
+                    outputStream,
+                    messageType,
+                    primitiveTypes,
+                    parquetWriterOptions,
+                    compressionCodecName,
+                    trinoVersion,
+                    parquetTimeZone,
+                    validationInputFactory.isPresent()
+                            ? Optional.of(new ParquetWriteValidationBuilder(fileColumnTypes, fileColumnNames))
+                            : Optional.empty());
 
-        this.rollbackAction = requireNonNull(rollbackAction, "rollbackAction is null");
-        this.fileInputColumnIndexes = requireNonNull(fileInputColumnIndexes, "fileInputColumnIndexes is null");
+            this.rollbackAction = requireNonNull(rollbackAction, "rollbackAction is null");
+            this.fileInputColumnIndexes = requireNonNull(fileInputColumnIndexes, "fileInputColumnIndexes is null");
 
-        ImmutableList.Builder<Block> nullBlocks = ImmutableList.builder();
-        for (Type fileColumnType : fileColumnTypes) {
-            BlockBuilder blockBuilder = fileColumnType.createBlockBuilder(null, 1, 0);
-            blockBuilder.appendNull();
-            nullBlocks.add(blockBuilder.build());
+            ImmutableList.Builder<Block> nullBlocks = ImmutableList.builder();
+            for (Type fileColumnType : fileColumnTypes) {
+                BlockBuilder blockBuilder = fileColumnType.createBlockBuilder(null, 1, 0);
+                blockBuilder.appendNull();
+                nullBlocks.add(blockBuilder.build());
+            }
+            this.nullBlocks = nullBlocks.build();
         }
-        this.nullBlocks = nullBlocks.build();
+        catch (IOException e) {
+            throw new UncheckedIOException("Error while writing parquet file", e);
+        }
     }
 
     @Override

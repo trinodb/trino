@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.TrinoOutputFile;
 import io.trino.orc.OrcDataSink;
 import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcReaderOptions;
@@ -42,7 +43,6 @@ import org.weakref.jmx.Managed;
 import javax.inject.Inject;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -170,7 +170,7 @@ public class IcebergFileWriterFactory
                 .collect(toImmutableList());
 
         try {
-            OutputStream outputStream = fileSystem.newOutputFile(outputPath).create();
+            TrinoOutputFile outputFile = fileSystem.newOutputFile(outputPath);
 
             Callable<Void> rollbackAction = () -> {
                 fileSystem.deleteFile(outputPath);
@@ -185,7 +185,7 @@ public class IcebergFileWriterFactory
 
             return new IcebergParquetFileWriter(
                     metricsConfig,
-                    outputStream,
+                    outputFile,
                     rollbackAction,
                     fileColumnTypes,
                     fileColumnNames,
@@ -198,7 +198,7 @@ public class IcebergFileWriterFactory
                     outputPath,
                     fileSystem);
         }
-        catch (IOException e) {
+        catch (RuntimeException e) {
             throw new TrinoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating Parquet file", e);
         }
     }

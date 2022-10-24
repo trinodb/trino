@@ -20,12 +20,13 @@ import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.parquet.ChunkReader;
 import io.trino.parquet.DiskRange;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.PositionedReadable;
 import org.apache.hadoop.fs.Seekable;
 import org.testng.annotations.DataProvider;
@@ -33,8 +34,12 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.UUID;
 import java.util.stream.IntStream;
 
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
+import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -42,12 +47,19 @@ public class TestHdfsParquetDataSource
 {
     @Test(dataProvider = "testPlanReadOrderingProvider")
     public void testPlanReadOrdering(DataSize maxBufferSize)
+            throws IOException
     {
         Slice testingInput = Slices.wrappedIntArray(IntStream.range(0, 1000).toArray());
+        String path = "/tmp/" + UUID.randomUUID();
+        TrinoFileSystem trinoFileSystem = HDFS_FILE_SYSTEM_FACTORY.create(SESSION);
+        try (OutputStream outputStream = trinoFileSystem.newOutputFile(path).create()) {
+            outputStream.write(testingInput.getBytes());
+        }
+        TrinoInputFile trinoInputFile = trinoFileSystem.newInputFile(path);
         HdfsParquetDataSource dataSource = new HdfsParquetDataSource(
                 new ParquetDataSourceId("test"),
                 0,
-                new FSDataInputStream(new TestingSliceInputStream(testingInput.getInput())),
+                trinoInputFile.newInput(),
                 new FileFormatDataSourceStats(),
                 new ParquetReaderOptions().withMaxBufferSize(maxBufferSize));
 
