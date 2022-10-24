@@ -7992,7 +7992,9 @@ public abstract class BaseHiveConnectorTest
 
     private void insertNationNTimes(String tableName, int times)
     {
-        assertUpdate("INSERT INTO " + tableName + "(nationkey, name, regionkey, comment) " + join(" UNION ALL ", nCopies(times, "SELECT * FROM tpch.sf1.nation")), times * 25);
+        for (int i = 0; i < times; i++) {
+            assertUpdate("INSERT INTO " + tableName + "(nationkey, name, regionkey, comment) SELECT * FROM tpch.sf1.nation", 25);
+        }
     }
 
     private void assertNationNTimes(String tableName, int times)
