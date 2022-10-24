@@ -291,7 +291,11 @@ public class DeltaLakeSplitManager
     private static String buildSplitPath(String tableLocation, AddFileEntry addAction)
     {
         // paths are relative to the table location and URL encoded
-        return tableLocation + '/' + URLDecoder.decode(addAction.getPath(), UTF_8);
+        String path = URLDecoder.decode(addAction.getPath(), UTF_8);
+        if (tableLocation.endsWith("/")) {
+            return tableLocation + path;
+        }
+        return tableLocation + "/" + path;
     }
 
     private DeltaLakeMetastore getMetastore(ConnectorSession session, ConnectorTransactionHandle transactionHandle)
