@@ -48,7 +48,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxTaskSplitCount;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTargetTaskInputSize;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTargetTaskSplitCount;
-import static io.trino.SystemSessionProperties.getFaultTolerantPreserveInputPartitionsInWriteStage;
 import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
@@ -194,7 +193,7 @@ public class EventDrivenTaskSourceFactory
                     getFaultTolerantExecutionTargetTaskInputSize(session).toBytes(),
                     outputDataSizeEstimates,
                     sourcePartitioningScheme,
-                    getFaultTolerantPreserveInputPartitionsInWriteStage(session) && isWriteFragment(fragment));
+                    isWriteFragment(fragment));
         }
 
         // other partitioning handles are not expected to be set as a fragment partitioning

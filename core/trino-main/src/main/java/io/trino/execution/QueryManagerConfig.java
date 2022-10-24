@@ -97,7 +97,6 @@ public class QueryManagerConfig
     private int faultTolerantExecutionMaxTaskSplitCount = 256;
     private DataSize faultTolerantExecutionTaskDescriptorStorageMaxMemory = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.15));
     private int faultTolerantExecutionPartitionCount = 50;
-    private boolean faultTolerantPreserveInputPartitionsInWriteStage = true;
     private boolean faultTolerantExecutionEventDrivenSchedulerEnabled = true;
 
     @Min(1)
@@ -617,19 +616,6 @@ public class QueryManagerConfig
     public QueryManagerConfig setFaultTolerantExecutionPartitionCount(int faultTolerantExecutionPartitionCount)
     {
         this.faultTolerantExecutionPartitionCount = faultTolerantExecutionPartitionCount;
-        return this;
-    }
-
-    public boolean getFaultTolerantPreserveInputPartitionsInWriteStage()
-    {
-        return faultTolerantPreserveInputPartitionsInWriteStage;
-    }
-
-    @Config("fault-tolerant-execution-preserve-input-partitions-in-write-stage")
-    @ConfigDescription("Ensure single task reads single hash partitioned input partition for stages which write table data")
-    public QueryManagerConfig setFaultTolerantPreserveInputPartitionsInWriteStage(boolean faultTolerantPreserveInputPartitionsInWriteStage)
-    {
-        this.faultTolerantPreserveInputPartitionsInWriteStage = faultTolerantPreserveInputPartitionsInWriteStage;
         return this;
     }
 
