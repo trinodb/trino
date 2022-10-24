@@ -18,8 +18,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoInputFile;
+import io.trino.parquet.ParquetReaderOptions;
+import io.trino.parquet.reader.MetadataReader;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
+import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.FileWriter;
+import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.LazyBlock;
@@ -27,13 +33,11 @@ import io.trino.spi.block.LazyBlockLoader;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.column.statistics.Statistics;
-import org.apache.parquet.hadoop.ParquetFileReader;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
-import org.apache.parquet.hadoop.util.HadoopInputFile;
+import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -61,7 +65,7 @@ import static java.util.function.UnaryOperator.identity;
 public class DeltaLakeWriter
         implements FileWriter
 {
-    private final FileSystem fileSystem;
+    private final TrinoFileSystem fileSystem;
     private final FileWriter fileWriter;
     private final Path rootTableLocation;
     private final String relativeFilePath;
@@ -75,7 +79,7 @@ public class DeltaLakeWriter
     private long inputSizeInBytes;
 
     public DeltaLakeWriter(
-            FileSystem fileSystem,
+            TrinoFileSystem fileSystem,
             FileWriter fileWriter,
             Path rootTableLocation,
             String relativeFilePath,
@@ -176,7 +180,7 @@ public class DeltaLakeWriter
     }
 
     private static DeltaLakeJsonFileStatistics readStatistics(
-            FileSystem fs,
+            TrinoFileSystem fileSystem,
             Path tableLocation,
             List<String> dataColumnNames,
             List<Type> dataColumnTypes,
@@ -189,9 +193,15 @@ public class DeltaLakeWriter
             typeForColumn.put(dataColumnNames.get(i), dataColumnTypes.get(i));
         }
 
-        ImmutableMultimap.Builder<String, ColumnChunkMetaData> metadataForColumn = ImmutableMultimap.builder();
-        try (ParquetFileReader parquetReader = ParquetFileReader.open(HadoopInputFile.fromPath(new Path(tableLocation, relativeFilePath), fs.getConf()))) {
-            for (BlockMetaData blockMetaData : parquetReader.getRowGroups()) {
+        TrinoInputFile inputFile = fileSystem.newInputFile(new Path(tableLocation, relativeFilePath).toString());
+        try (TrinoParquetDataSource trinoParquetDataSource = new TrinoParquetDataSource(
+                inputFile,
+                new ParquetReaderOptions(),
+                new FileFormatDataSourceStats())) {
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(trinoParquetDataSource, Optional.empty());
+
+            ImmutableMultimap.Builder<String, ColumnChunkMetaData> metadataForColumn = ImmutableMultimap.builder();
+            for (BlockMetaData blockMetaData : parquetMetadata.getBlocks()) {
                 for (ColumnChunkMetaData columnChunkMetaData : blockMetaData.getColumns()) {
                     if (columnChunkMetaData.getPath().size() != 1) {
                         continue; // Only base column stats are supported
@@ -200,9 +210,9 @@ public class DeltaLakeWriter
                     metadataForColumn.put(columnName, columnChunkMetaData);
                 }
             }
-        }
 
-        return mergeStats(metadataForColumn.build(), typeForColumn.buildOrThrow(), rowCount);
+            return mergeStats(metadataForColumn.build(), typeForColumn.buildOrThrow(), rowCount);
+        }
     }
 
     @VisibleForTesting

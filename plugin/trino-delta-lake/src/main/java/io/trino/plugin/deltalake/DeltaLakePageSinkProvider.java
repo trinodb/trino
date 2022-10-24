@@ -84,6 +84,7 @@ public class DeltaLakePageSinkProvider
                 tableHandle.getPartitionedBy(),
                 pageIndexerFactory,
                 hdfsEnvironment,
+                fileSystemFactory,
                 maxPartitionsPerWriter,
                 dataFileInfoCodec,
                 tableHandle.getLocation(),
@@ -102,6 +103,7 @@ public class DeltaLakePageSinkProvider
                 tableHandle.getMetadataEntry().getOriginalPartitionColumns(),
                 pageIndexerFactory,
                 hdfsEnvironment,
+                fileSystemFactory,
                 maxPartitionsPerWriter,
                 dataFileInfoCodec,
                 tableHandle.getLocation(),
@@ -123,6 +125,7 @@ public class DeltaLakePageSinkProvider
                         optimizeHandle.getOriginalPartitionColumns(),
                         pageIndexerFactory,
                         hdfsEnvironment,
+                        fileSystemFactory,
                         maxPartitionsPerWriter,
                         dataFileInfoCodec,
                         executeHandle.getTableLocation(),
@@ -144,7 +147,6 @@ public class DeltaLakePageSinkProvider
 
         return new DeltaLakeMergeSink(
                 fileSystemFactory,
-                hdfsEnvironment,
                 session,
                 parquetDateTimeZone,
                 trinoVersion,
