@@ -215,7 +215,7 @@ public class TestKuduConnectorTest
     public void testShowCreateTable()
     {
         assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .matches("CREATE TABLE kudu\\.\\w+\\.orders \\Q(\n" +
+                .isEqualTo("CREATE TABLE kudu.default.orders (\n" +
                         "   orderkey bigint COMMENT '' WITH ( nullable = true ),\n" +
                         "   custkey bigint COMMENT '' WITH ( nullable = true ),\n" +
                         "   orderstatus varchar COMMENT '' WITH ( nullable = true ),\n" +
