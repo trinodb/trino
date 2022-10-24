@@ -24,7 +24,10 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.connector.CatalogHandle;
 import io.trino.exchange.SpoolingExchangeInput;
+import io.trino.execution.TableExecuteContext;
+import io.trino.execution.TableExecuteContextManager;
 import io.trino.metadata.Split;
+import io.trino.spi.QueryId;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.spi.exchange.ExchangeSourceHandleSource;
@@ -67,6 +70,8 @@ import static java.util.Objects.requireNonNull;
 class EventDrivenTaskSource
         implements Closeable
 {
+    private final QueryId queryId;
+    private final TableExecuteContextManager tableExecuteContextManager;
     private final Map<PlanFragmentId, Exchange> sourceExchanges;
     private final Map<PlanFragmentId, PlanNodeId> remoteSources;
     private final Supplier<Map<PlanNodeId, SplitSource>> splitSourceSupplier;
@@ -98,6 +103,8 @@ class EventDrivenTaskSource
     private final Set<PlanNodeId> finishedSources = new HashSet<>();
 
     EventDrivenTaskSource(
+            QueryId queryId,
+            TableExecuteContextManager tableExecuteContextManager,
             Map<PlanFragmentId, Exchange> sourceExchanges,
             Map<PlanFragmentId, PlanNodeId> remoteSources,
             Supplier<Map<PlanNodeId, SplitSource>> splitSourceSupplier,
@@ -109,6 +116,8 @@ class EventDrivenTaskSource
             FaultTolerantPartitioningScheme sourcePartitioningScheme,
             LongConsumer getSplitTimeRecorder)
     {
+        this.queryId = requireNonNull(queryId, "queryId is null");
+        this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
         this.sourceExchanges = ImmutableMap.copyOf(requireNonNull(sourceExchanges, "sourceExchanges is null"));
         this.remoteSources = ImmutableMap.copyOf(requireNonNull(remoteSources, "remoteSources is null"));
         checkArgument(
@@ -238,6 +247,13 @@ class EventDrivenTaskSource
                                 assigner.assign(planNodeId, splits, noMoreSplits).update(callback);
                                 if (noMoreSplits) {
                                     finishedSources.add(planNodeId);
+
+                                    Optional<List<Object>> tableExecuteSplitsInfo = splitSource.getTableExecuteSplitsInfo();
+                                    // Here we assume that we can get non-empty tableExecuteSplitsInfo only for queries which facilitate single split source.
+                                    tableExecuteSplitsInfo.ifPresent(info -> {
+                                        TableExecuteContext tableExecuteContext = tableExecuteContextManager.getTableExecuteContextForQuery(queryId);
+                                        tableExecuteContext.setSplitsInfo(info);
+                                    });
                                 }
                                 if (finishedSources.containsAll(allSources)) {
                                     assigner.finish().update(callback);
@@ -477,8 +493,9 @@ class EventDrivenTaskSource
                         getSplitTimeRecorder.accept(start);
                         ListMultimap<Integer, Split> splits = result.getSplits().stream()
                                 .collect(toImmutableListMultimap(splitToPartition::applyAsInt, Function.identity()));
-                        callback.update(splits, result.isLastBatch());
-                        if (!result.isLastBatch()) {
+                        boolean finished = result.isLastBatch() && splitSource.isFinished();
+                        callback.update(splits, finished);
+                        if (!finished) {
                             processNext();
                         }
                     }

@@ -29,9 +29,11 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.trino.connector.CatalogHandle;
 import io.trino.exchange.SpoolingExchangeInput;
+import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.scheduler.EventDrivenTaskSource.Partition;
 import io.trino.execution.scheduler.EventDrivenTaskSource.PartitionUpdate;
 import io.trino.metadata.Split;
+import io.trino.spi.QueryId;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeId;
@@ -405,6 +407,8 @@ public class TestEventDrivenTaskSource
         RuntimeException failure = null;
         TestingSplitAssigner testingSplitAssigner = new TestingSplitAssigner(allSources);
         try (EventDrivenTaskSource taskSource = new EventDrivenTaskSource(
+                new QueryId("query"),
+                new TableExecuteContextManager(),
                 exchanges,
                 remoteSources,
                 () -> splitSources,

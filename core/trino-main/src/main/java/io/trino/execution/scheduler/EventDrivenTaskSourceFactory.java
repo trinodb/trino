@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.execution.ForQueryExecution;
 import io.trino.execution.QueryManagerConfig;
+import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.scheduler.EventDrivenTaskSource.Callback;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.spi.HostAddress;
@@ -62,6 +63,7 @@ public class EventDrivenTaskSourceFactory
     private final SplitSourceFactory splitSourceFactory;
     private final Executor executor;
     private final InternalNodeManager nodeManager;
+    private final TableExecuteContextManager tableExecuteContextManager;
     private final int splitBatchSize;
 
     @Inject
@@ -69,12 +71,14 @@ public class EventDrivenTaskSourceFactory
             SplitSourceFactory splitSourceFactory,
             @ForQueryExecution ExecutorService executor,
             InternalNodeManager nodeManager,
+            TableExecuteContextManager tableExecuteContextManager,
             QueryManagerConfig queryManagerConfig)
     {
         this(
                 splitSourceFactory,
                 executor,
                 nodeManager,
+                tableExecuteContextManager,
                 requireNonNull(queryManagerConfig, "queryManagerConfig is null").getScheduleSplitBatchSize());
     }
 
@@ -82,11 +86,13 @@ public class EventDrivenTaskSourceFactory
             SplitSourceFactory splitSourceFactory,
             Executor executor,
             InternalNodeManager nodeManager,
+            TableExecuteContextManager tableExecuteContextManager,
             int splitBatchSize)
     {
         this.splitSourceFactory = requireNonNull(splitSourceFactory, "splitSourceFactory is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
         this.splitBatchSize = splitBatchSize;
     }
 
@@ -110,6 +116,8 @@ public class EventDrivenTaskSourceFactory
         long standardSplitSizeInBytes = targetPartitionSizeInBytes / getFaultTolerantExecutionTargetTaskSplitCount(session);
         int maxTaskSplitCount = getFaultTolerantExecutionMaxTaskSplitCount(session);
         return new EventDrivenTaskSource(
+                session.getQueryId(),
+                tableExecuteContextManager,
                 sourceExchanges,
                 remoteSources.buildOrThrow(),
                 () -> splitSourceFactory.createSplitSources(session, fragment),
