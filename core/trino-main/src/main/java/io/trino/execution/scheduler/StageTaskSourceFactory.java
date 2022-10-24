@@ -91,7 +91,6 @@ import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxTaskS
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMinTaskSplitCount;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTargetTaskInputSize;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTargetTaskSplitCount;
-import static io.trino.SystemSessionProperties.getFaultTolerantPreserveInputPartitionsInWriteStage;
 import static io.trino.operator.ExchangeOperator.REMOTE_CATALOG_HANDLE;
 import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
@@ -178,7 +177,6 @@ public class StageTaskSourceFactory
                     sourcePartitioningScheme,
                     getFaultTolerantExecutionTargetTaskSplitCount(session) * SplitWeight.standard().getRawValue(),
                     getFaultTolerantExecutionTargetTaskInputSize(session),
-                    getFaultTolerantPreserveInputPartitionsInWriteStage(session),
                     executor);
         }
         if (partitioning.equals(SOURCE_DISTRIBUTION)) {
@@ -383,7 +381,6 @@ public class StageTaskSourceFactory
                 FaultTolerantPartitioningScheme sourcePartitioningScheme,
                 long targetPartitionSplitWeight,
                 DataSize targetPartitionSourceSize,
-                boolean preserveInputPartitionsInWriteStage,
                 Executor executor)
         {
             Map<PlanNodeId, SplitSource> splitSources = splitSourceFactory.createSplitSources(session, fragment);
@@ -396,7 +393,7 @@ public class StageTaskSourceFactory
                     sourcePartitioningScheme,
                     fragment.getPartitioning().getCatalogHandle(),
                     targetPartitionSplitWeight,
-                    (preserveInputPartitionsInWriteStage && isWriteFragment(fragment)) ? DataSize.of(0, BYTE) : targetPartitionSourceSize,
+                    isWriteFragment(fragment) ? DataSize.of(0, BYTE) : targetPartitionSourceSize,
                     executor);
         }
 
