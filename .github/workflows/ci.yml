@@ -481,6 +481,7 @@ jobs:
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-iceberg }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-postgresql }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-mysql }
+            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-sqlserver }
             - { modules: testing/trino-tests }
           EOF
           ./.github/bin/build-matrix-from-impacted.py -v -i gib-impacted.log -m .github/test-matrix.yaml -o matrix.json
