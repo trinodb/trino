@@ -1688,19 +1688,23 @@ public abstract class BaseConnectorTest
     @Test
     public void testShowCreateTable()
     {
+        String catalog = getSession().getCatalog().orElseThrow();
+        String schema = getSession().getSchema().orElseThrow();
         assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
                 // If the connector reports additional column properties, the expected value needs to be adjusted in the test subclass
-                .matches("CREATE TABLE \\w+\\.\\w+\\.orders \\Q(\n" +
-                        "   orderkey bigint,\n" +
-                        "   custkey bigint,\n" +
-                        "   orderstatus varchar(1),\n" +
-                        "   totalprice double,\n" +
-                        "   orderdate date,\n" +
-                        "   orderpriority varchar(15),\n" +
-                        "   clerk varchar(15),\n" +
-                        "   shippriority integer,\n" +
-                        "   comment varchar(79)\n" +
-                        ")");
+                .isEqualTo(format("""
+                                CREATE TABLE %s.%s.orders (
+                                   orderkey bigint,
+                                   custkey bigint,
+                                   orderstatus varchar(1),
+                                   totalprice double,
+                                   orderdate date,
+                                   orderpriority varchar(15),
+                                   clerk varchar(15),
+                                   shippriority integer,
+                                   comment varchar(79)
+                                )""",
+                        catalog, schema));
     }
 
     @Test
