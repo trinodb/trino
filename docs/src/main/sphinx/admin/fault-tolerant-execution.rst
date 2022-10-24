@@ -50,6 +50,7 @@ depending on the desired :ref:`retry policy <fte-retry-policy>`.
     * :doc:`/connector/iceberg`
     * :doc:`/connector/mysql`
     * :doc:`/connector/postgresql`
+    * :doc:`/connector/sqlserver`
 
 The following configuration properties control the behavior of fault-tolerant
 execution on a Trino cluster:

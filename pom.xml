@@ -606,6 +606,13 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-sqlserver</artifactId>
+                <type>test-jar</type>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-testing</artifactId>
                 <version>${project.version}</version>
             </dependency>
