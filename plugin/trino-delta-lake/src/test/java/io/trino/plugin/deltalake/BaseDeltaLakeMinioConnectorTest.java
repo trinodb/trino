@@ -561,6 +561,24 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     }
 
     @Test
+    public void testTableLocationTrailingSlash()
+    {
+        String tableWithSlash = "table_with_slash";
+        String tableWithoutSlash = "table_without_slash";
+
+        assertUpdate(format("CREATE TABLE %s (customer VARCHAR) WITH (location = 's3://%s/%s/')", tableWithSlash, bucketName, tableWithSlash));
+        assertUpdate(format("INSERT INTO %s (customer) VALUES ('Aaron'), ('Bill')", tableWithSlash), 2);
+        assertQuery("SELECT * FROM " + tableWithSlash, "VALUES ('Aaron'), ('Bill')");
+
+        assertUpdate(format("CREATE TABLE %s (customer VARCHAR) WITH (location = 's3://%s/%s')", tableWithoutSlash, bucketName, tableWithoutSlash));
+        assertUpdate(format("INSERT INTO %s (customer) VALUES ('Carol'), ('Dave')", tableWithoutSlash), 2);
+        assertQuery("SELECT * FROM " + tableWithoutSlash, "VALUES ('Carol'), ('Dave')");
+
+        assertUpdate("DROP TABLE " + tableWithSlash);
+        assertUpdate("DROP TABLE " + tableWithoutSlash);
+    }
+
+    @Test
     public void testMergeSimpleSelectPartitioned()
     {
         String targetTable = "merge_simple_target_" + randomTableSuffix();
