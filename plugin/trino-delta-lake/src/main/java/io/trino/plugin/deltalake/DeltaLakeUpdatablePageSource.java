@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
@@ -101,9 +102,8 @@ public class DeltaLakeUpdatablePageSource
     private final long fileSize;
     private final ConnectorSession session;
     private final ExecutorService executorService;
-    private final TrinoFileSystemFactory fileSystemFactory;
+    private final TrinoFileSystem fileSystem;
     private final HdfsEnvironment hdfsEnvironment;
-    private final HdfsContext hdfsContext;
     private final DateTimeZone parquetDateTimeZone;
     private final ParquetReaderOptions parquetReaderOptions;
     private final TypeManager typeManager;
@@ -148,9 +148,8 @@ public class DeltaLakeUpdatablePageSource
         this.fileSize = fileSize;
         this.session = requireNonNull(session, "session is null");
         this.executorService = requireNonNull(executorService, "executorService is null");
-        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.fileSystem = fileSystemFactory.create(session);
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.hdfsContext = requireNonNull(hdfsContext, "hdfsContext is null");
         this.parquetDateTimeZone = requireNonNull(parquetDateTimeZone, "parquetDateTimeZone is null");
         this.parquetReaderOptions = requireNonNull(parquetReaderOptions, "parquetReaderOptions is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -570,7 +569,7 @@ public class DeltaLakeUpdatablePageSource
     private ReaderPageSource createParquetPageSource(TupleDomain<HiveColumnHandle> parquetPredicate, List<HiveColumnHandle> columns)
     {
         return ParquetPageSourceFactory.createPageSource(
-                fileSystemFactory.create(session).newInputFile(path, fileSize),
+                fileSystem.newInputFile(path, fileSize),
                 0,
                 fileSize,
                 columns,
@@ -612,7 +611,7 @@ public class DeltaLakeUpdatablePageSource
                         .collect(toImmutableList()));
 
         return new DeltaLakeWriter(
-                hdfsEnvironment.getFileSystem(hdfsContext, targetFile),
+                fileSystem,
                 recordFileWriter,
                 tablePath,
                 relativePath.toString(),
