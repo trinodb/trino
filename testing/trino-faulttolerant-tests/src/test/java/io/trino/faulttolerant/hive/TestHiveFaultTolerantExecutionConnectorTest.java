@@ -27,7 +27,6 @@ import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_PARTITIO
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.FaultTolerantExecutionConnectorTestHelper.getExtraProperties;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestHiveFaultTolerantExecutionConnectorTest
         extends BaseHiveConnectorTest
@@ -68,34 +67,6 @@ public class TestHiveFaultTolerantExecutionConnectorTest
     public void testWritersAcrossMultipleWorkersWhenScaleWritersIsEnabled()
     {
         // Not applicable for fault-tolerant mode.
-    }
-
-    @Override
-    public void testOptimize()
-    {
-        assertThatThrownBy(super::testOptimize)
-                .hasMessageContaining("OPTIMIZE procedure is not supported with query retries enabled");
-    }
-
-    @Override
-    public void testOptimizeWithWriterScaling()
-    {
-        assertThatThrownBy(super::testOptimizeWithWriterScaling)
-                .hasMessageContaining("OPTIMIZE procedure is not supported with query retries enabled");
-    }
-
-    @Override
-    public void testOptimizeWithPartitioning()
-    {
-        assertThatThrownBy(super::testOptimizeWithPartitioning)
-                .hasMessageContaining("OPTIMIZE procedure is not supported with query retries enabled");
-    }
-
-    @Override
-    public void testOptimizeWithBucketing()
-    {
-        assertThatThrownBy(super::testOptimizeWithBucketing)
-                .hasMessageContaining("OPTIMIZE procedure is not supported with query retries enabled");
     }
 
     @Test
