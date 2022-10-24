@@ -3403,6 +3403,32 @@ public class HiveMetadata
     }
 
     @Override
+    public Optional<ConnectorTableLayout> getLayoutForTableExecute(ConnectorSession session, ConnectorTableExecuteHandle executeHandle)
+    {
+        HiveTableExecuteHandle hiveExecuteHandle = (HiveTableExecuteHandle) executeHandle;
+        SchemaTableName tableName = hiveExecuteHandle.getSchemaTableName();
+        Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(tableName));
+
+        if (table.getStorage().getBucketProperty().isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, format("Optimizing bucketed Hive table %s is not supported", tableName));
+        }
+        if (isTransactionalTable(table.getParameters())) {
+            throw new TrinoException(NOT_SUPPORTED, format("Optimizing transactional Hive table %s is not supported", tableName));
+        }
+
+        List<Column> partitionColumns = table.getPartitionColumns();
+        if (partitionColumns.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new ConnectorTableLayout(
+                partitionColumns.stream()
+                        .map(Column::getName)
+                        .collect(toImmutableList())));
+    }
+
+    @Override
     public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         if (!isCollectColumnStatisticsOnWrite(session)) {
