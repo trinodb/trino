@@ -264,7 +264,12 @@ public class DefaultJdbcMetadata
                 return Optional.empty();
             }
 
-            verify(tableColumnSet.containsAll(newColumnSet), "applyProjection called with columns %s and some are not available in existing query: %s", newColumnSet, tableColumnSet);
+            Set<JdbcColumnHandle> tableSyntheticColumnSet = ImmutableSet.<JdbcColumnHandle>builder()
+                    .addAll(tableColumnSet)
+                    .add((JdbcColumnHandle) getDeleteRowIdColumnHandle(session, table))
+                    .build();
+
+            verify(tableSyntheticColumnSet.containsAll(newColumnSet), "applyProjection called with columns %s and some are not available in existing query: %s", newColumnSet, tableSyntheticColumnSet);
         }
 
         return Optional.of(new ProjectionApplicationResult<>(
