@@ -53,6 +53,7 @@ import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
+import io.trino.sql.planner.plan.SimpleTableExecuteNode;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
@@ -433,6 +434,13 @@ public class SplitSourceFactory
         public Map<PlanNodeId, SplitSource> visitTableExecute(TableExecuteNode node, Void context)
         {
             return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Map<PlanNodeId, SplitSource> visitSimpleTableExecuteNode(SimpleTableExecuteNode node, Void context)
+        {
+            // node does not have splits
+            return ImmutableMap.of();
         }
 
         @Override
