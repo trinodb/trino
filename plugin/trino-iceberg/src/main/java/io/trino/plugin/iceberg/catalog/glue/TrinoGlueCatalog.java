@@ -253,10 +253,12 @@ public class TrinoGlueCatalog
     private DatabaseInput createDatabaseInput(String namespace, Map<String, Object> properties)
     {
         DatabaseInput databaseInput = new DatabaseInput().withName(namespace);
-        Object location = properties.get(LOCATION_PROPERTY);
-        if (location != null) {
-            databaseInput.setLocationUri((String) location);
-        }
+        properties.forEach((property, value) -> {
+            switch (property) {
+                case LOCATION_PROPERTY -> databaseInput.setLocationUri((String) value);
+                default -> throw new IllegalArgumentException("Unrecognized property: " + property);
+            }
+        });
 
         return databaseInput;
     }
