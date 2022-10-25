@@ -46,7 +46,7 @@ import org.apache.hudi.common.model.HoodieTableType;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.marker.MarkerType;
 import org.apache.hudi.common.util.Option;
-import org.apache.hudi.config.HoodieCompactionConfig;
+import org.apache.hudi.config.HoodieArchivalConfig;
 import org.apache.hudi.config.HoodieIndexConfig;
 import org.apache.hudi.config.HoodieWriteConfig;
 import org.apache.hudi.index.HoodieIndex;
@@ -200,7 +200,7 @@ public class TpchHudiTablesInitializer
         }
 
         HoodieIndexConfig indexConfig = HoodieIndexConfig.newBuilder().withIndexType(HoodieIndex.IndexType.INMEMORY).build();
-        HoodieCompactionConfig compactionConfig = HoodieCompactionConfig.newBuilder().archiveCommitsWith(20, 30).build();
+        HoodieArchivalConfig archivalConfig = HoodieArchivalConfig.newBuilder().archiveCommitsWith(20, 30).build();
         HoodieWriteConfig cfg = HoodieWriteConfig.newBuilder()
                 .withPath(tablePath)
                 .withSchema(schema.toString())
@@ -208,7 +208,7 @@ public class TpchHudiTablesInitializer
                 .withDeleteParallelism(2)
                 .forTable(tableName)
                 .withIndexConfig(indexConfig)
-                .withCompactionConfig(compactionConfig)
+                .withArchivalConfig(archivalConfig)
                 .withEmbeddedTimelineServerEnabled(false)
                 .withMarkersType(MarkerType.DIRECT.name())
                 .build();
