@@ -755,8 +755,7 @@ public abstract class BaseConnectorTest
         assertUpdate("CREATE OR REPLACE VIEW " + testViewWithComment + " COMMENT 'orders' AS " + query);
 
         // verify comment
-        MaterializedResult materializedRows = computeActual("SHOW CREATE VIEW " + testViewWithComment);
-        assertThat((String) materializedRows.getOnlyValue()).contains("COMMENT 'orders'");
+        assertThat((String) computeScalar("SHOW CREATE VIEW " + testViewWithComment)).contains("COMMENT 'orders'");
         assertThat(query(
                 "SELECT table_name, comment FROM system.metadata.table_comments " +
                         "WHERE catalog_name = '" + catalogName + "' AND " +
@@ -950,8 +949,7 @@ public abstract class BaseConnectorTest
         createTestingMaterializedView(viewWithComment, Optional.of("mv_comment"));
 
         // verify comment
-        MaterializedResult materializedRows = computeActual("SHOW CREATE MATERIALIZED VIEW " + viewWithComment);
-        assertThat((String) materializedRows.getOnlyValue()).contains("COMMENT 'mv_comment'");
+        assertThat((String) computeScalar("SHOW CREATE MATERIALIZED VIEW " + viewWithComment)).contains("COMMENT 'mv_comment'");
         assertThat(query(
                 "SELECT table_name, comment FROM system.metadata.table_comments " +
                         "WHERE catalog_name = '" + view.getCatalogName() + "' AND " +
@@ -1271,7 +1269,7 @@ public abstract class BaseConnectorTest
                 viewName);
         assertUpdate(ddl);
 
-        assertEquals(computeActual("SHOW CREATE VIEW " + viewName).getOnlyValue(), ddl);
+        assertEquals(computeScalar("SHOW CREATE VIEW " + viewName), ddl);
 
         assertUpdate("DROP VIEW " + viewName);
     }
@@ -1690,7 +1688,7 @@ public abstract class BaseConnectorTest
     {
         String catalog = getSession().getCatalog().orElseThrow();
         String schema = getSession().getSchema().orElseThrow();
-        assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
+        assertThat(computeScalar("SHOW CREATE TABLE orders"))
                 // If the connector reports additional column properties, the expected value needs to be adjusted in the test subclass
                 .isEqualTo(format("""
                                 CREATE TABLE %s.%s.orders (
@@ -2713,7 +2711,7 @@ public abstract class BaseConnectorTest
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_comment_", "(a integer)")) {
             // comment set
             assertUpdate("COMMENT ON TABLE " + table.getName() + " IS 'new comment'");
-            assertThat((String) computeActual("SHOW CREATE TABLE " + table.getName()).getOnlyValue()).contains("COMMENT 'new comment'");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName())).contains("COMMENT 'new comment'");
             assertThat(getTableComment(catalogName, schemaName, table.getName())).isEqualTo("new comment");
             assertThat(query(
                     "SELECT table_name, comment FROM system.metadata.table_comments " +
@@ -2751,7 +2749,7 @@ public abstract class BaseConnectorTest
     protected String getTableComment(String catalogName, String schemaName, String tableName)
     {
         String sql = format("SELECT comment FROM system.metadata.table_comments WHERE catalog_name = '%s' AND schema_name = '%s' AND table_name = '%s'", catalogName, schemaName, tableName);
-        return (String) computeActual(sql).getOnlyValue();
+        return (String) computeScalar(sql);
     }
 
     @Test
@@ -2772,7 +2770,7 @@ public abstract class BaseConnectorTest
         try (TestView view = new TestView(getQueryRunner()::execute, "test_comment_view", "SELECT * FROM region")) {
             // comment set
             assertUpdate("COMMENT ON VIEW " + view.getName() + " IS 'new comment'");
-            assertThat((String) computeActual("SHOW CREATE VIEW " + view.getName()).getOnlyValue()).contains("COMMENT 'new comment'");
+            assertThat((String) computeScalar("SHOW CREATE VIEW " + view.getName())).contains("COMMENT 'new comment'");
             assertThat(getTableComment(catalogName, schemaName, view.getName())).isEqualTo("new comment");
 
             // comment updated
@@ -2812,7 +2810,7 @@ public abstract class BaseConnectorTest
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_comment_column_", "(a integer)")) {
             // comment set
             assertUpdate("COMMENT ON COLUMN " + table.getName() + ".a IS 'new comment'");
-            assertThat((String) computeActual("SHOW CREATE TABLE " + table.getName()).getOnlyValue()).contains("COMMENT 'new comment'");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName())).contains("COMMENT 'new comment'");
             assertThat(getColumnComment(table.getName(), "a")).isEqualTo("new comment");
 
             // comment updated
@@ -2833,12 +2831,11 @@ public abstract class BaseConnectorTest
 
     protected String getColumnComment(String tableName, String columnName)
     {
-        MaterializedResult materializedResult = computeActual(format(
+        return (String) computeScalar(format(
                 "SELECT comment FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s' AND column_name = '%s'",
                 getSession().getSchema().orElseThrow(),
                 tableName,
                 columnName));
-        return (String) materializedResult.getOnlyValue();
     }
 
     @Test
@@ -4278,7 +4275,7 @@ public abstract class BaseConnectorTest
 
         assertUpdate(
                 format("INSERT INTO %s SELECT orderkey, custkey, totalprice FROM tpch.sf1.orders", tableName),
-                (long) computeActual("SELECT count(*) FROM tpch.sf1.orders").getOnlyValue());
+                (long) computeScalar("SELECT count(*) FROM tpch.sf1.orders"));
 
         @Language("SQL") String mergeSql = "" +
                 "MERGE INTO " + tableName + " t USING (SELECT * FROM tpch.sf1.orders) s ON (t.orderkey = s.orderkey)\n" +

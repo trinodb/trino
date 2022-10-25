@@ -311,8 +311,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Override
     public void testShowCreateTable()
     {
-        assertThat(computeActual("SHOW CREATE TABLE person").getOnlyValue())
-                .isInstanceOf(String.class)
+        assertThat(computeScalar("SHOW CREATE TABLE person"))
                 .isEqualTo(format(
                         "CREATE TABLE delta_lake.%s.person (\n" +
                                 "   name varchar,\n" +
@@ -377,7 +376,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         String viewName = "dummy_view";
         hiveMinioDataLake.getHiveHadoop().runOnHive(format("CREATE VIEW %1$s.%2$s AS SELECT * FROM %1$s.customer", SCHEMA, viewName));
-        assertEquals(computeActual(format("SHOW TABLES LIKE '%s'", viewName)).getOnlyValue(), viewName);
+        assertEquals(computeScalar(format("SHOW TABLES LIKE '%s'", viewName)), viewName);
         assertThatThrownBy(() -> computeActual("DESCRIBE " + viewName)).hasMessageContaining(format("%s.%s is not a Delta Lake table", SCHEMA, viewName));
         hiveMinioDataLake.getHiveHadoop().runOnHive("DROP VIEW " + viewName);
     }
@@ -387,7 +386,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         String tableName = "hive_table";
         hiveMinioDataLake.getHiveHadoop().runOnHive(format("CREATE TABLE %s.%s (id BIGINT)", SCHEMA, tableName));
-        assertEquals(computeActual(format("SHOW TABLES LIKE '%s'", tableName)).getOnlyValue(), tableName);
+        assertEquals(computeScalar(format("SHOW TABLES LIKE '%s'", tableName)), tableName);
         assertThatThrownBy(() -> computeActual("DESCRIBE " + tableName)).hasMessageContaining(tableName + " is not a Delta Lake table");
         hiveMinioDataLake.getHiveHadoop().runOnHive(format("DROP TABLE %s.%s", SCHEMA, tableName));
     }
@@ -445,8 +444,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 format("CREATE TABLE " + tableName + " WITH (location = '%s', partitioned_by = ARRAY['regionkey']) AS SELECT name, regionkey, comment from nation",
                         getLocationForTable(bucketName, tableName)),
                 25);
-        assertThat(computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
-                .isInstanceOf(String.class)
+        assertThat(computeScalar("SHOW CREATE TABLE " + tableName))
                 .isEqualTo(format(
                         "CREATE TABLE %s.%s.%s (\n" +
                                 "   name varchar,\n" +
@@ -1718,7 +1716,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     private void invalidateMetadataCache(String tableName)
     {
         Set<?> activeFiles = computeActual("SELECT \"$path\" FROM " + tableName).getOnlyColumnAsSet();
-        String location = (String) computeActual(format("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM %s", tableName)).getOnlyValue();
+        String location = (String) computeScalar(format("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM %s", tableName));
         assertUpdate("DROP TABLE " + tableName);
         assertUpdate(format("CREATE TABLE %s(ignore integer) WITH (location = '%s')", tableName, location));
         // sanity check
