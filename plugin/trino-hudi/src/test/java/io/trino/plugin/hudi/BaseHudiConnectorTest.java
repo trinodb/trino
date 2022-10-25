@@ -63,7 +63,7 @@ public abstract class BaseHudiConnectorTest
     public void testShowCreateTable()
     {
         String schema = getSession().getSchema().orElseThrow();
-        assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
+        assertThat((String) computeScalar("SHOW CREATE TABLE orders"))
                 .matches("\\QCREATE TABLE hudi." + schema + ".orders (\n" +
                         "   orderkey bigint,\n" +
                         "   custkey bigint,\n" +
