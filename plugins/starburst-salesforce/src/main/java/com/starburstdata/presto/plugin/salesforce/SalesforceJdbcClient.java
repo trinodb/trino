@@ -160,7 +160,7 @@ public class SalesforceJdbcClient
     }
 
     @Override
-    public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
+    public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
     {
         if (!enableWrites) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with data");
