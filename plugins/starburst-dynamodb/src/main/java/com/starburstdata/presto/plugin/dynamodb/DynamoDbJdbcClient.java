@@ -69,6 +69,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -180,7 +181,7 @@ public class DynamoDbJdbcClient
     }
 
     @Override
-    public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
+    public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
     {
         if (!enableWrites) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with data");
@@ -262,7 +263,8 @@ public class DynamoDbJdbcClient
                 tableMetadata.getColumns().stream().map(ColumnMetadata::getName).collect(Collectors.toList()),
                 tableMetadata.getColumns().stream().map(ColumnMetadata::getType).collect(Collectors.toList()),
                 Optional.empty(),
-                Optional.of(tableName));
+                Optional.of(tableName),
+                Optional.empty());
     }
 
     @Override
@@ -392,7 +394,8 @@ public class DynamoDbJdbcClient
                     columnNames.build(),
                     columnTypes.build(),
                     Optional.of(jdbcColumnTypes.build()),
-                    Optional.of(schemaTableName.getTableName()));
+                    Optional.of(schemaTableName.getTableName()),
+                    Optional.empty());
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
@@ -400,7 +403,7 @@ public class DynamoDbJdbcClient
     }
 
     @Override
-    public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle)
+    public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
     {
         if (!enableWrites) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support inserts");

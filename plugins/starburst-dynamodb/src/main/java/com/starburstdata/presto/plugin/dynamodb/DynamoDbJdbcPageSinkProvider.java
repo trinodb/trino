@@ -16,6 +16,7 @@ import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPageSink;
+import io.trino.spi.connector.ConnectorPageSinkId;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -26,6 +27,7 @@ import javax.inject.Inject;
  * The OEM key requires a com.starburstdata.* class to be on the stack trace when making calls to DynamoDB.
  * This class extends JdbcPageSinkProvider but forwards all calls to the base to make sure it is on the stack for testing the connector.
  */
+@SuppressWarnings({"RedundantMethodOverride", "deprecation"})
 public class DynamoDbJdbcPageSinkProvider
         extends JdbcPageSinkProvider
 {
@@ -42,9 +44,21 @@ public class DynamoDbJdbcPageSinkProvider
     }
 
     @Override
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle tableHandle, ConnectorPageSinkId pageSinkId)
+    {
+        return super.createPageSink(transactionHandle, session, tableHandle, pageSinkId);
+    }
+
+    @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle tableHandle)
     {
         return super.createPageSink(transactionHandle, session, tableHandle);
+    }
+
+    @Override
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle tableHandle, ConnectorPageSinkId pageSinkId)
+    {
+        return super.createPageSink(transactionHandle, session, tableHandle, pageSinkId);
     }
 
     @Override
@@ -54,8 +68,20 @@ public class DynamoDbJdbcPageSinkProvider
     }
 
     @Override
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, ConnectorPageSinkId pageSinkId)
+    {
+        return super.createPageSink(transactionHandle, session, tableExecuteHandle, pageSinkId);
+    }
+
+    @Override
     public ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle)
     {
         return super.createMergeSink(transactionHandle, session, mergeHandle);
+    }
+
+    @Override
+    public ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle, ConnectorPageSinkId pageSinkId)
+    {
+        return super.createMergeSink(transactionHandle, session, mergeHandle, pageSinkId);
     }
 }
