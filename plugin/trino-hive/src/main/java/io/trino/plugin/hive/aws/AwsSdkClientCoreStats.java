@@ -173,9 +173,9 @@ public final class AwsSdkClientCoreStats
             List<TimingInfo> subTimings = timingInfo.getAllSubMeasurements(field.name());
             if (subTimings != null) {
                 for (TimingInfo subTiming : subTimings) {
-                    Double millis = subTiming.getTimeTakenMillisIfKnown();
-                    if (millis != null) {
-                        timeStat.add(millis, MILLISECONDS);
+                    Long endTimeNanos = subTiming.getEndTimeNanoIfKnown();
+                    if (endTimeNanos != null) {
+                        timeStat.addNanos(endTimeNanos - subTiming.getStartTimeNano());
                     }
                 }
             }
