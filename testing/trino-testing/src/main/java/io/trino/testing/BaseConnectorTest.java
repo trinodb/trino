@@ -2148,8 +2148,8 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_RENAME_SCHEMA));
 
-        String sourceTableName = "test_rename_source_" + randomTableSuffix();
-        assertUpdate("CREATE SCHEMA " + sourceTableName);
+        String sourceSchemaName = "test_rename_source_" + randomTableSuffix();
+        assertUpdate("CREATE SCHEMA " + sourceSchemaName);
 
         String baseSchemaName = "test_rename_target_" + randomTableSuffix();
 
@@ -2158,7 +2158,7 @@ public abstract class BaseConnectorTest
                 .orElse(65536 + 5);
 
         String validTargetSchemaName = baseSchemaName + "z".repeat(maxLength - baseSchemaName.length());
-        assertUpdate("ALTER SCHEMA " + sourceTableName + " RENAME TO " + validTargetSchemaName);
+        assertUpdate("ALTER SCHEMA " + sourceSchemaName + " RENAME TO " + validTargetSchemaName);
         assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains(validTargetSchemaName);
         assertUpdate("DROP SCHEMA " + validTargetSchemaName);
 
@@ -2166,9 +2166,9 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        assertUpdate("CREATE SCHEMA " + sourceTableName);
+        assertUpdate("CREATE SCHEMA " + sourceSchemaName);
         String invalidTargetSchemaName = validTargetSchemaName + "z";
-        assertThatThrownBy(() -> assertUpdate("ALTER SCHEMA " + sourceTableName + " RENAME TO " + invalidTargetSchemaName))
+        assertThatThrownBy(() -> assertUpdate("ALTER SCHEMA " + sourceSchemaName + " RENAME TO " + invalidTargetSchemaName))
                 .satisfies(this::verifySchemaNameLengthFailurePermissible);
         assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain(invalidTargetSchemaName);
     }
