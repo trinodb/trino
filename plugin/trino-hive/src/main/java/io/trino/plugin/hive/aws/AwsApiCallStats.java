@@ -56,9 +56,9 @@ public class AwsApiCallStats
         return totalFailures;
     }
 
-    public void recordCall(long executionTimeInMillis, boolean failure)
+    public void recordCall(long executionTimeNanos, boolean failure)
     {
-        time.add(executionTimeInMillis, MILLISECONDS);
+        time.addNanos(executionTimeNanos);
         if (failure) {
             totalFailures.update(1);
         }

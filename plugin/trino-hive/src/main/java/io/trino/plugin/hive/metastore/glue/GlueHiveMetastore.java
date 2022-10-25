@@ -147,7 +147,7 @@ import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.security.PrincipalType.USER;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.function.Predicate.not;
 import static java.util.function.UnaryOperator.identity;
 import static java.util.stream.Collectors.toCollection;
@@ -1141,13 +1141,13 @@ public class GlueHiveMetastore
         @Override
         public void onError(Exception e)
         {
-            stats.recordCall(stopwatch.elapsed(MILLISECONDS), true);
+            stats.recordCall(stopwatch.elapsed(NANOSECONDS), true);
         }
 
         @Override
         public void onSuccess(AmazonWebServiceRequest request, Object o)
         {
-            stats.recordCall(stopwatch.elapsed(MILLISECONDS), false);
+            stats.recordCall(stopwatch.elapsed(NANOSECONDS), false);
         }
     }
 }
