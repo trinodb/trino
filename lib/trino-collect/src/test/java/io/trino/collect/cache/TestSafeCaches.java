@@ -19,6 +19,8 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Map;
+
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -84,6 +86,19 @@ public class TestSafeCaches
         assertThatThrownBy(() -> cache.invalidateAll(ImmutableList.of()))
                 .isInstanceOf(UnsupportedOperationException.class)
                 .hasMessage("invalidateAll(keys) does not invalidate ongoing loads, so a stale value may remain in the cache for ever. Use EvictableCache if you need invalidation");
+        Object object = new Object();
+        assertThatThrownBy(() -> cache.asMap().remove(object))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessage("remove(key) does not invalidate ongoing loads, so a stale value may remain in the cache for ever. Use EvictableCacheBuilder if you need invalidation");
+        assertThatThrownBy(() -> cache.asMap().remove(object, object))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessage("remove(key, value) does not invalidate ongoing loads, so a stale value may remain in the cache for ever. Use EvictableCacheBuilder if you need invalidation");
+        assertThatThrownBy(() -> cache.asMap().replace(object, object))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessage("replace(key, value) does not invalidate ongoing loads, so a stale value may remain in the cache for ever. Use EvictableCacheBuilder if you need invalidation");
+        assertThatThrownBy(() -> cache.asMap().replace(object, object, object))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessage("replace(key, oldValue, newValue) does not invalidate ongoing loads, so a stale value may remain in the cache for ever. Use EvictableCacheBuilder if you need invalidation");
     }
 
     private static void verifyClearIsImpossible(Cache<Object, Object> cache)
@@ -91,7 +106,10 @@ public class TestSafeCaches
         assertThatThrownBy(cache::invalidateAll)
                 .isInstanceOf(UnsupportedOperationException.class)
                 .hasMessage("invalidateAll does not invalidate ongoing loads, so a stale value may remain in the cache for ever. Use EvictableCache if you need invalidation, or use SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll() if invalidateAll is not required for correctness");
-        // TODO test asMap().clear()
+        Map<Object, Object> map = cache.asMap();
+        assertThatThrownBy(map::clear)
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessage("clear() does not invalidate ongoing loads, so a stale value may remain in the cache for ever. Use EvictableCacheBuilder if you need invalidation");
     }
 
     private static void verifyClearIsPossible(Cache<Object, Object> cache)
