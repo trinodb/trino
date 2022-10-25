@@ -29,6 +29,15 @@ public interface NonKeyEvictableLoadingCache<K, V>
     void invalidate(Object key);
 
     /**
+     * Allows invalidation for a key, but does not invalidate ongoing loads.
+     * It is caller responsibility to ensure correct use.
+     * The method is deprecated to discourage the usage of it.
+     * Use {@link EvictableCacheBuilder} to build a cache instead.
+     */
+    @Deprecated
+    void unsafeInvalidate(Object key);
+
+    /**
      * @deprecated Not supported. Use {@link EvictableCacheBuilder} to build a cache instead.
      */
     @Deprecated
