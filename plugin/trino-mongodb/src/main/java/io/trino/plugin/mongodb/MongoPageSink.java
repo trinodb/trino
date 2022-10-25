@@ -15,7 +15,6 @@ package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
-import com.google.common.primitives.SignedBytes;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.InsertManyOptions;
 import io.airlift.slice.Slice;
@@ -154,7 +153,7 @@ public class MongoPageSink
             return Shorts.checkedCast(SMALLINT.getLong(block, position));
         }
         if (type.equals(TINYINT)) {
-            return SignedBytes.checkedCast(TINYINT.getLong(block, position));
+            return TINYINT.getByte(block, position);
         }
         if (type.equals(REAL)) {
             return intBitsToFloat(toIntExact(REAL.getLong(block, position)));

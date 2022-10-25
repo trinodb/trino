@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.InetAddresses;
 import com.google.common.primitives.Shorts;
-import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -171,7 +170,7 @@ public class CassandraPageSink
             values.add(Shorts.checkedCast(SMALLINT.getLong(block, position)));
         }
         else if (TINYINT.equals(type)) {
-            values.add(SignedBytes.checkedCast(TINYINT.getLong(block, position)));
+            values.add(TINYINT.getByte(block, position));
         }
         else if (DOUBLE.equals(type)) {
             values.add(DOUBLE.getDouble(block, position));

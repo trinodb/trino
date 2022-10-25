@@ -90,7 +90,7 @@ final class HiveBucketingV1
                     return BOOLEAN.getBoolean(block, position) ? 1 : 0;
                 }
                 if (trinoType.equals(TINYINT)) {
-                    return SignedBytes.checkedCast(TINYINT.getLong(block, position));
+                    return TINYINT.getByte(block, position);
                 }
                 if (trinoType.equals(SMALLINT)) {
                     return Shorts.checkedCast(SMALLINT.getLong(block, position));

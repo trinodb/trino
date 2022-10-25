@@ -15,7 +15,6 @@ package io.trino.plugin.kafka.encoder;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
-import com.google.common.primitives.SignedBytes;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
@@ -93,7 +92,7 @@ public abstract class AbstractRowEncoder
             appendShort(Shorts.checkedCast(SMALLINT.getLong(block, position)));
         }
         else if (type == TINYINT) {
-            appendByte(SignedBytes.checkedCast(TINYINT.getLong(block, position)));
+            appendByte(TINYINT.getByte(block, position));
         }
         else if (type == DOUBLE) {
             appendDouble(DOUBLE.getDouble(block, position));

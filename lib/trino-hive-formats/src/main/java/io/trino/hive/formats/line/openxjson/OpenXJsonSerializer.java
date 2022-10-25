@@ -147,7 +147,7 @@ public class OpenXJsonSerializer
             return SMALLINT.getLong(block, position);
         }
         else if (TINYINT.equals(type)) {
-            return TINYINT.getLong(block, position);
+            return TINYINT.getByte(block, position);
         }
         else if (type instanceof DecimalType) {
             // decimal type is read-only in Hive, but we support it

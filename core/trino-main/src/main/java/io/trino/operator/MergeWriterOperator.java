@@ -152,7 +152,7 @@ public class MergeWriterOperator
         long insertsFromUpdates = 0;
         int positionCount = page.getPositionCount();
         for (int position = 0; position < positionCount; position++) {
-            insertsFromUpdates += TINYINT.getLong(insertFromUpdateColumn, position);
+            insertsFromUpdates += TINYINT.getByte(insertFromUpdateColumn, position);
         }
         rowCount += positionCount - insertsFromUpdates;
     }

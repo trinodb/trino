@@ -76,7 +76,7 @@ public class TestDeleteAndInsertMergeProcessor
         assertThat(outputPage.getPositionCount()).isEqualTo(1);
 
         // The single operation is a delete
-        assertThat(TINYINT.getLong(outputPage.getBlock(3), 0)).isEqualTo(DELETE_OPERATION_NUMBER);
+        assertThat((int) TINYINT.getByte(outputPage.getBlock(3), 0)).isEqualTo(DELETE_OPERATION_NUMBER);
 
         // Show that the row to be deleted is rowId 0, e.g. ('Dave', 11, 'Devon')
         Block rowIdRow = outputPage.getBlock(4).getObject(0, Block.class);
