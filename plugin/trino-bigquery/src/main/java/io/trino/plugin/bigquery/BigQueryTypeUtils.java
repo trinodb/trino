@@ -15,7 +15,6 @@ package io.trino.plugin.bigquery;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
-import com.google.common.primitives.SignedBytes;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.ArrayType;
@@ -73,7 +72,7 @@ public final class BigQueryTypeUtils
             return BOOLEAN.getBoolean(block, position);
         }
         if (type.equals(TINYINT)) {
-            return SignedBytes.checkedCast(TINYINT.getLong(block, position));
+            return TINYINT.getByte(block, position);
         }
         if (type.equals(SMALLINT)) {
             return Shorts.checkedCast(SMALLINT.getLong(block, position));

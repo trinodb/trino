@@ -16,7 +16,6 @@ package io.trino.plugin.hive.util;
 import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
-import com.google.common.primitives.SignedBytes;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveReadOnlyException;
@@ -314,7 +313,7 @@ public final class HiveWriteUtils
             return Shorts.checkedCast(SMALLINT.getLong(block, position));
         }
         if (TINYINT.equals(type)) {
-            return SignedBytes.checkedCast(TINYINT.getLong(block, position));
+            return TINYINT.getByte(block, position);
         }
         if (REAL.equals(type)) {
             return intBitsToFloat((int) REAL.getLong(block, position));

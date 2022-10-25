@@ -15,7 +15,6 @@ package io.trino.plugin.kudu;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
-import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -170,7 +169,7 @@ public class KuduPageSink
             row.addShort(destChannel, Shorts.checkedCast(SMALLINT.getLong(block, position)));
         }
         else if (TINYINT.equals(type)) {
-            row.addByte(destChannel, SignedBytes.checkedCast(TINYINT.getLong(block, position)));
+            row.addByte(destChannel, TINYINT.getByte(block, position));
         }
         else if (BOOLEAN.equals(type)) {
             row.addBoolean(destChannel, BOOLEAN.getBoolean(block, position));
@@ -214,7 +213,7 @@ public class KuduPageSink
         Schema schema = table.getSchema();
         try (KuduOperationApplier operationApplier = KuduOperationApplier.fromKuduClientSession(session)) {
             for (int position = 0; position < page.getPositionCount(); position++) {
-                long operation = TINYINT.getLong(operationBlock, position);
+                byte operation = TINYINT.getByte(operationBlock, position);
 
                 checkState(operation == UPDATE_OPERATION_NUMBER ||
                                 operation == INSERT_OPERATION_NUMBER ||
