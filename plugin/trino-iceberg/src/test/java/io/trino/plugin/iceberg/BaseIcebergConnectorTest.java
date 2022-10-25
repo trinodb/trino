@@ -152,6 +152,12 @@ public abstract class BaseIcebergConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        return createQueryRunnerBuilder()
+                .build();
+    }
+
+    protected IcebergQueryRunner.Builder createQueryRunnerBuilder()
+    {
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(ImmutableMap.<String, String>builder()
                         .put("iceberg.file-format", format.name())
@@ -159,8 +165,7 @@ public abstract class BaseIcebergConnectorTest
                 .setInitialTables(ImmutableList.<TpchTable<?>>builder()
                         .addAll(REQUIRED_TPCH_TABLES)
                         .add(LINE_ITEM)
-                        .build())
-                .build();
+                        .build());
     }
 
     @SuppressWarnings("DuplicateBranchesInSwitch")
