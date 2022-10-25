@@ -121,7 +121,7 @@ public class JsonSerializer
             generator.writeNumber(SMALLINT.getLong(block, position));
         }
         else if (TINYINT.equals(type)) {
-            generator.writeNumber(TINYINT.getLong(block, position));
+            generator.writeNumber(TINYINT.getByte(block, position));
         }
         else if (type instanceof DecimalType) {
             SqlDecimal value = (SqlDecimal) type.getObjectValue(null, block, position);
@@ -206,7 +206,7 @@ public class JsonSerializer
             return String.valueOf(SMALLINT.getLong(block, position));
         }
         else if (TINYINT.equals(type)) {
-            return String.valueOf(TINYINT.getLong(block, position));
+            return String.valueOf(TINYINT.getByte(block, position));
         }
         else if (type instanceof DecimalType) {
             return type.getObjectValue(null, block, position).toString();

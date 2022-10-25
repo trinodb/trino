@@ -220,7 +220,7 @@ public final class JsonUtil
                 return (block, position) -> BOOLEAN.getBoolean(block, position) ? "true" : "false";
             }
             if (type.equals(TINYINT)) {
-                return (block, position) -> String.valueOf(TINYINT.getLong(block, position));
+                return (block, position) -> String.valueOf(TINYINT.getByte(block, position));
             }
             if (type.equals(SMALLINT)) {
                 return (block, position) -> String.valueOf(SMALLINT.getLong(block, position));
