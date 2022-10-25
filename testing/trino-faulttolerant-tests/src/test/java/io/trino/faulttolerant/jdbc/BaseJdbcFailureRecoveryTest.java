@@ -20,6 +20,7 @@ import org.testng.SkipException;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseJdbcFailureRecoveryTest
@@ -76,7 +77,7 @@ public abstract class BaseJdbcFailureRecoveryTest
     @Override
     public void testDeleteWithSubquery()
     {
-        assertThatThrownBy(super::testDeleteWithSubquery).hasMessageContaining("Unsupported delete");
+        assertThatThrownBy(super::testDeleteWithSubquery).hasMessageContaining(MODIFYING_ROWS_MESSAGE);
         throw new SkipException("skipped");
     }
 
@@ -91,21 +92,21 @@ public abstract class BaseJdbcFailureRecoveryTest
     @Override
     public void testUpdate()
     {
-        assertThatThrownBy(super::testUpdate).hasMessageContaining("This connector does not support updates");
+        assertThatThrownBy(super::testUpdate).hasMessageContaining(MODIFYING_ROWS_MESSAGE);
         throw new SkipException("skipped");
     }
 
     @Override
     public void testUpdateWithSubquery()
     {
-        assertThatThrownBy(super::testUpdateWithSubquery).hasMessageContaining("This connector does not support updates");
+        assertThatThrownBy(super::testUpdateWithSubquery).hasMessageContaining(MODIFYING_ROWS_MESSAGE);
         throw new SkipException("skipped");
     }
 
     @Override
     public void testMerge()
     {
-        assertThatThrownBy(super::testMerge).hasMessageContaining("This connector does not support merges");
+        assertThatThrownBy(super::testMerge).hasMessageContaining(MODIFYING_ROWS_MESSAGE);
         throw new SkipException("skipped");
     }
 
