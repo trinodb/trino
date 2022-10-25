@@ -18,6 +18,7 @@ import com.google.common.cache.LoadingCache;
 /**
  * A {@link com.google.common.cache.LoadingCache} that does not support key-based eviction.
  */
+@ElementTypesAreNonnullByDefault
 public interface NonKeyEvictableLoadingCache<K, V>
         extends LoadingCache<K, V>
 {
