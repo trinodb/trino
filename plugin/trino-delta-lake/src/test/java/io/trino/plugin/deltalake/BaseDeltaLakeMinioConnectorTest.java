@@ -245,7 +245,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     @Override
     public void testShowCreateTable()
     {
-        assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
+        assertThat((String) computeScalar("SHOW CREATE TABLE orders"))
                 .matches("\\QCREATE TABLE " + DELTA_CATALOG + "." + SCHEMA + ".orders (\n" +
                         "   orderkey bigint,\n" +
                         "   custkey bigint,\n" +
