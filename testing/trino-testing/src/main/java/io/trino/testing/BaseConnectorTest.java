@@ -1279,7 +1279,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW));
 
-        String schema = "rename_mv_test";
+        String schema = "rename_mv_test_" + randomTableSuffix();
         Session session = Session.builder(getSession())
                 .setSchema(schema)
                 .build();
@@ -1316,8 +1316,8 @@ public abstract class BaseConnectorTest
         assertUpdate(session, "ALTER MATERIALIZED VIEW " + testExistsMaterializedViewName + " RENAME TO " + uppercaseName);
         assertTestingMaterializedViewQuery(schema, uppercaseName.toLowerCase(ENGLISH)); // Ensure select allows for lower-case, not delimited identifier
 
-        String otherSchema = "rename_mv_other_schema";
-        assertUpdate(format("CREATE SCHEMA IF NOT EXISTS %s", otherSchema));
+        String otherSchema = "rename_mv_other_schema_" + randomTableSuffix();
+        assertUpdate(format("CREATE SCHEMA %s", otherSchema));
         if (hasBehavior(SUPPORTS_RENAME_MATERIALIZED_VIEW_ACROSS_SCHEMAS)) {
             assertUpdate(session, "ALTER MATERIALIZED VIEW " + uppercaseName + " RENAME TO " + otherSchema + "." + originalMaterializedView.getObjectName());
             assertTestingMaterializedViewQuery(otherSchema, originalMaterializedView.getObjectName());
