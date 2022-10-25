@@ -27,6 +27,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import javax.annotation.CheckForNull;
+import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -54,6 +55,7 @@ import static java.util.Objects.requireNonNull;
  *
  * @see EvictableCacheBuilder
  */
+@ElementTypesAreNonnullByDefault
 class EvictableCache<K, V>
         extends AbstractLoadingCache<K, V>
         implements LoadingCache<K, V>
@@ -345,6 +347,7 @@ class EvictableCache<K, V>
             }
 
             @Override
+            @Nullable
             public V get(Object key)
             {
                 return getIfPresent(key);
@@ -357,6 +360,7 @@ class EvictableCache<K, V>
             }
 
             @Override
+            @Nullable
             public V remove(Object key)
             {
                 Token<K> token = tokens.remove(key);
