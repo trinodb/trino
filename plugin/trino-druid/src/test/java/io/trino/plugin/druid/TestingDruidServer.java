@@ -41,7 +41,6 @@ import java.util.Map;
 
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.lang.String.format;
-import static java.util.UUID.randomUUID;
 import static org.testcontainers.utility.MountableFile.forClasspathResource;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -72,11 +71,7 @@ public class TestingDruidServer
     public TestingDruidServer(String dockerImageName)
     {
         try {
-            // Cannot use Files.createTempDirectory() because on Mac by default it uses
-            // /var/folders/ which is not visible to Docker for Mac
-            hostWorkingDirectory = Files.createDirectory(
-                    Paths.get("/tmp/docker-tests-files-" + randomUUID().toString()))
-                    .toAbsolutePath().toString();
+            hostWorkingDirectory = Files.createTempDirectory("docker-tests-files-").toAbsolutePath().toString();
             File f = new File(hostWorkingDirectory);
             // Enable read/write/exec access for the services running in containers
             f.setWritable(true, false);

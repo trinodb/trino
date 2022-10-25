@@ -33,7 +33,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -43,7 +42,6 @@ import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP
 import static io.trino.tests.product.launcher.env.common.Hadoop.createHadoopContainer;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static java.util.Objects.requireNonNull;
-import static java.util.UUID.randomUUID;
 import static org.testcontainers.containers.BindMode.READ_WRITE;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -116,8 +114,7 @@ public final class EnvTwoKerberosHives
     private Path createKeytabsHostDirectory()
     {
         try {
-            // Cannot use Files.createTempDirectory() because on Mac by default it uses /var/folders/ which is not visible to Docker for Mac
-            Path temporaryDirectory = Files.createDirectory(Paths.get("/tmp/keytabs-" + randomUUID().toString()));
+            Path temporaryDirectory = Files.createTempDirectory("keytabs-");
             closer.register(() -> deleteRecursively(temporaryDirectory, ALLOW_INSECURE));
             return temporaryDirectory;
         }

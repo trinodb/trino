@@ -26,7 +26,6 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.attribute.PosixFilePermissions;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -35,7 +34,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.nio.file.Files.copy;
-import static java.util.UUID.randomUUID;
 
 public final class DockerFiles
         implements AutoCloseable
@@ -127,8 +125,7 @@ public final class DockerFiles
     {
         Path temporaryDirectoryForDocker;
         try {
-            // Cannot use Files.createTempDirectory() because on Mac by default it uses /var/folders/ which is not visible to Docker for Mac
-            temporaryDirectoryForDocker = Files.createDirectory(Paths.get("/tmp/docker-files-" + randomUUID().toString()));
+            temporaryDirectoryForDocker = Files.createTempDirectory("docker-files-");
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
