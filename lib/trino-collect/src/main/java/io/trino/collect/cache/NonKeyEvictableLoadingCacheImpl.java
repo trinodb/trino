@@ -19,6 +19,7 @@ import com.google.common.cache.LoadingCache;
 import static java.util.Objects.requireNonNull;
 
 // package-private. The interface provides deprecation and javadoc to help at call sites
+@ElementTypesAreNonnullByDefault
 class NonKeyEvictableLoadingCacheImpl<K, V>
         extends ForwardingLoadingCache<K, V>
         implements NonKeyEvictableLoadingCache<K, V>

@@ -19,6 +19,7 @@ import com.google.common.cache.ForwardingCache;
 import static java.util.Objects.requireNonNull;
 
 // package-private. The interface provides deprecation and javadoc to help at call sites
+@ElementTypesAreNonnullByDefault
 class NonKeyEvictableCacheImpl<K, V>
         extends ForwardingCache<K, V>
         implements NonKeyEvictableCache<K, V>

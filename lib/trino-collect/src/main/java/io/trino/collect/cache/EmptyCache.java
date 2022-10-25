@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 
 import javax.annotation.CheckForNull;
+import javax.annotation.Nullable;
 
 import java.util.Collection;
 import java.util.Map;
@@ -30,6 +31,7 @@ import java.util.concurrent.ExecutionException;
 
 import static java.util.Objects.requireNonNull;
 
+@ElementTypesAreNonnullByDefault
 class EmptyCache<K, V>
         extends AbstractLoadingCache<K, V>
 {
@@ -162,12 +164,14 @@ class EmptyCache<K, V>
             }
 
             @Override
+            @Nullable
             public V get(Object key)
             {
                 return null;
             }
 
             @Override
+            @Nullable
             public V put(K key, V value)
             {
                 // Cache, even if configured to evict everything immediately, should allow writes.
@@ -175,6 +179,7 @@ class EmptyCache<K, V>
             }
 
             @Override
+            @Nullable
             public V remove(Object key)
             {
                 return null;
