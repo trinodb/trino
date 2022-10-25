@@ -216,7 +216,7 @@ public abstract class BaseConnectorTest
         }
 
         try {
-            assertUpdate("CREATE SCHEMA " + schemaName);
+            assertUpdate(createSchemaSql(schemaName));
             assertUpdate("CREATE TABLE " + schemaName + ".t(x int)");
             assertQueryFails("DROP SCHEMA " + schemaName, ".*Cannot drop non-empty schema '\\Q" + schemaName + "\\E'");
         }
@@ -239,7 +239,7 @@ public abstract class BaseConnectorTest
         String schemaName = "test_drop_non_empty_schema_view_" + randomTableSuffix();
 
         try {
-            assertUpdate("CREATE SCHEMA " + schemaName);
+            assertUpdate(createSchemaSql(schemaName));
             assertUpdate("CREATE VIEW " + schemaName + ".v_t  AS SELECT 123 x");
 
             assertQueryFails("DROP SCHEMA " + schemaName, ".*Cannot drop non-empty schema '\\Q" + schemaName + "\\E'");
@@ -263,7 +263,7 @@ public abstract class BaseConnectorTest
         String schemaName = "test_drop_non_empty_schema_mv_" + randomTableSuffix();
 
         try {
-            assertUpdate("CREATE SCHEMA " + schemaName);
+            assertUpdate(createSchemaSql(schemaName));
             assertUpdate("CREATE MATERIALIZED VIEW " + schemaName + ".mv_t  AS SELECT 123 x");
 
             assertQueryFails("DROP SCHEMA " + schemaName, ".*Cannot drop non-empty schema '\\Q" + schemaName + "\\E'");
@@ -931,13 +931,16 @@ public abstract class BaseConnectorTest
             return;
         }
 
+        String otherSchema = "other_schema" + randomTableSuffix();
+        assertUpdate(createSchemaSql(otherSchema));
+
         QualifiedObjectName view = new QualifiedObjectName(
                 getSession().getCatalog().orElseThrow(),
                 getSession().getSchema().orElseThrow(),
                 "test_materialized_view_" + randomTableSuffix());
         QualifiedObjectName otherView = new QualifiedObjectName(
                 getSession().getCatalog().orElseThrow(),
-                "other_schema",
+                otherSchema,
                 "test_materialized_view_" + randomTableSuffix());
         QualifiedObjectName viewWithComment = new QualifiedObjectName(
                 getSession().getCatalog().orElseThrow(),
@@ -1111,6 +1114,8 @@ public abstract class BaseConnectorTest
         assertQueryReturnsEmptyResult(listMaterializedViewsSql("name = '" + view.getObjectName() + "'"));
         assertQueryReturnsEmptyResult(listMaterializedViewsSql("name = '" + otherView.getObjectName() + "'"));
         assertQueryReturnsEmptyResult(listMaterializedViewsSql("name = '" + viewWithComment.getObjectName() + "'"));
+
+        assertUpdate("DROP SCHEMA " + otherSchema);
     }
 
     @Test
@@ -1283,6 +1288,7 @@ public abstract class BaseConnectorTest
         Session session = Session.builder(getSession())
                 .setSchema(schema)
                 .build();
+        assertUpdate(createSchemaSql(schema));
 
         QualifiedObjectName originalMaterializedView = new QualifiedObjectName(
                 session.getCatalog().orElseThrow(),
@@ -1317,7 +1323,7 @@ public abstract class BaseConnectorTest
         assertTestingMaterializedViewQuery(schema, uppercaseName.toLowerCase(ENGLISH)); // Ensure select allows for lower-case, not delimited identifier
 
         String otherSchema = "rename_mv_other_schema_" + randomTableSuffix();
-        assertUpdate(format("CREATE SCHEMA %s", otherSchema));
+        assertUpdate(createSchemaSql(otherSchema));
         if (hasBehavior(SUPPORTS_RENAME_MATERIALIZED_VIEW_ACROSS_SCHEMAS)) {
             assertUpdate(session, "ALTER MATERIALIZED VIEW " + uppercaseName + " RENAME TO " + otherSchema + "." + originalMaterializedView.getObjectName());
             assertTestingMaterializedViewQuery(otherSchema, originalMaterializedView.getObjectName());
@@ -1351,7 +1357,6 @@ public abstract class BaseConnectorTest
 
     private void createTestingMaterializedView(QualifiedObjectName view, Optional<String> comment)
     {
-        assertUpdate(format("CREATE SCHEMA IF NOT EXISTS %s", view.getSchemaName()));
         assertUpdate(format(
                 "CREATE MATERIALIZED VIEW %s %s AS SELECT * FROM nation",
                 view,
@@ -1869,7 +1874,7 @@ public abstract class BaseConnectorTest
 
         String schemaName = "test_rename_schema_" + randomTableSuffix();
         try {
-            assertUpdate("CREATE SCHEMA " + schemaName);
+            assertUpdate(createSchemaSql(schemaName));
             assertUpdate("ALTER SCHEMA " + schemaName + " RENAME TO " + schemaName + "_renamed");
             assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains(schemaName + "_renamed");
         }
@@ -2129,7 +2134,7 @@ public abstract class BaseConnectorTest
                 .orElse(65536 + 5);
 
         String validSchemaName = baseSchemaName + "z".repeat(maxLength - baseSchemaName.length());
-        assertUpdate("CREATE SCHEMA " + validSchemaName);
+        assertUpdate(createSchemaSql(validSchemaName));
         assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains(validSchemaName);
         assertUpdate("DROP SCHEMA " + validSchemaName);
 
@@ -2138,7 +2143,7 @@ public abstract class BaseConnectorTest
         }
 
         String invalidSchemaName = validSchemaName + "z";
-        assertThatThrownBy(() -> assertUpdate("CREATE SCHEMA " + invalidSchemaName))
+        assertThatThrownBy(() -> assertUpdate(createSchemaSql(invalidSchemaName)))
                 .satisfies(this::verifySchemaNameLengthFailurePermissible);
         assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain(invalidSchemaName);
     }
@@ -2149,7 +2154,7 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_RENAME_SCHEMA));
 
         String sourceSchemaName = "test_rename_source_" + randomTableSuffix();
-        assertUpdate("CREATE SCHEMA " + sourceSchemaName);
+        assertUpdate(createSchemaSql(sourceSchemaName));
 
         String baseSchemaName = "test_rename_target_" + randomTableSuffix();
 
@@ -2166,7 +2171,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        assertUpdate("CREATE SCHEMA " + sourceSchemaName);
+        assertUpdate(createSchemaSql(sourceSchemaName));
         String invalidTargetSchemaName = validTargetSchemaName + "z";
         assertThatThrownBy(() -> assertUpdate("ALTER SCHEMA " + sourceSchemaName + " RENAME TO " + invalidTargetSchemaName))
                 .satisfies(this::verifySchemaNameLengthFailurePermissible);
@@ -2649,7 +2654,7 @@ public abstract class BaseConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x", 1);
 
         String schemaName = "test_schema_" + randomTableSuffix();
-        assertUpdate("CREATE SCHEMA " + schemaName);
+        assertUpdate(createSchemaSql(schemaName));
 
         String renamedTable = "test_rename_new_" + randomTableSuffix();
         try {
