@@ -2395,14 +2395,18 @@ public abstract class BaseConnectorTest
     @Test
     public void testCreateTableSchemaNotFound()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
-
         String schemaName = "test_schema_" + randomTableSuffix();
         String tableName = "test_create_no_schema_" + randomTableSuffix();
         try {
-            assertQueryFails(
-                    format("CREATE TABLE %s.%s (a bigint)", schemaName, tableName),
-                    format("Schema %s not found", schemaName));
+            String createSql = format("CREATE TABLE %s.%s (a bigint)", schemaName, tableName);
+            if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+                assertQueryFails(createSql, "This connector does not support creating tables");
+            }
+            else {
+                assertQueryFails(createSql, format("Schema %s not found", schemaName));
+            }
+            // Validate that table, nor schema, was not created
+            assertQueryFails(format("TABLE %s.%s", schemaName, tableName), "line 1:1: Schema '" + schemaName + "' does not exist");
         }
         finally {
             assertUpdate(format("DROP TABLE IF EXISTS %s.%s", schemaName, tableName));
