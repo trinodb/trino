@@ -81,7 +81,7 @@ public class HiveMinioDataLake
         this.hiveHadoop = closer.register(hiveHadoopBuilder.build());
     }
 
-    public HiveMinioDataLake start()
+    public void start()
     {
         checkState(state == State.INITIAL, "Already started: %s", state);
         state = State.STARTING;
@@ -90,8 +90,6 @@ public class HiveMinioDataLake
         minioClient = closer.register(minio.createMinioClient());
         minio.createBucket(bucketName);
         state = State.STARTED;
-
-        return this;
     }
 
     public void stop()
