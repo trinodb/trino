@@ -43,7 +43,6 @@ supported databases are MySQL, PostgreSQL, and Oracle.
     resource-groups.config-db-url=jdbc:mysql://localhost:3306/resource_groups
     resource-groups.config-db-user=username
     resource-groups.config-db-password=password
-    resource-groups.max-interval=2
 
 The resource group configuration must be populated through tables
 ``resource_groups_global_properties``, ``resource_groups``, and
