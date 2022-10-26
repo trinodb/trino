@@ -159,7 +159,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.Sets.intersection;
 import static io.trino.hdfs.ConfigurationUtils.toJobConf;
 import static io.trino.plugin.hive.HiveAnalyzeProperties.getColumnNames;
 import static io.trino.plugin.hive.HiveAnalyzeProperties.getPartitionList;
@@ -173,7 +172,6 @@ import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveColumnHandle.mergeRowIdColumnHandle;
-import static io.trino.plugin.hive.HiveColumnHandle.updateRowIdColumnHandle;
 import static io.trino.plugin.hive.HiveCompressionCodecs.selectCompressionCodec;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_COLUMN_ORDER_MISMATCH;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
@@ -355,10 +353,6 @@ public class HiveMetadata
     private static final String AUTO_PURGE_KEY = "auto.purge";
 
     public static final String MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE = "Modifying Hive table rows is only supported for transactional tables";
-    public static final String LEGACY_ACID_UPDATE_DELETE_MESSAGE = """
-            %s on ACID transactional tables is not supported when using the legacy UPDATE/DELETE implementation.\
-            Switch to the new implementation by removing `deprecated.legacy-update-delete-implementation` system config property\
-            or setting `legacy_update_delete_implementation` catalog session property to false.""";
 
     private final CatalogName catalogName;
     private final SemiTransactionalHiveMetastore metastore;
@@ -1801,105 +1795,6 @@ public class HiveMetadata
     }
 
     @Override
-    public ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns, RetryMode retryMode)
-    {
-        HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
-        SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
-        Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
-                .orElseThrow(() -> new TableNotFoundException(tableName));
-
-        if (!isFullAcidTable(table.getParameters())) {
-            throw new TrinoException(NOT_SUPPORTED, "Hive update is only supported for ACID transactional tables");
-        }
-        if (!autoCommit) {
-            throw new TrinoException(NOT_SUPPORTED, "Updating transactional tables is not supported in explicit transactions (use autocommit mode)");
-        }
-        if (isSparkBucketedTable(table)) {
-            throw new TrinoException(NOT_SUPPORTED, "Updating Spark bucketed tables is not supported");
-        }
-        if (isFullAcidTable(table.getParameters())) {
-            throw new TrinoException(NOT_SUPPORTED, LEGACY_ACID_UPDATE_DELETE_MESSAGE.formatted("UPDATE"));
-        }
-
-        // Verify that none of the updated columns are partition columns or bucket columns
-
-        Set<String> updatedColumnNames = updatedColumns.stream().map(handle -> ((HiveColumnHandle) handle).getName()).collect(toImmutableSet());
-        Set<String> partitionColumnNames = table.getPartitionColumns().stream().map(Column::getName).collect(toImmutableSet());
-        if (!intersection(updatedColumnNames, partitionColumnNames).isEmpty()) {
-            throw new TrinoException(NOT_SUPPORTED, "Updating Hive table partition columns is not supported");
-        }
-
-        hiveTableHandle.getBucketHandle().ifPresent(handle -> {
-            Set<String> bucketColumnNames = handle.getColumns().stream().map(HiveColumnHandle::getName).collect(toImmutableSet());
-            if (!intersection(updatedColumnNames, bucketColumnNames).isEmpty()) {
-                throw new TrinoException(NOT_SUPPORTED, "Updating Hive table bucket columns is not supported");
-            }
-        });
-
-        checkTableIsWritable(table, writesToNonManagedTablesEnabled);
-
-        for (Column column : table.getDataColumns()) {
-            if (!isWritableType(column.getType())) {
-                throw new TrinoException(NOT_SUPPORTED, format("Updating a Hive table with column type %s not supported", column.getType()));
-            }
-        }
-
-        List<HiveColumnHandle> allDataColumns = getRegularColumnHandles(table, typeManager, getTimestampPrecision(session)).stream()
-                .filter(columnHandle -> !columnHandle.isHidden())
-                .collect(toImmutableList());
-        List<HiveColumnHandle> hiveUpdatedColumns = updatedColumns.stream().map(HiveColumnHandle.class::cast).collect(toImmutableList());
-
-        if (table.getParameters().containsKey(SKIP_HEADER_COUNT_KEY)) {
-            throw new TrinoException(NOT_SUPPORTED, format("Updating a Hive table with %s property not supported", SKIP_HEADER_COUNT_KEY));
-        }
-        if (table.getParameters().containsKey(SKIP_FOOTER_COUNT_KEY)) {
-            throw new TrinoException(NOT_SUPPORTED, format("Updating a Hive table with %s property not supported", SKIP_FOOTER_COUNT_KEY));
-        }
-
-        if (retryMode != NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "Updating a Hive tables is not supported with query retries enabled");
-        }
-
-        LocationHandle locationHandle = locationService.forExistingTable(metastore, session, table);
-
-        HiveUpdateProcessor updateProcessor = new HiveUpdateProcessor(allDataColumns, hiveUpdatedColumns);
-        AcidTransaction transaction = metastore.beginUpdate(session, table, updateProcessor);
-        HiveTableHandle updateHandle = hiveTableHandle.withTransaction(transaction);
-
-        WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
-        metastore.declareIntentionToWrite(session, writeInfo.getWriteMode(), writeInfo.getWritePath(), tableName);
-        return updateHandle;
-    }
-
-    @Override
-    public void finishUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
-    {
-        HiveTableHandle handle = (HiveTableHandle) tableHandle;
-        checkArgument(handle.isAcidUpdate(), "handle should be a update handle, but is %s", handle);
-
-        requireNonNull(fragments, "fragments is null");
-
-        SchemaTableName tableName = handle.getSchemaTableName();
-        Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
-                .orElseThrow(() -> new TableNotFoundException(tableName));
-
-        List<PartitionAndStatementId> partitionAndStatementIds = fragments.stream()
-                .map(Slice::getBytes)
-                .map(PartitionAndStatementId.CODEC::fromJson)
-                .collect(toImmutableList());
-
-        HdfsContext context = new HdfsContext(session);
-        for (PartitionAndStatementId ps : partitionAndStatementIds) {
-            createOrcAcidVersionFile(context, new Path(ps.getDeltaDirectory().get()));
-            createOrcAcidVersionFile(context, new Path(ps.getDeleteDeltaDirectory().get()));
-        }
-
-        LocationHandle locationHandle = locationService.forExistingTable(metastore, session, table);
-        WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
-        metastore.finishUpdate(session, table.getDatabaseName(), table.getTableName(), writeInfo.getWritePath(), partitionAndStatementIds);
-    }
-
-    @Override
     public RowChangeParadigm getRowChangeParadigm(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
@@ -2719,86 +2614,6 @@ public class HiveMetadata
                     }
                     return definition;
                 });
-    }
-
-    @Override
-    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
-    {
-        HiveTableHandle handle = (HiveTableHandle) tableHandle;
-        SchemaTableName tableName = handle.getSchemaTableName();
-
-        Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
-                .orElseThrow(() -> new TableNotFoundException(tableName));
-        ensureTableSupportsDelete(table);
-
-        if (retryMode != NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "Deleting from Hive tables is not supported with query retries enabled");
-        }
-        if (!autoCommit) {
-            throw new TrinoException(NOT_SUPPORTED, "Deleting from Hive transactional tables is not supported in explicit transactions (use autocommit mode)");
-        }
-        if (isSparkBucketedTable(table)) {
-            throw new TrinoException(NOT_SUPPORTED, "Deleting from Spark bucketed tables is not supported");
-        }
-        if (isFullAcidTable(table.getParameters())) {
-            throw new TrinoException(NOT_SUPPORTED, LEGACY_ACID_UPDATE_DELETE_MESSAGE.formatted("DELETE"));
-        }
-
-        LocationHandle locationHandle = locationService.forExistingTable(metastore, session, table);
-
-        AcidTransaction transaction = metastore.beginDelete(session, table);
-
-        WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
-        metastore.declareIntentionToWrite(session, writeInfo.getWriteMode(), writeInfo.getWritePath(), handle.getSchemaTableName());
-
-        return handle.withTransaction(transaction);
-    }
-
-    @Override
-    public void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
-    {
-        HiveTableHandle handle = (HiveTableHandle) tableHandle;
-        checkArgument(handle.isAcidDelete(), "handle should be a delete handle, but is %s", handle);
-
-        requireNonNull(fragments, "fragments is null");
-
-        SchemaTableName tableName = handle.getSchemaTableName();
-        Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
-                .orElseThrow(() -> new TableNotFoundException(tableName));
-
-        List<PartitionAndStatementId> partitionAndStatementIds = fragments.stream()
-                .map(Slice::getBytes)
-                .map(PartitionAndStatementId.CODEC::fromJson)
-                .collect(toImmutableList());
-
-        HdfsContext context = new HdfsContext(session);
-        for (PartitionAndStatementId ps : partitionAndStatementIds) {
-            createOrcAcidVersionFile(context, new Path(ps.getDeleteDeltaDirectory().get()));
-        }
-
-        LocationHandle locationHandle = locationService.forExistingTable(metastore, session, table);
-        WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
-        metastore.finishRowLevelDelete(session, table.getDatabaseName(), table.getTableName(), writeInfo.getWritePath(), partitionAndStatementIds);
-    }
-
-    private void ensureTableSupportsDelete(Table table)
-    {
-        if (table.getParameters().isEmpty() || !isFullAcidTable(table.getParameters())) {
-            throw new TrinoException(NOT_SUPPORTED, "Deletes must match whole partitions for non-transactional tables");
-        }
-    }
-
-    @Override
-    public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        return HiveColumnHandle.getDeleteRowIdColumnHandle();
-    }
-
-    @Override
-    public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
-    {
-        HiveTableHandle table = (HiveTableHandle) tableHandle;
-        return updateRowIdColumnHandle(table.getDataColumns(), updatedColumns);
     }
 
     @Override

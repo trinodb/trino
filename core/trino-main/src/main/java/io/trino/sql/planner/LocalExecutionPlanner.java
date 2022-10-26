@@ -50,7 +50,6 @@ import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.AggregationOperator.AggregationOperatorFactory;
 import io.trino.operator.AssignUniqueIdOperator;
-import io.trino.operator.DeleteOperator.DeleteOperatorFactory;
 import io.trino.operator.DevNullOperator.DevNullOperatorFactory;
 import io.trino.operator.DirectExchangeClientSupplier;
 import io.trino.operator.DriverFactory;
@@ -95,7 +94,6 @@ import io.trino.operator.TableScanOperator.TableScanOperatorFactory;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TopNOperator;
 import io.trino.operator.TopNRankingOperator;
-import io.trino.operator.UpdateOperator.UpdateOperatorFactory;
 import io.trino.operator.ValuesOperator.ValuesOperatorFactory;
 import io.trino.operator.WindowFunctionDefinition;
 import io.trino.operator.WindowOperator.WindowOperatorFactory;
@@ -187,7 +185,6 @@ import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
@@ -226,15 +223,12 @@ import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableFunctionNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
-import io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
 import io.trino.sql.planner.plan.TableWriterNode.TableExecuteTarget;
-import io.trino.sql.planner.plan.TableWriterNode.UpdateTarget;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
-import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.plan.WindowNode.Frame;
@@ -3319,49 +3313,6 @@ public class LocalExecutionPlanner
         }
 
         @Override
-        public PhysicalOperation visitDelete(DeleteNode node, LocalExecutionPlanContext context)
-        {
-            PhysicalOperation source = node.getSource().accept(this, context);
-
-            OperatorFactory operatorFactory = new DeleteOperatorFactory(context.getNextOperatorId(), node.getId(), source.getLayout().get(node.getRowId()));
-
-            Map<Symbol, Integer> layout = ImmutableMap.<Symbol, Integer>builder()
-                    .put(node.getOutputSymbols().get(0), 0)
-                    .put(node.getOutputSymbols().get(1), 1)
-                    .buildOrThrow();
-
-            return new PhysicalOperation(operatorFactory, layout, context, source);
-        }
-
-        @Override
-        public PhysicalOperation visitUpdate(UpdateNode node, LocalExecutionPlanContext context)
-        {
-            PhysicalOperation source = node.getSource().accept(this, context);
-            List<Integer> channelNumbers = createColumnValueAndRowIdChannels(node.getSource().getOutputSymbols(), node.getColumnValueAndRowIdSymbols());
-            OperatorFactory operatorFactory = new UpdateOperatorFactory(context.getNextOperatorId(), node.getId(), channelNumbers);
-
-            Map<Symbol, Integer> layout = ImmutableMap.<Symbol, Integer>builder()
-                    .put(node.getOutputSymbols().get(0), 0)
-                    .put(node.getOutputSymbols().get(1), 1)
-                    .buildOrThrow();
-
-            return new PhysicalOperation(operatorFactory, layout, context, source);
-        }
-
-        private List<Integer> createColumnValueAndRowIdChannels(List<Symbol> outputSymbols, List<Symbol> columnValueAndRowIdSymbols)
-        {
-            Integer[] columnValueAndRowIdChannels = new Integer[columnValueAndRowIdSymbols.size()];
-            int symbolCounter = 0;
-            for (Symbol symbol : columnValueAndRowIdSymbols) {
-                int index = outputSymbols.indexOf(symbol);
-                verify(index >= 0, "Could not find symbol %s in the outputSymbols %s", symbol, outputSymbols);
-                columnValueAndRowIdChannels[symbolCounter] = index;
-                symbolCounter++;
-            }
-            return Arrays.asList(columnValueAndRowIdChannels);
-        }
-
-        @Override
         public PhysicalOperation visitSimpleTableExecuteNode(SimpleTableExecuteNode node, LocalExecutionPlanContext context)
         {
             context.setDriverInstanceCount(1);
@@ -4098,14 +4049,6 @@ public class LocalExecutionPlanner
                         fragments,
                         statistics,
                         refreshTarget.getSourceTableHandles());
-            }
-            if (target instanceof DeleteTarget) {
-                metadata.finishDelete(session, ((DeleteTarget) target).getHandleOrElseThrow(), fragments);
-                return Optional.empty();
-            }
-            if (target instanceof UpdateTarget) {
-                metadata.finishUpdate(session, ((UpdateTarget) target).getHandleOrElseThrow(), fragments);
-                return Optional.empty();
             }
             if (target instanceof TableExecuteTarget) {
                 TableExecuteHandle tableExecuteHandle = ((TableExecuteTarget) target).getExecuteHandle();

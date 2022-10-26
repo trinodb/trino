@@ -52,7 +52,6 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.hive.HiveMetadata.LEGACY_ACID_UPDATE_DELETE_MESSAGE;
 import static io.trino.plugin.hive.HiveMetadata.MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
@@ -76,7 +75,6 @@ import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toUnmodifiableList;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -2022,51 +2020,6 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = HIVE_TRANSACTIONAL)
-    public void testLegacyDeleteDisallowedOnAcidTables()
-    {
-        if (getHiveVersionMajor() < 3) {
-            throw new SkipException("Hive transactional tables are supported with Hive version 3 or above");
-        }
-        onTrino().executeQuery("SET SESSION legacy_update_delete_implementation = true");
-        withTemporaryTable("legacy_delete_disallow", true, true, NONE, table -> {
-            onTrino().executeQuery("CREATE TABLE %s WITH (transactional=true, partitioned_by=ARRAY['regionkey']) AS SELECT nationkey, regionkey FROM tpch.tiny.nation".formatted(table));
-            assertThat(onTrino().executeQuery("SELECT COUNT(1) FROM " + table)).containsOnly(row(25));
-
-            // metadata delete
-            assertThatThrownBy(() -> onTrino().executeQuery("DELETE FROM %s WHERE regionkey = 1".formatted(table)))
-                    .hasStackTraceContaining(LEGACY_ACID_UPDATE_DELETE_MESSAGE.formatted("DELETE"));
-
-            // row-by-row delete
-            assertThatThrownBy(() -> onTrino().executeQuery("DELETE FROM %s WHERE nationkey %% 2 = 0".formatted(table)))
-                    .hasStackTraceContaining(LEGACY_ACID_UPDATE_DELETE_MESSAGE.formatted("DELETE"));
-        });
-    }
-
-    @Test(groups = HIVE_TRANSACTIONAL)
-    public void testLegacyUpdateDisallowedOnAcidTables()
-    {
-        if (getHiveVersionMajor() < 3) {
-            throw new SkipException("Hive transactional tables are supported with Hive version 3 or above");
-        }
-        onTrino().executeQuery("SET SESSION legacy_update_delete_implementation = true");
-        withTemporaryTable("legacy_update_disallow", true, true, NONE, table -> {
-            onTrino().executeQuery("CREATE TABLE %s WITH (transactional=true, partitioned_by=ARRAY['regionkey']) AS SELECT nationkey, comment, regionkey FROM tpch.tiny.nation".formatted(table));
-            assertThat(onTrino().executeQuery("SELECT COUNT(1) FROM " + table)).containsOnly(row(25));
-
-            // entire partition update
-            assertThatThrownBy(() -> onTrino().executeQuery("UPDATE %s SET comment = 'updated' WHERE regionkey = 1".formatted(table)))
-                    .hasStackTraceContaining(LEGACY_ACID_UPDATE_DELETE_MESSAGE.formatted("UPDATE"));
-
-            // row-by-row update
-            assertThatThrownBy(() -> onTrino().executeQuery("UPDATE %s SET comment = 'updated' WHERE nationkey %% 2 = 0".formatted(table)))
-                    .hasStackTraceContaining(LEGACY_ACID_UPDATE_DELETE_MESSAGE.formatted("UPDATE"));
-        });
-    }
-
-    /**
-     * Test for https://github.com/trinodb/trino/issues/12731
-     */
-    @Test(groups = HIVE_TRANSACTIONAL)
     public void testLargePartitionedDelete()
     {
         if (getHiveVersionMajor() < 3) {
@@ -2099,9 +2052,6 @@ public class TestHiveTransactionalTable
         });
     }
 
-    /**
-     * Test for https://github.com/trinodb/trino/issues/12731
-     */
     @Test(groups = HIVE_TRANSACTIONAL)
     public void testLargePartitionedUpdate()
     {

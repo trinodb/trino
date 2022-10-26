@@ -28,7 +28,6 @@ import io.trino.sql.DynamicFilters;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
-import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
@@ -66,7 +65,6 @@ import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
-import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.Expression;
@@ -395,18 +393,6 @@ public class SplitSourceFactory
 
         @Override
         public Map<PlanNodeId, SplitSource> visitStatisticsWriterNode(StatisticsWriterNode node, Void context)
-        {
-            return node.getSource().accept(this, context);
-        }
-
-        @Override
-        public Map<PlanNodeId, SplitSource> visitDelete(DeleteNode node, Void context)
-        {
-            return node.getSource().accept(this, context);
-        }
-
-        @Override
-        public Map<PlanNodeId, SplitSource> visitUpdate(UpdateNode node, Void context)
         {
             return node.getSource().accept(this, context);
         }

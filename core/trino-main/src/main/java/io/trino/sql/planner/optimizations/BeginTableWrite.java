@@ -28,7 +28,6 @@ import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
-import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
@@ -46,15 +45,12 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TableWriterNode.CreateReference;
 import io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
-import io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.trino.sql.planner.plan.TableWriterNode.InsertReference;
 import io.trino.sql.planner.plan.TableWriterNode.InsertTarget;
 import io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
 import io.trino.sql.planner.plan.TableWriterNode.TableExecuteTarget;
-import io.trino.sql.planner.plan.TableWriterNode.UpdateTarget;
 import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import io.trino.sql.planner.plan.UnionNode;
-import io.trino.sql.planner.plan.UpdateNode;
 
 import java.util.List;
 import java.util.Optional;
@@ -138,31 +134,6 @@ public class BeginTableWrite
         }
 
         @Override
-        public PlanNode visitDelete(DeleteNode node, RewriteContext<Optional<WriterTarget>> context)
-        {
-            DeleteTarget deleteTarget = (DeleteTarget) getContextTarget(context);
-            return new DeleteNode(
-                    node.getId(),
-                    rewriteModifyTableScan(node.getSource(), deleteTarget.getHandleOrElseThrow(), false),
-                    deleteTarget,
-                    node.getRowId(),
-                    node.getOutputSymbols());
-        }
-
-        @Override
-        public PlanNode visitUpdate(UpdateNode node, RewriteContext<Optional<WriterTarget>> context)
-        {
-            UpdateTarget updateTarget = (UpdateTarget) getContextTarget(context);
-            return new UpdateNode(
-                    node.getId(),
-                    rewriteModifyTableScan(node.getSource(), updateTarget.getHandleOrElseThrow(), false),
-                    updateTarget,
-                    node.getRowId(),
-                    node.getColumnValueAndRowIdSymbols(),
-                    node.getOutputSymbols());
-        }
-
-        @Override
         public PlanNode visitTableExecute(TableExecuteNode node, RewriteContext<Optional<WriterTarget>> context)
         {
             TableExecuteTarget tableExecuteTarget = (TableExecuteTarget) getContextTarget(context);
@@ -233,22 +204,6 @@ public class BeginTableWrite
             if (node instanceof TableWriterNode) {
                 return ((TableWriterNode) node).getTarget();
             }
-            if (node instanceof DeleteNode) {
-                DeleteNode deleteNode = (DeleteNode) node;
-                DeleteTarget delete = deleteNode.getTarget();
-                return new DeleteTarget(
-                        Optional.of(findTableScanHandleForDeleteOrUpdate(deleteNode.getSource())),
-                        delete.getSchemaTableName());
-            }
-            if (node instanceof UpdateNode) {
-                UpdateNode updateNode = (UpdateNode) node;
-                UpdateTarget update = updateNode.getTarget();
-                return new UpdateTarget(
-                        Optional.of(findTableScanHandleForDeleteOrUpdate(updateNode.getSource())),
-                        update.getSchemaTableName(),
-                        update.getUpdatedColumns(),
-                        update.getUpdatedColumnHandles());
-            }
             if (node instanceof TableExecuteNode) {
                 TableExecuteTarget target = ((TableExecuteNode) node).getTarget();
                 return new TableExecuteTarget(
@@ -301,20 +256,6 @@ public class BeginTableWrite
                         metadata.getTableMetadata(session, insert.getHandle()).getTable(),
                         target.supportsReportingWrittenBytes(metadata, session),
                         target.supportsMultipleWritersPerPartition(metadata, session));
-            }
-            if (target instanceof DeleteTarget) {
-                DeleteTarget delete = (DeleteTarget) target;
-                TableHandle newHandle = metadata.beginDelete(session, delete.getHandleOrElseThrow());
-                return new DeleteTarget(Optional.of(newHandle), delete.getSchemaTableName());
-            }
-            if (target instanceof UpdateTarget) {
-                UpdateTarget update = (UpdateTarget) target;
-                TableHandle newHandle = metadata.beginUpdate(session, update.getHandleOrElseThrow(), update.getUpdatedColumnHandles());
-                return new UpdateTarget(
-                        Optional.of(newHandle),
-                        update.getSchemaTableName(),
-                        update.getUpdatedColumns(),
-                        update.getUpdatedColumnHandles());
             }
             if (target instanceof MergeTarget merge) {
                 MergeHandle mergeHandle = metadata.beginMerge(session, merge.getHandle());

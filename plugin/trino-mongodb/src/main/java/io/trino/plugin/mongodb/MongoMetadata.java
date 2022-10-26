@@ -95,7 +95,6 @@ public class MongoMetadata
     private static final Type TRINO_PAGE_SINK_ID_COLUMN_TYPE = BigintType.BIGINT;
 
     private static final int MAX_QUALIFIED_IDENTIFIER_BYTE_LENGTH = 120;
-    private static final String DELETE_ROW_ID = "_trino_artificial_column_handle_for_delete_row_id_";
 
     private final MongoSession mongoSession;
 
@@ -398,19 +397,6 @@ public class MongoMetadata
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
             }
         }
-    }
-
-    @Override
-    public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        // The column is used for row-level delete, which is not supported, but it's required during analysis anyway.
-        return new MongoColumnHandle(DELETE_ROW_ID, BIGINT, true, Optional.empty());
-    }
-
-    @Override
-    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "Unsupported delete");
     }
 
     @Override

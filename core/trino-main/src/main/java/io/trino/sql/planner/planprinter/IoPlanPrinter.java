@@ -40,11 +40,9 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TableWriterNode.CreateReference;
 import io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
-import io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.trino.sql.planner.plan.TableWriterNode.InsertReference;
 import io.trino.sql.planner.plan.TableWriterNode.InsertTarget;
 import io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
-import io.trino.sql.planner.plan.TableWriterNode.UpdateTarget;
 import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.IoPlan.IoPlanBuilder;
@@ -707,20 +705,6 @@ public class IoPlanPrinter
                 InsertTarget target = (InsertTarget) writerTarget;
                 context.setOutputTable(new CatalogSchemaTableName(
                         target.getHandle().getCatalogHandle().getCatalogName(),
-                        target.getSchemaTableName().getSchemaName(),
-                        target.getSchemaTableName().getTableName()));
-            }
-            else if (writerTarget instanceof DeleteTarget) {
-                DeleteTarget target = (DeleteTarget) writerTarget;
-                context.setOutputTable(new CatalogSchemaTableName(
-                        target.getHandleOrElseThrow().getCatalogHandle().getCatalogName(),
-                        target.getSchemaTableName().getSchemaName(),
-                        target.getSchemaTableName().getTableName()));
-            }
-            else if (writerTarget instanceof UpdateTarget) {
-                UpdateTarget target = (UpdateTarget) writerTarget;
-                context.setOutputTable(new CatalogSchemaTableName(
-                        target.getHandleOrElseThrow().getCatalogHandle().getCatalogName(),
                         target.getSchemaTableName().getSchemaName(),
                         target.getSchemaTableName().getTableName()));
             }

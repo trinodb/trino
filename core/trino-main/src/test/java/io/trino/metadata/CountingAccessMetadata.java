@@ -436,18 +436,6 @@ public class CountingAccessMetadata
     }
 
     @Override
-    public ColumnHandle getDeleteRowIdColumnHandle(Session session, TableHandle tableHandle)
-    {
-        return delegate.getDeleteRowIdColumnHandle(session, tableHandle);
-    }
-
-    @Override
-    public ColumnHandle getUpdateRowIdColumnHandle(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns)
-    {
-        return delegate.getUpdateRowIdColumnHandle(session, tableHandle, updatedColumns);
-    }
-
-    @Override
     public Optional<TableHandle> applyDelete(Session session, TableHandle tableHandle)
     {
         return delegate.applyDelete(session, tableHandle);
@@ -457,30 +445,6 @@ public class CountingAccessMetadata
     public OptionalLong executeDelete(Session session, TableHandle tableHandle)
     {
         return delegate.executeDelete(session, tableHandle);
-    }
-
-    @Override
-    public TableHandle beginDelete(Session session, TableHandle tableHandle)
-    {
-        return delegate.beginDelete(session, tableHandle);
-    }
-
-    @Override
-    public void finishDelete(Session session, TableHandle tableHandle, Collection<Slice> fragments)
-    {
-        delegate.finishDelete(session, tableHandle, fragments);
-    }
-
-    @Override
-    public TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns)
-    {
-        return delegate.beginUpdate(session, tableHandle, updatedColumns);
-    }
-
-    @Override
-    public void finishUpdate(Session session, TableHandle tableHandle, Collection<Slice> fragments)
-    {
-        delegate.finishUpdate(session, tableHandle, fragments);
     }
 
     @Override

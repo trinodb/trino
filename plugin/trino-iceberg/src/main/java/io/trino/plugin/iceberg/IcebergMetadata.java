@@ -185,7 +185,6 @@ import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_PARTITION_
 import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_PARTITION_SPEC_ID;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_ROW_ID;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_ROW_ID_NAME;
-import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_UPDATE_ROW_ID;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnMetadata;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
@@ -1751,77 +1750,6 @@ public class IcebergMetadata
             return Optional.empty();
         }
         return Optional.of(handle);
-    }
-
-    @Override
-    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
-    {
-        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        verifyTableVersionForUpdate(table);
-
-        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
-        validateNotModifyingOldSnapshot(table, icebergTable);
-        validateNotPartitionedByNestedField(icebergTable.schema(), icebergTable.spec());
-
-        beginTransaction(icebergTable);
-        return table.withRetryMode(retryMode);
-    }
-
-    @Override
-    public void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
-    {
-        finishWrite(session, (IcebergTableHandle) tableHandle, fragments, false);
-    }
-
-    @Override
-    public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        return getColumnHandle(MetadataColumns.ROW_POSITION, typeManager);
-    }
-
-    @Override
-    public ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns, RetryMode retryMode)
-    {
-        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        verifyTableVersionForUpdate(table);
-
-        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
-        validateNotModifyingOldSnapshot(table, icebergTable);
-        validateNotPartitionedByNestedField(icebergTable.schema(), icebergTable.spec());
-
-        beginTransaction(icebergTable);
-        return table.withRetryMode(retryMode)
-                .withUpdatedColumns(updatedColumns.stream()
-                        .map(IcebergColumnHandle.class::cast)
-                        .collect(toImmutableList()));
-    }
-
-    @Override
-    public void finishUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
-    {
-        finishWrite(session, (IcebergTableHandle) tableHandle, fragments, true);
-    }
-
-    @Override
-    public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
-    {
-        List<NestedField> unmodifiedColumns = new ArrayList<>();
-        unmodifiedColumns.add(MetadataColumns.ROW_POSITION);
-
-        // Include all the non-updated columns. These are needed when writing the new data file with updated column values.
-        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        Set<Integer> updatedFields = updatedColumns.stream()
-                .map(IcebergColumnHandle.class::cast)
-                .map(IcebergColumnHandle::getId)
-                .collect(toImmutableSet());
-        for (NestedField column : SchemaParser.fromJson(table.getTableSchemaJson()).columns()) {
-            if (!updatedFields.contains(column.fieldId())) {
-                unmodifiedColumns.add(column);
-            }
-        }
-
-        NestedField rowIdField = NestedField.required(TRINO_UPDATE_ROW_ID, TRINO_ROW_ID_NAME, StructType.of(unmodifiedColumns));
-        return getColumnHandle(rowIdField, typeManager);
     }
 
     @Override

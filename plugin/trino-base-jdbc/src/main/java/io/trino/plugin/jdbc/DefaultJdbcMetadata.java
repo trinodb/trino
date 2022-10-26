@@ -822,22 +822,6 @@ public class DefaultJdbcMetadata
     }
 
     @Override
-    public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        // The column is used for row-level delete, which is not supported, but it's required during analysis anyway.
-        return new JdbcColumnHandle(
-                DELETE_ROW_ID,
-                new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
-                BIGINT);
-    }
-
-    @Override
-    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
-    {
-        throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
-    }
-
-    @Override
     public ColumnHandle getMergeRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         // The column is used for row-level merge, which is not supported, but it's required during analysis anyway.

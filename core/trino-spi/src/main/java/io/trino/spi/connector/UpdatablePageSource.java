@@ -29,12 +29,6 @@ public interface UpdatablePageSource
         throw new UnsupportedOperationException("This connector does not support row-level delete");
     }
 
-    /**
-     * Write updated rows to the PageSource.
-     * @param page Contains values for all updated columns, as well as the $row_id column. The order of these Blocks can be derived from columnValueAndRowIdChannels.
-     * @param columnValueAndRowIdChannels The index of this list matches the index columns have in updatedColumns parameter of {@link ConnectorMetadata#beginUpdate}
-     * The value at each index is the channel number in the given page. The last element of this list is always the channel number for the $row_id column.
-     */
     default void updateRows(Page page, List<Integer> columnValueAndRowIdChannels)
     {
         throw new UnsupportedOperationException("This connector does not support row update");
