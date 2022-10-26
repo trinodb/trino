@@ -294,20 +294,6 @@ public class BeginTableWrite
                 InsertReference insert = (InsertReference) target;
                 return new InsertTarget(metadata.beginInsert(session, insert.getHandle(), insert.getColumns()), metadata.getTableMetadata(session, insert.getHandle()).getTable(), target.supportsReportingWrittenBytes(metadata, session));
             }
-            if (target instanceof DeleteTarget) {
-                DeleteTarget delete = (DeleteTarget) target;
-                TableHandle newHandle = metadata.beginDelete(session, delete.getHandleOrElseThrow());
-                return new DeleteTarget(Optional.of(newHandle), delete.getSchemaTableName());
-            }
-            if (target instanceof UpdateTarget) {
-                UpdateTarget update = (UpdateTarget) target;
-                TableHandle newHandle = metadata.beginUpdate(session, update.getHandleOrElseThrow(), update.getUpdatedColumnHandles());
-                return new UpdateTarget(
-                        Optional.of(newHandle),
-                        update.getSchemaTableName(),
-                        update.getUpdatedColumns(),
-                        update.getUpdatedColumnHandles());
-            }
             if (target instanceof MergeTarget merge) {
                 MergeHandle mergeHandle = metadata.beginMerge(session, merge.getHandle());
                 return new MergeTarget(

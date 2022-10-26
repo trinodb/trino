@@ -618,6 +618,7 @@ public interface ConnectorMetadata
      * These IDs will be passed to the {@code deleteRows()} method of the
      * {@link io.trino.spi.connector.UpdatablePageSource} that created them.
      */
+    @Deprecated // The Trino engine no longer supports this API
     default ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support deletes");
@@ -628,6 +629,7 @@ public interface ConnectorMetadata
      * These IDs will be passed to the {@code updateRows() method of the
      * {@link io.trino.spi.connector.UpdatablePageSource} that created them.
      */
+    @Deprecated // The Trino engine no longer supports this API
     default ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support updates");
@@ -643,6 +645,7 @@ public interface ConnectorMetadata
      * </pre>
      * unless {@code retryMode} is set to {@code NO_RETRIES}.
      */
+    @Deprecated // The Trino engine no longer supports this API
     default ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support deletes");
@@ -653,6 +656,7 @@ public interface ConnectorMetadata
      *
      * @param fragments all fragments returned by {@link io.trino.spi.connector.UpdatablePageSource#finish()}
      */
+    @Deprecated // The Trino engine no longer supports this API
     default void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support deletes");
@@ -676,6 +680,7 @@ public interface ConnectorMetadata
      * @return a ConnectorTableHandle that will be passed to split generation, and to the
      * {@link #finishUpdate} method.
      */
+    @Deprecated // The Trino engine no longer supports this API
     default ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns, RetryMode retryMode)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support updates");
@@ -686,6 +691,7 @@ public interface ConnectorMetadata
      *
      * @param fragments all fragments returned by {@link io.trino.spi.connector.UpdatablePageSource#finish()}
      */
+    @Deprecated // The Trino engine no longer supports this API
     default void finishUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support updates");

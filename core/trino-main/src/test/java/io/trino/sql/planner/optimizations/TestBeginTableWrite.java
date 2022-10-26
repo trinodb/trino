@@ -15,13 +15,15 @@ package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.connector.MockConnectorMergeTableHandle;
+import io.trino.connector.MockConnectorTableHandle;
 import io.trino.cost.CachingTableStatsProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AbstractMockMetadata;
+import io.trino.metadata.MergeHandle;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
-import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.BigintType;
@@ -31,7 +33,6 @@ import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.PlanNode;
 import org.testng.annotations.Test;
 
-import java.util.List;
 import java.util.function.Function;
 
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
@@ -151,15 +152,9 @@ public class TestBeginTableWrite
             extends AbstractMockMetadata
     {
         @Override
-        public TableHandle beginDelete(Session session, TableHandle tableHandle)
+        public MergeHandle beginMerge(Session session, TableHandle tableHandle)
         {
-            return tableHandle;
-        }
-
-        @Override
-        public TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns)
-        {
-            return tableHandle;
+            return new MergeHandle(tableHandle, new MockConnectorMergeTableHandle((MockConnectorTableHandle) tableHandle.getConnectorHandle()));
         }
 
         @Override

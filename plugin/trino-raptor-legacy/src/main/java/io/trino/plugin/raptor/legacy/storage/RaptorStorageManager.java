@@ -278,12 +278,7 @@ public class RaptorStorageManager
                     INITIAL_BATCH_SIZE,
                     RaptorPageSource::handleException);
 
-            Optional<ShardRewriter> shardRewriter = Optional.empty();
-            if (transactionId.isPresent()) {
-                shardRewriter = Optional.of(createShardRewriter(transactionId.getAsLong(), bucketNumber, shardUuid));
-            }
-
-            return new RaptorPageSource(shardRewriter, recordReader, columnAdaptations, dataSource, memoryUsage);
+            return new RaptorPageSource(recordReader, columnAdaptations, dataSource, memoryUsage);
         }
         catch (IOException | RuntimeException e) {
             closeQuietly(dataSource);

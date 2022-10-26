@@ -29,6 +29,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -701,17 +702,17 @@ public class TestRaptorMetadata
     }
 
     @Test
-    public void testTransactionDelete()
+    public void testTransactionMerge()
     {
         // creating a table allocates a transaction
         long transactionId = 1;
         metadata.createTable(SESSION, getOrdersTable(), false);
         assertTrue(transactionSuccessful(transactionId));
 
-        // start delete
+        // start merge
         transactionId++;
         ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
-        tableHandle = metadata.beginDelete(SESSION, tableHandle, NO_RETRIES);
+        metadata.beginMerge(SESSION, tableHandle, NO_RETRIES);
 
         // verify transaction is assigned for deletion handle
         assertInstanceOf(tableHandle, RaptorTableHandle.class);
@@ -730,14 +731,14 @@ public class TestRaptorMetadata
 
         // start another delete
         transactionId++;
-        tableHandle = metadata.beginDelete(SESSION, tableHandle, NO_RETRIES);
+        ConnectorMergeTableHandle mergeHandle = metadata.beginMerge(SESSION, tableHandle, NO_RETRIES);
 
         // transaction is in progress
         assertTrue(transactionExists(transactionId));
         assertNull(transactionSuccessful(transactionId));
 
         // commit delete
-        metadata.finishDelete(SESSION, tableHandle, ImmutableList.of());
+        metadata.finishMerge(SESSION, mergeHandle, ImmutableList.of(), ImmutableList.of());
         assertTrue(transactionExists(transactionId));
         assertTrue(transactionSuccessful(transactionId));
     }
