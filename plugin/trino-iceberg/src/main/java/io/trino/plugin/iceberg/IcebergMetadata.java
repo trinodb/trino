@@ -166,7 +166,6 @@ import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Maps.transformValues;
 import static com.google.common.collect.Sets.difference;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
@@ -823,7 +822,7 @@ public class IcebergMetadata
                 .collect(toImmutableList())));
     }
 
-    private static void cleanExtraOutputFiles(TrinoFileSystem fileSystem, String queryId, String location, Set<String> filesToKeep)
+    private static void cleanExtraOutputFiles(TrinoFileSystem fileSystem, String queryId, String location, Set<String> fileNamesToKeep)
     {
         checkArgument(!queryId.contains("-"), "query ID should not contain hyphens: %s", queryId);
 
@@ -834,8 +833,8 @@ public class IcebergMetadata
             FileIterator iterator = fileSystem.listFiles(location);
             while (iterator.hasNext()) {
                 FileEntry entry = iterator.next();
-                String name = getLast(Splitter.on('/').splitToList(entry.path()));
-                if (name.startsWith(queryId + "-") && !filesToKeep.contains(location + "/" + name)) {
+                String name = fileName(entry.path());
+                if (name.startsWith(queryId + "-") && !fileNamesToKeep.contains(name)) {
                     filesToDelete.add(name);
                 }
             }
@@ -844,7 +843,7 @@ public class IcebergMetadata
                 return;
             }
 
-            log.info("Found %s files to delete and %s to retain in location %s for query %s", filesToDelete.size(), filesToKeep.size(), location, queryId);
+            log.info("Found %s files to delete and %s to retain in location %s for query %s", filesToDelete.size(), fileNamesToKeep.size(), location, queryId);
             ImmutableList.Builder<String> deletedFilesBuilder = ImmutableList.builder();
             Iterator<String> filesToDeleteIterator = filesToDelete.iterator();
             while (filesToDeleteIterator.hasNext()) {
@@ -870,6 +869,13 @@ public class IcebergMetadata
     {
         return writtenFiles.stream()
                 .map(IcebergMetadata::getLocation)
+                .collect(toImmutableSet());
+    }
+
+    private static Set<String> getOutputFilesFileNames(Set<String> writtenFiles)
+    {
+        return writtenFiles.stream()
+                .map(IcebergUtil::fileName)
                 .collect(toImmutableSet());
     }
 
@@ -2294,8 +2300,9 @@ public class IcebergMetadata
     {
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         Set<String> locations = getOutputFilesLocations(writtenFiles);
+        Set<String> fileNames = getOutputFilesFileNames(writtenFiles);
         for (String location : locations) {
-            cleanExtraOutputFiles(fileSystem, session.getQueryId(), location, writtenFiles);
+            cleanExtraOutputFiles(fileSystem, session.getQueryId(), location, fileNames);
         }
     }
 
