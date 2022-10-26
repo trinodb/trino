@@ -31,7 +31,7 @@
 
 ## Hive connector
 
-* Add support for [IBM Cloud Object Storage](#hive-cos). ({issue}`14625`)
+* Add support for [IBM Cloud Object Storage](/connector/hive-cos). ({issue}`14625`)
 * Allow creating tables with an Avro schema literal using the new table property
   `avro_schema_literal`. ({issue}`14426`)
 * Fix potential query failure or incorrect results when reading from a table
@@ -60,7 +60,7 @@
 ## MySQL connector
 
 * Add support for writes when [fault-tolerant
-  execution](#fault-tolerant-execution) is enabled. ({issue}`14445`)
+  execution](/admin/fault-tolerant-execution) is enabled. ({issue}`14445`)
 
 ## Pinot connector
 
@@ -69,12 +69,12 @@
 ## PostgreSQL connector
 
 * Add support for writes when [fault-tolerant
-  execution](#fault-tolerant-execution) is enabled. ({issue}`14445`)
+  execution](/admin/fault-tolerant-execution) is enabled. ({issue}`14445`)
 
 ## SQL Server connector
 
 * Add support for writes when [fault-tolerant
-  execution](#fault-tolerant-execution) is enabled. ({issue}`14730`)
+  execution](/admin/fault-tolerant-execution) is enabled. ({issue}`14730`)
 
 ## SPI
 
