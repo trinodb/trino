@@ -259,6 +259,10 @@ public abstract class BaseMongoConnectorTest
                 {"bigint '4'"},
                 {"'test'"},
                 {"objectid('6216f0c6c432d45190f25e7c')"},
+                {"date '1970-01-01'"},
+                {"time '00:00:00.000'"},
+                {"timestamp '1970-01-01 00:00:00.000'"},
+                {"timestamp '1970-01-01 00:00:00.000 UTC'"},
         };
     }
 
