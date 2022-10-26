@@ -772,6 +772,12 @@ public class DefaultJdbcMetadata
     }
 
     @Override
+    public Optional<Type> getSupportedType(ConnectorSession session, Type type)
+    {
+        return jdbcClient.getSupportedType(session, type);
+    }
+
+    @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
     {
         verifyRetryMode(session, retryMode);
