@@ -409,7 +409,7 @@ public class MongoSession
         Document filter = buildFilter(tableHandle);
         FindIterable<Document> iterable = collection.find(filter).projection(output);
         tableHandle.getLimit().ifPresent(iterable::limit);
-        log.debug("Find documents: collection: %s, filter: %s, projection: %s", tableHandle.getSchemaTableName(), filter.toJson(), output);
+        log.debug("Find documents: collection: %s, filter: %s, projection: %s", tableHandle.getSchemaTableName(), filter, output);
 
         if (cursorBatchSize != 0) {
             iterable.batchSize(cursorBatchSize);
