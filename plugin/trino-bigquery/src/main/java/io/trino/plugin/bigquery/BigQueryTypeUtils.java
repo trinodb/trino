@@ -14,7 +14,6 @@
 package io.trino.plugin.bigquery;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Shorts;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.ArrayType;
@@ -75,7 +74,7 @@ public final class BigQueryTypeUtils
             return TINYINT.getByte(block, position);
         }
         if (type.equals(SMALLINT)) {
-            return Shorts.checkedCast(SMALLINT.getLong(block, position));
+            return SMALLINT.getShort(block, position);
         }
         if (type.equals(INTEGER)) {
             return toIntExact(INTEGER.getLong(block, position));

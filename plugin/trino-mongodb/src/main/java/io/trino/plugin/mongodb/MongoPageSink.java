@@ -14,7 +14,6 @@
 package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Shorts;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.InsertManyOptions;
 import io.airlift.slice.Slice;
@@ -150,7 +149,7 @@ public class MongoPageSink
             return toIntExact(INTEGER.getLong(block, position));
         }
         if (type.equals(SMALLINT)) {
-            return Shorts.checkedCast(SMALLINT.getLong(block, position));
+            return SMALLINT.getShort(block, position);
         }
         if (type.equals(TINYINT)) {
             return TINYINT.getByte(block, position);

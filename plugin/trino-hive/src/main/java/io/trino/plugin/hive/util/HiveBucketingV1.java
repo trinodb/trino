@@ -93,7 +93,7 @@ final class HiveBucketingV1
                     return TINYINT.getByte(block, position);
                 }
                 if (trinoType.equals(SMALLINT)) {
-                    return Shorts.checkedCast(SMALLINT.getLong(block, position));
+                    return SMALLINT.getShort(block, position);
                 }
                 if (trinoType.equals(INTEGER)) {
                     return toIntExact(INTEGER.getLong(block, position));
