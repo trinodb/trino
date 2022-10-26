@@ -25,6 +25,12 @@ cluster in a single JSON file.
 Configuration
 -------------
 
+.. warning::
+
+    Access to all functions including :doc:`table functions </functions/table>` is allowed by default.
+    To mitigate unwanted access, you must add a ``function``
+    :ref:`rule <system-file-function-rules>` to deny the ``TABLE`` function type.
+
 To use the access control plugin, add an ``etc/access-control.properties`` file
 containing two required properties: ``access-control.name``, which must be set
 to ``file``, and ``security.config-file``, which must be set to the location
@@ -106,6 +112,28 @@ DELETE FROM                          all                delete
 UPDATE                               all                update
 ==================================== ========== ======= ==================== ===================================================
 
+Permissions required for executing functions:
+
+.. list-table::
+   :widths: 30, 10, 15, 15, 30
+   :header-rows: 1
+
+   * - SQL command
+     - Catalog
+     - Function permission
+     - Function kind
+     - Note
+   * - ``SELECT function()``
+     -
+     - ``execute``, ``grant_execute*``
+     - ``aggregate``, ``scalar``, ``window``
+     - ``grant_execute`` is required when function is executed with view owner privileges.
+   * - ``SELECT FROM TABLE(table_function())``
+     - ``all``
+     - ``execute``, ``grant_execute*``
+     - ``table``
+     - ``grant_execute`` is required when :doc:`table function </functions/table>` is executed with view owner privileges.
+
 .. _system-file-auth-visibility:
 
 Visibility
@@ -117,10 +145,10 @@ items do not need to already exist as any potential permission makes the item
 visible. Specifically:
 
 * ``catalog``: Visible if user is the owner of any nested schema, has
-  permissions on any nested table, or has permissions to set session properties
-  in the catalog.
+  permissions on any nested table or :doc:`table function </functions/table>`, or has permissions to
+  set session properties in the catalog.
 * ``schema``: Visible if the user is the owner of the schema, or has permissions
-  on any nested table.
+  on any nested table or :doc:`table function </functions/table>`.
 * ``table``: Visible if the user has any permissions on the table.
 
 Catalog rules
@@ -330,6 +358,96 @@ The example below defines the following table access policy:
         }
       ]
     }
+
+.. _system-file-function-rules:
+
+Function rules
+^^^^^^^^^^^^^^
+
+These rules control the user's ability to execute SQL all function kinds,
+such as :doc:`aggregate functions </functions/aggregate>`, scalar functions,
+:doc:`table functions </functions/table>` and :doc:`window functions </functions/window>`.
+
+Each function rule is composed of the following fields:
+
+* ``user`` (optional): regular expression to match against user name.
+  Defaults to ``.*``.
+* ``role`` (optional): regular expression to match against role names.
+  Defaults to ``.*``.
+* ``group`` (optional): regular expression to match against group names.
+  Defaults to ``.*``.
+* ``catalog`` (optional): regular expression to match against catalog name.
+  Defaults to ``.*``.
+* ``schema`` (optional): regular expression to match against schema name.
+  Defaults to ``.*``.
+* ``function`` (optional): regular expression to match against function names.
+  Defaults to ``.*``.
+* ``privileges`` (required): zero or more of ``EXECUTE``, ``GRANT_EXECUTE``.
+* ``function_kinds`` (required): one or more of ``AGGREGATE``, ``SCALAR``,
+  ``TABLES``, ``WINDOW``. When a user defines a rule for ``AGGREGATE``, ``SCALAR``
+  or ``WINDOW`` functions, the ``catalog`` and ``schema`` fields are disallowed
+  because those functions are available globally without any catalogs involvement.
+
+To deny all :doc:`table functions </functions/table>` from any catalog,
+use the following rules:
+
+.. code-block:: json
+
+    {
+      "functions": [
+        {
+          "privileges": [
+            "EXECUTE",
+            "GRANT_EXECUTE"
+          ],
+          "function_kinds": [
+            "SCALAR",
+            "AGGREGATE",
+            "WINDOW"
+          ]
+        },
+        {
+          "privileges": [],
+          "function_kinds": [
+            "TABLE"
+          ]
+        }
+      ]
+    }
+
+It's a good practice to limit access to ``query`` table function because this
+table function works like a query passthrough and ignores  ``tables`` rules.
+The following example allows the ``admin`` user to execute ``query`` table
+function from any catalog:
+
+.. code-block:: json
+
+    {
+      "functions": [
+        {
+          "privileges": [
+            "EXECUTE",
+            "GRANT_EXECUTE"
+          ],
+          "function_kinds": [
+            "SCALAR",
+            "AGGREGATE",
+            "WINDOW"
+          ]
+        },
+        {
+          "user": "admin",
+          "function": "query",
+          "privileges": [
+            "EXECUTE"
+          ],
+          "function_kinds": [
+            "TABLE"
+          ]
+        }
+      ]
+    }
+
 
 .. _system-file-auth-session-property:
 
@@ -632,6 +750,24 @@ These rules apply to ``filter_environment`` and ``mask_environment``.
 .. note::
 
     ``mask`` can contain conditional expressions such as ``IF`` or ``CASE``, which achieves conditional masking.
+
+Function rules
+^^^^^^^^^^^^^^
+
+Each function rule is composed of the following fields:
+
+* ``user`` (optional): regular expression to match against user name.
+  Defaults to ``.*``.
+* ``group`` (optional): regular expression to match against group names.
+  Defaults to ``.*``.
+* ``schema`` (optional): regular expression to match against schema name.
+  Defaults to ``.*``.
+* ``function`` (optional): regular expression to match against function names.
+  Defaults to ``.*``.
+* ``privileges`` (required): zero or more of ``EXECUTE``, ``GRANT_EXECUTE``.
+* ``function_kinds`` (required): one or more of ``AGGREGATE``, ``SCALAR``,
+  ``TABLES``, ``WINDOW``. When a user defines a rule for ``AGGREGATE``, ``SCALAR``
+  or ``WINDOW`` functions, the ``catalog`` and ``schema`` fields are disallowed.
 
 Session property rules
 ^^^^^^^^^^^^^^^^^^^^^^
