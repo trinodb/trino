@@ -2102,30 +2102,7 @@ class StatementAnalyzer
 
             if (addRowIdColumn) {
                 // Add the row id field
-                ColumnHandle rowIdColumnHandle;
-                switch (updateKind.get()) {
-                    case DELETE:
-                        rowIdColumnHandle = metadata.getMergeRowIdColumnHandle(session, tableHandle.get());
-                        break;
-                    case UPDATE:
-                        List<ColumnSchema> updatedColumnMetadata = analysis.getUpdatedColumns()
-                                .orElseThrow(() -> new VerifyException("updated columns not set"));
-                        Set<String> updatedColumnNames = updatedColumnMetadata.stream()
-                                .map(ColumnSchema::getName)
-                                .collect(toImmutableSet());
-                        List<ColumnHandle> updatedColumns = columnHandles.entrySet().stream()
-                                .filter(entry -> updatedColumnNames.contains(entry.getKey()))
-                                .map(Map.Entry::getValue)
-                                .collect(toImmutableList());
-                        rowIdColumnHandle = metadata.getUpdateRowIdColumnHandle(session, tableHandle.get(), updatedColumns);
-                        break;
-                    case MERGE:
-                        rowIdColumnHandle = metadata.getMergeRowIdColumnHandle(session, tableHandle.get());
-                        break;
-                    default:
-                        throw new IllegalArgumentException("Unrecognized updateKind " + updateKind.get());
-                }
-
+                ColumnHandle rowIdColumnHandle = metadata.getMergeRowIdColumnHandle(session, tableHandle.get());
                 Type type = metadata.getColumnMetadata(session, tableHandle.get(), rowIdColumnHandle).getType();
                 Field field = Field.newUnqualified(Optional.empty(), type);
                 fields.add(field);

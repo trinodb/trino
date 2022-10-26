@@ -23,7 +23,6 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.OptionalInt;
-import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 
@@ -42,44 +41,30 @@ public class RaptorSplit
     private final Set<UUID> shardUuids;
     private final OptionalInt bucketNumber;
     private final List<HostAddress> addresses;
-    private final OptionalLong transactionId;
 
     @JsonCreator
     public RaptorSplit(
             @JsonProperty("shardUuids") Set<UUID> shardUuids,
-            @JsonProperty("bucketNumber") OptionalInt bucketNumber,
-            @JsonProperty("transactionId") OptionalLong transactionId)
+            @JsonProperty("bucketNumber") OptionalInt bucketNumber)
     {
-        this(shardUuids, bucketNumber, ImmutableList.of(), transactionId);
+        this(shardUuids, bucketNumber, ImmutableList.of());
     }
 
-    public RaptorSplit(
-            UUID shardUuid,
-            List<HostAddress> addresses,
-            OptionalLong transactionId)
+    public RaptorSplit(UUID shardUuid, List<HostAddress> addresses)
     {
-        this(ImmutableSet.of(shardUuid), OptionalInt.empty(), addresses, transactionId);
+        this(ImmutableSet.of(shardUuid), OptionalInt.empty(), addresses);
     }
 
-    public RaptorSplit(
-            Set<UUID> shardUuids,
-            int bucketNumber,
-            HostAddress address,
-            OptionalLong transactionId)
+    public RaptorSplit(Set<UUID> shardUuids, int bucketNumber, HostAddress address)
     {
-        this(shardUuids, OptionalInt.of(bucketNumber), ImmutableList.of(address), transactionId);
+        this(shardUuids, OptionalInt.of(bucketNumber), ImmutableList.of(address));
     }
 
-    private RaptorSplit(
-            Set<UUID> shardUuids,
-            OptionalInt bucketNumber,
-            List<HostAddress> addresses,
-            OptionalLong transactionId)
+    private RaptorSplit(Set<UUID> shardUuids, OptionalInt bucketNumber, List<HostAddress> addresses)
     {
         this.shardUuids = ImmutableSet.copyOf(requireNonNull(shardUuids, "shardUuids is null"));
         this.bucketNumber = requireNonNull(bucketNumber, "bucketNumber is null");
         this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
-        this.transactionId = requireNonNull(transactionId, "transactionId is null");
     }
 
     @Override
@@ -106,12 +91,6 @@ public class RaptorSplit
         return bucketNumber;
     }
 
-    @JsonProperty
-    public OptionalLong getTransactionId()
-    {
-        return transactionId;
-    }
-
     @Override
     public Object getInfo()
     {
@@ -124,8 +103,7 @@ public class RaptorSplit
         return INSTANCE_SIZE
                 + estimatedSizeOf(shardUuids, value -> UUID_INSTANCE_SIZE)
                 + sizeOf(bucketNumber)
-                + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes)
-                + sizeOf(transactionId);
+                + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes);
     }
 
     @Override

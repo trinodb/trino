@@ -43,7 +43,6 @@ public class DeltaLakeMetadataFactory
     private final TypeManager typeManager;
     private final DeltaLakeAccessControlMetadataFactory accessControlMetadataFactory;
     private final JsonCodec<DataFileInfo> dataFileInfoCodec;
-    private final JsonCodec<DeltaLakeUpdateResult> updateResultJsonCodec;
     private final JsonCodec<DeltaLakeMergeResult> mergeResultJsonCodec;
     private final TransactionLogWriterFactory transactionLogWriterFactory;
     private final NodeManager nodeManager;
@@ -69,7 +68,6 @@ public class DeltaLakeMetadataFactory
             DeltaLakeAccessControlMetadataFactory accessControlMetadataFactory,
             DeltaLakeConfig deltaLakeConfig,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
-            JsonCodec<DeltaLakeUpdateResult> updateResultJsonCodec,
             JsonCodec<DeltaLakeMergeResult> mergeResultJsonCodec,
             TransactionLogWriterFactory transactionLogWriterFactory,
             NodeManager nodeManager,
@@ -85,7 +83,6 @@ public class DeltaLakeMetadataFactory
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.accessControlMetadataFactory = requireNonNull(accessControlMetadataFactory, "accessControlMetadataFactory is null");
         this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");
-        this.updateResultJsonCodec = requireNonNull(updateResultJsonCodec, "updateResultJsonCodec is null");
         this.mergeResultJsonCodec = requireNonNull(mergeResultJsonCodec, "mergeResultJsonCodec is null");
         this.transactionLogWriterFactory = requireNonNull(transactionLogWriterFactory, "transactionLogWriterFactory is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
@@ -122,7 +119,6 @@ public class DeltaLakeMetadataFactory
                 domainCompactionThreshold,
                 unsafeWritesEnabled,
                 dataFileInfoCodec,
-                updateResultJsonCodec,
                 mergeResultJsonCodec,
                 transactionLogWriterFactory,
                 nodeManager,

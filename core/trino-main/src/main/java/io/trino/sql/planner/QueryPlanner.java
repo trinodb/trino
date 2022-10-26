@@ -55,11 +55,9 @@ import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.OffsetNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
 import io.trino.sql.planner.plan.SortNode;
-import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode.MergeParadigmAndTypes;
 import io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
 import io.trino.sql.planner.plan.UnionNode;
@@ -1005,18 +1003,6 @@ class QueryPlanner
         return scheme.getPartitioning().getArguments().stream()
                 .map(Partitioning.ArgumentBinding::getColumn)
                 .collect(toImmutableList());
-    }
-
-    private static Optional<PlanNodeId> getIdForLeftTableScan(PlanNode node)
-    {
-        if (node instanceof TableScanNode) {
-            return Optional.of(node.getId());
-        }
-        List<PlanNode> sources = node.getSources();
-        if (sources.isEmpty()) {
-            return Optional.empty();
-        }
-        return getIdForLeftTableScan(sources.get(0));
     }
 
     private static List<Symbol> computeOutputs(PlanBuilder builder, List<Expression> outputExpressions)

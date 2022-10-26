@@ -60,7 +60,6 @@ import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
-import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
@@ -109,7 +108,6 @@ import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
-import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
@@ -1536,28 +1534,6 @@ public class PlanPrinter
                                 "type", node.getType().name(),
                                 "isReplicateNullsAndAny", formatBoolean(node.getPartitioningScheme().isReplicateNullsAndAny()),
                                 "hashColumn", formatHash(node.getPartitioningScheme().getHashColumn())));
-            }
-            return processChildren(node, context);
-        }
-
-        @Override
-        public Void visitDelete(DeleteNode node, Void context)
-        {
-            addNode(node,
-                    "Delete",
-                    ImmutableMap.of("target", anonymizer.anonymize(node.getTarget())));
-
-            return processChildren(node, context);
-        }
-
-        @Override
-        public Void visitUpdate(UpdateNode node, Void context)
-        {
-            NodeRepresentation nodeOutput = addNode(node, format("Update[%s]", anonymizer.anonymize(node.getTarget())));
-            int index = 0;
-            for (String columnName : node.getTarget().getUpdatedColumns()) {
-                nodeOutput.appendDetails("%s := %s", anonymizer.anonymizeColumn(columnName), anonymizer.anonymize(node.getColumnValueAndRowIdSymbols().get(index)));
-                index++;
             }
             return processChildren(node, context);
         }

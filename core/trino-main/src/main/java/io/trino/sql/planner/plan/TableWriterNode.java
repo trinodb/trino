@@ -193,9 +193,7 @@ public class TableWriterNode
     @JsonSubTypes({
             @JsonSubTypes.Type(value = CreateTarget.class, name = "CreateTarget"),
             @JsonSubTypes.Type(value = InsertTarget.class, name = "InsertTarget"),
-            @JsonSubTypes.Type(value = DeleteTarget.class, name = "DeleteTarget"),
             @JsonSubTypes.Type(value = MergeTarget.class, name = "MergeTarget"),
-            @JsonSubTypes.Type(value = UpdateTarget.class, name = "UpdateTarget"),
             @JsonSubTypes.Type(value = RefreshMaterializedViewTarget.class, name = "RefreshMaterializedViewTarget"),
             @JsonSubTypes.Type(value = TableExecuteTarget.class, name = "TableExecuteTarget"),
     })
