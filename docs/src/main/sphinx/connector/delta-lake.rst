@@ -17,20 +17,12 @@ Requirements
 To connect to Databricks Delta Lake, you need:
 
 * Tables written by Databricks Runtime 7.3 LTS, 9.1 LTS and 10.4 LTS are supported.
-* Deployments using AWS, HDFS, and Azure Storage are fully supported. Google
-  Cloud Storage (GCS) is :ref:`partially supported<delta-lake-gcs-support>`.
+* Deployments using AWS, HDFS, Azure Storage, and Google Cloud Storage (GCS) are
+  fully supported.
 * Network access from the coordinator and workers to the Delta Lake storage.
 * Access to the Hive metastore service (HMS) of Delta Lake or a separate HMS.
 * Network access to the HMS from the coordinator and workers. Port 9083 is the
   default port for the Thrift protocol used by the HMS.
-
-.. _delta-lake-gcs-support:
-
-Google Cloud Storage support
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-All read operations against Google Cloud Storage are supported. Additionally,
-the connector supports :doc:`/sql/create-table` and :doc:`/sql/create-table-as`.
 
 Configuration
 -------------
