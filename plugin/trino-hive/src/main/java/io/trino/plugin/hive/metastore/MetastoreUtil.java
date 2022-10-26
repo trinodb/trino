@@ -44,6 +44,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.metastore.ProtectMode;
+import org.apache.hadoop.hive.serde2.avro.AvroSerDe;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
@@ -58,7 +59,9 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.hive.HiveMetadata.AVRO_SCHEMA_LITERAL_KEY;
 import static io.trino.plugin.hive.HiveMetadata.AVRO_SCHEMA_URL_KEY;
 import static io.trino.plugin.hive.HiveSplitManager.PRESTO_OFFLINE;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
@@ -96,6 +99,7 @@ public final class MetastoreUtil
         // Mimics function in Hive: MetaStoreUtils.getTableMetadata(Table)
         return getHiveSchema(
                 table.getStorage(),
+                Optional.empty(),
                 table.getDataColumns(),
                 table.getDataColumns(),
                 table.getParameters(),
@@ -109,6 +113,7 @@ public final class MetastoreUtil
         // Mimics function in Hive: MetaStoreUtils.getSchema(Partition, Table)
         return getHiveSchema(
                 partition.getStorage(),
+                Optional.of(table.getStorage()),
                 partition.getColumns(),
                 table.getDataColumns(),
                 table.getParameters(),
@@ -119,6 +124,7 @@ public final class MetastoreUtil
 
     private static Properties getHiveSchema(
             Storage sd,
+            Optional<Storage> tableSd,
             List<Column> dataColumns,
             List<Column> tableDataColumns,
             Map<String, String> parameters,
@@ -148,6 +154,13 @@ public final class MetastoreUtil
         for (Map.Entry<String, String> param : sd.getSerdeParameters().entrySet()) {
             schema.setProperty(param.getKey(), (param.getValue() != null) ? param.getValue() : "");
         }
+
+        if (sd.getStorageFormat().getSerde().equals(AvroSerDe.class.getName()) && tableSd.isPresent()) {
+            for (Map.Entry<String, String> param : tableSd.get().getSerdeParameters().entrySet()) {
+                schema.setProperty(param.getKey(), nullToEmpty(param.getValue()));
+            }
+        }
+
         schema.setProperty(SERIALIZATION_LIB, sd.getStorageFormat().getSerde());
 
         StringBuilder columnNameBuilder = new StringBuilder();
@@ -217,8 +230,10 @@ public final class MetastoreUtil
     public static boolean isAvroTableWithSchemaSet(Table table)
     {
         return AVRO.getSerde().equals(table.getStorage().getStorageFormat().getSerDeNullable()) &&
-                (table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null ||
-                        (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_URL_KEY) != null));
+                ((table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null ||
+                        (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_URL_KEY) != null)) ||
+                 (table.getParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null ||
+                         (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null)));
     }
 
     public static String makePartitionName(Table table, Partition partition)

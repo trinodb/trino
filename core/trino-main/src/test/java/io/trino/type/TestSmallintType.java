@@ -15,8 +15,10 @@ package io.trino.type;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type.Range;
 
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static org.testng.Assert.assertEquals;
 
 public class TestSmallintType
         extends AbstractTestType
@@ -47,5 +49,13 @@ public class TestSmallintType
     protected Object getGreaterValue(Object value)
     {
         return ((Long) value) + 1;
+    }
+
+    @Override
+    public void testRange()
+    {
+        Range range = type.getRange().orElseThrow();
+        assertEquals(range.getMin(), (long) Short.MIN_VALUE);
+        assertEquals(range.getMax(), (long) Short.MAX_VALUE);
     }
 }

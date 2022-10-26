@@ -73,6 +73,7 @@ import static io.trino.spi.connector.MergePage.createDeleteAndInsertPages;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -190,9 +191,9 @@ public class DeltaLakeMergeSink
                     writerStats,
                     dataColumns);
 
-            DataFileInfo newFileInfo = rewriteParquetFile(sourcePath, deletion.rowsToDelete(), writer);
+            Optional<DataFileInfo> newFileInfo = rewriteParquetFile(sourcePath, deletion.rowsToDelete(), writer);
 
-            DeltaLakeMergeResult result = new DeltaLakeMergeResult(Optional.of(sourceRelativePath), Optional.of(newFileInfo));
+            DeltaLakeMergeResult result = new DeltaLakeMergeResult(Optional.of(sourceRelativePath), newFileInfo);
             return ImmutableList.of(utf8Slice(mergeResultJsonCodec.toJson(result)));
         }
         catch (IOException e) {
@@ -253,7 +254,7 @@ public class DeltaLakeMergeSink
         }
     }
 
-    private DataFileInfo rewriteParquetFile(Path path, ImmutableLongBitmapDataProvider rowsToDelete, DeltaLakeWriter fileWriter)
+    private Optional<DataFileInfo> rewriteParquetFile(Path path, ImmutableLongBitmapDataProvider rowsToDelete, DeltaLakeWriter fileWriter)
             throws IOException
     {
         try (ConnectorPageSource connectorPageSource = createParquetPageSource(path).get()) {
@@ -278,7 +279,13 @@ public class DeltaLakeMergeSink
                     page = page.getPositions(retained, 0, retainedCount);
                 }
 
-                fileWriter.appendRows(page);
+                if (page.getPositionCount() > 0) {
+                    fileWriter.appendRows(page);
+                }
+            }
+            if (fileWriter.getRowCount() == 0) {
+                fileWriter.rollback();
+                return Optional.empty();
             }
             fileWriter.commit();
         }
@@ -294,7 +301,7 @@ public class DeltaLakeMergeSink
             throw t;
         }
 
-        return fileWriter.getDataFileInfo();
+        return Optional.of(fileWriter.getDataFileInfo());
     }
 
     private ReaderPageSource createParquetPageSource(Path path)
@@ -324,7 +331,9 @@ public class DeltaLakeMergeSink
 
         private FileDeletion(List<String> partitionValues)
         {
-            this.partitionValues = ImmutableList.copyOf(requireNonNull(partitionValues, "partitionValues is null"));
+            // Use ArrayList since Delta Lake allows NULL partition values, and wrap it in
+            // an unmodifiableList.
+            this.partitionValues = unmodifiableList(new ArrayList<>(requireNonNull(partitionValues, "partitionValues is null")));
         }
 
         public List<String> partitionValues()

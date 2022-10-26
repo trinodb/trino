@@ -116,7 +116,8 @@ class EmptyCache<K, V>
             public V putIfAbsent(K key, V value)
             {
                 // Cache, even if configured to evict everything immediately, should allow writes.
-                return value;
+                // putIfAbsent returns the previous value
+                return null;
             }
 
             @Override

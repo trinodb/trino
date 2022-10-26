@@ -245,8 +245,8 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     @Override
     public void testShowCreateTable()
     {
-        assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .matches("CREATE TABLE \\w+\\.\\w+\\.orders \\Q(\n" +
+        assertThat((String) computeScalar("SHOW CREATE TABLE orders"))
+                .matches("\\QCREATE TABLE " + DELTA_CATALOG + "." + SCHEMA + ".orders (\n" +
                         "   orderkey bigint,\n" +
                         "   custkey bigint,\n" +
                         "   orderstatus varchar,\n" +
@@ -558,6 +558,24 @@ public abstract class BaseDeltaLakeMinioConnectorTest
             assertQuery("SELECT x FROM " + table.getName() + " WHERE \"$path\" IS NOT NULL", "VALUES ('first'), ('second')");
             assertQueryReturnsEmptyResult("SELECT x FROM " + table.getName() + " WHERE \"$path\" IS NULL");
         }
+    }
+
+    @Test
+    public void testTableLocationTrailingSlash()
+    {
+        String tableWithSlash = "table_with_slash";
+        String tableWithoutSlash = "table_without_slash";
+
+        assertUpdate(format("CREATE TABLE %s (customer VARCHAR) WITH (location = 's3://%s/%s/')", tableWithSlash, bucketName, tableWithSlash));
+        assertUpdate(format("INSERT INTO %s (customer) VALUES ('Aaron'), ('Bill')", tableWithSlash), 2);
+        assertQuery("SELECT * FROM " + tableWithSlash, "VALUES ('Aaron'), ('Bill')");
+
+        assertUpdate(format("CREATE TABLE %s (customer VARCHAR) WITH (location = 's3://%s/%s')", tableWithoutSlash, bucketName, tableWithoutSlash));
+        assertUpdate(format("INSERT INTO %s (customer) VALUES ('Carol'), ('Dave')", tableWithoutSlash), 2);
+        assertQuery("SELECT * FROM " + tableWithoutSlash, "VALUES ('Carol'), ('Dave')");
+
+        assertUpdate("DROP TABLE " + tableWithSlash);
+        assertUpdate("DROP TABLE " + tableWithoutSlash);
     }
 
     @Test

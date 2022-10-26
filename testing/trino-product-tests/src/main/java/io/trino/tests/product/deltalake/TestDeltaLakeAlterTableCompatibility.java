@@ -13,6 +13,7 @@
  */
 package io.trino.tests.product.deltalake;
 
+import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -26,8 +27,10 @@ import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_73;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_91;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_91_RUNTIME_VERSION;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumnCommentOnDelta;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumnCommentOnTrino;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTableCommentOnDelta;
 import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
@@ -264,9 +267,38 @@ public class TestDeltaLakeAlterTableCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    public void testTrinoAlterTablePreservesChangeDataFeed()
+    {
+        String tableName = "test_trino_alter_table_preserves_cdf_" + randomTableSuffix();
+        String tableDirectory = "databricks-compatibility-test-" + tableName;
+
+        onDelta().executeQuery(format("""
+                        CREATE TABLE default.%s (col int)
+                        USING DELTA LOCATION 's3://%s/%s'
+                        TBLPROPERTIES ('delta.enableChangeDataFeed' = true)
+                        """,
+                tableName,
+                bucketName,
+                tableDirectory));
+        try {
+            onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".col IS 'test column comment'");
+            onTrino().executeQuery("COMMENT ON TABLE delta.default." + tableName + " IS 'test table comment'");
+            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN new_column INT");
+
+            Object enableChangeDataFeed = getOnlyElement(onDelta().executeQuery("SHOW TBLPROPERTIES " + tableName + "(delta.enableChangeDataFeed)").column(2));
+            assertEquals(enableChangeDataFeed, "true");
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE delta.default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testTrinoPreservesReaderAndWriterVersions()
     {
+        // Databricks 7.3 doesn't support 'delta.minReaderVersion' and 'delta.minWriterVersion' table properties
+        // Writing those properties to protocol entry in COMMENT and ADD COLUMN statements is fine
         String tableName = "test_trino_preserves_versions_" + randomTableSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
@@ -293,6 +325,36 @@ public class TestDeltaLakeAlterTableCompatibility
         }
         finally {
             onTrino().executeQuery("DROP TABLE delta.default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    public void testTrinoAlterTablePreservesGeneratedColumn()
+    {
+        // Databricks 7.3 doesn't support generated columns
+        String tableName = "test_trino_alter_table_preserves_generated_column_" + randomTableSuffix();
+        String tableDirectory = "databricks-compatibility-test-" + tableName;
+
+        onDelta().executeQuery(format("""
+                        CREATE TABLE default.%s (a INT, b INT GENERATED ALWAYS AS (a * 2))
+                        USING DELTA LOCATION 's3://%s/%s'
+                        """,
+                tableName,
+                bucketName,
+                tableDirectory));
+        try {
+            onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".b IS 'test column comment'");
+            onTrino().executeQuery("COMMENT ON TABLE delta.default." + tableName + " IS 'test table comment'");
+            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN c INT");
+
+            Assertions.assertThat((String) onDelta().executeQuery("SHOW CREATE TABLE default." + tableName).getOnlyValue())
+                            .contains((getDatabricksRuntimeVersion().equals(DATABRICKS_91_RUNTIME_VERSION) ? "`b`" : "b") + " INT GENERATED ALWAYS AS ( a * 2 )");
+            onDelta().executeQuery("INSERT INTO default." + tableName + " (a, c) VALUES (1, 3)");
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .containsOnly(row(1, 2, 3));
+        }
+        finally {
+            onDelta().executeQuery("DROP TABLE default." + tableName);
         }
     }
 }

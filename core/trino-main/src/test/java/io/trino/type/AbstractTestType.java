@@ -23,6 +23,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -65,6 +66,7 @@ import static io.trino.util.StructuralTestUtil.mapBlockOf;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableSortedMap;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -77,7 +79,7 @@ public abstract class AbstractTestType
 
     private final Class<?> objectValueType;
     private final Block testBlock;
-    private final Type type;
+    protected final Type type;
     private final TypeOperators typeOperators;
     protected final BlockTypeOperators blockTypeOperators;
     private final BlockPositionEqual equalOperator;
@@ -184,6 +186,13 @@ public abstract class AbstractTestType
             assertPositionEquals(testBlockWithNulls, entry.getKey() * 2, entry.getValue(), expectedObjectValues.get(entry.getKey()));
             assertPositionEquals(testBlockWithNulls, (entry.getKey() * 2) + 1, null, null);
         }
+    }
+
+    @Test
+    public void testRange()
+    {
+        assertThat(type.getRange())
+                .isEmpty();
     }
 
     protected void assertPositionEquals(Block block, int position, Object expectedStackValue, Object expectedObjectValue)
@@ -472,6 +481,9 @@ public abstract class AbstractTestType
         }
         if (type.getJavaType() == Slice.class) {
             return Slices.utf8Slice("_");
+        }
+        if (type.getJavaType() == LongTimestamp.class) {
+            return new LongTimestamp(1, 0);
         }
         if (type instanceof ArrayType) {
             ArrayType arrayType = (ArrayType) type;

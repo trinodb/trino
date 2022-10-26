@@ -57,13 +57,13 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.SystemSessionProperties.getInitialSplitsPerNode;
@@ -238,12 +238,15 @@ public class SqlTaskExecution
         // first remove any split that was already acknowledged
         long currentMaxAcknowledgedSplit = this.maxAcknowledgedSplit;
         splitAssignments = splitAssignments.stream()
-                .map(source -> new SplitAssignment(
-                        source.getPlanNodeId(),
-                        source.getSplits().stream()
+                .map(assignment -> new SplitAssignment(
+                        assignment.getPlanNodeId(),
+                        assignment.getSplits().stream()
                                 .filter(scheduledSplit -> scheduledSplit.getSequenceId() > currentMaxAcknowledgedSplit)
-                                .collect(Collectors.toSet()),
-                        source.isNoMoreSplits()))
+                                .collect(toImmutableSet()),
+                        assignment.isNoMoreSplits()))
+                // drop assignments containing no unacknowledged splits
+                // the noMoreSplits signal acknowledgement is not tracked but it is okay to deliver it more than once
+                .filter(assignment -> !assignment.getSplits().isEmpty() || assignment.isNoMoreSplits())
                 .collect(toList());
 
         // update task with new assignments

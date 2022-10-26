@@ -139,6 +139,7 @@ public class FileBasedSystemAccessControl
     private final List<CatalogTableAccessControlRule> tableRules;
     private final List<SessionPropertyAccessControlRule> sessionPropertyRules;
     private final List<CatalogSessionPropertyAccessControlRule> catalogSessionPropertyRules;
+    private final List<CatalogFunctionAccessControlRule> functionRules;
     private final Set<AnyCatalogPermissionsRule> anyCatalogPermissionsRules;
     private final Set<AnyCatalogSchemaPermissionsRule> anyCatalogSchemaPermissionsRules;
 
@@ -151,7 +152,8 @@ public class FileBasedSystemAccessControl
             List<CatalogSchemaAccessControlRule> schemaRules,
             List<CatalogTableAccessControlRule> tableRules,
             List<SessionPropertyAccessControlRule> sessionPropertyRules,
-            List<CatalogSessionPropertyAccessControlRule> catalogSessionPropertyRules)
+            List<CatalogSessionPropertyAccessControlRule> catalogSessionPropertyRules,
+            List<CatalogFunctionAccessControlRule> functionRules)
     {
         this.catalogRules = catalogRules;
         this.queryAccessRules = queryAccessRules;
@@ -162,6 +164,7 @@ public class FileBasedSystemAccessControl
         this.tableRules = tableRules;
         this.sessionPropertyRules = sessionPropertyRules;
         this.catalogSessionPropertyRules = catalogSessionPropertyRules;
+        this.functionRules = functionRules;
 
         ImmutableSet.Builder<AnyCatalogPermissionsRule> anyCatalogPermissionsRules = ImmutableSet.builder();
         schemaRules.stream()
@@ -176,6 +179,10 @@ public class FileBasedSystemAccessControl
                 .map(CatalogSessionPropertyAccessControlRule::toAnyCatalogPermissionsRule)
                 .flatMap(Optional::stream)
                 .forEach(anyCatalogPermissionsRules::add);
+        functionRules.stream()
+                .map(CatalogFunctionAccessControlRule::toAnyCatalogPermissionsRule)
+                .flatMap(Optional::stream)
+                .forEach(anyCatalogPermissionsRules::add);
         this.anyCatalogPermissionsRules = anyCatalogPermissionsRules.build();
 
         ImmutableSet.Builder<AnyCatalogSchemaPermissionsRule> anyCatalogSchemaPermissionsRules = ImmutableSet.builder();
@@ -185,6 +192,10 @@ public class FileBasedSystemAccessControl
                 .forEach(anyCatalogSchemaPermissionsRules::add);
         tableRules.stream()
                 .map(CatalogTableAccessControlRule::toAnyCatalogSchemaPermissionsRule)
+                .flatMap(Optional::stream)
+                .forEach(anyCatalogSchemaPermissionsRules::add);
+        functionRules.stream()
+                .map(CatalogFunctionAccessControlRule::toAnyCatalogSchemaPermissionsRule)
                 .flatMap(Optional::stream)
                 .forEach(anyCatalogSchemaPermissionsRules::add);
         this.anyCatalogSchemaPermissionsRules = anyCatalogSchemaPermissionsRules.build();
@@ -274,6 +285,7 @@ public class FileBasedSystemAccessControl
                     .setTableRules(rules.getTableRules().orElse(ImmutableList.of(CatalogTableAccessControlRule.ALLOW_ALL)))
                     .setSessionPropertyRules(rules.getSessionPropertyRules().orElse(ImmutableList.of(SessionPropertyAccessControlRule.ALLOW_ALL)))
                     .setCatalogSessionPropertyRules(rules.getCatalogSessionPropertyRules().orElse(ImmutableList.of(CatalogSessionPropertyAccessControlRule.ALLOW_ALL)))
+                    .setFunctionRules(rules.getFunctionRules().orElse(ImmutableList.of(CatalogFunctionAccessControlRule.ALLOW_ALL)))
                     .build();
         }
     }
@@ -811,20 +823,19 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, String functionName, TrinoPrincipal grantee, boolean grantOption)
     {
+        if (!checkFunctionPermission(context, functionName, CatalogFunctionAccessControlRule::canGrantExecuteFunction)) {
+            String granteeAsString = format("%s '%s'", grantee.getType().name().toLowerCase(ENGLISH), grantee.getName());
+            denyGrantExecuteFunctionPrivilege(functionName, context.getIdentity(), granteeAsString);
+        }
     }
 
     @Override
     public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, FunctionKind functionKind, CatalogSchemaRoutineName functionName, TrinoPrincipal grantee, boolean grantOption)
     {
-        switch (functionKind) {
-            case SCALAR, AGGREGATE, WINDOW:
-                return;
-            case TABLE:
-                // TODO (https://github.com/trinodb/trino/issues/12833) implement
-                String granteeAsString = format("%s '%s'", grantee.getType().name().toLowerCase(ENGLISH), grantee.getName());
-                denyGrantExecuteFunctionPrivilege(functionName.toString(), context.getIdentity(), granteeAsString);
+        if (!checkFunctionPermission(context, functionKind, functionName, CatalogFunctionAccessControlRule::canGrantExecuteFunction)) {
+            String granteeAsString = format("%s '%s'", grantee.getType().name().toLowerCase(ENGLISH), grantee.getName());
+            denyGrantExecuteFunctionPrivilege(functionName.toString(), context.getIdentity(), granteeAsString);
         }
-        throw new UnsupportedOperationException("Unsupported function kind: " + functionKind);
     }
 
     @Override
@@ -963,18 +974,17 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, String functionName)
     {
+        if (!checkFunctionPermission(systemSecurityContext, functionName, CatalogFunctionAccessControlRule::canExecuteFunction)) {
+            denyExecuteFunction(functionName);
+        }
     }
 
     @Override
     public void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
     {
-        switch (functionKind) {
-            case SCALAR, AGGREGATE, WINDOW:
-                return;
-            case TABLE:
-                denyExecuteFunction(functionName.toString());
+        if (!checkFunctionPermission(systemSecurityContext, functionKind, functionName, CatalogFunctionAccessControlRule::canExecuteFunction)) {
+            denyExecuteFunction(functionName.toString());
         }
-        throw new UnsupportedOperationException("Unsupported function kind: " + functionKind);
     }
 
     @Override
@@ -1102,6 +1112,31 @@ public class FileBasedSystemAccessControl
         return false;
     }
 
+    private boolean checkFunctionPermission(SystemSecurityContext context, String functionName, Predicate<CatalogFunctionAccessControlRule> executePredicate)
+    {
+        Identity identity = context.getIdentity();
+        return functionRules.stream()
+                .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), functionName))
+                .findFirst()
+                .filter(executePredicate)
+                .isPresent();
+    }
+
+    private boolean checkFunctionPermission(SystemSecurityContext context, FunctionKind functionKind, CatalogSchemaRoutineName functionName, Predicate<CatalogFunctionAccessControlRule> executePredicate)
+    {
+        AccessMode requiredCatalogAccess = switch (functionKind) {
+            case SCALAR, AGGREGATE, WINDOW -> READ_ONLY;
+            case TABLE -> ALL;
+        };
+        Identity identity = context.getIdentity();
+        return canAccessCatalog(context, functionName.getCatalogName(), requiredCatalogAccess) &&
+                functionRules.stream()
+                        .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), functionKind, functionName))
+                        .findFirst()
+                        .filter(executePredicate)
+                        .isPresent();
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -1118,6 +1153,7 @@ public class FileBasedSystemAccessControl
         private List<CatalogTableAccessControlRule> tableRules = ImmutableList.of(CatalogTableAccessControlRule.ALLOW_ALL);
         private List<SessionPropertyAccessControlRule> sessionPropertyRules = ImmutableList.of(SessionPropertyAccessControlRule.ALLOW_ALL);
         private List<CatalogSessionPropertyAccessControlRule> catalogSessionPropertyRules = ImmutableList.of(CatalogSessionPropertyAccessControlRule.ALLOW_ALL);
+        private List<CatalogFunctionAccessControlRule> functionRules = ImmutableList.of(CatalogFunctionAccessControlRule.ALLOW_ALL);
 
         @SuppressWarnings("unused")
         public Builder denyAllAccess()
@@ -1131,6 +1167,7 @@ public class FileBasedSystemAccessControl
             tableRules = ImmutableList.of();
             sessionPropertyRules = ImmutableList.of();
             catalogSessionPropertyRules = ImmutableList.of();
+            functionRules = ImmutableList.of();
             return this;
         }
 
@@ -1188,6 +1225,12 @@ public class FileBasedSystemAccessControl
             return this;
         }
 
+        public Builder setFunctionRules(List<CatalogFunctionAccessControlRule> functionRules)
+        {
+            this.functionRules = functionRules;
+            return this;
+        }
+
         public FileBasedSystemAccessControl build()
         {
             return new FileBasedSystemAccessControl(
@@ -1199,7 +1242,8 @@ public class FileBasedSystemAccessControl
                     schemaRules,
                     tableRules,
                     sessionPropertyRules,
-                    catalogSessionPropertyRules);
+                    catalogSessionPropertyRules,
+                    functionRules);
         }
     }
 }

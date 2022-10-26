@@ -19,10 +19,10 @@ import io.trino.spi.type.SqlTimestamp;
 
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 
-public class TestTimestampType
+public class TestShortTimestampType
         extends AbstractTestType
 {
-    public TestTimestampType()
+    public TestShortTimestampType()
     {
         super(TIMESTAMP_MILLIS, SqlTimestamp.class, createTestBlock());
     }
@@ -47,6 +47,6 @@ public class TestTimestampType
     @Override
     protected Object getGreaterValue(Object value)
     {
-        return ((Long) value) + 1;
+        return ((Long) value) + 1_000;
     }
 }

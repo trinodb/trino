@@ -40,6 +40,7 @@ public class JdbcOutputTableHandle
     private final List<Type> columnTypes;
     private final Optional<List<JdbcTypeHandle>> jdbcColumnTypes;
     private final Optional<String> temporaryTableName;
+    private final Optional<String> pageSinkIdColumnName;
 
     @JsonCreator
     public JdbcOutputTableHandle(
@@ -49,7 +50,8 @@ public class JdbcOutputTableHandle
             @JsonProperty("columnNames") List<String> columnNames,
             @JsonProperty("columnTypes") List<Type> columnTypes,
             @JsonProperty("jdbcColumnTypes") Optional<List<JdbcTypeHandle>> jdbcColumnTypes,
-            @JsonProperty("temporaryTableName") Optional<String> temporaryTableName)
+            @JsonProperty("temporaryTableName") Optional<String> temporaryTableName,
+            @JsonProperty("pageSinkIdColumnName") Optional<String> pageSinkIdColumnName)
     {
         this.catalogName = catalogName;
         this.schemaName = schemaName;
@@ -63,6 +65,7 @@ public class JdbcOutputTableHandle
         this.columnTypes = ImmutableList.copyOf(columnTypes);
         jdbcColumnTypes.ifPresent(jdbcTypeHandles -> checkArgument(jdbcTypeHandles.size() == columnNames.size(), "columnNames and jdbcColumnTypes sizes don't match"));
         this.jdbcColumnTypes = jdbcColumnTypes.map(ImmutableList::copyOf);
+        this.pageSinkIdColumnName = requireNonNull(pageSinkIdColumnName, "pageSinkIdColumnName is null");
     }
 
     @JsonProperty
@@ -109,6 +112,12 @@ public class JdbcOutputTableHandle
         return temporaryTableName;
     }
 
+    @JsonProperty
+    public Optional<String> getPageSinkIdColumnName()
+    {
+        return pageSinkIdColumnName;
+    }
+
     @Override
     public String toString()
     {
@@ -125,7 +134,8 @@ public class JdbcOutputTableHandle
                 columnNames,
                 columnTypes,
                 jdbcColumnTypes,
-                temporaryTableName);
+                temporaryTableName,
+                pageSinkIdColumnName);
     }
 
     @Override
@@ -144,6 +154,7 @@ public class JdbcOutputTableHandle
                 Objects.equals(this.columnNames, other.columnNames) &&
                 Objects.equals(this.columnTypes, other.columnTypes) &&
                 Objects.equals(this.jdbcColumnTypes, other.jdbcColumnTypes) &&
-                Objects.equals(this.temporaryTableName, other.temporaryTableName);
+                Objects.equals(this.temporaryTableName, other.temporaryTableName) &&
+                Objects.equals(this.pageSinkIdColumnName, other.pageSinkIdColumnName);
     }
 }

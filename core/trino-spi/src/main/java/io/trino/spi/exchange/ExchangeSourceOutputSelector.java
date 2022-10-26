@@ -142,6 +142,21 @@ public class ExchangeSourceOutputSelector
         }
     }
 
+    public ExchangeSourceOutputSelector merge(ExchangeSourceOutputSelector other)
+    {
+        Map<ExchangeId, Slice> values = new HashMap<>(this.values);
+        other.values.forEach((exchangeId, value) -> {
+            Slice currentValue = values.putIfAbsent(exchangeId, value);
+            if (currentValue != null) {
+                throw new IllegalArgumentException("duplicated selector for exchange: " + exchangeId);
+            }
+        });
+        return new ExchangeSourceOutputSelector(
+                this.version + other.version,
+                values,
+                this.finalSelector && other.finalSelector);
+    }
+
     private int getPartitionCount(ExchangeId exchangeId)
     {
         Slice values = this.values.get(exchangeId);

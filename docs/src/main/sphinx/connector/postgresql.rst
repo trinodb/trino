@@ -342,6 +342,8 @@ processed in PostgreSQL. This can be useful for accessing native features which
 are not available in Trino or for improving query performance in situations
 where running a query natively may be faster.
 
+.. include:: polymorphic-table-function-ordering.fragment
+
 As a simple example, to select an entire table::
 
     SELECT
@@ -450,6 +452,9 @@ The connector supports pushdown for a number of operations:
 
 Predicate pushdown support
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Predicates are pushed down for most types, including ``UUID`` and temporal
+types, such as ``DATE``.
 
 The connector does not support pushdown of range predicates, such as ``>``,
 ``<``, or ``BETWEEN``, on columns with :ref:`character string types

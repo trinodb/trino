@@ -214,8 +214,8 @@ public class TestKuduConnectorTest
     @Override
     public void testShowCreateTable()
     {
-        assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .matches("CREATE TABLE kudu\\.\\w+\\.orders \\Q(\n" +
+        assertThat(computeScalar("SHOW CREATE TABLE orders"))
+                .isEqualTo("CREATE TABLE kudu.default.orders (\n" +
                         "   orderkey bigint COMMENT '' WITH ( nullable = true ),\n" +
                         "   custkey bigint COMMENT '' WITH ( nullable = true ),\n" +
                         "   orderstatus varchar COMMENT '' WITH ( nullable = true ),\n" +
@@ -243,8 +243,7 @@ public class TestKuduConnectorTest
                 " number_of_replicas = 1\n" +
                 ")");
 
-        MaterializedResult result = computeActual("SHOW CREATE TABLE test_show_create_table");
-        String sqlStatement = (String) result.getOnlyValue();
+        String sqlStatement = (String) computeScalar("SHOW CREATE TABLE test_show_create_table");
         String tableProperties = sqlStatement.split("\\)\\s*WITH\\s*\\(")[1];
         assertTableProperty(tableProperties, "number_of_replicas", "1");
         assertTableProperty(tableProperties, "partition_by_hash_columns", Pattern.quote("ARRAY['id']"));

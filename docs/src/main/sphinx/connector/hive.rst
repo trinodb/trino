@@ -14,6 +14,7 @@ Hive connector
     Amazon S3 <hive-s3>
     Azure Storage <hive-azure>
     GCS Tutorial <hive-gcs-tutorial>
+    IBM Cloud Object Storage <hive-cos>
     Storage Caching <hive-caching>
     Alluxio <hive-alluxio>
 
@@ -45,7 +46,9 @@ Apache Hadoop HDFS 2.x and 3.x are supported.
 Many distributed storage systems including HDFS,
 :doc:`Amazon S3 <hive-s3>` or S3-compatible systems,
 `Google Cloud Storage <#google-cloud-storage-configuration>`__,
-and :doc:`Azure Storage <hive-azure>` can be queried with the Hive connector.
+:doc:`Azure Storage <hive-azure>`, and
+:doc:`IBM Cloud Object Storage<hive-cos>` can be queried with the Hive
+connector.
 
 The coordinator and all workers must have network access to the Hive metastore
 and the storage system. Hive metastore access with the Thrift protocol defaults
@@ -653,6 +656,9 @@ Property Name                                        Description
 ``hive.metastore.glue.sts.region``                   AWS region of the STS service to authenticate with. This is
                                                      required when running in a GovCloud region.
                                                      Example: ``us-gov-east-1``
+
+``hive.metastore.glue.proxy-api-id``                 The ID of the Glue Proxy API, when accessing Glue via an VPC
+                                                     endpoint in API Gateway.
 
 ``hive.metastore.glue.sts.endpoint``                 STS endpoint URL to use when authenticating to Glue (optional).
                                                      Example: ``https://sts.us-gov-east-1.amazonaws.com``

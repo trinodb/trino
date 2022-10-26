@@ -31,6 +31,7 @@ public class FileBasedSystemAccessControlRules
     private final Optional<List<CatalogTableAccessControlRule>> tableRules;
     private final Optional<List<SessionPropertyAccessControlRule>> sessionPropertyRules;
     private final Optional<List<CatalogSessionPropertyAccessControlRule>> catalogSessionPropertyRules;
+    private final Optional<List<CatalogFunctionAccessControlRule>> functionRules;
 
     @JsonCreator
     public FileBasedSystemAccessControlRules(
@@ -42,7 +43,8 @@ public class FileBasedSystemAccessControlRules
             @JsonProperty("schemas") Optional<List<CatalogSchemaAccessControlRule>> schemaAccessControlRules,
             @JsonProperty("tables") Optional<List<CatalogTableAccessControlRule>> tableAccessControlRules,
             @JsonProperty("system_session_properties") Optional<List<SessionPropertyAccessControlRule>> sessionPropertyRules,
-            @JsonProperty("catalog_session_properties") Optional<List<CatalogSessionPropertyAccessControlRule>> catalogSessionPropertyRules)
+            @JsonProperty("catalog_session_properties") Optional<List<CatalogSessionPropertyAccessControlRule>> catalogSessionPropertyRules,
+            @JsonProperty("functions") Optional<List<CatalogFunctionAccessControlRule>> functionRules)
     {
         this.catalogRules = catalogRules.map(ImmutableList::copyOf);
         this.queryAccessRules = queryAccessRules.map(ImmutableList::copyOf);
@@ -53,6 +55,7 @@ public class FileBasedSystemAccessControlRules
         this.tableRules = tableAccessControlRules.map(ImmutableList::copyOf);
         this.sessionPropertyRules = sessionPropertyRules.map(ImmutableList::copyOf);
         this.catalogSessionPropertyRules = catalogSessionPropertyRules.map(ImmutableList::copyOf);
+        this.functionRules = functionRules.map(ImmutableList::copyOf);
     }
 
     public Optional<List<CatalogAccessControlRule>> getCatalogRules()
@@ -98,5 +101,10 @@ public class FileBasedSystemAccessControlRules
     public Optional<List<CatalogSessionPropertyAccessControlRule>> getCatalogSessionPropertyRules()
     {
         return catalogSessionPropertyRules;
+    }
+
+    public Optional<List<CatalogFunctionAccessControlRule>> getFunctionRules()
+    {
+        return functionRules;
     }
 }

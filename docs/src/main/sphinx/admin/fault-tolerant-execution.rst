@@ -43,8 +43,14 @@ depending on the desired :ref:`retry policy <fte-retry-policy>`.
   * Fault-tolerant execution of :ref:`read operations <sql-read-operations>` is
     supported by all connectors.
   * Fault tolerant execution of :ref:`write operations <sql-write-operations>`
-    is only supported by the :doc:`/connector/delta-lake`,
-    :doc:`/connector/hive`, and :doc:`/connector/iceberg`.
+    is supported by the following connectors:
+
+    * :doc:`/connector/delta-lake`
+    * :doc:`/connector/hive`
+    * :doc:`/connector/iceberg`
+    * :doc:`/connector/mysql`
+    * :doc:`/connector/postgresql`
+    * :doc:`/connector/sqlserver`
 
 The following configuration properties control the behavior of fault-tolerant
 execution on a Trino cluster:
@@ -412,6 +418,11 @@ the property may be configured for:
      - Maximum number of times the exchange manager's S3 client should retry
        a request.
      - ``10``
+     - Any S3-compatible storage
+   * - ``exchange.s3.path-style-access``
+     - Enables using `path-style access <https://docs.aws.amazon.com/AmazonS3/latest/userguide/VirtualHosting.html#path-style-access>`_
+       for all requests to S3.
+     - ``false``
      - Any S3-compatible storage
    * - ``exchange.s3.upload.part-size``
      - Part size for S3 multi-part upload.

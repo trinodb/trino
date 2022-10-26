@@ -69,7 +69,7 @@ jobs:
           $RETRY $MAVEN verify -B --strict-checksums -P ci -pl :trino-server-rpm
       - name: Clean Maven Output
         run: $MAVEN clean -pl '!:trino-server,!:trino-cli'
-      - uses: docker/setup-qemu-action@v1
+      - uses: docker/setup-qemu-action@v2
         with:
           platforms: arm64,ppc64le
       - name: Test Docker Image
@@ -103,7 +103,7 @@ jobs:
         run: |
           set -x
           # Fake identity to tag rebased commits with.
-          # These commits will be discarded, but the important part is that `git rebase` executes commands between all commits. 
+          # These commits will be discarded, but the important part is that `git rebase` executes commands between all commits.
           git config user.name "Compile all commits builder"
           git config user.email "compile-all-commits@trino.io"
           # Show the entire PR branch and the base ref all the way to the fork point.
@@ -453,6 +453,7 @@ jobs:
             - { modules: plugin/trino-clickhouse }
             - { modules: plugin/trino-delta-lake }
             - { modules: plugin/trino-delta-lake, profile: cloud-tests }
+            - { modules: plugin/trino-delta-lake, profile: gcs-tests }
             - { modules: plugin/trino-druid }
             - { modules: plugin/trino-elasticsearch }
             - { modules: plugin/trino-hive }
@@ -473,15 +474,19 @@ jobs:
             - { modules: plugin/trino-redis }
             - { modules: plugin/trino-singlestore }
             - { modules: plugin/trino-sqlserver }
+            - { modules: testing/trino-faulttolerant-tests, profile: default }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive-1 }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive-2 }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-iceberg }
+            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-postgresql }
+            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-mysql }
+            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-sqlserver }
             - { modules: testing/trino-tests }
           EOF
           ./.github/bin/build-matrix-from-impacted.py -v -i gib-impacted.log -m .github/test-matrix.yaml -o matrix.json
           echo "Matrix: $(jq '.' matrix.json)"
-          echo "::set-output name=matrix::$(jq -c '.' matrix.json)"
+          echo "matrix=$(jq -c '.' matrix.json)" >> $GITHUB_OUTPUT
 
   test:
     runs-on: ubuntu-latest
@@ -515,7 +520,7 @@ jobs:
       - name: Maven Tests
         if: >-
           matrix.modules != 'plugin/trino-singlestore' &&
-          !((contains(matrix.modules, 'trino-delta-lake') || contains(matrix.modules, 'trino-iceberg')) && contains(matrix.profile, 'cloud-tests'))
+          !((contains(matrix.modules, 'trino-delta-lake') && (contains(matrix.profile, 'cloud-tests') || contains(matrix.profile, 'gcs-tests'))) || (contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests')))
         run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
       # Additional tests for selected modules
       - name: Cloud Delta Lake Tests
@@ -542,10 +547,10 @@ jobs:
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
         # Run tests if any of the secrets is present. Do not skip tests when one secret renamed, or secret name has a typo.
         if: >-
-          contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'cloud-tests') && env.GCP_CREDENTIALS_KEY != ''
+          contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'gcs-tests') && env.GCP_CREDENTIALS_KEY != ''
         run: |
           $MAVEN test ${MAVEN_TEST} -P gcs-tests -pl :trino-delta-lake \
-            -Dtesting.gcp-storage-bucket="trino-ci-test-us-east" \
+            -Dtesting.gcp-storage-bucket="trino-ci-test" \
             -Dtesting.gcp-credentials-key="${GCP_CREDENTIALS_KEY}"
       - name: Memsql Tests
         env:
@@ -618,9 +623,6 @@ jobs:
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       product-tests-changed: ${{ steps.filter.outputs.product-tests }}
-      have_azure_secrets: ${{ steps.check-secrets.outputs.have_azure_secrets }}
-      have_databricks_secrets: ${{ steps.check-databricks-secrets.outputs.have_databricks_secrets }}
-      have_gcp_secrets: ${{ steps.check-gcp-secrets.outputs.have_gcp_secrets }}
     steps:
       - uses: actions/checkout@v3
         with:
@@ -644,42 +646,6 @@ jobs:
           distribution: 'zulu'
           java-version: 17
           cache: 'maven'
-      - name: Check secrets
-        run: |
-          if [[ "${{ secrets.AZURE_ABFS_CONTAINER }}" != "" && \
-                "${{ secrets.AZURE_ABFS_ACCOUNT }}" != "" && \
-                "${{ secrets.AZURE_ABFS_ACCESSKEY }}" != ""
-          ]]; \
-          then
-            echo "Secrets to run product tests were configured in the repo"
-            echo "::set-output name=have_azure_secrets::true"
-          else
-            echo "Secrets to run product tests were not configured in the repo"
-            echo "::set-output name=have_azure_secrets::false"
-          fi
-        id: check-secrets
-      - name: Check Delta Databricks secrets
-        id: check-databricks-secrets
-        run: |
-          if [[ "${{ secrets.DATABRICKS_TOKEN }}" != "" ]]; \
-          then
-            echo "Secrets to run Delta Databricks product tests were configured in the repo"
-            echo "::set-output name=have_databricks_secrets::true"
-          else
-            echo "Secrets to run Delta Databricks product tests were not configured in the repo"
-            echo "::set-output name=have_databricks_secrets::false"
-          fi
-      - name: Check GCP secrets
-        id: check-gcp-secrets
-        run: |
-          if [[ "${{ secrets.GCP_CREDENTIALS_KEY }}" != "" ]]; \
-          then
-            echo "Secrets to run GCP product tests were configured in the repo"
-            echo "::set-output name=have_gcp_secrets::true"
-          else
-            echo "Secrets to run GCP product tests were not configured in the repo"
-            echo "::set-output name=have_gcp_secrets::false"
-          fi
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -733,19 +699,21 @@ jobs:
               config: default
             - suite: suite-azure
               ignore exclusion if: >-
-                ${{ needs.build-pt.outputs.have_azure_secrets == 'true' }}
+                ${{ secrets.AZURE_ABFS_CONTAINER != '' &&
+                    secrets.AZURE_ABFS_ACCOUNT != '' &&
+                    secrets.AZURE_ABFS_ACCESSKEY != '' }}
 
             - suite: suite-gcs
               config: default
             - suite: suite-gcs
               ignore exclusion if: >-
-                ${{ needs.build-pt.outputs.have_gcp_secrets == 'true' }}
+                ${{ secrets.GCP_CREDENTIALS_KEY != '' }}
 
             - suite: suite-delta-lake-databricks
               config: hdp3
             - suite: suite-delta-lake-databricks
               ignore exclusion if: >-
-                ${{ needs.build-pt.outputs.have_databricks_secrets == 'true' }}
+                ${{ secrets.DATABRICKS_TOKEN != '' }}
 
           ignore exclusion if:
             # Do not use this property outside of the matrix configuration.
@@ -830,7 +798,7 @@ jobs:
       - id: set-matrix
         run: |
           echo "Matrix: $(jq '.' matrix.json)"
-          echo "::set-output name=matrix::$(cat matrix.json)"
+          echo "matrix=$(cat matrix.json)" >> $GITHUB_OUTPUT
       - name: Clean local Maven repo
         # Avoid creating a cache entry because this job doesn't download all dependencies
         if: steps.cache.outputs.cache-hit != 'true'

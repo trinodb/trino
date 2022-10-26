@@ -76,9 +76,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
-import static io.trino.plugin.pinot.PinotColumnHandle.fromColumnMetadata;
 import static io.trino.plugin.pinot.PinotSessionProperties.isAggregationPushdownEnabled;
 import static io.trino.plugin.pinot.query.AggregateExpression.replaceIdentifier;
+import static io.trino.plugin.pinot.query.DynamicTablePqlExtractor.quoteIdentifier;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
@@ -86,10 +86,9 @@ import static java.util.function.UnaryOperator.identity;
 public class PinotMetadata
         implements ConnectorMetadata
 {
-    public static final String PINOT_COLUMN_NAME_PROPERTY = "pinotColumnName";
     public static final String SCHEMA_NAME = "default";
 
-    private final NonEvictableLoadingCache<String, List<ColumnMetadata>> pinotTableColumnCache;
+    private final NonEvictableLoadingCache<String, List<PinotColumnHandle>> pinotTableColumnCache;
     private final int maxRowsPerBrokerQuery;
     private final AggregateFunctionRewriter<AggregateExpression, Void> aggregateFunctionRewriter;
     private final ImplementCountDistinct implementCountDistinct;
@@ -112,11 +111,11 @@ public class PinotMetadata
                 asyncReloading(new CacheLoader<>()
                 {
                     @Override
-                    public List<ColumnMetadata> load(String tableName)
+                    public List<PinotColumnHandle> load(String tableName)
                             throws Exception
                     {
                         Schema tablePinotSchema = pinotClient.getTableSchema(tableName);
-                        return getPinotColumnMetadataForPinotSchema(tablePinotSchema);
+                        return getPinotColumnHandlesForPinotSchema(tablePinotSchema);
                     }
                 }, executor));
 
@@ -198,9 +197,9 @@ public class PinotMetadata
     public Map<String, ColumnHandle> getPinotColumnHandles(String tableName)
     {
         ImmutableMap.Builder<String, ColumnHandle> columnHandlesBuilder = ImmutableMap.builder();
-        for (ColumnMetadata columnMetadata : getColumnsMetadata(tableName)) {
-            columnHandlesBuilder.put(columnMetadata.getName(),
-                    fromColumnMetadata(columnMetadata));
+        String pinotTableName = pinotClient.getPinotTableNameFromTrinoTableName(tableName);
+        for (PinotColumnHandle columnHandle : getFromCache(pinotTableColumnCache, pinotTableName)) {
+            columnHandlesBuilder.put(columnHandle.getColumnName().toLowerCase(ENGLISH), columnHandle);
         }
         return columnHandlesBuilder.buildOrThrow();
     }
@@ -378,7 +377,7 @@ public class PinotMetadata
         }
         List<PinotColumnHandle> groupingColumns = getOnlyElement(groupingSets).stream()
                 .map(PinotColumnHandle.class::cast)
-                .map(PinotColumnHandle::fromNonAggregateColumnHandle)
+                .map(PinotMetadata::toNonAggregateColumnHandle)
                 .collect(toImmutableList());
         OptionalLong limitForDynamicTable = OptionalLong.empty();
         // Ensure that pinot default limit of 10 rows is not used
@@ -422,6 +421,11 @@ public class PinotMetadata
         tableHandle = new PinotTableHandle(tableHandle.getSchemaName(), tableHandle.getTableName(), tableHandle.getConstraint(), tableHandle.getLimit(), Optional.of(dynamicTable));
 
         return Optional.of(new AggregationApplicationResult<>(tableHandle, projections.build(), resultAssignments.build(), ImmutableMap.of(), false));
+    }
+
+    public static PinotColumnHandle toNonAggregateColumnHandle(PinotColumnHandle columnHandle)
+    {
+        return new PinotColumnHandle(columnHandle.getColumnName(), columnHandle.getDataType(), quoteIdentifier(columnHandle.getColumnName()), false, false, true, Optional.empty(), Optional.empty());
     }
 
     private Optional<AggregateExpression> applyCountDistinct(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments, PinotTableHandle tableHandle, Optional<AggregateExpression> rewriteResult)
@@ -488,7 +492,9 @@ public class PinotMetadata
     public List<ColumnMetadata> getColumnsMetadata(String tableName)
     {
         String pinotTableName = pinotClient.getPinotTableNameFromTrinoTableName(tableName);
-        return getFromCache(pinotTableColumnCache, pinotTableName);
+        return getFromCache(pinotTableColumnCache, pinotTableName).stream()
+                .map(PinotColumnHandle::getColumnMetadata)
+                .collect(toImmutableList());
     }
 
     private static <K, V> V getFromCache(LoadingCache<K, V> cache, K key)
@@ -520,17 +526,11 @@ public class PinotMetadata
         return new ConnectorTableMetadata(tableName, getColumnsMetadata(tableName.getTableName()));
     }
 
-    private List<ColumnMetadata> getPinotColumnMetadataForPinotSchema(Schema pinotTableSchema)
+    private List<PinotColumnHandle> getPinotColumnHandlesForPinotSchema(Schema pinotTableSchema)
     {
         return pinotTableSchema.getColumnNames().stream()
                 .filter(columnName -> !columnName.startsWith("$")) // Hidden columns starts with "$", ignore them as we can't use them in PQL
-                .map(columnName -> ColumnMetadata.builder()
-                        .setName(columnName)
-                        .setType(typeConverter.toTrinoType(pinotTableSchema.getFieldSpecFor(columnName)))
-                        .setProperties(ImmutableMap.<String, Object>builder()
-                                .put(PINOT_COLUMN_NAME_PROPERTY, columnName)
-                                .buildOrThrow())
-                        .build())
+                .map(columnName -> new PinotColumnHandle(columnName, typeConverter.toTrinoType(pinotTableSchema.getFieldSpecFor(columnName))))
                 .collect(toImmutableList());
     }
 

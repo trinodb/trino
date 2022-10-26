@@ -62,6 +62,7 @@ public final class SystemSessionProperties
     public static final String HASH_PARTITION_COUNT = "hash_partition_count";
     public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
     public static final String TASK_WRITER_COUNT = "task_writer_count";
+    public static final String TASK_PARTITIONED_WRITER_COUNT = "task_partitioned_writer_count";
     public static final String TASK_CONCURRENCY = "task_concurrency";
     public static final String TASK_SHARE_INDEX_LOADING = "task_share_index_loading";
     public static final String QUERY_MAX_MEMORY = "query_max_memory";
@@ -173,6 +174,7 @@ public final class SystemSessionProperties
     public static final String JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT = "join_partitioned_build_min_row_count";
     public static final String USE_EXACT_PARTITIONING = "use_exact_partitioning";
     public static final String FORCE_SPILLING_JOIN = "force_spilling_join";
+    public static final String FAULT_TOLERANT_EXECUTION_EVENT_DRIVEN_SCHEDULER_ENABLED = "fault_tolerant_execution_event_driven_scheduler_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -248,9 +250,14 @@ public final class SystemSessionProperties
                         false),
                 integerProperty(
                         TASK_WRITER_COUNT,
-                        "Default number of local parallel table writer jobs per worker",
+                        "Number of local parallel table writers per task when prefer partitioning and task writer scaling are not used",
                         taskManagerConfig.getWriterCount(),
-                        value -> validateValueIsPowerOfTwo(value, TASK_WRITER_COUNT),
+                        false),
+                integerProperty(
+                        TASK_PARTITIONED_WRITER_COUNT,
+                        "Number of local parallel table writers per task when prefer partitioning is used",
+                        taskManagerConfig.getPartitionedWriterCount(),
+                        value -> validateValueIsPowerOfTwo(value, TASK_PARTITIONED_WRITER_COUNT),
                         false),
                 booleanProperty(
                         REDISTRIBUTE_WRITES,
@@ -853,7 +860,12 @@ public final class SystemSessionProperties
                         FORCE_SPILLING_JOIN,
                         "Force the usage of spliing join operator in favor of the non-spilling one, even if spill is not enabled",
                         featuresConfig.isForceSpillingJoin(),
-                        false));
+                        false),
+                booleanProperty(
+                        FAULT_TOLERANT_EXECUTION_EVENT_DRIVEN_SCHEDULER_ENABLED,
+                        "Enable event driven scheduler for fault tolerant execution",
+                        queryManagerConfig.isFaultTolerantExecutionEventDrivenSchedulerEnabled(),
+                        true));
     }
 
     @Override
@@ -905,6 +917,11 @@ public final class SystemSessionProperties
     public static int getTaskWriterCount(Session session)
     {
         return session.getSystemProperty(TASK_WRITER_COUNT, Integer.class);
+    }
+
+    public static int getTaskPartitionedWriterCount(Session session)
+    {
+        return session.getSystemProperty(TASK_PARTITIONED_WRITER_COUNT, Integer.class);
     }
 
     public static boolean isRedistributeWrites(Session session)
@@ -1525,5 +1542,10 @@ public final class SystemSessionProperties
     public static boolean isForceSpillingOperator(Session session)
     {
         return session.getSystemProperty(FORCE_SPILLING_JOIN, Boolean.class);
+    }
+
+    public static boolean isFaultTolerantExecutionEventDriverSchedulerEnabled(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_EVENT_DRIVEN_SCHEDULER_ENABLED, Boolean.class);
     }
 }

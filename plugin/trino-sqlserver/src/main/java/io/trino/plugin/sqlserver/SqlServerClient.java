@@ -208,7 +208,7 @@ public class SqlServerClient
             QueryBuilder queryBuilder,
             IdentifierMapping identifierMapping)
     {
-        super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
+        super(config, "\"", connectionFactory, queryBuilder, identifierMapping, true);
 
         this.statisticsEnabled = statisticsConfig.isEnabled();
 
@@ -928,17 +928,9 @@ public class SqlServerClient
     }
 
     @Override
-    protected String buildInsertSql(ConnectorSession session, RemoteTableName targetTable, RemoteTableName sourceTable, List<String> columnNames)
+    protected String postProcessInsertTableNameClause(ConnectorSession session, String tableName)
     {
-        String columns = columnNames.stream()
-                .map(this::quoted)
-                .collect(joining(", "));
-        return format("INSERT INTO %s %s (%s) SELECT %s FROM %s",
-                targetTable,
-                isTableLockNeeded(session) ? "WITH (TABLOCK)" : "", // TABLOCK is a prerequisite for minimal logging in SQL Server
-                columns,
-                columns,
-                sourceTable);
+        return tableName + (isTableLockNeeded(session) ? " WITH (TABLOCK)" : "");
     }
 
     @Override

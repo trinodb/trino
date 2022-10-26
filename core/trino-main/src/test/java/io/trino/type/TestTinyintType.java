@@ -15,8 +15,10 @@ package io.trino.type;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type.Range;
 
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static org.testng.Assert.assertEquals;
 
 public class TestTinyintType
         extends AbstractTestType
@@ -47,5 +49,13 @@ public class TestTinyintType
     protected Object getGreaterValue(Object value)
     {
         return ((Long) value) + 1;
+    }
+
+    @Override
+    public void testRange()
+    {
+        Range range = type.getRange().orElseThrow();
+        assertEquals(range.getMin(), (long) Byte.MIN_VALUE);
+        assertEquals(range.getMax(), (long) Byte.MAX_VALUE);
     }
 }

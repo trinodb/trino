@@ -19,34 +19,32 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import org.testng.annotations.Test;
 
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static org.testng.Assert.assertEquals;
 
-public class TestVarcharType
+public class TestBoundedVarcharType
         extends AbstractTestType
 {
-    public TestVarcharType()
+    public TestBoundedVarcharType()
     {
-        super(VARCHAR, String.class, createTestBlock());
+        super(createVarcharType(6), String.class, createTestBlock(createVarcharType(6)));
     }
 
-    public static Block createTestBlock()
+    private static Block createTestBlock(VarcharType type)
     {
-        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 15);
-        VARCHAR.writeString(blockBuilder, "apple");
-        VARCHAR.writeString(blockBuilder, "apple");
-        VARCHAR.writeString(blockBuilder, "apple");
-        VARCHAR.writeString(blockBuilder, "banana");
-        VARCHAR.writeString(blockBuilder, "banana");
-        VARCHAR.writeString(blockBuilder, "banana");
-        VARCHAR.writeString(blockBuilder, "banana");
-        VARCHAR.writeString(blockBuilder, "banana");
-        VARCHAR.writeString(blockBuilder, "cherry");
-        VARCHAR.writeString(blockBuilder, "cherry");
-        VARCHAR.writeString(blockBuilder, "date");
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, 15);
+        type.writeString(blockBuilder, "apple");
+        type.writeString(blockBuilder, "apple");
+        type.writeString(blockBuilder, "apple");
+        type.writeString(blockBuilder, "banana");
+        type.writeString(blockBuilder, "banana");
+        type.writeString(blockBuilder, "banana");
+        type.writeString(blockBuilder, "banana");
+        type.writeString(blockBuilder, "banana");
+        type.writeString(blockBuilder, "cherry");
+        type.writeString(blockBuilder, "cherry");
+        type.writeString(blockBuilder, "date");
         return blockBuilder.build();
     }
 
@@ -56,12 +54,10 @@ public class TestVarcharType
         return Slices.utf8Slice(((Slice) value).toStringUtf8() + "_");
     }
 
-    @Test
+    @Override
     public void testRange()
     {
-        VarcharType type = createVarcharType(5);
-
-        Type.Range range = type.getRange().get();
+        Type.Range range = type.getRange().orElseThrow();
 
         String expectedMax = new StringBuilder()
                 .appendCodePoint(Character.MAX_CODE_POINT)
@@ -69,9 +65,10 @@ public class TestVarcharType
                 .appendCodePoint(Character.MAX_CODE_POINT)
                 .appendCodePoint(Character.MAX_CODE_POINT)
                 .appendCodePoint(Character.MAX_CODE_POINT)
+                .appendCodePoint(Character.MAX_CODE_POINT)
                 .toString();
 
-        assertEquals(Slices.utf8Slice(""), range.getMin());
-        assertEquals(Slices.utf8Slice(expectedMax), range.getMax());
+        assertEquals(range.getMin(), Slices.utf8Slice(""));
+        assertEquals(range.getMax(), Slices.utf8Slice(expectedMax));
     }
 }

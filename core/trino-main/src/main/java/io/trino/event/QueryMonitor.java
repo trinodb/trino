@@ -58,6 +58,7 @@ import io.trino.spi.eventlistener.QueryMetadata;
 import io.trino.spi.eventlistener.QueryOutputMetadata;
 import io.trino.spi.eventlistener.QueryStatistics;
 import io.trino.spi.eventlistener.StageCpuDistribution;
+import io.trino.spi.eventlistener.StageOutputBufferUtilization;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
@@ -76,6 +77,7 @@ import org.joda.time.DateTime;
 
 import javax.inject.Inject;
 
+import java.time.Duration;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -220,6 +222,7 @@ public class QueryMonitor
                         true,
                         ImmutableList.of(),
                         ImmutableList.of(),
+                        ImmutableList.of(),
                         Optional.empty()),
                 createQueryContext(
                         queryInfo.getSession(),
@@ -324,6 +327,7 @@ public class QueryMonitor
                 queryStats.getCompletedDrivers(),
                 queryInfo.isFinalQueryInfo(),
                 getCpuDistributions(queryInfo),
+                getStageOutputBufferUtilizations(queryInfo),
                 operatorSummaries.build(),
                 serializedPlanNodeStatsAndCosts);
     }
@@ -701,6 +705,44 @@ public class QueryMonitor
                 (long) snapshot.getMax(),
                 (long) snapshot.getTotal(),
                 snapshot.getTotal() / snapshot.getCount());
+    }
+
+    private static List<StageOutputBufferUtilization> getStageOutputBufferUtilizations(QueryInfo queryInfo)
+    {
+        if (queryInfo.getOutputStage().isEmpty()) {
+            return ImmutableList.of();
+        }
+
+        ImmutableList.Builder<StageOutputBufferUtilization> builder = ImmutableList.builder();
+        populateStageOutputBufferUtilization(queryInfo.getOutputStage().get(), builder);
+
+        return builder.build();
+    }
+
+    private static void populateStageOutputBufferUtilization(StageInfo stageInfo, ImmutableList.Builder<StageOutputBufferUtilization> utilizations)
+    {
+        stageInfo.getStageStats().getOutputBufferUtilization()
+                .ifPresent(utilization -> {
+                    utilizations.add(new StageOutputBufferUtilization(
+                            stageInfo.getStageId().getId(),
+                            stageInfo.getTasks().size(),
+                            // scale ratio to percentages
+                            utilization.getP01() * 100,
+                            utilization.getP05() * 100,
+                            utilization.getP10() * 100,
+                            utilization.getP25() * 100,
+                            utilization.getP50() * 100,
+                            utilization.getP75() * 100,
+                            utilization.getP90() * 100,
+                            utilization.getP95() * 100,
+                            utilization.getP99() * 100,
+                            utilization.getMin() * 100,
+                            utilization.getMax() * 100,
+                            Duration.ofNanos(utilization.getTotal())));
+                });
+        for (StageInfo subStage : stageInfo.getSubStages()) {
+            populateStageOutputBufferUtilization(subStage, utilizations);
+        }
     }
 
     private static class FragmentNode

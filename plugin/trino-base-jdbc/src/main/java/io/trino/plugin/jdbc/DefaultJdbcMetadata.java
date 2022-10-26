@@ -82,12 +82,14 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.base.expression.ConnectorExpressions.and;
 import static io.trino.plugin.base.expression.ConnectorExpressions.extractConjuncts;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isAggregationPushdownEnabled;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isComplexExpressionPushdown;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isJoinPushdownEnabled;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isTopNPushdownEnabled;
+import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.isNonTransactionalInsert;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -695,12 +697,22 @@ public class DefaultJdbcMetadata
         jdbcClient.dropTable(session, handle);
     }
 
+    private void verifyRetryMode(ConnectorSession session, RetryMode retryMode)
+    {
+        if (retryMode != NO_RETRIES) {
+            if (!jdbcClient.supportsRetries()) {
+                throw new TrinoException(NOT_SUPPORTED, "This connector does not support query or task retries");
+            }
+            if (isNonTransactionalInsert(session)) {
+                throw new TrinoException(NOT_SUPPORTED, "Query and task retries are incompatible with non-transactional inserts");
+            }
+        }
+    }
+
     @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
     {
-        if (retryMode != NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
-        }
+        verifyRetryMode(session, retryMode);
         JdbcOutputTableHandle handle = jdbcClient.beginCreateTable(session, tableMetadata);
         setRollback(() -> jdbcClient.rollbackCreateTable(session, handle));
         return handle;
@@ -712,11 +724,18 @@ public class DefaultJdbcMetadata
         jdbcClient.createTable(session, tableMetadata);
     }
 
+    private Set<Long> getSuccessfulPageSinkIds(Collection<Slice> fragments)
+    {
+        return fragments.stream()
+                .map(slice -> slice.getLong(0))
+                .collect(toImmutableSet());
+    }
+
     @Override
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         JdbcOutputTableHandle handle = (JdbcOutputTableHandle) tableHandle;
-        jdbcClient.commitCreateTable(session, handle);
+        jdbcClient.commitCreateTable(session, handle, getSuccessfulPageSinkIds(fragments));
         return Optional.empty();
     }
 
@@ -735,9 +754,7 @@ public class DefaultJdbcMetadata
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns, RetryMode retryMode)
     {
         verify(!((JdbcTableHandle) tableHandle).isSynthetic(), "Not a table reference: %s", tableHandle);
-        if (retryMode != NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
-        }
+        verifyRetryMode(session, retryMode);
         List<JdbcColumnHandle> columnHandles = columns.stream()
                 .map(JdbcColumnHandle.class::cast)
                 .collect(toImmutableList());
@@ -756,7 +773,7 @@ public class DefaultJdbcMetadata
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         JdbcOutputTableHandle jdbcInsertHandle = (JdbcOutputTableHandle) tableHandle;
-        jdbcClient.finishInsertTable(session, jdbcInsertHandle);
+        jdbcClient.finishInsertTable(session, jdbcInsertHandle, getSuccessfulPageSinkIds(fragments));
         return Optional.empty();
     }
 

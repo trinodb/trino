@@ -300,9 +300,9 @@ public class CachingJdbcClient
     }
 
     @Override
-    public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
+    public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
     {
-        delegate.commitCreateTable(session, handle);
+        delegate.commitCreateTable(session, handle, pageSinkIds);
         invalidateTableCaches(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
     }
 
@@ -313,9 +313,9 @@ public class CachingJdbcClient
     }
 
     @Override
-    public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle)
+    public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
     {
-        delegate.finishInsertTable(session, handle);
+        delegate.finishInsertTable(session, handle, pageSinkIds);
         onDataChanged(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
     }
 
@@ -330,6 +330,12 @@ public class CachingJdbcClient
     public void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
         delegate.rollbackCreateTable(session, handle);
+    }
+
+    @Override
+    public boolean supportsRetries()
+    {
+        return delegate.supportsRetries();
     }
 
     @Override
