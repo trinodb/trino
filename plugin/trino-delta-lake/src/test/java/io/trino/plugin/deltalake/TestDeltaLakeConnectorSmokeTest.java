@@ -174,7 +174,9 @@ public class TestDeltaLakeConnectorSmokeTest
     {
         String tableName = "test_schema_evolution_on_table_with_column_invariant_" + randomNameSuffix();
         hiveMinioDataLake.copyResources("databricks/invariants", tableName);
-        getQueryRunner().execute(format("CREATE TABLE %s (ignored int) WITH (location = '%s')",
+        getQueryRunner().execute(format(
+                "CALL system.register_table('%s', '%s', '%s')",
+                SCHEMA,
                 tableName,
                 getLocationForTable(bucketName, tableName)));
 

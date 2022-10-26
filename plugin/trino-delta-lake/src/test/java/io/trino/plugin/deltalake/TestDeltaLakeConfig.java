@@ -64,7 +64,9 @@ public class TestDeltaLakeConfig
                 .setParquetTimeZone(TimeZone.getDefault().getID())
                 .setPerTransactionMetastoreCacheMaximumSize(1000)
                 .setTargetMaxFileSize(DataSize.of(1, GIGABYTE))
-                .setUniqueTableLocation(true));
+                .setUniqueTableLocation(true)
+                .setLegacyCreateTableWithExistingLocationEnabled(false)
+                .setRegisterTableProcedureEnabled(false));
     }
 
     @Test
@@ -97,6 +99,8 @@ public class TestDeltaLakeConfig
                 .put("delta.parquet.time-zone", nonDefaultTimeZone().getID())
                 .put("delta.target-max-file-size", "2 GB")
                 .put("delta.unique-table-location", "false")
+                .put("delta.legacy-create-table-with-existing-location.enabled", "true")
+                .put("delta.register-table-procedure.enabled", "true")
                 .buildOrThrow();
 
         DeltaLakeConfig expected = new DeltaLakeConfig()
@@ -125,7 +129,9 @@ public class TestDeltaLakeConfig
                 .setParquetTimeZone(nonDefaultTimeZone().getID())
                 .setPerTransactionMetastoreCacheMaximumSize(500)
                 .setTargetMaxFileSize(DataSize.of(2, GIGABYTE))
-                .setUniqueTableLocation(false);
+                .setUniqueTableLocation(false)
+                .setLegacyCreateTableWithExistingLocationEnabled(true)
+                .setRegisterTableProcedureEnabled(true);
 
         assertFullMapping(properties, expected);
     }

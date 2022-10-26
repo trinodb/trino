@@ -163,6 +163,7 @@ import static io.trino.plugin.deltalake.DeltaLakeColumnType.SYNTHESIZED;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_WRITE;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isExtendedStatisticsEnabled;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isLegacyCreateTableWithExistingLocationEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isTableStatisticsEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.CHECKPOINT_INTERVAL_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.LOCATION_PROPERTY;
@@ -727,27 +728,41 @@ public class DeltaLakeMetadata
                 setRollback(() -> deleteRecursivelyIfExists(new HdfsContext(session), hdfsEnvironment, deltaLogDirectory));
                 transactionLogWriter.flush();
             }
+            else {
+                if (!isLegacyCreateTableWithExistingLocationEnabled(session)) {
+                    throw new TrinoException(
+                            NOT_SUPPORTED,
+                            "Using CREATE TABLE with an existing table content is deprecated, instead use the system.register_table() procedure." +
+                                    " The CREATE TABLE syntax can be temporarily re-enabled using the 'delta.legacy-create-table-with-existing-location.enabled' config property" +
+                                    " or 'legacy_create_table_with_existing_location_enabled' session property.");
+                }
+            }
         }
         catch (IOException e) {
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Unable to access file system for: " + location, e);
         }
 
-        Table.Builder tableBuilder = Table.builder()
-                .setDatabaseName(schemaName)
-                .setTableName(tableName)
-                .setOwner(Optional.of(session.getUser()))
-                .setTableType(external ? EXTERNAL_TABLE.name() : MANAGED_TABLE.name())
-                .setDataColumns(DUMMY_DATA_COLUMNS)
-                .setParameters(deltaTableProperties(session, location, external));
-
-        setDeltaStorageFormat(tableBuilder, location, targetPath);
-        Table table = tableBuilder.build();
+        Table table = buildTable(session, schemaTableName, location, targetPath, external);
 
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner().orElseThrow());
         metastore.createTable(
                 session,
                 table,
                 principalPrivileges);
+    }
+
+    public static Table buildTable(ConnectorSession session, SchemaTableName schemaTableName, String location, Path targetPath, boolean isExternal)
+    {
+        Table.Builder tableBuilder = Table.builder()
+                .setDatabaseName(schemaTableName.getSchemaName())
+                .setTableName(schemaTableName.getTableName())
+                .setOwner(Optional.of(session.getUser()))
+                .setTableType(isExternal ? EXTERNAL_TABLE.name() : MANAGED_TABLE.name())
+                .setDataColumns(DUMMY_DATA_COLUMNS)
+                .setParameters(deltaTableProperties(session, location, isExternal));
+
+        setDeltaStorageFormat(tableBuilder, location, targetPath);
+        return tableBuilder.build();
     }
 
     private static Map<String, String> deltaTableProperties(ConnectorSession session, String location, boolean external)
@@ -950,15 +965,7 @@ public class DeltaLakeMetadata
                 .map(dataFileInfoCodec::fromJson)
                 .collect(toImmutableList());
 
-        Table.Builder tableBuilder = Table.builder()
-                .setDatabaseName(schemaName)
-                .setTableName(tableName)
-                .setOwner(Optional.of(session.getUser()))
-                .setTableType(handle.isExternal() ? EXTERNAL_TABLE.name() : MANAGED_TABLE.name())
-                .setDataColumns(DUMMY_DATA_COLUMNS)
-                .setParameters(deltaTableProperties(session, location, handle.isExternal()));
-        setDeltaStorageFormat(tableBuilder, location, getExternalPath(new HdfsContext(session), location));
-        Table table = tableBuilder.build();
+        Table table = buildTable(session, schemaTableName(schemaName, tableName), location, getExternalPath(new HdfsContext(session), location), handle.isExternal());
         // Ensure the table has queryId set. This is relied on for exception handling
         String queryId = session.getQueryId();
         verify(

@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
@@ -48,7 +49,7 @@ public class TestDeltaLakeBasic
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createDeltaLakeQueryRunner(DELTA_CATALOG);
+        return createDeltaLakeQueryRunner(DELTA_CATALOG, ImmutableMap.of(), ImmutableMap.of("delta.register-table-procedure.enabled", "true"));
     }
 
     @BeforeClass
@@ -57,7 +58,7 @@ public class TestDeltaLakeBasic
         for (String table : Iterables.concat(PERSON_TABLES, OTHER_TABLES)) {
             String dataPath = getTableLocation(table).toExternalForm();
             getQueryRunner().execute(
-                    format("CREATE TABLE %s (name VARCHAR(256), age INTEGER) WITH (location = '%s')", table, dataPath));
+                    format("CALL system.register_table('%s', '%s', '%s')", getSession().getSchema().orElseThrow(), table, dataPath));
         }
     }
 
@@ -123,7 +124,7 @@ public class TestDeltaLakeBasic
         Path tableLocation = Files.createTempFile("bad_person", null);
         copyDirectoryContents(Path.of(getTableLocation("person").toURI()), tableLocation);
         getQueryRunner().execute(
-                format("CREATE TABLE %s (name VARCHAR(256), age INTEGER) WITH (location = '%s')", tableName, tableLocation));
+                format("CALL system.register_table('%s', '%s', '%s')", getSession().getSchema().orElseThrow(), tableName, tableLocation));
 
         // break the table by deleting all its files including transaction log
         deleteRecursively(tableLocation, ALLOW_INSECURE);

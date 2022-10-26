@@ -57,6 +57,7 @@ public final class DeltaLakeSessionProperties
     private static final String DYNAMIC_FILTERING_WAIT_TIMEOUT = "dynamic_filtering_wait_timeout";
     private static final String TABLE_STATISTICS_ENABLED = "statistics_enabled";
     public static final String EXTENDED_STATISTICS_ENABLED = "extended_statistics_enabled";
+    public static final String LEGACY_CREATE_TABLE_WITH_EXISTING_LOCATION_ENABLED = "legacy_create_table_with_existing_location_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -146,6 +147,11 @@ public final class DeltaLakeSessionProperties
                         "Use extended statistics collected by ANALYZE",
                         deltaLakeConfig.isExtendedStatisticsEnabled(),
                         false),
+                booleanProperty(
+                        LEGACY_CREATE_TABLE_WITH_EXISTING_LOCATION_ENABLED,
+                        "Enable using the CREATE TABLE statement to register an existing table",
+                        deltaLakeConfig.isLegacyCreateTableWithExistingLocationEnabled(),
+                        false),
                 enumProperty(
                         COMPRESSION_CODEC,
                         "Compression codec to use when writing new data files",
@@ -228,6 +234,12 @@ public final class DeltaLakeSessionProperties
     public static boolean isExtendedStatisticsEnabled(ConnectorSession session)
     {
         return session.getProperty(EXTENDED_STATISTICS_ENABLED, Boolean.class);
+    }
+
+    @Deprecated
+    public static boolean isLegacyCreateTableWithExistingLocationEnabled(ConnectorSession session)
+    {
+        return session.getProperty(LEGACY_CREATE_TABLE_WITH_EXISTING_LOCATION_ENABLED, Boolean.class);
     }
 
     public static HiveCompressionCodec getCompressionCodec(ConnectorSession session)
