@@ -53,7 +53,6 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static io.trino.plugin.hive.util.AcidTables.bucketFileName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
@@ -222,7 +221,7 @@ public class OrcDeletedRows
             }
             else {
                 originalTransaction = BIGINT.getLong(sourcePage.getBlock(ORIGINAL_TRANSACTION_INDEX), position);
-                int encodedBucketValue = toIntExact(INTEGER.getLong(sourcePage.getBlock(BUCKET_ID_INDEX), position));
+                int encodedBucketValue = INTEGER.getInt(sourcePage.getBlock(BUCKET_ID_INDEX), position);
                 AcidBucketCodec bucketCodec = AcidBucketCodec.forBucket(encodedBucketValue);
                 bucket = bucketCodec.decodeWriterId(encodedBucketValue);
                 statementId = bucketCodec.decodeStatementId(encodedBucketValue);
@@ -333,7 +332,7 @@ public class OrcDeletedRows
 
                             while (currentPagePosition < currentPage.getPositionCount()) {
                                 long originalTransaction = BIGINT.getLong(currentPage.getBlock(ORIGINAL_TRANSACTION_INDEX), currentPagePosition);
-                                int encodedBucketValue = toIntExact(INTEGER.getLong(currentPage.getBlock(BUCKET_ID_INDEX), currentPagePosition));
+                                int encodedBucketValue = INTEGER.getInt(currentPage.getBlock(BUCKET_ID_INDEX), currentPagePosition);
                                 AcidBucketCodec bucketCodec = AcidBucketCodec.forBucket(encodedBucketValue);
                                 int bucket = bucketCodec.decodeWriterId(encodedBucketValue);
                                 int statement = bucketCodec.decodeStatementId(encodedBucketValue);

@@ -123,8 +123,8 @@ public class HandTpchQuery6
             Block discountBlock = page.getBlock(0);
             Block shipDateBlock = page.getBlock(1);
             Block quantityBlock = page.getBlock(2);
-            return !shipDateBlock.isNull(position) && DATE.getLong(shipDateBlock, position) >= MIN_SHIP_DATE &&
-                    !shipDateBlock.isNull(position) && DATE.getLong(shipDateBlock, position) < MAX_SHIP_DATE &&
+            return !shipDateBlock.isNull(position) && DATE.getInt(shipDateBlock, position) >= MIN_SHIP_DATE &&
+                    !shipDateBlock.isNull(position) && DATE.getInt(shipDateBlock, position) < MAX_SHIP_DATE &&
                     !discountBlock.isNull(position) && DOUBLE.getDouble(discountBlock, position) >= 0.05 &&
                     !discountBlock.isNull(position) && DOUBLE.getDouble(discountBlock, position) <= 0.07 &&
                     !quantityBlock.isNull(position) && BIGINT.getLong(quantityBlock, position) < 24;

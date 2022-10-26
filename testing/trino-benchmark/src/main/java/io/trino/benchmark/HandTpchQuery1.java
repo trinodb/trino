@@ -42,7 +42,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class HandTpchQuery1
@@ -249,7 +248,7 @@ public class HandTpchQuery1
                     continue;
                 }
 
-                int shipDate = toIntExact(DATE.getLong(shipDateBlock, position));
+                int shipDate = DATE.getInt(shipDateBlock, position);
 
                 // where
                 //     shipdate <= '1998-09-02'

@@ -46,7 +46,6 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Float.intBitsToFloat;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -85,7 +84,7 @@ public abstract class AbstractRowEncoder
             appendLong(BIGINT.getLong(block, position));
         }
         else if (type == INTEGER) {
-            appendInt(toIntExact(INTEGER.getLong(block, position)));
+            appendInt(INTEGER.getInt(block, position));
         }
         else if (type == SMALLINT) {
             appendShort(SMALLINT.getShort(block, position));
@@ -97,7 +96,7 @@ public abstract class AbstractRowEncoder
             appendDouble(DOUBLE.getDouble(block, position));
         }
         else if (type == REAL) {
-            appendFloat(intBitsToFloat(toIntExact(REAL.getLong(block, position))));
+            appendFloat(intBitsToFloat(REAL.getInt(block, position)));
         }
         else if (type instanceof VarcharType varcharType) {
             appendString(varcharType.getSlice(block, position).toStringUtf8());
