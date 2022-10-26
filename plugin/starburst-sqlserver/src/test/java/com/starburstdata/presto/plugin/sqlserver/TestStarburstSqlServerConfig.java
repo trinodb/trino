@@ -30,7 +30,8 @@ public class TestStarburstSqlServerConfig
                 .setImpersonationEnabled(false)
                 .setOverrideCatalogEnabled(false)
                 .setOverrideCatalogName(null)
-                .setAuthenticationType(PASSWORD));
+                .setAuthenticationType(PASSWORD)
+                .setConnectionsCount(1));
     }
 
     @Test
@@ -41,12 +42,14 @@ public class TestStarburstSqlServerConfig
                 .put("sqlserver.override-catalog.enabled", "true")
                 .put("sqlserver.override-catalog.name", "catalog")
                 .put("sqlserver.authentication.type", "PASSWORD_PASS_THROUGH")
+                .put("sqlserver.parallel.connections-count", "2")
                 .buildOrThrow();
 
         StarburstSqlServerConfig expected = new StarburstSqlServerConfig()
                 .setImpersonationEnabled(true)
                 .setOverrideCatalogEnabled(true)
                 .setOverrideCatalogName("catalog")
+                .setConnectionsCount(2)
                 .setAuthenticationType(PASSWORD_PASS_THROUGH);
 
         assertFullMapping(properties, expected);

@@ -24,6 +24,8 @@ import javax.inject.Inject;
 
 import java.util.Optional;
 
+import static com.google.common.base.Verify.verify;
+import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerSessionProperties.hasParallelism;
 import static java.util.Objects.requireNonNull;
 
 public class StarburstSqlServerClient
@@ -48,5 +50,19 @@ public class StarburstSqlServerClient
     public Optional<TableScanRedirectApplicationResult> getTableScanRedirection(ConnectorSession session, JdbcTableHandle handle)
     {
         return tableScanRedirection.getTableScanRedirection(session, handle, this);
+    }
+
+    @Override
+    public boolean isLimitGuaranteed(ConnectorSession session)
+    {
+        verify(super.isLimitGuaranteed(session), "Super implementation changed");
+        return !hasParallelism(session);
+    }
+
+    @Override
+    public boolean isTopNGuaranteed(ConnectorSession session)
+    {
+        verify(super.isTopNGuaranteed(session), "Super implementation changed");
+        return !hasParallelism(session);
     }
 }

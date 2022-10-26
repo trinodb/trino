@@ -15,6 +15,7 @@ import com.google.inject.Scopes;
 import com.starburstdata.presto.plugin.jdbc.redirection.JdbcTableScanRedirectionModule;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.jdbc.ForBaseJdbc;
+import io.trino.plugin.jdbc.ForJdbcDynamicFiltering;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
@@ -23,6 +24,7 @@ import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.plugin.sqlserver.SqlServerConfig;
 import io.trino.plugin.sqlserver.SqlServerSessionProperties;
 import io.trino.plugin.sqlserver.SqlServerTableProperties;
+import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.ptf.ConnectorTableFunction;
 
 import static com.google.inject.Scopes.SINGLETON;
@@ -39,6 +41,8 @@ public class StarburstSqlServerClientModule
     @Override
     protected void setup(Binder binder)
     {
+        newOptionalBinder(binder, Key.get(ConnectorSplitManager.class, ForJdbcDynamicFiltering.class)).setBinding().to(SqlServerSplitManager.class).in(SINGLETON);
+
         configBinder(binder).bindConfig(SqlServerConfig.class);
 
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(StarburstSqlServerClient.class).in(SINGLETON);

@@ -14,6 +14,8 @@ import io.airlift.configuration.ConfigDescription;
 
 import javax.annotation.Nullable;
 import javax.annotation.PostConstruct;
+import javax.validation.constraints.Max;
+import javax.validation.constraints.Min;
 
 import java.util.Optional;
 
@@ -30,6 +32,7 @@ public class StarburstSqlServerConfig
     @Nullable
     private String overrideCatalogName;
     private SqlServerAuthenticationType authenticationType = PASSWORD;
+    private int connectionsCount = 1;
 
     public enum SqlServerAuthenticationType
     {
@@ -89,6 +92,21 @@ public class StarburstSqlServerConfig
     public StarburstSqlServerConfig setAuthenticationType(SqlServerAuthenticationType authenticationType)
     {
         this.authenticationType = authenticationType;
+        return this;
+    }
+
+    @Min(1)
+    @Max(1024)
+    public int getConnectionsCount()
+    {
+        return connectionsCount;
+    }
+
+    @Config("sqlserver.parallel.connections-count")
+    @ConfigDescription("Number of parallel connections, 1 - no parallelism, N - up to number of database partitions")
+    public StarburstSqlServerConfig setConnectionsCount(int connectionsCount)
+    {
+        this.connectionsCount = connectionsCount;
         return this;
     }
 

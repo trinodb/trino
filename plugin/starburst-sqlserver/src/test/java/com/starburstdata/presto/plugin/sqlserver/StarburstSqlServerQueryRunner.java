@@ -52,7 +52,7 @@ public final class StarburstSqlServerQueryRunner
     public static DistributedQueryRunner createStarburstSqlServerQueryRunner(TestingSqlServer testingSqlServer, TpchTable<?>... tables)
             throws Exception
     {
-        return createStarburstSqlServerQueryRunner(testingSqlServer, false, ImmutableMap.of(), ImmutableList.copyOf(tables));
+        return createStarburstSqlServerQueryRunner(testingSqlServer, false, ImmutableMap.of(), ImmutableList.copyOf(tables), false);
     }
 
     public static DistributedQueryRunner createStarburstSqlServerQueryRunner(
@@ -64,10 +64,30 @@ public final class StarburstSqlServerQueryRunner
     {
         return createStarburstSqlServerQueryRunner(
                 testingSqlServer,
+                ImmutableMap.of(),
                 Function.identity(),
                 unlockEnterpriseFeatures,
                 connectorProperties,
-                tables);
+                tables,
+                false);
+    }
+
+    public static DistributedQueryRunner createStarburstSqlServerQueryRunner(
+            TestingSqlServer testingSqlServer,
+            boolean unlockEnterpriseFeatures,
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> tables,
+            boolean shouldPartitionTables)
+            throws Exception
+    {
+        return createStarburstSqlServerQueryRunner(
+                testingSqlServer,
+                ImmutableMap.of(),
+                Function.identity(),
+                unlockEnterpriseFeatures,
+                connectorProperties,
+                tables,
+                shouldPartitionTables);
     }
 
     public static DistributedQueryRunner createStarburstSqlServerQueryRunner(
@@ -78,7 +98,7 @@ public final class StarburstSqlServerQueryRunner
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        return createStarburstSqlServerQueryRunner(sqlServer, ImmutableMap.of(), sessionModifier, unlockEnterpriseFeatures, connectorProperties, tables);
+        return createStarburstSqlServerQueryRunner(sqlServer, ImmutableMap.of(), sessionModifier, unlockEnterpriseFeatures, connectorProperties, tables, false);
     }
 
     public static DistributedQueryRunner createStarburstSqlServerQueryRunner(
@@ -87,7 +107,8 @@ public final class StarburstSqlServerQueryRunner
             Function<Session, Session> sessionModifier,
             boolean unlockEnterpriseFeatures,
             Map<String, String> connectorProperties,
-            Iterable<TpchTable<?>> tables)
+            Iterable<TpchTable<?>> tables,
+            boolean shouldPartitionTables)
             throws Exception
     {
         Session session = createSession(sqlServer.getUsername());
@@ -129,11 +150,26 @@ public final class StarburstSqlServerQueryRunner
 
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, redirectionDisabled(modifiedSession), tables);
 
+            if (shouldPartitionTables) {
+                partitionTables(sqlServer, tables);
+            }
+
             return queryRunner;
         }
         catch (Throwable e) {
             closeAllSuppress(e, queryRunner);
             throw e;
+        }
+    }
+
+    private static void partitionTables(TestingSqlServer sqlServer, Iterable<TpchTable<?>> tables)
+    {
+        for (TpchTable<?> table : tables) {
+            String tableName = table.getTableName();
+            String columnName = table.getColumns().get(0).getSimplifiedColumnName();
+            sqlServer.execute(format("CREATE PARTITION FUNCTION %sPartitionFunction (bigint) AS RANGE RIGHT FOR VALUES (1, 10, 100)", tableName));
+            sqlServer.execute(format("CREATE PARTITION SCHEME %sPartitionScheme AS PARTITION %sPartitionFunction ALL TO ('PRIMARY')", tableName, tableName));
+            sqlServer.execute(format("CREATE CLUSTERED INDEX ix_%s ON %s(%s) ON %sPartitionScheme(%s)", tableName, tableName, columnName, tableName, columnName));
         }
     }
 
@@ -177,7 +213,8 @@ public final class StarburstSqlServerQueryRunner
                 Function.identity(),
                 false,
                 ImmutableMap.of(),
-                TpchTable.getTables());
+                TpchTable.getTables(),
+                false);
 
         Logger log = Logger.get(StarburstSqlServerQueryRunner.class);
         log.info("======== SERVER STARTED ========");
