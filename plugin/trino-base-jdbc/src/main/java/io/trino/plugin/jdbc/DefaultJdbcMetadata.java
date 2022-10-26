@@ -100,6 +100,7 @@ public class DefaultJdbcMetadata
         implements JdbcMetadata
 {
     private static final String SYNTHETIC_COLUMN_NAME_PREFIX = "_pfgnrtd_";
+    private static final String DELETE_ROW_ID = "_trino_artificial_column_handle_for_delete_row_id_";
 
     private final JdbcClient jdbcClient;
     private final boolean precalculateStatisticsForPushdown;
@@ -266,7 +267,12 @@ public class DefaultJdbcMetadata
                 return Optional.empty();
             }
 
-            verify(tableColumnSet.containsAll(newColumnSet), "applyProjection called with columns %s and some are not available in existing query: %s", newColumnSet, tableColumnSet);
+            Set<JdbcColumnHandle> newPhysicalColumns = newColumns.stream()
+                    // It may happen fresh table handle comes with a columns prepared already.
+                    // In such case it may happen that applyProjection may want to add UPDATE_ROW_ID id, which is created later during the planning.
+                    .filter(column -> !column.getColumnName().equals(DELETE_ROW_ID))
+                    .collect(toImmutableSet());
+            verify(tableColumnSet.containsAll(newPhysicalColumns), "applyProjection called with columns %s and some are not available in existing query: %s", newPhysicalColumns, tableColumnSet);
         }
 
         return Optional.of(new ProjectionApplicationResult<>(
@@ -782,7 +788,7 @@ public class DefaultJdbcMetadata
     {
         // The column is used for row-level delete, which is not supported, but it's required during analysis anyway.
         return new JdbcColumnHandle(
-                "$update_row_id",
+                DELETE_ROW_ID,
                 new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
                 BIGINT);
     }
