@@ -36,7 +36,6 @@ public class TestFeaturesConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(FeaturesConfig.class)
-                .setLegacyUpdateDeleteImplementation(false)
                 .setLegacyCatalogRoles(false)
                 .setRedistributeWrites(true)
                 .setScaleWriters(true)
@@ -73,7 +72,6 @@ public class TestFeaturesConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("deprecated.legacy-update-delete-implementation", "true")
                 .put("redistribute-writes", "false")
                 .put("scale-writers", "false")
                 .put("writer-min-size", "42GB")
@@ -106,7 +104,6 @@ public class TestFeaturesConfig
                 .buildOrThrow();
 
         FeaturesConfig expected = new FeaturesConfig()
-                .setLegacyUpdateDeleteImplementation(true)
                 .setRedistributeWrites(false)
                 .setScaleWriters(false)
                 .setWriterMinSize(DataSize.of(42, GIGABYTE))

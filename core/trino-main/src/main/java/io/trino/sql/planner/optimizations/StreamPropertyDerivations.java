@@ -33,7 +33,6 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
-import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
@@ -70,7 +69,6 @@ import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
-import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.Expression;
@@ -422,21 +420,6 @@ public final class StreamPropertyDerivations
         {
             // delete only outputs a single row count
             return StreamProperties.singleStream();
-        }
-
-        @Override
-        public StreamProperties visitDelete(DeleteNode node, List<StreamProperties> inputProperties)
-        {
-            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
-            // delete only outputs the row count
-            return properties.withUnspecifiedPartitioning();
-        }
-
-        @Override
-        public StreamProperties visitUpdate(UpdateNode node, List<StreamProperties> inputProperties)
-        {
-            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
-            return properties.withUnspecifiedPartitioning();
         }
 
         @Override

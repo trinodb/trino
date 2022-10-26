@@ -40,7 +40,6 @@ import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
-import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
@@ -84,7 +83,6 @@ import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
-import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.Expression;
@@ -636,48 +634,6 @@ public class UnaliasSymbolReferences
 
             return new PlanAndMappings(
                     new TableDeleteNode(node.getId(), node.getTarget(), newOutput),
-                    mapping);
-        }
-
-        @Override
-        public PlanAndMappings visitDelete(DeleteNode node, UnaliasContext context)
-        {
-            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
-            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
-            SymbolMapper mapper = symbolMapper(mapping);
-
-            Symbol newRowId = mapper.map(node.getRowId());
-            List<Symbol> newOutputs = mapper.map(node.getOutputSymbols());
-
-            return new PlanAndMappings(
-                    new DeleteNode(
-                            node.getId(),
-                            rewrittenSource.getRoot(),
-                            node.getTarget(),
-                            newRowId,
-                            newOutputs),
-                    mapping);
-        }
-
-        @Override
-        public PlanAndMappings visitUpdate(UpdateNode node, UnaliasContext context)
-        {
-            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
-            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
-            SymbolMapper mapper = symbolMapper(mapping);
-
-            Symbol newRowId = mapper.map(node.getRowId());
-            List<Symbol> newColumnValueSymbols = mapper.map(node.getColumnValueAndRowIdSymbols());
-            List<Symbol> newOutputs = mapper.map(node.getOutputSymbols());
-
-            return new PlanAndMappings(
-                    new UpdateNode(
-                            node.getId(),
-                            rewrittenSource.getRoot(),
-                            node.getTarget(),
-                            newRowId,
-                            newColumnValueSymbols,
-                            newOutputs),
                     mapping);
         }
 

@@ -64,7 +64,6 @@ import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
-import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
@@ -114,7 +113,6 @@ import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
-import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
@@ -1645,29 +1643,6 @@ public class PlanPrinter
                                 "isReplicateNullsAndAny", formatBoolean(node.getPartitioningScheme().isReplicateNullsAndAny()),
                                 "hashColumn", formatHash(node.getPartitioningScheme().getHashColumn())),
                         context.tag());
-            }
-            return processChildren(node, new Context());
-        }
-
-        @Override
-        public Void visitDelete(DeleteNode node, Context context)
-        {
-            addNode(node,
-                    "Delete",
-                    ImmutableMap.of("target", anonymizer.anonymize(node.getTarget())),
-                    context.tag());
-
-            return processChildren(node, new Context());
-        }
-
-        @Override
-        public Void visitUpdate(UpdateNode node, Context context)
-        {
-            NodeRepresentation nodeOutput = addNode(node, format("Update[%s]", anonymizer.anonymize(node.getTarget())), context.tag());
-            int index = 0;
-            for (String columnName : node.getTarget().getUpdatedColumns()) {
-                nodeOutput.appendDetails("%s := %s", anonymizer.anonymizeColumn(columnName), anonymizer.anonymize(node.getColumnValueAndRowIdSymbols().get(index)));
-                index++;
             }
             return processChildren(node, new Context());
         }
