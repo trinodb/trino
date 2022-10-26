@@ -232,14 +232,18 @@ certificate usage:
     - The password for the keystore. This must match the password you specified
       when creating the keystore.
   * - ``--keystore-type``
-    - Keystore type.
+    - Determined by the keystore file format. The default keystore type is JKS.
+      This advanced option is only necessary if you use a custom Java
+      Cryptography Architecture (JCA) provider implementation.
   * - ``--truststore-password``
     - The password for the truststore. This must match the password you
       specified when creating the truststore.
   * - ``--truststore-path``
     - The location of the Java truststore file that will be used to secure TLS.
   * - ``--truststore-type``
-    - Truststore type.
+    - Determined by the truststore file format. The default keystore type is
+      JKS. This advanced option is only necessary if you use a custom Java
+      Cryptography Architecture (JCA) provider implementation.
   * - ``--use-system-truststore``
     - Verify the server certificate using the system truststore of the
       operating system. Windows and macOS are supported. For other operating
