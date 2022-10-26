@@ -82,18 +82,23 @@ import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static io.trino.spi.HostAddress.fromParts;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.roundDiv;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
@@ -547,13 +552,15 @@ public class MongoSession
         }
 
         if (type == TIMESTAMP_MILLIS) {
-            long millisUtc = (long) trinoNativeValue;
-            Instant instant = Instant.ofEpochMilli(millisUtc);
+            long epochMicros = (long) trinoNativeValue;
+            long epochSecond = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
+            int nanoFraction = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
+            Instant instant = Instant.ofEpochSecond(epochSecond, nanoFraction);
             return Optional.of(LocalDateTime.ofInstant(instant, UTC));
         }
 
         if (type == TIMESTAMP_TZ_MILLIS) {
-            long millisUtc = (long) trinoNativeValue;
+            long millisUtc = unpackMillisUtc((long) trinoNativeValue);
             Instant instant = Instant.ofEpochMilli(millisUtc);
             return Optional.of(LocalDateTime.ofInstant(instant, UTC));
         }
