@@ -190,7 +190,7 @@ public final class FormatFunction
             return (session, block) -> (long) TINYINT.getByte(block, position);
         }
         if (type.equals(SMALLINT)) {
-            return (session, block) -> SMALLINT.getLong(block, position);
+            return (session, block) -> (long) SMALLINT.getShort(block, position);
         }
         if (type.equals(INTEGER)) {
             return (session, block) -> INTEGER.getLong(block, position);

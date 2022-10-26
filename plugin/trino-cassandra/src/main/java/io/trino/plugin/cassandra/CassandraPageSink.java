@@ -23,7 +23,6 @@ import com.datastax.oss.driver.api.querybuilder.term.Term;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.InetAddresses;
-import com.google.common.primitives.Shorts;
 import io.airlift.slice.Slice;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -167,7 +166,7 @@ public class CassandraPageSink
             values.add(toIntExact(INTEGER.getLong(block, position)));
         }
         else if (SMALLINT.equals(type)) {
-            values.add(Shorts.checkedCast(SMALLINT.getLong(block, position)));
+            values.add(SMALLINT.getShort(block, position));
         }
         else if (TINYINT.equals(type)) {
             values.add(TINYINT.getByte(block, position));

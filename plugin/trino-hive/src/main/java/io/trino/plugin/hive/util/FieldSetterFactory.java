@@ -14,7 +14,6 @@
 package io.trino.plugin.hive.util;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Shorts;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
@@ -213,7 +212,7 @@ public final class FieldSetterFactory
         @Override
         public void setField(Block block, int position)
         {
-            value.set(Shorts.checkedCast(SMALLINT.getLong(block, position)));
+            value.set(SMALLINT.getShort(block, position));
             rowInspector.setStructFieldData(row, field, value);
         }
     }

@@ -15,7 +15,6 @@ package io.trino.plugin.hive.util;
 
 import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Shorts;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveReadOnlyException;
@@ -310,7 +309,7 @@ public final class HiveWriteUtils
             return toIntExact(INTEGER.getLong(block, position));
         }
         if (SMALLINT.equals(type)) {
-            return Shorts.checkedCast(SMALLINT.getLong(block, position));
+            return SMALLINT.getShort(block, position);
         }
         if (TINYINT.equals(type)) {
             return TINYINT.getByte(block, position);

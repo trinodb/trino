@@ -457,7 +457,7 @@ public class IcebergPageSink
             return (int) TINYINT.getByte(block, position);
         }
         if (type.equals(SMALLINT)) {
-            return toIntExact(SMALLINT.getLong(block, position));
+            return (int) SMALLINT.getShort(block, position);
         }
         if (type.equals(INTEGER)) {
             return toIntExact(INTEGER.getLong(block, position));

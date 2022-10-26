@@ -144,7 +144,7 @@ public class OpenXJsonSerializer
             return INTEGER.getLong(block, position);
         }
         else if (SMALLINT.equals(type)) {
-            return SMALLINT.getLong(block, position);
+            return SMALLINT.getShort(block, position);
         }
         else if (TINYINT.equals(type)) {
             return TINYINT.getByte(block, position);
