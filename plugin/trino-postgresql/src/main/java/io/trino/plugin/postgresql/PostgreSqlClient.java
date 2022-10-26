@@ -662,6 +662,21 @@ public class PostgreSqlClient
     }
 
     @Override
+    public Optional<Type> getSupportedType(ConnectorSession session, Type type)
+    {
+        if (type instanceof TimeType timeType && timeType.getPrecision() > POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION) {
+            return Optional.of(createTimeType(POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION));
+        }
+        if (type instanceof TimestampType timestampType && timestampType.getPrecision() > POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION) {
+            return Optional.of(createTimestampType(POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION));
+        }
+        if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && timestampWithTimeZoneType.getPrecision() > POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION) {
+            return Optional.of(createTimestampWithTimeZoneType(POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION));
+        }
+        return Optional.empty();
+    }
+
+    @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         if (type == BOOLEAN) {
@@ -720,29 +735,21 @@ public class PostgreSqlClient
         }
 
         if (type instanceof TimeType timeType) {
-            if (timeType.getPrecision() <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION) {
-                return WriteMapping.longMapping(format("time(%s)", timeType.getPrecision()), timeWriteFunction(timeType.getPrecision()));
-            }
-            return WriteMapping.longMapping(format("time(%s)", POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION), timeWriteFunction(POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION));
+            verify(timeType.getPrecision() <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION);
+            return WriteMapping.longMapping(format("time(%s)", timeType.getPrecision()), timeWriteFunction(timeType.getPrecision()));
         }
 
         if (type instanceof TimestampType timestampType) {
-            if (timestampType.getPrecision() <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION) {
-                verify(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION);
-                return WriteMapping.longMapping(format("timestamp(%s)", timestampType.getPrecision()), PostgreSqlClient::shortTimestampWriteFunction);
-            }
-            verify(timestampType.getPrecision() > TimestampType.MAX_SHORT_PRECISION);
-            return WriteMapping.objectMapping(format("timestamp(%s)", POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION), longTimestampWriteFunction());
+            verify(timestampType.getPrecision() <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION);
+            return WriteMapping.longMapping(format("timestamp(%s)", timestampType.getPrecision()), PostgreSqlClient::shortTimestampWriteFunction);
         }
         if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
-            if (timestampWithTimeZoneType.getPrecision() <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION) {
-                String dataType = format("timestamptz(%d)", timestampWithTimeZoneType.getPrecision());
-                if (timestampWithTimeZoneType.getPrecision() <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
-                    return WriteMapping.longMapping(dataType, shortTimestampWithTimeZoneWriteFunction());
-                }
-                return WriteMapping.objectMapping(dataType, longTimestampWithTimeZoneWriteFunction());
+            verify(timestampWithTimeZoneType.getPrecision() <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION);
+            String dataType = format("timestamptz(%d)", timestampWithTimeZoneType.getPrecision());
+            if (timestampWithTimeZoneType.isShort()) {
+                return WriteMapping.longMapping(dataType, shortTimestampWithTimeZoneWriteFunction());
             }
-            return WriteMapping.objectMapping(format("timestamptz(%d)", POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION), longTimestampWithTimeZoneWriteFunction());
+            return WriteMapping.objectMapping(dataType, longTimestampWithTimeZoneWriteFunction());
         }
         if (type.equals(jsonType)) {
             return WriteMapping.sliceMapping("jsonb", typedVarcharWriteFunction("json"));
