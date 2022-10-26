@@ -80,15 +80,16 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         QueryRunner queryRunner = DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 SCHEMA,
-                ImmutableMap.of("delta.enable-non-concurrent-writes", "true"),
+                ImmutableMap.of(
+                        "delta.enable-non-concurrent-writes", "true",
+                        "delta.register-table-procedure.enabled", "true"),
                 hiveMinioDataLake.getMinioAddress(),
                 hiveMinioDataLake.getHiveHadoop());
         queryRunner.execute("CREATE SCHEMA " + SCHEMA + " WITH (location = 's3://" + bucketName + "/" + SCHEMA + "')");
         TpchTable.getTables().forEach(table -> {
             String tableName = table.getTableName();
             hiveMinioDataLake.copyResources(resourcePath + tableName, SCHEMA + "/" + tableName);
-            queryRunner.execute(format("CREATE TABLE %1$s.%2$s.%3$s (dummy int) WITH (location = 's3://%4$s/%2$s/%3$s')",
-                    DELTA_CATALOG,
+            queryRunner.execute(format("CALL system.register_table('%1$s', '%2$s', 's3://%3$s/%1$s/%2$s')",
                     SCHEMA,
                     tableName,
                     bucketName));
