@@ -27,7 +27,8 @@ jobs:
             // Get pull request number from commit sha
             // 'listPullRequestsAssociatedWithCommit()' lists the merged pull request
             // https://docs.github.com/en/rest/reference/repos#list-pull-requests-associated-with-a-commit
-            const pr_response = await github.repos.listPullRequestsAssociatedWithCommit({
+            // and https://octokit.github.io/rest.js/v19#repos-list-pull-requests-associated-with-commit
+            const pr_response = await github.rest.repos.listPullRequestsAssociatedWithCommit({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 commit_sha: context.sha
@@ -47,12 +48,12 @@ jobs:
             } = process.env
 
             // Find milestone
-            const response = await github.issues.listMilestones(context.repo)
+            const response = await github.rest.issues.listMilestones(context.repo)
             let milestone = response.data.find(milestoneResponse => milestoneResponse.title === MILESTONE_NUMBER)
 
             // Create new milestone if it doesn't exist
             if (!milestone) {
-                const create_response = await github.issues.createMilestone({
+                const create_response = await github.rest.issues.createMilestone({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
                     title: MILESTONE_NUMBER
@@ -61,7 +62,7 @@ jobs:
             }
 
             // Set milestone to PR
-            await github.issues.update({
+            await github.rest.issues.update({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 milestone: milestone.number,
