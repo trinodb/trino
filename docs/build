@@ -9,4 +9,4 @@ test -t 1 && OPTS='-it' || OPTS=''
 SPHINX_IMAGE=${SPHINX_IMAGE:-ghcr.io/trinodb/build/sphinx:3}
 
 docker run --rm $OPTS -e TRINO_VERSION -u $(id -u):$(id -g) -v "$PWD":/docs $SPHINX_IMAGE \
-  sphinx-build -q -j auto -b html -W -d target/doctrees src/main/sphinx target/html > /dev/null
+  sphinx-build -q -j auto -b html -W -d target/doctrees src/main/sphinx target/html
