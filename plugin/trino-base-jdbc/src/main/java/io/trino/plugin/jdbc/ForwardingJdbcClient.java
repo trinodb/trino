@@ -125,6 +125,12 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
+    public Optional<Type> getSupportedType(ConnectorSession session, Type type)
+    {
+        return delegate().getSupportedType(session, type);
+    }
+
+    @Override
     public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
     {
         return delegate().supportsAggregationPushdown(session, table, aggregates, assignments, groupingSets);
