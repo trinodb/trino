@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.BeforeClass;
@@ -30,14 +31,14 @@ public class TestDeltaLakePartitioning
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createDeltaLakeQueryRunner(DELTA_CATALOG);
+        return createDeltaLakeQueryRunner(DELTA_CATALOG, ImmutableMap.of(), ImmutableMap.of("delta.register-table-procedure.enabled", "true"));
     }
 
     @BeforeClass
     public void registerTables()
     {
         String dataPath = getClass().getClassLoader().getResource("deltalake/partitions").toExternalForm();
-        getQueryRunner().execute(format("CREATE TABLE partitions (t_string VARCHAR) WITH (location = '%s')", dataPath));
+        getQueryRunner().execute(format("CALL system.register_table('%s', 'partitions', '%s')", getSession().getSchema().orElseThrow(), dataPath));
     }
 
     @Test

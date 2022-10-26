@@ -72,14 +72,7 @@ public abstract class BaseTestDeltaLakeMinioReads
     @Test(groups = {DELTA_LAKE_MINIO, PROFILE_SPECIFIC_TESTS})
     public void testReadRegionTable()
     {
-        onTrino().executeQuery(format(
-                "CREATE TABLE IF NOT EXISTS delta.default.\"%1$s\" (" +
-                        "  regionkey bigint, " +
-                        "  name varchar, " +
-                        "  comment varchar) " +
-                        "WITH (location = 's3://%2$s/%1$s')",
-                tableName,
-                BUCKET_NAME));
+        onTrino().executeQuery(format("CALL delta.system.register_table('default', '%1$s', 's3://%2$s/%1$s')", tableName, BUCKET_NAME));
 
         assertThat(onTrino().executeQuery(
                 format("SELECT count(*) FROM delta.default.\"%s\"", tableName)))

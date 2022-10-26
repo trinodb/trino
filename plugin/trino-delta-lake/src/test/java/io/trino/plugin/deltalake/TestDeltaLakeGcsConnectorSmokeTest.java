@@ -154,7 +154,7 @@ public class TestDeltaLakeGcsConnectorSmokeTest
     }
 
     @Override
-    protected void createTableFromResources(String table, String resourcePath, QueryRunner queryRunner)
+    protected void registerTableFromResources(String table, String resourcePath, QueryRunner queryRunner)
     {
         String targetDirectory = bucketName + "/" + table;
 
@@ -176,7 +176,7 @@ public class TestDeltaLakeGcsConnectorSmokeTest
             throw new UncheckedIOException(e);
         }
 
-        queryRunner.execute(format("CREATE TABLE %s (dummy int) WITH (location = '%s')", table, getLocationForTable(bucketName, table)));
+        queryRunner.execute(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, table, getLocationForTable(bucketName, table)));
     }
 
     @Override

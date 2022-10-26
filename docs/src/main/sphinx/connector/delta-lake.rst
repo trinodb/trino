@@ -155,6 +155,9 @@ values. Typical usage does not require you to configure them.
     * - ``delta.unique-table-location``
       - Use randomized, unique table locations.
       - ``true``
+    * - ``delta.register-table-procedure.enabled``
+      - Enable to allow users to call the ``register_table`` procedure
+      - ``false``
 
 The following table describes performance tuning catalog properties for the
 connector.
@@ -526,6 +529,13 @@ ignored. The table schema is read from the transaction log, instead. If the
 schema is changed by an external system, Trino automatically uses the new
 schema.
 
+.. warning::
+
+   Using ``CREATE TABLE`` with an existing table content is deprecated, instead use the
+   ``system.register_table`` procedure. The ``CREATE TABLE ... WITH (location=...)``
+   syntax can be temporarily re-enabled using the ``delta.legacy-create-table-with-existing-location.enabled``
+   config property or ``legacy_create_table_with_existing_location_enabled`` session property.
+
 If the specified location does not already contain a Delta table, the connector
 automatically writes the initial transaction log entries and registers the table
 in the metastore. As a result, any Databricks engine can write to the table::
@@ -559,6 +569,21 @@ The following example uses all three table properties::
     checkpoint_interval = 5
   )
   AS SELECT name, comment, regionkey FROM tpch.tiny.nation;
+
+.. _delta-lake-register-table:
+
+Register table
+^^^^^^^^^^^^^^
+
+The connector can register table into the metastore with existing transaction logs and data files.
+
+The ``system.register_table`` procedure allows the caller to register an existing delta lake
+table in the metastore, using its existing transaction logs and data files::
+
+    CALL delta.system.register_table(schema_name => 'testdb', table_name => 'customer_orders', table_location => 's3://my-bucket/a/path')
+
+To prevent unauthorized users from accessing data, this procedure is disabled by default.
+The procedure is enabled only when ``delta.register-table-procedure.enabled`` is set to ``true``.
 
 .. _delta-lake-write-support:
 
