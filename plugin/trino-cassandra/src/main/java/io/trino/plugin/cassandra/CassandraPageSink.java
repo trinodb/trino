@@ -68,7 +68,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.intBitsToFloat;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -81,7 +80,7 @@ public class CassandraPageSink
     private final List<Type> columnTypes;
     private final boolean generateUuid;
     private final int batchSize;
-    private final Function<Long, Object> toCassandraDate;
+    private final Function<Integer, Object> toCassandraDate;
     private final BatchStatementBuilder batchStatement = BatchStatement.builder(DefaultBatchType.LOGGED);
 
     public CassandraPageSink(
@@ -105,10 +104,10 @@ public class CassandraPageSink
         this.batchSize = batchSize;
 
         if (protocolVersion.getCode() <= ProtocolVersion.V3.getCode()) {
-            toCassandraDate = value -> DateTimeFormatter.ISO_LOCAL_DATE.format(LocalDate.ofEpochDay(toIntExact(value)));
+            toCassandraDate = value -> DateTimeFormatter.ISO_LOCAL_DATE.format(LocalDate.ofEpochDay(value));
         }
         else {
-            toCassandraDate = value -> LocalDate.ofEpochDay(toIntExact(value));
+            toCassandraDate = LocalDate::ofEpochDay;
         }
 
         ImmutableMap.Builder<String, Term> parameters = ImmutableMap.builder();
@@ -163,7 +162,7 @@ public class CassandraPageSink
             values.add(BIGINT.getLong(block, position));
         }
         else if (INTEGER.equals(type)) {
-            values.add(toIntExact(INTEGER.getLong(block, position)));
+            values.add(INTEGER.getInt(block, position));
         }
         else if (SMALLINT.equals(type)) {
             values.add(SMALLINT.getShort(block, position));
@@ -175,10 +174,10 @@ public class CassandraPageSink
             values.add(DOUBLE.getDouble(block, position));
         }
         else if (REAL.equals(type)) {
-            values.add(intBitsToFloat(toIntExact(REAL.getLong(block, position))));
+            values.add(intBitsToFloat(REAL.getInt(block, position)));
         }
         else if (DATE.equals(type)) {
-            values.add(toCassandraDate.apply(DATE.getLong(block, position)));
+            values.add(toCassandraDate.apply(DATE.getInt(block, position)));
         }
         else if (TIME_NANOS.equals(type)) {
             long value = type.getLong(block, position);

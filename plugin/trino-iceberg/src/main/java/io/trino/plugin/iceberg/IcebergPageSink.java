@@ -82,7 +82,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static java.lang.Float.intBitsToFloat;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -460,10 +459,10 @@ public class IcebergPageSink
             return (int) SMALLINT.getShort(block, position);
         }
         if (type.equals(INTEGER)) {
-            return toIntExact(INTEGER.getLong(block, position));
+            return INTEGER.getInt(block, position);
         }
         if (type.equals(DATE)) {
-            return toIntExact(DATE.getLong(block, position));
+            return DATE.getInt(block, position);
         }
         if (type.equals(BOOLEAN)) {
             return BOOLEAN.getBoolean(block, position);
@@ -472,7 +471,7 @@ public class IcebergPageSink
             return readBigDecimal(decimalType, block, position);
         }
         if (type.equals(REAL)) {
-            return intBitsToFloat(toIntExact(REAL.getLong(block, position)));
+            return intBitsToFloat(REAL.getInt(block, position));
         }
         if (type.equals(DOUBLE)) {
             return DOUBLE.getDouble(block, position);

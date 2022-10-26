@@ -89,7 +89,7 @@ public class RaptorMergeSink
             for (int position = 0; position < rowIdRow.getPositionCount(); position++) {
                 OptionalInt bucketNumber = shardBucketBlock.isNull(position)
                         ? OptionalInt.empty()
-                        : OptionalInt.of(toIntExact(INTEGER.getLong(shardBucketBlock, position)));
+                        : OptionalInt.of(INTEGER.getInt(shardBucketBlock, position));
                 UUID uuid = trinoUuidToJavaUuid(UuidType.UUID.getSlice(shardUuidBlock, position));
                 int rowId = toIntExact(BIGINT.getLong(shardRowIdBlock, position));
                 Entry<OptionalInt, BitSet> entry = rowsToDelete.computeIfAbsent(uuid, ignored -> Map.entry(bucketNumber, new BitSet()));

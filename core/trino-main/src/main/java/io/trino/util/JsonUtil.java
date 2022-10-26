@@ -226,13 +226,13 @@ public final class JsonUtil
                 return (block, position) -> String.valueOf(SMALLINT.getShort(block, position));
             }
             if (type.equals(INTEGER)) {
-                return (block, position) -> String.valueOf(INTEGER.getLong(block, position));
+                return (block, position) -> String.valueOf(INTEGER.getInt(block, position));
             }
             if (type.equals(BIGINT)) {
                 return (block, position) -> String.valueOf(BIGINT.getLong(block, position));
             }
             if (type.equals(REAL)) {
-                return (block, position) -> String.valueOf(intBitsToFloat(toIntExact(REAL.getLong(block, position))));
+                return (block, position) -> String.valueOf(intBitsToFloat(REAL.getInt(block, position)));
             }
             if (type.equals(DOUBLE)) {
                 return (block, position) -> String.valueOf(DOUBLE.getDouble(block, position));
@@ -382,7 +382,7 @@ public final class JsonUtil
                 jsonGenerator.writeNull();
             }
             else {
-                float value = intBitsToFloat(toIntExact(REAL.getLong(block, position)));
+                float value = intBitsToFloat(REAL.getInt(block, position));
                 jsonGenerator.writeNumber(value);
             }
         }
@@ -543,7 +543,7 @@ public final class JsonUtil
                 jsonGenerator.writeNull();
             }
             else {
-                int value = toIntExact(DATE.getLong(block, position));
+                int value = DATE.getInt(block, position);
                 jsonGenerator.writeString(printDate(value));
             }
         }

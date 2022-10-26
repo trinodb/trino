@@ -48,7 +48,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
-import static java.lang.Math.toIntExact;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Collections.unmodifiableMap;
 
@@ -77,7 +76,7 @@ public final class BigQueryTypeUtils
             return SMALLINT.getShort(block, position);
         }
         if (type.equals(INTEGER)) {
-            return toIntExact(INTEGER.getLong(block, position));
+            return INTEGER.getInt(block, position);
         }
         if (type.equals(BIGINT)) {
             return BIGINT.getLong(block, position);
@@ -95,7 +94,7 @@ public final class BigQueryTypeUtils
             return Base64.getEncoder().encodeToString(VARBINARY.getSlice(block, position).getBytes());
         }
         if (type.equals(DATE)) {
-            long days = DATE.getLong(block, position);
+            int days = DATE.getInt(block, position);
             return DATE_FORMATTER.format(LocalDate.ofEpochDay(days));
         }
         if (type.equals(TIMESTAMP_MICROS)) {

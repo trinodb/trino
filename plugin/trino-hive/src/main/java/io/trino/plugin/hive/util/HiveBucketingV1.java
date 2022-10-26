@@ -96,7 +96,7 @@ final class HiveBucketingV1
                     return SMALLINT.getShort(block, position);
                 }
                 if (trinoType.equals(INTEGER)) {
-                    return toIntExact(INTEGER.getLong(block, position));
+                    return INTEGER.getInt(block, position);
                 }
                 if (trinoType.equals(BIGINT)) {
                     long bigintValue = BIGINT.getLong(block, position);
@@ -104,7 +104,7 @@ final class HiveBucketingV1
                 }
                 if (trinoType.equals(REAL)) {
                     // convert to canonical NaN if necessary
-                    return floatToIntBits(intBitsToFloat(toIntExact(REAL.getLong(block, position))));
+                    return floatToIntBits(intBitsToFloat(REAL.getInt(block, position)));
                 }
                 if (trinoType.equals(DOUBLE)) {
                     long doubleValue = doubleToLongBits(DOUBLE.getDouble(block, position));
@@ -120,7 +120,7 @@ final class HiveBucketingV1
                 }
                 if (trinoType.equals(DATE)) {
                     // day offset from 1970-01-01
-                    return toIntExact(DATE.getLong(block, position));
+                    return DATE.getInt(block, position);
                 }
 
                 // We do not support bucketing on the following:

@@ -59,7 +59,6 @@ import static io.trino.spi.type.Timestamps.truncateEpochMicrosToMillis;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.intBitsToFloat;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -156,13 +155,13 @@ public class KuduPageSink
             row.addLong(destChannel, truncateEpochMicrosToMillis(TIMESTAMP_MILLIS.getLong(block, position)));
         }
         else if (REAL.equals(type)) {
-            row.addFloat(destChannel, intBitsToFloat(toIntExact(REAL.getLong(block, position))));
+            row.addFloat(destChannel, intBitsToFloat(REAL.getInt(block, position)));
         }
         else if (BIGINT.equals(type)) {
             row.addLong(destChannel, BIGINT.getLong(block, position));
         }
         else if (INTEGER.equals(type)) {
-            row.addInt(destChannel, toIntExact(INTEGER.getLong(block, position)));
+            row.addInt(destChannel, INTEGER.getInt(block, position));
         }
         else if (SMALLINT.equals(type)) {
             row.addShort(destChannel, SMALLINT.getShort(block, position));

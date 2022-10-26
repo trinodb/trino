@@ -98,7 +98,7 @@ final class HiveBucketingV2
                     return murmur3(bytes(SMALLINT.getShort(block, position)));
                 }
                 if (trinoType.equals(INTEGER)) {
-                    return murmur3(bytes(toIntExact(INTEGER.getLong(block, position))));
+                    return murmur3(bytes(INTEGER.getInt(block, position)));
                 }
                 if (trinoType.equals(BIGINT)) {
                     return murmur3(bytes(BIGINT.getLong(block, position)));
@@ -107,7 +107,7 @@ final class HiveBucketingV2
                     // convert to canonical NaN if necessary
                     // Sic! we're `floatToIntBits -> cast to float -> floatToRawIntBits` just as it is (implicitly) done in
                     // https://github.com/apache/hive/blob/7dc47faddba9f079bbe2698aaa4d8712e7654f87/serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java#L830
-                    return murmur3(bytes(floatToRawIntBits(floatToIntBits(intBitsToFloat(toIntExact(REAL.getLong(block, position)))))));
+                    return murmur3(bytes(floatToRawIntBits(floatToIntBits(intBitsToFloat(REAL.getInt(block, position))))));
                 }
                 if (trinoType.equals(DOUBLE)) {
                     // Sic! we're `doubleToLongBits -> cast to double -> doubleToRawLongBits` just as it is (implicitly) done in
@@ -119,7 +119,7 @@ final class HiveBucketingV2
                 }
                 if (trinoType.equals(DATE)) {
                     // day offset from 1970-01-01
-                    return murmur3(bytes(toIntExact(DATE.getLong(block, position))));
+                    return murmur3(bytes(DATE.getInt(block, position)));
                 }
 
                 // We do not support bucketing on the following:

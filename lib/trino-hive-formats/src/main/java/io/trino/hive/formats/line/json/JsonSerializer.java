@@ -115,7 +115,7 @@ public class JsonSerializer
             generator.writeNumber(BIGINT.getLong(block, position));
         }
         else if (INTEGER.equals(type)) {
-            generator.writeNumber(INTEGER.getLong(block, position));
+            generator.writeNumber(INTEGER.getInt(block, position));
         }
         else if (SMALLINT.equals(type)) {
             generator.writeNumber(SMALLINT.getShort(block, position));
@@ -128,7 +128,7 @@ public class JsonSerializer
             generator.writeNumber(value.toBigDecimal().toString());
         }
         else if (REAL.equals(type)) {
-            generator.writeNumber(intBitsToFloat((int) REAL.getLong(block, position)));
+            generator.writeNumber(intBitsToFloat(REAL.getInt(block, position)));
         }
         else if (DOUBLE.equals(type)) {
             generator.writeNumber(DOUBLE.getDouble(block, position));
@@ -200,7 +200,7 @@ public class JsonSerializer
             return String.valueOf(BIGINT.getLong(block, position));
         }
         else if (INTEGER.equals(type)) {
-            return String.valueOf(INTEGER.getLong(block, position));
+            return String.valueOf(INTEGER.getInt(block, position));
         }
         else if (SMALLINT.equals(type)) {
             return String.valueOf(SMALLINT.getShort(block, position));
@@ -212,7 +212,7 @@ public class JsonSerializer
             return type.getObjectValue(null, block, position).toString();
         }
         else if (REAL.equals(type)) {
-            return String.valueOf(intBitsToFloat((int) REAL.getLong(block, position)));
+            return String.valueOf(intBitsToFloat(REAL.getInt(block, position)));
         }
         else if (DOUBLE.equals(type)) {
             return String.valueOf(DOUBLE.getDouble(block, position));
