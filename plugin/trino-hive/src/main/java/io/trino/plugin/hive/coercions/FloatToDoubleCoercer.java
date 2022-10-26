@@ -34,6 +34,6 @@ public class FloatToDoubleCoercer
     @Override
     protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
     {
-        DOUBLE.writeDouble(blockBuilder, intBitsToFloat((int) REAL.getLong(block, position)));
+        DOUBLE.writeDouble(blockBuilder, intBitsToFloat(REAL.getInt(block, position)));
     }
 }

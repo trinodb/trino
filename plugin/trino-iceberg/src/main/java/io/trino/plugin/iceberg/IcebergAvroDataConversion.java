@@ -75,7 +75,6 @@ import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.types.Type.TypeID.FIXED;
 import static org.apache.iceberg.util.DateTimeUtil.microsFromTimestamp;
@@ -148,13 +147,13 @@ public final class IcebergAvroDataConversion
             return BOOLEAN.getBoolean(block, position);
         }
         if (type.equals(INTEGER)) {
-            return toIntExact(INTEGER.getLong(block, position));
+            return INTEGER.getInt(block, position);
         }
         if (type.equals(BIGINT)) {
             return BIGINT.getLong(block, position);
         }
         if (type.equals(REAL)) {
-            return intBitsToFloat((int) REAL.getLong(block, position));
+            return intBitsToFloat(REAL.getInt(block, position));
         }
         if (type.equals(DOUBLE)) {
             return DOUBLE.getDouble(block, position);
@@ -172,7 +171,7 @@ public final class IcebergAvroDataConversion
             return ByteBuffer.wrap(varbinaryType.getSlice(block, position).getBytes());
         }
         if (type.equals(DATE)) {
-            long epochDays = DATE.getLong(block, position);
+            int epochDays = DATE.getInt(block, position);
             return LocalDate.ofEpochDay(epochDays);
         }
         if (type.equals(TIME_MICROS)) {

@@ -44,7 +44,6 @@ import static io.trino.operator.SyntheticAddress.decodeSliceIndex;
 import static io.trino.operator.join.JoinUtils.channelsToPages;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class PagesRTreeIndex
@@ -144,7 +143,7 @@ public class PagesRTreeIndex
             return EMPTY_ADDRESSES;
         }
 
-        int probePartition = probePartitionChannel.map(channel -> toIntExact(INTEGER.getLong(probe.getBlock(channel), probePosition))).orElse(-1);
+        int probePartition = probePartitionChannel.map(channel -> INTEGER.getInt(probe.getBlock(channel), probePosition)).orElse(-1);
 
         Slice slice = probeGeometryBlock.getSlice(probePosition, 0, probeGeometryBlock.getSliceLength(probePosition));
         OGCGeometry probeGeometry = deserialize(slice);

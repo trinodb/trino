@@ -193,19 +193,19 @@ public final class FormatFunction
             return (session, block) -> (long) SMALLINT.getShort(block, position);
         }
         if (type.equals(INTEGER)) {
-            return (session, block) -> INTEGER.getLong(block, position);
+            return (session, block) -> (long) INTEGER.getInt(block, position);
         }
         if (type.equals(BIGINT)) {
             return (session, block) -> BIGINT.getLong(block, position);
         }
         if (type.equals(REAL)) {
-            return (session, block) -> intBitsToFloat(toIntExact(REAL.getLong(block, position)));
+            return (session, block) -> intBitsToFloat(REAL.getInt(block, position));
         }
         if (type.equals(DOUBLE)) {
             return (session, block) -> DOUBLE.getDouble(block, position);
         }
         if (type.equals(DATE)) {
-            return (session, block) -> LocalDate.ofEpochDay(DATE.getLong(block, position));
+            return (session, block) -> LocalDate.ofEpochDay(DATE.getInt(block, position));
         }
         if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
             return (session, block) -> toZonedDateTime(timestampWithTimeZoneType, block, position);

@@ -73,7 +73,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
-import static java.lang.Math.toIntExact;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
@@ -146,7 +145,7 @@ public class MongoPageSink
             return BIGINT.getLong(block, position);
         }
         if (type.equals(INTEGER)) {
-            return toIntExact(INTEGER.getLong(block, position));
+            return INTEGER.getInt(block, position);
         }
         if (type.equals(SMALLINT)) {
             return SMALLINT.getShort(block, position);
@@ -155,7 +154,7 @@ public class MongoPageSink
             return TINYINT.getByte(block, position);
         }
         if (type.equals(REAL)) {
-            return intBitsToFloat(toIntExact(REAL.getLong(block, position)));
+            return intBitsToFloat(REAL.getInt(block, position));
         }
         if (type.equals(DOUBLE)) {
             return DOUBLE.getDouble(block, position);
@@ -170,7 +169,7 @@ public class MongoPageSink
             return new Binary(VARBINARY.getSlice(block, position).getBytes());
         }
         if (type.equals(DATE)) {
-            long days = DATE.getLong(block, position);
+            int days = DATE.getInt(block, position);
             return LocalDate.ofEpochDay(days);
         }
         if (type.equals(TIME_MILLIS)) {

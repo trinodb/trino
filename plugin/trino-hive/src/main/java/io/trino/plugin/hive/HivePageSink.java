@@ -403,7 +403,7 @@ public class HivePageSink
 
             OptionalInt bucketNumber = OptionalInt.empty();
             if (bucketBlock != null) {
-                bucketNumber = OptionalInt.of((int) INTEGER.getLong(bucketBlock, position));
+                bucketNumber = OptionalInt.of(INTEGER.getInt(bucketBlock, position));
             }
 
             writer = writerFactory.createWriter(partitionColumns, position, bucketNumber);

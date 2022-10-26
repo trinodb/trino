@@ -141,7 +141,7 @@ public class OpenXJsonSerializer
             return BIGINT.getLong(block, position);
         }
         else if (INTEGER.equals(type)) {
-            return INTEGER.getLong(block, position);
+            return INTEGER.getInt(block, position);
         }
         else if (SMALLINT.equals(type)) {
             return SMALLINT.getShort(block, position);
@@ -155,7 +155,7 @@ public class OpenXJsonSerializer
             return value.toBigDecimal().toString();
         }
         else if (REAL.equals(type)) {
-            return intBitsToFloat((int) REAL.getLong(block, position));
+            return intBitsToFloat(REAL.getInt(block, position));
         }
         else if (DOUBLE.equals(type)) {
             return DOUBLE.getDouble(block, position);

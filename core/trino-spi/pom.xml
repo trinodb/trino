@@ -263,6 +263,10 @@
                                     <old>class io.trino.spi.block.Int96ArrayBlockEncoding</old>
                                     <justification>Int96Array renamed to Fixed12 since this is never used as a number</justification>
                                 </item>
+                                <item>
+                                    <code>java.method.finalMethodAddedToNonFinalClass</code>
+                                    <new>method int io.trino.spi.type.AbstractIntType::getInt(io.trino.spi.block.Block, int)</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

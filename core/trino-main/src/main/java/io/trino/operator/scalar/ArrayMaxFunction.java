@@ -176,7 +176,7 @@ public final class ArrayMaxFunction
     @SuppressWarnings("NumericCastThatLosesPrecision")
     private static float getReal(Block block, int position)
     {
-        return intBitsToFloat((int) REAL.getLong(block, position));
+        return intBitsToFloat(REAL.getInt(block, position));
     }
 
     private static boolean floatGreater(float left, float right)
