@@ -431,6 +431,7 @@
                                 <exclude>**/TestIcebergGlueCatalogAccessOperations.java</exclude>
                                 <exclude>**/TestIcebergGlueCatalogMaterializedViewTest.java</exclude>
                                 <exclude>**/TestIcebergGlueTableOperationsInsertFailure.java</exclude>
+                                <exclude>**/TestIcebergGlueCatalogSkipArchive.java</exclude>
                                 <exclude>**/TestIcebergGcsConnectorSmokeTest.java</exclude>
                             </excludes>
                         </configuration>
@@ -454,6 +455,7 @@
                                 <include>**/TestIcebergGlueCatalogAccessOperations.java</include>
                                 <include>**/TestIcebergGlueCatalogMaterializedViewTest.java</include>
                                 <include>**/TestIcebergGlueTableOperationsInsertFailure.java</include>
+                                <include>**/TestIcebergGlueCatalogSkipArchive.java</include>
                                 <include>**/TestIcebergGcsConnectorSmokeTest.java</include>
                             </includes>
                         </configuration>
