@@ -32,21 +32,24 @@ public class GlueClientProvider
     private final GlueMetastoreStats stats;
     private final AWSCredentialsProvider credentialsProvider;
     private final GlueHiveMetastoreConfig glueConfig; // TODO do not keep mutable config instance on a field
+    private final boolean skipArchive;
 
     @Inject
     public GlueClientProvider(
             GlueMetastoreStats stats,
             AWSCredentialsProvider credentialsProvider,
-            GlueHiveMetastoreConfig glueConfig)
+            GlueHiveMetastoreConfig glueConfig,
+            IcebergGlueCatalogConfig icebergGlueConfig)
     {
         this.stats = requireNonNull(stats, "stats is null");
         this.credentialsProvider = requireNonNull(credentialsProvider, "credentialsProvider is null");
         this.glueConfig = glueConfig;
+        this.skipArchive = icebergGlueConfig.isSkipArchive();
     }
 
     @Override
     public AWSGlueAsync get()
     {
-        return createAsyncGlueClient(glueConfig, credentialsProvider, Optional.empty(), stats.newRequestMetricsCollector());
+        return createAsyncGlueClient(glueConfig, credentialsProvider, Optional.of(new SkipArchiveRequestHandler(skipArchive)), stats.newRequestMetricsCollector());
     }
 }
