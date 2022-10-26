@@ -932,6 +932,20 @@ public class ThriftHiveMetastore
         catch (NoSuchObjectException e) {
             throw new SchemaNotFoundException(table.getDbName());
         }
+        catch (InvalidObjectException e) {
+            boolean databaseMissing;
+            try {
+                databaseMissing = getDatabase(table.getDbName()).isEmpty();
+            }
+            catch (Exception databaseCheckException) {
+                e.addSuppressed(databaseCheckException);
+                databaseMissing = false; // we don't know, assume it exists for the purpose of error reporting
+            }
+            if (databaseMissing) {
+                throw new SchemaNotFoundException(table.getDbName());
+            }
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
         catch (TException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
