@@ -55,7 +55,6 @@ import static java.lang.String.format;
 public final class SystemSessionProperties
         implements SystemSessionPropertiesProvider
 {
-    public static final String LEGACY_UPDATE_DELETE_IMPLEMENTATION = "legacy_update_delete_implementation";
     public static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
     public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
     public static final String JOIN_MAX_BROADCAST_TABLE_SIZE = "join_max_broadcast_table_size";
@@ -206,11 +205,6 @@ public final class SystemSessionProperties
             NodeSchedulerConfig nodeSchedulerConfig)
     {
         sessionProperties = ImmutableList.of(
-                booleanProperty(
-                        LEGACY_UPDATE_DELETE_IMPLEMENTATION,
-                        "Use legacy UPDATE and DELETE implementation",
-                        featuresConfig.isLegacyUpdateDeleteImplementation(),
-                        true),
                 stringProperty(
                         EXECUTION_POLICY,
                         "Policy used for scheduling query tasks",
@@ -892,11 +886,6 @@ public final class SystemSessionProperties
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
-    }
-
-    public static boolean isLegacyUpdateDeleteImplementation(Session session)
-    {
-        return session.getSystemProperty(LEGACY_UPDATE_DELETE_IMPLEMENTATION, Boolean.class);
     }
 
     public static String getExecutionPolicy(Session session)

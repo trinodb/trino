@@ -87,7 +87,6 @@ import io.trino.sql.planner.iterative.rule.PruneAssignUniqueIdColumns;
 import io.trino.sql.planner.iterative.rule.PruneCorrelatedJoinColumns;
 import io.trino.sql.planner.iterative.rule.PruneCorrelatedJoinCorrelation;
 import io.trino.sql.planner.iterative.rule.PruneCountAggregationOverScalar;
-import io.trino.sql.planner.iterative.rule.PruneDeleteSourceColumns;
 import io.trino.sql.planner.iterative.rule.PruneDistinctAggregation;
 import io.trino.sql.planner.iterative.rule.PruneDistinctLimitSourceColumns;
 import io.trino.sql.planner.iterative.rule.PruneEnforceSingleRowColumns;
@@ -128,13 +127,11 @@ import io.trino.sql.planner.iterative.rule.PruneUnionColumns;
 import io.trino.sql.planner.iterative.rule.PruneUnionSourceColumns;
 import io.trino.sql.planner.iterative.rule.PruneUnnestColumns;
 import io.trino.sql.planner.iterative.rule.PruneUnnestSourceColumns;
-import io.trino.sql.planner.iterative.rule.PruneUpdateSourceColumns;
 import io.trino.sql.planner.iterative.rule.PruneValuesColumns;
 import io.trino.sql.planner.iterative.rule.PruneWindowColumns;
 import io.trino.sql.planner.iterative.rule.PushAggregationIntoTableScan;
 import io.trino.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
 import io.trino.sql.planner.iterative.rule.PushCastIntoRow;
-import io.trino.sql.planner.iterative.rule.PushDeleteIntoConnector;
 import io.trino.sql.planner.iterative.rule.PushDistinctLimitIntoTableScan;
 import io.trino.sql.planner.iterative.rule.PushDownDereferenceThroughFilter;
 import io.trino.sql.planner.iterative.rule.PushDownDereferenceThroughJoin;
@@ -183,13 +180,11 @@ import io.trino.sql.planner.iterative.rule.PushdownLimitIntoRowNumber;
 import io.trino.sql.planner.iterative.rule.PushdownLimitIntoWindow;
 import io.trino.sql.planner.iterative.rule.RemoveAggregationInSemiJoin;
 import io.trino.sql.planner.iterative.rule.RemoveDuplicateConditions;
-import io.trino.sql.planner.iterative.rule.RemoveEmptyDeleteRuleSet;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyExceptBranches;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyGlobalAggregation;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyMergeWriterRuleSet;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyTableExecute;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyUnionBranches;
-import io.trino.sql.planner.iterative.rule.RemoveEmptyUpdate;
 import io.trino.sql.planner.iterative.rule.RemoveFullSample;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantDateTrunc;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantDistinctLimit;
@@ -249,7 +244,6 @@ import io.trino.sql.planner.optimizations.OptimizeMixedDistinctAggregations;
 import io.trino.sql.planner.optimizations.OptimizerStats;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.optimizations.PredicatePushDown;
-import io.trino.sql.planner.optimizations.ReplicateJoinAndSemiJoinInDelete;
 import io.trino.sql.planner.optimizations.StatsRecordingPlanOptimizer;
 import io.trino.sql.planner.optimizations.TransformQuantifiedComparisonApplyToCorrelatedJoin;
 import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
@@ -762,8 +756,6 @@ public class PlanOptimizers
                         ImmutableSet.of(
                                 new ApplyPreferredTableWriterPartitioning(),
                                 new ApplyPreferredTableExecutePartitioning())),
-                // Make sure to run ReplicateJoinAndSemiJoinInDelete before ReorderJoins and AddExchanges
-                new ReplicateJoinAndSemiJoinInDelete(),
                 // Because ReorderJoins runs only once,
                 // PredicatePushDown, columnPruningOptimizer and RemoveRedundantIdentityProjections
                 // need to run beforehand in order to produce an optimal join order
@@ -805,7 +797,6 @@ public class PlanOptimizers
                 costCalculator,
                 ImmutableSet.of(
                         // Must run before AddExchanges
-                        new PushDeleteIntoConnector(metadata),
                         new PushMergeWriterDeleteIntoConnector(metadata),
                         new DetermineTableScanNodePartitioning(metadata, nodePartitioningManager, taskCountEstimator),
                         // Must run after join reordering because join reordering creates
@@ -863,9 +854,7 @@ public class PlanOptimizers
                         costCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 // Run these after table scan is removed by AddExchanges
-                                .addAll(RemoveEmptyDeleteRuleSet.rules())
                                 .addAll(RemoveEmptyMergeWriterRuleSet.rules())
-                                .add(new RemoveEmptyUpdate())
                                 .add(new RemoveEmptyTableExecute())
                                 .build()));
 
@@ -992,8 +981,6 @@ public class PlanOptimizers
                 new PruneAssignUniqueIdColumns(),
                 new PruneCorrelatedJoinColumns(),
                 new PruneCorrelatedJoinCorrelation(),
-                new PruneDeleteSourceColumns(),
-                new PruneUpdateSourceColumns(),
                 new PruneDistinctLimitSourceColumns(),
                 new PruneEnforceSingleRowColumns(),
                 new PruneExceptSourceColumns(),

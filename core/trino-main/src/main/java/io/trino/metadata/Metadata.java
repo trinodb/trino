@@ -348,16 +348,6 @@ public interface Metadata
             List<TableHandle> sourceTableHandles);
 
     /**
-     * Get the row ID column handle used with UpdatablePageSource#deleteRows.
-     */
-    ColumnHandle getDeleteRowIdColumnHandle(Session session, TableHandle tableHandle);
-
-    /**
-     * Get the row ID column handle used with UpdatablePageSource#updateRows.
-     */
-    ColumnHandle getUpdateRowIdColumnHandle(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns);
-
-    /**
      * Push delete into connector
      */
     Optional<TableHandle> applyDelete(Session session, TableHandle tableHandle);
@@ -366,26 +356,6 @@ public interface Metadata
      * Execute delete in connector
      */
     OptionalLong executeDelete(Session session, TableHandle tableHandle);
-
-    /**
-     * Begin delete query
-     */
-    TableHandle beginDelete(Session session, TableHandle tableHandle);
-
-    /**
-     * Finish delete query
-     */
-    void finishDelete(Session session, TableHandle tableHandle, Collection<Slice> fragments);
-
-    /**
-     * Begin update query
-     */
-    TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns);
-
-    /**
-     * Finish update query
-     */
-    void finishUpdate(Session session, TableHandle tableHandle, Collection<Slice> fragments);
 
     /**
      * Return the row update paradigm supported by the connector on the table or throw

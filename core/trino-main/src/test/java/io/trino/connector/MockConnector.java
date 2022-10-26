@@ -690,36 +690,6 @@ public class MockConnector
         }
 
         @Override
-        public ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns, RetryMode retryMode)
-        {
-            return tableHandle;
-        }
-
-        @Override
-        public void finishUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments) {}
-
-        @Override
-        public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
-        {
-            return new MockConnectorColumnHandle(UPDATE_ROW_ID, BIGINT);
-        }
-
-        @Override
-        public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
-        {
-            return tableHandle;
-        }
-
-        @Override
-        public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
-        {
-            return new MockConnectorColumnHandle(DELETE_ROW_ID, BIGINT);
-        }
-
-        @Override
-        public void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments) {}
-
-        @Override
         public RowChangeParadigm getRowChangeParadigm(ConnectorSession session, ConnectorTableHandle tableHandle)
         {
             return DELETE_ROW_AND_INSERT_ROW;

@@ -55,7 +55,6 @@ import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
-import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
@@ -91,17 +90,14 @@ import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
-import io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.trino.sql.planner.plan.TableWriterNode.MergeParadigmAndTypes;
 import io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
-import io.trino.sql.planner.plan.TableWriterNode.UpdateTarget;
 import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.TopNRankingNode.RankingType;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
-import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.Expression;
@@ -681,26 +677,6 @@ public class PlanBuilder
         }
     }
 
-    public TableFinishNode tableWithExchangeDelete(SchemaTableName schemaTableName, PlanNode deleteSource, Symbol deleteRowId)
-    {
-        DeleteTarget deleteTarget = deleteTarget(schemaTableName);
-        return new TableFinishNode(
-                idAllocator.getNextId(),
-                exchange(e -> e
-                        .addSource(new DeleteNode(
-                                idAllocator.getNextId(),
-                                deleteSource,
-                                deleteTarget,
-                                deleteRowId,
-                                ImmutableList.of(deleteRowId)))
-                        .addInputsSet(deleteRowId)
-                        .singleDistributionPartitioningScheme(deleteRowId)),
-                deleteTarget,
-                deleteRowId,
-                Optional.empty(),
-                Optional.empty());
-    }
-
     public TableFinishNode tableWithExchangeCreate(WriterTarget target, PlanNode source, Symbol rowCountSymbol, PartitioningScheme partitioningScheme)
     {
         return new TableFinishNode(
@@ -722,43 +698,6 @@ public class PlanBuilder
                 Optional.empty());
     }
 
-    public TableFinishNode tableDelete(SchemaTableName schemaTableName, PlanNode deleteSource, Symbol deleteRowId)
-    {
-        DeleteTarget deleteTarget = deleteTarget(schemaTableName);
-        return new TableFinishNode(
-                idAllocator.getNextId(),
-                new DeleteNode(
-                        idAllocator.getNextId(),
-                        deleteSource,
-                        deleteTarget,
-                        deleteRowId,
-                        ImmutableList.of(deleteRowId)),
-                deleteTarget,
-                deleteRowId,
-                Optional.empty(),
-                Optional.empty());
-    }
-
-    public DeleteNode delete(SchemaTableName schemaTableName, PlanNode deleteSource, Symbol deleteRowId, List<Symbol> outputs)
-    {
-        return new DeleteNode(
-                idAllocator.getNextId(),
-                deleteSource,
-                deleteTarget(schemaTableName),
-                deleteRowId,
-                ImmutableList.copyOf(outputs));
-    }
-
-    private DeleteTarget deleteTarget(SchemaTableName schemaTableName)
-    {
-        return new DeleteTarget(
-                Optional.of(new TableHandle(
-                        TEST_CATALOG_HANDLE,
-                        new TestingTableHandle(),
-                        TestingTransactionHandle.create())),
-                schemaTableName);
-    }
-
     public CreateTarget createTarget(CatalogHandle catalogHandle, SchemaTableName schemaTableName, boolean reportingWrittenBytesSupported, boolean multipleWritersPerPartitionSupported)
     {
         OutputTableHandle tableHandle = new OutputTableHandle(
@@ -771,49 +710,6 @@ public class PlanBuilder
                 schemaTableName,
                 reportingWrittenBytesSupported,
                 multipleWritersPerPartitionSupported);
-    }
-
-    public TableFinishNode tableUpdate(SchemaTableName schemaTableName, PlanNode updateSource, Symbol updateRowId, List<Symbol> columnsToBeUpdated)
-    {
-        UpdateTarget updateTarget = updateTarget(
-                schemaTableName,
-                columnsToBeUpdated.stream()
-                        .map(Symbol::getName)
-                        .collect(toImmutableList()));
-        return new TableFinishNode(
-                idAllocator.getNextId(),
-                exchange(e -> e
-                        .addSource(new UpdateNode(
-                                idAllocator.getNextId(),
-                                updateSource,
-                                updateTarget,
-                                updateRowId,
-                                ImmutableList.<Symbol>builder()
-                                        .addAll(columnsToBeUpdated)
-                                        .add(updateRowId)
-                                        .build(),
-                                ImmutableList.of(updateRowId)))
-                        .addInputsSet(updateRowId)
-                        .singleDistributionPartitioningScheme(updateRowId)),
-                updateTarget,
-                updateRowId,
-                Optional.empty(),
-                Optional.empty());
-    }
-
-    private UpdateTarget updateTarget(SchemaTableName schemaTableName, List<String> columnsToBeUpdated)
-    {
-        TableHandle tableHandle = new TableHandle(
-                TEST_CATALOG_HANDLE,
-                new TestingTableHandle(),
-                TestingTransactionHandle.create());
-        return new UpdateTarget(
-                Optional.of(tableHandle),
-                schemaTableName,
-                columnsToBeUpdated,
-                columnsToBeUpdated.stream()
-                        .map(TestingColumnHandle::new)
-                        .collect(toImmutableList()));
     }
 
     public MergeWriterNode merge(SchemaTableName schemaTableName, PlanNode mergeSource, Symbol mergeRow, Symbol rowId, List<Symbol> outputs)

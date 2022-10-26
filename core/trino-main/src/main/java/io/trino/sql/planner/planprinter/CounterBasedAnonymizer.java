@@ -19,7 +19,6 @@ import io.trino.metadata.IndexHandle;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.type.Type;
@@ -52,12 +51,10 @@ import static io.trino.sql.planner.Partitioning.ArgumentBinding;
 import static io.trino.sql.planner.plan.StatisticsWriterNode.WriteStatisticsHandle;
 import static io.trino.sql.planner.plan.StatisticsWriterNode.WriteStatisticsTarget;
 import static io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
-import static io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
 import static io.trino.sql.planner.plan.TableWriterNode.InsertTarget;
 import static io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
 import static io.trino.sql.planner.plan.TableWriterNode.RefreshMaterializedViewTarget;
 import static io.trino.sql.planner.plan.TableWriterNode.TableExecuteTarget;
-import static io.trino.sql.planner.plan.TableWriterNode.UpdateTarget;
 import static io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
@@ -234,12 +231,6 @@ public class CounterBasedAnonymizer
         if (target instanceof RefreshMaterializedViewTarget) {
             return anonymize((RefreshMaterializedViewTarget) target);
         }
-        if (target instanceof DeleteTarget) {
-            return anonymize((DeleteTarget) target);
-        }
-        if (target instanceof UpdateTarget) {
-            return anonymize((UpdateTarget) target);
-        }
         if (target instanceof TableExecuteTarget) {
             return anonymize((TableExecuteTarget) target);
         }
@@ -297,22 +288,6 @@ public class CounterBasedAnonymizer
     {
         return anonymize(
                 target.getInsertHandle().getCatalogHandle().getCatalogName(),
-                target.getSchemaTableName().getSchemaName(),
-                target.getSchemaTableName().getTableName());
-    }
-
-    private String anonymize(DeleteTarget target)
-    {
-        return anonymize(
-                target.getHandle().map(TableHandle::getCatalogHandle).map(CatalogHandle::getCatalogName).orElse(""),
-                target.getSchemaTableName().getSchemaName(),
-                target.getSchemaTableName().getTableName());
-    }
-
-    private String anonymize(UpdateTarget target)
-    {
-        return anonymize(
-                target.getHandle().map(TableHandle::getCatalogHandle).map(CatalogHandle::getCatalogName).orElse(""),
                 target.getSchemaTableName().getSchemaName(),
                 target.getSchemaTableName().getTableName());
     }

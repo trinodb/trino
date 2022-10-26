@@ -92,7 +92,6 @@ import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.SHARD_UUID_COLUMN
 import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.bucketNumberColumnHandle;
 import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.isHiddenColumn;
 import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.mergeRowIdHandle;
-import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.shardRowIdHandle;
 import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.shardUuidColumnHandle;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_ERROR;
 import static io.trino.plugin.raptor.legacy.RaptorSessionProperties.getExternalBatchId;
@@ -191,10 +190,8 @@ public class RaptorMetadata
                 table.getDistributionName(),
                 table.getBucketCount(),
                 table.isOrganized(),
-                OptionalLong.empty(),
                 TupleDomain.all(),
-                table.getDistributionId().map(shardManager::getBucketAssignments),
-                false);
+                table.getDistributionId().map(shardManager::getBucketAssignments));
     }
 
     @Override
@@ -327,10 +324,8 @@ public class RaptorMetadata
                         table.getDistributionName(),
                         table.getBucketCount(),
                         table.isOrganized(),
-                        table.getTransactionId(),
                         newDomain.intersect(table.getConstraint()),
-                        table.getBucketAssignments(),
-                        table.isDelete()),
+                        table.getBucketAssignments()),
                 constraint.getSummary(),
                 false));
     }
@@ -795,48 +790,6 @@ public class RaptorMetadata
         clearRollback();
 
         return Optional.empty();
-    }
-
-    @Override
-    public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        return shardRowIdHandle();
-    }
-
-    @Override
-    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
-    {
-        if (retryMode != NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
-        }
-
-        RaptorTableHandle handle = (RaptorTableHandle) tableHandle;
-
-        beginDeleteForTableId.accept(handle.getTableId());
-
-        long transactionId = shardManager.beginTransaction();
-
-        setTransactionId(transactionId);
-
-        return new RaptorTableHandle(
-                handle.getSchemaName(),
-                handle.getTableName(),
-                handle.getTableId(),
-                handle.getDistributionId(),
-                handle.getDistributionName(),
-                handle.getBucketCount(),
-                handle.isOrganized(),
-                OptionalLong.of(transactionId),
-                TupleDomain.all(),
-                handle.getBucketAssignments(),
-                true);
-    }
-
-    @Override
-    public void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
-    {
-        RaptorTableHandle table = (RaptorTableHandle) tableHandle;
-        finishDelete(session, table, table.getTransactionId().orElseThrow(), fragments);
     }
 
     private void finishDelete(ConnectorSession session, RaptorTableHandle tableHandle, long transactionId, Collection<Slice> fragments)
