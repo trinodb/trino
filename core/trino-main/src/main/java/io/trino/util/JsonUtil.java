@@ -223,7 +223,7 @@ public final class JsonUtil
                 return (block, position) -> String.valueOf(TINYINT.getByte(block, position));
             }
             if (type.equals(SMALLINT)) {
-                return (block, position) -> String.valueOf(SMALLINT.getLong(block, position));
+                return (block, position) -> String.valueOf(SMALLINT.getShort(block, position));
             }
             if (type.equals(INTEGER)) {
                 return (block, position) -> String.valueOf(INTEGER.getLong(block, position));

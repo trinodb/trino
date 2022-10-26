@@ -14,7 +14,6 @@
 package io.trino.plugin.kudu;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Shorts;
 import io.airlift.slice.Slice;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -166,7 +165,7 @@ public class KuduPageSink
             row.addInt(destChannel, toIntExact(INTEGER.getLong(block, position)));
         }
         else if (SMALLINT.equals(type)) {
-            row.addShort(destChannel, Shorts.checkedCast(SMALLINT.getLong(block, position)));
+            row.addShort(destChannel, SMALLINT.getShort(block, position));
         }
         else if (TINYINT.equals(type)) {
             row.addByte(destChannel, TINYINT.getByte(block, position));

@@ -118,7 +118,7 @@ public class JsonSerializer
             generator.writeNumber(INTEGER.getLong(block, position));
         }
         else if (SMALLINT.equals(type)) {
-            generator.writeNumber(SMALLINT.getLong(block, position));
+            generator.writeNumber(SMALLINT.getShort(block, position));
         }
         else if (TINYINT.equals(type)) {
             generator.writeNumber(TINYINT.getByte(block, position));
@@ -203,7 +203,7 @@ public class JsonSerializer
             return String.valueOf(INTEGER.getLong(block, position));
         }
         else if (SMALLINT.equals(type)) {
-            return String.valueOf(SMALLINT.getLong(block, position));
+            return String.valueOf(SMALLINT.getShort(block, position));
         }
         else if (TINYINT.equals(type)) {
             return String.valueOf(TINYINT.getByte(block, position));

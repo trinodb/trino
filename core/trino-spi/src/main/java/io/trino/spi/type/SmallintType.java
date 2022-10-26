@@ -160,6 +160,11 @@ public final class SmallintType
     @Override
     public long getLong(Block block, int position)
     {
+        return getShort(block, position);
+    }
+
+    public short getShort(Block block, int position)
+    {
         return block.getShort(position, 0);
     }
 

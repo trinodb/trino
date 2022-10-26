@@ -95,7 +95,7 @@ final class HiveBucketingV2
                     return TINYINT.getByte(block, position);
                 }
                 if (trinoType.equals(SMALLINT)) {
-                    return murmur3(bytes(Shorts.checkedCast(SMALLINT.getLong(block, position))));
+                    return murmur3(bytes(SMALLINT.getShort(block, position)));
                 }
                 if (trinoType.equals(INTEGER)) {
                     return murmur3(bytes(toIntExact(INTEGER.getLong(block, position))));
