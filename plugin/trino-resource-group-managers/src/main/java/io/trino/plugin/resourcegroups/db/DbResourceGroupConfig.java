@@ -28,7 +28,7 @@ public class DbResourceGroupConfig
     private String password;
     private boolean exactMatchSelectorEnabled;
     private Duration maxRefreshInterval = new Duration(1, HOURS);
-    private int maxInterval;
+    private Duration refreshInterval;
 
     public String getConfigDbUrl()
     {
@@ -95,15 +95,16 @@ public class DbResourceGroupConfig
         return this;
     }
 
-    public int getMaxInterval()
+    @MinDuration("1")
+    public Duration getRefreshInterval()
     {
-        return maxInterval;
+        return refreshInterval;
     }
 
     @Config("resource-groups.max-interval")
-    public DbResourceGroupConfig setMaxInterval(int maxInterval)
+    public DbResourceGroupConfig setRefreshInterval(Duration refreshInterval)
     {
-        this.maxInterval = maxInterval;
+        this.refreshInterval = refreshInterval;
         return this;
     }
 }

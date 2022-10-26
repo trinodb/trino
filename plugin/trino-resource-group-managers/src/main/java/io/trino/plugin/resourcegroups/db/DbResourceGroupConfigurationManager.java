@@ -73,7 +73,6 @@ public class DbResourceGroupConfigurationManager
     private static final Logger log = Logger.get(DbResourceGroupConfigurationManager.class);
     private final ResourceGroupsDao dao;
     private final ConcurrentMap<ResourceGroupId, ResourceGroup> groups = new ConcurrentHashMap<>();
-    private final int maxInterval;
     @GuardedBy("this")
     private Map<ResourceGroupIdTemplate, ResourceGroupSpec> resourceGroupSpecs = new HashMap<>();
     private final ConcurrentMap<ResourceGroupIdTemplate, List<ResourceGroupId>> configuredGroups = new ConcurrentHashMap<>();
@@ -85,6 +84,7 @@ public class DbResourceGroupConfigurationManager
     private final AtomicLong lastRefresh = new AtomicLong();
     private final String environment;
     private final Duration maxRefreshInterval;
+    private final Duration refreshInterval;
     private final boolean exactMatchSelectorEnabled;
 
     private final CounterStat refreshFailures = new CounterStat();
@@ -96,9 +96,9 @@ public class DbResourceGroupConfigurationManager
         requireNonNull(dao, "daoProvider is null");
         this.environment = requireNonNull(environment, "environment is null");
         this.maxRefreshInterval = config.getMaxRefreshInterval();
+        this.refreshInterval = config.getRefreshInterval();
         this.exactMatchSelectorEnabled = config.getExactMatchSelectorEnabled();
         this.dao = dao;
-        this.maxInterval = config.getMaxInterval();
         load();
     }
 
@@ -131,7 +131,7 @@ public class DbResourceGroupConfigurationManager
     public void start()
     {
         if (started.compareAndSet(false, true)) {
-            configExecutor.scheduleWithFixedDelay(this::load, maxInterval, maxInterval, TimeUnit.SECONDS);
+            configExecutor.scheduleWithFixedDelay(this::load, (long) refreshInterval.getValue(),(long) refreshInterval.getValue(), TimeUnit.SECONDS);
         }
     }
 
