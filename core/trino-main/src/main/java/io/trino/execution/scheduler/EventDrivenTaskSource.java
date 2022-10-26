@@ -273,7 +273,9 @@ class EventDrivenTaskSource
 
     private void fail(Throwable failure)
     {
-        callback.failed(failure);
+        synchronized (assignerLock) {
+            callback.failed(failure);
+        }
         close();
     }
 
