@@ -37,12 +37,12 @@ public class DesugarCurrentUser
             @Override
             public Expression rewriteCurrentUser(CurrentUser node, Void ignored, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                return getCall(node, metadata, context.getSession());
+                return getCall(metadata, context.getSession());
             }
         }, expression);
     }
 
-    public static FunctionCall getCall(CurrentUser node, Metadata metadata, Session session)
+    public static FunctionCall getCall(Metadata metadata, Session session)
     {
         return FunctionCallBuilder.resolve(session, metadata)
                 .setName(QualifiedName.of("$current_user"))
