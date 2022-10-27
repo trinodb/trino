@@ -196,7 +196,7 @@ public final class JoinMatcher
 
     public static class Builder
     {
-        private JoinNode.Type joinType;
+        private final JoinNode.Type joinType;
         private Optional<List<ExpectedValueProvider<JoinNode.EquiJoinClause>>> equiCriteria = Optional.empty();
         private Optional<List<PlanMatchPattern.DynamicFilterPattern>> dynamicFilter = Optional.empty();
         private Optional<DistributionType> distributionType = Optional.empty();
@@ -205,11 +205,9 @@ public final class JoinMatcher
         private PlanMatchPattern right;
         private Optional<String> filter = Optional.empty();
 
-        public Builder type(JoinNode.Type joinType)
+        public Builder(JoinNode.Type joinType)
         {
             this.joinType = joinType;
-
-            return this;
         }
 
         public Builder equiCriteria(List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria)
