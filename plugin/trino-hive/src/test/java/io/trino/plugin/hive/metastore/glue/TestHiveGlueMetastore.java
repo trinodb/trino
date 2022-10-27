@@ -109,6 +109,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.String.format;
 import static java.lang.System.currentTimeMillis;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -1453,7 +1454,7 @@ public class TestHiveGlueMetastore
 
         private PartitionValues(List<String> values)
         {
-            this.values = ImmutableList.copyOf(requireNonNull(values, "values is null"));
+            this.values = unmodifiableList(requireNonNull(values, "values is null"));
         }
 
         public List<String> getValues()
