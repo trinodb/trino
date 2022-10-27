@@ -71,7 +71,6 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -109,8 +108,8 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.String.format;
 import static java.lang.System.currentTimeMillis;
+import static java.util.Arrays.asList;
 import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
@@ -724,21 +723,21 @@ public class TestHiveGlueMetastore
                 CREATE_TABLE_COLUMNS_PARTITIONED_TWO_KEYS,
                 ImmutableList.of(PARTITION_KEY, PARTITION_KEY2),
                 ImmutableList.of(
-                        PartitionValues.make("2020-01-01", "100"),
-                        PartitionValues.make("2020-02-01", "200"),
-                        PartitionValues.make("2020-03-01", "300"),
-                        PartitionValues.make("2020-04-01", "400")),
+                        new PartitionValues("2020-01-01", "100"),
+                        new PartitionValues("2020-02-01", "200"),
+                        new PartitionValues("2020-03-01", "300"),
+                        new PartitionValues("2020-04-01", "400")),
                 ImmutableList.of(equalsFilter, rangeFilter, TupleDomain.all()),
                 ImmutableList.of(
-                        ImmutableList.of(PartitionValues.make("2020-03-01", "300")),
+                        ImmutableList.of(new PartitionValues("2020-03-01", "300")),
                         ImmutableList.of(
-                                PartitionValues.make("2020-03-01", "300"),
-                                PartitionValues.make("2020-04-01", "400")),
+                                new PartitionValues("2020-03-01", "300"),
+                                new PartitionValues("2020-04-01", "400")),
                         ImmutableList.of(
-                                PartitionValues.make("2020-01-01", "100"),
-                                PartitionValues.make("2020-02-01", "200"),
-                                PartitionValues.make("2020-03-01", "300"),
-                                PartitionValues.make("2020-04-01", "400"))));
+                                new PartitionValues("2020-01-01", "100"),
+                                new PartitionValues("2020-02-01", "200"),
+                                new PartitionValues("2020-03-01", "300"),
+                                new PartitionValues("2020-04-01", "400"))));
     }
 
     @Test
@@ -773,12 +772,12 @@ public class TestHiveGlueMetastore
                 CREATE_TABLE_COLUMNS_PARTITIONED_TWO_KEYS,
                 ImmutableList.of(PARTITION_KEY, PARTITION_KEY2),
                 ImmutableList.of(
-                        PartitionValues.make("2020-01-01", "100"),
-                        PartitionValues.make("2020-02-01", "200"),
-                        PartitionValues.make("2020-03-01", "300"),
-                        PartitionValues.make("2020-04-01", "400")),
+                        new PartitionValues("2020-01-01", "100"),
+                        new PartitionValues("2020-02-01", "200"),
+                        new PartitionValues("2020-03-01", "300"),
+                        new PartitionValues("2020-04-01", "400")),
                 ImmutableList.of(equalsFilter),
-                ImmutableList.of(ImmutableList.of(PartitionValues.make("2020-03-01", "300"))));
+                ImmutableList.of(ImmutableList.of(new PartitionValues("2020-03-01", "300"))));
     }
 
     @Test
@@ -968,12 +967,12 @@ public class TestHiveGlueMetastore
                 CREATE_TABLE_COLUMNS_PARTITIONED_TWO_KEYS,
                 ImmutableList.of(PARTITION_KEY, PARTITION_KEY2),
                 ImmutableList.of(
-                        PartitionValues.make("2020-01-01", "100"),
-                        PartitionValues.make("2020-02-01", "200"),
-                        PartitionValues.make("2020-03-01", "300"),
-                        PartitionValues.make(null, "300")),
+                        new PartitionValues("2020-01-01", "100"),
+                        new PartitionValues("2020-02-01", "200"),
+                        new PartitionValues("2020-03-01", "300"),
+                        new PartitionValues(null, "300")),
                 ImmutableList.of(equalsAndIsNotNullFilter),
-                ImmutableList.of(ImmutableList.of(PartitionValues.make("2020-03-01", "300"))));
+                ImmutableList.of(ImmutableList.of(new PartitionValues("2020-03-01", "300"))));
     }
 
     @Test
@@ -1347,11 +1346,11 @@ public class TestHiveGlueMetastore
             throws Exception
     {
         List<PartitionValues> partitionValuesList = partitionStringValues.stream()
-                .map(PartitionValues::make)
+                .map(PartitionValues::new)
                 .collect(toImmutableList());
         List<List<PartitionValues>> expectedPartitionValuesList = expectedSingleValueList.stream()
                 .map(expectedValue -> expectedValue.stream()
-                        .map(PartitionValues::make)
+                        .map(PartitionValues::new)
                         .collect(toImmutableList()))
                 .collect(toImmutableList());
         doGetPartitionsFilterTest(columnMetadata, ImmutableList.of(partitionColumnName), partitionValuesList, filterList, expectedPartitionValuesList);
@@ -1379,7 +1378,7 @@ public class TestHiveGlueMetastore
                 TupleDomain<String> filter = filterList.get(i);
                 List<PartitionValues> expectedValues = expectedValuesList.get(i);
                 List<String> expectedResults = expectedValues.stream()
-                        .map(expectedPartitionValues -> makePartName(partitionColumnNames, expectedPartitionValues.getValues()))
+                        .map(expectedPartitionValues -> makePartName(partitionColumnNames, asList(expectedPartitionValues.values)))
                         .collect(toImmutableList());
 
                 Optional<List<String>> partitionNames = metastoreClient.getPartitionNamesByFilter(
@@ -1407,7 +1406,7 @@ public class TestHiveGlueMetastore
         List<PartitionWithStatistics> partitions = new ArrayList<>();
         List<String> partitionNames = new ArrayList<>();
         partitionValues.stream()
-                .map(partitionValue -> makePartName(partitionColumnNames, partitionValue.values))
+                .map(partitionValue -> makePartName(partitionColumnNames, asList(partitionValue.values)))
                 .forEach(
                         partitionName -> {
                             partitions.add(new PartitionWithStatistics(createDummyPartition(table, partitionName), partitionName, PartitionStatistics.empty()));
@@ -1442,23 +1441,6 @@ public class TestHiveGlueMetastore
     }
 
     // container class for readability. Each value is one for a partitionKey, in order they appear in the schema
-    private static class PartitionValues
-    {
-        private final List<String> values;
-
-        private static PartitionValues make(String... values)
-        {
-            return new PartitionValues(Arrays.asList(values));
-        }
-
-        private PartitionValues(List<String> values)
-        {
-            this.values = ImmutableList.copyOf(requireNonNull(values, "values is null"));
-        }
-
-        public List<String> getValues()
-        {
-            return values;
-        }
+    private record PartitionValues(String... values){
     }
 }
