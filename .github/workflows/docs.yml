@@ -61,6 +61,10 @@ jobs:
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $RETRY $MAVEN install -B --strict-checksums -V -T C1 -DskipTests -P ci -am -pl ':trino-docs'
+      - name: Clean local Maven repo
+        # Avoid creating a cache entry because this job doesn't download all dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: rm -rf ~/.m2/repository
 
   test-docs:
     needs: path-filters
@@ -121,3 +125,7 @@ jobs:
           path: |
             **/surefire-reports/TEST-*.xml
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
+      - name: Clean local Maven repo
+        # Avoid creating a cache entry because this job doesn't download all dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: rm -rf ~/.m2/repository
