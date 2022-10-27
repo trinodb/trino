@@ -20,7 +20,7 @@
 
 ## Delta Lake connector
 
-* Add support for writing to tables with [Delta Laker writer protocol version 4](https://docs.delta.io/latest/versioning.html#features-by-protocol-version).
+* Add support for writing to tables with [Delta Lake writer protocol version 4](https://docs.delta.io/latest/versioning.html#features-by-protocol-version).
   This does not yet include support for [change data feeds](https://docs.delta.io/2.0.0/delta-change-data-feed.html)
   or generated columns. ({issue}`14573 `)
 * Add support for writes on Google Cloud Storage. ({issue}`12264`)
