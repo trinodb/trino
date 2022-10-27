@@ -23,7 +23,7 @@ import com.amazonaws.services.glue.model.TableInput;
 import com.amazonaws.services.glue.model.TableVersion;
 import com.amazonaws.services.glue.model.UpdateTableRequest;
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.metastore.glue.GlueMetastoreApiStats;
+import io.trino.plugin.hive.aws.AwsApiCallStats;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -131,7 +131,7 @@ public class TestIcebergGlueCatalogSkipArchive
                 new GetTableVersionsRequest().withDatabaseName(databaseName).withTableName(tableName),
                 GetTableVersionsRequest::setNextToken,
                 GetTableVersionsResult::getNextToken,
-                new GlueMetastoreApiStats())
+                new AwsApiCallStats())
                 .map(GetTableVersionsResult::getTableVersions)
                 .flatMap(Collection::stream)
                 .collect(toImmutableList());
