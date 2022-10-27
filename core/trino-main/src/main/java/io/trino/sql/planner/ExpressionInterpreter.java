@@ -1292,7 +1292,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitCurrentUser(CurrentUser node, Object context)
         {
-            return visitFunctionCall(DesugarCurrentUser.getCall(node, metadata, session), context);
+            return visitFunctionCall(DesugarCurrentUser.getCall(metadata, session), context);
         }
 
         @Override
