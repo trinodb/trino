@@ -411,7 +411,6 @@ public class GroupedTypedHistogram
          * or one with an existing count and simply needs the count updated
          * <p>
          * processEntry handles these cases
-         * @param valueAndGroupHash
          */
         private BucketDataNode(int bucketId, ValueNode valueNode, long valueHash, long valueAndGroupHash, int nodePointerToUse, boolean isEmpty)
         {

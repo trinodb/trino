@@ -82,7 +82,6 @@ public final class ChoicesSpecializedSqlScalarFunction
      * The first choice is the default choice, which is the one used for legacy access methods.
      * The default choice must be usable under any context. (e.g. it must not use BLOCK_POSITION convention.)
      *
-     * @param boundSignature
      * @param choices the list of choices, ordered from generic to specific
      */
     public ChoicesSpecializedSqlScalarFunction(BoundSignature boundSignature, List<ScalarImplementationChoice> choices)
