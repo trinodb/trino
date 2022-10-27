@@ -464,7 +464,7 @@ class EventDrivenTaskSource
                 return;
             }
             verify(splitLoadingFuture == null || splitLoadingFuture.isDone(), "splitLoadingFuture is still running");
-            long start = System.currentTimeMillis();
+            long start = System.nanoTime();
             splitLoadingFuture = splitSource.getNextBatch(splitBatchSize);
             Futures.addCallback(splitLoadingFuture, new FutureCallback<>()
             {
@@ -472,7 +472,7 @@ class EventDrivenTaskSource
                 public void onSuccess(SplitBatch result)
                 {
                     try {
-                        getSplitTimeRecorder.accept(System.currentTimeMillis() - start);
+                        getSplitTimeRecorder.accept(start);
                         ListMultimap<Integer, Split> splits = result.getSplits().stream()
                                 .collect(toImmutableListMultimap(splitToPartition::applyAsInt, Function.identity()));
                         callback.update(splits, result.isLastBatch());
