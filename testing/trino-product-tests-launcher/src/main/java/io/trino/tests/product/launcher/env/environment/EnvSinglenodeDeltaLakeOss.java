@@ -24,6 +24,7 @@ import io.trino.tests.product.launcher.env.common.Minio;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
+import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import javax.inject.Inject;
 
@@ -131,6 +132,7 @@ public class EnvSinglenodeDeltaLakeOss
     {
         DockerContainer container = new DockerContainer("ghcr.io/trinodb/testing/spark3-delta:" + hadoopImagesVersion, SPARK_CONTAINER_NAME)
                 .withCopyFileToContainer(forHostPath(configDir.getPath("spark-defaults.conf")), "/spark/conf/spark-defaults.conf")
+                .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingFor(forSelectedPorts(SPARK_THRIFT_PORT));
 
         portBinder.exposePort(container, SPARK_THRIFT_PORT);

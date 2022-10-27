@@ -90,7 +90,7 @@ public final class EnvMultinodeHiveCaching
     @SuppressWarnings("resource")
     private void createTrinoWorker(Environment.Builder builder, int workerNumber)
     {
-        builder.addContainer(createTrinoContainer(dockerFiles, serverPackage, jdkVersion, debug, "ghcr.io/trinodb/testing/centos7-oj11:" + imagesVersion, worker(workerNumber))
+        builder.addContainer(createTrinoContainer(dockerFiles, serverPackage, jdkVersion, debug, "ghcr.io/trinodb/testing/centos7-oj17:" + imagesVersion, worker(workerNumber))
                 .withCopyFileToContainer(forHostPath(configDir.getPath("multinode/multinode-worker-jvm.config")), CONTAINER_TRINO_JVM_CONFIG)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard-multinode/multinode-worker-config.properties")), CONTAINER_TRINO_CONFIG_PROPERTIES)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive.properties")), CONTAINER_TRINO_HIVE_NON_CACHED_PROPERTIES)

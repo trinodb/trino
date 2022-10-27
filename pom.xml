@@ -69,7 +69,7 @@
         <dep.iceberg.version>1.0.0</dep.iceberg.version>
         <dep.spotbugs-annotations.version>4.7.2</dep.spotbugs-annotations.version>
 
-        <dep.docker.images.version>65</dep.docker.images.version>
+        <dep.docker.images.version>72</dep.docker.images.version>
 
         <!--
           America/Bahia_Banderas has:
