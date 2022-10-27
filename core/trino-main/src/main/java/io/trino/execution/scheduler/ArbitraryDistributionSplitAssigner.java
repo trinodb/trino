@@ -143,6 +143,13 @@ class ArbitraryDistributionSplitAssigner
                             replicatedSplits.get(replicatedSourceId),
                             true));
                 }
+                for (PlanNodeId partitionedSourceId : partitionedSources) {
+                    assignment.updatePartition(new PartitionUpdate(
+                            0,
+                            partitionedSourceId,
+                            ImmutableList.of(),
+                            true));
+                }
                 assignment.sealPartition(0);
             }
             else {
@@ -232,6 +239,14 @@ class ArbitraryDistributionSplitAssigner
                             replicatedSplits.get(replicatedSourceId),
                             true));
                 }
+                for (PlanNodeId partitionedSourceId : partitionedSources) {
+                    assignment.updatePartition(new PartitionUpdate(
+                            0,
+                            partitionedSourceId,
+                            ImmutableList.of(),
+                            true));
+                }
+
                 assignment.sealPartition(0);
             }
             else {
