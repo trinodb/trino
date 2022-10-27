@@ -48,7 +48,7 @@ public class TestFileSystemExchangeConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("exchange.base-directories", "s3n://exchange-spooling-test/")
+                .put("exchange.base-directories", "s3://exchange-spooling-test/")
                 .put("exchange.encryption-enabled", "false")
                 .put("exchange.max-page-storage-size", "32MB")
                 .put("exchange.sink-buffer-pool-min-size", "20")
@@ -62,7 +62,7 @@ public class TestFileSystemExchangeConfig
                 .buildOrThrow();
 
         FileSystemExchangeConfig expected = new FileSystemExchangeConfig()
-                .setBaseDirectories("s3n://exchange-spooling-test/")
+                .setBaseDirectories("s3://exchange-spooling-test/")
                 .setExchangeEncryptionEnabled(false)
                 .setMaxPageStorageSize(DataSize.of(32, MEGABYTE))
                 .setExchangeSinkBufferPoolMinSize(20)
