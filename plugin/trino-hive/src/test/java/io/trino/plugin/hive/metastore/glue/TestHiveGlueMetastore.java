@@ -1360,8 +1360,6 @@ public class TestHiveGlueMetastore
 
     /**
      * @param filterList should be same sized list as expectedValuesList
-     * @param expectedValuesList
-     * @throws Exception
      */
     private void doGetPartitionsFilterTest(
             List<ColumnMetadata> columnMetadata,

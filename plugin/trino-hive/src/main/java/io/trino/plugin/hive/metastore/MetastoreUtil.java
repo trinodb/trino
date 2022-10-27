@@ -358,7 +358,6 @@ public final class MetastoreUtil
 
     /**
      * @param domain - domain expression for the column. null => TupleDomain.all()
-     * @param assumeCanonicalPartitionKeys
      * @param partitionWildcardString wildcard
      * @return string for scalar values
      */
