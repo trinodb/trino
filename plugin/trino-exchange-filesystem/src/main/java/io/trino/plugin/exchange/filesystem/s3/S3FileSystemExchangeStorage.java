@@ -51,8 +51,6 @@ import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3AsyncClientBuilder;
-import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.AbortMultipartUploadResponse;
@@ -456,18 +454,6 @@ public class S3FileSystemExchangeStorage
         }
 
         return DefaultCredentialsProvider.create();
-    }
-
-    private S3Client createS3Client(AwsCredentialsProvider credentialsProvider, ClientOverrideConfiguration overrideConfig)
-    {
-        S3ClientBuilder clientBuilder = S3Client.builder()
-                .credentialsProvider(credentialsProvider)
-                .overrideConfiguration(overrideConfig);
-
-        region.ifPresent(clientBuilder::region);
-        endpoint.ifPresent(s3Endpoint -> clientBuilder.endpointOverride(URI.create(s3Endpoint)));
-
-        return clientBuilder.build();
     }
 
     private S3AsyncClient createS3AsyncClient(
