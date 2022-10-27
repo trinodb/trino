@@ -442,8 +442,6 @@ natively may be faster.
 
 .. include:: query-passthrough-warning.fragment
 
-.. include:: polymorphic-table-function-ordering.fragment
-
 The ``raw_query`` function requires three parameters:
 
 * ``schema``: The schema in the catalog that the query is to be executed on.
@@ -473,3 +471,5 @@ is ``ALGERIA``::
           }'
         )
       );
+
+.. include:: query-table-function-ordering.fragment

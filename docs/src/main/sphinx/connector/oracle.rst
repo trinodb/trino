@@ -430,8 +430,6 @@ running a query natively may be faster.
 
 .. include:: query-passthrough-warning.fragment
 
-.. include:: polymorphic-table-function-ordering.fragment
-
 As a simple example, query the ``example`` catalog and select an entire table::
 
     SELECT
@@ -477,6 +475,8 @@ As a practical example, you can use the
             country'
         )
       );
+
+.. include:: query-table-function-ordering.fragment
 
 Performance
 -----------

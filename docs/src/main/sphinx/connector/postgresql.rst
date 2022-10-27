@@ -354,8 +354,6 @@ where running a query natively may be faster.
 
 .. include:: query-passthrough-warning.fragment
 
-.. include:: polymorphic-table-function-ordering.fragment
-
 As a simple example, query the ``example`` catalog and select an entire table::
 
     SELECT
@@ -402,6 +400,7 @@ when using window functions::
         )
       );
 
+.. include:: query-table-function-ordering.fragment
 
 Performance
 -----------
