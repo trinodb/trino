@@ -1440,7 +1440,6 @@ public class TestHiveGlueMetastore
         }
     }
 
-    // container class for readability. Each value is one for a partitionKey, in order they appear in the schema
     private record PartitionValues(String... values){
     }
 }
