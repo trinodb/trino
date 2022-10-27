@@ -246,9 +246,63 @@ Field           Required  Type           Description
 ``value``       optional  JSON object    Field definitions for data columns mapped to the value itself.
 =============== ========= ============== =============================
 
-Please refer to the `Kafka connector`_ page for the description of the ``dataFormat`` as well as various available decoders.
+Type mapping
+------------
 
-In addition to the above Kafka types, the Redis connector supports ``hash`` type for the ``value`` field which represent data stored in the Redis hash.
+Because Trino and Redis each support types that the other does not, this
+connector :ref:`maps some types <type-mapping-overview>` when
+reading data.
+
+JSON decoder
+^^^^^^^^^^^^
+
+The JSON decoder converts the bytes representing a message or key into a JSON
+according to :rfc:`4627`. Note that the message or key *MUST* convert into a
+JSON object, not an array or simple type.
+
+For fields, the following attributes are supported:
+
+* ``type`` - Trino data type of column.
+* ``dataFormat`` - Field decoder to be used for column.
+* ``mapping`` - slash-separated list of field names to select a field from the
+  JSON object.
+* ``formatHint`` - Only for ``custom-date-time``.
+
+The JSON decoder supports multiple field decoders, with ``_default`` being
+used for standard table columns and a number of decoders for date- and
+time-based types.
+
+The following table lists Trino data types and their matching field decoders,
+which are specified in the ``type`` and ``dataFormat`` attributes respectively:
+
+.. list-table:: Trino data type to Allowed ``dataFormat`` values
+  :widths: 30, 50
+  :header-rows: 1
+
+  * - Trino data type
+    - Allowed ``dataFormat`` values
+  * - ``BIGINT``
+      ``INTEGER``
+      ``SMALLINT``
+      ``TINYINT``
+      ``DOUBLE``
+      ``BOOLEAN``
+      ``VARCHAR``
+      ``VARCHAR(x)``
+    -  Default field decoder (omitted ``dataFormat`` attribute)
+  * - ``DATE``
+    - ``custom-date-time``, ``iso8601``
+  * - ``TIME``
+    - ``custom-date-time``, ``iso8601``, ``milliseconds-since-epoch``, ``seconds-since-epoch``
+  * - ``TIME WITH TIME ZONE``
+    - ``custom-date-time``, ``iso8601``
+  * - ``TIMESTAMP``
+    - ``custom-date-time``, ``iso8601``, ``rfc2822``, ``milliseconds-since-epoch``, ``seconds-since-epoch``
+  * - ``TIMESTAMP WITH TIME ZONE``
+    - ``custom-date-time``, ``iso8601``, ``rfc2822``, ``milliseconds-since-epoch``, ``seconds-since-epoch``
+
+The Redis connector also supports ``hash`` type for the ``value`` field which
+represent data stored in the Redis hash.
 
 .. code-block:: text
 
@@ -263,8 +317,7 @@ In addition to the above Kafka types, the Redis connector supports ``hash`` type
         }
     }
 
-.. _Kafka connector: ./kafka.html
-
+No other types are supported.
 .. _redis-sql-support:
 
 SQL support
