@@ -415,7 +415,7 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern join(JoinNode.Type type, Consumer<JoinMatcher.Builder> handler)
     {
-        JoinMatcher.Builder builder = new JoinMatcher.Builder().type(type);
+        JoinMatcher.Builder builder = new JoinMatcher.Builder(type);
         handler.accept(builder);
         return builder.build();
     }
