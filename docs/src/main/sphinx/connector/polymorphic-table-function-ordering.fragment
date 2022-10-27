@@ -1,5 +1,0 @@
-.. note::
-
-    Polymorphic table functions may not preserve the order of the query result.
-    If the table function contains a query with an ``ORDER BY`` clause, the
-    function result may not be ordered as expected.

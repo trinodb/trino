@@ -355,8 +355,6 @@ running a query natively may be faster.
 
 .. include:: query-passthrough-warning.fragment
 
-.. include:: polymorphic-table-function-ordering.fragment
-
 For example, query the ``example`` catalog and group and concatenate all
 employee IDs by manager ID::
 
@@ -373,6 +371,8 @@ employee IDs by manager ID::
             manager_id'
         )
       );
+
+.. include:: query-table-function-ordering.fragment
 
 FAQ
 ---
