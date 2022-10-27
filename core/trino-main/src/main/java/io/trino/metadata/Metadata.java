@@ -127,7 +127,7 @@ public interface Metadata
      * required by semantic analyzer to analyze the query.
      *
      * @throws RuntimeException if table handle is no longer valid
-     * @see {@link #getTableMetadata(Session, TableHandle)}
+     * @see #getTableMetadata(Session, TableHandle)
      */
     TableSchema getTableSchema(Session session, TableHandle tableHandle);
 
@@ -135,7 +135,7 @@ public interface Metadata
      * Return the metadata for the specified table handle.
      *
      * @throws RuntimeException if table handle is no longer valid
-     * @see {@link #getTableSchema(Session, TableHandle)} which is less expensive.
+     * @see #getTableSchema(Session, TableHandle) a different method which is less expensive.
      */
     TableMetadata getTableMetadata(Session session, TableHandle tableHandle);
 
