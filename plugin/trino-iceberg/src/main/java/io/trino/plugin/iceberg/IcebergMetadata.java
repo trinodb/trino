@@ -822,6 +822,16 @@ public class IcebergMetadata
                 .collect(toImmutableList())));
     }
 
+    private void cleanExtraOutputFiles(ConnectorSession session, Set<String> writtenFiles)
+    {
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+        Set<String> locations = getOutputFilesLocations(writtenFiles);
+        Set<String> fileNames = getOutputFilesFileNames(writtenFiles);
+        for (String location : locations) {
+            cleanExtraOutputFiles(fileSystem, session.getQueryId(), location, fileNames);
+        }
+    }
+
     private static void cleanExtraOutputFiles(TrinoFileSystem fileSystem, String queryId, String location, Set<String> fileNamesToKeep)
     {
         checkArgument(!queryId.contains("-"), "query ID should not contain hyphens: %s", queryId);
@@ -2294,16 +2304,6 @@ public class IcebergMetadata
         return Optional.of(new HiveWrittenPartitions(commitTasks.stream()
                 .map(CommitTaskData::getPath)
                 .collect(toImmutableList())));
-    }
-
-    private void cleanExtraOutputFiles(ConnectorSession session, Set<String> writtenFiles)
-    {
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        Set<String> locations = getOutputFilesLocations(writtenFiles);
-        Set<String> fileNames = getOutputFilesFileNames(writtenFiles);
-        for (String location : locations) {
-            cleanExtraOutputFiles(fileSystem, session.getQueryId(), location, fileNames);
-        }
     }
 
     @Override
