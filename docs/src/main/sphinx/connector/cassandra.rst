@@ -414,7 +414,7 @@ processed by Cassandra. This can be useful for accessing native features which a
 not available in Trino or for improving query performance in situations where
 running a query natively may be faster.
 
-.. include:: polymorphic-table-function-ordering.fragment
+.. include:: query-table-function-ordering.fragment
 
 As a simple example, to select an entire table::
 
