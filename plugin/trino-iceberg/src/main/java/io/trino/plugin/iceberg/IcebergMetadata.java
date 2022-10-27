@@ -1430,7 +1430,9 @@ public class IcebergMetadata
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding not null columns");
         }
         Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
-        icebergTable.updateSchema().addColumn(column.getName(), toIcebergType(column.getType()), column.getComment()).commit();
+        icebergTable.updateSchema()
+                .addColumn(column.getName(), toIcebergType(column.getType()), column.getComment())
+                .commit();
     }
 
     @Override
@@ -1438,7 +1440,9 @@ public class IcebergMetadata
     {
         IcebergColumnHandle handle = (IcebergColumnHandle) column;
         Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
-        icebergTable.updateSchema().deleteColumn(handle.getName()).commit();
+        icebergTable.updateSchema()
+                .deleteColumn(handle.getName())
+                .commit();
     }
 
     @Override
@@ -1446,7 +1450,9 @@ public class IcebergMetadata
     {
         IcebergColumnHandle columnHandle = (IcebergColumnHandle) source;
         Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
-        icebergTable.updateSchema().renameColumn(columnHandle.getName(), target).commit();
+        icebergTable.updateSchema()
+                .renameColumn(columnHandle.getName(), target)
+                .commit();
     }
 
     private List<ColumnMetadata> getColumnMetadatas(Schema schema)
