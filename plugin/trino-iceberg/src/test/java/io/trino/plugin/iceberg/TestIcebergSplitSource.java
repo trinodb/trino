@@ -21,7 +21,9 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsContext;
 import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
@@ -84,13 +86,14 @@ public class TestIcebergSplitSource
         this.metastoreDir = new File(tempDir, "iceberg_data");
         HiveMetastore metastore = createTestingFileHiveMetastore(metastoreDir);
         TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT);
+        CachingHiveMetastore cachingHiveMetastore = memoizeMetastore(metastore, 1000);
         this.catalog = new TrinoHiveCatalog(
                 new CatalogName("hive"),
-                memoizeMetastore(metastore, 1000),
+                cachingHiveMetastore,
+                new TrinoViewHiveMetastore(cachingHiveMetastore, false, "trino-version", "test"),
                 fileSystemFactory,
                 new TestingTypeManager(),
                 new FileMetastoreTableOperationsProvider(fileSystemFactory),
-                "test",
                 false,
                 false,
                 false);
