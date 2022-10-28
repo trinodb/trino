@@ -16,7 +16,6 @@ package io.trino.tests.product.launcher.suite.suites;
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentDefaults;
-import io.trino.tests.product.launcher.env.environment.EnvMultinodeClickhouse;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeKerberosKudu;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeMariadb;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeHiveIcebergRedirections;
@@ -56,9 +55,6 @@ public class Suite7NonGeneric
                         .build(),
                 testOnEnvironment(EnvSinglenodeSqlserver.class)
                         .withGroups("configured_features", "sqlserver")
-                        .build(),
-                testOnEnvironment(EnvMultinodeClickhouse.class)
-                        .withGroups("configured_features", "clickhouse")
                         .build(),
                 testOnEnvironment(EnvSinglenodeSparkHive.class)
                         .withGroups("configured_features", "hive_spark")
