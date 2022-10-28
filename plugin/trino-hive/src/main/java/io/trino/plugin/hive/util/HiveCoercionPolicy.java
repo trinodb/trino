@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.util;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HiveType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
@@ -24,6 +25,8 @@ import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
 
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 import static io.trino.plugin.hive.HiveType.HIVE_BYTE;
 import static io.trino.plugin.hive.HiveType.HIVE_DOUBLE;
@@ -33,6 +36,7 @@ import static io.trino.plugin.hive.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.HiveType.HIVE_SHORT;
 import static io.trino.plugin.hive.util.HiveUtil.extractStructFieldTypes;
 import static java.lang.Math.min;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class HiveCoercionPolicy
@@ -132,15 +136,25 @@ public final class HiveCoercionPolicy
         List<String> toFieldNames = ((StructTypeInfo) toHiveType.getTypeInfo()).getAllStructFieldNames();
         List<HiveType> fromFieldTypes = extractStructFieldTypes(fromHiveType);
         List<HiveType> toFieldTypes = extractStructFieldTypes(toHiveType);
+
+        ImmutableMap.Builder<String, Integer> fromHiveTypeNameIndexBuilder = ImmutableMap.builder();
+        for (int i = 0; i < fromFieldNames.size(); i++) {
+            fromHiveTypeNameIndexBuilder.put(fromFieldNames.get(i).toLowerCase(ENGLISH), i);
+        }
+        Map<String, Integer> fromHiveTypeNameIndexes = fromHiveTypeNameIndexBuilder.buildOrThrow();
+
         // Rule:
-        // * Fields may be added or dropped from the end.
-        // * For all other field indices, the corresponding fields must have
+        // * Fields may be added or dropped
+        // * For all other field with the same name, the corresponding fields must have
         //   the same name, and the type must be coercible.
-        for (int i = 0; i < min(fromFieldTypes.size(), toFieldTypes.size()); i++) {
-            if (!fromFieldNames.get(i).equalsIgnoreCase(toFieldNames.get(i))) {
-                return false;
+        for (int i = 0; i < toFieldNames.size(); i++) {
+            String coerceFieldName = toFieldNames.get(i).toLowerCase(ENGLISH);
+            Integer fromHiveTypeNameIndex = fromHiveTypeNameIndexes.get(coerceFieldName);
+            if (fromHiveTypeNameIndex == null) {
+                continue;
             }
-            if (!fromFieldTypes.get(i).equals(toFieldTypes.get(i)) && !canCoerce(fromFieldTypes.get(i), toFieldTypes.get(i))) {
+
+            if (!fromFieldTypes.get(fromHiveTypeNameIndex).equals(toFieldTypes.get(i)) && !canCoerce(fromFieldTypes.get(fromHiveTypeNameIndex), toFieldTypes.get(i))) {
                 return false;
             }
         }

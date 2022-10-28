@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HivePageSourceProvider.BucketAdaptation;
 import io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping;
 import io.trino.plugin.hive.coercions.DoubleToFloatCoercer;
@@ -48,6 +49,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import javax.annotation.Nullable;
@@ -56,6 +58,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Function;
@@ -93,6 +96,7 @@ import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class HivePageSource
@@ -447,48 +451,64 @@ public class HivePageSource
     private static class StructCoercer
             implements Function<Block, Block>
     {
-        private final List<Optional<Function<Block, Block>>> coercers;
-        private final Block[] nullBlocks;
+        private List<FieldConverter> fieldConverters;
 
         public StructCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType)
         {
             requireNonNull(typeManager, "typeManager is null");
             requireNonNull(fromHiveType, "fromHiveType is null");
             requireNonNull(toHiveType, "toHiveType is null");
+
+            List<String> fromFieldNames = ((StructTypeInfo) fromHiveType.getTypeInfo()).getAllStructFieldNames();
+            List<String> toFieldNames = ((StructTypeInfo) toHiveType.getTypeInfo()).getAllStructFieldNames();
             List<HiveType> fromFieldTypes = extractStructFieldTypes(fromHiveType);
             List<HiveType> toFieldTypes = extractStructFieldTypes(toHiveType);
-            ImmutableList.Builder<Optional<Function<Block, Block>>> coercers = ImmutableList.builder();
-            this.nullBlocks = new Block[toFieldTypes.size()];
+
+            ImmutableMap.Builder<String, Integer> fromHiveTypeNameIndexBuilder = ImmutableMap.builder();
+            for (int i = 0; i < fromFieldNames.size(); i++) {
+                fromHiveTypeNameIndexBuilder.put(fromFieldNames.get(i).toLowerCase(ENGLISH), i);
+            }
+            Map<String, Integer> fromHiveTypeNameIndexes = fromHiveTypeNameIndexBuilder.buildOrThrow();
+
+            ImmutableList.Builder<FieldConverter> fieldConverterBuilder = ImmutableList.builder();
             for (int i = 0; i < toFieldTypes.size(); i++) {
-                if (i >= fromFieldTypes.size()) {
-                    nullBlocks[i] = toFieldTypes.get(i).getType(typeManager).createBlockBuilder(null, 1).appendNull().build();
-                    coercers.add(Optional.empty());
+                String coerceFieldName = toFieldNames.get(i).toLowerCase(ENGLISH);
+                Integer fromHiveTypeNameIndex = fromHiveTypeNameIndexes.get(coerceFieldName);
+
+                if (fromHiveTypeNameIndex == null) {
+                    fieldConverterBuilder.add(new FieldConverter(Optional.empty(),
+                            toFieldTypes.get(i).getType(typeManager).createBlockBuilder(null, 1).appendNull().build(), Optional.empty()));
                 }
                 else {
-                    coercers.add(createCoercer(typeManager, fromFieldTypes.get(i), toFieldTypes.get(i)));
+                    fieldConverterBuilder.add(new FieldConverter(createCoercer(typeManager, fromFieldTypes.get(fromHiveTypeNameIndex), toFieldTypes.get(i)),
+                            null, Optional.of(fromHiveTypeNameIndex)));
                 }
             }
-            this.coercers = coercers.build();
+            this.fieldConverters = fieldConverterBuilder.build();
         }
 
         @Override
         public Block apply(Block block)
         {
             ColumnarRow rowBlock = toColumnarRow(block);
-            Block[] fields = new Block[coercers.size()];
+            Block[] fields = new Block[fieldConverters.size()];
             int[] ids = new int[rowBlock.getField(0).getPositionCount()];
-            for (int i = 0; i < coercers.size(); i++) {
-                Optional<Function<Block, Block>> coercer = coercers.get(i);
-                if (coercer.isPresent()) {
-                    fields[i] = coercer.get().apply(rowBlock.getField(i));
-                }
-                else if (i < rowBlock.getFieldCount()) {
-                    fields[i] = rowBlock.getField(i);
+
+            for (int i = 0; i < fieldConverters.size(); i++) {
+                FieldConverter fieldConverter = fieldConverters.get(i);
+                if (fieldConverter.originalIndex().isPresent()) {
+                    if (fieldConverter.optionalCoercer().isPresent()) {
+                        fields[i] = fieldConverter.optionalCoercer().get().apply(rowBlock.getField(fieldConverter.originalIndex().get()));
+                    }
+                    else {
+                        fields[i] = rowBlock.getField(fieldConverter.originalIndex().get());
+                    }
                 }
                 else {
-                    fields[i] = DictionaryBlock.create(ids.length, nullBlocks[i], ids);
+                    fields[i] = DictionaryBlock.create(ids.length, fieldConverter.nullBlock(), ids);
                 }
             }
+
             boolean[] valueIsNull = null;
             if (rowBlock.mayHaveNull()) {
                 valueIsNull = new boolean[rowBlock.getPositionCount()];
@@ -498,6 +518,8 @@ public class HivePageSource
             }
             return RowBlock.fromFieldBlocks(rowBlock.getPositionCount(), Optional.ofNullable(valueIsNull), fields);
         }
+
+        private record FieldConverter(Optional<Function<Block, Block>> optionalCoercer, Block nullBlock, Optional<Integer> originalIndex) {}
     }
 
     private static final class CoercionLazyBlockLoader
