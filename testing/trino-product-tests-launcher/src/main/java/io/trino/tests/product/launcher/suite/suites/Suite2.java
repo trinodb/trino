@@ -35,7 +35,7 @@ public class Suite2
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvSinglenode.class)
-                        .withGroups("configured_features", "hdfs_no_impersonation", "storage_formats_detailed", "hive_compression", "hive_with_external_writes")
+                        .withGroups("configured_features", "hdfs_no_impersonation")
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosHdfsNoImpersonation.class)
                         .withGroups("configured_features", "storage_formats", "hdfs_no_impersonation")
