@@ -256,24 +256,9 @@ public class OrcFileWriter
         return validationCpuNanos;
     }
 
-    public int getStripeRowCount()
-    {
-        return orcWriter.getStripeRowCount();
-    }
-
     public void setMaxWriteId(long maxWriteId)
     {
         this.maxWriteId = OptionalLong.of(maxWriteId);
-    }
-
-    public OptionalLong getMaxWriteId()
-    {
-        return maxWriteId;
-    }
-
-    public void updateUserMetadata(Map<String, String> userMetadata)
-    {
-        orcWriter.updateUserMetadata(userMetadata);
     }
 
     @Override
@@ -316,11 +301,6 @@ public class OrcFileWriter
             rowIds[i] = nextRowId++;
         }
         return new LongArrayBlock(positionCount, Optional.empty(), rowIds);
-    }
-
-    public static int extractBucketNumber(int bucketValue)
-    {
-        return (bucketValue >> 16) & 0xFFF;
     }
 
     public static int computeBucketValue(int bucketId, int statementId)

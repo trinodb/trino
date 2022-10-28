@@ -178,8 +178,7 @@ public class HiveUpdatablePageSource
         insertFileWriter.orElseThrow(() -> new IllegalArgumentException("insertFileWriter not present")).appendRows(insertPage);
     }
 
-    @Override
-    protected Block createRowIdBlock(int positionCount)
+    private Block createRowIdBlock(int positionCount)
     {
         long[] rowIds = new long[positionCount];
         for (int index = 0; index < positionCount; index++) {

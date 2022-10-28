@@ -100,8 +100,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.function.Function;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -148,7 +146,6 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.trimTrailingSpaces;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -173,7 +170,6 @@ import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.COLLECTION_DELIM;
-import static org.apache.hadoop.hive.serde.serdeConstants.DECIMAL_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_ALL_COLUMNS;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_COLUMN_IDS_CONF_STR;
@@ -192,10 +188,6 @@ public final class HiveUtil
     private static final DateTimeFormatter HIVE_DATE_PARSER;
     private static final DateTimeFormatter HIVE_TIMESTAMP_PARSER;
     private static final Field COMPRESSION_CODECS_FIELD;
-
-    private static final Pattern SUPPORTED_DECIMAL_TYPE = Pattern.compile(DECIMAL_TYPE_NAME + "\\((\\d+),(\\d+)\\)");
-    private static final int DECIMAL_PRECISION_GROUP = 1;
-    private static final int DECIMAL_SCALE_GROUP = 2;
 
     private static final String BIG_DECIMAL_POSTFIX = "BD";
 
@@ -671,22 +663,6 @@ public final class HiveUtil
         }
 
         throw new VerifyException(format("Unhandled type [%s] for partition: %s", type, partitionName));
-    }
-
-    public static Optional<DecimalType> getDecimalType(HiveType hiveType)
-    {
-        return getDecimalType(hiveType.getHiveTypeName().toString());
-    }
-
-    public static Optional<DecimalType> getDecimalType(String hiveTypeName)
-    {
-        Matcher matcher = SUPPORTED_DECIMAL_TYPE.matcher(hiveTypeName);
-        if (matcher.matches()) {
-            int precision = parseInt(matcher.group(DECIMAL_PRECISION_GROUP));
-            int scale = parseInt(matcher.group(DECIMAL_SCALE_GROUP));
-            return Optional.of(createDecimalType(precision, scale));
-        }
-        return Optional.empty();
     }
 
     public static boolean isArrayType(Type type)

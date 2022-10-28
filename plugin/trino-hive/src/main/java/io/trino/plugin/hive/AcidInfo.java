@@ -253,11 +253,6 @@ public class AcidInfo
         return new Builder(partitionPath);
     }
 
-    public static Builder builder(AcidInfo acidInfo)
-    {
-        return new Builder(acidInfo);
-    }
-
     public static class Builder
     {
         private final Path partitionLocation;
@@ -268,12 +263,6 @@ public class AcidInfo
         private Builder(Path partitionPath)
         {
             partitionLocation = requireNonNull(partitionPath, "partitionPath is null");
-        }
-
-        private Builder(AcidInfo acidInfo)
-        {
-            partitionLocation = new Path(acidInfo.getPartitionLocation());
-            deleteDeltaInfos.addAll(acidInfo.deleteDeltas);
         }
 
         public Builder addDeleteDelta(Path deleteDeltaPath)

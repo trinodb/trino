@@ -57,12 +57,9 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.testing.TestingConnectorSession;
-import org.apache.hadoop.hive.common.type.Timestamp;
 
 import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -245,10 +242,5 @@ public final class HiveTestUtils
         catch (Throwable t) {
             throw new AssertionError(t);
         }
-    }
-
-    public static Timestamp hiveTimestamp(LocalDateTime local)
-    {
-        return Timestamp.ofEpochSecond(local.toEpochSecond(ZoneOffset.UTC), local.getNano());
     }
 }
