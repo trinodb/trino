@@ -759,6 +759,7 @@ jobs:
             - suite-clients
             - suite-functions
             - suite-tpch
+            - suite-storage-formats-detailed
           exclude:
             - config: default
               ignore exclusion if: >-
