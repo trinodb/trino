@@ -103,6 +103,6 @@ public class TestHiveLocationService
 
     private static LocationHandle locationHandle(LocationHandle.WriteMode writeMode, String targetPath, String writePath)
     {
-        return new LocationHandle(new Path(targetPath), new Path(writePath), true, writeMode);
+        return new LocationHandle(new Path(targetPath), new Path(writePath), writeMode);
     }
 }
