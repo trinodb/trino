@@ -204,7 +204,7 @@ public abstract class BaseIcebergConnectorTest
     {
         if (columnName.equals("a.dot")) {
             assertThatThrownBy(() -> super.testAddAndDropColumnName(columnName))
-                    .hasMessageContaining("Cannot add column with ambiguous name");
+                    .hasMessage("Failed to add column: Cannot add column with ambiguous name: a.dot, use addColumn(parent, name, type)");
             return;
         }
         super.testAddAndDropColumnName(columnName);
@@ -231,6 +231,8 @@ public abstract class BaseIcebergConnectorTest
     protected void verifyConcurrentAddColumnFailurePermissible(Exception e)
     {
         assertThat(e)
+                .hasMessageStartingWith("Failed to add column: Failed to replace table due to concurrent updates")
+                .getRootCause()
                 .hasMessageContaining("Cannot update Iceberg table: supplied previous location does not match current location");
     }
 
@@ -4428,12 +4430,12 @@ public abstract class BaseIcebergConnectorTest
 
         assertUpdate("CREATE TABLE ambiguous (\"a.cow\" BIGINT, b ROW(cow BIGINT))");
         assertThatThrownBy(() -> assertUpdate("ALTER TABLE ambiguous RENAME COLUMN b TO a"))
-                .hasMessage("Invalid schema: multiple fields for name a.cow: 1 and 3");
+                .hasMessage("Failed to rename column: Invalid schema: multiple fields for name a.cow: 1 and 3");
         assertUpdate("DROP TABLE ambiguous");
 
         assertUpdate("CREATE TABLE ambiguous (a ROW(cow BIGINT))");
         assertThatThrownBy(() -> assertUpdate("ALTER TABLE ambiguous ADD COLUMN \"a.cow\" BIGINT"))
-                .hasMessage("Cannot add column with ambiguous name: a.cow, use addColumn(parent, name, type)");
+                .hasMessage("Failed to add column: Cannot add column with ambiguous name: a.cow, use addColumn(parent, name, type)");
         assertUpdate("DROP TABLE ambiguous");
     }
 
