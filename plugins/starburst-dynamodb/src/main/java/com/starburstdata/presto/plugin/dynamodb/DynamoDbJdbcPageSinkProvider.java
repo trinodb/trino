@@ -27,7 +27,6 @@ import javax.inject.Inject;
  * The OEM key requires a com.starburstdata.* class to be on the stack trace when making calls to DynamoDB.
  * This class extends JdbcPageSinkProvider but forwards all calls to the base to make sure it is on the stack for testing the connector.
  */
-@SuppressWarnings({"RedundantMethodOverride", "deprecation"})
 public class DynamoDbJdbcPageSinkProvider
         extends JdbcPageSinkProvider
 {
@@ -37,6 +36,7 @@ public class DynamoDbJdbcPageSinkProvider
         super(jdbcClient);
     }
 
+    @SuppressWarnings("DeprecatedApi")
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle tableHandle)
     {
@@ -49,6 +49,7 @@ public class DynamoDbJdbcPageSinkProvider
         return super.createPageSink(transactionHandle, session, tableHandle, pageSinkId);
     }
 
+    @SuppressWarnings("DeprecatedApi")
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle tableHandle)
     {
@@ -61,6 +62,7 @@ public class DynamoDbJdbcPageSinkProvider
         return super.createPageSink(transactionHandle, session, tableHandle, pageSinkId);
     }
 
+    @SuppressWarnings({"deprecation", "DeprecatedApi"})
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
     {
@@ -73,6 +75,7 @@ public class DynamoDbJdbcPageSinkProvider
         return super.createPageSink(transactionHandle, session, tableExecuteHandle, pageSinkId);
     }
 
+    @SuppressWarnings({"deprecation", "DeprecatedApi"})
     @Override
     public ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle)
     {
