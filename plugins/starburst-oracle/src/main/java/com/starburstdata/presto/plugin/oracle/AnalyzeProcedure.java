@@ -29,22 +29,26 @@ import java.sql.SQLException;
 import java.util.Optional;
 
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
-import static io.trino.spi.block.MethodHandleUtil.methodHandle;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
 public class AnalyzeProcedure
         implements Provider<Procedure>
 {
-    private static final MethodHandle ANALYZE = methodHandle(
-            AnalyzeProcedure.class,
-            "analyze",
-            ConnectorSession.class,
-            String.class,
-            String.class);
+    private static final MethodHandle ANALYZE;
 
     private final JdbcClient client;
     private final ConnectionFactory connectionFactory;
+
+    static {
+        try {
+            ANALYZE = lookup().unreflect(AnalyzeProcedure.class.getMethod("analyze", ConnectorSession.class, String.class, String.class));
+        }
+        catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
 
     @Inject
     public AnalyzeProcedure(JdbcClient client, ConnectionFactory connectionFactory)
