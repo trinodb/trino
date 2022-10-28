@@ -16,6 +16,7 @@ package io.trino.tests.product.deltalake;
 import io.trino.tempto.ProductTest;
 import org.testng.annotations.Test;
 
+import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
@@ -40,7 +41,8 @@ public class TestHiveAndDeltaLakeCompatibility
         onTrino().executeQuery("CREATE VIEW " + hiveViewQualifiedName + " AS SELECT 1 AS col_one");
 
         try {
-            assertThat(onTrino().executeQuery(format("SELECT table_name FROM delta.information_schema.columns WHERE table_schema = '%s'", schemaName))).hasNoRows();
+            assertThat(onTrino().executeQuery(format("SELECT table_name FROM delta.information_schema.columns WHERE table_schema = '%s'", schemaName)))
+                    .containsOnly(row(hiveViewName));
         }
         finally {
             onTrino().executeQuery("DROP VIEW IF EXISTS " + hiveViewQualifiedName);

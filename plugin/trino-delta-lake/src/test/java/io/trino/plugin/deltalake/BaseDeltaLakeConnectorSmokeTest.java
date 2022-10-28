@@ -175,6 +175,9 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_CREATE_VIEW:
+                return true;
+
             case SUPPORTS_RENAME_SCHEMA:
                 return false;
 
