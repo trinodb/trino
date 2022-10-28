@@ -851,6 +851,9 @@ jobs:
             # this suite is not meant to be run with different configs
             - config: default
               suite: suite-cassandra
+            # this suite is not meant to be run with different configs
+            - config: default
+              suite: suite-clickhouse
           EOF
       - name: Build PT matrix (all)
         if: |
