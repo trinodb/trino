@@ -131,7 +131,7 @@ public class RcFileFileWriter
     }
 
     @Override
-    public void commit()
+    public Closeable commit()
     {
         try {
             rcFileWriter.close();
@@ -158,6 +158,8 @@ public class RcFileFileWriter
                 throw new TrinoException(HIVE_WRITE_VALIDATION_FAILED, e);
             }
         }
+
+        return rollbackAction;
     }
 
     @Override

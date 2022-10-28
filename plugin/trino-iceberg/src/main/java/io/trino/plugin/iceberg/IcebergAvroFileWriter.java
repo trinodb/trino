@@ -97,7 +97,7 @@ public class IcebergAvroFileWriter
     }
 
     @Override
-    public void commit()
+    public Closeable commit()
     {
         try {
             avroWriter.close();
@@ -113,6 +113,8 @@ public class IcebergAvroFileWriter
             }
             throw new TrinoException(ICEBERG_WRITER_CLOSE_ERROR, "Error closing Avro file", e);
         }
+
+        return rollbackAction;
     }
 
     @Override
