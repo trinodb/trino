@@ -118,6 +118,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
             case SUPPORTS_DELETE:
             case SUPPORTS_UPDATE:
             case SUPPORTS_MERGE:
+            case SUPPORTS_CREATE_VIEW:
                 return true;
 
             default:
