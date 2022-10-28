@@ -138,7 +138,7 @@ public class ParquetFileWriter
     }
 
     @Override
-    public void commit()
+    public Closeable commit()
     {
         try {
             parquetWriter.close();
@@ -165,6 +165,8 @@ public class ParquetFileWriter
                 throw new TrinoException(HIVE_WRITE_VALIDATION_FAILED, e);
             }
         }
+
+        return rollbackAction;
     }
 
     @Override

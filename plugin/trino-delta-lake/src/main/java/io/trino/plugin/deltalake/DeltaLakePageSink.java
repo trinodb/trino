@@ -14,7 +14,7 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -56,6 +56,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
@@ -117,7 +118,7 @@ public class DeltaLakePageSink
     private long writtenBytes;
     private long memoryUsage;
 
-    private final List<DeltaLakeWriter> closedWriters = new ArrayList<>();
+    private final List<Closeable> closedWriterRollbackActions = new ArrayList<>();
     private final ImmutableList.Builder<Slice> dataFileInfos = ImmutableList.builder();
 
     public DeltaLakePageSink(
@@ -229,15 +230,12 @@ public class DeltaLakePageSink
 
     private ListenableFuture<Collection<Slice>> doFinish()
     {
-        for (DeltaLakeWriter writer : writers) {
-            closeWriter(writer);
+        for (int writerIndex = 0; writerIndex < writers.size(); writerIndex++) {
+            closeWriter(writerIndex);
         }
+        writers.clear();
 
         List<Slice> result = dataFileInfos.build();
-
-        writtenBytes = closedWriters.stream()
-                .mapToLong(DeltaLakeWriter::getWrittenBytes)
-                .sum();
 
         return Futures.immediateFuture(result);
     }
@@ -250,13 +248,17 @@ public class DeltaLakePageSink
 
     private void doAbort()
     {
+        List<Closeable> rollbackActions = Streams.concat(
+                        writers.stream()
+                                // writers can contain nulls if an exception is thrown when doAppend expends the writer list
+                                .filter(Objects::nonNull)
+                                .map(writer -> writer::rollback),
+                        closedWriterRollbackActions.stream())
+                .collect(toImmutableList());
         RuntimeException rollbackException = null;
-        for (DeltaLakeWriter writer : Iterables.concat(writers, closedWriters)) {
+        for (Closeable rollbackAction : rollbackActions) {
             try {
-                // writers can contain nulls if an exception is thrown when doAppend expends the writer list
-                if (writer != null) {
-                    writer.rollback();
-                }
+                rollbackAction.close();
             }
             catch (Throwable t) {
                 if (rollbackException == null) {
@@ -365,7 +367,7 @@ public class DeltaLakePageSink
                     if (deltaLakeWriter.getWrittenBytes() <= targetMaxFileSize) {
                         continue;
                     }
-                    closeWriter(deltaLakeWriter);
+                    closeWriter(writerIndex);
                 }
                 else {
                     continue;
@@ -417,13 +419,20 @@ public class DeltaLakePageSink
         return writerIndexes;
     }
 
-    private void closeWriter(DeltaLakeWriter writer)
+    private void closeWriter(int writerIndex)
     {
+        DeltaLakeWriter writer = writers.get(writerIndex);
+
         long currentWritten = writer.getWrittenBytes();
         long currentMemory = writer.getMemoryUsage();
-        writer.commit();
+
+        closedWriterRollbackActions.add(writer.commit());
+
         writtenBytes += writer.getWrittenBytes() - currentWritten;
-        memoryUsage += writer.getMemoryUsage() - currentMemory;
+        memoryUsage -= currentMemory;
+
+        writers.set(writerIndex, null);
+
         try {
             DataFileInfo dataFileInfo = writer.getDataFileInfo();
             dataFileInfos.add(wrappedBuffer(dataFileInfoCodec.toJsonBytes(dataFileInfo)));
@@ -432,7 +441,6 @@ public class DeltaLakePageSink
             LOG.warn("exception '%s' while finishing write on %s", e, writer);
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Error committing Parquet file to Delta Lake", e);
         }
-        closedWriters.add(writer);
     }
 
     /**

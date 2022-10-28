@@ -129,14 +129,15 @@ public class SortingFileWriter
     }
 
     @Override
-    public void commit()
+    public Closeable commit()
     {
+        Closeable rollbackAction = createRollbackAction(fileSystem, tempFiles);
         if (!sortBuffer.isEmpty()) {
             // skip temporary files entirely if the total output size is small
             if (tempFiles.isEmpty()) {
                 sortBuffer.flushTo(outputWriter::appendRows);
                 outputWriter.commit();
-                return;
+                return rollbackAction;
             }
 
             flushToTempFile();
@@ -149,6 +150,8 @@ public class SortingFileWriter
         catch (UncheckedIOException e) {
             throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);
         }
+
+        return rollbackAction;
     }
 
     @Override

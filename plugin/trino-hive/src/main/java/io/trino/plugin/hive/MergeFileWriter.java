@@ -29,6 +29,7 @@ import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
@@ -143,10 +144,16 @@ public class MergeFileWriter
     }
 
     @Override
-    public void commit()
+    public Closeable commit()
     {
-        deleteFileWriter.ifPresent(FileWriter::commit);
-        insertFileWriter.ifPresent(FileWriter::commit);
+        Optional<Closeable> deleteRollbackAction = deleteFileWriter.map(FileWriter::commit);
+        Optional<Closeable> insertRollbackAction = insertFileWriter.map(FileWriter::commit);
+        return () -> {
+            try (Closer closer = Closer.create()) {
+                insertRollbackAction.ifPresent(closer::register);
+                deleteRollbackAction.ifPresent(closer::register);
+            }
+        };
     }
 
     @Override

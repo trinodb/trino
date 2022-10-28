@@ -193,7 +193,7 @@ public class RecordFileWriter
     }
 
     @Override
-    public void commit()
+    public Closeable commit()
     {
         try {
             recordWriter.close(false);
@@ -202,6 +202,8 @@ public class RecordFileWriter
         catch (IOException e) {
             throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);
         }
+
+        return createRollbackAction(path, conf);
     }
 
     @Override
