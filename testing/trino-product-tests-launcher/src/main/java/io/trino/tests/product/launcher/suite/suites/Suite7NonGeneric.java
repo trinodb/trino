@@ -17,10 +17,8 @@ import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentDefaults;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeKerberosKudu;
-import io.trino.tests.product.launcher.env.environment.EnvMultinodeMariadb;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeHiveIcebergRedirections;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosHdfsImpersonationCrossRealm;
-import io.trino.tests.product.launcher.env.environment.EnvSinglenodeMysql;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodePostgresql;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeSparkHive;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeSparkIceberg;
@@ -44,12 +42,6 @@ public class Suite7NonGeneric
         verify(config.getHadoopBaseImage().equals(EnvironmentDefaults.HADOOP_BASE_IMAGE), "The suite should be run with default HADOOP_BASE_IMAGE. Leave HADOOP_BASE_IMAGE unset.");
 
         return ImmutableList.of(
-                testOnEnvironment(EnvSinglenodeMysql.class)
-                        .withGroups("configured_features", "mysql")
-                        .build(),
-                testOnEnvironment(EnvMultinodeMariadb.class)
-                        .withGroups("configured_features", "mariadb")
-                        .build(),
                 testOnEnvironment(EnvSinglenodePostgresql.class)
                         .withGroups("configured_features", "postgresql")
                         .build(),
