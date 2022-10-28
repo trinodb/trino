@@ -53,6 +53,7 @@ import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
 import org.joda.time.DateTimeZone;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -104,7 +105,7 @@ final class ParquetWriters
         private final ParquetProperties parquetProperties;
         private final CompressionCodecName compressionCodecName;
         private final Optional<DateTimeZone> parquetTimeZone;
-        private final ImmutableList.Builder<ColumnWriter> builder = ImmutableList.builder();
+        private final List<ColumnWriter> builder = new ArrayList<>();
 
         WriteBuilder(
                 MessageType messageType,
@@ -122,7 +123,7 @@ final class ParquetWriters
 
         List<ColumnWriter> build()
         {
-            return builder.build();
+            return builder;
         }
 
         @Override

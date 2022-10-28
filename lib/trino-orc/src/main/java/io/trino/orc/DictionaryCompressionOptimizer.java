@@ -14,12 +14,12 @@
 package io.trino.orc;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Longs;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.OptionalInt;
 import java.util.Set;
 
@@ -27,7 +27,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toSet;
+import static java.util.stream.Collectors.toCollection;
 
 public class DictionaryCompressionOptimizer
 {
@@ -58,9 +58,9 @@ public class DictionaryCompressionOptimizer
             int dictionaryMemoryMaxBytes)
     {
         requireNonNull(writers, "writers is null");
-        this.allWriters = ImmutableSet.copyOf(writers.stream()
+        this.allWriters = writers.stream()
                 .map(DictionaryColumnManager::new)
-                .collect(toSet()));
+                .collect(toCollection(LinkedHashSet::new));
 
         checkArgument(stripeMinBytes >= 0, "stripeMinBytes is negative");
         this.stripeMinBytes = stripeMinBytes;
@@ -100,6 +100,13 @@ public class DictionaryCompressionOptimizer
         directConversionCandidates.addAll(allWriters);
         dictionaryMemoryBytes = 0;
         allWriters.forEach(DictionaryColumnManager::reset);
+    }
+
+    public void clear()
+    {
+        directConversionCandidates.clear();
+        dictionaryMemoryBytes = 0;
+        allWriters.clear();
     }
 
     public void finalOptimize(int bufferedBytes)

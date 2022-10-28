@@ -111,7 +111,7 @@ public final class OrcWriter
     private final List<ClosedStripe> closedStripes = new ArrayList<>();
     private final ColumnMetadata<OrcType> orcTypes;
 
-    private final List<ColumnWriter> columnWriters;
+    private final List<ColumnWriter> columnWriters = new ArrayList<>();
     private final DictionaryCompressionOptimizer dictionaryCompressionOptimizer;
     private int stripeRowCount;
     private int rowGroupRowCount;
@@ -171,7 +171,6 @@ public final class OrcWriter
         // create column writers
         OrcType rootType = orcTypes.get(ROOT_COLUMN);
         checkArgument(rootType.getFieldCount() == types.size());
-        ImmutableList.Builder<ColumnWriter> columnWriters = ImmutableList.builder();
         ImmutableSet.Builder<SliceDictionaryColumnWriter> sliceColumnWriters = ImmutableSet.builder();
         for (int fieldId = 0; fieldId < types.size(); fieldId++) {
             OrcColumnId fieldColumnIndex = rootType.getFieldTypeIndex(fieldId);
@@ -198,7 +197,6 @@ public final class OrcWriter
                 }
             }
         }
-        this.columnWriters = columnWriters.build();
         this.dictionaryCompressionOptimizer = new DictionaryCompressionOptimizer(
                 sliceColumnWriters.build(),
                 stripeMinBytes,
@@ -356,6 +354,15 @@ public final class OrcWriter
 
         // write all data
         orcDataSink.write(outputData);
+
+        if (flushReason == CLOSED) {
+            columnWriters.clear();
+            dictionaryCompressionOptimizer.clear();
+            rowGroupRowCount = 0;
+            stripeRowCount = 0;
+            bufferedBytes = 0;
+            return;
+        }
 
         // open next stripe
         columnWriters.forEach(ColumnWriter::reset);

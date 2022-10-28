@@ -216,6 +216,7 @@ public class ParquetWriter
             flush();
             writeFooter();
         }
+        columnWriters.clear();
         bufferedBytes = 0;
     }
 
