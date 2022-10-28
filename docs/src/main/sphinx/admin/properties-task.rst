@@ -7,7 +7,7 @@ Task properties
 
 * **Type:** :ref:`prop-type-integer`
 * **Restrictions:** Must be a power of two
-* **Default value:** min(number of physical CPUs of the node, 32)
+* **Default value:** min(max(number of physical CPUs of the node, 2), 32)
 
 Default local concurrency for parallel operators, such as joins and aggregations.
 This value should be adjusted up or down based on the query concurrency and worker
