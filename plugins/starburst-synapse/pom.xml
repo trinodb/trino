@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.trino.plugins</groupId>
         <artifactId>starburst-trino-plugins</artifactId>
-        <version>399.1-SNAPSHOT</version>
+        <version>401-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -159,6 +159,12 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-testing-services</artifactId>
             <scope>test</scope>
         </dependency>
 

@@ -609,7 +609,8 @@ public class SnowflakeClient
                     outputTableHandle.getColumnNames(),
                     outputTableHandle.getColumnTypes(),
                     outputTableHandle.getJdbcColumnTypes(),
-                    outputTableHandle.getTemporaryTableName());
+                    outputTableHandle.getTemporaryTableName(),
+                    outputTableHandle.getPageSinkIdColumnName());
         }
         return outputTableHandle;
     }
@@ -627,7 +628,8 @@ public class SnowflakeClient
                     outputTableHandle.getColumnNames(),
                     outputTableHandle.getColumnTypes(),
                     outputTableHandle.getJdbcColumnTypes(),
-                    outputTableHandle.getTemporaryTableName());
+                    outputTableHandle.getTemporaryTableName(),
+                    outputTableHandle.getPageSinkIdColumnName());
         }
         return outputTableHandle;
     }
