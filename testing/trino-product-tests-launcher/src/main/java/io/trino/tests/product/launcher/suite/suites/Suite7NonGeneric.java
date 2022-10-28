@@ -17,11 +17,9 @@ import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentDefaults;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeKerberosKudu;
-import io.trino.tests.product.launcher.env.environment.EnvSinglenodeHiveIcebergRedirections;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosHdfsImpersonationCrossRealm;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodePostgresql;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeSparkHive;
-import io.trino.tests.product.launcher.env.environment.EnvSinglenodeSparkIceberg;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeSqlserver;
 import io.trino.tests.product.launcher.env.environment.EnvTwoKerberosHives;
 import io.trino.tests.product.launcher.env.environment.EnvTwoMixedHives;
@@ -50,13 +48,6 @@ public class Suite7NonGeneric
                         .build(),
                 testOnEnvironment(EnvSinglenodeSparkHive.class)
                         .withGroups("configured_features", "hive_spark")
-                        .build(),
-                testOnEnvironment(EnvSinglenodeSparkIceberg.class)
-                        .withGroups("configured_features", "iceberg")
-                        .withExcludedGroups("storage_formats")
-                        .build(),
-                testOnEnvironment(EnvSinglenodeHiveIcebergRedirections.class)
-                        .withGroups("configured_features", "hive_iceberg_redirections")
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosHdfsImpersonationCrossRealm.class)
                         .withGroups("configured_features", "storage_formats", "cli", "hdfs_impersonation")
