@@ -14,7 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.trino.filesystem.TrinoFileSystem;
@@ -47,11 +47,13 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.transforms.Transform;
 
+import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -98,7 +100,7 @@ public class IcebergPageSink
     private final Map<String, String> storageProperties;
 
     private final List<WriteContext> writers = new ArrayList<>();
-    private final List<WriteContext> closedWriters = new ArrayList<>();
+    private final List<Closeable> closedWriterRollbackActions = new ArrayList<>();
     private final Collection<Slice> commitTasks = new ArrayList<>();
 
     private long writtenBytes;
@@ -163,16 +165,10 @@ public class IcebergPageSink
     @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
-        for (WriteContext context : writers) {
-            closeWriter(context);
+        for (int writerIndex = 0; writerIndex < writers.size(); writerIndex++) {
+            closeWriter(writerIndex);
         }
-
-        writtenBytes = closedWriters.stream()
-                .mapToLong(writer -> writer.getWriter().getWrittenBytes())
-                .sum();
-        validationCpuNanos = closedWriters.stream()
-                .mapToLong(writer -> writer.getWriter().getValidationCpuNanos())
-                .sum();
+        writers.clear();
 
         return completedFuture(commitTasks);
     }
@@ -180,12 +176,16 @@ public class IcebergPageSink
     @Override
     public void abort()
     {
+        List<Closeable> rollbackActions = Streams.concat(
+                        writers.stream()
+                                .filter(Objects::nonNull)
+                                .map(writer -> writer::rollback),
+                        closedWriterRollbackActions.stream())
+                .collect(toImmutableList());
         RuntimeException error = null;
-        for (WriteContext context : Iterables.concat(writers, closedWriters)) {
+        for (Closeable rollbackAction : rollbackActions) {
             try {
-                if (context != null) {
-                    context.getWriter().rollback();
-                }
+                rollbackAction.close();
             }
             catch (Throwable t) {
                 if (error == null) {
@@ -282,7 +282,7 @@ public class IcebergPageSink
                 if (writer.getWrittenBytes() <= targetMaxFileSize) {
                     continue;
                 }
-                closeWriter(writer);
+                closeWriter(writerIndex);
             }
 
             Optional<PartitionData> partitionData = getPartitionData(pagePartitioner.getColumns(), page, position);
@@ -297,19 +297,27 @@ public class IcebergPageSink
         return writerIndexes;
     }
 
-    private void closeWriter(WriteContext writeContext)
+    private void closeWriter(int writerIndex)
     {
-        long currentWritten = writeContext.getWriter().getWrittenBytes();
-        long currentMemory = writeContext.getWriter().getMemoryUsage();
-        writeContext.getWriter().commit();
-        writtenBytes += (writeContext.getWriter().getWrittenBytes() - currentWritten);
-        memoryUsage += (writeContext.getWriter().getMemoryUsage() - currentMemory);
+        WriteContext writeContext = writers.get(writerIndex);
+        IcebergFileWriter writer = writeContext.getWriter();
+
+        long currentWritten = writer.getWrittenBytes();
+        long currentMemory = writer.getMemoryUsage();
+
+        closedWriterRollbackActions.add(writer.commit());
+
+        validationCpuNanos += writer.getValidationCpuNanos();
+        writtenBytes += (writer.getWrittenBytes() - currentWritten);
+        memoryUsage -= currentMemory;
+
+        writers.set(writerIndex, null);
 
         CommitTaskData task = new CommitTaskData(
-                writeContext.getPath().toString(),
+                writeContext.getPath(),
                 fileFormat,
-                writeContext.getWriter().getWrittenBytes(),
-                new MetricsWrapper(writeContext.getWriter().getMetrics()),
+                writer.getWrittenBytes(),
+                new MetricsWrapper(writer.getMetrics()),
                 PartitionSpecParser.toJson(partitionSpec),
                 writeContext.getPartitionData().map(PartitionData::toJson),
                 DATA,
@@ -318,8 +326,6 @@ public class IcebergPageSink
                 Optional.empty());
 
         commitTasks.add(wrappedBuffer(jsonCodec.toJsonBytes(task)));
-
-        closedWriters.add(writeContext);
     }
 
     private WriteContext createWriter(Optional<PartitionData> partitionData)
@@ -459,6 +465,11 @@ public class IcebergPageSink
         public long getWrittenBytes()
         {
             return writer.getWrittenBytes();
+        }
+
+        public void rollback()
+        {
+            writer.rollback();
         }
     }
 

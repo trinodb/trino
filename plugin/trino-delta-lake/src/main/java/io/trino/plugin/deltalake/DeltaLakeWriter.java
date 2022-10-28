@@ -35,6 +35,7 @@ import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.util.HadoopInputFile;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Collection;
@@ -139,9 +140,9 @@ public class DeltaLakeWriter
     }
 
     @Override
-    public void commit()
+    public Closeable commit()
     {
-        fileWriter.commit();
+        return fileWriter.commit();
     }
 
     @Override

@@ -180,7 +180,7 @@ public class OrcFileWriter
     }
 
     @Override
-    public void commit()
+    public Closeable commit()
     {
         try {
             if (transaction.isAcidTransactionRunning() && useAcidSchema) {
@@ -211,6 +211,8 @@ public class OrcFileWriter
                 throw new TrinoException(HIVE_WRITE_VALIDATION_FAILED, e);
             }
         }
+
+        return rollbackAction;
     }
 
     private void updateUserMetadata()

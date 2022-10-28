@@ -15,6 +15,7 @@ package io.trino.plugin.hive;
 
 import io.trino.spi.Page;
 
+import java.io.Closeable;
 import java.util.Optional;
 
 public interface FileWriter
@@ -25,7 +26,10 @@ public interface FileWriter
 
     void appendRows(Page dataPage);
 
-    void commit();
+    /**
+     * Commits written data. Returns rollback {@link Closeable} which can be used to cleanup on failure.
+     */
+    Closeable commit();
 
     void rollback();
 
