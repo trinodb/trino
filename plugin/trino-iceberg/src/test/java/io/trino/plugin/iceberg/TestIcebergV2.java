@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.filesystem.TrinoFileSystemFactory;
@@ -61,6 +62,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -186,6 +188,20 @@ public class TestIcebergV2
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
         // natiokey is before the equality delete column in the table schema, comment is after
         assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE regionkey != 1");
+    }
+
+    @Test
+    public void testV2TableWithEqualityDeleteDifferentColumnOrder()
+            throws Exception
+    {
+        // Specify equality delete filter with different column order from table definition
+        String tableName = "test_v2_equality_delete_different_order" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
+        Table icebergTable = updateTableToV2(tableName);
+        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.empty(), ImmutableMap.of("regionkey", 1L, "name", "ARGENTINA"));
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE name != 'ARGENTINA'");
+        // natiokey is before the equality delete column in the table schema, comment is after
+        assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE name != 'ARGENTINA'");
     }
 
     @Test
@@ -475,16 +491,25 @@ public class TestIcebergV2
     private void writeEqualityDeleteToNationTable(Table icebergTable, Optional<PartitionSpec> partitionSpec, Optional<PartitionData> partitionData)
             throws Exception
     {
+        writeEqualityDeleteToNationTable(icebergTable, partitionSpec, partitionData, ImmutableMap.of("regionkey", 1L));
+    }
+
+    private void writeEqualityDeleteToNationTable(Table icebergTable, Optional<PartitionSpec> partitionSpec, Optional<PartitionData> partitionData, Map<String, Object> overwriteValues)
+            throws Exception
+    {
         Path metadataDir = new Path(metastoreDir.toURI());
         String deleteFileName = "delete_file_" + UUID.randomUUID();
         FileSystem fs = hdfsEnvironment.getFileSystem(new HdfsContext(SESSION), metadataDir);
 
-        Schema deleteRowSchema = icebergTable.schema().select("regionkey");
+        Schema deleteRowSchema = icebergTable.schema().select(overwriteValues.keySet());
+        List<Integer> equalityFieldIds = overwriteValues.keySet().stream()
+                .map(name -> deleteRowSchema.findField(name).fieldId())
+                .collect(toImmutableList());
         Parquet.DeleteWriteBuilder writerBuilder = Parquet.writeDeletes(HadoopOutputFile.fromPath(new Path(metadataDir, deleteFileName), fs))
                 .forTable(icebergTable)
                 .rowSchema(deleteRowSchema)
                 .createWriterFunc(GenericParquetWriter::buildWriter)
-                .equalityFieldIds(deleteRowSchema.findField("regionkey").fieldId())
+                .equalityFieldIds(equalityFieldIds)
                 .overwrite();
         if (partitionSpec.isPresent() && partitionData.isPresent()) {
             writerBuilder = writerBuilder
@@ -495,7 +520,7 @@ public class TestIcebergV2
 
         Record dataDelete = GenericRecord.create(deleteRowSchema);
         try (Closeable ignored = writer) {
-            writer.delete(dataDelete.copy("regionkey", 1L));
+            writer.delete(dataDelete.copy(overwriteValues));
         }
 
         icebergTable.newRowDelta().addDeletes(writer.toDeleteFile()).commit();
