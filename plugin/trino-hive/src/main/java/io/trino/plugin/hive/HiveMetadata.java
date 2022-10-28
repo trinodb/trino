@@ -3085,7 +3085,8 @@ public class HiveMetadata
                         .addAll(oldHiveType.getHiveDereferenceNames(indices))
                         .build(),
                 newHiveType,
-                newHiveType.getType(typeManager));
+                newHiveType.getType(typeManager),
+                false);
 
         return new HiveColumnHandle(
                 column.getBaseColumnName(),

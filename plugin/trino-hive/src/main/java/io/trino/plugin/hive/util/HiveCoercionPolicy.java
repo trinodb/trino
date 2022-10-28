@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.util;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.type.Category;
@@ -26,6 +27,7 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.hive.HiveType.HIVE_BYTE;
@@ -38,6 +40,7 @@ import static io.trino.plugin.hive.HiveType.HIVE_TIMESTAMP;
 import static io.trino.plugin.hive.util.HiveUtil.extractStructFieldTypes;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class HiveCoercionPolicy
@@ -49,12 +52,12 @@ public final class HiveCoercionPolicy
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
-    public static boolean canCoerce(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision hiveTimestampPrecision)
+    public static boolean canCoerce(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision hiveTimestampPrecision, boolean nestedStructNameBasedMapping)
     {
-        return new HiveCoercionPolicy(typeManager).canCoerce(fromHiveType, toHiveType, hiveTimestampPrecision);
+        return new HiveCoercionPolicy(typeManager).canCoerce(fromHiveType, toHiveType, hiveTimestampPrecision, nestedStructNameBasedMapping);
     }
 
-    private boolean canCoerce(HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision hiveTimestampPrecision)
+    private boolean canCoerce(HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision hiveTimestampPrecision, boolean nestedStructNameBasedMapping)
     {
         Type fromType = typeManager.getType(fromHiveType.getTypeSignature(hiveTimestampPrecision));
         Type toType = typeManager.getType(toHiveType.getTypeSignature(hiveTimestampPrecision));
@@ -90,12 +93,12 @@ public final class HiveCoercionPolicy
             return toType instanceof DecimalType || toHiveType.equals(HIVE_FLOAT) || toHiveType.equals(HIVE_DOUBLE);
         }
 
-        return canCoerceForList(fromHiveType, toHiveType, hiveTimestampPrecision)
-                || canCoerceForMap(fromHiveType, toHiveType, hiveTimestampPrecision)
-                || canCoerceForStructOrUnion(fromHiveType, toHiveType, hiveTimestampPrecision);
+        return canCoerceForList(fromHiveType, toHiveType, hiveTimestampPrecision, nestedStructNameBasedMapping)
+                || canCoerceForMap(fromHiveType, toHiveType, hiveTimestampPrecision, nestedStructNameBasedMapping)
+                || canCoerceForStructOrUnion(fromHiveType, toHiveType, hiveTimestampPrecision, nestedStructNameBasedMapping);
     }
 
-    private boolean canCoerceForMap(HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision hiveTimestampPrecision)
+    private boolean canCoerceForMap(HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision hiveTimestampPrecision, boolean nestedStructNameBasedMapping)
     {
         if (fromHiveType.getCategory() != Category.MAP || toHiveType.getCategory() != Category.MAP) {
             return false;
@@ -104,21 +107,11 @@ public final class HiveCoercionPolicy
         HiveType fromValueType = HiveType.valueOf(((MapTypeInfo) fromHiveType.getTypeInfo()).getMapValueTypeInfo().getTypeName());
         HiveType toKeyType = HiveType.valueOf(((MapTypeInfo) toHiveType.getTypeInfo()).getMapKeyTypeInfo().getTypeName());
         HiveType toValueType = HiveType.valueOf(((MapTypeInfo) toHiveType.getTypeInfo()).getMapValueTypeInfo().getTypeName());
-        return (fromKeyType.equals(toKeyType) || canCoerce(fromKeyType, toKeyType, hiveTimestampPrecision)) &&
-                (fromValueType.equals(toValueType) || canCoerce(fromValueType, toValueType, hiveTimestampPrecision));
+        return (fromKeyType.equals(toKeyType) || canCoerce(fromKeyType, toKeyType, hiveTimestampPrecision, nestedStructNameBasedMapping)) &&
+                (fromValueType.equals(toValueType) || canCoerce(fromValueType, toValueType, hiveTimestampPrecision, nestedStructNameBasedMapping));
     }
 
-    private boolean canCoerceForList(HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision hiveTimestampPrecision)
-    {
-        if (fromHiveType.getCategory() != Category.LIST || toHiveType.getCategory() != Category.LIST) {
-            return false;
-        }
-        HiveType fromElementType = HiveType.valueOf(((ListTypeInfo) fromHiveType.getTypeInfo()).getListElementTypeInfo().getTypeName());
-        HiveType toElementType = HiveType.valueOf(((ListTypeInfo) toHiveType.getTypeInfo()).getListElementTypeInfo().getTypeName());
-        return fromElementType.equals(toElementType) || canCoerce(fromElementType, toElementType, hiveTimestampPrecision);
-    }
-
-    private boolean canCoerceForStructOrUnion(HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision hiveTimestampPrecision)
+    private boolean canCoerceForStructOrUnion(HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision hiveTimestampPrecision, boolean nestedStructNameBasedMapping)
     {
         if (!isStructOrUnion(fromHiveType) || !isStructOrUnion(toHiveType)) {
             return false;
@@ -126,10 +119,58 @@ public final class HiveCoercionPolicy
         HiveType fromHiveTypeStruct = (fromHiveType.getCategory() == Category.UNION) ? convertUnionToStruct(fromHiveType, typeManager, hiveTimestampPrecision) : fromHiveType;
         HiveType toHiveTypeStruct = (toHiveType.getCategory() == Category.UNION) ? convertUnionToStruct(toHiveType, typeManager, hiveTimestampPrecision) : toHiveType;
 
-        List<String> fromFieldNames = ((StructTypeInfo) fromHiveTypeStruct.getTypeInfo()).getAllStructFieldNames();
-        List<String> toFieldNames = ((StructTypeInfo) toHiveTypeStruct.getTypeInfo()).getAllStructFieldNames();
-        List<HiveType> fromFieldTypes = extractStructFieldTypes(fromHiveTypeStruct);
-        List<HiveType> toFieldTypes = extractStructFieldTypes(toHiveTypeStruct);
+        return nestedStructNameBasedMapping ?
+                canCoerceForStructNameBasedMapping(fromHiveTypeStruct, toHiveTypeStruct, hiveTimestampPrecision)
+                : canCoerceForStructIndexBasedMapping(fromHiveTypeStruct, toHiveTypeStruct, hiveTimestampPrecision);
+    }
+
+    private boolean canCoerceForList(HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision hiveTimestampPrecision, boolean nestedStructNameBasedMapping)
+    {
+        if (fromHiveType.getCategory() != Category.LIST || toHiveType.getCategory() != Category.LIST) {
+            return false;
+        }
+        HiveType fromElementType = HiveType.valueOf(((ListTypeInfo) fromHiveType.getTypeInfo()).getListElementTypeInfo().getTypeName());
+        HiveType toElementType = HiveType.valueOf(((ListTypeInfo) toHiveType.getTypeInfo()).getListElementTypeInfo().getTypeName());
+        return fromElementType.equals(toElementType) || canCoerce(fromElementType, toElementType, hiveTimestampPrecision, nestedStructNameBasedMapping);
+    }
+
+    private boolean canCoerceForStructNameBasedMapping(HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision hiveTimestampPrecision)
+    {
+        List<String> fromFieldNames = ((StructTypeInfo) fromHiveType.getTypeInfo()).getAllStructFieldNames();
+        List<String> toFieldNames = ((StructTypeInfo) toHiveType.getTypeInfo()).getAllStructFieldNames();
+        List<HiveType> fromFieldTypes = extractStructFieldTypes(fromHiveType);
+        List<HiveType> toFieldTypes = extractStructFieldTypes(toHiveType);
+
+        ImmutableMap.Builder<String, Integer> fromHiveTypeNameIndexBuilder = ImmutableMap.builder();
+        for (int i = 0; i < fromFieldNames.size(); i++) {
+            fromHiveTypeNameIndexBuilder.put(fromFieldNames.get(i).toLowerCase(ENGLISH), i);
+        }
+        Map<String, Integer> fromHiveTypeNameIndexes = fromHiveTypeNameIndexBuilder.buildOrThrow();
+
+        // Rule:
+        // * Fields may be added or dropped
+        // * For all other field with the same name, the corresponding fields must have
+        //   the same name, and the type must be coercible.
+        for (int i = 0; i < toFieldNames.size(); i++) {
+            String coerceFieldName = toFieldNames.get(i).toLowerCase(ENGLISH);
+            Integer fromHiveTypeNameIndex = fromHiveTypeNameIndexes.get(coerceFieldName);
+            if (fromHiveTypeNameIndex == null) {
+                continue;
+            }
+
+            if (!fromFieldTypes.get(fromHiveTypeNameIndex).equals(toFieldTypes.get(i)) && !canCoerce(fromFieldTypes.get(fromHiveTypeNameIndex), toFieldTypes.get(i), hiveTimestampPrecision, true)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean canCoerceForStructIndexBasedMapping(HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision hiveTimestampPrecision)
+    {
+        List<String> fromFieldNames = ((StructTypeInfo) fromHiveType.getTypeInfo()).getAllStructFieldNames();
+        List<String> toFieldNames = ((StructTypeInfo) toHiveType.getTypeInfo()).getAllStructFieldNames();
+        List<HiveType> fromFieldTypes = extractStructFieldTypes(fromHiveType);
+        List<HiveType> toFieldTypes = extractStructFieldTypes(toHiveType);
         // Rule:
         // * Fields may be added or dropped from the end.
         // * For all other field indices, the corresponding fields must have
@@ -138,7 +179,7 @@ public final class HiveCoercionPolicy
             if (!fromFieldNames.get(i).equalsIgnoreCase(toFieldNames.get(i))) {
                 return false;
             }
-            if (!fromFieldTypes.get(i).equals(toFieldTypes.get(i)) && !canCoerce(fromFieldTypes.get(i), toFieldTypes.get(i), hiveTimestampPrecision)) {
+            if (!fromFieldTypes.get(i).equals(toFieldTypes.get(i)) && !canCoerce(fromFieldTypes.get(i), toFieldTypes.get(i), hiveTimestampPrecision, false)) {
                 return false;
             }
         }

@@ -30,22 +30,28 @@ import static java.util.Objects.requireNonNull;
 public class HiveColumnProjectionInfo
 {
     private static final int INSTANCE_SIZE = instanceSize(HiveColumnProjectionInfo.class);
-
     private final List<Integer> dereferenceIndices;
     private final List<String> dereferenceNames;
     private final HiveType hiveType;
     private final Type type;
     private final String partialName;
 
+    /**
+     * using dereferenceNames for dereferencing, the order might be different from {@link #getDereferenceIndices()}
+     */
+    private final boolean nestedStructNameBasedMapping;
+
     @JsonCreator
     public HiveColumnProjectionInfo(
             @JsonProperty("dereferenceIndices") List<Integer> dereferenceIndices,
             @JsonProperty("dereferenceNames") List<String> dereferenceNames,
             @JsonProperty("hiveType") HiveType hiveType,
-            @JsonProperty("type") Type type)
+            @JsonProperty("type") Type type,
+            @JsonProperty("nestedStructNameBasedMapping") boolean nestedStructNameBasedMapping)
     {
         this.dereferenceIndices = requireNonNull(dereferenceIndices, "dereferenceIndices is null");
         this.dereferenceNames = requireNonNull(dereferenceNames, "dereferenceNames is null");
+
         checkArgument(dereferenceIndices.size() > 0, "dereferenceIndices should not be empty");
         checkArgument(dereferenceIndices.size() == dereferenceNames.size(), "dereferenceIndices and dereferenceNames should have the same sizes");
 
@@ -53,6 +59,7 @@ public class HiveColumnProjectionInfo
         this.type = requireNonNull(type, "type is null");
 
         this.partialName = generatePartialName(dereferenceNames);
+        this.nestedStructNameBasedMapping = nestedStructNameBasedMapping;
     }
 
     public String getPartialName()
@@ -76,6 +83,12 @@ public class HiveColumnProjectionInfo
     public HiveType getHiveType()
     {
         return hiveType;
+    }
+
+    @JsonProperty
+    public boolean isNestedStructNameBasedMapping()
+    {
+        return nestedStructNameBasedMapping;
     }
 
     @JsonProperty

@@ -498,7 +498,7 @@ public abstract class BaseTestHiveCoercion
         return ImmutableMap.of();
     }
 
-    private void assertQueryResults(
+    protected void assertQueryResults(
             Engine engine,
             String query,
             Map<String, List<Object>> expected,
@@ -527,7 +527,7 @@ public abstract class BaseTestHiveCoercion
         for (int sqlIndex = 1; sqlIndex <= columns.size(); sqlIndex++) {
             String column = columns.get(sqlIndex - 1);
 
-            if (column.equals("row_to_row") || column.equals("map_to_map")) {
+            if (column.equals("row_to_row") || column.equals("map_to_map") || column.equals("row_to_row_nested_reordered")) {
                 assertEqualsIgnoreOrder(
                         actual.column(sqlIndex),
                         column(expectedRows, sqlIndex),
@@ -604,6 +604,7 @@ public abstract class BaseTestHiveCoercion
 
         Map<String, JDBCType> expectedTypes = ImmutableMap.<String, JDBCType>builder()
                 .put("row_to_row", engine == Engine.TRINO ? JAVA_OBJECT : STRUCT)   // row
+                .put("row_to_row_nested_reordered", engine == Engine.TRINO ? JAVA_OBJECT : STRUCT)   // row
                 .put("list_to_list", ARRAY) // list
                 .put("map_to_map", JAVA_OBJECT) // map
                 .put("tinyint_to_smallint", SMALLINT)
@@ -633,6 +634,7 @@ public abstract class BaseTestHiveCoercion
                 .put("char_to_smaller_char", CHAR)
                 .put("id", BIGINT)
                 .put("nested_field", BIGINT)
+                .put("row_to_row_nested_reordered_field_c", INTEGER)
                 .put("timestamp_to_string", VARCHAR)
                 .put("timestamp_to_bounded_varchar", VARCHAR)
                 .put("timestamp_to_smaller_varchar", VARCHAR)
@@ -647,6 +649,7 @@ public abstract class BaseTestHiveCoercion
         String floatType = tableName.toLowerCase(ENGLISH).contains("parquet") ? "double" : "float";
 
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN row_to_row row_to_row struct<keep:string, ti2si:smallint, si2int:int, int2bi:bigint, bi2vc:string, LOWER2UPPERCASE:bigint>", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN row_to_row_nested_reordered row_to_row_nested_reordered struct<a:int, c:int, b:int>", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN list_to_list list_to_list array<struct<ti2int:int, si2bi:bigint, bi2vc:string>>", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN map_to_map map_to_map map<int,struct<ti2bi:bigint, int2bi:bigint, float2double:double, add:tinyint>>", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN tinyint_to_smallint tinyint_to_smallint smallint", tableName));

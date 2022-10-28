@@ -268,6 +268,43 @@ public final class HiveType
         return Optional.of(toHiveType(typeInfo));
     }
 
+    public Optional<HiveType> getHiveTypeForDereferencesNameBased(List<String> dereferences)
+    {
+        List<Integer> dataAccessIndices = getHiveDereferenceDataAccessIndices(dereferences);
+
+        if (dataAccessIndices.size() != dereferences.size()) {
+            // if failed to do the name based mapping
+            return Optional.empty();
+        }
+        else {
+            return getHiveTypeForDereferences(dataAccessIndices);
+        }
+    }
+
+    // use the name based lookup and translate into access indices according to the partition's layout
+    // empty means cannot access such field
+    public List<Integer> getHiveDereferenceDataAccessIndices(List<String> dereferences)
+    {
+        ImmutableList.Builder<Integer> dereferenceDataAccessIndices = ImmutableList.builder();
+        TypeInfo typeInfo = getTypeInfo();
+
+        for (String fieldName : dereferences) {
+            checkArgument(typeInfo instanceof StructTypeInfo, "typeInfo should be struct type", typeInfo);
+            StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
+            int fieldIndex = structTypeInfo.getAllStructFieldNames().indexOf(fieldName);
+
+            if (fieldIndex < 0) {
+                return ImmutableList.of();
+            }
+            else {
+                dereferenceDataAccessIndices.add(fieldIndex);
+                typeInfo = structTypeInfo.getAllStructFieldTypeInfos().get(fieldIndex);
+            }
+        }
+
+        return dereferenceDataAccessIndices.build();
+    }
+
     public List<String> getHiveDereferenceNames(List<Integer> dereferences)
     {
         ImmutableList.Builder<String> dereferenceNames = ImmutableList.builder();

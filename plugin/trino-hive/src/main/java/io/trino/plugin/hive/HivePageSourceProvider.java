@@ -350,18 +350,33 @@ public class HivePageSourceProvider
 
         checkArgument(expectedColumn.getBaseColumn().equals(readColumn.getBaseColumn()), "reader column is not valid for expected column");
 
-        List<Integer> expectedDereferences = expectedColumn.getHiveColumnProjectionInfo()
-                .map(HiveColumnProjectionInfo::getDereferenceIndices)
-                .orElse(ImmutableList.of());
+        if (expectedColumn.getHiveColumnProjectionInfo().isPresent()) {
+            if (expectedColumn.getHiveColumnProjectionInfo().get().isNestedStructNameBasedMapping()) {
+                List<String> expectedDereferenceNames = expectedColumn.getHiveColumnProjectionInfo()
+                        .map(HiveColumnProjectionInfo::getDereferenceNames)
+                        .orElse(ImmutableList.of());
 
-        List<Integer> readerDereferences = readColumn.getHiveColumnProjectionInfo()
-                .map(HiveColumnProjectionInfo::getDereferenceIndices)
-                .orElse(ImmutableList.of());
+                HiveType hiveType = readColumn.getHiveType();
+                return hiveType.getHiveDereferenceDataAccessIndices(expectedDereferenceNames);
+            }
+            else {
+                List<Integer> expectedDereferences = expectedColumn.getHiveColumnProjectionInfo()
+                        .map(HiveColumnProjectionInfo::getDereferenceIndices)
+                        .orElse(ImmutableList.of());
 
-        checkArgument(readerDereferences.size() <= expectedDereferences.size(), "Field returned by the reader should include expected field");
-        checkArgument(expectedDereferences.subList(0, readerDereferences.size()).equals(readerDereferences), "Field returned by the reader should be a prefix of expected field");
+                List<Integer> readerDereferences = readColumn.getHiveColumnProjectionInfo()
+                        .map(HiveColumnProjectionInfo::getDereferenceIndices)
+                        .orElse(ImmutableList.of());
 
-        return expectedDereferences.subList(readerDereferences.size(), expectedDereferences.size());
+                checkArgument(readerDereferences.size() <= expectedDereferences.size(), "Field returned by the reader should include expected field");
+                checkArgument(expectedDereferences.subList(0, readerDereferences.size()).equals(readerDereferences), "Field returned by the reader should be a prefix of expected field");
+
+                return expectedDereferences.subList(readerDereferences.size(), expectedDereferences.size());
+            }
+        }
+        else {
+            return ImmutableList.of();
+        }
     }
 
     public static class ColumnMapping
@@ -374,36 +389,43 @@ public class HivePageSourceProvider
          */
         private final OptionalInt index;
         private final Optional<HiveType> baseTypeCoercionFrom;
+        private final boolean nestedStructNameBasedMapping;
 
-        public static ColumnMapping regular(HiveColumnHandle hiveColumnHandle, int index, Optional<HiveType> baseTypeCoercionFrom)
+        public static ColumnMapping regular(HiveColumnHandle hiveColumnHandle, int index, Optional<HiveType> baseTypeCoercionFrom, boolean nestedStructNameBasedMapping)
         {
             checkArgument(hiveColumnHandle.getColumnType() == REGULAR);
-            return new ColumnMapping(ColumnMappingKind.REGULAR, hiveColumnHandle, Optional.empty(), OptionalInt.of(index), baseTypeCoercionFrom);
+            return new ColumnMapping(
+                    ColumnMappingKind.REGULAR,
+                    hiveColumnHandle,
+                    Optional.empty(),
+                    OptionalInt.of(index),
+                    baseTypeCoercionFrom,
+                    nestedStructNameBasedMapping);
         }
 
-        public static ColumnMapping synthesized(HiveColumnHandle hiveColumnHandle, int index, Optional<HiveType> baseTypeCoercionFrom)
+        public static ColumnMapping synthesized(HiveColumnHandle hiveColumnHandle, int index, Optional<HiveType> baseTypeCoercionFrom, boolean nestedStructNameBasedMapping)
         {
             checkArgument(hiveColumnHandle.getColumnType() == SYNTHESIZED);
-            return new ColumnMapping(ColumnMappingKind.SYNTHESIZED, hiveColumnHandle, Optional.empty(), OptionalInt.of(index), baseTypeCoercionFrom);
+            return new ColumnMapping(ColumnMappingKind.SYNTHESIZED, hiveColumnHandle, Optional.empty(), OptionalInt.of(index), baseTypeCoercionFrom, nestedStructNameBasedMapping);
         }
 
-        public static ColumnMapping prefilled(HiveColumnHandle hiveColumnHandle, NullableValue prefilledValue, Optional<HiveType> baseTypeCoercionFrom)
+        public static ColumnMapping prefilled(HiveColumnHandle hiveColumnHandle, NullableValue prefilledValue, Optional<HiveType> baseTypeCoercionFrom, boolean nestedStructNameBasedMapping)
         {
             checkArgument(hiveColumnHandle.getColumnType() == PARTITION_KEY || hiveColumnHandle.getColumnType() == SYNTHESIZED);
             checkArgument(hiveColumnHandle.isBaseColumn(), "prefilled values not supported for projected columns");
-            return new ColumnMapping(PREFILLED, hiveColumnHandle, Optional.of(prefilledValue), OptionalInt.empty(), baseTypeCoercionFrom);
+            return new ColumnMapping(PREFILLED, hiveColumnHandle, Optional.of(prefilledValue), OptionalInt.empty(), baseTypeCoercionFrom, nestedStructNameBasedMapping);
         }
 
-        public static ColumnMapping interim(HiveColumnHandle hiveColumnHandle, int index, Optional<HiveType> baseTypeCoercionFrom)
+        public static ColumnMapping interim(HiveColumnHandle hiveColumnHandle, int index, Optional<HiveType> baseTypeCoercionFrom, boolean nestedStructNameBasedMapping)
         {
             checkArgument(hiveColumnHandle.getColumnType() == REGULAR);
-            return new ColumnMapping(ColumnMappingKind.INTERIM, hiveColumnHandle, Optional.empty(), OptionalInt.of(index), baseTypeCoercionFrom);
+            return new ColumnMapping(ColumnMappingKind.INTERIM, hiveColumnHandle, Optional.empty(), OptionalInt.of(index), baseTypeCoercionFrom, nestedStructNameBasedMapping);
         }
 
-        public static ColumnMapping empty(HiveColumnHandle hiveColumnHandle)
+        public static ColumnMapping empty(HiveColumnHandle hiveColumnHandle, boolean nestedStructNameBasedMapping)
         {
             checkArgument(hiveColumnHandle.getColumnType() == REGULAR);
-            return new ColumnMapping(ColumnMappingKind.EMPTY, hiveColumnHandle, Optional.empty(), OptionalInt.empty(), Optional.empty());
+            return new ColumnMapping(ColumnMappingKind.EMPTY, hiveColumnHandle, Optional.empty(), OptionalInt.empty(), Optional.empty(), nestedStructNameBasedMapping);
         }
 
         private ColumnMapping(
@@ -411,13 +433,15 @@ public class HivePageSourceProvider
                 HiveColumnHandle hiveColumnHandle,
                 Optional<NullableValue> prefilledValue,
                 OptionalInt index,
-                Optional<HiveType> baseTypeCoercionFrom)
+                Optional<HiveType> baseTypeCoercionFrom,
+                boolean nestedStructNameBasedMapping)
         {
             this.kind = requireNonNull(kind, "kind is null");
             this.hiveColumnHandle = requireNonNull(hiveColumnHandle, "hiveColumnHandle is null");
             this.prefilledValue = requireNonNull(prefilledValue, "prefilledValue is null");
             this.index = requireNonNull(index, "index is null");
             this.baseTypeCoercionFrom = requireNonNull(baseTypeCoercionFrom, "baseTypeCoercionFrom is null");
+            this.nestedStructNameBasedMapping = nestedStructNameBasedMapping;
         }
 
         public ColumnMappingKind getKind()
@@ -445,6 +469,11 @@ public class HivePageSourceProvider
         public Optional<HiveType> getBaseTypeCoercionFrom()
         {
             return baseTypeCoercionFrom;
+        }
+
+        public boolean isNestedStructNameBasedMapping()
+        {
+            return nestedStructNameBasedMapping;
         }
 
         public static List<ColumnMapping> buildColumnMappings(
@@ -480,12 +509,12 @@ public class HivePageSourceProvider
 
                     // Add regular mapping if projection is valid for partition schema, otherwise add an empty mapping
                     if (baseTypeCoercionFrom.isEmpty()
-                            || projectionValidForType(baseTypeCoercionFrom.get(), column.getHiveColumnProjectionInfo())) {
-                        columnMappings.add(regular(column, regularIndex, baseTypeCoercionFrom));
+                            || projectionValidForType(baseTypeCoercionFrom.get(), column.getHiveColumnProjectionInfo(), tableToPartitionMapping.isNestedStructNameBasedMapping())) {
+                        columnMappings.add(regular(column, regularIndex, baseTypeCoercionFrom, tableToPartitionMapping.isNestedStructNameBasedMapping()));
                         regularIndex++;
                     }
                     else {
-                        columnMappings.add(empty(column));
+                        columnMappings.add(empty(column, tableToPartitionMapping.isNestedStructNameBasedMapping()));
                     }
                 }
                 else if (isRowIdColumnHandle(column)) {
@@ -495,8 +524,8 @@ public class HivePageSourceProvider
                             "duplicate column in columns list");
 
                     if (baseTypeCoercionFrom.isEmpty()
-                            || projectionValidForType(baseTypeCoercionFrom.get(), column.getHiveColumnProjectionInfo())) {
-                        columnMappings.add(synthesized(column, regularIndex, baseTypeCoercionFrom));
+                            || projectionValidForType(baseTypeCoercionFrom.get(), column.getHiveColumnProjectionInfo(), tableToPartitionMapping.isNestedStructNameBasedMapping())) {
+                        columnMappings.add(synthesized(column, regularIndex, baseTypeCoercionFrom, tableToPartitionMapping.isNestedStructNameBasedMapping()));
                     }
                     else {
                         throw new RuntimeException("baseTypeCoercisionFrom was empty for the rowId column");
@@ -507,7 +536,8 @@ public class HivePageSourceProvider
                     columnMappings.add(prefilled(
                             column,
                             getPrefilledColumnValue(column, partitionKeysByName.get(column.getName()), path, bucketNumber, estimatedFileSize, fileModifiedTime, partitionName),
-                            baseTypeCoercionFrom));
+                            baseTypeCoercionFrom,
+                            tableToPartitionMapping.isNestedStructNameBasedMapping()));
                 }
             }
 
@@ -519,24 +549,31 @@ public class HivePageSourceProvider
                 }
 
                 if (projectionsForColumn.containsKey(column.getBaseHiveColumnIndex())) {
-                    columnMappings.add(interim(column, regularIndex, tableToPartitionMapping.getCoercion(column.getBaseHiveColumnIndex())));
+                    columnMappings.add(interim(column, regularIndex, tableToPartitionMapping.getCoercion(column.getBaseHiveColumnIndex()), tableToPartitionMapping.isNestedStructNameBasedMapping()));
                 }
                 else {
                     // If coercion does not affect bucket number calculation, coercion doesn't need to be applied here.
                     // Otherwise, read of this partition should not be allowed.
                     // (Alternatively, the partition could be read as an unbucketed partition. This is not implemented.)
-                    columnMappings.add(interim(column, regularIndex, Optional.empty()));
+                    columnMappings.add(interim(column, regularIndex, Optional.empty(), tableToPartitionMapping.isNestedStructNameBasedMapping()));
                 }
                 regularIndex++;
             }
             return columnMappings.build();
         }
 
-        private static boolean projectionValidForType(HiveType baseType, Optional<HiveColumnProjectionInfo> projection)
+        private static boolean projectionValidForType(HiveType baseType, Optional<HiveColumnProjectionInfo> projection, boolean nestedStructNameBasedMapping)
         {
-            List<Integer> dereferences = projection.map(HiveColumnProjectionInfo::getDereferenceIndices).orElse(ImmutableList.of());
-            Optional<HiveType> targetType = baseType.getHiveTypeForDereferences(dereferences);
-            return targetType.isPresent();
+            if (nestedStructNameBasedMapping) {
+                List<String> dereferences = projection.map(HiveColumnProjectionInfo::getDereferenceNames).orElse(ImmutableList.of());
+                Optional<HiveType> targetType = baseType.getHiveTypeForDereferencesNameBased(dereferences);
+                return targetType.isPresent();
+            }
+            else {
+                List<Integer> dereferences = projection.map(HiveColumnProjectionInfo::getDereferenceIndices).orElse(ImmutableList.of());
+                Optional<HiveType> targetType = baseType.getHiveTypeForDereferences(dereferences);
+                return targetType.isPresent();
+            }
         }
 
         public static List<ColumnMapping> extractRegularAndInterimColumnMappings(List<ColumnMapping> columnMappings)
@@ -557,12 +594,19 @@ public class HivePageSourceProvider
                         HiveType fromHiveTypeBase = columnMapping.getBaseTypeCoercionFrom().get();
 
                         Optional<HiveColumnProjectionInfo> newColumnProjectionInfo = columnHandle.getHiveColumnProjectionInfo().map(projectedColumn -> {
-                            HiveType fromHiveType = fromHiveTypeBase.getHiveTypeForDereferences(projectedColumn.getDereferenceIndices()).get();
+                            HiveType fromHiveType;
+                            if (columnMapping.isNestedStructNameBasedMapping()) {
+                                fromHiveType = fromHiveTypeBase.getHiveTypeForDereferencesNameBased(projectedColumn.getDereferenceNames()).get();
+                            }
+                            else {
+                                fromHiveType = fromHiveTypeBase.getHiveTypeForDereferences(projectedColumn.getDereferenceIndices()).get();
+                            }
                             return new HiveColumnProjectionInfo(
                                     projectedColumn.getDereferenceIndices(),
                                     projectedColumn.getDereferenceNames(),
                                     fromHiveType,
-                                    fromHiveType.getType(typeManager));
+                                    fromHiveType.getType(typeManager),
+                                    columnMapping.isNestedStructNameBasedMapping());
                         });
 
                         return new HiveColumnHandle(

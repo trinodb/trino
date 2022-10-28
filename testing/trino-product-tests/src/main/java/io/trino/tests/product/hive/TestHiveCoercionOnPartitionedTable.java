@@ -13,6 +13,8 @@
  */
 package io.trino.tests.product.hive;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.tempto.Requirement;
 import io.trino.tempto.RequirementsProvider;
 import io.trino.tempto.Requires;
@@ -22,6 +24,9 @@ import io.trino.tempto.fulfillment.table.hive.HiveTableDefinition;
 import io.trino.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
@@ -35,6 +40,7 @@ import static java.lang.String.format;
 import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.DOUBLE;
 import static java.util.Locale.ENGLISH;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestHiveCoercionOnPartitionedTable
         extends BaseTestHiveCoercion
@@ -48,6 +54,14 @@ public class TestHiveCoercionOnPartitionedTable
             .build();
 
     public static final HiveTableDefinition HIVE_COERCION_AVRO = avroTableDefinitionBuilder()
+            .setNoData()
+            .build();
+
+    public static final HiveTableDefinition HIVE_COERCION_ORC_NESTED_REORDER = nestedReorderedTableDefinitionBuilder("ORC")
+            .setNoData()
+            .build();
+
+    public static final HiveTableDefinition HIVE_COERCION_AVRO_NESTED_REORDER = nestedReorderedTableDefinitionBuilder("AVRO")
             .setNoData()
             .build();
 
@@ -72,6 +86,7 @@ public class TestHiveCoercionOnPartitionedTable
                         "CREATE TABLE %NAME%(" +
                         // all nested primitive coercions and adding/removing trailing nested fields are covered across row_to_row, list_to_list, and map_to_map
                         "    row_to_row                 STRUCT<keep: STRING, ti2si: TINYINT, si2int: SMALLINT, int2bi: INT, bi2vc: BIGINT, lower2uppercase: BIGINT>, " +
+                        "    row_to_row_nested_reordered          STRUCT<a:INT, b:INT>, " +
                         "    list_to_list               ARRAY<STRUCT<ti2int: TINYINT, si2bi: SMALLINT, bi2vc: BIGINT, remove: STRING>>, " +
                         "    map_to_map                 MAP<TINYINT, STRUCT<ti2bi: TINYINT, int2bi: INT, float2double: " + floatType + ">>, " +
                         "    tinyint_to_smallint        TINYINT," +
@@ -120,6 +135,17 @@ public class TestHiveCoercionOnPartitionedTable
                         "STORED AS AVRO");
     }
 
+    private static HiveTableDefinition.HiveTableDefinitionBuilder nestedReorderedTableDefinitionBuilder(String fileFormat)
+    {
+        return HiveTableDefinition.builder("orc_hive_coercion")
+                .setCreateTableDDLTemplate("" +
+                        "CREATE TABLE %NAME%(" +
+                        "row_to_row_nested_reordered  STRUCT<a:INT, b:INT>" +
+                        ") " +
+                        "PARTITIONED BY (id BIGINT) " +
+                        "STORED AS " + fileFormat);
+    }
+
     public static final class TextRequirements
             implements RequirementsProvider
     {
@@ -137,6 +163,26 @@ public class TestHiveCoercionOnPartitionedTable
         public Requirement getRequirements(Configuration configuration)
         {
             return MutableTableRequirement.builder(HIVE_COERCION_ORC).withState(CREATED).build();
+        }
+    }
+
+    public static final class OrcNestedReorderRequirements
+            implements RequirementsProvider
+    {
+        @Override
+        public Requirement getRequirements(Configuration configuration)
+        {
+            return MutableTableRequirement.builder(HIVE_COERCION_ORC_NESTED_REORDER).withState(CREATED).build();
+        }
+    }
+
+    public static final class AvroNestedReorderRequirements
+            implements RequirementsProvider
+    {
+        @Override
+        public Requirement getRequirements(Configuration configuration)
+        {
+            return MutableTableRequirement.builder(HIVE_COERCION_AVRO_NESTED_REORDER).withState(CREATED).build();
         }
     }
 
@@ -192,6 +238,103 @@ public class TestHiveCoercionOnPartitionedTable
     public void testHiveCoercionOrc()
     {
         doTestHiveCoercion(HIVE_COERCION_ORC);
+    }
+
+    @Requires(OrcNestedReorderRequirements.class)
+    @Test(groups = {HIVE_COERCION, JDBC})
+    public void testHiveCoercionOrcNestedReorder()
+    {
+        String tableName = mutableTableInstanceOf(HIVE_COERCION_ORC_NESTED_REORDER).getNameInDatabase();
+
+        onTrino().executeQuery(format(
+                "INSERT INTO %1$s VALUES " +
+                        "ROW(" +
+                        "  CAST(ROW (1, 4) AS ROW(a INTEGER, b INTEGER)), 1 " +
+                        "), " +
+                        "Row(" +
+                        "  CAST(ROW (5, 6) AS ROW(a INTEGER, b INTEGER)), 1 " +
+                        " )",
+                tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN row_to_row_nested_reordered row_to_row_nested_reordered struct<a:int, c:int, b:int>", tableName));
+
+        assertThat(onTrino().executeQuery("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
+                row("row_to_row_nested_reordered", "row(a integer, c integer, b integer)"),
+                row("id", "bigint"));
+
+        onTrino().executeQuery(format(
+                "INSERT INTO %1$s VALUES " +
+                        "ROW(" +
+                        "  CAST(ROW (100, 300, 400) AS ROW(a INTEGER, c INTEGER, b INTEGER)), 2 " +
+                        "), " +
+                        "Row(" +
+                        "  CAST(ROW (522, 622, 722) AS ROW(a INTEGER, c INTEGER, b INTEGER)), 2 " +
+                        " )",
+                tableName));
+
+        Map<String, List<Object>> expectedNestedFieldTrino = ImmutableMap.of("row_to_row_nested_reordered_field_c",
+                Arrays.asList(null, null, 300, 622));
+        List<String> expectedColumns = ImmutableList.of("row_to_row_nested_reordered_field_c");
+
+        onTrino().executeQuery("SET SESSION hive.orc_use_column_names=false");
+        assertThatThrownBy(() -> assertQueryResults(Engine.TRINO, "SELECT row_to_row_nested_reordered.c row_to_row_nested_reordered_field_c FROM " + tableName,
+                expectedNestedFieldTrino,
+                expectedColumns,
+                4, tableName))
+                .hasMessageContaining(" There is a mismatch between the table and partition schemas");
+
+        onTrino().executeQuery("SET SESSION hive.orc_use_column_names=true");
+        assertQueryResults(Engine.TRINO, "SELECT row_to_row_nested_reordered.c row_to_row_nested_reordered_field_c FROM " + tableName,
+                expectedNestedFieldTrino,
+                expectedColumns,
+                4, tableName);
+
+        // hive1.2 would generate wrong result, 4, 6, 300, 622
+    }
+
+    @Requires(AvroNestedReorderRequirements.class)
+    @Test(groups = {HIVE_COERCION, JDBC})
+    public void testHiveCoercionAvroNestedReorder()
+    {
+        String tableName = mutableTableInstanceOf(HIVE_COERCION_AVRO_NESTED_REORDER).getNameInDatabase();
+
+        onTrino().executeQuery(format(
+                "INSERT INTO %1$s VALUES " +
+                        "ROW(" +
+                        "  CAST(ROW (1, 4) AS ROW(a INTEGER, b INTEGER)), 1 " +
+                        "), " +
+                        "Row(" +
+                        "  CAST(ROW (5, 6) AS ROW(a INTEGER, b INTEGER)), 1 " +
+                        " )",
+                tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN row_to_row_nested_reordered row_to_row_nested_reordered struct<a:int, c:int, b:int>", tableName));
+
+        assertThat(onTrino().executeQuery("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
+                row("row_to_row_nested_reordered", "row(a integer, c integer, b integer)"),
+                row("id", "bigint"));
+
+        onTrino().executeQuery(format(
+                "INSERT INTO %1$s VALUES " +
+                        "ROW(" +
+                        "  CAST(ROW (100, 300, 400) AS ROW(a INTEGER, c INTEGER, b INTEGER)), 2 " +
+                        "), " +
+                        "Row(" +
+                        "  CAST(ROW (522, 622, 722) AS ROW(a INTEGER, c INTEGER, b INTEGER)), 2 " +
+                        " )",
+                tableName));
+
+        Map<String, List<Object>> expectedNestedFieldTrino = ImmutableMap.of("row_to_row_nested_reordered_field_c",
+                Arrays.asList(null, null, 300, 622));
+        List<String> expectedColumns = ImmutableList.of("row_to_row_nested_reordered_field_c");
+
+        assertQueryResults(Engine.TRINO, "SELECT row_to_row_nested_reordered.c row_to_row_nested_reordered_field_c FROM " + tableName,
+                expectedNestedFieldTrino,
+                expectedColumns,
+                4, tableName);
+
+        assertQueryResults(Engine.HIVE, "SELECT row_to_row_nested_reordered.c row_to_row_nested_reordered_field_c FROM " + tableName,
+                expectedNestedFieldTrino,
+                expectedColumns,
+                4, tableName);
     }
 
     @Requires(RcTextRequirements.class)

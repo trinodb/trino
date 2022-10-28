@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.Location;
 import io.trino.plugin.hive.HivePageSourceProvider.BucketAdaptation;
 import io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping;
@@ -29,6 +30,7 @@ import io.trino.plugin.hive.coercions.VarcharToIntegerNumberCoercer;
 import io.trino.plugin.hive.type.Category;
 import io.trino.plugin.hive.type.ListTypeInfo;
 import io.trino.plugin.hive.type.MapTypeInfo;
+import io.trino.plugin.hive.type.StructTypeInfo;
 import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.Page;
@@ -63,6 +65,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Function;
@@ -97,6 +100,7 @@ import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class HivePageSource
@@ -150,12 +154,23 @@ public class HivePageSource
             types[columnIndex] = type;
 
             if (columnMapping.getKind() != EMPTY && columnMapping.getBaseTypeCoercionFrom().isPresent()) {
-                List<Integer> dereferenceIndices = column.getHiveColumnProjectionInfo()
-                        .map(HiveColumnProjectionInfo::getDereferenceIndices)
-                        .orElse(ImmutableList.of());
-                HiveType fromType = columnMapping.getBaseTypeCoercionFrom().get().getHiveTypeForDereferences(dereferenceIndices).get();
+                HiveType fromType;
+
+                if (columnMapping.isNestedStructNameBasedMapping()) {
+                    List<String> dereferenceNames = column.getHiveColumnProjectionInfo()
+                            .map(HiveColumnProjectionInfo::getDereferenceNames)
+                            .orElse(ImmutableList.of());
+                    fromType = columnMapping.getBaseTypeCoercionFrom().get().getHiveTypeForDereferencesNameBased(dereferenceNames).get();
+                }
+                else {
+                    List<Integer> dereferenceIndices = column.getHiveColumnProjectionInfo()
+                            .map(HiveColumnProjectionInfo::getDereferenceIndices)
+                            .orElse(ImmutableList.of());
+                    fromType = columnMapping.getBaseTypeCoercionFrom().get().getHiveTypeForDereferences(dereferenceIndices).get();
+                }
+
                 HiveType toType = columnMapping.getHiveColumnHandle().getHiveType();
-                coercers.add(createCoercer(typeManager, fromType, toType, timestampPrecision));
+                coercers.add(createCoercer(typeManager, fromType, toType, timestampPrecision, columnMapping.isNestedStructNameBasedMapping()));
             }
             else {
                 coercers.add(Optional.empty());
@@ -299,7 +314,7 @@ public class HivePageSource
         return delegate;
     }
 
-    public static Optional<Function<Block, Block>> createCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision timestampPrecision)
+    public static Optional<Function<Block, Block>> createCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision timestampPrecision, boolean nestedStructNameBasedMapping)
     {
         if (fromHiveType.equals(toHiveType)) {
             return Optional.empty();
@@ -366,16 +381,18 @@ public class HivePageSource
             return Optional.of(new LongTimestampToVarcharCoercer(timestampType, varcharType));
         }
         if ((fromType instanceof ArrayType) && (toType instanceof ArrayType)) {
-            return Optional.of(new ListCoercer(typeManager, fromHiveType, toHiveType, timestampPrecision));
+            return Optional.of(new ListCoercer(typeManager, fromHiveType, toHiveType, timestampPrecision, nestedStructNameBasedMapping));
         }
         if ((fromType instanceof MapType) && (toType instanceof MapType)) {
-            return Optional.of(new MapCoercer(typeManager, fromHiveType, toHiveType, timestampPrecision));
+            return Optional.of(new MapCoercer(typeManager, fromHiveType, toHiveType, timestampPrecision, nestedStructNameBasedMapping));
         }
         if ((fromType instanceof RowType) && (toType instanceof RowType)) {
             HiveType fromHiveTypeStruct = (fromHiveType.getCategory() == Category.UNION) ? HiveType.toHiveType(fromType) : fromHiveType;
             HiveType toHiveTypeStruct = (toHiveType.getCategory() == Category.UNION) ? HiveType.toHiveType(toType) : toHiveType;
 
-            return Optional.of(new StructCoercer(typeManager, fromHiveTypeStruct, toHiveTypeStruct, timestampPrecision));
+            return nestedStructNameBasedMapping ?
+                    Optional.of(new NameBasedStructCoercer(typeManager, fromHiveTypeStruct, toHiveTypeStruct, timestampPrecision))
+                    : Optional.of(new IndexBasedStructCoercer(typeManager, fromHiveTypeStruct, toHiveTypeStruct, timestampPrecision));
         }
 
         throw new TrinoException(NOT_SUPPORTED, format("Unsupported coercion from %s to %s", fromHiveType, toHiveType));
@@ -403,7 +420,7 @@ public class HivePageSource
     {
         private final Optional<Function<Block, Block>> elementCoercer;
 
-        public ListCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision timestampPrecision)
+        public ListCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision timestampPrecision, boolean nestedStructNameBasedMapping)
         {
             requireNonNull(typeManager, "typeManager is null");
             requireNonNull(fromHiveType, "fromHiveType is null");
@@ -411,7 +428,7 @@ public class HivePageSource
             requireNonNull(timestampPrecision, "timestampPrecision is null");
             HiveType fromElementHiveType = HiveType.valueOf(((ListTypeInfo) fromHiveType.getTypeInfo()).getListElementTypeInfo().getTypeName());
             HiveType toElementHiveType = HiveType.valueOf(((ListTypeInfo) toHiveType.getTypeInfo()).getListElementTypeInfo().getTypeName());
-            this.elementCoercer = createCoercer(typeManager, fromElementHiveType, toElementHiveType, timestampPrecision);
+            this.elementCoercer = createCoercer(typeManager, fromElementHiveType, toElementHiveType, timestampPrecision, nestedStructNameBasedMapping);
         }
 
         @Override
@@ -439,7 +456,7 @@ public class HivePageSource
         private final Optional<Function<Block, Block>> keyCoercer;
         private final Optional<Function<Block, Block>> valueCoercer;
 
-        public MapCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision timestampPrecision)
+        public MapCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision timestampPrecision, boolean nestedStructNameBasedMapping)
         {
             requireNonNull(typeManager, "typeManager is null");
             requireNonNull(fromHiveType, "fromHiveType is null");
@@ -449,8 +466,8 @@ public class HivePageSource
             HiveType fromValueHiveType = HiveType.valueOf(((MapTypeInfo) fromHiveType.getTypeInfo()).getMapValueTypeInfo().getTypeName());
             HiveType toKeyHiveType = HiveType.valueOf(((MapTypeInfo) toHiveType.getTypeInfo()).getMapKeyTypeInfo().getTypeName());
             HiveType toValueHiveType = HiveType.valueOf(((MapTypeInfo) toHiveType.getTypeInfo()).getMapValueTypeInfo().getTypeName());
-            this.keyCoercer = createCoercer(typeManager, fromKeyHiveType, toKeyHiveType, timestampPrecision);
-            this.valueCoercer = createCoercer(typeManager, fromValueHiveType, toValueHiveType, timestampPrecision);
+            this.keyCoercer = createCoercer(typeManager, fromKeyHiveType, toKeyHiveType, timestampPrecision, nestedStructNameBasedMapping);
+            this.valueCoercer = createCoercer(typeManager, fromValueHiveType, toValueHiveType, timestampPrecision, nestedStructNameBasedMapping);
         }
 
         @Override
@@ -469,13 +486,13 @@ public class HivePageSource
         }
     }
 
-    private static class StructCoercer
+    private static class IndexBasedStructCoercer
             implements Function<Block, Block>
     {
         private final List<Optional<Function<Block, Block>>> coercers;
         private final Block[] nullBlocks;
 
-        public StructCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision timestampPrecision)
+        public IndexBasedStructCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision timestampPrecision)
         {
             requireNonNull(typeManager, "typeManager is null");
             requireNonNull(fromHiveType, "fromHiveType is null");
@@ -491,7 +508,7 @@ public class HivePageSource
                     coercers.add(Optional.empty());
                 }
                 else {
-                    coercers.add(createCoercer(typeManager, fromFieldTypes.get(i), toFieldTypes.get(i), timestampPrecision));
+                    coercers.add(createCoercer(typeManager, fromFieldTypes.get(i), toFieldTypes.get(i), timestampPrecision, false));
                 }
             }
             this.coercers = coercers.build();
@@ -524,6 +541,81 @@ public class HivePageSource
             }
             return RowBlock.fromFieldBlocks(rowBlock.getPositionCount(), Optional.ofNullable(valueIsNull), fields);
         }
+    }
+
+    private static class NameBasedStructCoercer
+            implements Function<Block, Block>
+    {
+        private List<FieldConverter> fieldConverters;
+
+        public NameBasedStructCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision timestampPrecision)
+        {
+            requireNonNull(typeManager, "typeManager is null");
+            requireNonNull(fromHiveType, "fromHiveType is null");
+            requireNonNull(toHiveType, "toHiveType is null");
+            requireNonNull(timestampPrecision, "timestampPrecision is null");
+
+            List<String> fromFieldNames = ((StructTypeInfo) fromHiveType.getTypeInfo()).getAllStructFieldNames();
+            List<String> toFieldNames = ((StructTypeInfo) toHiveType.getTypeInfo()).getAllStructFieldNames();
+            List<HiveType> fromFieldTypes = extractStructFieldTypes(fromHiveType);
+            List<HiveType> toFieldTypes = extractStructFieldTypes(toHiveType);
+
+            ImmutableMap.Builder<String, Integer> fromHiveTypeNameIndexBuilder = ImmutableMap.builder();
+            for (int i = 0; i < fromFieldNames.size(); i++) {
+                fromHiveTypeNameIndexBuilder.put(fromFieldNames.get(i).toLowerCase(ENGLISH), i);
+            }
+            Map<String, Integer> fromHiveTypeNameIndexes = fromHiveTypeNameIndexBuilder.buildOrThrow();
+
+            ImmutableList.Builder<FieldConverter> fieldConverterBuilder = ImmutableList.builder();
+            for (int i = 0; i < toFieldTypes.size(); i++) {
+                String coerceFieldName = toFieldNames.get(i).toLowerCase(ENGLISH);
+                Integer fromHiveTypeNameIndex = fromHiveTypeNameIndexes.get(coerceFieldName);
+
+                if (fromHiveTypeNameIndex == null) {
+                    fieldConverterBuilder.add(new FieldConverter(Optional.empty(),
+                            toFieldTypes.get(i).getType(typeManager).createBlockBuilder(null, 1).appendNull().build(), Optional.empty()));
+                }
+                else {
+                    fieldConverterBuilder.add(new FieldConverter(createCoercer(typeManager, fromFieldTypes.get(fromHiveTypeNameIndex), toFieldTypes.get(i), timestampPrecision, true),
+                            null, Optional.of(fromHiveTypeNameIndex)));
+                }
+            }
+            this.fieldConverters = fieldConverterBuilder.build();
+        }
+
+        @Override
+        public Block apply(Block block)
+        {
+            ColumnarRow rowBlock = toColumnarRow(block);
+            Block[] fields = new Block[fieldConverters.size()];
+            int[] ids = new int[rowBlock.getField(0).getPositionCount()];
+
+            for (int i = 0; i < fieldConverters.size(); i++) {
+                FieldConverter fieldConverter = fieldConverters.get(i);
+                if (fieldConverter.originalIndex().isPresent()) {
+                    if (fieldConverter.optionalCoercer().isPresent()) {
+                        fields[i] = fieldConverter.optionalCoercer().get().apply(rowBlock.getField(fieldConverter.originalIndex().get()));
+                    }
+                    else {
+                        fields[i] = rowBlock.getField(fieldConverter.originalIndex().get());
+                    }
+                }
+                else {
+                    fields[i] = DictionaryBlock.create(ids.length, fieldConverter.nullBlock(), ids);
+                }
+            }
+
+            boolean[] valueIsNull = null;
+            if (rowBlock.mayHaveNull()) {
+                valueIsNull = new boolean[rowBlock.getPositionCount()];
+                for (int i = 0; i < rowBlock.getPositionCount(); i++) {
+                    valueIsNull[i] = rowBlock.isNull(i);
+                }
+            }
+            return RowBlock.fromFieldBlocks(rowBlock.getPositionCount(), Optional.ofNullable(valueIsNull), fields);
+        }
+
+        private record FieldConverter(Optional<Function<Block, Block>> optionalCoercer, Block nullBlock, Optional<Integer> originalIndex) {}
     }
 
     private static final class CoercionLazyBlockLoader

@@ -62,6 +62,11 @@ public final class HiveApplyProjectionUtil
                 (expression instanceof FieldDereference fieldDereference && isPushDownSupported(fieldDereference.getTarget()));
     }
 
+    /**
+     * Generate dereference chain, by recursively referencing FieldDereference expression until the expression became variable type
+     *
+     * @return ProjectedColumnRepresentation records the child variable types and sequences of indexes that used in the lookup
+     */
     public static ProjectedColumnRepresentation createProjectedColumnRepresentation(ConnectorExpression expression)
     {
         ImmutableList.Builder<Integer> ordinals = ImmutableList.builder();
@@ -160,6 +165,7 @@ public final class HiveApplyProjectionUtil
     public static class ProjectedColumnRepresentation
     {
         private final Variable variable;
+        // sequence of indexes to do the lookup from the top level column until it became the primitive variable
         private final List<Integer> dereferenceIndices;
 
         public ProjectedColumnRepresentation(Variable variable, List<Integer> dereferenceIndices)
