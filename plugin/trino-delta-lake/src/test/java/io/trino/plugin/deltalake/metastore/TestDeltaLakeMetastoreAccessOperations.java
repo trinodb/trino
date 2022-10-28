@@ -153,18 +153,24 @@ public class TestDeltaLakeMetastoreAccessOperations
     public void testSelectFromView()
     {
         assertUpdate("CREATE TABLE test_select_view_table (id VARCHAR, age INT)");
-        assertQueryFails(
-                "CREATE VIEW test_select_view_view AS SELECT id, age FROM test_select_view_table",
-                "This connector does not support creating views");
+        assertUpdate("CREATE VIEW test_select_view_view AS SELECT id, age FROM test_select_view_table");
+
+        assertMetastoreInvocations("SELECT * FROM test_select_view_view",
+                ImmutableMultiset.builder()
+                        .addCopies(GET_TABLE, 2)
+                        .build());
     }
 
     @Test
     public void testSelectFromViewWithFilter()
     {
         assertUpdate("CREATE TABLE test_select_view_where_table AS SELECT 2 as age", 1);
-        assertQueryFails(
-                "CREATE VIEW test_select_view_where_view AS SELECT age FROM test_select_view_where_table",
-                "This connector does not support creating views");
+        assertUpdate("CREATE VIEW test_select_view_where_view AS SELECT age FROM test_select_view_where_table");
+
+        assertMetastoreInvocations("SELECT * FROM test_select_view_where_view WHERE age = 2",
+                ImmutableMultiset.builder()
+                        .addCopies(GET_TABLE, 2)
+                        .build());
     }
 
     @Test

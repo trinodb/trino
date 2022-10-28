@@ -423,10 +423,12 @@
                                 <exclude>**/TestDeltaLakeAdlsConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestDeltaLakeGlueMetastore.java</exclude>
                                 <exclude>**/TestDeltaLakeCleanUpGlueMetastore.java</exclude>
+                                <exclude>**/TestDeltaLakeSharedGlueMetastoreViews.java</exclude>
                                 <exclude>**/TestDeltaLakeSharedGlueMetastoreWithTableRedirections.java</exclude>
                                 <exclude>**/TestDeltaLakeTableWithCustomLocationUsingGlueMetastore.java</exclude>
                                 <exclude>**/TestDeltaLakeRenameToWithGlueMetastore.java</exclude>
                                 <exclude>**/TestDeltaLakeRegisterTableProcedureWithGlue.java</exclude>
+                                <exclude>**/TestDeltaLakeViewsGlueMetastore.java</exclude>
                                 <exclude>**/TestDeltaLakeGcsConnectorSmokeTest.java</exclude>
                             </excludes>
                         </configuration>
@@ -474,10 +476,12 @@
                                 <include>**/TestDeltaLakeAdlsConnectorSmokeTest.java</include>
                                 <include>**/TestDeltaLakeGlueMetastore.java</include>
                                 <include>**/TestDeltaLakeCleanUpGlueMetastore.java</include>
+                                <include>**/TestDeltaLakeSharedGlueMetastoreViews.java</include>
                                 <include>**/TestDeltaLakeSharedGlueMetastoreWithTableRedirections.java</include>
                                 <include>**/TestDeltaLakeTableWithCustomLocationUsingGlueMetastore.java</include>
                                 <include>**/TestDeltaLakeRenameToWithGlueMetastore.java</include>
                                 <include>**/TestDeltaLakeRegisterTableProcedureWithGlue.java</include>
+                                <include>**/TestDeltaLakeViewsGlueMetastore.java</include>
                             </includes>
                         </configuration>
                     </plugin>
