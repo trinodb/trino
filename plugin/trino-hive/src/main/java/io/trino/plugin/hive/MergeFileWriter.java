@@ -107,7 +107,7 @@ public class MergeFileWriter
                 .filter(column -> !column.isPartitionKey() && !column.isHidden())
                 .map(column -> insertPage.getBlock(column.getBaseHiveColumnIndex()))
                 .collect(toImmutableList());
-        Block mergedColumnsBlock = RowBlock.fromFieldBlocks(positionCount, Optional.empty(), dataColumns.toArray(new Block[]{}));
+        Block mergedColumnsBlock = RowBlock.fromFieldBlocks(positionCount, Optional.empty(), dataColumns.toArray(new Block[] {}));
         Block currentTransactionBlock = RunLengthEncodedBlock.create(BIGINT, writeId, positionCount);
         Block[] blockArray = {
                 RunLengthEncodedBlock.create(INSERT_OPERATION_BLOCK, positionCount),

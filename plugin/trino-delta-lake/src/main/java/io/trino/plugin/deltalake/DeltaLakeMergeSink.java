@@ -170,7 +170,7 @@ public class DeltaLakeMergeSink
         return completedFuture(fragments);
     }
 
-     // In spite of the name "Delta" Lake, we must rewrite the entire file to delete rows.
+    // In spite of the name "Delta" Lake, we must rewrite the entire file to delete rows.
     private List<Slice> rewriteFile(Path sourcePath, FileDeletion deletion)
     {
         try {
