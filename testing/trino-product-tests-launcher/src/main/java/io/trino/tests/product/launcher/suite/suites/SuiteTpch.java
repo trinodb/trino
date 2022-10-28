@@ -23,7 +23,7 @@ import java.util.List;
 
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
-public class Suite1
+public class SuiteTpch
         extends Suite
 {
     @Override
@@ -31,19 +31,7 @@ public class Suite1
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinode.class)
-                        .withExcludedGroups(
-                                "azure",
-                                "cli",
-                                "jdbc",
-                                "trino_jdbc",
-                                "functions",
-                                "hive_compression",
-                                "large_query",
-                                "profile_specific_tests",
-                                "storage_formats",
-                                "storage_formats_detailed",
-                                "tpch",
-                                "tpcds")
+                        .withGroups("configured_features", "tpch")
                         .build());
     }
 }
