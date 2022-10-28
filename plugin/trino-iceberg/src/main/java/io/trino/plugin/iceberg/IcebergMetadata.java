@@ -160,6 +160,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -1497,9 +1498,14 @@ public class IcebergMetadata
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding not null columns");
         }
         Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
-        icebergTable.updateSchema()
-                .addColumn(column.getName(), toIcebergType(column.getType()), column.getComment())
-                .commit();
+        try {
+            icebergTable.updateSchema()
+                    .addColumn(column.getName(), toIcebergType(column.getType()), column.getComment())
+                    .commit();
+        }
+        catch (RuntimeException e) {
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to add column: " + firstNonNull(e.getMessage(), e), e);
+        }
     }
 
     @Override
@@ -1507,9 +1513,14 @@ public class IcebergMetadata
     {
         IcebergColumnHandle handle = (IcebergColumnHandle) column;
         Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
-        icebergTable.updateSchema()
-                .deleteColumn(handle.getName())
-                .commit();
+        try {
+            icebergTable.updateSchema()
+                    .deleteColumn(handle.getName())
+                    .commit();
+        }
+        catch (RuntimeException e) {
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to drop column: " + firstNonNull(e.getMessage(), e), e);
+        }
     }
 
     @Override
@@ -1517,9 +1528,14 @@ public class IcebergMetadata
     {
         IcebergColumnHandle columnHandle = (IcebergColumnHandle) source;
         Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
-        icebergTable.updateSchema()
-                .renameColumn(columnHandle.getName(), target)
-                .commit();
+        try {
+            icebergTable.updateSchema()
+                    .renameColumn(columnHandle.getName(), target)
+                    .commit();
+        }
+        catch (RuntimeException e) {
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to rename column: " + firstNonNull(e.getMessage(), e), e);
+        }
     }
 
     private List<ColumnMetadata> getColumnMetadatas(Schema schema)
