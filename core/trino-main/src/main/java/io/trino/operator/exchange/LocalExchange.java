@@ -143,18 +143,10 @@ public class LocalExchange
                         partitionChannels,
                         partitionChannelTypes,
                         partitionHashChannel);
-                Function<Page, Page> partitionPagePreparer;
-                if (isSystemPartitioning(partitioning)) {
-                    partitionPagePreparer = identity();
-                }
-                else {
-                    int[] partitionChannelsArray = Ints.toArray(partitionChannels);
-                    partitionPagePreparer = page -> page.getColumns(partitionChannelsArray);
-                }
                 return new PartitioningExchanger(
                         buffers,
                         memoryManager,
-                        partitionPagePreparer,
+                        createPartitionPagePreparer(partitioning, partitionChannels),
                         partitionFunction);
             };
         }
@@ -193,6 +185,19 @@ public class LocalExchange
     LocalExchangeSource getSource(int partitionIndex)
     {
         return sources.get(partitionIndex);
+    }
+
+    private static Function<Page, Page> createPartitionPagePreparer(PartitioningHandle partitioning, List<Integer> partitionChannels)
+    {
+        Function<Page, Page> partitionPagePreparer;
+        if (partitioning.getConnectorHandle() instanceof SystemPartitioningHandle) {
+            partitionPagePreparer = identity();
+        }
+        else {
+            int[] partitionChannelsArray = Ints.toArray(partitionChannels);
+            partitionPagePreparer = page -> page.getColumns(partitionChannelsArray);
+        }
+        return partitionPagePreparer;
     }
 
     private static PartitionFunction createPartitionFunction(
