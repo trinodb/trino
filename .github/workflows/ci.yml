@@ -59,14 +59,17 @@ jobs:
           cache: 'maven'
       - name: Configure Problem Matchers
         run: echo "::add-matcher::.github/problem-matcher.json"
+      - name: Download all Trino dependencies to make sure cache is complete
+        run: |
+          $RETRY $MAVEN dependency:go-offline
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN clean install -B --strict-checksums -V -T C1 -DskipTests -P ci -pl '!:trino-server-rpm'
+          $MAVEN clean install -B --strict-checksums -V -T C1 -DskipTests -P ci -pl '!:trino-server-rpm'
       - name: Test Server RPM
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN verify -B --strict-checksums -P ci -pl :trino-server-rpm
+          $MAVEN verify -B --strict-checksums -P ci -pl :trino-server-rpm
       - name: Clean Maven Output
         run: $MAVEN clean -pl '!:trino-server,!:trino-cli'
       - uses: docker/setup-qemu-action@v2
@@ -74,7 +77,7 @@ jobs:
           platforms: arm64,ppc64le
       - name: Test Docker Image
         run: core/docker/build.sh
-      - name: Clean local Maven repo
+      - name: Remove Trino from local Maven repo to avoid caching it
         # Avoid caching artifacts built in this job, cache should only include dependencies
         if: steps.cache.outputs.cache-hit != 'true'
         run: rm -rf ~/.m2/repository/io/trino/trino-*
@@ -116,6 +119,8 @@ jobs:
           git rebase --verbose --exec "$MAVEN package ${MAVEN_COMPILE_COMMITS} ${MAVEN_GIB} || (git status && false)" $( git merge-base HEAD refs/remotes/origin/${{ github.event.pull_request.base.ref }} )
       # The local repo is broken at this point, and should be abandoned
       - name: Clean local Maven repo
+        # Avoid creating a cache entry because this job doesn't download all dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
         run: rm -rf ~/.m2/repository
 
   error-prone-checks:
@@ -146,6 +151,10 @@ jobs:
           # The main Error Prone run
           $MAVEN ${MAVEN_TEST} -T C1 clean verify -DskipTests -P gib,errorprone-compiler \
             -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+      - name: Clean local Maven repo
+        # Avoid creating a cache entry because this job doesn't download all dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: rm -rf ~/.m2/repository
 
   web-ui-checks:
     runs-on: ubuntu-latest
