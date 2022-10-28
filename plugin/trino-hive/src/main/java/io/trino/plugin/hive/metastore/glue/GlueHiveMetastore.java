@@ -126,6 +126,7 @@ import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
@@ -168,6 +169,7 @@ public class GlueHiveMetastore
     private static final int BATCH_UPDATE_PARTITION_MAX_PAGE_SIZE = 100;
     private static final int AWS_GLUE_GET_PARTITIONS_MAX_RESULTS = 1000;
     private static final Comparator<Iterable<String>> PARTITION_VALUE_COMPARATOR = lexicographical(String.CASE_INSENSITIVE_ORDER);
+    private static final Predicate<com.amazonaws.services.glue.model.Table> VIEWS_FILTER = table -> VIRTUAL_VIEW.name().equals(table.getTableType());
 
     private final HdfsEnvironment hdfsEnvironment;
     private final HdfsContext hdfsContext;
@@ -441,12 +443,16 @@ public class GlueHiveMetastore
     @Override
     public synchronized List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
     {
-        // TODO
-        throw new UnsupportedOperationException("getTablesWithParameter for GlueHiveMetastore is not implemented");
+        return getAllViews(databaseName, table -> parameterValue.equals(firstNonNull(table.getParameters(), ImmutableMap.of()).get(parameterKey)));
     }
 
     @Override
     public List<String> getAllViews(String databaseName)
+    {
+        return getAllViews(databaseName, table -> true);
+    }
+
+    private List<String> getAllViews(String databaseName, Predicate<com.amazonaws.services.glue.model.Table> additionalFilter)
     {
         try {
             List<String> views = getPaginatedResults(
@@ -458,7 +464,7 @@ public class GlueHiveMetastore
                     stats.getGetTables())
                     .map(GetTablesResult::getTableList)
                     .flatMap(List::stream)
-                    .filter(table -> VIRTUAL_VIEW.name().equals(table.getTableType()))
+                    .filter(VIEWS_FILTER.and(additionalFilter))
                     .map(com.amazonaws.services.glue.model.Table::getName)
                     .collect(toImmutableList());
             return views;

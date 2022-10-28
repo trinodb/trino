@@ -38,6 +38,7 @@ import io.airlift.log.Logger;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
+import io.trino.plugin.hive.TrinoViewUtil;
 import io.trino.plugin.hive.ViewAlreadyExistsException;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
@@ -83,6 +84,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveMetadata.STORAGE_TABLE;
+import static io.trino.plugin.hive.TrinoViewUtil.createViewProperties;
 import static io.trino.plugin.hive.ViewReaderUtil.encodeViewData;
 import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
@@ -119,6 +121,7 @@ public class TrinoGlueCatalog
 {
     private static final Logger LOG = Logger.get(TrinoGlueCatalog.class);
 
+    private final String trinoVersion;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final Optional<String> defaultSchemaLocation;
     private final AWSGlueAsync glueClient;
@@ -139,7 +142,8 @@ public class TrinoGlueCatalog
             Optional<String> defaultSchemaLocation,
             boolean useUniqueTableLocation)
     {
-        super(catalogName, typeManager, tableOperationsProvider, trinoVersion, useUniqueTableLocation);
+        super(catalogName, typeManager, tableOperationsProvider, useUniqueTableLocation);
+        this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
         this.stats = requireNonNull(stats, "stats is null");
@@ -460,7 +464,7 @@ public class TrinoGlueCatalog
                 }
 
                 try {
-                    getView(schemaTableName,
+                    TrinoViewUtil.getView(schemaTableName,
                             Optional.ofNullable(table.getViewOriginalText()),
                             table.getTableType(),
                             parameters,
@@ -537,7 +541,11 @@ public class TrinoGlueCatalog
     public void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, boolean replace)
     {
         // If a view is created between listing the existing view and calling createTable, retry
-        TableInput viewTableInput = getViewTableInput(schemaViewName.getTableName(), encodeViewData(definition), session.getUser(), createViewProperties(session));
+        TableInput viewTableInput = getViewTableInput(
+                schemaViewName.getTableName(),
+                encodeViewData(definition),
+                session.getUser(),
+                createViewProperties(session, trinoVersion, TRINO_CREATED_BY_VALUE));
         Failsafe.with(new RetryPolicy<>()
                 .withMaxRetries(3)
                 .withDelay(Duration.ofMillis(100))
@@ -584,7 +592,7 @@ public class TrinoGlueCatalog
                     target.getTableName(),
                     existingView.getViewOriginalText(),
                     existingView.getOwner(),
-                    createViewProperties(session));
+                    createViewProperties(session, trinoVersion, TRINO_CREATED_BY_VALUE));
             CreateTableRequest createTableRequest = new CreateTableRequest()
                     .withDatabaseName(target.getSchemaName())
                     .withTableInput(viewTableInput);
@@ -678,7 +686,7 @@ public class TrinoGlueCatalog
             return Optional.empty();
         }
         com.amazonaws.services.glue.model.Table viewDefinition = table.get();
-        return getView(
+        return TrinoViewUtil.getView(
                 viewName,
                 Optional.ofNullable(viewDefinition.getViewOriginalText()),
                 viewDefinition.getTableType(),
@@ -724,7 +732,11 @@ public class TrinoGlueCatalog
 
     private void updateView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition newDefinition)
     {
-        TableInput viewTableInput = getViewTableInput(viewName.getTableName(), encodeViewData(newDefinition), session.getUser(), createViewProperties(session));
+        TableInput viewTableInput = getViewTableInput(
+                viewName.getTableName(),
+                encodeViewData(newDefinition),
+                session.getUser(),
+                createViewProperties(session, trinoVersion, TRINO_CREATED_BY_VALUE));
 
         try {
             stats.getUpdateTable().call(() ->

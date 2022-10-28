@@ -26,6 +26,7 @@ import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
@@ -70,6 +71,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -539,13 +541,14 @@ public class TestIcebergV2
     {
         TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT);
         IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory);
+        CachingHiveMetastore cachingHiveMetastore = memoizeMetastore(metastore, 1000);
         TrinoCatalog catalog = new TrinoHiveCatalog(
                 new CatalogName("hive"),
-                CachingHiveMetastore.memoizeMetastore(metastore, 1000),
+                cachingHiveMetastore,
+                new TrinoViewHiveMetastore(cachingHiveMetastore, false, "trino-version", "test"),
                 fileSystemFactory,
                 new TestingTypeManager(),
                 tableOperationsProvider,
-                "test",
                 false,
                 false,
                 false);

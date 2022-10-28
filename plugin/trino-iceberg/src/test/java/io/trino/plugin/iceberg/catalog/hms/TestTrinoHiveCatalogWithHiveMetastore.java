@@ -23,7 +23,9 @@ import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
@@ -98,9 +100,11 @@ public class TestTrinoHiveCatalogWithHiveMetastore
                         .setMetastoreTimeout(new Duration(1, MINUTES)))
                 .metastoreClient(dataLake.getHiveHadoop().getHiveMetastoreEndpoint())
                 .build();
+        CachingHiveMetastore metastore = memoizeMetastore(new BridgingHiveMetastore(thriftMetastore), 1000);
         return new TrinoHiveCatalog(
                 new CatalogName("catalog"),
-                memoizeMetastore(new BridgingHiveMetastore(thriftMetastore), 1000),
+                metastore,
+                new TrinoViewHiveMetastore(metastore, false, "trino-version", "Test"),
                 fileSystemFactory,
                 new TestingTypeManager(),
                 new HiveMetastoreTableOperationsProvider(fileSystemFactory, new ThriftMetastoreFactory()
@@ -118,7 +122,6 @@ public class TestTrinoHiveCatalogWithHiveMetastore
                         return thriftMetastore;
                     }
                 }),
-                "trino-version",
                 useUniqueTableLocations,
                 false,
                 false);

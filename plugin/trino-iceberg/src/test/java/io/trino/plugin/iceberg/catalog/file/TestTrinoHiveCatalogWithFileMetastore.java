@@ -16,7 +16,9 @@ package io.trino.plugin.iceberg.catalog.file;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
@@ -62,13 +64,14 @@ public class TestTrinoHiveCatalogWithFileMetastore
     protected TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
     {
         TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT);
+        CachingHiveMetastore cachingHiveMetastore = memoizeMetastore(metastore, 1000);
         return new TrinoHiveCatalog(
                 new CatalogName("catalog"),
-                memoizeMetastore(metastore, 1000),
+                cachingHiveMetastore,
+                new TrinoViewHiveMetastore(cachingHiveMetastore, false, "trino-version", "test"),
                 fileSystemFactory,
                 new TestingTypeManager(),
                 new FileMetastoreTableOperationsProvider(fileSystemFactory),
-                "trino-version",
                 useUniqueTableLocations,
                 false,
                 false);
