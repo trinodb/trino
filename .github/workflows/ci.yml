@@ -756,6 +756,9 @@ jobs:
             - suite-delta-lake-databricks104
             - suite-delta-lake-databricks113
             - suite-gcs
+            - suite-clients
+            - suite-functions
+            - suite-tpch
           exclude:
             - config: default
               ignore exclusion if: >-
