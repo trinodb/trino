@@ -15,11 +15,13 @@ package io.trino.plugin.postgresql;
 
 import io.trino.plugin.jdbc.JdbcPlugin;
 
+import static io.airlift.configuration.ConfigurationAwareModule.combine;
+
 public class PostgreSqlPlugin
         extends JdbcPlugin
 {
     public PostgreSqlPlugin()
     {
-        super("postgresql", new PostgreSqlClientModule());
+        super("postgresql", combine(new PostgreSqlClientModule(), new PostgreSqlConnectionFactoryModule()));
     }
 }
