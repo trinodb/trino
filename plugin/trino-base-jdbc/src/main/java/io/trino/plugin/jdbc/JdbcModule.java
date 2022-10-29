@@ -37,6 +37,7 @@ import java.util.concurrent.ExecutorService;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -98,7 +99,11 @@ public class JdbcModule
                 .annotatedWith(ForLazyConnectionFactory.class)
                 .to(Key.get(ConnectionFactory.class, StatsCollecting.class))
                 .in(Scopes.SINGLETON);
-        binder.bind(ConnectionFactory.class).to(LazyConnectionFactory.class).in(Scopes.SINGLETON);
+        install(conditionalModule(
+                BaseJdbcConfig.class,
+                BaseJdbcConfig::isReuseConnection,
+                new ReusableConnectionFactoryModule(),
+                innerBinder -> innerBinder.bind(ConnectionFactory.class).to(LazyConnectionFactory.class).in(Scopes.SINGLETON)));
 
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class));
 
