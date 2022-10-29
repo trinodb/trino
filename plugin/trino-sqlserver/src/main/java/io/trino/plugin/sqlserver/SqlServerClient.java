@@ -208,7 +208,7 @@ public class SqlServerClient
             QueryBuilder queryBuilder,
             IdentifierMapping identifierMapping)
     {
-        super(config, "\"", connectionFactory, queryBuilder, identifierMapping, true);
+        super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, true);
 
         this.statisticsEnabled = statisticsConfig.isEnabled();
 
