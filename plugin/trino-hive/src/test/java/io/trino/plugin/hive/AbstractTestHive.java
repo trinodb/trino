@@ -2624,8 +2624,7 @@ public abstract class AbstractTestHive
         try {
             try (Transaction transaction = newTransaction()) {
                 LocationService locationService = getLocationService();
-                LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName, Optional.empty());
-                targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
+                targetPath = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName);
                 Table table = createSimpleTable(schemaTableName, columns, session, targetPath, "q1");
                 transaction.getMetastore()
                         .createTable(session, table, privileges, Optional.empty(), Optional.empty(), false, EMPTY_TABLE_STATISTICS, false);
@@ -2961,6 +2960,57 @@ public abstract class AbstractTestHive
             SchemaTableName temporaryCreateEmptyTable = temporaryTable("create_empty");
             try {
                 doCreateEmptyTable(temporaryCreateEmptyTable, storageFormat, CREATE_TABLE_COLUMNS);
+            }
+            finally {
+                dropTable(temporaryCreateEmptyTable);
+            }
+        }
+    }
+
+    @Test
+    public void testCreateEmptyTableShouldNotCreateStagingDirectory()
+            throws IOException
+    {
+        for (HiveStorageFormat storageFormat : createTableFormats) {
+            SchemaTableName temporaryCreateEmptyTable = temporaryTable("create_empty");
+            try {
+                List<Column> columns = ImmutableList.of(new Column("test", HIVE_STRING, Optional.empty()));
+                try (Transaction transaction = newTransaction()) {
+                    final String temporaryStagingPrefix = "hive-temporary-staging-prefix-" + UUID.randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
+                    ConnectorSession session = newSession(ImmutableMap.of("hive.temporary_staging_directory_path", temporaryStagingPrefix));
+                    String tableOwner = session.getUser();
+                    String schemaName = temporaryCreateEmptyTable.getSchemaName();
+                    String tableName = temporaryCreateEmptyTable.getTableName();
+                    LocationService locationService = getLocationService();
+                    Path targetPath = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName);
+                    Table.Builder tableBuilder = Table.builder()
+                            .setDatabaseName(schemaName)
+                            .setTableName(tableName)
+                            .setOwner(Optional.of(tableOwner))
+                            .setTableType(MANAGED_TABLE.name())
+                            .setParameters(ImmutableMap.of(
+                                    PRESTO_VERSION_NAME, TEST_SERVER_VERSION,
+                                    PRESTO_QUERY_ID_NAME, session.getQueryId()))
+                            .setDataColumns(columns);
+                    tableBuilder.getStorageBuilder()
+                            .setLocation(targetPath.toString())
+                            .setStorageFormat(StorageFormat.create(storageFormat.getSerde(), storageFormat.getInputFormat(), storageFormat.getOutputFormat()));
+                    transaction.getMetastore().createTable(
+                            session,
+                            tableBuilder.build(),
+                            testingPrincipalPrivilege(tableOwner, session.getUser()),
+                            Optional.empty(),
+                            Optional.empty(),
+                            true,
+                            EMPTY_TABLE_STATISTICS,
+                            false);
+                    transaction.commit();
+
+                    HdfsContext context = new HdfsContext(session);
+                    Path temporaryRoot = new Path(targetPath, temporaryStagingPrefix);
+                    FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, temporaryRoot);
+                    assertFalse(fileSystem.exists(temporaryRoot), format("Temporary staging directory %s is created.", temporaryRoot));
+                }
             }
             finally {
                 dropTable(temporaryCreateEmptyTable);
@@ -3319,8 +3369,7 @@ public abstract class AbstractTestHive
             String tableOwner = session.getUser();
             String schemaName = schemaTableName.getSchemaName();
             String tableName = schemaTableName.getTableName();
-            LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName, Optional.empty());
-            Path targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
+            Path targetPath = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName);
             //create table whose storage format is null
             Table.Builder tableBuilder = Table.builder()
                     .setDatabaseName(schemaName)
@@ -5411,8 +5460,7 @@ public abstract class AbstractTestHive
             String tableName = schemaTableName.getTableName();
 
             LocationService locationService = getLocationService();
-            LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName, Optional.empty());
-            targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
+            targetPath = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName);
 
             ImmutableMap.Builder<String, String> tableParamBuilder = ImmutableMap.<String, String>builder()
                     .put(PRESTO_VERSION_NAME, TEST_SERVER_VERSION)
