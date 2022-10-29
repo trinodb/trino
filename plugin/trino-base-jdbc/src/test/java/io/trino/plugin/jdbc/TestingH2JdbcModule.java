@@ -72,8 +72,13 @@ public class TestingH2JdbcModule
     public static Map<String, String> createProperties()
     {
         return ImmutableMap.<String, String>builder()
-                .put("connection-url", format("jdbc:h2:mem:test%s;DB_CLOSE_DELAY=-1", System.nanoTime() + ThreadLocalRandom.current().nextLong()))
+                .put("connection-url", createH2ConnectionUrl())
                 .buildOrThrow();
+    }
+
+    public static String createH2ConnectionUrl()
+    {
+        return format("jdbc:h2:mem:test%s;DB_CLOSE_DELAY=-1", System.nanoTime() + ThreadLocalRandom.current().nextLong());
     }
 
     public interface TestingH2JdbcClientFactory
