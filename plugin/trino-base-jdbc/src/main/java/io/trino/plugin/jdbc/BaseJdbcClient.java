@@ -755,6 +755,7 @@ public abstract class BaseJdbcClient
     protected void renameTable(ConnectorSession session, String catalogName, String remoteSchemaName, String remoteTableName, SchemaTableName newTable)
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
+            verify(connection.getAutoCommit());
             String newSchemaName = newTable.getSchemaName();
             String newTableName = newTable.getTableName();
             verifyTableName(connection.getMetaData(), newTableName);
@@ -844,6 +845,7 @@ public abstract class BaseJdbcClient
         closer.register(() -> dropTable(session, temporaryTable));
 
         try (Connection connection = getConnection(session, handle)) {
+            verify(connection.getAutoCommit());
             String columns = handle.getColumnNames().stream()
                     .map(this::quoted)
                     .collect(joining(", "));
