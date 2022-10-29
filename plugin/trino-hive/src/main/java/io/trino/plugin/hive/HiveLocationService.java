@@ -54,7 +54,20 @@ public class HiveLocationService
     }
 
     @Override
-    public LocationHandle forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName, Optional<Path> externalLocation)
+    public Path forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName)
+    {
+        HdfsContext context = new HdfsContext(session);
+        Path targetPath = getTableDefaultLocation(context, metastore, hdfsEnvironment, schemaName, tableName);
+
+        // verify the target directory for table
+        if (pathExists(context, hdfsEnvironment, targetPath)) {
+            throw new TrinoException(HIVE_PATH_ALREADY_EXISTS, format("Target directory for table '%s.%s' already exists: %s", schemaName, tableName, targetPath));
+        }
+        return targetPath;
+    }
+
+    @Override
+    public LocationHandle forNewTableAsSelect(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName, Optional<Path> externalLocation)
     {
         HdfsContext context = new HdfsContext(session);
         Path targetPath = externalLocation.orElseGet(() -> getTableDefaultLocation(context, metastore, hdfsEnvironment, schemaName, tableName));
