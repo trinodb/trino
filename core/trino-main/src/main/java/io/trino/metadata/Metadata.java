@@ -296,6 +296,12 @@ public interface Metadata
     void finishStatisticsCollection(Session session, AnalyzeTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics);
 
     /**
+     * Notify a connector that query is about to start the execution, so planning is over.
+     * An exception thrown in this method will fail the query.
+     */
+    void startingQuery(Session session);
+
+    /**
      * Cleanup after a query. This is the very last notification after the query finishes, regardless if it succeeds or fails.
      * An exception thrown in this method will not affect the result of the query.
      */

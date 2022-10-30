@@ -755,6 +755,12 @@ public class DefaultJdbcMetadata
     }
 
     @Override
+    public void startingQuery(ConnectorSession session)
+    {
+        onQueryEvent(queryEventListener -> queryEventListener.startingQuery(session), "Query starting failed");
+    }
+
+    @Override
     public void cleanupQuery(ConnectorSession session)
     {
         onQueryEvent(queryEventListener -> queryEventListener.cleanupQuery(session), "Query cleanup failed");

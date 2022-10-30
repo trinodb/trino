@@ -538,6 +538,11 @@ public interface ConnectorMetadata
     default void beginQuery(ConnectorSession session) {}
 
     /**
+     * Start a query execution. This notification is triggered after all metadata access and before data processing (execution).
+     */
+    default void startingQuery(ConnectorSession session) {}
+
+    /**
      * Cleanup after a query. This is the very last notification after the query finishes, whether it succeeds or fails.
      * An exception thrown in this method will not affect the result of the query.
      */

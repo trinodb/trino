@@ -480,6 +480,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void startingQuery(ConnectorSession session)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.startingQuery(session);
+        }
+    }
+
+    @Override
     public void cleanupQuery(ConnectorSession session)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

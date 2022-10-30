@@ -382,6 +382,12 @@ public class CountingAccessMetadata
     }
 
     @Override
+    public void startingQuery(Session session)
+    {
+        delegate.startingQuery(session);
+    }
+
+    @Override
     public void cleanupQuery(Session session)
     {
         delegate.cleanupQuery(session);

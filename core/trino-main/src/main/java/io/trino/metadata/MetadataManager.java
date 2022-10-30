@@ -826,6 +826,15 @@ public final class MetadataManager
     }
 
     @Override
+    public void startingQuery(Session session)
+    {
+        QueryCatalogs queryCatalogs = catalogsByQueryId.get(session.getQueryId());
+        if (queryCatalogs != null) {
+            queryCatalogs.startingQuery();
+        }
+    }
+
+    @Override
     public Optional<TableLayout> getNewTableLayout(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
@@ -2495,6 +2504,15 @@ public final class MetadataManager
             if (catalogs.putIfAbsent(catalogMetadata.getCatalogHandle(), catalogMetadata) == null) {
                 ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogHandle());
                 catalogMetadata.getMetadata(session).beginQuery(connectorSession);
+            }
+        }
+
+        private synchronized void startingQuery()
+        {
+            checkState(!finished, "Query is already finished");
+            for (CatalogMetadata catalogMetadata : catalogs.values()) {
+                ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogHandle());
+                catalogMetadata.getMetadata(session).startingQuery(connectorSession);
             }
         }
 

@@ -132,6 +132,7 @@ public class QueryStateMachine
     private final QueryStateTimer queryStateTimer;
 
     private final StateMachine<QueryState> queryState;
+    private final AtomicBoolean queryStarting = new AtomicBoolean();
     private final AtomicBoolean queryCleanedUp = new AtomicBoolean();
 
     private final AtomicReference<String> setCatalog = new AtomicReference<>();
@@ -905,7 +906,17 @@ public class QueryStateMachine
     public boolean transitionToRunning()
     {
         queryStateTimer.beginRunning();
-        return queryState.setIf(RUNNING, currentState -> currentState.ordinal() < RUNNING.ordinal());
+        if (!queryState.setIf(RUNNING, currentState -> currentState.ordinal() < RUNNING.ordinal())) {
+            return false;
+        }
+
+        try {
+            startingQuery();
+        }
+        catch (Exception e) {
+            transitionToFailed(e);
+        }
+        return true;
     }
 
     public boolean transitionToFinishing()
@@ -1038,6 +1049,14 @@ public class QueryStateMachine
         }
 
         return canceled;
+    }
+
+    private void startingQuery()
+    {
+        // only execute starting query method once
+        if (queryStarting.compareAndSet(false, true)) {
+            metadata.startingQuery(session);
+        }
     }
 
     private void cleanupQuery()

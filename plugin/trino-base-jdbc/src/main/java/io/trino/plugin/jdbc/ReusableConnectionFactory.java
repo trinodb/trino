@@ -104,7 +104,18 @@ public final class ReusableConnectionFactory
     public void beginQuery(ConnectorSession session) {}
 
     @Override
+    public void startingQuery(ConnectorSession session)
+    {
+        closeConnections(session);
+    }
+
+    @Override
     public void cleanupQuery(ConnectorSession session)
+    {
+        closeConnections(session);
+    }
+
+    private void closeConnections(ConnectorSession session)
     {
         Connection connection = connections.asMap().remove(session.getQueryId());
         if (connection != null) {

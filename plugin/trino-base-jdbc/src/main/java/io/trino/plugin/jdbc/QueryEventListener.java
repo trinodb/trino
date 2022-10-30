@@ -19,5 +19,7 @@ public interface QueryEventListener
 {
     void beginQuery(ConnectorSession session);
 
+    void startingQuery(ConnectorSession session);
+
     void cleanupQuery(ConnectorSession session);
 }
