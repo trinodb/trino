@@ -331,7 +331,7 @@ public class Driver
                 // Driver thread was interrupted which should only happen if the task is already finished.
                 // If this becomes the actual cause of a failed query there is a bug in the task state machine.
                 Exception exception = new Exception("Interrupted By");
-                exception.setStackTrace(interrupterStack.stream().toArray(StackTraceElement[]::new));
+                exception.setStackTrace(interrupterStack.toArray(StackTraceElement[]::new));
                 TrinoException newException = new TrinoException(GENERIC_INTERNAL_ERROR, "Driver was interrupted", exception);
                 newException.addSuppressed(t);
                 driverContext.failed(newException);
