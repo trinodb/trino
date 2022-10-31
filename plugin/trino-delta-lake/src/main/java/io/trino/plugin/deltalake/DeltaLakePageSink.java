@@ -405,6 +405,7 @@ public class DeltaLakePageSink
                         dataColumnHandles);
 
                 writers.set(writerIndex, writer);
+                memoryUsage += writer.getMemoryUsage();
             }
             catch (IOException e) {
                 throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Unable to create writer for location: " + outputPath, e);
