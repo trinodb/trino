@@ -85,6 +85,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.base.expression.ConnectorExpressions.and;
 import static io.trino.plugin.base.expression.ConnectorExpressions.extractConjuncts;
+import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isAggregationPushdownEnabled;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isComplexExpressionPushdown;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isJoinPushdownEnabled;
@@ -104,13 +105,15 @@ public class DefaultJdbcMetadata
 
     private final JdbcClient jdbcClient;
     private final boolean precalculateStatisticsForPushdown;
+    private final Set<JdbcQueryEventListener> jdbcQueryEventListeners;
 
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
 
-    public DefaultJdbcMetadata(JdbcClient jdbcClient, boolean precalculateStatisticsForPushdown)
+    public DefaultJdbcMetadata(JdbcClient jdbcClient, boolean precalculateStatisticsForPushdown, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.precalculateStatisticsForPushdown = precalculateStatisticsForPushdown;
+        this.jdbcQueryEventListeners = ImmutableSet.copyOf(requireNonNull(jdbcQueryEventListeners, "queryEventListeners is null"));
     }
 
     @Override
@@ -743,6 +746,36 @@ public class DefaultJdbcMetadata
         JdbcOutputTableHandle handle = (JdbcOutputTableHandle) tableHandle;
         jdbcClient.commitCreateTable(session, handle, getSuccessfulPageSinkIds(fragments));
         return Optional.empty();
+    }
+
+    @Override
+    public void beginQuery(ConnectorSession session)
+    {
+        onQueryEvent(jdbcQueryEventListener -> jdbcQueryEventListener.beginQuery(session), "Query begin failed");
+    }
+
+    @Override
+    public void cleanupQuery(ConnectorSession session)
+    {
+        onQueryEvent(jdbcQueryEventListener -> jdbcQueryEventListener.cleanupQuery(session), "Query cleanup failed");
+    }
+
+    private void onQueryEvent(Consumer<JdbcQueryEventListener> queryEventListenerConsumer, String errorMessage)
+    {
+        List<RuntimeException> exceptions = new ArrayList<>();
+        for (JdbcQueryEventListener jdbcQueryEventListener : jdbcQueryEventListeners) {
+            try {
+                queryEventListenerConsumer.accept(jdbcQueryEventListener);
+            }
+            catch (RuntimeException exception) {
+                exceptions.add(exception);
+            }
+        }
+        if (!exceptions.isEmpty()) {
+            TrinoException trinoException = new TrinoException(JDBC_NON_TRANSIENT_ERROR, errorMessage);
+            exceptions.forEach(trinoException::addSuppressed);
+            throw trinoException;
+        }
     }
 
     private void setRollback(Runnable action)
