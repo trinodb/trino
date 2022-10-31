@@ -10,8 +10,15 @@ defaults:
   run:
     shell: bash --noprofile --norc -euo pipefail {0}
 
+permissions: {}
 jobs:
   annotate:
+    permissions:
+      #  to list workflow run artifacts
+      actions: read
+      #  to publish result as PR check (scacap/action-surefire-report)
+      checks: write
+
     if: github.repository_owner == 'trinodb'
     runs-on: ubuntu-latest
     steps:

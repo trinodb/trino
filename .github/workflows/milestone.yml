@@ -8,8 +8,20 @@ defaults:
   run:
     shell: bash --noprofile --norc -euo pipefail {0}
 
+permissions:
+  #  to fetch code (actions/checkout)
+  contents: read
+
 jobs:
   set-milestone:
+    permissions:
+      #  to fetch code (actions/checkout)
+      contents: read
+      #  to list pull requests
+      pull-requests: read
+      #  to create a milestone
+      issues: write
+
     if: github.repository_owner == 'trinodb'
     runs-on: ubuntu-latest
     steps:

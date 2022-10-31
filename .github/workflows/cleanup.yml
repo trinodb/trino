@@ -6,9 +6,15 @@ on:
     types:
       - closed
 
+permissions: {}
+
 # NOTE: Do not check out/execute code from the PR since a read-write token is present due to pull_request_target
 jobs:
   cancel:
+    permissions:
+      #  to cancel/stop running workflows (styfle/cancel-workflow-action)
+      actions: write
+
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
