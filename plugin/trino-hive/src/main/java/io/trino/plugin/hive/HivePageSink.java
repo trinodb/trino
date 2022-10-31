@@ -256,21 +256,23 @@ public class HivePageSink
 
     private void doAbort()
     {
-        Optional<Exception> rollbackException = Optional.empty();
+        RuntimeException rollbackException = null;
         for (HiveWriter writer : Iterables.concat(writers, closedWriters)) {
-            // writers can contain nulls if an exception is thrown when doAppend expends the writer list
-            if (writer != null) {
-                try {
+            try {
+                // writers can contain nulls if an exception is thrown when doAppend expends the writer list
+                if (writer != null) {
                     writer.rollback();
                 }
-                catch (Exception e) {
-                    log.warn("exception '%s' while rollback on %s", e, writer);
-                    rollbackException = Optional.of(e);
+            }
+            catch (Throwable t) {
+                if (rollbackException == null) {
+                    rollbackException = new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive");
                 }
+                rollbackException.addSuppressed(t);
             }
         }
-        if (rollbackException.isPresent()) {
-            throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", rollbackException.get());
+        if (rollbackException != null) {
+            throw rollbackException;
         }
     }
 
