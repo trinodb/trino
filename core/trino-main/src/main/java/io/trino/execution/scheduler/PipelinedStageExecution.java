@@ -43,7 +43,6 @@ import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.util.Failures;
-import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -574,7 +573,6 @@ public class PipelinedStageExecution
 
         private final StageId stageId;
         private final StateMachine<State> state;
-        private final AtomicReference<DateTime> schedulingComplete = new AtomicReference<>();
         private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
 
         private PipelinedStageStateMachine(StageId stageId, Executor executor)
@@ -602,7 +600,6 @@ public class PipelinedStageExecution
 
         public boolean transitionToScheduled()
         {
-            schedulingComplete.compareAndSet(null, DateTime.now());
             return state.setIf(SCHEDULED, currentState -> currentState == PLANNED || currentState == SCHEDULING || currentState == SCHEDULING_SPLITS);
         }
 
