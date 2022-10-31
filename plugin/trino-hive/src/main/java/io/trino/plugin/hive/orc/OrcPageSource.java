@@ -417,7 +417,7 @@ public class OrcPageSource
 
     /**
      * This ColumnAdaptation creates a RowBlock column containing the three
-     * ACID columms - - originalTransaction, rowId, bucket - - and
+     * ACID columns - - originalTransaction, rowId, bucket - - and
      * all the columns not changed by the UPDATE statement.
      */
     private static final class UpdatedRowAdaptation
@@ -441,7 +441,7 @@ public class OrcPageSource
 
     /**
      * This ColumnAdaptation creates a RowBlock column containing the three
-     * ACID columms derived from the startingRowId and bucketId, and a special
+     * ACID columns derived from the startingRowId and bucketId, and a special
      * original files transaction block, plus a block containing
      * all the columns not changed by the UPDATE statement.
      */
