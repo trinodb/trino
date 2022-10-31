@@ -29,6 +29,7 @@ import org.apache.parquet.schema.MessageType;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
@@ -37,7 +38,6 @@ import java.lang.management.ThreadMXBean;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -55,7 +55,7 @@ public class ParquetFileWriter
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
     private final ParquetWriter parquetWriter;
-    private final Callable<Void> rollbackAction;
+    private final Closeable rollbackAction;
     private final int[] fileInputColumnIndexes;
     private final List<Block> nullBlocks;
     private final Optional<Supplier<ParquetDataSource>> validationInputFactory;
@@ -63,7 +63,7 @@ public class ParquetFileWriter
 
     public ParquetFileWriter(
             OutputStream outputStream,
-            Callable<Void> rollbackAction,
+            Closeable rollbackAction,
             List<Type> fileColumnTypes,
             List<String> fileColumnNames,
             MessageType messageType,
@@ -145,7 +145,7 @@ public class ParquetFileWriter
         }
         catch (IOException | UncheckedIOException e) {
             try {
-                rollbackAction.call();
+                rollbackAction.close();
             }
             catch (Exception ignored) {
                 // ignore
@@ -175,7 +175,7 @@ public class ParquetFileWriter
                 parquetWriter.close();
             }
             finally {
-                rollbackAction.call();
+                rollbackAction.close();
             }
         }
         catch (Exception e) {

@@ -49,6 +49,7 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.joda.time.DateTimeZone;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -57,7 +58,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Verify.verify;
@@ -469,10 +469,7 @@ public class DeltaLakePageSink
 
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getIdentity(), path, conf);
-            Callable<Void> rollbackAction = () -> {
-                fileSystem.delete(path, false);
-                return null;
-            };
+            Closeable rollbackAction = () -> fileSystem.delete(path, false);
 
             List<Type> parquetTypes = dataColumnTypes.stream()
                     .map(type -> {

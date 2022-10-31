@@ -23,11 +23,11 @@ import org.apache.iceberg.io.InputFile;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.MessageType;
 
+import java.io.Closeable;
 import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.Callable;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.parquet.ParquetUtil.fileMetrics;
@@ -43,7 +43,7 @@ public class IcebergParquetFileWriter
     public IcebergParquetFileWriter(
             MetricsConfig metricsConfig,
             OutputStream outputStream,
-            Callable<Void> rollbackAction,
+            Closeable rollbackAction,
             List<Type> fileColumnTypes,
             List<String> fileColumnNames,
             MessageType messageType,
