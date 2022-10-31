@@ -170,8 +170,9 @@ public class OrcPageSource
 
         completedPositions += page.getPositionCount();
 
-        OptionalLong startRowId = originalFileRowId.isPresent() ?
-                OptionalLong.of(originalFileRowId.get() + recordReader.getFilePosition()) : OptionalLong.empty();
+        OptionalLong startRowId = originalFileRowId
+                .map(rowId -> OptionalLong.of(rowId + recordReader.getFilePosition()))
+                .orElseGet(OptionalLong::empty);
 
         if (deletedRows.isPresent()) {
             boolean deletedRowsYielded = !deletedRows.get().loadOrYield();
