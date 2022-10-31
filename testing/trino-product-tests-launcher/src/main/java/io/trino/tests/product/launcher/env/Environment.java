@@ -349,7 +349,7 @@ public final class Environment
         }
 
         if (!container.isHealthy()) {
-            log.warn("Container %s is not healthy", container.getLogicalName());
+            log.warn("Container %s is not healthy, logs of container healthcheck:\n%s", container.getLogicalName(), container.getCurrentContainerInfo().getState().getHealth().getLog());
             return false;
         }
 
