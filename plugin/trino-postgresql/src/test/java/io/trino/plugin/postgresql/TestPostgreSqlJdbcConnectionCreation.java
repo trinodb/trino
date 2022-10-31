@@ -88,8 +88,8 @@ public class TestPostgreSqlJdbcConnectionCreation
                 {"SELECT * FROM information_schema.columns", 5, Optional.empty()},
                 {"SELECT * FROM nation", 3, Optional.empty()},
                 {"SELECT * FROM TABLE (system.query(query => 'SELECT * FROM tpch.nation'))", 2, Optional.empty()},
-                {"CREATE TABLE copy_of_nation AS SELECT * FROM nation", 17, Optional.empty()},
-                {"INSERT INTO copy_of_nation SELECT * FROM nation", 15, Optional.empty()},
+                {"CREATE TABLE copy_of_nation AS SELECT * FROM nation", 15, Optional.empty()},
+                {"INSERT INTO copy_of_nation SELECT * FROM nation", 13, Optional.empty()},
                 {"DELETE FROM copy_of_nation WHERE nationkey = 3", 4, Optional.empty()},
                 {"UPDATE copy_of_nation SET name = 'POLAND' WHERE nationkey = 1", 2, Optional.of("This connector does not support updates")},
                 {"MERGE INTO copy_of_nation n USING region r ON r.regionkey= n.regionkey WHEN MATCHED THEN DELETE", 2, Optional.of("This connector does not support merges")},
@@ -106,7 +106,10 @@ public class TestPostgreSqlJdbcConnectionCreation
             ConnectionCountingConnectionFactory connectionCountingConnectionFactory)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession()).build();
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
+                // to make sure we always open connections in the same way
+                .setCoordinatorProperties(ImmutableMap.of("node-scheduler.include-coordinator", "false"))
+                .build();
         try {
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.installPlugin(new JdbcPlugin(
