@@ -48,7 +48,12 @@ public class TestJdbcConnectionCreation
         String connectionUrl = createH2ConnectionUrl();
         DriverConnectionFactory delegate = new DriverConnectionFactory(new Driver(), connectionUrl, new Properties(), new EmptyCredentialProvider());
         this.connectionFactory = new ConnectionCountingConnectionFactory(delegate);
-        return createH2QueryRunner(ImmutableList.of(NATION, REGION), ImmutableMap.of("connection-url", connectionUrl), new TestingConnectionH2Module(connectionFactory));
+        return createH2QueryRunner(
+                ImmutableList.of(NATION, REGION),
+                ImmutableMap.of("connection-url", connectionUrl),
+                // to make sure we always open connections in the same way
+                ImmutableMap.of("node-scheduler.include-coordinator", "false"),
+                new TestingConnectionH2Module(connectionFactory));
     }
 
     @Test(dataProvider = "testCases")
@@ -72,8 +77,8 @@ public class TestJdbcConnectionCreation
                 {"SELECT * FROM information_schema.tables", 1, Optional.empty()},
                 {"SELECT * FROM information_schema.columns", 5, Optional.empty()},
                 {"SELECT * FROM nation", 3, Optional.empty()},
-                {"CREATE TABLE copy_of_nation AS SELECT * FROM nation", 13, Optional.empty()},
-                {"INSERT INTO copy_of_nation SELECT * FROM nation", 14, Optional.empty()},
+                {"CREATE TABLE copy_of_nation AS SELECT * FROM nation", 11, Optional.empty()},
+                {"INSERT INTO copy_of_nation SELECT * FROM nation", 12, Optional.empty()},
                 {"DELETE FROM copy_of_nation WHERE nationkey = 3", 3, Optional.empty()},
                 {"UPDATE copy_of_nation SET name = 'POLAND' WHERE nationkey = 1", 2, Optional.of("This connector does not support updates")},
                 {"MERGE INTO copy_of_nation n USING region r ON r.regionkey= n.regionkey WHEN MATCHED THEN DELETE", 2, Optional.of("This connector does not support merges")},
