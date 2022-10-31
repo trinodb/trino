@@ -163,13 +163,8 @@ public class RcFileFileWriter
     @Override
     public void rollback()
     {
-        try {
-            try {
-                rcFileWriter.close();
-            }
-            finally {
-                rollbackAction.close();
-            }
+        try (rollbackAction) {
+            rcFileWriter.close();
         }
         catch (Exception e) {
             throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", e);

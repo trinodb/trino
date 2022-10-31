@@ -38,6 +38,7 @@ import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
@@ -206,18 +207,18 @@ public class RecordFileWriter
     @Override
     public void rollback()
     {
-        try {
-            try {
-                recordWriter.close(true);
-            }
-            finally {
-                // perform explicit deletion here as implementations of RecordWriter.close() often ignore the abort flag.
-                path.getFileSystem(conf).delete(path, false);
-            }
+        Closeable rollbackAction = createRollbackAction(path, conf);
+        try (rollbackAction) {
+            recordWriter.close(true);
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", e);
         }
+    }
+
+    private static Closeable createRollbackAction(Path path, JobConf conf)
+    {
+        return () -> path.getFileSystem(conf).delete(path, false);
     }
 
     @Override
