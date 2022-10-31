@@ -220,7 +220,8 @@ public class PhoenixClient
                 connectionFactory,
                 queryBuilder,
                 ImmutableSet.of(),
-                identifierMapping);
+                identifierMapping,
+                false);
         this.configuration = newEmptyConfiguration();
         getConnectionProperties(config).forEach((k, v) -> configuration.set((String) k, (String) v));
     }
