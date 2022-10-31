@@ -348,18 +348,31 @@ public class MongoMetadata
 
         TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
-        Map<ColumnHandle, Domain> domains = newDomain.getDomains().orElseThrow();
-
-        Map<ColumnHandle, Domain> supported = new HashMap<>();
-
-        for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
-            Type columnType = ((MongoColumnHandle) entry.getKey()).getType();
-            // TODO: Support predicate pushdown on more types including JSON
-            if (isPushdownSupportedType(columnType)) {
-                supported.put(entry.getKey(), entry.getValue());
-            }
+        TupleDomain<ColumnHandle> remainingFilter;
+        if (newDomain.isNone()) {
+            remainingFilter = TupleDomain.all();
         }
-        newDomain = TupleDomain.withColumnDomains(supported);
+        else {
+            Map<ColumnHandle, Domain> domains = newDomain.getDomains().orElseThrow();
+
+            Map<ColumnHandle, Domain> supported = new HashMap<>();
+            Map<ColumnHandle, Domain> unsupported = new HashMap<>();
+
+            for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
+                MongoColumnHandle columnHandle = (MongoColumnHandle) entry.getKey();
+                Domain domain = entry.getValue();
+                Type columnType = columnHandle.getType();
+                // TODO: Support predicate pushdown on more types including JSON
+                if (isPushdownSupportedType(columnType)) {
+                    supported.put(entry.getKey(), entry.getValue());
+                }
+                else {
+                    unsupported.put(columnHandle, domain);
+                }
+            }
+            newDomain = TupleDomain.withColumnDomains(supported);
+            remainingFilter = TupleDomain.withColumnDomains(unsupported);
+        }
 
         if (oldDomain.equals(newDomain)) {
             return Optional.empty();
@@ -371,7 +384,7 @@ public class MongoMetadata
                 newDomain,
                 handle.getLimit());
 
-        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary(), false));
+        return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, false));
     }
 
     @Override
