@@ -240,13 +240,8 @@ public class OrcFileWriter
     @Override
     public void rollback()
     {
-        try {
-            try {
-                orcWriter.close();
-            }
-            finally {
-                rollbackAction.close();
-            }
+        try (rollbackAction) {
+            orcWriter.close();
         }
         catch (Exception e) {
             throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", e);
