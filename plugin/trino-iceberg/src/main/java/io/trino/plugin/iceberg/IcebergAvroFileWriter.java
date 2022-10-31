@@ -118,13 +118,8 @@ public class IcebergAvroFileWriter
     @Override
     public void rollback()
     {
-        try {
-            try {
-                avroWriter.close();
-            }
-            finally {
-                rollbackAction.close();
-            }
+        try (rollbackAction) {
+            avroWriter.close();
         }
         catch (Exception e) {
             throw new TrinoException(ICEBERG_WRITER_CLOSE_ERROR, "Error rolling back write to Avro file", e);

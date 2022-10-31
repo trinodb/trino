@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.io.Closer;
 import io.trino.plugin.hive.HiveWriterFactory.RowIdSortingFileWriterMaker;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
@@ -28,6 +29,7 @@ import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -151,11 +153,12 @@ public class MergeFileWriter
     public void rollback()
     {
         // Make sure both writers get rolled back
-        try {
-            deleteFileWriter.ifPresent(FileWriter::rollback);
+        try (Closer closer = Closer.create()) {
+            closer.register(() -> insertFileWriter.ifPresent(FileWriter::rollback));
+            closer.register(() -> deleteFileWriter.ifPresent(FileWriter::rollback));
         }
-        finally {
-            insertFileWriter.ifPresent(FileWriter::rollback);
+        catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 

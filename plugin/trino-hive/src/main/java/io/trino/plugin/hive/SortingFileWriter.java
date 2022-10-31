@@ -37,6 +37,7 @@ import io.trino.spi.type.TypeOperators;
 import org.apache.hadoop.fs.Path;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
@@ -153,11 +154,23 @@ public class SortingFileWriter
     @Override
     public void rollback()
     {
-        for (TempFile file : tempFiles) {
-            cleanupFile(file.getPath());
+        Closeable rollbackAction = createRollbackAction(fileSystem, tempFiles);
+        try (Closer closer = Closer.create()) {
+            closer.register(outputWriter::rollback);
+            closer.register(rollbackAction);
         }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
-        outputWriter.rollback();
+    private static Closeable createRollbackAction(TrinoFileSystem fileSystem, Queue<TempFile> tempFiles)
+    {
+        return () -> {
+            for (TempFile file : tempFiles) {
+                cleanupFile(fileSystem, file.getPath());
+            }
+        };
     }
 
     @Override
@@ -247,12 +260,12 @@ public class SortingFileWriter
             tempFiles.add(new TempFile(tempFile, writer.getWrittenBytes()));
         }
         catch (IOException | UncheckedIOException e) {
-            cleanupFile(tempFile);
+            cleanupFile(fileSystem, tempFile);
             throw new TrinoException(HIVE_WRITER_DATA_ERROR, "Failed to write temporary file: " + tempFile, e);
         }
     }
 
-    private void cleanupFile(String file)
+    private static void cleanupFile(TrinoFileSystem fileSystem, String file)
     {
         try {
             fileSystem.deleteFile(file);

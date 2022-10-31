@@ -170,13 +170,8 @@ public class ParquetFileWriter
     @Override
     public void rollback()
     {
-        try {
-            try {
-                parquetWriter.close();
-            }
-            finally {
-                rollbackAction.close();
-            }
+        try (rollbackAction) {
+            parquetWriter.close();
         }
         catch (Exception e) {
             throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write parquet to Hive", e);
