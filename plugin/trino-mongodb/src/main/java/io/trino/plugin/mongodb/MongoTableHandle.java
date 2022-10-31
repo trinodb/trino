@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class MongoTableHandle
@@ -102,6 +103,11 @@ public class MongoTableHandle
     @Override
     public String toString()
     {
-        return schemaTableName.toString();
+        return toStringHelper(this)
+                .add("schemaTableName", schemaTableName)
+                .add("filter", filter)
+                .add("limit", limit)
+                .add("constraint", constraint)
+                .toString();
     }
 }

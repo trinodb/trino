@@ -239,6 +239,29 @@ public abstract class BaseMongoConnectorTest
         assertFalse(getQueryRunner().tableExists(getSession(), "test_insert_types_table"));
     }
 
+    @Test(dataProvider = "predicatePushdownProvider")
+    public void testPredicatePushdown(String value)
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_predicate_pushdown", "AS SELECT %s col".formatted(value))) {
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col = " + value + ""))
+                    .isFullyPushedDown();
+        }
+    }
+
+    @DataProvider
+    public Object[][] predicatePushdownProvider()
+    {
+        return new Object[][] {
+                {"true"},
+                {"tinyint '1'"},
+                {"smallint '2'"},
+                {"integer '3'"},
+                {"bigint '4'"},
+                {"'test'"},
+                {"objectid('6216f0c6c432d45190f25e7c')"},
+        };
+    }
+
     @Test
     public void testJson()
     {
