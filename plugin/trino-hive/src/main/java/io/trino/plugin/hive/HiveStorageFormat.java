@@ -61,12 +61,12 @@ public enum HiveStorageFormat
             OrcSerde.class.getName(),
             OrcInputFormat.class.getName(),
             OrcOutputFormat.class.getName(),
-            DataSize.of(256, Unit.MEGABYTE)),
+            DataSize.of(64, Unit.MEGABYTE)),
     PARQUET(
             ParquetHiveSerDe.class.getName(),
             MapredParquetInputFormat.class.getName(),
             MapredParquetOutputFormat.class.getName(),
-            DataSize.of(128, Unit.MEGABYTE)),
+            DataSize.of(64, Unit.MEGABYTE)),
     AVRO(
             AvroSerDe.class.getName(),
             AvroContainerInputFormat.class.getName(),
