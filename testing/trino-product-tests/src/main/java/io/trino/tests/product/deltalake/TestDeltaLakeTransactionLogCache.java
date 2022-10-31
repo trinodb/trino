@@ -59,7 +59,7 @@ public class TestDeltaLakeTransactionLogCache
         String tableName = "test_dl_cached_table_files_accuracy_" + randomTableSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
-        onTrino().executeQuery(format("CREATE TABLE delta.default.%s (col INT) WITH (location = 's3://%s/%s')",
+        onTrino().executeQuery(format("CREATE TABLE delta.default.%s (col INT) WITH (location = 's3://%s/%s', checkpoint_interval = 10)",
                 tableName,
                 bucketName,
                 tableDirectory));

@@ -38,6 +38,7 @@ import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertLastEntryIsCheckpointed;
 import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertTransactionLogVersion;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_104_RUNTIME_VERSION;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_113_RUNTIME_VERSION;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_91_RUNTIME_VERSION;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
 import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
@@ -55,7 +56,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
     private String s3ServerType;
 
     private AmazonS3 s3;
-    private String databricksRuntimeVersion;
+    private double databricksRuntimeVersion;
 
     @BeforeTestWithContext
     public void setup()
@@ -200,22 +201,18 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
         try {
             // validate that Databricks can see the checkpoint interval
             String showCreateTable;
-            if (databricksRuntimeVersion.equals(DATABRICKS_104_RUNTIME_VERSION)) {
+            if (databricksRuntimeVersion >= DATABRICKS_104_RUNTIME_VERSION) {
                 showCreateTable = format(
                         "CREATE TABLE spark_catalog.default.%s (\n" +
                                 "  a_number BIGINT,\n" +
                                 "  a_string STRING)\n" +
                                 "USING delta\n" +
                                 "PARTITIONED BY (a_number)\n" +
-                                "LOCATION 's3://%s/%s'\n" +
-                                "TBLPROPERTIES (\n" +
-                                "  'Type' = 'EXTERNAL',\n" +
-                                "  'delta.checkpointInterval' = '3',\n" +
-                                "  'delta.minReaderVersion' = '1',\n" +
-                                "  'delta.minWriterVersion' = '2')\n",
+                                "LOCATION 's3://%s/%s'\n%s",
                         tableName,
                         bucketName,
-                        tableDirectory);
+                        tableDirectory,
+                        getDatabricksTablePropertiesWithCheckpointInterval());
             }
             else {
                 showCreateTable = format(
@@ -253,6 +250,24 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
             // cleanup
             onDelta().executeQuery("DROP TABLE default." + tableName);
         }
+    }
+
+    private String getDatabricksTablePropertiesWithCheckpointInterval()
+    {
+        if (databricksRuntimeVersion == DATABRICKS_113_RUNTIME_VERSION) {
+            return "TBLPROPERTIES (\n" +
+                    "  'delta.checkpointInterval' = '3',\n" +
+                    "  'delta.minReaderVersion' = '1',\n" +
+                    "  'delta.minWriterVersion' = '2')\n";
+        }
+        else if (databricksRuntimeVersion == DATABRICKS_104_RUNTIME_VERSION) {
+            return "TBLPROPERTIES (\n" +
+                    "  'Type' = 'EXTERNAL',\n" +
+                    "  'delta.checkpointInterval' = '3',\n" +
+                    "  'delta.minReaderVersion' = '1',\n" +
+                    "  'delta.minWriterVersion' = '2')\n";
+        }
+        throw new IllegalArgumentException("Unsupported databricks runtime version: " + databricksRuntimeVersion);
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
@@ -304,7 +319,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
 
             // Assert min/max queries can be computed from just metadata
             String explainSelectMax = getOnlyElement(onDelta().executeQuery("EXPLAIN SELECT max(root.entry_one) FROM default." + tableName).column(1));
-            String column = databricksRuntimeVersion.equals(DATABRICKS_104_RUNTIME_VERSION) ? "root.entry_one" : "root.entry_one AS `entry_one`";
+            String column = databricksRuntimeVersion >= DATABRICKS_104_RUNTIME_VERSION ? "root.entry_one" : "root.entry_one AS `entry_one`";
             assertThat(explainSelectMax).matches("== Physical Plan ==\\s*LocalTableScan \\[max\\(" + column + "\\).*]\\s*");
 
             // check both engines can read both tables
@@ -368,7 +383,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
 
             // Assert counting non null entries can be computed from just metadata
             String explainCountNotNull = getOnlyElement(onDelta().executeQuery("EXPLAIN SELECT count(root.entry_two) FROM default." + tableName).column(1));
-            String column = databricksRuntimeVersion.equals(DATABRICKS_104_RUNTIME_VERSION) ? "root.entry_two" : "root.entry_two AS `entry_two`";
+            String column = databricksRuntimeVersion >= DATABRICKS_104_RUNTIME_VERSION ? "root.entry_two" : "root.entry_two AS `entry_two`";
             assertThat(explainCountNotNull).matches("== Physical Plan ==\\s*LocalTableScan \\[count\\(" + column + "\\).*]\\s*");
 
             // check both engines can read both tables
@@ -493,7 +508,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
                         " delta.checkpoint.writeStatsAsStruct = true)",
                 tableName, type, bucketName);
 
-        if (getDatabricksRuntimeVersion().equals(DATABRICKS_91_RUNTIME_VERSION) && type.equals("struct<x bigint>")) {
+        if (getDatabricksRuntimeVersion() == DATABRICKS_91_RUNTIME_VERSION && type.equals("struct<x bigint>")) {
             assertThatThrownBy(() -> onDelta().executeQuery(createTableSql)).hasStackTraceContaining("ParseException");
             throw new SkipException("New runtime version covers the type");
         }

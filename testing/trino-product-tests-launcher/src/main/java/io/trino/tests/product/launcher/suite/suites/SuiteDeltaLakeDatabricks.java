@@ -16,6 +16,7 @@ package io.trino.tests.product.launcher.suite.suites;
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeDeltaLakeDatabricks104;
+import io.trino.tests.product.launcher.env.environment.EnvSinglenodeDeltaLakeDatabricks113;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeDeltaLakeDatabricks73;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeDeltaLakeDatabricks91;
 import io.trino.tests.product.launcher.suite.Suite;
@@ -60,6 +61,11 @@ public class SuiteDeltaLakeDatabricks
                         .build(),
 
                 testOnEnvironment(EnvSinglenodeDeltaLakeDatabricks104.class)
+                        .withGroups("configured_features", "delta-lake-databricks")
+                        .withExcludedTests(excludedTests)
+                        .build(),
+
+                testOnEnvironment(EnvSinglenodeDeltaLakeDatabricks113.class)
                         .withGroups("configured_features", "delta-lake-databricks")
                         .withExcludedTests(excludedTests)
                         .build());

@@ -348,7 +348,7 @@ public class TestDeltaLakeAlterTableCompatibility
             onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN c INT");
 
             Assertions.assertThat((String) onDelta().executeQuery("SHOW CREATE TABLE default." + tableName).getOnlyValue())
-                            .contains((getDatabricksRuntimeVersion().equals(DATABRICKS_91_RUNTIME_VERSION) ? "`b`" : "b") + " INT GENERATED ALWAYS AS ( a * 2 )");
+                            .contains((getDatabricksRuntimeVersion() == DATABRICKS_91_RUNTIME_VERSION ? "`b`" : "b") + " INT GENERATED ALWAYS AS ( a * 2 )");
             onDelta().executeQuery("INSERT INTO default." + tableName + " (a, c) VALUES (1, 3)");
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
                     .containsOnly(row(1, 2, 3));

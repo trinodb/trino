@@ -38,6 +38,8 @@ import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertLastEntryIsCheckpointed;
 import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertTransactionLogVersion;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_113_RUNTIME_VERSION;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
 import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -53,12 +55,14 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
     private String s3ServerType;
 
     private AmazonS3 s3;
+    private double databricksRuntimeVersion;
 
     @BeforeTestWithContext
     public void setup()
     {
         super.setUp();
         s3 = new S3ClientFactory().createS3Client(s3ServerType);
+        databricksRuntimeVersion = getDatabricksRuntimeVersion();
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
@@ -227,7 +231,8 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
         try {
             ImmutableList.Builder<QueryAssert.Row> expected = ImmutableList.builder();
             // Write to the table until a checkpoint file is written
-            for (int i = 0; i < 9; i++) {
+            int insertCount = databricksRuntimeVersion == DATABRICKS_113_RUNTIME_VERSION ? 10 : 9;
+            for (int i = 0; i < insertCount; i++) {
                 onDelta().executeQuery("INSERT INTO " + tableName + " VALUES \"1960-01-01 01:02:03\", \"1961-01-01 01:02:03\", \"1962-01-01 01:02:03\"");
                 expected.add(row("1960-01-01T01:02:03.000Z"), row("1961-01-01T01:02:03.000Z"), row("1962-01-01T01:02:03.000Z"));
             }
@@ -236,7 +241,7 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
 
             onDelta().executeQuery("INSERT INTO " + tableName + " VALUES \"1960-01-01 01:02:03\", \"1961-01-01 01:02:03\", \"1962-01-01 01:02:03\"");
             expected.add(row("1960-01-01T01:02:03.000Z"), row("1961-01-01T01:02:03.000Z"), row("1962-01-01T01:02:03.000Z"));
-            assertTransactionLogVersion(s3, bucketName, tableName, 11);
+            assertTransactionLogVersion(s3, bucketName, tableName, insertCount + 2);
 
             assertThat(onTrino().executeQuery("SELECT to_iso8601(ts) FROM delta.default." + tableName)).containsOnly(expected.build());
         }
