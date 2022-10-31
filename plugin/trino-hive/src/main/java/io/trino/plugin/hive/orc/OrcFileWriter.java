@@ -38,6 +38,7 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.management.ManagementFactory;
@@ -48,7 +49,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
-import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -74,7 +74,7 @@ public class OrcFileWriter
     private final AcidTransaction transaction;
     private final boolean useAcidSchema;
     private final OptionalInt bucketNumber;
-    private final Callable<Void> rollbackAction;
+    private final Closeable rollbackAction;
     private final int[] fileInputColumnIndexes;
     private final List<Block> nullBlocks;
     private final Optional<Supplier<OrcDataSource>> validationInputFactory;
@@ -89,7 +89,7 @@ public class OrcFileWriter
             AcidTransaction transaction,
             boolean useAcidSchema,
             OptionalInt bucketNumber,
-            Callable<Void> rollbackAction,
+            Closeable rollbackAction,
             List<String> columnNames,
             List<Type> fileColumnTypes,
             ColumnMetadata<OrcType> fileColumnOrcTypes,
@@ -190,7 +190,7 @@ public class OrcFileWriter
         }
         catch (IOException | UncheckedIOException e) {
             try {
-                rollbackAction.call();
+                rollbackAction.close();
             }
             catch (Exception ignored) {
                 // ignore
@@ -245,7 +245,7 @@ public class OrcFileWriter
                 orcWriter.close();
             }
             finally {
-                rollbackAction.call();
+                rollbackAction.close();
             }
         }
         catch (Exception e) {
