@@ -2885,6 +2885,11 @@ public abstract class BaseConnectorTest
             return;
         }
 
+        // We are using SUPPORTS_CREATE_TABLE_WITH_DATA because WITH NO DATA is using same execution code paths
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA)) {
+            throw new AssertionError("Cannot test INSERT without CTAS, the test needs to be implemented in a connector-specific way");
+        }
+
         String query = "SELECT phone, custkey, acctbal FROM customer";
 
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_", "AS " + query + " WITH NO DATA")) {
@@ -2944,6 +2949,9 @@ public abstract class BaseConnectorTest
     public void testInsertUnicode()
     {
         skipTestUnless(hasBehavior(SUPPORTS_INSERT));
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+            throw new AssertionError("Cannot test INSERT without CREATE TABLE, the test needs to be implemented in a connector-specific way");
+        }
 
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_unicode_", "(test varchar(50))")) {
             assertUpdate("INSERT INTO " + table.getName() + "(test) VALUES 'Hello', U&'hello\\6d4B\\8Bd5world\\7F16\\7801' ", 2);
@@ -2974,6 +2982,9 @@ public abstract class BaseConnectorTest
     public void testInsertHighestUnicodeCharacter()
     {
         skipTestUnless(hasBehavior(SUPPORTS_INSERT));
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+            throw new AssertionError("Cannot test INSERT without CREATE TABLE, the test needs to be implemented in a connector-specific way");
+        }
 
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_unicode_", "(test varchar(50))")) {
             assertUpdate("INSERT INTO " + table.getName() + "(test) VALUES 'Hello', U&'hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801' ", 2);
@@ -2986,6 +2997,9 @@ public abstract class BaseConnectorTest
     public void testInsertArray()
     {
         skipTestUnless(hasBehavior(SUPPORTS_INSERT));
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+            throw new AssertionError("Cannot test INSERT without CREATE TABLE, the test needs to be implemented in a connector-specific way");
+        }
 
         String tableName = "test_insert_array_" + randomNameSuffix();
         if (!hasBehavior(SUPPORTS_ARRAY)) {
