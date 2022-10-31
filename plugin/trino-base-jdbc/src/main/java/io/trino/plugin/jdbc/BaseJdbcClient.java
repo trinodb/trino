@@ -115,43 +115,10 @@ public abstract class BaseJdbcClient
             IdentifierMapping identifierMapping)
     {
         this(
-                config,
-                identifierQuote,
-                connectionFactory,
-                queryBuilder,
-                identifierMapping,
-                false);
-    }
-
-    public BaseJdbcClient(
-            BaseJdbcConfig config,
-            String identifierQuote,
-            ConnectionFactory connectionFactory,
-            QueryBuilder queryBuilder,
-            IdentifierMapping identifierMapping,
-            boolean supportsRetries)
-    {
-        this(
                 identifierQuote,
                 connectionFactory,
                 queryBuilder,
                 config.getJdbcTypesMappedToVarchar(),
-                identifierMapping,
-                supportsRetries);
-    }
-
-    public BaseJdbcClient(
-            String identifierQuote,
-            ConnectionFactory connectionFactory,
-            QueryBuilder queryBuilder,
-            Set<String> jdbcTypesMappedToVarchar,
-            IdentifierMapping identifierMapping)
-    {
-        this(
-                identifierQuote,
-                connectionFactory,
-                queryBuilder,
-                jdbcTypesMappedToVarchar,
                 identifierMapping,
                 false);
     }
