@@ -456,7 +456,7 @@ public class OrcPageSource
         public UpdatedRowAdaptationWithOriginalFiles(long startingRowId, int bucketId, HiveUpdateProcessor updateProcessor, List<HiveColumnHandle> dependencyColumns)
         {
             this.startingRowId = startingRowId;
-            this.bucketBlock = nativeValueToBlock(INTEGER, Long.valueOf(computeBucketValue(bucketId, 0)));
+            this.bucketBlock = nativeValueToBlock(INTEGER, (long) computeBucketValue(bucketId, 0));
             this.updateProcessor = requireNonNull(updateProcessor, "updateProcessor is null");
             requireNonNull(dependencyColumns, "dependencyColumns is null");
             this.nonUpdatedSourceChannels = updateProcessor.makeNonUpdatedSourceChannels(dependencyColumns);
@@ -514,7 +514,7 @@ public class OrcPageSource
         public MergedRowAdaptationWithOriginalFiles(long startingRowId, int bucketId)
         {
             this.startingRowId = startingRowId;
-            this.bucketBlock = nativeValueToBlock(INTEGER, Long.valueOf(computeBucketValue(bucketId, 0)));
+            this.bucketBlock = nativeValueToBlock(INTEGER, (long) computeBucketValue(bucketId, 0));
         }
 
         @Override
@@ -541,7 +541,7 @@ public class OrcPageSource
         public OriginalFileRowIdAdaptation(long startingRowId, int bucketId)
         {
             this.startingRowId = startingRowId;
-            this.bucketBlock = nativeValueToBlock(INTEGER, Long.valueOf(computeBucketValue(bucketId, 0)));
+            this.bucketBlock = nativeValueToBlock(INTEGER, (long) computeBucketValue(bucketId, 0));
         }
 
         @Override
