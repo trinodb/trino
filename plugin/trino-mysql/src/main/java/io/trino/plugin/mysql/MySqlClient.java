@@ -206,7 +206,7 @@ public class MySqlClient
             TypeManager typeManager,
             IdentifierMapping identifierMapping)
     {
-        super(config, "`", connectionFactory, queryBuilder, identifierMapping, true);
+        super("`", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, true);
         this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
         this.statisticsEnabled = statisticsConfig.isEnabled();
 
