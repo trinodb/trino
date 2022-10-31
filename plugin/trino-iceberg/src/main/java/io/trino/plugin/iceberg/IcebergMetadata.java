@@ -161,6 +161,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
@@ -229,7 +230,7 @@ import static io.trino.plugin.iceberg.SortFieldUtils.parseSortFields;
 import static io.trino.plugin.iceberg.TableStatisticsReader.TRINO_STATS_COLUMN_ID_PATTERN;
 import static io.trino.plugin.iceberg.TableStatisticsReader.TRINO_STATS_PREFIX;
 import static io.trino.plugin.iceberg.TableType.DATA;
-import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
+import static io.trino.plugin.iceberg.TypeConverter.toIcebergTypeForNewColumn;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog.DEPENDS_ON_TABLES;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.DROP_EXTENDED_STATS;
@@ -1570,9 +1571,12 @@ public class IcebergMetadata
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding not null columns");
         }
         Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
+        // Start explicitly with highestFieldId + 2 to account for existing columns and the new one being
+        // added - instead of relying on addColumn in iceberg library to assign Ids
+        AtomicInteger nextFieldId = new AtomicInteger(icebergTable.schema().highestFieldId() + 2);
         try {
             icebergTable.updateSchema()
-                    .addColumn(column.getName(), toIcebergType(column.getType()), column.getComment())
+                    .addColumn(column.getName(), toIcebergTypeForNewColumn(column.getType(), nextFieldId), column.getComment())
                     .commit();
         }
         catch (RuntimeException e) {
@@ -1649,7 +1653,8 @@ public class IcebergMetadata
 
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
         Type sourceType = icebergTable.schema().findType(column.getName());
-        Type newType = toIcebergType(type);
+        AtomicInteger nextFieldId = new AtomicInteger(1);
+        Type newType = toIcebergTypeForNewColumn(type, nextFieldId);
         try {
             UpdateSchema schemaUpdate = icebergTable.updateSchema();
             buildUpdateSchema(column.getName(), sourceType, newType, schemaUpdate);

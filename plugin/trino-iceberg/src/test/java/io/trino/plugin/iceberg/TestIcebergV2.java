@@ -200,6 +200,19 @@ public class TestIcebergV2
     }
 
     @Test
+    public void testV2TableWithEqualityDeleteWhenColumnIsNested()
+            throws Exception
+    {
+        String tableName = "test_v2_equality_delete_column_nested" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS " +
+                "SELECT regionkey, ARRAY[1,2] array_column, MAP(ARRAY[1], ARRAY[2]) map_column, " +
+                "CAST(ROW(1, 2e0) AS ROW(x BIGINT, y DOUBLE)) row_column FROM tpch.tiny.nation", 25);
+        Table icebergTable = updateTableToV2(tableName);
+        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[]{1L})));
+        assertQuery("SELECT array_column[1], map_column[1], row_column.x FROM " + tableName, "SELECT 1, 2, 1 FROM nation WHERE regionkey != 1");
+    }
+
+    @Test
     public void testOptimizingV2TableRemovesEqualityDeletesWhenWholeTableIsScanned()
             throws Exception
     {
