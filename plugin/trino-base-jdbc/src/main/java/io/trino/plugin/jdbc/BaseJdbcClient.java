@@ -578,6 +578,7 @@ public abstract class BaseJdbcClient
         }
 
         try (Connection connection = connectionFactory.openConnection(session)) {
+            verify(connection.getAutoCommit());
             String remoteSchema = identifierMapping.toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
             String remoteTable = identifierMapping.toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
             String remoteTargetTableName = identifierMapping.toRemoteTableName(identity, connection, remoteSchema, targetTableName);
@@ -654,6 +655,7 @@ public abstract class BaseJdbcClient
         ConnectorIdentity identity = session.getIdentity();
 
         try (Connection connection = connectionFactory.openConnection(session)) {
+            verify(connection.getAutoCommit());
             String remoteSchema = identifierMapping.toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
             String remoteTable = identifierMapping.toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
             String catalog = connection.getCatalog();
@@ -755,6 +757,7 @@ public abstract class BaseJdbcClient
     protected void renameTable(ConnectorSession session, String catalogName, String remoteSchemaName, String remoteTableName, SchemaTableName newTable)
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
+            verify(connection.getAutoCommit());
             String newSchemaName = newTable.getSchemaName();
             String newTableName = newTable.getTableName();
             verifyTableName(connection.getMetaData(), newTableName);
@@ -844,6 +847,7 @@ public abstract class BaseJdbcClient
         closer.register(() -> dropTable(session, temporaryTable));
 
         try (Connection connection = getConnection(session, handle)) {
+            verify(connection.getAutoCommit());
             String columns = handle.getColumnNames().stream()
                     .map(this::quoted)
                     .collect(joining(", "));
@@ -897,6 +901,7 @@ public abstract class BaseJdbcClient
         }
 
         try (Connection connection = connectionFactory.openConnection(session)) {
+            verify(connection.getAutoCommit());
             addColumn(session, connection, table, column);
         }
         catch (SQLException e) {
@@ -921,6 +926,7 @@ public abstract class BaseJdbcClient
     public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
+            verify(connection.getAutoCommit());
             String newRemoteColumnName = identifierMapping.toRemoteColumnName(connection, newColumnName);
             verifyColumnName(connection.getMetaData(), newRemoteColumnName);
             renameColumn(session, connection, handle.asPlainTable().getRemoteTableName(), jdbcColumn.getColumnName(), newRemoteColumnName);
@@ -944,6 +950,7 @@ public abstract class BaseJdbcClient
     public void dropColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
+            verify(connection.getAutoCommit());
             String remoteColumnName = identifierMapping.toRemoteColumnName(connection, column.getColumnName());
             String sql = format(
                     "ALTER TABLE %s DROP COLUMN %s",
@@ -1056,6 +1063,7 @@ public abstract class BaseJdbcClient
     {
         ConnectorIdentity identity = session.getIdentity();
         try (Connection connection = connectionFactory.openConnection(session)) {
+            verify(connection.getAutoCommit());
             schemaName = identifierMapping.toRemoteSchemaName(identity, connection, schemaName);
             verifySchemaName(connection.getMetaData(), schemaName);
             createSchema(session, connection, schemaName);
@@ -1076,6 +1084,7 @@ public abstract class BaseJdbcClient
     {
         ConnectorIdentity identity = session.getIdentity();
         try (Connection connection = connectionFactory.openConnection(session)) {
+            verify(connection.getAutoCommit());
             schemaName = identifierMapping.toRemoteSchemaName(identity, connection, schemaName);
             dropSchema(session, connection, schemaName);
         }
@@ -1095,6 +1104,7 @@ public abstract class BaseJdbcClient
     {
         ConnectorIdentity identity = session.getIdentity();
         try (Connection connection = connectionFactory.openConnection(session)) {
+            verify(connection.getAutoCommit());
             String remoteSchemaName = identifierMapping.toRemoteSchemaName(identity, connection, schemaName);
             String newRemoteSchemaName = identifierMapping.toRemoteSchemaName(identity, connection, newSchemaName);
             verifySchemaName(connection.getMetaData(), newRemoteSchemaName);
