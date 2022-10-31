@@ -36,13 +36,13 @@ import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
-import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
@@ -152,10 +152,7 @@ public class RcFileFileWriterFactory
                 });
             }
 
-            Callable<Void> rollbackAction = () -> {
-                fileSystem.delete(path, false);
-                return null;
-            };
+            Closeable rollbackAction = () -> fileSystem.delete(path, false);
 
             return Optional.of(new RcFileFileWriter(
                     outputStream,

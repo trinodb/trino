@@ -27,9 +27,9 @@ import org.apache.iceberg.io.FileAppender;
 import org.apache.iceberg.io.OutputFile;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
-import java.util.concurrent.Callable;
 
 import static io.trino.plugin.iceberg.IcebergAvroDataConversion.toIcebergRecords;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITER_CLOSE_ERROR;
@@ -50,11 +50,11 @@ public class IcebergAvroFileWriter
     private final Schema icebergSchema;
     private final List<Type> types;
     private final FileAppender<Record> avroWriter;
-    private final Callable<Void> rollbackAction;
+    private final Closeable rollbackAction;
 
     public IcebergAvroFileWriter(
             OutputFile file,
-            Callable<Void> rollbackAction,
+            Closeable rollbackAction,
             Schema icebergSchema,
             List<Type> types,
             HiveCompressionCodec hiveCompressionCodec)
@@ -104,7 +104,7 @@ public class IcebergAvroFileWriter
         }
         catch (IOException e) {
             try {
-                rollbackAction.call();
+                rollbackAction.close();
             }
             catch (Exception ex) {
                 if (!e.equals(ex)) {
@@ -123,7 +123,7 @@ public class IcebergAvroFileWriter
                 avroWriter.close();
             }
             finally {
-                rollbackAction.call();
+                rollbackAction.close();
             }
         }
         catch (Exception e) {

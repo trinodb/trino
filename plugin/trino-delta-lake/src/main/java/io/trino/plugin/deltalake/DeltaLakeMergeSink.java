@@ -48,6 +48,7 @@ import org.roaringbitmap.longlong.ImmutableLongBitmapDataProvider;
 import org.roaringbitmap.longlong.LongBitmapDataProvider;
 import org.roaringbitmap.longlong.Roaring64Bitmap;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -55,7 +56,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 
@@ -210,10 +210,7 @@ public class DeltaLakeMergeSink
         CompressionCodecName compressionCodecName = getCompressionCodec(session).getParquetCompressionCodec();
 
         try {
-            Callable<Void> rollbackAction = () -> {
-                fileSystem.delete(path, false);
-                return null;
-            };
+            Closeable rollbackAction = () -> fileSystem.delete(path, false);
 
             List<Type> parquetTypes = dataColumns.stream()
                     .map(column -> {

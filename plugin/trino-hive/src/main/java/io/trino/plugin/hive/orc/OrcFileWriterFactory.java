@@ -46,12 +46,12 @@ import org.weakref.jmx.Managed;
 
 import javax.inject.Inject;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
-import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
 import static io.trino.orc.metadata.OrcType.createRootOrcType;
@@ -183,10 +183,7 @@ public class OrcFileWriterFactory
                 });
             }
 
-            Callable<Void> rollbackAction = () -> {
-                fileSystem.deleteFile(stringPath);
-                return null;
-            };
+            Closeable rollbackAction = () -> fileSystem.deleteFile(stringPath);
 
             if (transaction.isInsert() && useAcidSchema) {
                 // Only add the ACID columns if the request is for insert-type operations - - for delete operations,
