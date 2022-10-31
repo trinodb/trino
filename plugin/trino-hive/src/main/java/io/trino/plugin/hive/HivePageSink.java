@@ -405,6 +405,7 @@ public class HivePageSink
             writer = writerFactory.createWriter(partitionColumns, position, bucketNumber);
 
             writers.set(writerIndex, writer);
+            memoryUsage += writer.getMemoryUsage();
         }
         verify(writers.size() == pagePartitioner.getMaxIndex() + 1);
         verify(!writers.contains(null));

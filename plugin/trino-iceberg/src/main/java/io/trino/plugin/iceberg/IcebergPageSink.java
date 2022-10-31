@@ -289,6 +289,7 @@ public class IcebergPageSink
             writer = createWriter(partitionData);
 
             writers.set(writerIndex, writer);
+            memoryUsage += writer.getWriter().getMemoryUsage();
         }
         verify(writers.size() == pagePartitioner.getMaxIndex() + 1);
         verify(!writers.contains(null));
