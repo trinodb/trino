@@ -23,10 +23,11 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingDeque;
+import java.util.Queue;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
@@ -41,8 +42,11 @@ public class LocalExchangeSource
 
     private final Consumer<LocalExchangeSource> onFinish;
 
-    private final BlockingQueue<PageReference> buffer = new LinkedBlockingDeque<>();
+    @GuardedBy("this")
+    private final Queue<PageReference> buffer = new ArrayDeque<>();
+
     private final AtomicLong bufferedBytes = new AtomicLong();
+    private final AtomicInteger bufferedPages = new AtomicInteger();
 
     @Nullable
     @GuardedBy("this")
@@ -59,7 +63,7 @@ public class LocalExchangeSource
     {
         // This must be lock free to assure task info creation is fast
         // Note: the stats my be internally inconsistent
-        return new LocalExchangeBufferInfo(bufferedBytes.get(), buffer.size());
+        return new LocalExchangeBufferInfo(bufferedBytes.get(), bufferedPages.get());
     }
 
     void addPage(PageReference pageReference)
@@ -75,6 +79,7 @@ public class LocalExchangeSource
                 // buffered bytes must be updated before adding to the buffer to assure
                 // the count does not go negative
                 bufferedBytes.addAndGet(retainedSizeInBytes);
+                bufferedPages.incrementAndGet();
                 buffer.add(pageReference);
                 added = true;
             }
@@ -125,7 +130,10 @@ public class LocalExchangeSource
         // NOTE: there is no need to acquire a lock here. The buffer is concurrent
         // and buffered bytes is not expected to be consistent with the buffer (only
         // best effort).
-        PageReference pageReference = buffer.poll();
+        PageReference pageReference;
+        synchronized (this) {
+            pageReference = buffer.poll();
+        }
         if (pageReference == null) {
             return null;
         }
@@ -133,6 +141,7 @@ public class LocalExchangeSource
         // dereference the page outside of lock, since may trigger a callback
         Page page = pageReference.removePage();
         bufferedBytes.addAndGet(-pageReference.getRetainedSizeInBytes());
+        bufferedPages.decrementAndGet();
 
         checkFinished();
 
@@ -143,13 +152,13 @@ public class LocalExchangeSource
     {
         assertNotHoldsLock();
         // Fast path, definitely not blocked
-        if (finishing || !buffer.isEmpty()) {
+        if (finishing || bufferedPages.get() > 0) {
             return NOT_BLOCKED;
         }
 
         synchronized (this) {
             // re-check after synchronizing
-            if (finishing || !buffer.isEmpty()) {
+            if (finishing || bufferedPages.get() > 0) {
                 return NOT_BLOCKED;
             }
             // if we need to block readers, and the current future is complete, create a new one
@@ -168,7 +177,7 @@ public class LocalExchangeSource
         }
         synchronized (this) {
             // Synchronize to ensure effects of an in-flight close() or finish() are observed
-            return finishing && buffer.isEmpty();
+            return finishing && bufferedPages.get() == 0;
         }
     }
 
@@ -200,13 +209,15 @@ public class LocalExchangeSource
     {
         assertNotHoldsLock();
 
-        List<PageReference> remainingPages = new ArrayList<>();
+        List<PageReference> remainingPages;
         SettableFuture<Void> notEmptyFuture;
         synchronized (this) {
             finishing = true;
 
-            buffer.drainTo(remainingPages);
+            remainingPages = new ArrayList<>(buffer);
+            buffer.clear();
             bufferedBytes.addAndGet(-remainingPages.stream().mapToLong(PageReference::getRetainedSizeInBytes).sum());
+            bufferedPages.addAndGet(-remainingPages.size());
 
             notEmptyFuture = this.notEmptyFuture;
             this.notEmptyFuture = null;
