@@ -20,7 +20,7 @@ import io.trino.spi.Page;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -28,6 +28,7 @@ import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 
+@NotThreadSafe
 class PartitioningExchanger
         implements LocalExchanger
 {
@@ -35,7 +36,6 @@ class PartitioningExchanger
     private final LocalExchangeMemoryManager memoryManager;
     private final Function<Page, Page> partitionedPagePreparer;
     private final PartitionFunction partitionFunction;
-    @GuardedBy("this")
     private final IntArrayList[] partitionAssignments;
 
     public PartitioningExchanger(
@@ -68,7 +68,7 @@ class PartitioningExchanger
     }
 
     @Nullable
-    private synchronized Consumer<Page> partitionPageOrFindWholePagePartition(Page page, Page partitionPage)
+    private Consumer<Page> partitionPageOrFindWholePagePartition(Page page, Page partitionPage)
     {
         // assign each row to a partition. The assignments lists are all expected to cleared by the previous iterations
         for (int position = 0; position < partitionPage.getPositionCount(); position++) {
