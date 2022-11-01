@@ -87,7 +87,7 @@ public abstract class BaseTestContainer
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingFor(Wait.forListeningPort())
                 .withStartupTimeout(Duration.ofMinutes(5));
-        network.ifPresent(container::withNetwork);
+        network.ifPresent(net -> container.withNetwork(net).withNetworkAliases(hostName));
     }
 
     protected void withRunCommand(List<String> runCommand)
