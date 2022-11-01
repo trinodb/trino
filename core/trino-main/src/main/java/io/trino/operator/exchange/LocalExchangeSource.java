@@ -24,8 +24,6 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -40,10 +38,11 @@ public class LocalExchangeSource
 {
     private static final ListenableFuture<Void> NOT_BLOCKED = immediateVoidFuture();
 
+    private final LocalExchangeMemoryManager memoryManager;
     private final Consumer<LocalExchangeSource> onFinish;
 
     @GuardedBy("this")
-    private final Queue<PageReference> buffer = new ArrayDeque<>();
+    private final Queue<Page> buffer = new ArrayDeque<>();
 
     private final AtomicLong bufferedBytes = new AtomicLong();
     private final AtomicInteger bufferedPages = new AtomicInteger();
@@ -54,8 +53,9 @@ public class LocalExchangeSource
 
     private volatile boolean finishing;
 
-    public LocalExchangeSource(Consumer<LocalExchangeSource> onFinish)
+    public LocalExchangeSource(LocalExchangeMemoryManager memoryManager, Consumer<LocalExchangeSource> onFinish)
     {
+        this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
         this.onFinish = requireNonNull(onFinish, "onFinish is null");
     }
 
@@ -66,13 +66,13 @@ public class LocalExchangeSource
         return new LocalExchangeBufferInfo(bufferedBytes.get(), bufferedPages.get());
     }
 
-    void addPage(PageReference pageReference)
+    void addPage(Page page)
     {
         assertNotHoldsLock();
 
         boolean added = false;
         SettableFuture<Void> notEmptyFuture = null;
-        long retainedSizeInBytes = pageReference.getRetainedSizeInBytes();
+        long retainedSizeInBytes = page.getRetainedSizeInBytes();
         synchronized (this) {
             // ignore pages after finish
             if (!finishing) {
@@ -80,7 +80,7 @@ public class LocalExchangeSource
                 // the count does not go negative
                 bufferedBytes.addAndGet(retainedSizeInBytes);
                 bufferedPages.incrementAndGet();
-                buffer.add(pageReference);
+                buffer.add(page);
                 added = true;
             }
 
@@ -92,8 +92,7 @@ public class LocalExchangeSource
         }
 
         if (!added) {
-            // dereference the page outside of lock
-            pageReference.removePage();
+            memoryManager.updateMemoryUsage(-retainedSizeInBytes);
         }
 
         // notify readers outside of lock since this may result in a callback
@@ -130,17 +129,18 @@ public class LocalExchangeSource
         // NOTE: there is no need to acquire a lock here. The buffer is concurrent
         // and buffered bytes is not expected to be consistent with the buffer (only
         // best effort).
-        PageReference pageReference;
+        Page page;
         synchronized (this) {
-            pageReference = buffer.poll();
+            page = buffer.poll();
         }
-        if (pageReference == null) {
+        if (page == null) {
             return null;
         }
 
         // dereference the page outside of lock, since may trigger a callback
-        Page page = pageReference.removePage();
-        bufferedBytes.addAndGet(-pageReference.getRetainedSizeInBytes());
+        long retainedSizeInBytes = page.getRetainedSizeInBytes();
+        memoryManager.updateMemoryUsage(-retainedSizeInBytes);
+        bufferedBytes.addAndGet(-retainedSizeInBytes);
         bufferedPages.decrementAndGet();
 
         checkFinished();
@@ -209,22 +209,26 @@ public class LocalExchangeSource
     {
         assertNotHoldsLock();
 
-        List<PageReference> remainingPages;
+        int remainingPagesCount = 0;
+        long remainingPagesRetainedSizeInBytes = 0;
         SettableFuture<Void> notEmptyFuture;
         synchronized (this) {
             finishing = true;
 
-            remainingPages = new ArrayList<>(buffer);
+            for (Page page : buffer) {
+                remainingPagesCount++;
+                remainingPagesRetainedSizeInBytes += page.getRetainedSizeInBytes();
+            }
             buffer.clear();
-            bufferedBytes.addAndGet(-remainingPages.stream().mapToLong(PageReference::getRetainedSizeInBytes).sum());
-            bufferedPages.addAndGet(-remainingPages.size());
+            bufferedBytes.addAndGet(-remainingPagesRetainedSizeInBytes);
+            bufferedPages.addAndGet(-remainingPagesCount);
 
             notEmptyFuture = this.notEmptyFuture;
             this.notEmptyFuture = null;
         }
 
         // free all the remaining pages
-        remainingPages.forEach(PageReference::removePage);
+        memoryManager.updateMemoryUsage(-remainingPagesRetainedSizeInBytes);
 
         // notify readers outside of lock since this may result in a callback
         if (notEmptyFuture != null) {

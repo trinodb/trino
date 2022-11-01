@@ -16,7 +16,6 @@ package io.trino.operator.exchange;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.PartitionFunction;
-import io.trino.operator.exchange.PageReference.PageReleasedListener;
 import io.trino.spi.Page;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
@@ -32,23 +31,21 @@ import static java.util.Objects.requireNonNull;
 class PartitioningExchanger
         implements LocalExchanger
 {
-    private final List<Consumer<PageReference>> buffers;
+    private final List<Consumer<Page>> buffers;
     private final LocalExchangeMemoryManager memoryManager;
     private final Function<Page, Page> partitionedPagePreparer;
     private final PartitionFunction partitionFunction;
     @GuardedBy("this")
     private final IntArrayList[] partitionAssignments;
-    private final PageReleasedListener onPageReleased;
 
     public PartitioningExchanger(
-            List<Consumer<PageReference>> partitions,
+            List<Consumer<Page>> partitions,
             LocalExchangeMemoryManager memoryManager,
             Function<Page, Page> partitionPagePreparer,
             PartitionFunction partitionFunction)
     {
         this.buffers = ImmutableList.copyOf(requireNonNull(partitions, "partitions is null"));
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
-        this.onPageReleased = PageReleasedListener.forLocalExchangeMemoryManager(memoryManager);
         this.partitionedPagePreparer = requireNonNull(partitionPagePreparer, "partitionPagePreparer is null");
         this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
 
@@ -61,7 +58,7 @@ class PartitioningExchanger
     @Override
     public void accept(Page page)
     {
-        Consumer<PageReference> wholePagePartition = partitionPageOrFindWholePagePartition(page, partitionedPagePreparer.apply(page));
+        Consumer<Page> wholePagePartition = partitionPageOrFindWholePagePartition(page, partitionedPagePreparer.apply(page));
         if (wholePagePartition != null) {
             // whole input page will go to this partition, compact the input page avoid over-retaining memory and to
             // match the behavior of sub-partitioned pages that copy positions out
@@ -71,7 +68,7 @@ class PartitioningExchanger
     }
 
     @Nullable
-    private synchronized Consumer<PageReference> partitionPageOrFindWholePagePartition(Page page, Page partitionPage)
+    private synchronized Consumer<Page> partitionPageOrFindWholePagePartition(Page page, Page partitionPage)
     {
         // assign each row to a partition. The assignments lists are all expected to cleared by the previous iterations
         for (int position = 0; position < partitionPage.getPositionCount(); position++) {
@@ -104,11 +101,10 @@ class PartitioningExchanger
     }
 
     // This is safe to call without synchronizing because the partition buffers are themselves threadsafe
-    private void sendPageToPartition(Consumer<PageReference> buffer, Page pageSplit)
+    private void sendPageToPartition(Consumer<Page> buffer, Page pageSplit)
     {
-        PageReference pageReference = new PageReference(pageSplit, 1, onPageReleased);
-        memoryManager.updateMemoryUsage(pageReference.getRetainedSizeInBytes());
-        buffer.accept(pageReference);
+        memoryManager.updateMemoryUsage(pageSplit.getRetainedSizeInBytes());
+        buffer.accept(pageSplit);
     }
 
     @Override
