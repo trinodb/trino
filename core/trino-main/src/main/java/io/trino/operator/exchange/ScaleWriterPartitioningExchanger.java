@@ -16,7 +16,6 @@ package io.trino.operator.exchange;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.PartitionFunction;
-import io.trino.operator.exchange.PageReference.PageReleasedListener;
 import io.trino.spi.Page;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.longs.Long2IntMap;
@@ -30,7 +29,6 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-import static io.trino.operator.exchange.PageReference.PageReleasedListener.forLocalExchangeMemoryManager;
 import static io.trino.operator.exchange.UniformPartitionRebalancer.WriterPartitionId;
 import static io.trino.operator.exchange.UniformPartitionRebalancer.WriterPartitionId.serialize;
 import static java.util.Arrays.fill;
@@ -39,13 +37,12 @@ import static java.util.Objects.requireNonNull;
 public class ScaleWriterPartitioningExchanger
         implements LocalExchanger
 {
-    private final List<Consumer<PageReference>> buffers;
+    private final List<Consumer<Page>> buffers;
     private final LocalExchangeMemoryManager memoryManager;
     private final long maxBufferedBytes;
     private final Function<Page, Page> partitionedPagePreparer;
     private final PartitionFunction partitionFunction;
     private final UniformPartitionRebalancer partitionRebalancer;
-    private final PageReleasedListener onPageReleased;
 
     private final IntArrayList[] writerAssignments;
     private final int[] partitionRowCounts;
@@ -64,7 +61,7 @@ public class ScaleWriterPartitioningExchanger
     private final Long2LongMap writerPartitionRowCounts = new Long2LongOpenHashMap();
 
     public ScaleWriterPartitioningExchanger(
-            List<Consumer<PageReference>> buffers,
+            List<Consumer<Page>> buffers,
             LocalExchangeMemoryManager memoryManager,
             long maxBufferedBytes,
             Function<Page, Page> partitionedPagePreparer,
@@ -78,7 +75,6 @@ public class ScaleWriterPartitioningExchanger
         this.partitionedPagePreparer = requireNonNull(partitionedPagePreparer, "partitionedPagePreparer is null");
         this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
         this.partitionRebalancer = requireNonNull(partitionRebalancer, "partitionRebalancer is null");
-        this.onPageReleased = forLocalExchangeMemoryManager(memoryManager);
 
         // Initialize writerAssignments with the buffer size
         writerAssignments = new IntArrayList[buffers.size()];
@@ -190,10 +186,9 @@ public class ScaleWriterPartitioningExchanger
         return partitionRebalancer.getWriterId(partitionId, partitionWriterIndexes[partitionId]++);
     }
 
-    private void sendPageToPartition(Consumer<PageReference> buffer, Page pageSplit)
+    private void sendPageToPartition(Consumer<Page> buffer, Page pageSplit)
     {
-        PageReference pageReference = new PageReference(pageSplit, 1, onPageReleased);
-        memoryManager.updateMemoryUsage(pageReference.getRetainedSizeInBytes());
-        buffer.accept(pageReference);
+        memoryManager.updateMemoryUsage(pageSplit.getRetainedSizeInBytes());
+        buffer.accept(pageSplit);
     }
 }

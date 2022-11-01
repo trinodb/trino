@@ -783,13 +783,13 @@ public class TestLocalExchange
 
             assertSource(sourceA, 1);
             assertSource(sourceB, 1);
-            assertTrue(exchange.getBufferedBytes() >= retainedSizeOfPages(1));
+            assertTrue(sourceA.getBufferInfo().getBufferedBytes() + sourceB.getBufferInfo().getBufferedBytes() >= retainedSizeOfPages(1));
 
             sink.addPage(createPage(0));
 
             assertSource(sourceA, 2);
             assertSource(sourceB, 2);
-            assertTrue(exchange.getBufferedBytes() >= retainedSizeOfPages(2));
+            assertTrue(sourceA.getBufferInfo().getBufferedBytes() + sourceB.getBufferInfo().getBufferedBytes() >= retainedSizeOfPages(2));
 
             assertPartitionedRemovePage(sourceA, 0, 2);
             assertSource(sourceA, 1);
@@ -1155,7 +1155,11 @@ public class TestLocalExchange
 
     private static void assertExchangeTotalBufferedBytes(LocalExchange exchange, int pageCount)
     {
-        assertEquals(exchange.getBufferedBytes(), retainedSizeOfPages(pageCount));
+        long bufferedBytes = 0;
+        for (int i = 0; i < exchange.getBufferCount(); i++) {
+            bufferedBytes += exchange.getSource(i).getBufferInfo().getBufferedBytes();
+        }
+        assertEquals(bufferedBytes, retainedSizeOfPages(pageCount));
     }
 
     private static Page createPage(int i)
