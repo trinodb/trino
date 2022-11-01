@@ -61,7 +61,6 @@ import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
@@ -175,94 +174,6 @@ public class TestLocalExchange
 
             assertRemovePage(source, createPage(3));
             assertSourceFinished(source);
-            assertExchangeTotalBufferedBytes(exchange, 0);
-        });
-    }
-
-    @Test
-    public void testBroadcast()
-    {
-        LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
-                SESSION,
-                2,
-                FIXED_BROADCAST_DISTRIBUTION,
-                ImmutableList.of(),
-                ImmutableList.of(),
-                Optional.empty(),
-                LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
-                TYPE_OPERATOR_FACTORY,
-                WRITER_MIN_SIZE);
-
-        run(localExchange, exchange -> {
-            assertEquals(exchange.getBufferCount(), 2);
-            assertExchangeTotalBufferedBytes(exchange, 0);
-
-            LocalExchangeSinkFactory sinkFactory = exchange.createSinkFactory();
-            sinkFactory.noMoreSinkFactories();
-            LocalExchangeSink sinkA = sinkFactory.createSink();
-            assertSinkCanWrite(sinkA);
-            LocalExchangeSink sinkB = sinkFactory.createSink();
-            assertSinkCanWrite(sinkB);
-            sinkFactory.close();
-
-            LocalExchangeSource sourceA = getNextSource(exchange);
-            assertSource(sourceA, 0);
-
-            LocalExchangeSource sourceB = getNextSource(exchange);
-            assertSource(sourceB, 0);
-
-            sinkA.addPage(createPage(0));
-
-            assertSource(sourceA, 1);
-            assertSource(sourceB, 1);
-            assertExchangeTotalBufferedBytes(exchange, 1);
-
-            sinkA.addPage(createPage(0));
-
-            assertSource(sourceA, 2);
-            assertSource(sourceB, 2);
-            assertExchangeTotalBufferedBytes(exchange, 2);
-
-            assertRemovePage(sourceA, createPage(0));
-            assertSource(sourceA, 1);
-            assertSource(sourceB, 2);
-            assertExchangeTotalBufferedBytes(exchange, 2);
-
-            assertRemovePage(sourceA, createPage(0));
-            assertSource(sourceA, 0);
-            assertSource(sourceB, 2);
-            assertExchangeTotalBufferedBytes(exchange, 2);
-
-            sinkA.finish();
-            assertSinkFinished(sinkA);
-            assertExchangeTotalBufferedBytes(exchange, 2);
-
-            sinkB.addPage(createPage(0));
-            assertSource(sourceA, 1);
-            assertSource(sourceB, 3);
-            assertExchangeTotalBufferedBytes(exchange, 3);
-
-            sinkB.finish();
-            assertSinkFinished(sinkB);
-            assertSource(sourceA, 1);
-            assertSource(sourceB, 3);
-            assertExchangeTotalBufferedBytes(exchange, 3);
-
-            assertRemovePage(sourceA, createPage(0));
-            assertSourceFinished(sourceA);
-            assertSource(sourceB, 3);
-            assertExchangeTotalBufferedBytes(exchange, 3);
-
-            assertRemovePage(sourceB, createPage(0));
-            assertRemovePage(sourceB, createPage(0));
-            assertSourceFinished(sourceA);
-            assertSource(sourceB, 1);
-            assertExchangeTotalBufferedBytes(exchange, 1);
-
-            assertRemovePage(sourceB, createPage(0));
-            assertSourceFinished(sourceA);
-            assertSourceFinished(sourceB);
             assertExchangeTotalBufferedBytes(exchange, 0);
         });
     }
@@ -991,7 +902,7 @@ public class TestLocalExchange
                 nodePartitioningManager,
                 SESSION,
                 2,
-                FIXED_BROADCAST_DISTRIBUTION,
+                FIXED_ARBITRARY_DISTRIBUTION,
                 ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty(),
@@ -1038,11 +949,11 @@ public class TestLocalExchange
                 nodePartitioningManager,
                 SESSION,
                 2,
-                FIXED_BROADCAST_DISTRIBUTION,
+                FIXED_PASSTHROUGH_DISTRIBUTION,
                 ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty(),
-                DataSize.ofBytes(1),
+                DataSize.ofBytes(2),
                 TYPE_OPERATOR_FACTORY,
                 WRITER_MIN_SIZE);
 
@@ -1072,11 +983,12 @@ public class TestLocalExchange
 
             sinkA.addPage(createPage(0));
             ListenableFuture<Void> sinkAFuture = assertSinkWriteBlocked(sinkA);
+            sinkB.addPage(createPage(0));
             ListenableFuture<Void> sinkBFuture = assertSinkWriteBlocked(sinkB);
 
             assertSource(sourceA, 1);
             assertSource(sourceB, 1);
-            assertExchangeTotalBufferedBytes(exchange, 1);
+            assertExchangeTotalBufferedBytes(exchange, 2);
 
             sourceA.finish();
             assertSource(sourceA, 1);
@@ -1085,7 +997,6 @@ public class TestLocalExchange
             assertExchangeTotalBufferedBytes(exchange, 1);
 
             assertSource(sourceB, 1);
-            assertSinkWriteBlocked(sinkA);
             assertSinkWriteBlocked(sinkB);
 
             sourceB.finish();
