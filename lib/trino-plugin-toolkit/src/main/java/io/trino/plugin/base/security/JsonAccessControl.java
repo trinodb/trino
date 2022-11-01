@@ -29,12 +29,12 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
-import java.io.File;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -45,7 +45,6 @@ import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivileg
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.OWNERSHIP;
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.SELECT;
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.UPDATE;
-import static io.trino.plugin.base.util.JsonUtils.parseJson;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
@@ -97,7 +96,7 @@ import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
-public class FileBasedAccessControl
+public class JsonAccessControl
         implements ConnectorAccessControl
 {
     private static final String INFORMATION_SCHEMA_NAME = "information_schema";
@@ -109,12 +108,12 @@ public class FileBasedAccessControl
     private final List<FunctionAccessControlRule> functionRules;
     private final Set<AnySchemaPermissionsRule> anySchemaPermissionsRules;
 
-    public FileBasedAccessControl(CatalogName catalogName, File configFile)
+    public JsonAccessControl(CatalogName catalogName, Supplier<AccessControlRules> rulesProvider)
     {
         this.catalogName = catalogName.toString();
 
-        AccessControlRules rules = parseJson(configFile.toPath(), AccessControlRules.class);
-        checkArgument(!rules.hasRoleRules(), "File connector access control does not support role rules: %s", configFile);
+        AccessControlRules rules = rulesProvider.get();
+        checkArgument(!rules.hasRoleRules(), "Json access control does not support role rules");
 
         this.schemaRules = rules.getSchemaRules();
         this.tableRules = rules.getTableRules();

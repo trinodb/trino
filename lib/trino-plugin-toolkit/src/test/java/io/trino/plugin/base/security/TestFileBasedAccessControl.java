@@ -633,7 +633,7 @@ public class TestFileBasedAccessControl
     public void testEverythingImplemented()
             throws NoSuchMethodException
     {
-        assertAllMethodsOverridden(ConnectorAccessControl.class, FileBasedAccessControl.class);
+        assertAllMethodsOverridden(ConnectorAccessControl.class, JsonAccessControl.class);
     }
 
     private static ConnectorSecurityContext user(String name, Set<String> groups)
@@ -648,7 +648,7 @@ public class TestFileBasedAccessControl
     {
         try {
             File configFile = new File(getResource(fileName).toURI());
-            return new FileBasedAccessControl(new CatalogName("test_catalog"), configFile);
+            return FileBasedAccessControlFactory.create(new CatalogName("test_catalog"), configFile);
         }
         catch (URISyntaxException e) {
             throw new RuntimeException(e);

@@ -47,11 +47,11 @@ public class FileBasedAccessControlModule
             return ForwardingConnectorAccessControl.of(memoizeWithExpiration(
                     () -> {
                         log.info("Refreshing access control for catalog '%s' from: %s", catalogName, configFile);
-                        return new FileBasedAccessControl(catalogName, configFile);
+                        return FileBasedAccessControlFactory.create(catalogName, configFile);
                     },
                     config.getRefreshPeriod().toMillis(),
                     MILLISECONDS));
         }
-        return new FileBasedAccessControl(catalogName, configFile);
+        return FileBasedAccessControlFactory.create(catalogName, configFile);
     }
 }
