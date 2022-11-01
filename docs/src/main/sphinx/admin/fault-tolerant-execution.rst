@@ -19,6 +19,10 @@ worker outage or other fault during query execution.
     example, Trino does not spend resources retrying a query that fails because
     its SQL cannot be parsed.
 
+    For a step-by-step guide explaining how to configure a Trino cluster with
+    fault-tolerant execution to improve query processing resilience, read
+    :doc:`/installation/query-resiliency`.
+
 Configuration
 -------------
 
@@ -118,8 +122,13 @@ recommended when executing large batch queries, as the cluster can more
 efficiently retry smaller tasks within the query rather than retry the whole
 query.
 
-The following cluster configuration changes are recommended to improve
-fault-tolerant execution with a ``TASK`` retry policy:
+When a cluster is configured with a ``TASK`` retry policy, some relevant
+configuration properties have their default values changed to follow best
+practices for a fault-tolerant cluster. However, this automatic change does not
+affect clusters that have these properties manually configured. If you have
+any of the following properties configured in the ``config.properties`` file on
+a cluster with a ``TASK`` retry policy, it is strongly recommended to make the
+following changes:
 
 * Set the ``task.low-memory-killer.policy``
   :doc:`query management property </admin/properties-query-management>` to
