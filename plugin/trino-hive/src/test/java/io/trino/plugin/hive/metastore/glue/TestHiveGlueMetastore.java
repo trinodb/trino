@@ -13,16 +13,23 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
+import com.amazonaws.arn.Arn;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
+import com.amazonaws.regions.Regions;
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
+import com.amazonaws.services.glue.model.CreateDatabaseRequest;
 import com.amazonaws.services.glue.model.CreateTableRequest;
 import com.amazonaws.services.glue.model.Database;
+import com.amazonaws.services.glue.model.DatabaseInput;
 import com.amazonaws.services.glue.model.DeleteDatabaseRequest;
+import com.amazonaws.services.glue.model.DeleteResourcePolicyRequest;
 import com.amazonaws.services.glue.model.DeleteTableRequest;
 import com.amazonaws.services.glue.model.EntityNotFoundException;
 import com.amazonaws.services.glue.model.GetDatabasesRequest;
 import com.amazonaws.services.glue.model.GetDatabasesResult;
+import com.amazonaws.services.glue.model.GetTableRequest;
+import com.amazonaws.services.glue.model.PutResourcePolicyRequest;
 import com.amazonaws.services.glue.model.TableInput;
 import com.amazonaws.services.glue.model.UpdateTableRequest;
 import com.google.common.collect.ImmutableList;
@@ -1329,6 +1336,57 @@ public class TestHiveGlueMetastore
             glueClient.deleteTable(new DeleteTableRequest()
                     .withDatabaseName(table.getSchemaName())
                     .withName(table.getTableName()));
+        }
+    }
+
+    @Test
+    public void testGetAllEntitiesOnAccessDeniedDatabase()
+    {
+        String database = "forbidden";
+        String tableName = "test-show-tables";
+        String policyHash = null;
+        try {
+            glueClient.createDatabase(new CreateDatabaseRequest().withDatabaseInput(new DatabaseInput().withName(database)));
+            TableInput tableInput = new TableInput()
+                    .withName(tableName)
+                    .withTableType(EXTERNAL_TABLE.name());
+            glueClient.createTable(new CreateTableRequest()
+                    .withDatabaseName(database)
+                    .withTableInput(tableInput));
+            com.amazonaws.services.glue.model.Table glueTable = glueClient.getTable(new GetTableRequest().withDatabaseName(database).withName(tableName)).getTable();
+            String user = glueTable.getCreatedBy();
+            String accountId = Arn.fromString(user).getAccountId();
+            String policy = """
+                    {
+                        "Statement": [
+                            {
+                                "Principal": {
+                                    "AWS": [
+                                        "%s"
+                                    ]
+                                },
+                                "Sid": "GetTablesAccessDeny",
+                                "Effect": "Deny",
+                                "Action": [
+                                    "glue:GetTables"
+                                ],
+                                "Resource": [
+                                    "arn:aws:glue:%s:%s:database/%s"
+                                ]
+                            }
+                        ]
+                    }
+                    """.formatted(user, Regions.US_WEST_2.getName(), accountId, database);
+            policyHash = glueClient.putResourcePolicy(new PutResourcePolicyRequest().withPolicyInJson(policy)).getPolicyHash();
+            assertThat(metastore.getAllTables(database)).isEmpty();
+            assertThat(metastore.getAllViews(database)).isEmpty();
+        }
+        finally {
+            glueClient.deleteTable(new DeleteTableRequest().withName(tableName).withDatabaseName(database));
+            if (policyHash != null) {
+                glueClient.deleteResourcePolicy(new DeleteResourcePolicyRequest().withPolicyHashCondition(policyHash));
+            }
+            glueClient.deleteDatabase(new DeleteDatabaseRequest().withName(database));
         }
     }
 
