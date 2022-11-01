@@ -25,6 +25,7 @@ import java.util.List;
 
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ACCESS_KEY;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ACL_TYPE;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ANONYMOUS_REQUESTS_ENABLED;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_CONNECT_TIMEOUT;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ENCRYPTION_MATERIALS_PROVIDER;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ENDPOINT;
@@ -112,6 +113,7 @@ public class TrinoS3ConfigurationInitializer
     private final boolean s3preemptiveBasicProxyAuth;
     private final String s3StsEndpoint;
     private final String s3StsRegion;
+    private final boolean anonymousRequestsEnabled;
 
     @Inject
     public TrinoS3ConfigurationInitializer(HiveS3Config config)
@@ -158,6 +160,7 @@ public class TrinoS3ConfigurationInitializer
         this.s3preemptiveBasicProxyAuth = config.getS3PreemptiveBasicProxyAuth();
         this.s3StsEndpoint = config.getS3StsEndpoint();
         this.s3StsRegion = config.getS3StsRegion();
+        this.anonymousRequestsEnabled = config.isAnonymousRequestsEnabled();
     }
 
     @Override
@@ -248,5 +251,6 @@ public class TrinoS3ConfigurationInitializer
         if (s3StsRegion != null) {
             config.set(S3_STS_REGION, s3StsRegion);
         }
+        config.setBoolean(S3_ANONYMOUS_REQUESTS_ENABLED, anonymousRequestsEnabled);
     }
 }

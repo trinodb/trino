@@ -22,6 +22,7 @@ import com.amazonaws.SdkClientException;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.AnonymousAWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.BasicSessionCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
@@ -223,6 +224,7 @@ public class TrinoS3FileSystem
 
     public static final String S3_STS_ENDPOINT = "trino.s3.sts.endpoint";
     public static final String S3_STS_REGION = "trino.s3.sts.region";
+    public static final String S3_ANONYMOUS_REQUESTS_ENABLED = "trino.s3.anonymous-requests.enabled";
 
     private static final Logger log = Logger.get(TrinoS3FileSystem.class);
     private static final TrinoS3FileSystemStats STATS = new TrinoS3FileSystemStats();
@@ -263,6 +265,7 @@ public class TrinoS3FileSystem
     private int streamingUploadPartSize;
     private TrinoS3StorageClass s3StorageClass;
     private String s3RoleSessionName;
+    private boolean anonymousRequestsEnabled;
 
     private final ExecutorService uploadExecutor = newCachedThreadPool(threadsNamed("s3-upload-%s"));
 
@@ -312,6 +315,7 @@ public class TrinoS3FileSystem
         this.streamingUploadPartSize = toIntExact(conf.getLong(S3_STREAMING_UPLOAD_PART_SIZE, defaults.getS3StreamingPartSize().toBytes()));
         this.s3StorageClass = conf.getEnum(S3_STORAGE_CLASS, defaults.getS3StorageClass());
         this.s3RoleSessionName = conf.get(S3_ROLE_SESSION_NAME, S3_DEFAULT_ROLE_SESSION_NAME);
+        this.anonymousRequestsEnabled = conf.getBoolean(S3_ANONYMOUS_REQUESTS_ENABLED, defaults.isAnonymousRequestsEnabled());
 
         ClientConfiguration configuration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
@@ -1016,6 +1020,10 @@ public class TrinoS3FileSystem
 
     private AWSCredentialsProvider createAwsCredentialsProvider(URI uri, Configuration conf)
     {
+        if (anonymousRequestsEnabled) {
+            return new AWSStaticCredentialsProvider(new AnonymousAWSCredentials());
+        }
+
         // credentials embedded in the URI take precedence and are used alone
         Optional<AWSCredentials> credentials = getEmbeddedAwsCredentials(uri);
         if (credentials.isPresent()) {

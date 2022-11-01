@@ -81,6 +81,7 @@ public class HiveS3Config
     private boolean s3preemptiveBasicProxyAuth;
     private String s3StsEndpoint;
     private String s3StsRegion;
+    private boolean anonymousRequestsEnabled;
 
     public String getS3AwsAccessKey()
     {
@@ -624,6 +625,18 @@ public class HiveS3Config
     public HiveS3Config setS3StsRegion(String s3StsRegion)
     {
         this.s3StsRegion = s3StsRegion;
+        return this;
+    }
+
+    public boolean isAnonymousRequestsEnabled()
+    {
+        return anonymousRequestsEnabled;
+    }
+
+    @Config("hive.s3.anonymous-requests.enabled")
+    public HiveS3Config setAnonymousRequestsEnabled(boolean anonymousRequestsEnabled)
+    {
+        this.anonymousRequestsEnabled = anonymousRequestsEnabled;
         return this;
     }
 }
