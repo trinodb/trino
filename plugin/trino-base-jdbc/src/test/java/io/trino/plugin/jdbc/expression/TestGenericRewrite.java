@@ -21,6 +21,7 @@ import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.FunctionName;
 import io.trino.spi.expression.Variable;
+import io.trino.spi.type.DecimalType;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -33,6 +34,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGenericRewrite
@@ -50,6 +52,19 @@ public class TestGenericRewrite
 
         Optional<String> rewritten = apply(rewrite, expression);
         assertThat(rewritten).hasValue("(\"first\") + (\"second\")::decimal(21,2)");
+    }
+
+    @Test
+    public void testRewriteCallWithTypeCapture()
+    {
+        GenericRewrite rewrite = new GenericRewrite(Map.of(), "cast(foo): any as bar", "cast(foo as bar)");
+        ConnectorExpression expression = new Call(
+                createDecimalType(21, 2),
+                new FunctionName("cast"),
+                List.of(new Variable("first", createDecimalType(10, 2))));
+
+        Optional<String> rewritten = apply(rewrite, expression);
+        assertThat(rewritten).hasValue("cast((\"first\") as decimal(21,2))");
     }
 
     @Test
@@ -82,6 +97,41 @@ public class TestGenericRewrite
                 List.of(
                         new Variable("first", INTEGER),
                         new Variable("second", BIGINT)))))
+                .isEmpty();
+    }
+
+    @Test
+    public void testRewriteCallWithTypeClassAndCapture()
+    {
+        Map<String, Set<String>> typeClasses = Map.of(
+                "source_types", Set.of("integer", "varchar", "bigint"),
+                "cast_types", Set.of("varchar", "bigint"));
+        GenericRewrite rewrite = new GenericRewrite(typeClasses, "cast(foo: source_types): cast_types as bar", "cast(foo as bar)");
+
+        assertThat(apply(rewrite, new Call(
+                BIGINT,
+                new FunctionName("cast"),
+                List.of(new Variable("first", INTEGER)))))
+                .hasValue("cast((\"first\") as bigint)");
+
+        assertThat(apply(rewrite, new Call(
+                VARCHAR,
+                new FunctionName("cast"),
+                List.of(new Variable("first", INTEGER)))))
+                .hasValue("cast((\"first\") as varchar)");
+
+        // argument type not in class
+        assertThat(apply(rewrite, new Call(
+                VARCHAR,
+                new FunctionName("cast"),
+                List.of(new Variable("first", DOUBLE)))))
+                .isEmpty();
+
+        // argument type not in class
+        assertThat(apply(rewrite, new Call(
+                DecimalType.createDecimalType(20),
+                new FunctionName("cast"),
+                List.of(new Variable("first", BIGINT)))))
                 .isEmpty();
     }
 

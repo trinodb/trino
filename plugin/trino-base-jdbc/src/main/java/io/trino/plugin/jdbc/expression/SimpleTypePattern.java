@@ -30,6 +30,8 @@ import static java.util.stream.Collectors.joining;
 public class SimpleTypePattern
         implements TypePattern
 {
+    private static final String ANY_TYPE = "any";
+
     private final String baseName;
     private final List<TypeParameterPattern> parameters;
     private final Pattern<Type> pattern;
@@ -38,7 +40,10 @@ public class SimpleTypePattern
     {
         this.baseName = requireNonNull(baseName, "baseName is null");
         this.parameters = ImmutableList.copyOf(requireNonNull(parameters, "parameters is null"));
-        Pattern<Type> pattern = Pattern.typeOf(Type.class).with(baseName().equalTo(baseName));
+        Pattern<Type> pattern = Pattern.typeOf(Type.class);
+        if (!baseName.equalsIgnoreCase(ANY_TYPE)) {
+            pattern = pattern.with(baseName().equalTo(baseName));
+        }
         for (int i = 0; i < parameters.size(); i++) {
             pattern = pattern.with(parameter(i).matching(parameters.get(i).getPattern()));
         }

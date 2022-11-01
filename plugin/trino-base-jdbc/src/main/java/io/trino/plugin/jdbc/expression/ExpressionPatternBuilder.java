@@ -56,7 +56,7 @@ public class ExpressionPatternBuilder
         return new CallPattern(
                 visit(context.identifier(), String.class),
                 visit(context.expression(), ExpressionPattern.class),
-                visitIfPresent(context.type(), TypePattern.class));
+                visitIfPresent(context.typeCapture(), TypePattern.class));
     }
 
     @Override
@@ -92,6 +92,17 @@ public class ExpressionPatternBuilder
                             throw new UnsupportedOperationException(format("Unsupported parameter %s (%s) from %s", result, result.getClass(), parameter));
                         })
                         .collect(toImmutableList()));
+    }
+
+    @Override
+    public TypePattern visitTypeCapture(ConnectorExpressionPatternParser.TypeCaptureContext context)
+    {
+        TypePattern typePattern = visit(context.type(), TypePattern.class);
+        Optional<String> name = visitIfPresent(context.identifier(), String.class);
+        if (name.isEmpty()) {
+            return typePattern;
+        }
+        return new TypeCapture(typePattern, name.get());
     }
 
     @Override

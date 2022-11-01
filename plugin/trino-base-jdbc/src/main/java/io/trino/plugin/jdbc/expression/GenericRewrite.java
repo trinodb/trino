@@ -16,6 +16,7 @@ package io.trino.plugin.jdbc.expression;
 import io.trino.matching.Captures;
 import io.trino.plugin.base.expression.ConnectorExpressionRule;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.type.Type;
 
 import java.util.Map;
 import java.util.Optional;
@@ -74,6 +75,9 @@ public class GenericRewrite
                         return Optional.empty();
                     }
                     replacement = format("(%s)", rewrittenExpression.get());
+                }
+                else if (value instanceof Type type) {
+                    replacement = type.getTypeSignature().toString();
                 }
                 else {
                     throw new UnsupportedOperationException(format("Unsupported value: %s (%s)", value, value.getClass()));

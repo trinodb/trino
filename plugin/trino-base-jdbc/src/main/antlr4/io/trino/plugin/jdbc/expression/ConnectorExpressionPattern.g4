@@ -32,11 +32,15 @@ expression
     ;
 
 call
-    : identifier '(' expression (',' expression)* ')' (':' type)?
+    : identifier '(' expression (',' expression)* ')' (':' typeCapture)?
     ;
 
 expressionCapture
     : identifier (':' type)?
+    ;
+
+typeCapture
+    : type ('as' identifier)?
     ;
 
 type

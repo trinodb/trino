@@ -82,6 +82,13 @@ public class TestExpressionMappingParser
                                 new ExpressionCapture("a", type("varchar", parameter("n"))),
                                 new ExpressionCapture("b", type("varchar", parameter("m")))),
                         Optional.of(type("boolean"))));
+
+        assertExpressionPattern(
+                "$cast(a: bigint): any as target_type",
+                new CallPattern(
+                        "$cast",
+                        List.of(new ExpressionCapture("a", type("bigint"))),
+                        Optional.of(typeCapture(type("any"), "target_type"))));
     }
 
     @Test
@@ -96,6 +103,21 @@ public class TestExpressionMappingParser
                                 new ExpressionCapture("a", integerClass),
                                 new ExpressionCapture("b", integerClass)),
                         Optional.of(integerClass)));
+    }
+
+    @Test
+    public void testCallPatternWithTypeCapture()
+    {
+        TypeClassPattern integerClass = typeClass("integer_class", Set.of("integer", "bigint"));
+        TypeCapture typeCapture = typeCapture(integerClass, "rt");
+        assertExpressionPattern(
+                "add(a: integer_class, b: integer_class): integer_class as rt",
+                new CallPattern(
+                        "add",
+                        List.of(
+                                new ExpressionCapture("a", integerClass),
+                                new ExpressionCapture("b", integerClass)),
+                        Optional.of(typeCapture)));
     }
 
     private static void assertExpressionPattern(String expressionPattern, ExpressionPattern expected)
@@ -137,5 +159,10 @@ public class TestExpressionMappingParser
     private static TypeClassPattern typeClass(String typeClassName, Set<String> typeNames)
     {
         return new TypeClassPattern(typeClassName, typeNames);
+    }
+
+    private static TypeCapture typeCapture(TypePattern typePattern, String name)
+    {
+        return new TypeCapture(typePattern, name);
     }
 }
