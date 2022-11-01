@@ -114,13 +114,7 @@ public class LocalExchange
                 .collect(toImmutableList());
 
         this.memoryManager = new LocalExchangeMemoryManager(maxBufferedBytes.toBytes());
-        if (partitioning.equals(SINGLE_DISTRIBUTION)) {
-            exchangerSupplier = () -> new BroadcastExchanger(buffers, memoryManager);
-        }
-        else if (partitioning.equals(FIXED_BROADCAST_DISTRIBUTION)) {
-            exchangerSupplier = () -> new BroadcastExchanger(buffers, memoryManager);
-        }
-        else if (partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION)) {
+        if (partitioning.equals(SINGLE_DISTRIBUTION) || partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION)) {
             exchangerSupplier = () -> new RandomExchanger(buffers, memoryManager);
         }
         else if (partitioning.equals(FIXED_PASSTHROUGH_DISTRIBUTION)) {
