@@ -93,6 +93,7 @@ public class MockConnectorFactory
     private final BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle;
     private final Function<SchemaTableName, List<ColumnMetadata>> getColumns;
     private final Function<SchemaTableName, TableStatistics> getTableStatistics;
+    private final Function<SchemaTableName, List<String>> checkConstraints;
     private final ApplyProjection applyProjection;
     private final ApplyAggregation applyAggregation;
     private final ApplyJoin applyJoin;
@@ -136,6 +137,7 @@ public class MockConnectorFactory
             BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle,
             Function<SchemaTableName, List<ColumnMetadata>> getColumns,
             Function<SchemaTableName, TableStatistics> getTableStatistics,
+            Function<SchemaTableName, List<String>> checkConstraints,
             ApplyProjection applyProjection,
             ApplyAggregation applyAggregation,
             ApplyJoin applyJoin,
@@ -176,6 +178,7 @@ public class MockConnectorFactory
         this.getTableHandle = requireNonNull(getTableHandle, "getTableHandle is null");
         this.getColumns = requireNonNull(getColumns, "getColumns is null");
         this.getTableStatistics = requireNonNull(getTableStatistics, "getTableStatistics is null");
+        this.checkConstraints = requireNonNull(checkConstraints, "checkConstraints is null");
         this.applyProjection = requireNonNull(applyProjection, "applyProjection is null");
         this.applyAggregation = requireNonNull(applyAggregation, "applyAggregation is null");
         this.applyJoin = requireNonNull(applyJoin, "applyJoin is null");
@@ -226,6 +229,7 @@ public class MockConnectorFactory
                 getTableHandle,
                 getColumns,
                 getTableStatistics,
+                checkConstraints,
                 applyProjection,
                 applyAggregation,
                 applyJoin,
@@ -353,6 +357,7 @@ public class MockConnectorFactory
         private BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle = defaultGetTableHandle();
         private Function<SchemaTableName, List<ColumnMetadata>> getColumns = defaultGetColumns();
         private Function<SchemaTableName, TableStatistics> getTableStatistics = schemaTableName -> empty();
+        private Function<SchemaTableName, List<String>> checkConstraints = (schemaTableName -> ImmutableList.of());
         private ApplyProjection applyProjection = (session, handle, projections, assignments) -> Optional.empty();
         private ApplyAggregation applyAggregation = (session, handle, aggregates, assignments, groupingSets) -> Optional.empty();
         private ApplyJoin applyJoin = (session, joinType, left, right, joinConditions, leftAssignments, rightAssignments) -> Optional.empty();
@@ -471,6 +476,12 @@ public class MockConnectorFactory
         public Builder withGetTableStatistics(Function<SchemaTableName, TableStatistics> getTableStatistics)
         {
             this.getTableStatistics = requireNonNull(getTableStatistics, "getColumns is null");
+            return this;
+        }
+
+        public Builder withCheckConstraints(Function<SchemaTableName, List<String>> checkConstraints)
+        {
+            this.checkConstraints = requireNonNull(checkConstraints, "checkConstraints is null");
             return this;
         }
 
@@ -683,6 +694,7 @@ public class MockConnectorFactory
                     getTableHandle,
                     getColumns,
                     getTableStatistics,
+                    checkConstraints,
                     applyProjection,
                     applyAggregation,
                     applyJoin,

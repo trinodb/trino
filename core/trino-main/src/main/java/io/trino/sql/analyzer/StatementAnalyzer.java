@@ -296,6 +296,7 @@ import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_WINDOW;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
+import static io.trino.spi.StandardErrorCode.INVALID_CHECK_CONSTRAINT;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.spi.StandardErrorCode.INVALID_COPARTITIONING;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -364,6 +365,7 @@ import static io.trino.sql.analyzer.ScopeReferenceExtractor.getReferencesToScope
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
+import static io.trino.sql.planner.DeterminismEvaluator.containsCurrentTimeFunctions;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -542,6 +544,7 @@ class StatementAnalyzer
             List<ColumnSchema> columns = tableSchema.getColumns().stream()
                     .filter(column -> !column.isHidden())
                     .collect(toImmutableList());
+            List<String> checkConstraints = tableSchema.getTableSchema().getCheckConstraints();
 
             for (ColumnSchema column : columns) {
                 if (!accessControl.getColumnMasks(session.toSecurityContext(), targetTable, column.getName(), column.getType()).isEmpty()) {
@@ -551,7 +554,12 @@ class StatementAnalyzer
 
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTableHandle.get());
             List<Field> tableFields = analyzeTableOutputFields(insert.getTable(), targetTable, tableSchema, columnHandles);
-            analyzeFiltersAndMasks(insert.getTable(), targetTable, targetTableHandle, tableFields, session.getIdentity().getUser());
+            Scope accessControlScope = Scope.builder()
+                    .withRelationType(RelationId.anonymous(), new RelationType(tableFields))
+                    .build();
+            analyzeFiltersAndMasks(insert.getTable(), targetTable, new RelationType(tableFields), accessControlScope);
+            analyzeCheckConstraints(insert.getTable(), targetTable, accessControlScope, checkConstraints);
+            analysis.registerTable(insert.getTable(), targetTableHandle, targetTable, session.getIdentity().getUser(), accessControlScope);
 
             List<String> tableColumns = columns.stream()
                     .map(ColumnSchema::getName)
@@ -801,7 +809,12 @@ class StatementAnalyzer
 
             analysis.setUpdateType("DELETE");
             analysis.setUpdateTarget(tableName, Optional.of(table), Optional.empty());
-            analyzeFiltersAndMasks(table, tableName, Optional.of(handle), analysis.getScope(table).getRelationType(), session.getIdentity().getUser());
+            Scope accessControlScope = Scope.builder()
+                    .withRelationType(RelationId.anonymous(), analysis.getScope(table).getRelationType())
+                    .build();
+            analyzeFiltersAndMasks(table, tableName, analysis.getScope(table).getRelationType(), accessControlScope);
+            analyzeCheckConstraints(table, tableName, accessControlScope, tableSchema.getTableSchema().getCheckConstraints());
+            analysis.registerTable(table, Optional.of(handle), tableName, session.getIdentity().getUser(), accessControlScope);
 
             createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of());
 
@@ -2188,7 +2201,12 @@ class StatementAnalyzer
 
             List<Field> outputFields = fields.build();
 
-            analyzeFiltersAndMasks(table, targetTableName, tableHandle, outputFields, session.getIdentity().getUser());
+            Scope accessControlScope = Scope.builder()
+                    .withRelationType(RelationId.anonymous(), new RelationType(outputFields))
+                    .build();
+            analyzeFiltersAndMasks(table, targetTableName, new RelationType(outputFields), accessControlScope);
+            analyzeCheckConstraints(table, targetTableName, accessControlScope, tableSchema.getTableSchema().getCheckConstraints());
+            analysis.registerTable(table, tableHandle, targetTableName, session.getIdentity().getUser(), accessControlScope);
 
             Scope tableScope = createAndAssignScope(table, scope, outputFields);
 
@@ -2208,17 +2226,8 @@ class StatementAnalyzer
             });
         }
 
-        private void analyzeFiltersAndMasks(Table table, QualifiedObjectName name, Optional<TableHandle> tableHandle, List<Field> fields, String authorization)
+        private void analyzeFiltersAndMasks(Table table, QualifiedObjectName name, RelationType relationType, Scope accessControlScope)
         {
-            analyzeFiltersAndMasks(table, name, tableHandle, new RelationType(fields), authorization);
-        }
-
-        private void analyzeFiltersAndMasks(Table table, QualifiedObjectName name, Optional<TableHandle> tableHandle, RelationType relationType, String authorization)
-        {
-            Scope accessControlScope = Scope.builder()
-                    .withRelationType(RelationId.anonymous(), relationType)
-                    .build();
-
             for (int index = 0; index < relationType.getAllFieldCount(); index++) {
                 Field field = relationType.getFieldByIndex(index);
                 if (field.getName().isPresent()) {
@@ -2232,8 +2241,14 @@ class StatementAnalyzer
 
             accessControl.getRowFilters(session.toSecurityContext(), name)
                     .forEach(filter -> analyzeRowFilter(session.getIdentity().getUser(), table, name, accessControlScope, filter));
+        }
 
-            analysis.registerTable(table, tableHandle, name, authorization, accessControlScope);
+        private void analyzeCheckConstraints(Table table, QualifiedObjectName name, Scope accessControlScope, List<String> constraints)
+        {
+            for (String constraint : constraints) {
+                ViewExpression expression = new ViewExpression(session.getIdentity().getUser(), Optional.of(name.getCatalogName()), Optional.of(name.getSchemaName()), constraint);
+                analyzeCheckConstraint(table, name, accessControlScope, expression);
+            }
         }
 
         private boolean checkCanSelectFromColumn(QualifiedObjectName name, String column)
@@ -2375,13 +2390,21 @@ class StatementAnalyzer
 
             if (storageTable.isPresent()) {
                 List<Field> storageTableFields = analyzeStorageTable(table, viewFields, storageTable.get());
-                analyzeFiltersAndMasks(table, name, storageTable, viewFields, session.getIdentity().getUser());
+                Scope accessControlScope = Scope.builder()
+                        .withRelationType(RelationId.anonymous(), new RelationType(viewFields))
+                        .build();
+                analyzeFiltersAndMasks(table, name, new RelationType(viewFields), accessControlScope);
+                analysis.registerTable(table, storageTable, name, session.getIdentity().getUser(), accessControlScope);
                 analysis.addRelationCoercion(table, viewFields.stream().map(Field::getType).toArray(Type[]::new));
                 // use storage table output fields as they contain ColumnHandles
                 return createAndAssignScope(table, scope, storageTableFields);
             }
 
-            analyzeFiltersAndMasks(table, name, storageTable, viewFields, session.getIdentity().getUser());
+            Scope accessControlScope = Scope.builder()
+                    .withRelationType(RelationId.anonymous(), new RelationType(viewFields))
+                    .build();
+            analyzeFiltersAndMasks(table, name, new RelationType(viewFields), accessControlScope);
+            analysis.registerTable(table, storageTable, name, session.getIdentity().getUser(), accessControlScope);
             viewFields.forEach(field -> analysis.addSourceColumns(field, ImmutableSet.of(new SourceColumn(name, field.getName().orElseThrow()))));
             analysis.registerNamedQuery(table, query);
             return createAndAssignScope(table, scope, viewFields);
@@ -3174,6 +3197,10 @@ class StatementAnalyzer
             if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
                 throw semanticException(NOT_SUPPORTED, update, "Updating a table with a row filter is not supported");
             }
+            if (!tableSchema.getTableSchema().getCheckConstraints().isEmpty()) {
+                // TODO https://github.com/trinodb/trino/issues/15411 Add support for CHECK constraint to UPDATE statement
+                throw semanticException(NOT_SUPPORTED, update, "Updating a table with a check constraint is not supported");
+            }
 
             // TODO: how to deal with connectors that need to see the pre-image of rows to perform the update without
             //       flowing that data through the masking logic
@@ -3300,6 +3327,10 @@ class StatementAnalyzer
 
             if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
                 throw semanticException(NOT_SUPPORTED, merge, "Cannot merge into a table with row filters");
+            }
+            if (!tableSchema.getTableSchema().getCheckConstraints().isEmpty()) {
+                // TODO https://github.com/trinodb/trino/issues/15411 Add support for CHECK constraint to MERGE statement
+                throw semanticException(NOT_SUPPORTED, merge, "Cannot merge into a table with check constraints");
             }
 
             Scope targetTableScope = analyzer.analyzeForUpdate(relation, scope, UpdateKind.MERGE);
@@ -4644,6 +4675,62 @@ class StatementAnalyzer
             }
 
             analysis.addRowFilter(table, expression);
+        }
+
+        private void analyzeCheckConstraint(Table table, QualifiedObjectName name, Scope scope, ViewExpression constraint)
+        {
+            Expression expression;
+            try {
+                expression = sqlParser.createExpression(constraint.getExpression(), createParsingOptions(session));
+            }
+            catch (ParsingException e) {
+                throw new TrinoException(INVALID_CHECK_CONSTRAINT, extractLocation(table), format("Invalid check constraint for '%s': %s", name, e.getErrorMessage()), e);
+            }
+
+            verifyNoAggregateWindowOrGroupingFunctions(session, metadata, expression, format("Check constraint for '%s'", name));
+
+            ExpressionAnalysis expressionAnalysis;
+            try {
+                Identity filterIdentity = Identity.forUser(constraint.getIdentity())
+                        .withGroups(groupProvider.getGroups(constraint.getIdentity()))
+                        .build();
+                expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
+                        createViewSession(constraint.getCatalog(), constraint.getSchema(), filterIdentity, session.getPath()),
+                        plannerContext,
+                        statementAnalyzerFactory,
+                        accessControl,
+                        scope,
+                        analysis,
+                        expression,
+                        warningCollector,
+                        correlationSupport);
+            }
+            catch (TrinoException e) {
+                throw new TrinoException(e::getErrorCode, extractLocation(table), format("Invalid check constraint for '%s': %s", name, e.getRawMessage()), e);
+            }
+
+            // Ensure that the expression doesn't contain non-deterministic functions. This should be "retrospectively deterministic" per SQL standard.
+            if (!isDeterministic(expression, this::getResolvedFunction)) {
+                throw semanticException(INVALID_CHECK_CONSTRAINT, expression, "Check constraint expression should be deterministic");
+            }
+            if (containsCurrentTimeFunctions(expression)) {
+                throw semanticException(INVALID_CHECK_CONSTRAINT, expression, "Check constraint expression should not contain temporal expression");
+            }
+
+            analysis.recordSubqueries(expression, expressionAnalysis);
+
+            Type actualType = expressionAnalysis.getType(expression);
+            if (!actualType.equals(BOOLEAN)) {
+                TypeCoercion coercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
+
+                if (!coercion.canCoerce(actualType, BOOLEAN)) {
+                    throw new TrinoException(TYPE_MISMATCH, extractLocation(table), format("Expected check constraint for '%s' to be of type BOOLEAN, but was %s", name, actualType), null);
+                }
+
+                analysis.addCoercion(expression, BOOLEAN, coercion.isTypeOnlyCoercion(actualType, BOOLEAN));
+            }
+
+            analysis.addCheckConstraints(table, expression);
         }
 
         private void analyzeColumnMask(String currentIdentity, Table table, QualifiedObjectName tableName, Field field, Scope scope, ViewExpression mask)

@@ -136,6 +136,7 @@ public class MockConnector
     private final BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle;
     private final Function<SchemaTableName, List<ColumnMetadata>> getColumns;
     private final Function<SchemaTableName, TableStatistics> getTableStatistics;
+    private final Function<SchemaTableName, List<String>> checkConstraints;
     private final MockConnectorFactory.ApplyProjection applyProjection;
     private final MockConnectorFactory.ApplyAggregation applyAggregation;
     private final MockConnectorFactory.ApplyJoin applyJoin;
@@ -177,6 +178,7 @@ public class MockConnector
             BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle,
             Function<SchemaTableName, List<ColumnMetadata>> getColumns,
             Function<SchemaTableName, TableStatistics> getTableStatistics,
+            Function<SchemaTableName, List<String>> checkConstraints,
             ApplyProjection applyProjection,
             ApplyAggregation applyAggregation,
             ApplyJoin applyJoin,
@@ -216,6 +218,7 @@ public class MockConnector
         this.getTableHandle = requireNonNull(getTableHandle, "getTableHandle is null");
         this.getColumns = requireNonNull(getColumns, "getColumns is null");
         this.getTableStatistics = requireNonNull(getTableStatistics, "getTableStatistics is null");
+        this.checkConstraints = requireNonNull(checkConstraints, "checkConstraints is null");
         this.applyProjection = requireNonNull(applyProjection, "applyProjection is null");
         this.applyAggregation = requireNonNull(applyAggregation, "applyAggregation is null");
         this.applyJoin = requireNonNull(applyJoin, "applyJoin is null");
@@ -465,7 +468,12 @@ public class MockConnector
         public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
         {
             MockConnectorTableHandle table = (MockConnectorTableHandle) tableHandle;
-            return new ConnectorTableMetadata(table.getTableName(), getColumns.apply(table.getTableName()));
+            return new ConnectorTableMetadata(
+                    table.getTableName(),
+                    getColumns.apply(table.getTableName()),
+                    ImmutableMap.of(),
+                    Optional.empty(),
+                    checkConstraints.apply(table.getTableName()));
         }
 
         @Override

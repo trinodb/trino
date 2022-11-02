@@ -65,6 +65,7 @@ import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Except;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.Intersect;
 import io.trino.sql.tree.Join;
 import io.trino.sql.tree.JoinCriteria;
@@ -113,10 +114,13 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.trino.sql.planner.QueryPlanner.coerce;
 import static io.trino.sql.planner.QueryPlanner.coerceIfNecessary;
@@ -282,6 +286,33 @@ class RelationPlanner
 
             Expression predicate = planBuilder.rewrite(filter);
             predicate = predicateTransformation.apply(predicate);
+            planBuilder = planBuilder.withNewRoot(new FilterNode(
+                    idAllocator.getNextId(),
+                    planBuilder.getRoot(),
+                    predicate));
+        }
+
+        return new RelationPlan(planBuilder.getRoot(), plan.getScope(), plan.getFieldMappings(), outerContext);
+    }
+
+    public RelationPlan addCheckConstraints(List<Expression> constraints, Table node, RelationPlan plan, Function<Table, Scope> accessControlScope)
+    {
+        if (constraints.isEmpty()) {
+            return plan;
+        }
+
+        PlanBuilder planBuilder = newPlanBuilder(plan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext)
+                .withScope(accessControlScope.apply(node), plan.getFieldMappings()); // The fields in the access control scope has the same layout as those for the table scope
+
+        for (Expression constraint : constraints) {
+            planBuilder = subqueryPlanner.handleSubqueries(planBuilder, constraint, analysis.getSubqueries(constraint));
+
+            Expression predicate = new IfExpression(
+                    // When predicate evaluates to UNKNOWN (e.g. NULL > 100), it should not violate the check constraint.
+                    new CoalesceExpression(coerceIfNecessary(analysis, constraint, planBuilder.rewrite(constraint)), TRUE_LITERAL),
+                    TRUE_LITERAL,
+                    new Cast(failFunction(plannerContext.getMetadata(), session, CONSTRAINT_VIOLATION, "Check constraint violation: " + constraint), toSqlType(BOOLEAN)));
+
             planBuilder = planBuilder.withNewRoot(new FilterNode(
                     idAllocator.getNextId(),
                     planBuilder.getRoot(),

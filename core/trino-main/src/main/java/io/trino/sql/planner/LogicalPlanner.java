@@ -498,6 +498,18 @@ public class LogicalPlanner
                             .withRelationType(accessControlScope.getRelationId(), accessControlScope.getRelationType().withOnlyVisibleFields())
                             .build();
                 });
+        plan = planner.addCheckConstraints(
+                analysis.getCheckConstraints(table),
+                table,
+                plan,
+                node -> {
+                    Scope accessControlScope = analysis.getAccessControlScope(table);
+                    // hidden fields are not accessible in insert
+                    return Scope.builder()
+                            .like(accessControlScope)
+                            .withRelationType(accessControlScope.getRelationId(), accessControlScope.getRelationType().withOnlyVisibleFields())
+                            .build();
+                });
 
         List<String> insertedTableColumnNames = insertedColumns.stream()
                 .map(ColumnMetadata::getName)
