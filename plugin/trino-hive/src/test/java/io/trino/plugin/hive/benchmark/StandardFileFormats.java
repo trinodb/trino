@@ -144,7 +144,7 @@ public final class StandardFileFormats
         @Override
         public Optional<HivePageSourceFactory> getHivePageSourceFactory(HdfsEnvironment hdfsEnvironment)
         {
-            return Optional.of(new OrcPageSourceFactory(new OrcReaderOptions(), hdfsEnvironment, HDFS_FILE_SYSTEM_FACTORY, new FileFormatDataSourceStats(), UTC));
+            return Optional.of(new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_FILE_SYSTEM_FACTORY, new FileFormatDataSourceStats(), UTC));
         }
 
         @Override
