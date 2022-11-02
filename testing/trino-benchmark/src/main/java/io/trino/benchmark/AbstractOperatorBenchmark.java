@@ -20,13 +20,14 @@ import io.airlift.stats.CpuTimer;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import io.trino.Session;
-import io.trino.execution.Lifespan;
+import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskStateMachine;
 import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.Driver;
@@ -46,20 +47,20 @@ import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
-import io.trino.spi.memory.MemoryPoolId;
+import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.type.Type;
 import io.trino.spiller.SpillSpaceTracker;
 import io.trino.split.SplitSource;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.optimizations.HashGenerationOptimizer;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.transaction.TransactionId;
 
@@ -79,10 +80,12 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
-import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
+import static io.trino.execution.executor.PrioritizedSplitRunner.SPLIT_RUN_QUANTA;
+import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
-import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.relational.SqlToRowExpressionTranslator.translate;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -150,6 +153,13 @@ public abstract class AbstractOperatorBenchmark
                 .collect(toImmutableList());
     }
 
+    protected final BenchmarkAggregationFunction createAggregationFunction(String name, Type... argumentTypes)
+    {
+        ResolvedFunction resolvedFunction = localQueryRunner.getMetadata().resolveFunction(session, QualifiedName.of(name), fromTypes(argumentTypes));
+        AggregationImplementation aggregationImplementation = localQueryRunner.getFunctionManager().getAggregationImplementation(resolvedFunction);
+        return new BenchmarkAggregationFunction(resolvedFunction, aggregationImplementation);
+    }
+
     protected final OperatorFactory createTableScanOperator(int operatorId, PlanNodeId planNodeId, String tableName, String... columnNames)
     {
         checkArgument(session.getCatalog().isPresent(), "catalog not set");
@@ -199,7 +209,7 @@ public abstract class AbstractOperatorBenchmark
 
     private Split getLocalQuerySplit(Session session, TableHandle handle)
     {
-        SplitSource splitSource = localQueryRunner.getSplitManager().getSplits(session, handle, UNGROUPED_SCHEDULING, EMPTY);
+        SplitSource splitSource = localQueryRunner.getSplitManager().getSplits(session, handle, EMPTY, alwaysTrue());
         List<Split> splits = new ArrayList<>();
         while (!splitSource.isFinished()) {
             splits.addAll(getNextBatch(splitSource));
@@ -210,7 +220,7 @@ public abstract class AbstractOperatorBenchmark
 
     private static List<Split> getNextBatch(SplitSource splitSource)
     {
-        return getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), 1000)).getSplits();
+        return getFutureValue(splitSource.getNextBatch(1000)).getSplits();
     }
 
     protected final OperatorFactory createHashProjectOperator(int operatorId, PlanNodeId planNodeId, List<Type> types)
@@ -232,12 +242,12 @@ public abstract class AbstractOperatorBenchmark
                 ImmutableList.copyOf(symbolTypes.keySet()));
         verify(hashExpression.isPresent());
 
-        Map<NodeRef<Expression>, Type> expressionTypes = new TypeAnalyzer(localQueryRunner.getSqlParser(), localQueryRunner.getMetadata())
+        Map<NodeRef<Expression>, Type> expressionTypes = createTestingTypeAnalyzer(localQueryRunner.getPlannerContext())
                 .getTypes(session, TypeProvider.copyOf(symbolTypes), hashExpression.get());
 
-        RowExpression translated = translate(hashExpression.get(), expressionTypes, symbolToInputMapping.build(), localQueryRunner.getMetadata(), session, false);
+        RowExpression translated = translate(hashExpression.get(), expressionTypes, symbolToInputMapping.buildOrThrow(), localQueryRunner.getMetadata(), localQueryRunner.getFunctionManager(), session, false);
 
-        PageFunctionCompiler functionCompiler = new PageFunctionCompiler(localQueryRunner.getMetadata(), 0);
+        PageFunctionCompiler functionCompiler = new PageFunctionCompiler(localQueryRunner.getFunctionManager(), 0);
         projections.add(functionCompiler.compileProjection(translated, Optional.empty()).get());
 
         return FilterAndProjectOperator.createOperatorFactory(
@@ -261,7 +271,7 @@ public abstract class AbstractOperatorBenchmark
             boolean processed = false;
             for (Driver driver : drivers) {
                 if (!driver.isFinished()) {
-                    driver.process();
+                    driver.processForDuration(SPLIT_RUN_QUANTA);
                     long lastPeakMemory = peakMemory;
                     peakMemory = taskContext.getTaskStats().getUserMemoryReservation().toBytes();
                     if (peakMemory <= lastPeakMemory) {
@@ -282,20 +292,19 @@ public abstract class AbstractOperatorBenchmark
                 .setSystemProperty("optimizer.optimize-hash-generation", "true")
                 .setTransactionId(this.session.getRequiredTransactionId())
                 .build();
-        MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), DataSize.of(1, GIGABYTE));
+        MemoryPool memoryPool = new MemoryPool(DataSize.of(1, GIGABYTE));
         SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(DataSize.of(1, GIGABYTE));
 
         TaskContext taskContext = new QueryContext(
                 new QueryId("test"),
                 DataSize.of(256, MEGABYTE),
-                DataSize.of(512, MEGABYTE),
                 memoryPool,
                 new TestingGcMonitor(),
                 localQueryRunner.getExecutor(),
                 localQueryRunner.getScheduler(),
                 DataSize.of(256, MEGABYTE),
                 spillSpaceTracker)
-                .addTaskContext(new TaskStateMachine(new TaskId("query", 0, 0), localQueryRunner.getExecutor()),
+                .addTaskContext(new TaskStateMachine(new TaskId(new StageId("query", 0), 0, 0), localQueryRunner.getExecutor()),
                         session,
                         () -> {},
                         false,
@@ -329,7 +338,6 @@ public abstract class AbstractOperatorBenchmark
                 .put("input_bytes", inputBytes)
                 .put("output_rows", outputRows)
                 .put("output_bytes", outputBytes)
-
-                .build();
+                .buildOrThrow();
     }
 }

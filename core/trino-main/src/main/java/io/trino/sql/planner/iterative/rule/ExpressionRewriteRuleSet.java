@@ -20,14 +20,22 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.PatternRecognitionNode;
+import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.planner.rowpattern.AggregationValuePointer;
+import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
+import io.trino.sql.planner.rowpattern.ScalarValuePointer;
+import io.trino.sql.planner.rowpattern.ValuePointer;
+import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.OrderBy;
@@ -37,20 +45,24 @@ import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.SortItem.NullOrdering;
 import io.trino.sql.tree.SymbolReference;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static io.trino.sql.planner.plan.Patterns.join;
+import static io.trino.sql.planner.plan.Patterns.patternRecognition;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.values;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionRewriteRuleSet
@@ -74,7 +86,8 @@ public class ExpressionRewriteRuleSet
                 aggregationExpressionRewrite(),
                 filterExpressionRewrite(),
                 joinExpressionRewrite(),
-                valuesExpressionRewrite());
+                valuesExpressionRewrite(),
+                patternRecognitionExpressionRewrite());
     }
 
     public Rule<?> projectExpressionRewrite()
@@ -102,6 +115,11 @@ public class ExpressionRewriteRuleSet
         return new ValuesExpressionRewrite(rewriter);
     }
 
+    public Rule<?> patternRecognitionExpressionRewrite()
+    {
+        return new PatternRecognitionExpressionRewrite(rewriter);
+    }
+
     private static final class ProjectExpressionRewrite
             implements Rule<ProjectNode>
     {
@@ -126,6 +144,12 @@ public class ExpressionRewriteRuleSet
                 return Result.empty();
             }
             return Result.ofPlanNode(new ProjectNode(projectNode.getId(), projectNode.getSource(), assignments));
+        }
+
+        @Override
+        public String toString()
+        {
+            return format("%s(%s)", getClass().getSimpleName(), rewriter);
         }
     }
 
@@ -185,17 +209,17 @@ public class ExpressionRewriteRuleSet
                 }
             }
             if (anyRewritten) {
-                return Result.ofPlanNode(new AggregationNode(
-                        aggregationNode.getId(),
-                        aggregationNode.getSource(),
-                        aggregations.build(),
-                        aggregationNode.getGroupingSets(),
-                        aggregationNode.getPreGroupedSymbols(),
-                        aggregationNode.getStep(),
-                        aggregationNode.getHashSymbol(),
-                        aggregationNode.getGroupIdSymbol()));
+                return Result.ofPlanNode(AggregationNode.builderFrom(aggregationNode)
+                        .setAggregations(aggregations.buildOrThrow())
+                        .build());
             }
             return Result.empty();
+        }
+
+        @Override
+        public String toString()
+        {
+            return format("%s(%s)", getClass().getSimpleName(), rewriter);
         }
     }
 
@@ -223,6 +247,12 @@ public class ExpressionRewriteRuleSet
                 return Result.empty();
             }
             return Result.ofPlanNode(new FilterNode(filterNode.getId(), filterNode.getSource(), rewritten));
+        }
+
+        @Override
+        public String toString()
+        {
+            return format("%s(%s)", getClass().getSimpleName(), rewriter);
         }
     }
 
@@ -265,6 +295,12 @@ public class ExpressionRewriteRuleSet
                         joinNode.getReorderJoinStatsAndCost()));
             }
             return Result.empty();
+        }
+
+        @Override
+        public String toString()
+        {
+            return format("%s(%s)", getClass().getSimpleName(), rewriter);
         }
     }
 
@@ -313,6 +349,159 @@ public class ExpressionRewriteRuleSet
                 return Result.ofPlanNode(new ValuesNode(valuesNode.getId(), valuesNode.getOutputSymbols(), rows.build()));
             }
             return Result.empty();
+        }
+
+        @Override
+        public String toString()
+        {
+            return format("%s(%s)", getClass().getSimpleName(), rewriter);
+        }
+    }
+
+    private static final class PatternRecognitionExpressionRewrite
+            implements Rule<PatternRecognitionNode>
+    {
+        private final ExpressionRewriter rewriter;
+
+        PatternRecognitionExpressionRewrite(ExpressionRewriter rewriter)
+        {
+            this.rewriter = rewriter;
+        }
+
+        @Override
+        public Pattern<PatternRecognitionNode> getPattern()
+        {
+            return patternRecognition();
+        }
+
+        @Override
+        public Result apply(PatternRecognitionNode node, Captures captures, Context context)
+        {
+            boolean anyRewritten = false;
+
+            // rewrite MEASURES expressions
+            ImmutableMap.Builder<Symbol, Measure> rewrittenMeasures = ImmutableMap.builder();
+            for (Map.Entry<Symbol, Measure> entry : node.getMeasures().entrySet()) {
+                ExpressionAndValuePointers pointers = entry.getValue().getExpressionAndValuePointers();
+                Optional<ExpressionAndValuePointers> newPointers = rewrite(pointers, context);
+                if (newPointers.isPresent()) {
+                    anyRewritten = true;
+                    rewrittenMeasures.put(entry.getKey(), new Measure(newPointers.get(), entry.getValue().getType()));
+                }
+                else {
+                    rewrittenMeasures.put(entry);
+                }
+            }
+
+            // rewrite DEFINE expressions
+            ImmutableMap.Builder<IrLabel, ExpressionAndValuePointers> rewrittenDefinitions = ImmutableMap.builder();
+            for (Map.Entry<IrLabel, ExpressionAndValuePointers> entry : node.getVariableDefinitions().entrySet()) {
+                ExpressionAndValuePointers pointers = entry.getValue();
+                Optional<ExpressionAndValuePointers> newPointers = rewrite(pointers, context);
+                if (newPointers.isPresent()) {
+                    anyRewritten = true;
+                    rewrittenDefinitions.put(entry.getKey(), newPointers.get());
+                }
+                else {
+                    rewrittenDefinitions.put(entry);
+                }
+            }
+
+            if (anyRewritten) {
+                return Result.ofPlanNode(new PatternRecognitionNode(
+                        node.getId(),
+                        node.getSource(),
+                        node.getSpecification(),
+                        node.getHashSymbol(),
+                        node.getPrePartitionedInputs(),
+                        node.getPreSortedOrderPrefix(),
+                        node.getWindowFunctions(),
+                        rewrittenMeasures.buildOrThrow(),
+                        node.getCommonBaseFrame(),
+                        node.getRowsPerMatch(),
+                        node.getSkipToLabel(),
+                        node.getSkipToPosition(),
+                        node.isInitial(),
+                        node.getPattern(),
+                        node.getSubsets(),
+                        rewrittenDefinitions.buildOrThrow()));
+            }
+
+            return Result.empty();
+        }
+
+        // return Optional containing the rewritten ExpressionAndValuePointers, or Optional.empty() in case when no rewrite applies
+        private Optional<ExpressionAndValuePointers> rewrite(ExpressionAndValuePointers pointers, Context context)
+        {
+            boolean rewritten = false;
+
+            List<Symbol> newLayout = pointers.getLayout();
+            List<ValuePointer> newPointers = pointers.getValuePointers();
+            Set<Symbol> newClassifierSymbols = pointers.getClassifierSymbols();
+            Set<Symbol> newMatchNumberSymbols = pointers.getMatchNumberSymbols();
+
+            // rewrite top-level expression
+            Expression newExpression = rewriter.rewrite(pointers.getExpression(), context);
+            if (!pointers.getExpression().equals(newExpression)) {
+                rewritten = true;
+                // prune unused symbols from layout and value pointers
+                Set<Symbol> newSymbols = SymbolsExtractor.extractUnique(newExpression);
+                List<Symbol> layout = pointers.getLayout();
+                ImmutableList.Builder<Symbol> newLayoutBuilder = ImmutableList.builder();
+                ImmutableList.Builder<ValuePointer> newPointersBuilder = ImmutableList.builder();
+                for (int i = 0; i < layout.size(); i++) {
+                    if (newSymbols.contains(layout.get(i))) {
+                        newLayoutBuilder.add(layout.get(i));
+                        newPointersBuilder.add(pointers.getValuePointers().get(i));
+                    }
+                }
+                newLayout = newLayoutBuilder.build();
+                newPointers = newPointersBuilder.build();
+                newClassifierSymbols = pointers.getClassifierSymbols().stream()
+                        .filter(newSymbols::contains)
+                        .collect(toImmutableSet());
+                newMatchNumberSymbols = pointers.getMatchNumberSymbols().stream()
+                        .filter(newSymbols::contains)
+                        .collect(toImmutableSet());
+            }
+            // process all aggregation arguments in remaining value pointers
+            ImmutableList.Builder<ValuePointer> newPointersBuilder = ImmutableList.builder();
+            for (ValuePointer pointer : newPointers) {
+                if (pointer instanceof ScalarValuePointer) {
+                    newPointersBuilder.add(pointer);
+                }
+                else {
+                    AggregationValuePointer aggregationPointer = (AggregationValuePointer) pointer;
+
+                    ImmutableList.Builder<Expression> newArguments = ImmutableList.builder();
+                    for (Expression argument : aggregationPointer.getArguments()) {
+                        Expression newArgument = rewriter.rewrite(argument, context);
+                        if (!newArgument.equals(argument)) {
+                            rewritten = true;
+                        }
+                        newArguments.add(newArgument);
+                    }
+                    newPointersBuilder.add(new AggregationValuePointer(
+                            aggregationPointer.getFunction(),
+                            aggregationPointer.getSetDescriptor(),
+                            newArguments.build(),
+                            aggregationPointer.getClassifierSymbol(),
+                            aggregationPointer.getMatchNumberSymbol()));
+                }
+            }
+            newPointers = newPointersBuilder.build();
+
+            if (rewritten) {
+                return Optional.of(new ExpressionAndValuePointers(newExpression, newLayout, newPointers, newClassifierSymbols, newMatchNumberSymbols));
+            }
+
+            return Optional.empty();
+        }
+
+        @Override
+        public String toString()
+        {
+            return format("%s(%s)", getClass().getSimpleName(), rewriter);
         }
     }
 }

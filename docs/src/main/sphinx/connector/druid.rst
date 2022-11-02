@@ -2,6 +2,10 @@
 Druid connector
 ===============
 
+.. raw:: html
+
+  <img src="../_static/img/druid.png" class="connector-logo">
+
 The Druid connector allows querying an `Apache Druid <https://druid.apache.org/>`_
 database from Trino.
 
@@ -44,12 +48,56 @@ name from the properties file.
 
 .. include:: jdbc-common-configurations.fragment
 
+.. |default_domain_compaction_threshold| replace:: ``32``
+.. include:: jdbc-domain-compaction-threshold.fragment
+
+.. include:: jdbc-procedures.fragment
+
 .. include:: jdbc-case-insensitive-matching.fragment
 
 .. _druid-type-mapping:
 
 Type mapping
 ------------
+
+Because Trino and Druid each support types that the other does not, this
+connector :ref:`modifies some types <type-mapping-overview>` when reading data.
+
+Druid type to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps Druid types to the corresponding Trino types according to the
+following table:
+
+.. list-table:: Druid type to Trino type mapping
+  :widths: 30, 30, 50
+  :header-rows: 1
+
+  * - Druid type
+    - Trino type
+    - Notes
+  * - ``STRING``
+    - ``VARCHAR``
+    -
+  * - ``FLOAT``
+    - ``REAL``
+    -
+  * - ``DOUBLE``
+    - ``DOUBLE``
+    -
+  * - ``LONG``
+    - ``BIGINT``
+    - Except for the special ``_time`` column, which is mapped to ``TIMESTAMP``.
+  * - ``TIMESTAMP``
+    - ``TIMESTAMP``
+    - Only applicable to the special ``_time`` column.
+
+No other data types are supported.
+
+Druid does not have a real ``NULL`` value for any data type. By
+default, Druid treats ``NULL`` as the default value for a data type. For
+example, ``LONG`` would be ``0``, ``DOUBLE`` would be ``0.0``, ``STRING`` would
+be an empty string ``''``, and so forth.
 
 .. include:: jdbc-type-mapping.fragment
 
@@ -61,3 +109,40 @@ SQL support
 The connector provides :ref:`globally available <sql-globally-available>` and
 :ref:`read operation <sql-read-operations>` statements to access data and
 metadata in the Druid database.
+
+Table functions
+---------------
+
+The connector provides specific :doc:`table functions </functions/table>` to
+access Druid.
+
+.. _druid-query-function:
+
+``query(varchar) -> table``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``query`` function allows you to query the underlying database directly. It
+requires syntax native to Druid, because the full query is pushed down and
+processed in Druid. This can be useful for accessing native features which are
+not available in Trino or for improving query performance in situations where
+running a query natively may be faster.
+
+.. include:: polymorphic-table-function-ordering.fragment
+
+As an example, use ``STRING_TO_MV`` and ``MV_LENGTH`` from
+`Druid SQL's multi-value string functions <https://druid.apache.org/docs/latest/querying/sql-multivalue-string-functions.html>`_
+to split and then count the number of comma-separated values in a column::
+
+    SELECT
+      num_reports
+    FROM
+      TABLE(
+        druid.system.query(
+          query => 'SELECT
+            MV_LENGTH(
+              STRING_TO_MV(direct_reports, ",")
+            ) AS num_reports
+          FROM company.managers'
+        )
+      );
+

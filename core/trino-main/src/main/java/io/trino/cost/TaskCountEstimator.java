@@ -17,6 +17,7 @@ import io.trino.Session;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
+import io.trino.operator.RetryPolicy;
 
 import javax.inject.Inject;
 
@@ -24,7 +25,9 @@ import java.util.Set;
 import java.util.function.IntSupplier;
 
 import static io.trino.SystemSessionProperties.getCostEstimationWorkerCount;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionPartitionCount;
 import static io.trino.SystemSessionProperties.getHashPartitionCount;
+import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -36,11 +39,11 @@ public class TaskCountEstimator
     @Inject
     public TaskCountEstimator(NodeSchedulerConfig nodeSchedulerConfig, InternalNodeManager nodeManager)
     {
-        requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null");
+        boolean schedulerIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
         requireNonNull(nodeManager, "nodeManager is null");
         this.numberOfNodes = () -> {
             Set<InternalNode> activeNodes = nodeManager.getAllNodes().getActiveNodes();
-            if (nodeSchedulerConfig.isIncludeCoordinator()) {
+            if (schedulerIncludeCoordinator) {
                 return activeNodes.size();
             }
             return toIntExact(activeNodes.stream()
@@ -65,6 +68,13 @@ public class TaskCountEstimator
 
     public int estimateHashedTaskCount(Session session)
     {
-        return min(estimateSourceDistributedTaskCount(session), getHashPartitionCount(session));
+        int partitionCount;
+        if (getRetryPolicy(session) == RetryPolicy.TASK) {
+            partitionCount = getFaultTolerantExecutionPartitionCount(session);
+        }
+        else {
+            partitionCount = getHashPartitionCount(session);
+        }
+        return min(estimateSourceDistributedTaskCount(session), partitionCount);
     }
 }

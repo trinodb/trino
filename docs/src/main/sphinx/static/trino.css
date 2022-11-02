@@ -60,6 +60,10 @@ pre.literal-block {
     font-size: 0.8rem
 }
 
+.md-typeset table:not([class]) {
+    font-size: unset;
+}
+
 @media only screen and (min-width: 88.25em) {
     .md-grid {
         max-width: 61rem;
@@ -76,4 +80,10 @@ pre.literal-block {
 
 .copybtn:hover {
     cursor: copy;
+}
+
+.connector-logo {
+    float: right;
+    position: relative;
+    top: -5.5rem;
 }

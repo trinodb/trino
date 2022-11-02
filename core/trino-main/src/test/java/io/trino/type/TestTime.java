@@ -113,7 +113,7 @@ public class TestTime
     }
 
     @Test
-    public void testCastToSlice()
+    public void testCastToVarchar()
     {
         assertFunction("cast(TIME '03:04:05.321' as varchar)", VARCHAR, "03:04:05.321");
         assertFunction("cast(TIME '03:04:05' as varchar)", VARCHAR, "03:04:05");
@@ -121,7 +121,7 @@ public class TestTime
     }
 
     @Test
-    public void testCastFromSlice()
+    public void testCastFromVarchar()
     {
         assertFunction("cast('03:04:05.321' as time) = TIME '03:04:05.321'", BOOLEAN, true);
         assertFunction("cast('03:04:05' as time) = TIME '03:04:05.000'", BOOLEAN, true);

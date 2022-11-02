@@ -14,98 +14,107 @@
 package io.trino.plugin.bigquery;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Map;
-import java.util.Optional;
-import java.util.OptionalInt;
 
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
-import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestBigQueryConfig
 {
     @Test
     public void testDefaults()
     {
-        BigQueryConfig config = new BigQueryConfig()
-                .setCredentialsKey("key")
-                .setCredentialsFile("cfile")
-                .setProjectId("pid")
-                .setParentProjectId("ppid")
-                .setParallelism(20)
-                .setViewMaterializationProject("vmproject")
-                .setViewMaterializationDataset("vmdataset")
-                .setMaxReadRowsRetries(10)
+        assertRecordedDefaults(recordDefaults(BigQueryConfig.class)
+                .setProjectId(null)
+                .setParentProjectId(null)
+                .setParallelism(null)
+                .setViewExpireDuration(new Duration(24, HOURS))
+                .setSkipViewMaterialization(false)
+                .setViewMaterializationProject(null)
+                .setViewMaterializationDataset(null)
+                .setMaxReadRowsRetries(3)
                 .setCaseInsensitiveNameMatching(false)
-                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES))
-                .setViewsCacheTtl(new Duration(15, MINUTES));
-
-        assertEquals(config.getCredentialsKey(), Optional.of("key"));
-        assertEquals(config.getCredentialsFile(), Optional.of("cfile"));
-        assertEquals(config.getProjectId(), Optional.of("pid"));
-        assertEquals(config.getParentProjectId(), Optional.of("ppid"));
-        assertEquals(config.getParallelism(), OptionalInt.of(20));
-        assertEquals(config.getViewMaterializationProject(), Optional.of("vmproject"));
-        assertEquals(config.getViewMaterializationDataset(), Optional.of("vmdataset"));
-        assertEquals(config.getMaxReadRowsRetries(), 10);
-        assertEquals(config.isCaseInsensitiveNameMatching(), false);
-        assertEquals(config.getCaseInsensitiveNameMatchingCacheTtl(), new Duration(1, MINUTES));
-        assertEquals(config.getViewsCacheTtl(), new Duration(15, MINUTES));
+                .setViewsCacheTtl(new Duration(15, MINUTES))
+                .setServiceCacheTtl(new Duration(3, MINUTES))
+                .setViewsEnabled(false)
+                .setQueryResultsCacheEnabled(false)
+                .setRpcInitialChannelCount(1)
+                .setMinRpcPerChannel(0)
+                .setMaxRpcPerChannel(Integer.MAX_VALUE)
+                .setRpcMinChannelCount(1)
+                .setRpcMaxChannelCount(1));
     }
 
     @Test
     public void testExplicitPropertyMappingsWithCredentialsKey()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("bigquery.credentials-key", "key")
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("bigquery.project-id", "pid")
                 .put("bigquery.parent-project-id", "ppid")
                 .put("bigquery.parallelism", "20")
                 .put("bigquery.views-enabled", "true")
+                .put("bigquery.view-expire-duration", "30m")
+                .put("bigquery.skip-view-materialization", "true")
                 .put("bigquery.view-materialization-project", "vmproject")
                 .put("bigquery.view-materialization-dataset", "vmdataset")
                 .put("bigquery.max-read-rows-retries", "10")
                 .put("bigquery.case-insensitive-name-matching", "true")
-                .put("bigquery.case-insensitive-name-matching.cache-ttl", "1s")
                 .put("bigquery.views-cache-ttl", "1m")
-                .build();
+                .put("bigquery.service-cache-ttl", "10d")
+                .put("bigquery.query-results-cache.enabled", "true")
+                .put("bigquery.channel-pool.initial-size", "11")
+                .put("bigquery.channel-pool.min-size", "12")
+                .put("bigquery.channel-pool.max-size", "13")
+                .put("bigquery.channel-pool.min-rpc-per-channel", "14")
+                .put("bigquery.channel-pool.max-rpc-per-channel", "15")
+                .buildOrThrow();
 
-        ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
-        BigQueryConfig config = configurationFactory.build(BigQueryConfig.class);
+        BigQueryConfig expected = new BigQueryConfig()
+                .setProjectId("pid")
+                .setParentProjectId("ppid")
+                .setParallelism(20)
+                .setViewsEnabled(true)
+                .setViewExpireDuration(new Duration(30, MINUTES))
+                .setSkipViewMaterialization(true)
+                .setViewMaterializationProject("vmproject")
+                .setViewMaterializationDataset("vmdataset")
+                .setMaxReadRowsRetries(10)
+                .setCaseInsensitiveNameMatching(true)
+                .setViewsCacheTtl(new Duration(1, MINUTES))
+                .setServiceCacheTtl(new Duration(10, DAYS))
+                .setQueryResultsCacheEnabled(true)
+                .setRpcInitialChannelCount(11)
+                .setRpcMinChannelCount(12)
+                .setRpcMaxChannelCount(13)
+                .setMinRpcPerChannel(14)
+                .setMaxRpcPerChannel(15);
 
-        assertEquals(config.getCredentialsKey(), Optional.of("key"));
-        assertEquals(config.getProjectId(), Optional.of("pid"));
-        assertEquals(config.getParentProjectId(), Optional.of("ppid"));
-        assertEquals(config.getParallelism(), OptionalInt.of(20));
-        assertEquals(config.isViewsEnabled(), true);
-        assertEquals(config.getViewMaterializationProject(), Optional.of("vmproject"));
-        assertEquals(config.getViewMaterializationDataset(), Optional.of("vmdataset"));
-        assertEquals(config.getMaxReadRowsRetries(), 10);
-        assertEquals(config.isCaseInsensitiveNameMatching(), true);
-        assertEquals(config.getCaseInsensitiveNameMatchingCacheTtl(), new Duration(1, SECONDS));
-        assertEquals(config.getViewsCacheTtl(), new Duration(1, MINUTES));
+        assertFullMapping(properties, expected);
     }
 
     @Test
-    public void testExplicitPropertyMappingsWithCredentialsFile()
-            throws IOException
+    public void testInvalidViewSetting()
     {
-        Path credentialsFile = Files.createTempFile(null, null);
+        assertThatThrownBy(() -> new BigQueryConfig()
+                .setViewExpireDuration(new Duration(5, MINUTES))
+                .setViewsCacheTtl(new Duration(10, MINUTES))
+                .validate())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("View expiration duration must be longer than view cache TTL");
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("bigquery.credentials-file", credentialsFile.toString())
-                .build();
-
-        ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
-        BigQueryConfig config = configurationFactory.build(BigQueryConfig.class);
-
-        assertEquals(config.getCredentialsFile(), Optional.of(credentialsFile.toString()));
+        assertThatThrownBy(() -> new BigQueryConfig()
+                .setSkipViewMaterialization(true)
+                .setViewsEnabled(false)
+                .validate())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("bigquery.views-enabled config property must be enabled when skipping view materialization");
     }
 }

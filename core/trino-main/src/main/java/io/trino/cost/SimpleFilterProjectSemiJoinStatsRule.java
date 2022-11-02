@@ -66,7 +66,7 @@ public class SimpleFilterProjectSemiJoinStatsRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(FilterNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(FilterNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
     {
         PlanNode nodeSource = lookup.resolve(node.getSource());
         SemiJoinNode semiJoinNode;
@@ -145,9 +145,9 @@ public class SimpleFilterProjectSemiJoinStatsRule
 
     private static boolean isSemiJoinOutputReference(Expression conjunct, Symbol semiJoinOutput)
     {
-        SymbolReference semiJoinOuputSymbolReference = semiJoinOutput.toSymbolReference();
-        return conjunct.equals(semiJoinOuputSymbolReference) ||
-                (conjunct instanceof NotExpression && ((NotExpression) conjunct).getValue().equals(semiJoinOuputSymbolReference));
+        SymbolReference semiJoinOutputSymbolReference = semiJoinOutput.toSymbolReference();
+        return conjunct.equals(semiJoinOutputSymbolReference) ||
+                (conjunct instanceof NotExpression && ((NotExpression) conjunct).getValue().equals(semiJoinOutputSymbolReference));
     }
 
     private static class SemiJoinOutputFilter

@@ -20,14 +20,15 @@ import io.trino.spi.block.BlockBuilder;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import static com.google.common.io.Resources.getResource;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -147,7 +148,7 @@ public class TestSphericalGeoFunctions
 
     @Test
     public void testArea()
-            throws IOException
+            throws Exception
     {
         // Empty polygon
         assertFunction("ST_Area(to_spherical_geography(ST_GeometryFromText('POLYGON EMPTY')))", DOUBLE, null);
@@ -177,16 +178,22 @@ public class TestSphericalGeoFunctions
         //A Polygon with a large hole
         assertArea("POLYGON((90 0, 0 0, 0 90), (89 1, 1 1, 1 89))", 348.04E10);
 
-        Path geometryPath = Paths.get(TestSphericalGeoFunctions.class.getClassLoader().getResource("us-states.tsv").getPath());
-        Map<String, String> stateGeometries = Files.lines(geometryPath)
-                .map(line -> line.split("\t"))
-                .collect(Collectors.toMap(parts -> parts[0], parts -> parts[1]));
+        Path geometryPath = new File(getResource("us-states.tsv").toURI()).toPath();
+        Map<String, String> stateGeometries;
+        try (Stream<String> lines = Files.lines(geometryPath)) {
+            stateGeometries = lines
+                    .map(line -> line.split("\t"))
+                    .collect(Collectors.toMap(parts -> parts[0], parts -> parts[1]));
+        }
 
-        Path areaPath = Paths.get(TestSphericalGeoFunctions.class.getClassLoader().getResource("us-state-areas.tsv").getPath());
-        Map<String, Double> stateAreas = Files.lines(areaPath)
-                .map(line -> line.split("\t"))
-                .filter(parts -> parts.length >= 2)
-                .collect(Collectors.toMap(parts -> parts[0], parts -> Double.valueOf(parts[1])));
+        Path areaPath = new File(getResource("us-state-areas.tsv").toURI()).toPath();
+        Map<String, Double> stateAreas;
+        try (Stream<String> lines = Files.lines(areaPath)) {
+            stateAreas = lines
+                    .map(line -> line.split("\t"))
+                    .filter(parts -> parts.length >= 2)
+                    .collect(Collectors.toMap(parts -> parts[0], parts -> Double.valueOf(parts[1])));
+        }
 
         for (String state : stateGeometries.keySet()) {
             assertArea(stateGeometries.get(state), stateAreas.get(state));

@@ -1,20 +1,25 @@
 #!/usr/bin/env bash
 
-launcher_opts=${LAUNCHER_OPTS:-}
 target="${BASH_SOURCE%/*/*}/target"
-launcher_jar=( "${target}"/trino-product-tests-launcher-*-executable.jar )
 
-if test "${#launcher_jar[@]}" -ne 1; then
-    echo "Found ${#launcher_jar[@]} launcher jars in ${target}: ${launcher_jar[*]}" >&2
-    echo "Run \`./mvnw clean install -pl :trino-product-tests-launcher\`" >&2
+# Disable mvnd for scripts on ARM until https://github.com/apache/maven-mvnd/issues/671 is fixed
+if command -v mvnd >/dev/null && test "$(arch)" != arm64; then
+    # Using mvnd here can save more than 2 seconds compared to ./mvnw startup cost. This is especially important
+    # when invoking inspection commands like --help, env list, etc.
+    # See https://github.com/apache/maven-mvnd/issues/604 for why mvnd.logPurgePeriod is set.
+    trino_version=$(mvnd -B help:evaluate -Dexpression=pom.version -q -DforceStdout --raw-streams -Dmvnd.logPurgePeriod=999999d)
+    mvn="mvnd"
+else
+    trino_version=$(./mvnw -B help:evaluate -Dexpression=pom.version -q -DforceStdout)
+    mvn="./mvnw"
+fi
+launcher_jar="${target}/trino-product-tests-launcher-${trino_version}-executable.jar"
+
+if ! test -x "${launcher_jar}"; then
+    echo "Could not find launcher jar ${launcher_jar}." >&2
+    echo "Run \`${mvn} clean install -pl :trino-product-tests-launcher -DskipTests\`" >&2
     exit 3
 fi
 
-if ! test -x "${launcher_jar[0]}"; then
-    # Most likely `*` glob was not expanded, file does not exist
-    echo "Could not find launcher jar in ${target}." >&2
-    echo "Run \`./mvnw clean install -pl :trino-product-tests-launcher\`" >&2
-    exit 3
-fi
-
-exec java $launcher_opts -jar "${launcher_jar[0]}" "$@"
+# Run the executable directly to pick memory settings defined in it. Invoking as `java -jar ...` would ignore them.
+exec "${launcher_jar[0]}" "$@"

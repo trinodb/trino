@@ -26,6 +26,7 @@ import org.testng.annotations.Test;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -82,7 +83,7 @@ public abstract class BaseCaseInsensitiveMappingTest
                                 quoted("lower_case_name") + " varchar(1), " +
                                 quoted("Mixed_Case_Name") + " varchar(1), " +
                                 quoted("UPPER_CASE_NAME") + " varchar(1))")) {
-            onRemoteDatabase().execute("INSERT INTO " + (quoted("SomeSchema") + "." + quoted("NonLowerCaseTable")) + " SELECT 'a', 'b', 'c'");
+            onRemoteDatabase().execute("INSERT INTO " + (quoted("SomeSchema") + "." + quoted("NonLowerCaseTable")) + " SELECT 'a', 'b', 'c'" + optionalFromDual().orElse(""));
             assertQuery(
                     "SELECT column_name FROM information_schema.columns WHERE table_schema = 'someschema' AND table_name = 'nonlowercasetable'",
                     "VALUES 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
@@ -113,6 +114,15 @@ public abstract class BaseCaseInsensitiveMappingTest
                             "(NULL, 'm', NULL)," +
                             "(NULL, NULL, 'u')");
         }
+    }
+
+    /**
+     * Must return a non-empty optional with the FROM clause to select from a dual table for databases that don't allow a SELECT without a FROM clause like Oracle.
+     * Must return an empty optional for databases which don't require a FROM clause with a SELECT.
+     */
+    protected Optional<String> optionalFromDual()
+    {
+        return Optional.empty();
     }
 
     @Test
@@ -235,17 +245,19 @@ public abstract class BaseCaseInsensitiveMappingTest
     public void testTableNameRuleMapping()
             throws Exception
     {
+        String schema = "remote_schema";
         updateRuleBasedIdentifierMappingFile(
                 getMappingFile(),
                 ImmutableList.of(),
-                ImmutableList.of(new TableMappingRule(getSession().getSchema().orElseThrow(), "remote_table", "trino_table")));
+                ImmutableList.of(new TableMappingRule(schema, "remote_table", "trino_table")));
 
-        try (AutoCloseable ignore1 = withTable("remote_table", "(c varchar(5))")) {
-            assertThat(computeActual("SHOW TABLES").getOnlyColumn())
+        try (AutoCloseable ignore = withSchema(schema);
+                AutoCloseable ignore1 = withTable(schema, "remote_table", "(c varchar(5))")) {
+            assertThat(computeActual("SHOW TABLES FROM " + schema).getOnlyColumn())
                     .contains("trino_table");
-            assertQuery("SHOW COLUMNS FROM trino_table", "SELECT 'c', 'varchar(5)', '', ''");
-            assertUpdate("INSERT INTO trino_table VALUES 'dane'", 1);
-            assertQuery("SELECT * FROM trino_table", "VALUES 'dane'");
+            assertQuery("SHOW COLUMNS FROM " + schema + ".trino_table", "SELECT 'c', 'varchar(5)', '', ''");
+            assertUpdate("INSERT INTO " + schema + ".trino_table VALUES 'dane'", 1);
+            assertQuery("SELECT * FROM " + schema + ".trino_table", "VALUES 'dane'");
         }
     }
 
@@ -253,7 +265,7 @@ public abstract class BaseCaseInsensitiveMappingTest
     public void testTableNameClashWithRuleMapping()
             throws Exception
     {
-        String schema = getSession().getSchema().orElseThrow();
+        String schema = "remote_schema";
         List<TableMappingRule> tableMappingRules = ImmutableList.of(
                 new TableMappingRule(schema, "casesensitivename", "casesensitivename_a"),
                 new TableMappingRule(schema, "CaseSensitiveName", "casesensitivename_b"),
@@ -270,21 +282,22 @@ public abstract class BaseCaseInsensitiveMappingTest
             for (int j = i + 1; j < nameVariants.length; j++) {
                 String remoteTable = nameVariants[i];
                 String otherRemoteTable = nameVariants[j];
-                try (AutoCloseable ignore1 = withTable(remoteTable, "(c varchar(5))");
-                        AutoCloseable ignore2 = withTable(otherRemoteTable, "(d varchar(5))")) {
+                try (AutoCloseable ignore = withSchema(schema);
+                        AutoCloseable ignore1 = withTable(schema, remoteTable, "(c varchar(5))");
+                        AutoCloseable ignore2 = withTable(schema, otherRemoteTable, "(d varchar(5))")) {
                     String table = tableMappingRules.stream()
                             .filter(rule -> rule.getRemoteTable().equals(remoteTable))
                             .map(TableMappingRule::getMapping)
                             .collect(onlyElement());
 
-                    assertThat(computeActual("SHOW TABLES")
+                    assertThat(computeActual("SHOW TABLES FROM " + schema)
                             .getOnlyColumn()
                             .map(String.class::cast)
                             .filter(anObject -> anObject.startsWith("casesensitivename")))
                             .hasSize(2);
-                    assertQuery("SHOW COLUMNS FROM " + table, "SELECT 'c', 'varchar(5)', '', ''");
-                    assertUpdate("INSERT INTO " + table + " VALUES 'dane'", 1);
-                    assertQuery("SELECT * FROM " + table, "VALUES 'dane'");
+                    assertQuery("SHOW COLUMNS FROM " + schema + "." + table, "SELECT 'c', 'varchar(5)', '', ''");
+                    assertUpdate("INSERT INTO " + schema + "." + table + " VALUES 'dane'", 1);
+                    assertQuery("SELECT * FROM " + schema + "." + table, "VALUES 'dane'");
                 }
             }
         }

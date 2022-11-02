@@ -22,10 +22,13 @@ import io.trino.operator.window.Framing.Range;
 import io.trino.operator.window.matcher.ArrayView;
 import io.trino.operator.window.matcher.MatchResult;
 import io.trino.operator.window.matcher.Matcher;
+import io.trino.operator.window.pattern.ArgumentComputation;
 import io.trino.operator.window.pattern.LabelEvaluator;
 import io.trino.operator.window.pattern.LabelEvaluator.Evaluation;
 import io.trino.operator.window.pattern.LogicalIndexNavigation;
+import io.trino.operator.window.pattern.MatchAggregation;
 import io.trino.operator.window.pattern.MeasureComputation;
+import io.trino.operator.window.pattern.ProjectingPagesWindowIndex;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
@@ -46,7 +49,8 @@ public final class PatternRecognitionPartition
         implements WindowPartition
 {
     private final PagesIndex pagesIndex;
-    private final WindowIndex windowIndex;
+    private final ProjectingPagesWindowIndex labelEvaluationsIndex;
+    private final ProjectingPagesWindowIndex measureComputationsIndex;
     private final int partitionStart;
     private final int partitionEnd;
     private final int[] outputChannels;
@@ -61,6 +65,12 @@ public final class PatternRecognitionPartition
 
     // properties for row pattern recognition
     private final List<MeasureComputation> measures;
+
+    // an array of all MatchAggregations from all row pattern measures,
+    // used to reset the MatchAggregations for every new match.
+    // each of MeasureComputations also has access to the MatchAggregations,
+    // and uses them to compute the result values
+    private final MatchAggregation[] measureAggregations;
     private final Optional<RowsFraming> framing;
     private final PatternRecognitionRelation.RowsPerMatch rowsPerMatch;
     private final Optional<LogicalIndexNavigation> skipToNavigation;
@@ -68,6 +78,7 @@ public final class PatternRecognitionPartition
     private final boolean initial;
     private final Matcher matcher;
     private final List<Evaluation> labelEvaluations;
+    private final AggregatedMemoryContext aggregationsMemoryContext;
 
     private int lastSkippedPosition;
     private int lastMatchedPosition;
@@ -82,13 +93,17 @@ public final class PatternRecognitionPartition
             PagesHashStrategy peerGroupHashStrategy,
             AggregatedMemoryContext memoryContext,
             List<MeasureComputation> measures,
+            List<MatchAggregation> measureAggregations,
+            List<ArgumentComputation> measureComputationsAggregationArguments,
             Optional<FrameInfo> commonBaseFrame,
             PatternRecognitionRelation.RowsPerMatch rowsPerMatch,
             Optional<LogicalIndexNavigation> skipToNavigation,
             SkipTo.Position skipToPosition,
             boolean initial,
             Matcher matcher,
-            List<Evaluation> labelEvaluations)
+            List<Evaluation> labelEvaluations,
+            List<ArgumentComputation> labelEvaluationsAggregationArguments,
+            List<String> labelNames)
     {
         this.pagesIndex = pagesIndex;
         this.partitionStart = partitionStart;
@@ -96,8 +111,10 @@ public final class PatternRecognitionPartition
         this.outputChannels = outputChannels;
         this.windowFunctions = ImmutableList.copyOf(windowFunctions);
         this.peerGroupHashStrategy = peerGroupHashStrategy;
+        this.aggregationsMemoryContext = memoryContext;
         this.matcherMemoryContext = memoryContext.newLocalMemoryContext(Matcher.class.getSimpleName());
         this.measures = ImmutableList.copyOf(measures);
+        this.measureAggregations = measureAggregations.toArray(new MatchAggregation[] {});
         this.framing = commonBaseFrame.map(frameInfo -> new RowsFraming(frameInfo, partitionStart, partitionEnd, pagesIndex));
         this.rowsPerMatch = rowsPerMatch;
         this.skipToNavigation = skipToNavigation;
@@ -110,10 +127,24 @@ public final class PatternRecognitionPartition
         this.lastMatchedPosition = partitionStart - 1;
         this.matchNumber = 1;
 
+        this.labelEvaluationsIndex = new ProjectingPagesWindowIndex(
+                pagesIndex,
+                partitionStart,
+                partitionEnd,
+                labelEvaluationsAggregationArguments,
+                labelNames);
+        this.measureComputationsIndex = new ProjectingPagesWindowIndex(
+                pagesIndex,
+                partitionStart,
+                partitionEnd,
+                measureComputationsAggregationArguments,
+                labelNames);
+
+        // View of the underlying PagesIndex used by window functions. It does not contain feedable channels.
+        WindowIndex sourceWindowIndex = new PagesWindowIndex(pagesIndex, partitionStart, partitionEnd);
         // reset functions for new partition
-        this.windowIndex = new PagesWindowIndex(pagesIndex, partitionStart, partitionEnd);
         for (WindowFunction windowFunction : windowFunctions) {
-            windowFunction.reset(windowIndex);
+            windowFunction.reset(sourceWindowIndex);
         }
 
         currentPosition = partitionStart;
@@ -168,14 +199,14 @@ public final class PatternRecognitionPartition
                 searchStart = partitionStart + baseRange.getStart();
                 searchEnd = partitionStart + baseRange.getEnd() + 1;
             }
-            LabelEvaluator labelEvaluator = new LabelEvaluator(matchNumber, patternStart, partitionStart, searchStart, searchEnd, labelEvaluations, windowIndex);
-            MatchResult matchResult = matcher.run(labelEvaluator, matcherMemoryContext);
+            LabelEvaluator labelEvaluator = new LabelEvaluator(matchNumber, patternStart, partitionStart, searchStart, searchEnd, labelEvaluations, labelEvaluationsIndex);
+            MatchResult matchResult = matcher.run(labelEvaluator, matcherMemoryContext, aggregationsMemoryContext);
 
             // 2. in case SEEK was specified (as opposite to INITIAL), try match pattern starting from subsequent rows until the first match is found
             while (!matchResult.isMatched() && !initial && patternStart < searchEnd - 1) {
                 patternStart++;
-                labelEvaluator = new LabelEvaluator(matchNumber, patternStart, partitionStart, searchStart, searchEnd, labelEvaluations, windowIndex);
-                matchResult = matcher.run(labelEvaluator, matcherMemoryContext);
+                labelEvaluator = new LabelEvaluator(matchNumber, patternStart, partitionStart, searchStart, searchEnd, labelEvaluations, labelEvaluationsIndex);
+                matchResult = matcher.run(labelEvaluator, matcherMemoryContext, aggregationsMemoryContext);
             }
 
             // produce output depending on match and output mode (rowsPerMatch)
@@ -193,6 +224,10 @@ public final class PatternRecognitionPartition
                 matchNumber++;
             }
             else { // non-empty match
+                for (MatchAggregation aggregation : measureAggregations) {
+                    aggregation.reset();
+                }
+
                 if (rowsPerMatch.isOneRow()) {
                     outputOneRowPerMatch(pageBuilder, matchResult, patternStart, searchStart, searchEnd);
                 }
@@ -287,7 +322,7 @@ public final class PatternRecognitionPartition
         // compute measures from the position of the last row of the match
         ArrayView labels = matchResult.getLabels();
         for (MeasureComputation measureComputation : measures) {
-            Block result = measureComputation.compute(patternStart + labels.length() - 1, labels, partitionStart, searchStart, searchEnd, patternStart, matchNumber, windowIndex);
+            Block result = measureComputation.compute(patternStart + labels.length() - 1, labels, partitionStart, searchStart, searchEnd, patternStart, matchNumber, measureComputationsIndex);
             measureComputation.getType().appendTo(result, 0, pageBuilder.getBlockBuilder(channel));
             channel++;
         }
@@ -338,7 +373,7 @@ public final class PatternRecognitionPartition
         }
         // compute measures from the current position (the position from which measures are computed matters in RUNNING semantics)
         for (MeasureComputation measureComputation : measures) {
-            Block result = measureComputation.compute(position, labels, partitionStart, searchStart, searchEnd, currentPosition, matchNumber, windowIndex);
+            Block result = measureComputation.compute(position, labels, partitionStart, searchStart, searchEnd, currentPosition, matchNumber, measureComputationsIndex);
             measureComputation.getType().appendTo(result, 0, pageBuilder.getBlockBuilder(channel));
             channel++;
         }

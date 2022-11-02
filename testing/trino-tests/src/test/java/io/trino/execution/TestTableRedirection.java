@@ -43,7 +43,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -54,6 +53,7 @@ import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
+import static java.util.Collections.emptyIterator;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestTableRedirection
@@ -108,7 +108,7 @@ public class TestTableRedirection
                     .collect(toImmutableMap(
                             i -> schemaTableName(SCHEMA_THREE, REDIRECTION_CHAIN.get(i)),
                             i -> schemaTableName(SCHEMA_THREE, REDIRECTION_CHAIN.get(i + 1)))))
-            .build();
+            .buildOrThrow();
 
     private static final Map<String, List<ColumnMetadata>> columnMetadatas = ImmutableMap.of(
             SCHEMA_ONE,
@@ -163,7 +163,7 @@ public class TestTableRedirection
                             .collect(toImmutableList());
 
                     if (prefix.isEmpty()) {
-                        return allColumnsMetadata.stream();
+                        return allColumnsMetadata.iterator();
                     }
 
                     String schema = prefix.getSchema().get();
@@ -171,10 +171,11 @@ public class TestTableRedirection
                     if (SCHEMAS.contains(schema)) {
                         return allColumnsMetadata.stream()
                                 .filter(columnsMetadata -> columnsMetadata.getTable().getSchemaName().equals(schema))
-                                .filter(columnsMetadata -> prefix.getTable().map(columnsMetadata.getTable().getTableName()::equals).orElse(true));
+                                .filter(columnsMetadata -> prefix.getTable().map(columnsMetadata.getTable().getTableName()::equals).orElse(true))
+                                .iterator();
                     }
 
-                    return Stream.empty();
+                    return emptyIterator();
                 })
                 .withGetTableHandle((session, tableName) -> {
                     if (SCHEMA_TABLE_MAPPING.getOrDefault(tableName.getSchemaName(), ImmutableSet.of()).contains(tableName.getTableName())
@@ -219,18 +220,18 @@ public class TestTableRedirection
                 verifySingleTableScan(SCHEMA_ONE, TABLE_FOO));
 
         assertThatThrownBy(() -> query(format("SELECT c0 FROM %s.%s", SCHEMA_ONE, REDIRECTION_LOOP_PING)))
-                .hasMessageContaining(format(
+                .hasMessageContaining(
                         "Table redirections form a loop: %s -> %s -> %s",
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_ONE, REDIRECTION_LOOP_PING),
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, REDIRECTION_LOOP_PONG),
-                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_ONE, REDIRECTION_LOOP_PING)));
+                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_ONE, REDIRECTION_LOOP_PING));
 
         assertThatThrownBy(() -> query(format("SELECT c4 FROM %s.%s", SCHEMA_THREE, REDIRECTION_CHAIN.get(0))))
-                .hasMessageContaining(format(
+                .hasMessageContaining(
                         "Table redirected too many times (10): [%s]",
                         REDIRECTION_CHAIN.stream()
                                 .map(table -> new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_THREE, table).toString())
-                                .collect(Collectors.joining(", "))));
+                                .collect(Collectors.joining(", ")));
     }
 
     @Test
@@ -282,16 +283,14 @@ public class TestTableRedirection
                         VALID_REDIRECTION_SRC),
                 format("VALUES ('%s', '%s')", SCHEMA_ONE, VALID_REDIRECTION_SRC));
 
-        assertQueryFails(
+        assertQuery(
                 format("SELECT table_schema, table_name"
                                 + " FROM information_schema.tables"
                                 + " WHERE table_catalog='%s' AND table_schema = '%s' AND table_name='%s'",
                         CATALOG_NAME,
                         SCHEMA_ONE,
                         BAD_REDIRECTION_SRC),
-                format("Table '%1$s' redirected to '%2$s', but the target table '%2$s' does not exist",
-                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_ONE, BAD_REDIRECTION_SRC),
-                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE)));
+                format("VALUES ('%s', '%s')", SCHEMA_ONE, BAD_REDIRECTION_SRC));
 
         assertQuery(format(
                 "SELECT table_schema, table_name"
@@ -345,11 +344,11 @@ public class TestTableRedirection
         assertEquals(showCreateValidTarget, showCreateValidSource.replace(SCHEMA_ONE + "." + VALID_REDIRECTION_SRC, SCHEMA_TWO + "." + VALID_REDIRECTION_TARGET));
 
         assertThatThrownBy(() -> query((format("SHOW CREATE TABLE %s.%s", SCHEMA_ONE, BAD_REDIRECTION_SRC))))
-                .hasMessageContaining(format(
+                .hasMessageContaining(
                         "Table '%s' redirected to '%s', but the target table '%s' does not exist",
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_ONE, BAD_REDIRECTION_SRC),
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE),
-                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE)));
+                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE));
 
         assertThatThrownBy(() -> query((format("SHOW CREATE TABLE %s.%s", SCHEMA_ONE, REDIRECTION_LOOP_PING))))
                 .hasMessageContaining("Table redirections form a loop");
@@ -362,11 +361,11 @@ public class TestTableRedirection
                 computeActual(format("DESCRIBE %s.%s", SCHEMA_TWO, VALID_REDIRECTION_TARGET)));
 
         assertThatThrownBy(() -> query((format("DESCRIBE %s.%s", SCHEMA_ONE, BAD_REDIRECTION_SRC))))
-                .hasMessageContaining(format(
+                .hasMessageContaining(
                         "Table '%s' redirected to '%s', but the target table '%s' does not exist",
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_ONE, BAD_REDIRECTION_SRC),
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE),
-                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE)));
+                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE));
 
         assertThatThrownBy(() -> query((format("DESCRIBE %s.%s", SCHEMA_ONE, REDIRECTION_LOOP_PING))))
                 .hasMessageContaining("Table redirections form a loop");
@@ -382,11 +381,11 @@ public class TestTableRedirection
                         + row(C3, BIGINT.getDisplayName(), "", ""));
 
         assertThatThrownBy(() -> query((format("SHOW COLUMNS FROM %s.%s", SCHEMA_ONE, BAD_REDIRECTION_SRC))))
-                .hasMessageContaining(format(
+                .hasMessageContaining(
                         "Table '%s' redirected to '%s', but the target table '%s' does not exist",
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_ONE, BAD_REDIRECTION_SRC),
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE),
-                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE)));
+                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE));
 
         assertThatThrownBy(() -> query((format("SHOW COLUMNS FROM %s.%s", SCHEMA_ONE, REDIRECTION_LOOP_PING))))
                 .hasMessageContaining("Table redirections form a loop");

@@ -29,7 +29,7 @@ import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINA
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -52,6 +52,7 @@ public final class EnvMultinodeKafkaSsl
     {
         builder.configureContainer(COORDINATOR, this::addCatalogs);
         builder.configureContainer(WORKER, this::addCatalogs);
+        builder.addConnector("kafka");
 
         configureTempto(builder, configDir);
         builder.configureContainer(TESTS, container -> container
@@ -65,12 +66,12 @@ public final class EnvMultinodeKafkaSsl
         container
                 .withCopyFileToContainer(
                         forHostPath(configDir.getPath("kafka_schema_registry.properties")),
-                        CONTAINER_PRESTO_ETC + "/catalog/kafka_schema_registry.properties")
+                        CONTAINER_TRINO_ETC + "/catalog/kafka_schema_registry.properties")
                 .withCopyFileToContainer(
                         forHostPath(configDir.getPath("kafka.properties")),
-                        CONTAINER_PRESTO_ETC + "/catalog/kafka.properties")
+                        CONTAINER_TRINO_ETC + "/catalog/kafka.properties")
                 .withCopyFileToContainer(
                         forHostPath(configDir.getPath("secrets")),
-                        CONTAINER_PRESTO_ETC + "/catalog/secrets");
+                        CONTAINER_TRINO_ETC + "/catalog/secrets");
     }
 }

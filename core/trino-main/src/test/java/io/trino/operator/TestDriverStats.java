@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.execution.Lifespan;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
@@ -30,8 +29,6 @@ import static org.testng.Assert.assertEquals;
 public class TestDriverStats
 {
     public static final DriverStats EXPECTED = new DriverStats(
-            Lifespan.driverGroup(21),
-
             new DateTime(1),
             new DateTime(2),
             new DateTime(3),
@@ -41,7 +38,6 @@ public class TestDriverStats
 
             DataSize.ofBytes(6),
             DataSize.ofBytes(7),
-            DataSize.ofBytes(8),
 
             new Duration(9, NANOSECONDS),
             new Duration(10, NANOSECONDS),
@@ -55,7 +51,6 @@ public class TestDriverStats
 
             DataSize.ofBytes(132),
             142,
-            new Duration(152, NANOSECONDS),
 
             DataSize.ofBytes(13),
             14,
@@ -64,8 +59,12 @@ public class TestDriverStats
             DataSize.ofBytes(16),
             17,
 
+            new Duration(101, NANOSECONDS),
+
             DataSize.ofBytes(18),
             19,
+
+            new Duration(102, NANOSECONDS),
 
             DataSize.ofBytes(20),
 
@@ -84,8 +83,6 @@ public class TestDriverStats
 
     public static void assertExpectedDriverStats(DriverStats actual)
     {
-        assertEquals(actual.getLifespan(), Lifespan.driverGroup(21));
-
         assertEquals(actual.getCreateTime(), new DateTime(1, UTC));
         assertEquals(actual.getStartTime(), new DateTime(2, UTC));
         assertEquals(actual.getEndTime(), new DateTime(3, UTC));
@@ -94,7 +91,6 @@ public class TestDriverStats
 
         assertEquals(actual.getUserMemoryReservation(), DataSize.ofBytes(6));
         assertEquals(actual.getRevocableMemoryReservation(), DataSize.ofBytes(7));
-        assertEquals(actual.getSystemMemoryReservation(), DataSize.ofBytes(8));
 
         assertEquals(actual.getTotalScheduledTime(), new Duration(9, NANOSECONDS));
         assertEquals(actual.getTotalCpuTime(), new Duration(10, NANOSECONDS));
@@ -106,7 +102,6 @@ public class TestDriverStats
 
         assertEquals(actual.getInternalNetworkInputDataSize(), DataSize.ofBytes(132));
         assertEquals(actual.getInternalNetworkInputPositions(), 142);
-        assertEquals(actual.getInternalNetworkInputReadTime(), new Duration(152, NANOSECONDS));
 
         assertEquals(actual.getRawInputDataSize(), DataSize.ofBytes(13));
         assertEquals(actual.getRawInputPositions(), 14);
@@ -115,8 +110,12 @@ public class TestDriverStats
         assertEquals(actual.getProcessedInputDataSize(), DataSize.ofBytes(16));
         assertEquals(actual.getProcessedInputPositions(), 17);
 
+        assertEquals(actual.getInputBlockedTime(), new Duration(101, NANOSECONDS));
+
         assertEquals(actual.getOutputDataSize(), DataSize.ofBytes(18));
         assertEquals(actual.getOutputPositions(), 19);
+
+        assertEquals(actual.getOutputBlockedTime(), new Duration(102, NANOSECONDS));
 
         assertEquals(actual.getPhysicalWrittenDataSize(), DataSize.ofBytes(20));
 

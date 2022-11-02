@@ -27,7 +27,7 @@ public class SheetsRecordSet
 {
     private final List<SheetsColumnHandle> columnHandles;
     private final List<Type> columnTypes;
-    private final List<List<Object>> values;
+    private final List<List<String>> values;
 
     public SheetsRecordSet(SheetsSplit split, List<SheetsColumnHandle> columnHandles)
     {

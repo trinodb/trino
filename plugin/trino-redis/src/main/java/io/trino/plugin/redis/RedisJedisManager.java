@@ -13,12 +13,9 @@
  */
 package io.trino.plugin.redis;
 
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import io.trino.spi.HostAddress;
-import io.trino.spi.NodeManager;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
 
@@ -26,6 +23,8 @@ import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -37,25 +36,37 @@ public class RedisJedisManager
 {
     private static final Logger log = Logger.get(RedisJedisManager.class);
 
-    private final LoadingCache<HostAddress, JedisPool> jedisPoolCache;
+    private final ConcurrentMap<HostAddress, JedisPool> jedisPoolCache = new ConcurrentHashMap<>();
 
-    private final RedisConnectorConfig redisConnectorConfig;
+    private final String redisUser;
+    private final String redisPassword;
+    private final Duration redisConnectTimeout;
+    private final int redisDataBaseIndex;
+    private final int redisMaxKeysPerFetch;
+    private final char redisKeyDelimiter;
+    private final boolean keyPrefixSchemaTable;
+    private final int redisScanCount;
     private final JedisPoolConfig jedisPoolConfig;
 
     @Inject
-    RedisJedisManager(
-            RedisConnectorConfig redisConnectorConfig,
-            NodeManager nodeManager)
+    RedisJedisManager(RedisConnectorConfig redisConnectorConfig)
     {
-        this.redisConnectorConfig = requireNonNull(redisConnectorConfig, "redisConnectorConfig is null");
-        this.jedisPoolCache = CacheBuilder.newBuilder().build(CacheLoader.from(this::createConsumer));
+        requireNonNull(redisConnectorConfig, "redisConnectorConfig is null");
+        this.redisUser = redisConnectorConfig.getRedisUser();
+        this.redisPassword = redisConnectorConfig.getRedisPassword();
+        this.redisConnectTimeout = redisConnectorConfig.getRedisConnectTimeout();
+        this.redisDataBaseIndex = redisConnectorConfig.getRedisDataBaseIndex();
+        this.redisMaxKeysPerFetch = redisConnectorConfig.getRedisMaxKeysPerFetch();
+        this.redisKeyDelimiter = redisConnectorConfig.getRedisKeyDelimiter();
+        this.keyPrefixSchemaTable = redisConnectorConfig.isKeyPrefixSchemaTable();
+        this.redisScanCount = redisConnectorConfig.getRedisScanCount();
         this.jedisPoolConfig = new JedisPoolConfig();
     }
 
     @PreDestroy
     public void tearDown()
     {
-        for (Map.Entry<HostAddress, JedisPool> entry : jedisPoolCache.asMap().entrySet()) {
+        for (Map.Entry<HostAddress, JedisPool> entry : jedisPoolCache.entrySet()) {
             try {
                 entry.getValue().destroy();
             }
@@ -65,15 +76,30 @@ public class RedisJedisManager
         }
     }
 
-    public RedisConnectorConfig getRedisConnectorConfig()
+    public char getRedisKeyDelimiter()
     {
-        return redisConnectorConfig;
+        return redisKeyDelimiter;
+    }
+
+    public int getRedisMaxKeysPerFetch()
+    {
+        return redisMaxKeysPerFetch;
+    }
+
+    public boolean isKeyPrefixSchemaTable()
+    {
+        return keyPrefixSchemaTable;
+    }
+
+    public int getRedisScanCount()
+    {
+        return redisScanCount;
     }
 
     public JedisPool getJedisPool(HostAddress host)
     {
         requireNonNull(host, "host is null");
-        return jedisPoolCache.getUnchecked(host);
+        return jedisPoolCache.computeIfAbsent(host, this::createConsumer);
     }
 
     private JedisPool createConsumer(HostAddress host)
@@ -82,8 +108,9 @@ public class RedisJedisManager
         return new JedisPool(jedisPoolConfig,
                 host.getHostText(),
                 host.getPort(),
-                toIntExact(redisConnectorConfig.getRedisConnectTimeout().toMillis()),
-                redisConnectorConfig.getRedisPassword(),
-                redisConnectorConfig.getRedisDataBaseIndex());
+                toIntExact(redisConnectTimeout.toMillis()),
+                redisUser,
+                redisPassword,
+                redisDataBaseIndex);
     }
 }

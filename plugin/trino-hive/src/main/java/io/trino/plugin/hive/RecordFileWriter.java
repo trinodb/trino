@@ -38,6 +38,7 @@ import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
@@ -54,6 +55,7 @@ import static io.trino.plugin.hive.util.HiveUtil.getColumnTypes;
 import static io.trino.plugin.hive.util.HiveWriteUtils.createRecordWriter;
 import static io.trino.plugin.hive.util.HiveWriteUtils.getRowColumnInspectors;
 import static io.trino.plugin.hive.util.HiveWriteUtils.initializeSerializer;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
@@ -61,7 +63,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFacto
 public class RecordFileWriter
         implements FileWriter
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RecordFileWriter.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(RecordFileWriter.class).instanceSize());
 
     private final Path path;
     private final JobConf conf;
@@ -72,7 +74,7 @@ public class RecordFileWriter
     private final List<StructField> structFields;
     private final Object row;
     private final FieldSetter[] setters;
-    private final long estimatedWriterSystemMemoryUsage;
+    private final long estimatedWriterMemoryUsage;
 
     private boolean committed;
     private long finalWrittenBytes = -1;
@@ -82,7 +84,7 @@ public class RecordFileWriter
             List<String> inputColumnNames,
             StorageFormat storageFormat,
             Properties schema,
-            DataSize estimatedWriterSystemMemoryUsage,
+            DataSize estimatedWriterMemoryUsage,
             JobConf conf,
             TypeManager typeManager,
             DateTimeZone parquetTimeZone,
@@ -99,8 +101,8 @@ public class RecordFileWriter
 
         fieldCount = fileColumnNames.size();
 
-        String serDe = storageFormat.getSerDe();
-        serializer = initializeSerializer(conf, schema, serDe);
+        String serde = storageFormat.getSerde();
+        serializer = initializeSerializer(conf, schema, serde);
 
         List<ObjectInspector> objectInspectors = getRowColumnInspectors(fileColumnTypes);
         tableInspector = getStandardStructObjectInspector(fileColumnNames, objectInspectors);
@@ -128,7 +130,7 @@ public class RecordFileWriter
             setters[i] = fieldSetterFactory.create(tableInspector, row, structFields.get(i), fileColumnTypes.get(structFields.get(i).getFieldID()));
         }
 
-        this.estimatedWriterSystemMemoryUsage = estimatedWriterSystemMemoryUsage.toBytes();
+        this.estimatedWriterMemoryUsage = estimatedWriterMemoryUsage.toBytes();
     }
 
     @Override
@@ -157,9 +159,9 @@ public class RecordFileWriter
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
-        return INSTANCE_SIZE + estimatedWriterSystemMemoryUsage;
+        return INSTANCE_SIZE + estimatedWriterMemoryUsage;
     }
 
     @Override
@@ -191,7 +193,7 @@ public class RecordFileWriter
     }
 
     @Override
-    public void commit()
+    public Closeable commit()
     {
         try {
             recordWriter.close(false);
@@ -200,23 +202,25 @@ public class RecordFileWriter
         catch (IOException e) {
             throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);
         }
+
+        return createRollbackAction(path, conf);
     }
 
     @Override
     public void rollback()
     {
-        try {
-            try {
-                recordWriter.close(true);
-            }
-            finally {
-                // perform explicit deletion here as implementations of RecordWriter.close() often ignore the abort flag.
-                path.getFileSystem(conf).delete(path, false);
-            }
+        Closeable rollbackAction = createRollbackAction(path, conf);
+        try (rollbackAction) {
+            recordWriter.close(true);
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", e);
         }
+    }
+
+    private static Closeable createRollbackAction(Path path, JobConf conf)
+    {
+        return () -> path.getFileSystem(conf).delete(path, false);
     }
 
     @Override

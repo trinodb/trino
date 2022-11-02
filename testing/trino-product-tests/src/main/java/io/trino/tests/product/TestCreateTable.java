@@ -19,8 +19,8 @@ import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequiremen
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.CREATE_TABLE;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
 @Requires(ImmutableNationTable.class)
@@ -31,17 +31,17 @@ public class TestCreateTable
     public void shouldCreateTableAsSelect()
     {
         String tableName = "create_table_as_select";
-        query(format("DROP TABLE IF EXISTS %s", tableName));
-        query(format("CREATE TABLE %s(nationkey, name) AS SELECT n_nationkey, n_name FROM nation", tableName));
-        assertThat(query(format("SELECT * FROM %s", tableName))).hasRowsCount(25);
+        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+        onTrino().executeQuery(format("CREATE TABLE %s(nationkey, name) AS SELECT n_nationkey, n_name FROM nation", tableName));
+        assertThat(onTrino().executeQuery(format("SELECT * FROM %s", tableName))).hasRowsCount(25);
     }
 
     @Test(groups = CREATE_TABLE)
     public void shouldCreateTableAsEmptySelect()
     {
         String tableName = "create_table_as_empty_select";
-        query(format("DROP TABLE IF EXISTS %s", tableName));
-        query(format("CREATE TABLE %s(nationkey, name) AS SELECT n_nationkey, n_name FROM nation WHERE 0 is NULL", tableName));
-        assertThat(query(format("SELECT nationkey, name FROM %s", tableName))).hasRowsCount(0);
+        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+        onTrino().executeQuery(format("CREATE TABLE %s(nationkey, name) AS SELECT n_nationkey, n_name FROM nation WHERE 0 is NULL", tableName));
+        assertThat(onTrino().executeQuery(format("SELECT nationkey, name FROM %s", tableName))).hasRowsCount(0);
     }
 }

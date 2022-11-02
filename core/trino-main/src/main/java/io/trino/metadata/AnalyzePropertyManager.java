@@ -13,13 +13,18 @@
  */
 package io.trino.metadata;
 
+import io.trino.connector.CatalogServiceProvider;
+import io.trino.spi.session.PropertyMetadata;
+
+import java.util.Map;
+
 import static io.trino.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
 
 public class AnalyzePropertyManager
         extends AbstractCatalogPropertyManager
 {
-    public AnalyzePropertyManager()
+    public AnalyzePropertyManager(CatalogServiceProvider<Map<String, PropertyMetadata<?>>> connectorProperties)
     {
-        super("analyze", INVALID_ANALYZE_PROPERTY);
+        super("analyze", INVALID_ANALYZE_PROPERTY, connectorProperties);
     }
 }

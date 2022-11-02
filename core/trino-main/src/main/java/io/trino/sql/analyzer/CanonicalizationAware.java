@@ -26,6 +26,11 @@ public class CanonicalizationAware<T extends Node>
 {
     private final T node;
 
+    // Updates to this field are thread-safe despite benign data race due to:
+    // 1. idempotent hash computation
+    // 2. atomic updates to int fields per JMM
+    private int hashCode;
+
     private CanonicalizationAware(T node)
     {
         this.node = requireNonNull(node, "node is null");
@@ -44,7 +49,17 @@ public class CanonicalizationAware<T extends Node>
     @Override
     public int hashCode()
     {
-        return treeHash(node, CanonicalizationAware::canonicalizationAwareHash);
+        int hash = hashCode;
+        if (hash == 0) {
+            hash = treeHash(node, CanonicalizationAware::canonicalizationAwareHash);
+            if (hash == 0) {
+                hash = 1;
+            }
+
+            hashCode = hash;
+        }
+
+        return hash;
     }
 
     @Override
@@ -84,7 +99,7 @@ public class CanonicalizationAware<T extends Node>
         if (node instanceof Identifier) {
             return OptionalInt.of(((Identifier) node).getCanonicalValue().hashCode());
         }
-        else if (node.getChildren().isEmpty()) {
+        if (node.getChildren().isEmpty()) {
             return OptionalInt.of(node.hashCode());
         }
         return OptionalInt.empty();

@@ -16,9 +16,9 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.ProcedureRegistry;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.security.AccessControl;
 import io.trino.security.InjectedConnectorAccessControl;
@@ -30,6 +30,7 @@ import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.procedure.Procedure.Argument;
 import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.ParameterRewriter;
 import io.trino.sql.tree.Call;
 import io.trino.sql.tree.CallArgument;
@@ -38,6 +39,8 @@ import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 import io.trino.transaction.TransactionManager;
+
+import javax.inject.Inject;
 
 import java.lang.invoke.MethodType;
 import java.util.ArrayList;
@@ -53,7 +56,7 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
-import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
+import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -63,10 +66,25 @@ import static io.trino.sql.ParameterUtils.parameterExtractor;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static java.util.Arrays.asList;
+import static java.util.Objects.requireNonNull;
 
 public class CallTask
         implements DataDefinitionTask<Call>
 {
+    private final TransactionManager transactionManager;
+    private final PlannerContext plannerContext;
+    private final AccessControl accessControl;
+    private final ProcedureRegistry procedureRegistry;
+
+    @Inject
+    public CallTask(TransactionManager transactionManager, PlannerContext plannerContext, AccessControl accessControl, ProcedureRegistry procedureRegistry)
+    {
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.procedureRegistry = requireNonNull(procedureRegistry, "procedureRegistry is null");
+    }
+
     @Override
     public String getName()
     {
@@ -76,22 +94,18 @@ public class CallTask
     @Override
     public ListenableFuture<Void> execute(
             Call call,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)
     {
-        if (!transactionManager.isAutoCommit(stateMachine.getSession().getRequiredTransactionId())) {
+        if (!transactionManager.getTransactionInfo(stateMachine.getSession().getRequiredTransactionId()).isAutoCommitContext()) {
             throw new TrinoException(NOT_SUPPORTED, "Procedures cannot be called within a transaction (use autocommit mode)");
         }
 
         Session session = stateMachine.getSession();
         QualifiedObjectName procedureName = createQualifiedObjectName(session, call, call.getName());
-        CatalogName catalogName = metadata.getCatalogHandle(stateMachine.getSession(), procedureName.getCatalogName())
-                .orElseThrow(() -> semanticException(CATALOG_NOT_FOUND, call, "Catalog '%s' does not exist", procedureName.getCatalogName()));
-        Procedure procedure = metadata.getProcedureRegistry().resolve(catalogName, procedureName.asSchemaTableName());
+        CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), stateMachine.getSession(), call, procedureName.getCatalogName());
+        Procedure procedure = procedureRegistry.resolve(catalogHandle, procedureName.asSchemaTableName());
 
         // map declared argument names to positions
         Map<String, Integer> positions = new HashMap<>();
@@ -103,6 +117,9 @@ public class CallTask
         Predicate<CallArgument> hasName = argument -> argument.getName().isPresent();
         boolean anyNamed = call.getArguments().stream().anyMatch(hasName);
         boolean allNamed = call.getArguments().stream().allMatch(hasName);
+        if (!allNamed && procedure.requiresNamedArguments()) {
+            throw semanticException(INVALID_ARGUMENTS, call, "Only named arguments are allowed for this procedure");
+        }
         if (anyNamed && !allNamed) {
             throw semanticException(INVALID_ARGUMENTS, call, "Named and positional arguments cannot be mixed");
         }
@@ -112,7 +129,7 @@ public class CallTask
         for (int i = 0; i < call.getArguments().size(); i++) {
             CallArgument argument = call.getArguments().get(i);
             if (argument.getName().isPresent()) {
-                String name = argument.getName().get();
+                String name = argument.getName().get().getCanonicalValue();
                 if (names.put(name, argument) != null) {
                     throw semanticException(INVALID_ARGUMENTS, argument, "Duplicate procedure argument: %s", name);
                 }
@@ -148,7 +165,7 @@ public class CallTask
             Expression expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameterLookup), callArgument.getValue());
 
             Type type = argument.getType();
-            Object value = evaluateConstantExpression(expression, type, metadata, session, accessControl, parameterLookup);
+            Object value = evaluateConstantExpression(expression, type, plannerContext, session, accessControl, parameterLookup);
 
             values[index] = toTypeObjectValue(session, type, value);
         }
@@ -177,10 +194,10 @@ public class CallTask
         Iterator<Object> valuesIterator = asList(values).iterator();
         for (Class<?> type : methodType.parameterList()) {
             if (ConnectorSession.class.equals(type)) {
-                arguments.add(session.toConnectorSession(catalogName));
+                arguments.add(session.toConnectorSession(catalogHandle));
             }
             else if (ConnectorAccessControl.class.equals(type)) {
-                arguments.add(new InjectedConnectorAccessControl(accessControl, session.toSecurityContext(), catalogName.getCatalogName()));
+                arguments.add(new InjectedConnectorAccessControl(accessControl, session.toSecurityContext(), procedureName.getCatalogName()));
             }
             else {
                 arguments.add(valuesIterator.next());

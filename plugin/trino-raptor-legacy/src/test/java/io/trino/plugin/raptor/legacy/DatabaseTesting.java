@@ -15,15 +15,12 @@ package io.trino.plugin.raptor.legacy;
 
 import io.trino.plugin.raptor.legacy.metadata.Distribution;
 import io.trino.plugin.raptor.legacy.metadata.TableColumn;
-import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeOperators;
-import io.trino.type.InternalTypeManager;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 
 public final class DatabaseTesting
 {
@@ -31,10 +28,9 @@ public final class DatabaseTesting
 
     public static Jdbi createTestingJdbi()
     {
-        TypeManager typeManager = new InternalTypeManager(createTestMetadataManager(), new TypeOperators());
         return Jdbi.create("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong())
                 .installPlugin(new SqlObjectPlugin())
-                .registerRowMapper(new TableColumn.Mapper(typeManager))
-                .registerRowMapper(new Distribution.Mapper(typeManager));
+                .registerRowMapper(new TableColumn.Mapper(TESTING_TYPE_MANAGER))
+                .registerRowMapper(new Distribution.Mapper(TESTING_TYPE_MANAGER));
     }
 }

@@ -14,33 +14,35 @@
 package io.trino.plugin.pinot;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.inject.Module;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.SystemSessionProperties;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.spi.session.PropertyMetadata;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.kafka.TestingKafka;
 
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_LATEST_IMAGE_NAME;
+import static io.trino.testing.TestingHandles.createTestCatalogHandle;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class PinotQueryRunner
 {
     public static final String PINOT_CATALOG = "pinot";
 
-    private PinotQueryRunner()
-    {
-    }
+    private PinotQueryRunner() {}
 
     public static DistributedQueryRunner createPinotQueryRunner(Map<String, String> extraProperties, Map<String, String> extraPinotProperties, Optional<Module> extension)
             throws Exception
     {
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession("default"))
-                .setNodeCount(2)
                 .setExtraProperties(extraProperties)
                 .build();
         queryRunner.installPlugin(new PinotPlugin(extension));
@@ -55,9 +57,10 @@ public class PinotQueryRunner
 
     public static Session createSession(String schema, PinotConfig config)
     {
-        SessionPropertyManager sessionPropertyManager = new SessionPropertyManager();
         PinotSessionProperties pinotSessionProperties = new PinotSessionProperties(config);
-        sessionPropertyManager.addConnectorSessionProperties(new CatalogName(PINOT_CATALOG), pinotSessionProperties.getSessionProperties());
+        SessionPropertyManager sessionPropertyManager = new SessionPropertyManager(
+                ImmutableSet.of(new SystemSessionProperties()),
+                CatalogServiceProvider.singleton(createTestCatalogHandle(PINOT_CATALOG), Maps.uniqueIndex(pinotSessionProperties.getSessionProperties(), PropertyMetadata::getName)));
         return testSessionBuilder(sessionPropertyManager)
                 .setCatalog(PINOT_CATALOG)
                 .setSchema(schema)
@@ -67,17 +70,16 @@ public class PinotQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        Logging.initialize();
         TestingKafka kafka = TestingKafka.createWithSchemaRegistry();
         kafka.start();
-        TestingPinotCluster pinot = new TestingPinotCluster(kafka.getNetwork());
+        TestingPinotCluster pinot = new TestingPinotCluster(kafka.getNetwork(), false, PINOT_LATEST_IMAGE_NAME);
         pinot.start();
         Map<String, String> properties = ImmutableMap.of("http-server.http.port", "8080");
         Map<String, String> pinotProperties = ImmutableMap.<String, String>builder()
                 .put("pinot.controller-urls", pinot.getControllerConnectString())
                 .put("pinot.segments-per-split", "10")
                 .put("pinot.request-timeout", "3m")
-                .build();
+                .buildOrThrow();
         DistributedQueryRunner queryRunner = createPinotQueryRunner(properties, pinotProperties, Optional.empty());
         Thread.sleep(10);
         Logger log = Logger.get(PinotQueryRunner.class);

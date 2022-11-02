@@ -26,13 +26,16 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.type.Type;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.ToIntFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static java.lang.Math.toIntExact;
+import static java.util.Comparator.comparing;
 
 public class TpchNodePartitioningProvider
         implements ConnectorNodePartitioningProvider
@@ -48,12 +51,21 @@ public class TpchNodePartitioningProvider
     }
 
     @Override
-    public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+    public Optional<ConnectorBucketNodeMap> getBucketNodeMapping(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
     {
         Set<Node> nodes = nodeManager.getRequiredWorkerNodes();
-
-        // Split the data using split and skew by the number of nodes available.
-        return createBucketNodeMap(toIntExact((long) nodes.size() * splitsPerNode));
+        checkState(!nodes.isEmpty(), "No TPCH nodes available");
+        // sort to ensure the assignment is consistent with TpchSplitManager
+        List<Node> sortedNodes = nodes.stream()
+                .sorted(comparing(node -> node.getHostAndPort().toString()))
+                .collect(toImmutableList());
+        ImmutableList.Builder<Node> bucketToNode = ImmutableList.builder();
+        for (Node node : sortedNodes) {
+            for (int i = 0; i < splitsPerNode; i++) {
+                bucketToNode.add(node);
+            }
+        }
+        return Optional.of(createBucketNodeMap(bucketToNode.build()));
     }
 
     @Override

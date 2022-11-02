@@ -22,6 +22,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.toIntExact;
 import static java.lang.System.arraycopy;
 
 public class LongDecimalWithOverflowStateFactory
@@ -34,28 +35,16 @@ public class LongDecimalWithOverflowStateFactory
     }
 
     @Override
-    public Class<? extends LongDecimalWithOverflowState> getSingleStateClass()
-    {
-        return SingleLongDecimalWithOverflowState.class;
-    }
-
-    @Override
     public LongDecimalWithOverflowState createGroupedState()
     {
         return new GroupedLongDecimalWithOverflowState();
-    }
-
-    @Override
-    public Class<? extends LongDecimalWithOverflowState> getGroupedStateClass()
-    {
-        return GroupedLongDecimalWithOverflowState.class;
     }
 
     public static class GroupedLongDecimalWithOverflowState
             extends AbstractGroupedAccumulatorState
             implements LongDecimalWithOverflowState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedLongDecimalWithOverflowState.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(GroupedLongDecimalWithOverflowState.class).instanceSize());
         protected final BooleanBigArray isNotNull = new BooleanBigArray();
         /**
          * Stores 128-bit decimals as pairs of longs
@@ -145,7 +134,7 @@ public class LongDecimalWithOverflowStateFactory
     public static class SingleLongDecimalWithOverflowState
             implements LongDecimalWithOverflowState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleLongDecimalWithOverflowState.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SingleLongDecimalWithOverflowState.class).instanceSize());
         protected static final int SIZE = (int) sizeOf(new long[2]);
 
         protected final long[] unscaledDecimal = new long[2];

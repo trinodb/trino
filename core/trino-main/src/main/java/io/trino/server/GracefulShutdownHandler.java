@@ -16,8 +16,8 @@ package io.trino.server;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.trino.execution.SqlTaskManager;
 import io.trino.execution.TaskInfo;
-import io.trino.execution.TaskManager;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
@@ -48,7 +48,7 @@ public class GracefulShutdownHandler
     private final ScheduledExecutorService shutdownHandler = newSingleThreadScheduledExecutor(threadsNamed("shutdown-handler-%s"));
     private final ExecutorService lifeCycleStopper = newSingleThreadExecutor(threadsNamed("lifecycle-stopper-%s"));
     private final LifeCycleManager lifeCycleManager;
-    private final TaskManager sqlTaskManager;
+    private final SqlTaskManager sqlTaskManager;
     private final boolean isCoordinator;
     private final ShutdownAction shutdownAction;
     private final Duration gracePeriod;
@@ -58,7 +58,7 @@ public class GracefulShutdownHandler
 
     @Inject
     public GracefulShutdownHandler(
-            TaskManager sqlTaskManager,
+            SqlTaskManager sqlTaskManager,
             ServerConfig serverConfig,
             ShutdownAction shutdownAction,
             LifeCycleManager lifeCycleManager)
@@ -66,7 +66,7 @@ public class GracefulShutdownHandler
         this.sqlTaskManager = requireNonNull(sqlTaskManager, "sqlTaskManager is null");
         this.shutdownAction = requireNonNull(shutdownAction, "shutdownAction is null");
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
-        this.isCoordinator = requireNonNull(serverConfig, "serverConfig is null").isCoordinator();
+        this.isCoordinator = serverConfig.isCoordinator();
         this.gracePeriod = serverConfig.getGracePeriod();
     }
 

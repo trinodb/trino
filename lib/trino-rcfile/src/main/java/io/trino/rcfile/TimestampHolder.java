@@ -62,11 +62,9 @@ public final class TimestampHolder
         if (type.isShort()) {
             return (block, position) -> new TimestampHolder(type.getLong(block, position), 0);
         }
-        else {
-            return (block, position) -> {
-                LongTimestamp longTimestamp = (LongTimestamp) type.getObject(block, position);
-                return new TimestampHolder(longTimestamp.getEpochMicros(), longTimestamp.getPicosOfMicro());
-            };
-        }
+        return (block, position) -> {
+            LongTimestamp longTimestamp = (LongTimestamp) type.getObject(block, position);
+            return new TimestampHolder(longTimestamp.getEpochMicros(), longTimestamp.getPicosOfMicro());
+        };
     }
 }

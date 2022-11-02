@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.raptor.legacy.backup;
 
-import com.google.common.io.Files;
 import io.trino.plugin.raptor.legacy.storage.BackupStats;
 import io.trino.plugin.raptor.legacy.storage.FileStorageService;
 import io.trino.spi.TrinoException;
@@ -24,6 +23,7 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -32,12 +32,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_BACKUP_CORRUPTION;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_BACKUP_ERROR;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.Files.createTempDirectory;
+import static java.nio.file.Files.writeString;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -52,21 +52,22 @@ public class TestBackupManager
     private static final UUID FAILURE_UUID = randomUUID();
     private static final UUID CORRUPTION_UUID = randomUUID();
 
-    private File temporary;
+    private Path temporary;
     private BackupStore backupStore;
     private FileStorageService storageService;
     private BackupManager backupManager;
 
     @BeforeMethod
     public void setup()
+            throws IOException
     {
-        temporary = createTempDir();
+        temporary = createTempDirectory(null);
 
-        FileBackupStore fileStore = new FileBackupStore(new File(temporary, "backup"));
+        FileBackupStore fileStore = new FileBackupStore(temporary.resolve("backup").toFile());
         fileStore.start();
         backupStore = new TestingBackupStore(fileStore);
 
-        storageService = new FileStorageService(new File(temporary, "data"));
+        storageService = new FileStorageService(temporary.resolve("data").toFile());
         storageService.start();
 
         backupManager = new BackupManager(Optional.of(backupStore), storageService, 5);
@@ -76,7 +77,7 @@ public class TestBackupManager
     public void tearDown()
             throws Exception
     {
-        deleteRecursively(temporary.toPath(), ALLOW_INSECURE);
+        deleteRecursively(temporary, ALLOW_INSECURE);
         backupManager.shutdown();
     }
 
@@ -90,8 +91,8 @@ public class TestBackupManager
         List<CompletableFuture<?>> futures = new ArrayList<>();
         List<UUID> uuids = new ArrayList<>(5);
         for (int i = 0; i < 5; i++) {
-            File file = new File(temporary, "file" + i);
-            Files.write("hello world", file, UTF_8);
+            File file = temporary.resolve("file" + i).toFile();
+            writeString(file.toPath(), "hello world");
             uuids.add(randomUUID());
 
             futures.add(backupManager.submit(uuids.get(i), file));
@@ -112,8 +113,8 @@ public class TestBackupManager
         assertEmptyStagingDirectory();
         assertBackupStats(0, 0, 0);
 
-        File file = new File(temporary, "failure");
-        Files.write("hello world", file, UTF_8);
+        File file = temporary.resolve("failure").toFile();
+        writeString(file.toPath(), "hello world");
 
         assertThatThrownBy(() -> backupManager.submit(FAILURE_UUID, file).get(10, SECONDS))
                 .isInstanceOfSatisfying(ExecutionException.class, wrapper -> {
@@ -133,8 +134,8 @@ public class TestBackupManager
         assertEmptyStagingDirectory();
         assertBackupStats(0, 0, 0);
 
-        File file = new File(temporary, "corrupt");
-        Files.write("hello world", file, UTF_8);
+        File file = temporary.resolve("corrupt").toFile();
+        writeString(file.toPath(), "hello world");
 
         assertThatThrownBy(() -> backupManager.submit(CORRUPTION_UUID, file).get(10, SECONDS))
                 .isInstanceOfSatisfying(ExecutionException.class, wrapper -> {

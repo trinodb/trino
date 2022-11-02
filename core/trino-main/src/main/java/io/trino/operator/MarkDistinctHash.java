@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static io.trino.operator.GroupByHash.createGroupByHash;
 
 public class MarkDistinctHash
@@ -42,7 +41,7 @@ public class MarkDistinctHash
 
     public MarkDistinctHash(Session session, List<Type> types, int[] channels, Optional<Integer> hashChannel, int expectedDistinctValues, JoinCompiler joinCompiler, BlockTypeOperators blockTypeOperators, UpdateMemory updateMemory)
     {
-        this.groupByHash = createGroupByHash(types, channels, hashChannel, expectedDistinctValues, isDictionaryAggregationEnabled(session), joinCompiler, blockTypeOperators, updateMemory);
+        this.groupByHash = createGroupByHash(session, types, channels, hashChannel, expectedDistinctValues, joinCompiler, blockTypeOperators, updateMemory);
     }
 
     public long getEstimatedSize()
@@ -68,12 +67,12 @@ public class MarkDistinctHash
             // must have > 1 positions to benefit from using a RunLengthEncoded block
             if (nextDistinctId == ids.getGroupCount()) {
                 // no new distinct positions
-                return new RunLengthEncodedBlock(BooleanType.createBlockForSingleNonNullValue(false), positions);
+                return RunLengthEncodedBlock.create(BooleanType.createBlockForSingleNonNullValue(false), positions);
             }
             if (nextDistinctId + positions == ids.getGroupCount()) {
                 // all positions are distinct
                 nextDistinctId = ids.getGroupCount();
-                return new RunLengthEncodedBlock(BooleanType.createBlockForSingleNonNullValue(true), positions);
+                return RunLengthEncodedBlock.create(BooleanType.createBlockForSingleNonNullValue(true), positions);
             }
         }
         byte[] distinctMask = new byte[positions];

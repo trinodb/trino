@@ -31,18 +31,18 @@ public class DefaultWarningCollector
 {
     @GuardedBy("this")
     private final Set<TrinoWarning> warnings = new LinkedHashSet<>();
-    private final WarningCollectorConfig config;
+    private final int maxWarnings;
 
     public DefaultWarningCollector(WarningCollectorConfig config)
     {
-        this.config = requireNonNull(config, "config is null");
+        this.maxWarnings = requireNonNull(config, "config is null").getMaxWarnings();
     }
 
     @Override
     public synchronized void add(TrinoWarning warning)
     {
         requireNonNull(warning, "warning is null");
-        if (warnings.size() < config.getMaxWarnings()) {
+        if (warnings.size() < maxWarnings) {
             warnings.add(warning);
         }
     }

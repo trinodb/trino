@@ -239,6 +239,7 @@ public class TestSetTimeZoneTask
     private QueryStateMachine createQueryStateMachine(String query)
     {
         return QueryStateMachine.begin(
+                Optional.empty(),
                 query,
                 Optional.empty(),
                 TEST_SESSION,
@@ -255,14 +256,7 @@ public class TestSetTimeZoneTask
 
     private void executeSetTimeZone(SetTimeZone setTimeZone, QueryStateMachine stateMachine)
     {
-        getFutureValue(new SetTimeZoneTask(localQueryRunner.getSqlParser(), localQueryRunner.getGroupProvider(), localQueryRunner.getStatsCalculator())
-                .execute(
-                        setTimeZone,
-                        localQueryRunner.getTransactionManager(),
-                        localQueryRunner.getMetadata(),
-                        localQueryRunner.getAccessControl(),
-                        stateMachine,
-                        emptyList(),
-                        WarningCollector.NOOP));
+        SetTimeZoneTask task = new SetTimeZoneTask(localQueryRunner.getPlannerContext(), localQueryRunner.getAccessControl());
+        getFutureValue(task.execute(setTimeZone, stateMachine, emptyList(), WarningCollector.NOOP));
     }
 }

@@ -13,30 +13,23 @@
  */
 package io.trino.type;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.metadata.Metadata;
-import io.trino.metadata.TestingFunctionResolution;
-import io.trino.spi.type.Type;
+import io.trino.FeaturesConfig;
+import io.trino.metadata.TypeRegistry;
 import io.trino.spi.type.TypeNotFoundException;
+import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
 import org.testng.annotations.Test;
 
-import static io.trino.spi.function.OperatorType.EQUAL;
-import static io.trino.spi.function.OperatorType.HASH_CODE;
-import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
-import static io.trino.spi.function.OperatorType.LESS_THAN;
-import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestTypeRegistry
 {
-    private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
-    private final Metadata metadata = functionResolution.getMetadata();
+    private final TypeRegistry typeRegistry = new TypeRegistry(new TypeOperators(), new FeaturesConfig());
 
     @Test
     public void testNonexistentType()
     {
-        assertThatThrownBy(() -> metadata.getType(new TypeSignature("not a real type")))
+        assertThatThrownBy(() -> typeRegistry.getType(new TypeSignature("not a real type")))
                 .isInstanceOf(TypeNotFoundException.class)
                 .hasMessage("Unknown type: not a real type");
     }
@@ -44,16 +37,6 @@ public class TestTypeRegistry
     @Test
     public void testOperatorsImplemented()
     {
-        for (Type type : metadata.getTypes()) {
-            if (type.isComparable()) {
-                functionResolution.resolveOperator(EQUAL, ImmutableList.of(type, type));
-                functionResolution.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(type, type));
-                functionResolution.resolveOperator(HASH_CODE, ImmutableList.of(type));
-            }
-            if (type.isOrderable()) {
-                functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(type, type));
-                functionResolution.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(type, type));
-            }
-        }
+        typeRegistry.verifyTypes();
     }
 }

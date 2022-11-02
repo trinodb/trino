@@ -18,9 +18,9 @@ import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.LOGICAL;
 import static io.trino.tests.product.TestGroups.QUERY_ENGINE;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 
 public class TestLogical
         extends ProductTest
@@ -28,11 +28,11 @@ public class TestLogical
     @Test(groups = {LOGICAL, QUERY_ENGINE})
     public void testLogicalOperatorsExists()
     {
-        assertThat(query("select true AND true")).containsExactlyInOrder(row(true));
-        assertThat(query("select true OR false")).containsExactlyInOrder(row(true));
-        assertThat(query("select 1 in (1, 2, 3)")).containsExactlyInOrder(row(true));
-        assertThat(query("select 'ala ma kota' like 'ala%'")).containsExactlyInOrder(row(true));
-        assertThat(query("select NOT true")).containsExactlyInOrder(row(false));
-        assertThat(query("select null is null")).containsExactlyInOrder(row(true));
+        assertThat(onTrino().executeQuery("select true AND true")).containsExactlyInOrder(row(true));
+        assertThat(onTrino().executeQuery("select true OR false")).containsExactlyInOrder(row(true));
+        assertThat(onTrino().executeQuery("select 1 in (1, 2, 3)")).containsExactlyInOrder(row(true));
+        assertThat(onTrino().executeQuery("select 'ala ma kota' like 'ala%'")).containsExactlyInOrder(row(true));
+        assertThat(onTrino().executeQuery("select NOT true")).containsExactlyInOrder(row(false));
+        assertThat(onTrino().executeQuery("select null is null")).containsExactlyInOrder(row(true));
     }
 }

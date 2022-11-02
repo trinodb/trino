@@ -71,15 +71,14 @@ public class WorkProcessorSourceOperatorAdapter
     public WorkProcessorSourceOperatorAdapter(OperatorContext operatorContext, AdapterWorkProcessorSourceOperatorFactory sourceOperatorFactory)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.sourceId = requireNonNull(sourceOperatorFactory, "sourceOperatorFactory is null").getSourceId();
+        this.sourceId = sourceOperatorFactory.getSourceId();
         this.splitBuffer = new SplitBuffer();
         this.sourceOperator = sourceOperatorFactory
                 .createAdapterOperator(
                         operatorContext.getSession(),
                         new MemoryTrackingContext(
                                 operatorContext.aggregateUserMemoryContext(),
-                                operatorContext.aggregateRevocableMemoryContext(),
-                                operatorContext.aggregateSystemMemoryContext()),
+                                operatorContext.aggregateRevocableMemoryContext()),
                         operatorContext.getDriverContext().getYieldSignal(),
                         WorkProcessor.create(splitBuffer));
         this.pages = sourceOperator.getOutputPages()
@@ -104,7 +103,7 @@ public class WorkProcessorSourceOperatorAdapter
 
         Object splitInfo = split.getInfo();
         if (splitInfo != null) {
-            operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(split.getCatalogName(), splitInfo)));
+            operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(split.getCatalogHandle(), splitInfo)));
         }
 
         splitBuffer.add(split);

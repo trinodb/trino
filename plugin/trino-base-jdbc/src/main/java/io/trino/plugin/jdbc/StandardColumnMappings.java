@@ -17,8 +17,11 @@ import com.google.common.base.CharMatcher;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
@@ -34,9 +37,12 @@ import java.math.RoundingMode;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.sql.Types;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
@@ -46,6 +52,7 @@ import static com.google.common.io.BaseEncoding.base16;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.PredicatePushdownController.CASE_INSENSITIVE_CHARACTER_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
@@ -53,14 +60,12 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.decodeUnscaledValue;
-import static io.trino.spi.type.Decimals.encodeScaledValue;
 import static io.trino.spi.type.Decimals.encodeShortScaledValue;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
@@ -108,7 +113,7 @@ public final class StandardColumnMappings
 
     public static LongWriteFunction tinyintWriteFunction()
     {
-        return (statement, index, value) -> statement.setByte(index, SignedBytes.checkedCast(value));
+        return LongWriteFunction.of(Types.TINYINT, (statement, index, value) -> statement.setByte(index, SignedBytes.checkedCast(value)));
     }
 
     public static ColumnMapping smallintColumnMapping()
@@ -118,7 +123,7 @@ public final class StandardColumnMappings
 
     public static LongWriteFunction smallintWriteFunction()
     {
-        return (statement, index, value) -> statement.setShort(index, Shorts.checkedCast(value));
+        return LongWriteFunction.of(Types.SMALLINT, (statement, index, value) -> statement.setShort(index, Shorts.checkedCast(value)));
     }
 
     public static ColumnMapping integerColumnMapping()
@@ -128,7 +133,7 @@ public final class StandardColumnMappings
 
     public static LongWriteFunction integerWriteFunction()
     {
-        return (statement, index, value) -> statement.setInt(index, toIntExact(value));
+        return LongWriteFunction.of(Types.INTEGER, (statement, index, value) -> statement.setInt(index, toIntExact(value)));
     }
 
     public static ColumnMapping bigintColumnMapping()
@@ -138,7 +143,7 @@ public final class StandardColumnMappings
 
     public static LongWriteFunction bigintWriteFunction()
     {
-        return PreparedStatement::setLong;
+        return LongWriteFunction.of(Types.BIGINT, PreparedStatement::setLong);
     }
 
     public static ColumnMapping realColumnMapping()
@@ -148,7 +153,7 @@ public final class StandardColumnMappings
 
     public static LongWriteFunction realWriteFunction()
     {
-        return (statement, index, value) -> statement.setFloat(index, intBitsToFloat(toIntExact(value)));
+        return LongWriteFunction.of(Types.REAL, (statement, index, value) -> statement.setFloat(index, intBitsToFloat(toIntExact(value))));
     }
 
     public static ColumnMapping doubleColumnMapping()
@@ -158,7 +163,7 @@ public final class StandardColumnMappings
 
     public static DoubleWriteFunction doubleWriteFunction()
     {
-        return PreparedStatement::setDouble;
+        return DoubleWriteFunction.of(Types.DOUBLE, PreparedStatement::setDouble);
     }
 
     public static ColumnMapping decimalColumnMapping(DecimalType decimalType)
@@ -175,7 +180,7 @@ public final class StandardColumnMappings
                     shortDecimalReadFunction(decimalType),
                     shortDecimalWriteFunction(decimalType));
         }
-        return ColumnMapping.sliceMapping(
+        return ColumnMapping.objectMapping(
                 decimalType,
                 longDecimalReadFunction(decimalType, roundingMode),
                 longDecimalWriteFunction(decimalType));
@@ -189,7 +194,7 @@ public final class StandardColumnMappings
     public static LongReadFunction shortDecimalReadFunction(DecimalType decimalType, RoundingMode roundingMode)
     {
         // JDBC driver can return BigDecimal with lower scale than column's scale when there are trailing zeroes
-        int scale = requireNonNull(decimalType, "decimalType is null").getScale();
+        int scale = decimalType.getScale();
         requireNonNull(roundingMode, "roundingMode is null");
         return (resultSet, columnIndex) -> encodeShortScaledValue(resultSet.getBigDecimal(columnIndex), scale, roundingMode);
     }
@@ -198,34 +203,57 @@ public final class StandardColumnMappings
     {
         requireNonNull(decimalType, "decimalType is null");
         checkArgument(decimalType.isShort());
-        return (statement, index, value) -> {
+
+        return LongWriteFunction.of(Types.DECIMAL, (statement, index, value) -> {
             BigInteger unscaledValue = BigInteger.valueOf(value);
             BigDecimal bigDecimal = new BigDecimal(unscaledValue, decimalType.getScale(), new MathContext(decimalType.getPrecision()));
             statement.setBigDecimal(index, bigDecimal);
-        };
+        });
     }
 
-    public static SliceReadFunction longDecimalReadFunction(DecimalType decimalType)
+    public static ObjectReadFunction longDecimalReadFunction(DecimalType decimalType)
     {
         return longDecimalReadFunction(decimalType, UNNECESSARY);
     }
 
-    public static SliceReadFunction longDecimalReadFunction(DecimalType decimalType, RoundingMode roundingMode)
+    public static ObjectReadFunction longDecimalReadFunction(DecimalType decimalType, RoundingMode roundingMode)
     {
         // JDBC driver can return BigDecimal with lower scale than column's scale when there are trailing zeroes
-        int scale = requireNonNull(decimalType, "decimalType is null").getScale();
+        int scale = decimalType.getScale();
         requireNonNull(roundingMode, "roundingMode is null");
-        return (resultSet, columnIndex) -> encodeScaledValue(resultSet.getBigDecimal(columnIndex).setScale(scale, roundingMode));
+        return ObjectReadFunction.of(
+                Int128.class,
+                (resultSet, columnIndex) -> Decimals.valueOf(resultSet.getBigDecimal(columnIndex).setScale(scale, roundingMode)));
     }
 
-    public static SliceWriteFunction longDecimalWriteFunction(DecimalType decimalType)
+    public static ObjectWriteFunction longDecimalWriteFunction(DecimalType decimalType)
     {
         requireNonNull(decimalType, "decimalType is null");
         checkArgument(!decimalType.isShort());
-        return (statement, index, value) -> {
-            BigInteger unscaledValue = decodeUnscaledValue(value);
-            BigDecimal bigDecimal = new BigDecimal(unscaledValue, decimalType.getScale(), new MathContext(decimalType.getPrecision()));
-            statement.setBigDecimal(index, bigDecimal);
+        return new ObjectWriteFunction()
+        {
+            @Override
+            public Class<Int128> getJavaType()
+            {
+                return Int128.class;
+            }
+
+            @Override
+            @SuppressWarnings("unchecked")
+            public void set(PreparedStatement statement, int index, Object value)
+                    throws SQLException
+            {
+                BigInteger unscaledValue = ((Int128) value).toBigInteger();
+                BigDecimal bigDecimal = new BigDecimal(unscaledValue, decimalType.getScale(), new MathContext(decimalType.getPrecision()));
+                statement.setBigDecimal(index, bigDecimal);
+            }
+
+            @Override
+            public void setNull(PreparedStatement statement, int index)
+                    throws SQLException
+            {
+                statement.setNull(index, Types.DECIMAL);
+            }
         };
     }
 
@@ -256,7 +284,7 @@ public final class StandardColumnMappings
 
     public static SliceWriteFunction charWriteFunction()
     {
-        return (statement, index, value) -> statement.setString(index, value.toStringUtf8());
+        return SliceWriteFunction.of(Types.CHAR, (statement, index, value) -> statement.setString(index, value.toStringUtf8()));
     }
 
     public static ColumnMapping defaultVarcharColumnMapping(int columnSize, boolean isRemoteCaseSensitive)
@@ -305,7 +333,7 @@ public final class StandardColumnMappings
 
     public static SliceWriteFunction varcharWriteFunction()
     {
-        return (statement, index, value) -> statement.setString(index, value.toStringUtf8());
+        return SliceWriteFunction.of(Types.VARCHAR, (statement, index, value) -> statement.setString(index, value.toStringUtf8()));
     }
 
     public static ColumnMapping varbinaryColumnMapping()
@@ -324,18 +352,27 @@ public final class StandardColumnMappings
 
     public static SliceWriteFunction varbinaryWriteFunction()
     {
-        return (statement, index, value) -> statement.setBytes(index, value.getBytes());
+        return SliceWriteFunction.of(Types.VARBINARY, (statement, index, value) -> statement.setBytes(index, value.getBytes()));
     }
 
-    public static ColumnMapping dateColumnMapping()
+    /**
+     * @deprecated This method leads to incorrect result when the date value is before 1582 Oct 14.
+     * If driver supports {@link LocalDate}, use {@link #dateColumnMappingUsingLocalDate} instead.
+     */
+    @Deprecated
+    public static ColumnMapping dateColumnMappingUsingSqlDate()
     {
         return ColumnMapping.longMapping(
                 DATE,
-                dateReadFunction(),
-                dateWriteFunction());
+                dateReadFunctionUsingSqlDate(),
+                dateWriteFunctionUsingSqlDate());
     }
 
-    public static LongReadFunction dateReadFunction()
+    /**
+     * @deprecated If driver supports {@link LocalDate}, use {@link #dateReadFunctionUsingLocalDate} instead.
+     */
+    @Deprecated
+    public static LongReadFunction dateReadFunctionUsingSqlDate()
     {
         return (resultSet, columnIndex) -> {
             /*
@@ -354,13 +391,58 @@ public final class StandardColumnMappings
         };
     }
 
-    public static LongWriteFunction dateWriteFunction()
+    /**
+     * @deprecated If driver supports {@link LocalDate}, use {@link #dateWriteFunctionUsingLocalDate} instead.
+     */
+    @Deprecated
+    public static LongWriteFunction dateWriteFunctionUsingSqlDate()
     {
-        return (statement, index, value) -> {
+        return LongWriteFunction.of(Types.DATE, (statement, index, value) -> {
             // convert to midnight in default time zone
             long millis = DAYS.toMillis(value);
             statement.setDate(index, new Date(DateTimeZone.UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millis)));
+        });
+    }
+
+    public static ColumnMapping dateColumnMappingUsingLocalDate()
+    {
+        return ColumnMapping.longMapping(
+                DATE,
+                dateReadFunctionUsingLocalDate(),
+                dateWriteFunctionUsingLocalDate());
+    }
+
+    public static LongReadFunction dateReadFunctionUsingLocalDate()
+    {
+        return new LongReadFunction() {
+            @Override
+            public boolean isNull(ResultSet resultSet, int columnIndex)
+                    throws SQLException
+            {
+                // 'ResultSet.getObject' without class name may throw an exception
+                // e.g. in MySQL driver, rs.getObject(int) throws for dates between Oct 5 and 14, 1582
+                resultSet.getObject(columnIndex, LocalDate.class);
+                return resultSet.wasNull();
+            }
+
+            @Override
+            public long readLong(ResultSet resultSet, int columnIndex)
+                    throws SQLException
+            {
+                LocalDate value = resultSet.getObject(columnIndex, LocalDate.class);
+                // Some drivers (e.g. MemSQL's) return null LocalDate even though the value isn't null
+                if (value == null) {
+                    throw new TrinoException(JDBC_ERROR, "Driver returned null LocalDate for a non-null value");
+                }
+
+                return value.toEpochDay();
+            }
         };
+    }
+
+    public static LongWriteFunction dateWriteFunctionUsingLocalDate()
+    {
+        return LongWriteFunction.of(Types.DATE, (statement, index, value) -> statement.setObject(index, LocalDate.ofEpochDay(value)));
     }
 
     /**
@@ -372,7 +454,7 @@ public final class StandardColumnMappings
     public static ColumnMapping timeColumnMappingUsingSqlTime()
     {
         return ColumnMapping.longMapping(
-                TIME,
+                TIME_MILLIS,
                 (resultSet, columnIndex) -> {
                     Time time = resultSet.getTime(columnIndex);
                     return (toLocalTime(time).toNanoOfDay() * PICOSECONDS_PER_NANOSECOND) % PICOSECONDS_PER_DAY;
@@ -395,7 +477,7 @@ public final class StandardColumnMappings
     @Deprecated
     public static LongWriteFunction timeWriteFunctionUsingSqlTime()
     {
-        return (statement, index, value) -> statement.setTime(index, toSqlTime(fromTrinoTime(value)));
+        return LongWriteFunction.of(Types.TIME, (statement, index, value) -> statement.setTime(index, toSqlTime(fromTrinoTime(value))));
     }
 
     private static Time toSqlTime(LocalTime localTime)
@@ -432,13 +514,14 @@ public final class StandardColumnMappings
     public static LongWriteFunction timeWriteFunction(int precision)
     {
         checkArgument(precision <= 9, "Unsupported precision: %s", precision);
-        return (statement, index, picosOfDay) -> {
+
+        return LongWriteFunction.of(Types.TIME, (statement, index, picosOfDay) -> {
             picosOfDay = round(picosOfDay, 12 - precision);
             if (picosOfDay == PICOSECONDS_PER_DAY) {
                 picosOfDay = 0;
             }
             statement.setObject(index, fromTrinoTime(picosOfDay));
-        };
+        });
     }
 
     /**
@@ -491,7 +574,7 @@ public final class StandardColumnMappings
         return (resultSet, columnIndex) -> toTrinoTimestamp(timestampType, resultSet.getObject(columnIndex, LocalDateTime.class));
     }
 
-    private static ObjectReadFunction longTimestampReadFunction(TimestampType timestampType)
+    public static ObjectReadFunction longTimestampReadFunction(TimestampType timestampType)
     {
         checkArgument(timestampType.getPrecision() > TimestampType.MAX_SHORT_PRECISION && timestampType.getPrecision() <= MAX_LOCAL_DATE_TIME_PRECISION,
                 "Precision is out of range: %s", timestampType.getPrecision());
@@ -510,13 +593,13 @@ public final class StandardColumnMappings
     public static LongWriteFunction timestampWriteFunctionUsingSqlTimestamp(TimestampType timestampType)
     {
         checkArgument(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
-        return (statement, index, value) -> statement.setTimestamp(index, Timestamp.valueOf(fromTrinoTimestamp(value)));
+        return LongWriteFunction.of(Types.TIMESTAMP, (statement, index, value) -> statement.setTimestamp(index, Timestamp.valueOf(fromTrinoTimestamp(value))));
     }
 
     public static LongWriteFunction timestampWriteFunction(TimestampType timestampType)
     {
         checkArgument(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
-        return (statement, index, value) -> statement.setObject(index, fromTrinoTimestamp(value));
+        return LongWriteFunction.of(Types.TIMESTAMP, (statement, index, value) -> statement.setObject(index, fromTrinoTimestamp(value)));
     }
 
     public static ObjectWriteFunction longTimestampWriteFunction(TimestampType timestampType, int roundToPrecision)

@@ -18,14 +18,11 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.cost.CostComparator;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.SymbolStatsEstimate;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.Type;
-import io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
-import io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
-import io.trino.sql.parser.SqlParser;
+import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
+import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.RuleAssert;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
@@ -45,16 +42,15 @@ import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.AUTOMATIC;
-import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
+import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.AUTOMATIC;
+import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
@@ -66,17 +62,14 @@ public class TestReorderJoins
 {
     private RuleTester tester;
 
-    private final Metadata metadata = createTestMetadataManager();
-
     @BeforeClass
     public void setUp()
     {
-        tester = defaultRuleTester(
-                ImmutableList.of(),
-                ImmutableMap.of(
-                        JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name(),
-                        JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.AUTOMATIC.name()),
-                Optional.of(4));
+        tester = RuleTester.builder()
+                .addSessionProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .addSessionProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.AUTOMATIC.name())
+                .withNodeCountForStats(4)
+                .build();
     }
 
     @AfterClass(alwaysRun = true)
@@ -109,14 +102,13 @@ public class TestReorderJoins
                         .setOutputRowCount(10000)
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 100, 100)))
                         .build())
-                .matches(join(
-                        INNER,
-                        ImmutableList.of(equiJoinClause("A1", "B1")),
-                        Optional.empty(),
-                        Optional.of(PARTITIONED),
-                        values(ImmutableMap.of("A1", 0, "A2", 1)),
-                        values(ImmutableMap.of("B1", 0)))
-                        .withExactOutputs("A2"));
+                .matches(
+                        join(INNER, builder -> builder
+                                .equiCriteria("A1", "B1")
+                                .distributionType(PARTITIONED)
+                                .left(values(ImmutableMap.of("A1", 0, "A2", 1)))
+                                .right(values(ImmutableMap.of("B1", 0))))
+                                .withExactOutputs("A2"));
     }
 
     @Test
@@ -145,13 +137,12 @@ public class TestReorderJoins
                         .setOutputRowCount(10000)
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
-                .matches(join(
-                        INNER,
-                        ImmutableList.of(equiJoinClause("B1", "A1")),
-                        Optional.empty(),
-                        Optional.of(REPLICATED),
-                        values(ImmutableMap.of("B1", 0)),
-                        values(ImmutableMap.of("A1", 0))));
+                .matches(
+                        join(INNER, builder -> builder
+                                .equiCriteria("B1", "A1")
+                                .distributionType(REPLICATED)
+                                .left(values(ImmutableMap.of("B1", 0)))
+                                .right(values(ImmutableMap.of("A1", 0)))));
     }
 
     @Test
@@ -180,13 +171,12 @@ public class TestReorderJoins
                         .setOutputRowCount(10000)
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
-                .matches(join(
-                        INNER,
-                        ImmutableList.of(equiJoinClause("B1", "A1")),
-                        Optional.empty(),
-                        Optional.of(PARTITIONED),
-                        values(ImmutableMap.of("B1", 0)),
-                        values(ImmutableMap.of("A1", 0))));
+                .matches(
+                        join(INNER, builder -> builder
+                                .equiCriteria("B1", "A1")
+                                .distributionType(PARTITIONED)
+                                .left(values(ImmutableMap.of("B1", 0)))
+                                .right(values(ImmutableMap.of("A1", 0)))));
     }
 
     @Test
@@ -210,13 +200,12 @@ public class TestReorderJoins
                         .setOutputRowCount(10000)
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
-                .matches(join(
-                        INNER,
-                        ImmutableList.of(equiJoinClause("A1", "B1")),
-                        Optional.empty(),
-                        Optional.of(PARTITIONED),
-                        values(ImmutableMap.of("A1", 0)),
-                        values(ImmutableMap.of("B1", 0))));
+                .matches(
+                        join(INNER, builder -> builder
+                                .equiCriteria("A1", "B1")
+                                .distributionType(PARTITIONED)
+                                .left(values(ImmutableMap.of("A1", 0)))
+                                .right(values(ImmutableMap.of("B1", 0)))));
     }
 
     @Test
@@ -242,25 +231,22 @@ public class TestReorderJoins
                         .setOutputRowCount(10000)
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
-                .matches(join(
-                        INNER,
-                        ImmutableList.of(equiJoinClause("A1", "B1")),
-                        Optional.empty(),
-                        Optional.of(REPLICATED),
-                        values(ImmutableMap.of("A1", 0)),
-                        values(ImmutableMap.of("B1", 0))));
+                .matches(
+                        join(INNER, builder -> builder
+                                .equiCriteria("A1", "B1")
+                                .distributionType(REPLICATED)
+                                .left(values(ImmutableMap.of("A1", 0)))
+                                .right(values(ImmutableMap.of("B1", 0)))));
     }
 
     @Test
     public void testReplicatedScalarJoinEvenWhereSessionRequiresRepartitioned()
     {
-        PlanMatchPattern expectedPlan = join(
-                INNER,
-                ImmutableList.of(equiJoinClause("A1", "B1")),
-                Optional.empty(),
-                Optional.of(REPLICATED),
-                values(ImmutableMap.of("A1", 0)),
-                values(ImmutableMap.of("B1", 0)));
+        PlanMatchPattern expectedPlan = join(INNER, builder -> builder
+                .equiCriteria("A1", "B1")
+                .distributionType(REPLICATED)
+                .left(values(ImmutableMap.of("A1", 0)))
+                .right(values(ImmutableMap.of("B1", 0))));
 
         PlanNodeStatsEstimate valuesA = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(10000)
@@ -398,15 +384,14 @@ public class TestReorderJoins
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("C1"), new SymbolStatsEstimate(0, 100, 0, 100, 100)))
                         .build())
                 .matches(
-                        join(
-                                INNER,
-                                ImmutableList.of(equiJoinClause("C1", "B2")),
-                                values("C1"),
-                                join(
-                                        INNER,
-                                        ImmutableList.of(equiJoinClause("A1", "B1")),
-                                        values("A1"),
-                                        values("B1", "B2"))));
+                        join(INNER, builder -> builder
+                                .equiCriteria("C1", "B2")
+                                .left(values("C1"))
+                                .right(
+                                        join(INNER, rightJoinBuilder -> rightJoinBuilder
+                                                .equiCriteria("A1", "B1")
+                                                .left(values("A1"))
+                                                .right(values("B1", "B2"))))));
     }
 
     @Test
@@ -447,19 +432,20 @@ public class TestReorderJoins
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("C1"), new SymbolStatsEstimate(0, 100, 0, 100, 100)))
                         .build())
                 .matches(
-                        join(
-                                INNER,
-                                ImmutableList.of(equiJoinClause("C1", "P1")),
-                                values("C1"),
-                                join(
-                                        INNER,
-                                        ImmutableList.of(equiJoinClause("P2", "P1")),
-                                        strictProject(
-                                                ImmutableMap.of("P2", expression("A1")),
-                                                values("A1")),
-                                        strictProject(
-                                                ImmutableMap.of("P1", expression("-(B1)")),
-                                                values("B1")))));
+                        join(INNER, builder -> builder
+                                .equiCriteria("C1", "P1")
+                                .left(values("C1"))
+                                .right(
+                                        join(INNER, rightJoinBuilder -> rightJoinBuilder
+                                                .equiCriteria("P2", "P1")
+                                                .left(
+                                                        strictProject(
+                                                                ImmutableMap.of("P2", expression("A1")),
+                                                                values("A1")))
+                                                .right(
+                                                        strictProject(
+                                                                ImmutableMap.of("P1", expression("-(B1)")),
+                                                                values("B1")))))));
     }
 
     @Test
@@ -499,17 +485,16 @@ public class TestReorderJoins
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("C1"), new SymbolStatsEstimate(0, 100, 0, 100, 100)))
                         .build())
                 .matches(
-                        join(
-                                INNER,
-                                ImmutableList.of(equiJoinClause("C1", "P1")),
-                                values("C1"),
-                                strictProject(
-                                        ImmutableMap.of("P1", expression("-(B1)")),
-                                        join(
-                                                INNER,
-                                                ImmutableList.of(equiJoinClause("A1", "B1")),
-                                                values("A1"),
-                                                values("B1")))));
+                        join(INNER, builder -> builder
+                                .equiCriteria("C1", "P1")
+                                .left(values("C1"))
+                                .right(
+                                        strictProject(
+                                                ImmutableMap.of("P1", expression("-(B1)")),
+                                                join(INNER, rightJoinBuilder -> rightJoinBuilder
+                                                        .equiCriteria("A1", "B1")
+                                                        .left(values("A1"))
+                                                        .right(values("B1")))))));
     }
 
     @Test
@@ -548,15 +533,14 @@ public class TestReorderJoins
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("C1"), new SymbolStatsEstimate(99, 199, 0, 100, 100)))
                         .build())
                 .matches(
-                        join(
-                                INNER,
-                                ImmutableList.of(equiJoinClause("A1", "B1")),
-                                values("A1"),
-                                join(
-                                        INNER,
-                                        ImmutableList.of(equiJoinClause("C1", "B2")),
-                                        values("C1"),
-                                        values("B1", "B2"))));
+                        join(INNER, builder -> builder
+                                .equiCriteria("A1", "B1")
+                                .left(values("A1"))
+                                .right(
+                                        join(INNER, rightJoinBuilder -> rightJoinBuilder
+                                                .equiCriteria("C1", "B2")
+                                                .left(values("C1"))
+                                                .right(values("B1", "B2"))))));
     }
 
     @Test
@@ -575,7 +559,7 @@ public class TestReorderJoins
                 .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 10)))
                 .build();
 
-        // B table is small enough to be replicated in AUTOMATIC_RESTRICTED mode
+        // B table is small enough to be replicated according to JOIN_MAX_BROADCAST_TABLE_SIZE limit
         assertReorderJoins()
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, AUTOMATIC.name())
                 .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
@@ -593,13 +577,12 @@ public class TestReorderJoins
                 })
                 .overrideStats("valuesA", probeSideStatsEstimate)
                 .overrideStats("valuesB", buildSideStatsEstimate)
-                .matches(join(
-                        INNER,
-                        ImmutableList.of(equiJoinClause("A1", "B1")),
-                        Optional.empty(),
-                        Optional.of(REPLICATED),
-                        values(ImmutableMap.of("A1", 0)),
-                        values(ImmutableMap.of("B1", 0))));
+                .matches(
+                        join(INNER, builder -> builder
+                                .equiCriteria("A1", "B1")
+                                .distributionType(REPLICATED)
+                                .left(values(ImmutableMap.of("A1", 0)))
+                                .right(values(ImmutableMap.of("B1", 0)))));
 
         probeSideStatsEstimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(aRows)
@@ -610,7 +593,7 @@ public class TestReorderJoins
                 .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
                 .build();
 
-        // B table exceeds AUTOMATIC_RESTRICTED limit therefore it is partitioned
+        // B table exceeds JOIN_MAX_BROADCAST_TABLE_SIZE limit therefore it is partitioned
         assertReorderJoins()
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, AUTOMATIC.name())
                 .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
@@ -628,13 +611,12 @@ public class TestReorderJoins
                 })
                 .overrideStats("valuesA", probeSideStatsEstimate)
                 .overrideStats("valuesB", buildSideStatsEstimate)
-                .matches(join(
-                        INNER,
-                        ImmutableList.of(equiJoinClause("A1", "B1")),
-                        Optional.empty(),
-                        Optional.of(PARTITIONED),
-                        values(ImmutableMap.of("A1", 0)),
-                        values(ImmutableMap.of("B1", 0))));
+                .matches(
+                        join(INNER, builder -> builder
+                                .equiCriteria("A1", "B1")
+                                .distributionType(PARTITIONED)
+                                .left(values(ImmutableMap.of("A1", 0)))
+                                .right(values(ImmutableMap.of("B1", 0)))));
     }
 
     @Test
@@ -653,7 +635,7 @@ public class TestReorderJoins
                 .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 10)))
                 .build();
 
-        // A table is small enough to be replicated in AUTOMATIC_RESTRICTED mode
+        // A table is small enough to be replicated in JOIN_MAX_BROADCAST_TABLE_SIZE mode
         assertReorderJoins()
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, AUTOMATIC.name())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, AUTOMATIC.name())
@@ -672,17 +654,16 @@ public class TestReorderJoins
                 })
                 .overrideStats("valuesA", probeSideStatsEstimate)
                 .overrideStats("valuesB", buildSideStatsEstimate)
-                .matches(join(
-                        INNER,
-                        ImmutableList.of(equiJoinClause("B1", "A1")),
-                        Optional.empty(),
-                        Optional.of(REPLICATED),
-                        values(ImmutableMap.of("B1", 0)),
-                        values(ImmutableMap.of("A1", 0))));
+                .matches(
+                        join(INNER, builder -> builder
+                                .equiCriteria("B1", "A1")
+                                .distributionType(REPLICATED)
+                                .left(values(ImmutableMap.of("B1", 0)))
+                                .right(values(ImmutableMap.of("A1", 0)))));
     }
 
     private RuleAssert assertReorderJoins()
     {
-        return tester.assertThat(new ReorderJoins(metadata, new CostComparator(1, 1, 1), new TypeAnalyzer(new SqlParser(), metadata)));
+        return tester.assertThat(new ReorderJoins(PLANNER_CONTEXT, new CostComparator(1, 1, 1), createTestingTypeAnalyzer(PLANNER_CONTEXT)));
     }
 }

@@ -59,7 +59,7 @@ public class TestNumericHistogram
                 .put(3.568571428571429, 35.0)
                 .put(3.0023809523809515, 84.0)
                 .put(4.233333333333333, 3.0)
-                .build();
+                .buildOrThrow();
 
         assertEquals(histogram.getBuckets(), expected);
     }
@@ -77,7 +77,7 @@ public class TestNumericHistogram
         Map<Double, Double> expected = ImmutableMap.<Double, Double>builder()
                 .put(1.0, 300.0)
                 .put(2.0, 500.0)
-                .build();
+                .buildOrThrow();
 
         assertEquals(histogram.getBuckets(), expected);
     }

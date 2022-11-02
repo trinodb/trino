@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.rcfile.HdfsRcFileDataSource;
@@ -35,13 +36,13 @@ import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
-import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
@@ -73,7 +74,7 @@ public class RcFileFileWriterFactory
             HiveConfig hiveConfig,
             FileFormatDataSourceStats stats)
     {
-        this(hdfsEnvironment, typeManager, nodeVersion, requireNonNull(hiveConfig, "hiveConfig is null").getRcfileDateTimeZone(), stats);
+        this(hdfsEnvironment, typeManager, nodeVersion, hiveConfig.getRcfileDateTimeZone(), stats);
     }
 
     public RcFileFileWriterFactory(
@@ -108,10 +109,10 @@ public class RcFileFileWriterFactory
         }
 
         RcFileEncoding rcFileEncoding;
-        if (LazyBinaryColumnarSerDe.class.getName().equals(storageFormat.getSerDe())) {
+        if (LazyBinaryColumnarSerDe.class.getName().equals(storageFormat.getSerde())) {
             rcFileEncoding = new BinaryRcFileEncoding(timeZone);
         }
-        else if (ColumnarSerDe.class.getName().equals(storageFormat.getSerDe())) {
+        else if (ColumnarSerDe.class.getName().equals(storageFormat.getSerde())) {
             rcFileEncoding = createTextVectorEncoding(schema);
         }
         else {
@@ -133,7 +134,7 @@ public class RcFileFileWriterFactory
 
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getIdentity(), path, configuration);
-            OutputStream outputStream = fileSystem.create(path);
+            OutputStream outputStream = fileSystem.create(path, false);
 
             Optional<Supplier<RcFileDataSource>> validationInputFactory = Optional.empty();
             if (isRcfileOptimizedWriterValidate(session)) {
@@ -151,10 +152,7 @@ public class RcFileFileWriterFactory
                 });
             }
 
-            Callable<Void> rollbackAction = () -> {
-                fileSystem.delete(path, false);
-                return null;
-            };
+            Closeable rollbackAction = () -> fileSystem.delete(path, false);
 
             return Optional.of(new RcFileFileWriter(
                     outputStream,
@@ -166,7 +164,7 @@ public class RcFileFileWriterFactory
                     ImmutableMap.<String, String>builder()
                             .put(PRESTO_VERSION_NAME, nodeVersion.toString())
                             .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
-                            .build(),
+                            .buildOrThrow(),
                     validationInputFactory));
         }
         catch (Exception e) {

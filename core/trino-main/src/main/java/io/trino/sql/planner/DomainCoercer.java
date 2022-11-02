@@ -16,6 +16,7 @@ package io.trino.sql.planner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
@@ -53,12 +54,13 @@ public final class DomainCoercer
 
     public static Domain applySaturatedCasts(
             Metadata metadata,
+            FunctionManager functionManager,
             TypeOperators typeOperators,
             Session session,
             Domain domain,
             Type coercedValueType)
     {
-        return new ImplicitCoercer(metadata, typeOperators, session, domain, coercedValueType).applySaturatedCasts();
+        return new ImplicitCoercer(metadata, functionManager, typeOperators, session, domain, coercedValueType).applySaturatedCasts();
     }
 
     private static class ImplicitCoercer
@@ -71,10 +73,16 @@ public final class DomainCoercer
         private final Domain domain;
         private final Type coercedValueType;
 
-        private ImplicitCoercer(Metadata metadata, TypeOperators typeOperators, Session session, Domain domain, Type coercedValueType)
+        private ImplicitCoercer(
+                Metadata metadata,
+                FunctionManager functionManager,
+                TypeOperators typeOperators,
+                Session session,
+                Domain domain,
+                Type coercedValueType)
         {
-            this.connectorSession = requireNonNull(session, "session is null").toConnectorSession();
-            this.functionInvoker = new InterpretedFunctionInvoker(metadata);
+            this.connectorSession = session.toConnectorSession();
+            this.functionInvoker = new InterpretedFunctionInvoker(functionManager);
             this.domain = requireNonNull(domain, "domain is null");
             this.coercedValueType = requireNonNull(coercedValueType, "coercedValueType is null");
             Type originalValueType = domain.getType();
@@ -203,9 +211,7 @@ public final class DomainCoercer
             if (originalComparedToCoerced == 0) {
                 return Optional.of(coercedFloorValue);
             }
-            else {
-                return Optional.empty();
-            }
+            return Optional.empty();
         }
 
         private int compareOriginalValueToCoerced(ResolvedFunction castToOriginalTypeOperator, MethodHandle comparisonOperator, Object originalValue, Object coercedValue)

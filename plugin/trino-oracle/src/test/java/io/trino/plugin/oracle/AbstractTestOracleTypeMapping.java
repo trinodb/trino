@@ -16,12 +16,13 @@ package io.trino.plugin.oracle;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
+import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
+import io.trino.testing.datatype.CreateAndTrinoInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
-import io.trino.testing.datatype.DataType;
 import io.trino.testing.datatype.DataTypeTest;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
@@ -36,9 +37,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Optional;
-import java.util.function.IntFunction;
-import java.util.function.ToIntFunction;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
@@ -50,9 +50,9 @@ import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
-import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -96,29 +96,21 @@ public abstract class AbstractTestOracleTypeMapping
     @BeforeClass
     public void setUp()
     {
+        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
+        checkIsGap(jvmZone, dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay());
         checkIsGap(jvmZone, timeGapInJvmZone1);
         checkIsGap(jvmZone, timeGapInJvmZone2);
         checkIsDoubled(jvmZone, timeDoubledInJvmZone);
 
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
+        checkIsGap(vilnius, dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay());
+        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
+        checkIsDoubled(vilnius, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
         checkIsGap(vilnius, timeGapInVilnius);
         checkIsDoubled(vilnius, timeDoubledInVilnius);
 
         checkIsGap(kathmandu, timeGapInKathmandu);
-    }
-
-    private DataSetup trinoCreateAsSelect(String tableNamePrefix)
-    {
-        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner()), tableNamePrefix);
-    }
-
-    private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
-    {
-        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
-    }
-
-    private DataSetup trinoCreateAndInsert(String tableNamePrefix)
-    {
-        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner()), tableNamePrefix);
     }
 
     /* Floating point types tests */
@@ -379,21 +371,6 @@ public abstract class AbstractTestOracleTypeMapping
                 .execute(getQueryRunner(), oracleCreateAndInsert("read_char_unicode"));
     }
 
-    private static DataTypeTest unicodeTests(IntFunction<DataType<String>> typeConstructor, ToIntFunction<String> stringLength, int maxSize)
-    {
-        String unicodeText = "攻殻機動隊";
-        String nonBmpCharacter = "\ud83d\ude02";
-        int unicodeLength = stringLength.applyAsInt(unicodeText);
-        int nonBmpLength = stringLength.applyAsInt(nonBmpCharacter);
-
-        return DataTypeTest.create()
-                .addRoundTrip(typeConstructor.apply(unicodeLength), unicodeText)
-                .addRoundTrip(typeConstructor.apply(unicodeLength + 8), unicodeText)
-                .addRoundTrip(typeConstructor.apply(maxSize), unicodeText)
-                .addRoundTrip(typeConstructor.apply(nonBmpLength), nonBmpCharacter)
-                .addRoundTrip(typeConstructor.apply(nonBmpLength + 5), nonBmpCharacter);
-    }
-
     /* Decimal tests */
 
     @Test
@@ -511,10 +488,24 @@ public abstract class AbstractTestOracleTypeMapping
     @Test
     public void testNumberNegativeScaleReadMapping()
     {
-        // TODO: Add similar tests for write mappings.
-        // Those tests would require the table to be created in Oracle, but values inserted
-        // by Trino, which is outside the capabilities of the current DataSetup classes.
-        SqlDataTypeTest.create()
+        numberWithNegativeScaleTest()
+                .addRoundTrip("number(37, -1)", "99999999999999999999999999999999999990", createDecimalType(38, 0), "CAST('99999999999999999999999999999999999990' AS DECIMAL(38, 0))") // max
+                .addRoundTrip("number(37, -1)", "-99999999999999999999999999999999999990", createDecimalType(38, 0), "CAST('-99999999999999999999999999999999999990' AS DECIMAL(38, 0))") // min
+                .execute(getQueryRunner(), oracleCreateAndInsert("number_negative_s"));
+    }
+
+    @Test
+    public void testNumberNegativeScaleWriteMapping()
+    {
+        numberWithNegativeScaleTest()
+                .addRoundTrip("number(37, -1)", "CAST('99999999999999999999999999999999999990' AS DECIMAL(38, 0))", createDecimalType(38, 0), "CAST('99999999999999999999999999999999999990' AS DECIMAL(38, 0))") // max
+                .addRoundTrip("number(37, -1)", "CAST('-99999999999999999999999999999999999990' AS DECIMAL(38, 0))", createDecimalType(38, 0), "CAST('-99999999999999999999999999999999999990' AS DECIMAL(38, 0))") // min
+                .execute(getQueryRunner(), oracleCreateAndTrinoInsert("number_negative_s"));
+    }
+
+    private SqlDataTypeTest numberWithNegativeScaleTest()
+    {
+        return SqlDataTypeTest.create()
                 .addRoundTrip("number(1, -1)", "20", createDecimalType(2, 0), "CAST(20 AS DECIMAL(2, 0))")
                 .addRoundTrip("number(1, -1)", "35", createDecimalType(2, 0), "CAST(40 AS DECIMAL(2, 0))") // More useful as a test for write mappings.
                 .addRoundTrip("number(2, -4)", "470000", createDecimalType(6, 0), "CAST(470000 AS DECIMAL(6, 0))")
@@ -526,10 +517,7 @@ public abstract class AbstractTestOracleTypeMapping
                 .addRoundTrip("number(5, -33)", "1.2345E+37", createDecimalType(38, 0), "CAST(1.2345E+37 AS DECIMAL(38, 0))")
                 .addRoundTrip("number(5, -33)", "-1.2345E+37", createDecimalType(38, 0), "CAST(-1.2345E+37 AS DECIMAL(38, 0))")
                 .addRoundTrip("number(1, -37)", "1E+37", createDecimalType(38, 0), "CAST(1E+37 AS DECIMAL(38, 0))")
-                .addRoundTrip("number(1, -37)", "-1E+37", createDecimalType(38, 0), "CAST(-1E+37 AS DECIMAL(38, 0))")
-                .addRoundTrip("number(37, -1)", "99999999999999999999999999999999999990", createDecimalType(38, 0), "CAST('99999999999999999999999999999999999990' AS DECIMAL(38, 0))") // max
-                .addRoundTrip("number(37, -1)", "-99999999999999999999999999999999999990", createDecimalType(38, 0), "CAST('-99999999999999999999999999999999999990' AS DECIMAL(38, 0))") // min
-                .execute(getQueryRunner(), oracleCreateAndInsert("number_negative_s"));
+                .addRoundTrip("number(1, -37)", "-1E+37", createDecimalType(38, 0), "CAST(-1E+37 AS DECIMAL(38, 0))");
     }
 
     @Test
@@ -596,8 +584,8 @@ public abstract class AbstractTestOracleTypeMapping
     @Test
     public void testSpecialNumberFormats()
     {
-        getOracleSqlExecutor().execute("CREATE TABLE test (num1 number)");
-        getOracleSqlExecutor().execute("INSERT INTO test VALUES (12345678901234567890.12345678901234567890123456789012345678)");
+        onRemoteDatabase().execute("CREATE TABLE test (num1 number)");
+        onRemoteDatabase().execute("INSERT INTO test VALUES (12345678901234567890.12345678901234567890123456789012345678)");
         assertQuery(number(HALF_UP, 10), "SELECT * FROM test", "VALUES (12345678901234567890.1234567890)");
     }
 
@@ -646,62 +634,85 @@ public abstract class AbstractTestOracleTypeMapping
                 .execute(getQueryRunner(), oracleCreateAndInsert("test_blob"));
     }
 
-    @Test
-    public void testDate()
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testDate(ZoneId sessionZone)
     {
         // Note: these test cases are duplicates of those for PostgreSQL and MySQL.
 
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone =
-                LocalDate.of(1970, 1, 1);
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
 
-        verify(jvmZone.getRules().getValidOffsets(
-                dateOfLocalTimeChangeForwardAtMidnightInJvmZone
-                        .atStartOfDay()).isEmpty());
-
-        ZoneId someZone = ZoneId.of("Europe/Vilnius");
-
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone =
-                LocalDate.of(1983, 4, 1);
-
-        verify(someZone.getRules().getValidOffsets(
-                dateOfLocalTimeChangeForwardAtMidnightInSomeZone
-                        .atStartOfDay()).isEmpty());
-
-        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone =
-                LocalDate.of(1983, 10, 1);
-
-        verify(someZone.getRules().getValidOffsets(
-                dateOfLocalTimeChangeBackwardAtMidnightInSomeZone
-                        .atStartOfDay().minusMinutes(1)).size() == 2);
-
-        SqlDataTypeTest dateTests = SqlDataTypeTest.create()
+        SqlDataTypeTest.create()
+                // min value in Oracle
+                .addRoundTrip("DATE", "DATE '-4712-01-01'", TIMESTAMP_SECONDS, "TIMESTAMP '-4712-01-01 00:00:00'")
+                .addRoundTrip("DATE", "DATE '-0001-01-01'", TIMESTAMP_SECONDS, "TIMESTAMP '-0001-01-01 00:00:00'")
+                .addRoundTrip("DATE", "DATE '0001-01-01'", TIMESTAMP_SECONDS, "TIMESTAMP '0001-01-01 00:00:00'")
+                // day before and after julian->gregorian calendar switch
+                .addRoundTrip("DATE", "DATE '1582-10-04'", TIMESTAMP_SECONDS, "TIMESTAMP '1582-10-04 00:00:00'")
+                .addRoundTrip("DATE", "DATE '1582-10-15'", TIMESTAMP_SECONDS, "TIMESTAMP '1582-10-15 00:00:00'")
                 // before epoch
-                .addRoundTrip("DATE", "DATE '1952-04-03'", TIMESTAMP_MILLIS, "TIMESTAMP '1952-04-03 00:00:00.000'")
-                .addRoundTrip("DATE", "DATE '1970-01-01'", TIMESTAMP_MILLIS, "TIMESTAMP '1970-01-01 00:00:00.000'")
-                .addRoundTrip("DATE", "DATE '1970-02-03'", TIMESTAMP_MILLIS, "TIMESTAMP '1970-02-03 00:00:00.000'")
+                .addRoundTrip("DATE", "DATE '1952-04-03'", TIMESTAMP_SECONDS, "TIMESTAMP '1952-04-03 00:00:00'")
+                .addRoundTrip("DATE", "DATE '1970-01-01'", TIMESTAMP_SECONDS, "TIMESTAMP '1970-01-01 00:00:00'")
+                .addRoundTrip("DATE", "DATE '1970-02-03'", TIMESTAMP_SECONDS, "TIMESTAMP '1970-02-03 00:00:00'")
                 // summer on northern hemisphere (possible DST)
-                .addRoundTrip("DATE", "DATE '2017-07-01'", TIMESTAMP_MILLIS, "TIMESTAMP '2017-07-01 00:00:00.000'")
+                .addRoundTrip("DATE", "DATE '2017-07-01'", TIMESTAMP_SECONDS, "TIMESTAMP '2017-07-01 00:00:00'")
                 // winter on northern hemisphere
                 // (possible DST on southern hemisphere)
-                .addRoundTrip("DATE", "DATE '2017-01-01'", TIMESTAMP_MILLIS, "TIMESTAMP '2017-01-01 00:00:00.000'")
-                .addRoundTrip("DATE", "DATE '1983-04-01'", TIMESTAMP_MILLIS, "TIMESTAMP '1983-04-01 00:00:00.000'")
-                .addRoundTrip("DATE", "DATE '1983-10-01'", TIMESTAMP_MILLIS, "TIMESTAMP '1983-10-01 00:00:00.000'");
+                .addRoundTrip("DATE", "DATE '2017-01-01'", TIMESTAMP_SECONDS, "TIMESTAMP '2017-01-01 00:00:00'")
+                .addRoundTrip("DATE", "DATE '1983-04-01'", TIMESTAMP_SECONDS, "TIMESTAMP '1983-04-01 00:00:00'")
+                .addRoundTrip("DATE", "DATE '1983-10-01'", TIMESTAMP_SECONDS, "TIMESTAMP '1983-10-01 00:00:00'")
+                // max value in Oracle
+                .addRoundTrip("DATE", "DATE '9999-12-31'", TIMESTAMP_SECONDS, "TIMESTAMP '9999-12-31 00:00:00'")
+                .execute(getQueryRunner(), session, oracleCreateAndInsert("test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
+    }
 
-        for (String timeZoneId : ImmutableList.of(UTC_KEY.getId(), ZoneId.systemDefault().getId(), ZoneId.of("Europe/Vilnius").getId())) {
-            Session session = Session.builder(getSession())
-                    .setTimeZoneKey(getTimeZoneKey(timeZoneId))
-                    .build();
-            dateTests.execute(getQueryRunner(), session, oracleCreateAndInsert("test_date"));
-            dateTests.execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"));
-            dateTests.execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
+    @Test
+    public void testJulianGregorianDate()
+    {
+        // Oracle TO_DATE function returns +10 days during julian and gregorian calendar switch
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_julian_dt", "(ts date)")) {
+            assertUpdate(format("INSERT INTO %s VALUES (DATE '1582-10-05')", table.getName()), 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES TIMESTAMP '1582-10-15 00:00:00'");
         }
     }
 
-    @Test(dataProvider = "testTimestampDataProvider")
+    @Test
+    public void testUnsupportedDate()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_unsupported_dt", "(ts date)")) {
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (DATE '-4713-12-31')", table.getName()),
+                    "\\QFailed to insert data: ORA-01841: (full) year must be between -4713 and +9999, and not be 0\n");
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (DATE '0000-01-01')", table.getName()),
+                    "\\QFailed to insert data: ORA-01841: (full) year must be between -4713 and +9999, and not be 0\n");
+            // The error message sounds invalid date format in the connector, but it's no problem as the max year is 9999 in Oracle
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (DATE '10000-01-01')", table.getName()),
+                    "\\QFailed to insert data: ORA-01861: literal does not match format string\n");
+        }
+    }
+
+    @Test(dataProvider = "sessionZonesDataProvider")
     public void testTimestamp(ZoneId sessionZone)
     {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
+                .build();
+
         // using two non-JVM zones so that we don't need to worry what Oracle system zone is
-        SqlDataTypeTest tests = SqlDataTypeTest.create()
+        SqlDataTypeTest.create()
+                // min value in Oracle
+                .addRoundTrip("timestamp", "TIMESTAMP '-4712-01-01 00:00:00.000'", TIMESTAMP_MILLIS, "TIMESTAMP '-4712-01-01 00:00:00.000'")
+                .addRoundTrip("timestamp", "TIMESTAMP '-0001-01-01 00:00:00.000'", TIMESTAMP_MILLIS, "TIMESTAMP '-0001-01-01 00:00:00.000'")
+                // day before and after julian->gregorian calendar switch
+                .addRoundTrip("timestamp", "TIMESTAMP '1582-10-04 00:00:00.000'", TIMESTAMP_MILLIS, "TIMESTAMP '1582-10-04 00:00:00.000'")
+                .addRoundTrip("timestamp", "TIMESTAMP '1582-10-15 00:00:00.000'", TIMESTAMP_MILLIS, "TIMESTAMP '1582-10-15 00:00:00.000'")
                 // before epoch
                 .addRoundTrip("timestamp", "TIMESTAMP '1958-01-01 13:18:03.123'", TIMESTAMP_MILLIS, "TIMESTAMP '1958-01-01 13:18:03.123'")
                 // after epoch
@@ -713,18 +724,43 @@ public abstract class AbstractTestOracleTypeMapping
                 .addRoundTrip("timestamp", timestampDataType(3).toLiteral(timeGapInJvmZone1), TIMESTAMP_MILLIS, timestampDataType(3).toLiteral(timeGapInJvmZone1))
                 .addRoundTrip("timestamp", timestampDataType(3).toLiteral(timeGapInJvmZone2), TIMESTAMP_MILLIS, timestampDataType(3).toLiteral(timeGapInJvmZone2))
                 .addRoundTrip("timestamp", timestampDataType(3).toLiteral(timeGapInVilnius), TIMESTAMP_MILLIS, timestampDataType(3).toLiteral(timeGapInVilnius))
-                .addRoundTrip("timestamp", timestampDataType(3).toLiteral(timeGapInKathmandu), TIMESTAMP_MILLIS, timestampDataType(3).toLiteral(timeGapInKathmandu));
+                .addRoundTrip("timestamp", timestampDataType(3).toLiteral(timeGapInKathmandu), TIMESTAMP_MILLIS, timestampDataType(3).toLiteral(timeGapInKathmandu))
+                // max value in Oracle
+                .addRoundTrip("timestamp", "TIMESTAMP '9999-12-31 00:00:00.000'", TIMESTAMP_MILLIS, "TIMESTAMP '9999-12-31 00:00:00.000'")
+                .execute(getQueryRunner(), session, oracleCreateAndInsert("test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"));
+    }
 
-        Session session = Session.builder(getSession())
-                .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
-                .build();
-        tests.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"));
-        tests.execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp"));
-        tests.execute(getQueryRunner(), session, oracleCreateAndInsert("test_timestamp"));
+    @Test
+    public void testJulianGregorianTimestamp()
+    {
+        // Oracle TO_DATE function returns +10 days during julian and gregorian calendar switch
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_julian_ts", "(ts date)")) {
+            assertUpdate(format("INSERT INTO %s VALUES (timestamp '1582-10-05')", table.getName()), 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES TIMESTAMP '1582-10-15 00:00:00'");
+        }
+    }
+
+    @Test
+    public void testUnsupportedTimestamp()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_unsupported_ts", "(ts timestamp)")) {
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (TIMESTAMP '-4713-12-31 00:00:00.000')", table.getName()),
+                    "\\QFailed to insert data: ORA-01841: (full) year must be between -4713 and +9999, and not be 0\n");
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (TIMESTAMP '0000-01-01 00:00:00.000')", table.getName()),
+                    "\\QFailed to insert data: ORA-01841: (full) year must be between -4713 and +9999, and not be 0\n");
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (TIMESTAMP '10000-01-01 00:00:00.000')", table.getName()),
+                    "\\QFailed to insert data: ORA-01862: the numeric value does not match the length of the format item\n");
+        }
     }
 
     @DataProvider
-    public Object[][] testTimestampDataProvider()
+    public Object[][] sessionZonesDataProvider()
     {
         return new Object[][] {
                 {UTC},
@@ -732,7 +768,7 @@ public abstract class AbstractTestOracleTypeMapping
                 // using two non-JVM zones so that we don't need to worry what Oracle system zone is
                 {vilnius},
                 {kathmandu},
-                {ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
+                {TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId()},
         };
     }
 
@@ -874,17 +910,42 @@ public abstract class AbstractTestOracleTypeMapping
      */
     private void testUnsupportedOracleType(String dataTypeName)
     {
-        try (TestTable table = new TestTable(getOracleSqlExecutor(), "unsupported_type", format("(unsupported_type %s)", dataTypeName))) {
+        try (TestTable table = new TestTable(onRemoteDatabase(), "unsupported_type", format("(unsupported_type %s)", dataTypeName))) {
             assertQueryFails("SELECT * FROM " + table.getName(), NO_SUPPORTED_COLUMNS);
         }
     }
 
-    private DataSetup oracleCreateAndInsert(String tableNamePrefix)
+    private DataSetup trinoCreateAsSelect(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(getOracleSqlExecutor(), tableNamePrefix);
+        return trinoCreateAsSelect(getSession(), tableNamePrefix);
     }
 
-    protected abstract SqlExecutor getOracleSqlExecutor();
+    private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
+    {
+        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+    }
+
+    private DataSetup trinoCreateAndInsert(String tableNamePrefix)
+    {
+        return trinoCreateAndInsert(getSession(), tableNamePrefix);
+    }
+
+    private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
+    {
+        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+    }
+
+    private DataSetup oracleCreateAndInsert(String tableNamePrefix)
+    {
+        return new CreateAndInsertDataSetup(onRemoteDatabase(), tableNamePrefix);
+    }
+
+    private DataSetup oracleCreateAndTrinoInsert(String tableNamePrefix)
+    {
+        return new CreateAndTrinoInsertDataSetup(onRemoteDatabase(), new TrinoSqlExecutor(getQueryRunner()), tableNamePrefix);
+    }
+
+    protected abstract SqlExecutor onRemoteDatabase();
 
     private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
     {
@@ -903,6 +964,6 @@ public abstract class AbstractTestOracleTypeMapping
 
     private TestTable oracleTable(String tableName, String schema, String data)
     {
-        return new TestTable(getOracleSqlExecutor(), tableName, format("(%s)", schema), ImmutableList.of(data));
+        return new TestTable(onRemoteDatabase(), tableName, format("(%s)", schema), ImmutableList.of(data));
     }
 }

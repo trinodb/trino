@@ -16,15 +16,17 @@ package io.trino.spi.block;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.function.BiConsumer;
+import java.util.OptionalInt;
+import java.util.function.ObjLongConsumer;
 
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 public class SingleMapBlockWriter
         extends AbstractSingleMapBlock
         implements BlockBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleMapBlockWriter.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SingleMapBlockWriter.class).instanceSize());
 
     private final int offset;
     private final BlockBuilder keyBlockBuilder;
@@ -69,6 +71,12 @@ public class SingleMapBlockWriter
     }
 
     @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.empty();
+    }
+
+    @Override
     public long getSizeInBytes()
     {
         return keyBlockBuilder.getSizeInBytes() + valueBlockBuilder.getSizeInBytes() - initialBlockBuilderSize;
@@ -81,11 +89,11 @@ public class SingleMapBlockWriter
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(keyBlockBuilder, keyBlockBuilder.getRetainedSizeInBytes());
         consumer.accept(valueBlockBuilder, valueBlockBuilder.getRetainedSizeInBytes());
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -145,32 +153,6 @@ public class SingleMapBlockWriter
         else {
             keyBlockBuilder.writeBytes(source, sourceIndex, length);
         }
-        return this;
-    }
-
-    @Override
-    public BlockBuilder appendStructure(Block block)
-    {
-        if (writeToValueNext) {
-            valueBlockBuilder.appendStructure(block);
-        }
-        else {
-            keyBlockBuilder.appendStructure(block);
-        }
-        entryAdded();
-        return this;
-    }
-
-    @Override
-    public BlockBuilder appendStructureInternal(Block block, int position)
-    {
-        if (writeToValueNext) {
-            valueBlockBuilder.appendStructureInternal(block, position);
-        }
-        else {
-            keyBlockBuilder.appendStructureInternal(block, position);
-        }
-        entryAdded();
         return this;
     }
 
@@ -238,7 +220,7 @@ public class SingleMapBlockWriter
     }
 
     @Override
-    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
+    public BlockBuilder newBlockBuilderLike(int expectedEntries, BlockBuilderStatus blockBuilderStatus)
     {
         throw new UnsupportedOperationException();
     }

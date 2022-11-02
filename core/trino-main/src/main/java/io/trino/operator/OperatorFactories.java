@@ -13,13 +13,13 @@
  */
 package io.trino.operator;
 
-import io.airlift.units.DataSize;
-import io.trino.execution.buffer.OutputBuffer;
 import io.trino.operator.join.JoinBridgeManager;
+import io.trino.operator.join.LookupJoinOperatorFactory.JoinType;
 import io.trino.operator.join.LookupSourceFactory;
-import io.trino.spi.predicate.NullableValue;
+import io.trino.operator.join.unspilled.PartitionedLookupSourceFactory;
 import io.trino.spi.type.Type;
 import io.trino.spiller.PartitioningSpillerFactory;
+import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.type.BlockTypeOperators;
 
@@ -27,52 +27,28 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.FULL_OUTER;
+import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.INNER;
+import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.LOOKUP_OUTER;
+import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.PROBE_OUTER;
+import static java.util.Objects.requireNonNull;
+
 public interface OperatorFactories
 {
-    OperatorFactory innerJoin(
+    OperatorFactory join(
+            JoinOperatorType joinType,
             int operatorId,
             PlanNodeId planNodeId,
-            JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
-            boolean outputSingleMatch,
-            boolean waitForBuild,
+            JoinBridgeManager<? extends PartitionedLookupSourceFactory> lookupSourceFactory,
             boolean hasFilter,
             List<Type> probeTypes,
             List<Integer> probeJoinChannel,
             OptionalInt probeHashChannel,
             Optional<List<Integer>> probeOutputChannels,
-            OptionalInt totalOperatorsCount,
-            PartitioningSpillerFactory partitioningSpillerFactory,
             BlockTypeOperators blockTypeOperators);
 
-    OperatorFactory probeOuterJoin(
-            int operatorId,
-            PlanNodeId planNodeId,
-            JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
-            boolean outputSingleMatch,
-            boolean hasFilter,
-            List<Type> probeTypes,
-            List<Integer> probeJoinChannel,
-            OptionalInt probeHashChannel,
-            Optional<List<Integer>> probeOutputChannels,
-            OptionalInt totalOperatorsCount,
-            PartitioningSpillerFactory partitioningSpillerFactory,
-            BlockTypeOperators blockTypeOperators);
-
-    OperatorFactory lookupOuterJoin(
-            int operatorId,
-            PlanNodeId planNodeId,
-            JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
-            boolean waitForBuild,
-            boolean hasFilter,
-            List<Type> probeTypes,
-            List<Integer> probeJoinChannel,
-            OptionalInt probeHashChannel,
-            Optional<List<Integer>> probeOutputChannels,
-            OptionalInt totalOperatorsCount,
-            PartitioningSpillerFactory partitioningSpillerFactory,
-            BlockTypeOperators blockTypeOperators);
-
-    OperatorFactory fullOuterJoin(
+    OperatorFactory spillingJoin(
+            JoinOperatorType joinType,
             int operatorId,
             PlanNodeId planNodeId,
             JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
@@ -85,13 +61,62 @@ public interface OperatorFactories
             PartitioningSpillerFactory partitioningSpillerFactory,
             BlockTypeOperators blockTypeOperators);
 
-    OutputFactory partitionedOutput(
-            TaskContext taskContext,
-            PartitionFunction partitionFunction,
-            List<Integer> partitionChannels,
-            List<Optional<NullableValue>> partitionConstants,
-            boolean replicateNullsAndAny,
-            OptionalInt nullChannel,
-            OutputBuffer outputBuffer,
-            DataSize maxPagePartitioningBufferSize);
+    class JoinOperatorType
+    {
+        private final JoinType type;
+        private final boolean outputSingleMatch;
+        private final boolean waitForBuild;
+
+        public static JoinOperatorType ofJoinNodeType(JoinNode.Type joinNodeType, boolean outputSingleMatch, boolean waitForBuild)
+        {
+            return switch (joinNodeType) {
+                case INNER -> innerJoin(outputSingleMatch, waitForBuild);
+                case LEFT -> probeOuterJoin(outputSingleMatch);
+                case RIGHT -> lookupOuterJoin(waitForBuild);
+                case FULL -> fullOuterJoin();
+            };
+        }
+
+        public static JoinOperatorType innerJoin(boolean outputSingleMatch, boolean waitForBuild)
+        {
+            return new JoinOperatorType(INNER, outputSingleMatch, waitForBuild);
+        }
+
+        public static JoinOperatorType probeOuterJoin(boolean outputSingleMatch)
+        {
+            return new JoinOperatorType(PROBE_OUTER, outputSingleMatch, false);
+        }
+
+        public static JoinOperatorType lookupOuterJoin(boolean waitForBuild)
+        {
+            return new JoinOperatorType(LOOKUP_OUTER, false, waitForBuild);
+        }
+
+        public static JoinOperatorType fullOuterJoin()
+        {
+            return new JoinOperatorType(FULL_OUTER, false, false);
+        }
+
+        private JoinOperatorType(JoinType type, boolean outputSingleMatch, boolean waitForBuild)
+        {
+            this.type = requireNonNull(type, "type is null");
+            this.outputSingleMatch = outputSingleMatch;
+            this.waitForBuild = waitForBuild;
+        }
+
+        public boolean isOutputSingleMatch()
+        {
+            return outputSingleMatch;
+        }
+
+        public boolean isWaitForBuild()
+        {
+            return waitForBuild;
+        }
+
+        public JoinType getType()
+        {
+            return type;
+        }
+    }
 }

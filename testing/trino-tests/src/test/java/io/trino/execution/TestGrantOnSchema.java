@@ -106,8 +106,8 @@ public class TestGrantOnSchema
         queryRunner.execute(admin, format("GRANT %s ON SCHEMA default TO %s WITH GRANT OPTION", privilege, username));
 
         assertThat(assertions.query(user, "SHOW SCHEMAS FROM local")).matches("VALUES (VARCHAR 'information_schema'), (VARCHAR 'default')");
-        assertThat(assertions.query(user, format("GRANT %s ON SCHEMA default TO %s", privilege, randomUsername()))).matches("VALUES (BOOLEAN 'TRUE')");
-        assertThat(assertions.query(user, format("GRANT %s ON SCHEMA default TO %s WITH GRANT OPTION", privilege, randomUsername()))).matches("VALUES (BOOLEAN 'TRUE')");
+        assertions.query(user, format("GRANT %s ON SCHEMA default TO %s", privilege, randomUsername()));
+        assertions.query(user, format("GRANT %s ON SCHEMA default TO %s WITH GRANT OPTION", privilege, randomUsername()));
     }
 
     @Test(dataProvider = "privileges")
@@ -128,7 +128,9 @@ public class TestGrantOnSchema
     public void testAccessDenied(String privilege)
     {
         assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("GRANT %s ON SCHEMA default TO %s", privilege, randomUsername())))
-                .hasMessageContaining("Access Denied: Cannot grant privilege SELECT on schema default");
+                .hasMessageContaining(
+                        "Access Denied: Cannot grant privilege %s on schema default",
+                        privilege.equals("ALL PRIVILEGES") ? "CREATE" : privilege);
     }
 
     @DataProvider(name = "privileges")
@@ -136,6 +138,7 @@ public class TestGrantOnSchema
     {
         return new Object[][] {
                 {"SELECT"},
+                {"CREATE"},
                 {"ALL PRIVILEGES"}
         };
     }

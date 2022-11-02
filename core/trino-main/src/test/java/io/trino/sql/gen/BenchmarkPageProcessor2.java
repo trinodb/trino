@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.SequencePageBuilder;
 import io.trino.Session;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.FunctionManager;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.index.PageRecordSet;
 import io.trino.operator.project.CursorProcessor;
@@ -26,7 +26,6 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.Type;
-import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
@@ -56,10 +55,12 @@ import java.util.concurrent.TimeUnit;
 
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ExpressionTestUtils.createExpression;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toList;
 
@@ -73,8 +74,7 @@ import static java.util.stream.Collectors.toList;
 public class BenchmarkPageProcessor2
 {
     private static final Map<String, Type> TYPE_MAP = ImmutableMap.of("bigint", BIGINT, "varchar", VARCHAR);
-    private static final Metadata METADATA = createTestMetadataManager();
-    private static final TypeAnalyzer TYPE_ANALYZER = new TypeAnalyzer(new SqlParser(), METADATA);
+    private static final TypeAnalyzer TYPE_ANALYZER = createTestingTypeAnalyzer(PLANNER_CONTEXT);
     private static final Session TEST_SESSION = TestingSession.testSessionBuilder().build();
     private static final int POSITIONS = 1024;
 
@@ -111,14 +111,14 @@ public class BenchmarkPageProcessor2
         List<RowExpression> projections = getProjections(type);
         types = projections.stream().map(RowExpression::getType).collect(toList());
 
-        Metadata metadata = createTestMetadataManager();
-        PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(metadata, 0);
+        FunctionManager functionManager = createTestingFunctionManager();
+        PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(functionManager, 0);
 
         inputPage = createPage(types, dictionaryBlocks);
-        pageProcessor = new ExpressionCompiler(metadata, pageFunctionCompiler).compilePageProcessor(Optional.of(getFilter(type)), projections).get();
+        pageProcessor = new ExpressionCompiler(functionManager, pageFunctionCompiler).compilePageProcessor(Optional.of(getFilter(type)), projections).get();
 
         recordSet = new PageRecordSet(types, inputPage);
-        cursorProcessor = new ExpressionCompiler(metadata, pageFunctionCompiler).compileCursorProcessor(Optional.of(getFilter(type)), projections, "key").get();
+        cursorProcessor = new ExpressionCompiler(functionManager, pageFunctionCompiler).compileCursorProcessor(Optional.of(getFilter(type)), projections, "key").get();
     }
 
     @Benchmark
@@ -171,10 +171,17 @@ public class BenchmarkPageProcessor2
 
     private RowExpression rowExpression(String value)
     {
-        Expression expression = createExpression(value, METADATA, TypeProvider.copyOf(symbolTypes));
+        Expression expression = createExpression(value, PLANNER_CONTEXT, TypeProvider.copyOf(symbolTypes));
 
         Map<NodeRef<Expression>, Type> expressionTypes = TYPE_ANALYZER.getTypes(TEST_SESSION, TypeProvider.copyOf(symbolTypes), expression);
-        return SqlToRowExpressionTranslator.translate(expression, expressionTypes, sourceLayout, METADATA, TEST_SESSION, true);
+        return SqlToRowExpressionTranslator.translate(
+                expression,
+                expressionTypes,
+                sourceLayout,
+                PLANNER_CONTEXT.getMetadata(),
+                PLANNER_CONTEXT.getFunctionManager(),
+                TEST_SESSION,
+                true);
     }
 
     private static Page createPage(List<? extends Type> types, boolean dictionary)
@@ -182,9 +189,7 @@ public class BenchmarkPageProcessor2
         if (dictionary) {
             return SequencePageBuilder.createSequencePageWithDictionaryBlocks(types, POSITIONS);
         }
-        else {
-            return SequencePageBuilder.createSequencePage(types, POSITIONS);
-        }
+        return SequencePageBuilder.createSequencePage(types, POSITIONS);
     }
 
     public static void main(String[] args)

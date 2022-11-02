@@ -13,6 +13,7 @@
  */
 package io.trino.security;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
@@ -21,11 +22,14 @@ import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.SchemaRoutineName;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.function.FunctionKind;
+import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -105,13 +109,6 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
-    public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-        checkArgument(context == null, "context must be null");
-        accessControl.checkCanCreateTable(securityContext, getQualifiedObjectName(tableName));
-    }
-
-    @Override
     public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
     {
         checkArgument(context == null, "context must be null");
@@ -140,7 +137,7 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
-    public void checkCanSetTableProperties(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
+    public void checkCanSetTableProperties(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Optional<Object>> properties)
     {
         checkArgument(context == null, "context must be null");
         accessControl.checkCanSetTableProperties(securityContext, getQualifiedObjectName(tableName), properties);
@@ -151,6 +148,13 @@ public class InjectedConnectorAccessControl
     {
         checkArgument(context == null, "context must be null");
         accessControl.checkCanSetTableComment(securityContext, getQualifiedObjectName(tableName));
+    }
+
+    @Override
+    public void checkCanSetViewComment(ConnectorSecurityContext context, SchemaTableName viewName)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanSetViewComment(securityContext, getQualifiedObjectName(viewName));
     }
 
     @Override
@@ -280,10 +284,10 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
-    public void checkCanCreateMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    public void checkCanCreateMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName, Map<String, Object> properties)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanCreateMaterializedView(securityContext, getQualifiedObjectName(materializedViewName));
+        accessControl.checkCanCreateMaterializedView(securityContext, getQualifiedObjectName(materializedViewName), properties);
     }
 
     @Override
@@ -308,6 +312,25 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
+    public void checkCanGrantExecuteFunctionPrivilege(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName functionName, TrinoPrincipal grantee, boolean grantOption)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanGrantExecuteFunctionPrivilege(
+                securityContext,
+                functionKind,
+                getQualifiedObjectName(functionName),
+                Identity.ofUser(grantee.getName()),
+                grantOption);
+    }
+
+    @Override
+    public void checkCanSetMaterializedViewProperties(ConnectorSecurityContext context, SchemaTableName materializedViewName, Map<String, Optional<Object>> properties)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanSetMaterializedViewProperties(securityContext, getQualifiedObjectName(materializedViewName), properties);
+    }
+
+    @Override
     public void checkCanSetCatalogSessionProperty(ConnectorSecurityContext context, String propertyName)
     {
         checkArgument(context == null, "context must be null");
@@ -322,6 +345,13 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
+    public void checkCanDenySchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, TrinoPrincipal grantee)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanDenySchemaPrivilege(securityContext, privilege, getCatalogSchemaName(schemaName), grantee);
+    }
+
+    @Override
     public void checkCanRevokeSchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, TrinoPrincipal revokee, boolean grantOption)
     {
         checkArgument(context == null, "context must be null");
@@ -333,6 +363,13 @@ public class InjectedConnectorAccessControl
     {
         checkArgument(context == null, "context must be null");
         accessControl.checkCanGrantTablePrivilege(securityContext, privilege, getQualifiedObjectName(tableName), grantee, grantOption);
+    }
+
+    @Override
+    public void checkCanDenyTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, TrinoPrincipal grantee)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanDenyTablePrivilege(securityContext, privilege, getQualifiedObjectName(tableName), grantee);
     }
 
     @Override
@@ -431,21 +468,28 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
-    public Optional<ViewExpression> getRowFilter(ConnectorSecurityContext context, SchemaTableName tableName)
+    public void checkCanExecuteFunction(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName function)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanExecuteFunction(securityContext, functionKind, new QualifiedObjectName(catalogName, function.getSchemaName(), function.getRoutineName()));
+    }
+
+    @Override
+    public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         checkArgument(context == null, "context must be null");
         if (accessControl.getRowFilters(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName())).isEmpty()) {
-            return Optional.empty();
+            return ImmutableList.of();
         }
         throw new TrinoException(NOT_SUPPORTED, "Row filtering not supported");
     }
 
     @Override
-    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
+    public List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
     {
         checkArgument(context == null, "context must be null");
         if (accessControl.getColumnMasks(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), columnName, type).isEmpty()) {
-            return Optional.empty();
+            return ImmutableList.of();
         }
         throw new TrinoException(NOT_SUPPORTED, "Column masking not supported");
     }
@@ -453,6 +497,11 @@ public class InjectedConnectorAccessControl
     private QualifiedObjectName getQualifiedObjectName(SchemaTableName schemaTableName)
     {
         return new QualifiedObjectName(catalogName, schemaTableName.getSchemaName(), schemaTableName.getTableName());
+    }
+
+    private QualifiedObjectName getQualifiedObjectName(SchemaRoutineName schemaRoutineName)
+    {
+        return new QualifiedObjectName(catalogName, schemaRoutineName.getSchemaName(), schemaRoutineName.getRoutineName());
     }
 
     private CatalogSchemaName getCatalogSchemaName(String schemaName)

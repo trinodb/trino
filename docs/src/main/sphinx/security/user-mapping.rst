@@ -95,9 +95,10 @@ also maps users in the form ``bob@uk.example.com`` to ``bob_uk``:
 .. literalinclude:: user-mapping.json
     :language: json
 
-Configure this example file to use the :doc:`LDAP </security/ldap>`
-authentication method (which uses the PASSWORD authentication type), as
-follows:
+Set up the preceding example to use the :doc:`LDAP </security/ldap>`
+authentication method with the :doc:`PASSWORD </security/authentication-types>`
+authentication type by adding the following line to your coordinator's
+``config.properties`` file:
 
 .. code-block:: text
 

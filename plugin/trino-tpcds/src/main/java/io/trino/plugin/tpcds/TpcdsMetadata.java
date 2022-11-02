@@ -22,14 +22,10 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
-import io.trino.spi.connector.ConnectorTableLayout;
-import io.trino.spi.connector.ConnectorTableLayoutHandle;
-import io.trino.spi.connector.ConnectorTableLayoutResult;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.Constraint;
+import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.DateType;
@@ -103,33 +99,9 @@ public class TpcdsMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(
-            ConnectorSession session,
-            ConnectorTableHandle table,
-            Constraint constraint,
-            Optional<Set<ColumnHandle>> desiredColumns)
+    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
     {
-        TpcdsTableHandle tableHandle = (TpcdsTableHandle) table;
-        ConnectorTableLayout layout = new ConnectorTableLayout(
-                new TpcdsTableLayoutHandle(tableHandle),
-                Optional.empty(),
-                TupleDomain.all(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                ImmutableList.of());
-
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
-    }
-
-    @Override
-    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
-    {
-        TpcdsTableLayoutHandle layout = (TpcdsTableLayoutHandle) handle;
-
-        return getTableLayouts(session, layout.getTable(), Constraint.alwaysTrue(), Optional.empty())
-                .get(0)
-                .getTableLayout();
+        return new ConnectorTableProperties();
     }
 
     @Override
@@ -154,7 +126,7 @@ public class TpcdsMetadata
     }
 
     @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
+    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         TpcdsTableHandle tpcdsTableHandle = (TpcdsTableHandle) tableHandle;
 
@@ -171,7 +143,7 @@ public class TpcdsMetadata
         for (ColumnMetadata columnMetadata : getTableMetadata(session, tableHandle).getColumns()) {
             builder.put(columnMetadata.getName(), new TpcdsColumnHandle(columnMetadata.getName(), columnMetadata.getType()));
         }
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     @Override
@@ -200,7 +172,7 @@ public class TpcdsMetadata
                 }
             }
         }
-        return tableColumns.build();
+        return tableColumns.buildOrThrow();
     }
 
     @Override
@@ -265,7 +237,7 @@ public class TpcdsMetadata
             case VARCHAR:
                 return createVarcharType(tpcdsType.getPrecision().get());
             case TIME:
-                return TimeType.TIME;
+                return TimeType.TIME_MILLIS;
         }
         throw new IllegalArgumentException("Unsupported TPC-DS type " + tpcdsType);
     }

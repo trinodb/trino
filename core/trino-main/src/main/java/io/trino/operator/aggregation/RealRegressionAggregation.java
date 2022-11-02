@@ -23,8 +23,6 @@ import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
-import static io.trino.operator.aggregation.AggregationUtils.getRegressionIntercept;
-import static io.trino.operator.aggregation.AggregationUtils.getRegressionSlope;
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
@@ -50,7 +48,7 @@ public final class RealRegressionAggregation
     @OutputFunction(StandardTypes.REAL)
     public static void regrSlope(@AggregationState RegressionState state, BlockBuilder out)
     {
-        double result = getRegressionSlope(state);
+        double result = state.getRegressionSlope();
         if (Double.isFinite(result)) {
             REAL.writeLong(out, floatToRawIntBits((float) result));
         }
@@ -63,7 +61,7 @@ public final class RealRegressionAggregation
     @OutputFunction(StandardTypes.REAL)
     public static void regrIntercept(@AggregationState RegressionState state, BlockBuilder out)
     {
-        double result = getRegressionIntercept(state);
+        double result = state.getRegressionIntercept();
         if (Double.isFinite(result)) {
             REAL.writeLong(out, floatToRawIntBits((float) result));
         }

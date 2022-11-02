@@ -26,6 +26,7 @@ import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SystemTable;
@@ -101,8 +102,8 @@ public class RaptorConnector
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
         this.nodePartitioningProvider = requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
-        this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null").getSessionProperties();
-        this.tableProperties = requireNonNull(tableProperties, "tableProperties is null").getTableProperties();
+        this.sessionProperties = sessionProperties.getSessionProperties();
+        this.tableProperties = tableProperties.getTableProperties();
         this.systemTables = requireNonNull(systemTables, "systemTables is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.dao = onDemandDao(dbi, MetadataDao.class);
@@ -155,7 +156,7 @@ public class RaptorConnector
     }
 
     @Override
-    public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
+    public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transaction)
     {
         RaptorMetadata metadata = transactions.get(transaction);
         checkArgument(metadata != null, "no such transaction: %s", transaction);

@@ -15,13 +15,15 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.AnalyzePropertyManager;
+import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
-import io.trino.sql.parser.SqlParser;
+import io.trino.sql.PlannerContext;
+import io.trino.sql.analyzer.StatementAnalyzerFactory;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
 
@@ -31,6 +33,8 @@ import java.util.Map;
 
 import static io.trino.sql.analyzer.ExpressionAnalyzer.analyzeExpressions;
 import static io.trino.sql.analyzer.QueryType.OTHERS;
+import static io.trino.sql.analyzer.StatementAnalyzerFactory.createTestingStatementAnalyzerFactory;
+import static java.util.Objects.requireNonNull;
 
 /**
  * This class is to facilitate obtaining the type of an expression and its subexpressions
@@ -39,23 +43,23 @@ import static io.trino.sql.analyzer.QueryType.OTHERS;
  */
 public class TypeAnalyzer
 {
-    private final SqlParser parser;
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
+    private final StatementAnalyzerFactory statementAnalyzerFactory;
 
     @Inject
-    public TypeAnalyzer(SqlParser parser, Metadata metadata)
+    public TypeAnalyzer(PlannerContext plannerContext, StatementAnalyzerFactory statementAnalyzerFactory)
     {
-        this.parser = parser;
-        this.metadata = metadata;
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
     }
 
     public Map<NodeRef<Expression>, Type> getTypes(Session session, TypeProvider inputTypes, Iterable<Expression> expressions)
     {
-        return analyzeExpressions(session,
-                metadata,
-                user -> ImmutableSet.of(),
+        return analyzeExpressions(
+                session,
+                plannerContext,
+                statementAnalyzerFactory,
                 new AllowAllAccessControl(),
-                parser,
                 inputTypes,
                 expressions,
                 ImmutableMap.of(),
@@ -72,5 +76,16 @@ public class TypeAnalyzer
     public Type getType(Session session, TypeProvider inputTypes, Expression expression)
     {
         return getTypes(session, inputTypes, expression).get(NodeRef.of(expression));
+    }
+
+    public static TypeAnalyzer createTestingTypeAnalyzer(PlannerContext plannerContext)
+    {
+        return new TypeAnalyzer(
+                plannerContext,
+                createTestingStatementAnalyzerFactory(
+                        plannerContext,
+                        new AllowAllAccessControl(),
+                        new TablePropertyManager(CatalogServiceProvider.fail("table properties not supported in testing type analyzer")),
+                        new AnalyzePropertyManager(CatalogServiceProvider.fail("analyze properties not supported in testing type analyzer"))));
     }
 }

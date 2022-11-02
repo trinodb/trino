@@ -16,30 +16,34 @@ package io.trino.split;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.trino.exchange.ExchangeInput;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
+import org.openjdk.jol.info.ClassLayout;
 
-import java.net.URI;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class RemoteSplit
         implements ConnectorSplit
 {
-    private final URI location;
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(RemoteSplit.class).instanceSize());
+
+    private final ExchangeInput exchangeInput;
 
     @JsonCreator
-    public RemoteSplit(@JsonProperty("location") URI location)
+    public RemoteSplit(@JsonProperty("exchangeInput") ExchangeInput exchangeInput)
     {
-        this.location = requireNonNull(location, "location is null");
+        this.exchangeInput = requireNonNull(exchangeInput, "remoteSplitInput is null");
     }
 
     @JsonProperty
-    public URI getLocation()
+    public ExchangeInput getExchangeInput()
     {
-        return location;
+        return exchangeInput;
     }
 
     @Override
@@ -64,7 +68,13 @@ public class RemoteSplit
     public String toString()
     {
         return toStringHelper(this)
-                .add("location", location)
+                .add("exchangeInput", exchangeInput)
                 .toString();
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + exchangeInput.getRetainedSizeInBytes();
     }
 }

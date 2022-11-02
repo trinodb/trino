@@ -24,8 +24,6 @@ import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
-import static io.trino.operator.aggregation.AggregationUtils.mergeVarianceState;
-import static io.trino.operator.aggregation.AggregationUtils.updateVarianceState;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 
 @AggregationFunction
@@ -36,19 +34,19 @@ public final class VarianceAggregation
     @InputFunction
     public static void doubleInput(@AggregationState VarianceState state, @SqlType(StandardTypes.DOUBLE) double value)
     {
-        updateVarianceState(state, value);
+        state.update(value);
     }
 
     @InputFunction
     public static void bigintInput(@AggregationState VarianceState state, @SqlType(StandardTypes.BIGINT) long value)
     {
-        updateVarianceState(state, (double) value);
+        state.update((double) value);
     }
 
     @CombineFunction
     public static void combine(@AggregationState VarianceState state, @AggregationState VarianceState otherState)
     {
-        mergeVarianceState(state, otherState);
+        state.merge(otherState);
     }
 
     @AggregationFunction(value = "variance", alias = "var_samp")

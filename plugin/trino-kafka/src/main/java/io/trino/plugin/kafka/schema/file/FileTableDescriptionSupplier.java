@@ -60,8 +60,6 @@ public class FileTableDescriptionSupplier
     FileTableDescriptionSupplier(FileTableDescriptionSupplierConfig config, KafkaConfig kafkaConfig, JsonCodec<KafkaTopicDescription> topicDescriptionCodec)
     {
         this.topicDescriptionCodec = requireNonNull(topicDescriptionCodec, "topicDescriptionCodec is null");
-        requireNonNull(config, "config is null");
-        requireNonNull(kafkaConfig, "kafkaConfig is null");
         this.tableDescriptionDir = config.getTableDescriptionDir();
         this.defaultSchema = kafkaConfig.getDefaultSchema();
         this.tableNames = ImmutableSet.copyOf(config.getTableNames());
@@ -90,7 +88,7 @@ public class FileTableDescriptionSupplier
                 }
             }
 
-            Map<SchemaTableName, KafkaTopicDescription> tableDefinitions = builder.build();
+            Map<SchemaTableName, KafkaTopicDescription> tableDefinitions = builder.buildOrThrow();
 
             log.debug("Loaded Table definitions: %s", tableDefinitions.keySet());
 
@@ -121,10 +119,10 @@ public class FileTableDescriptionSupplier
                 }
             }
 
-            return builder.build();
+            return builder.buildOrThrow();
         }
         catch (IOException e) {
-            log.warn(e, "Error: ");
+            log.warn(e, "Failed to get table description files for Kafka");
             throw new UncheckedIOException(e);
         }
     }

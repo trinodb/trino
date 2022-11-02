@@ -112,7 +112,7 @@ public class TestDbSessionPropertyManagerIntegration
                         .put("session-property-manager.db.url", mysqlContainer.getJdbcUrl())
                         .put("session-property-manager.db.username", mysqlContainer.getUsername())
                         .put("session-property-manager.db.password", mysqlContainer.getPassword())
-                        .build());
+                        .buildOrThrow());
 
         MysqlDataSource dataSource = new MysqlDataSource();
         dataSource.setURL(mysqlContainer.getJdbcUrl());

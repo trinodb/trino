@@ -151,7 +151,7 @@ Array functions
 
 .. function:: combinations(array(T), n) -> array(array(T))
 
-    Returns n-element subgroups of input array. If the input array has no duplicates,
+    Returns n-element sub-groups of input array. If the input array has no duplicates,
     ``combinations`` returns n-element subsets. ::
 
          SELECT combinations(ARRAY['foo', 'bar', 'baz'], 2);
@@ -163,9 +163,9 @@ Array functions
          SELECT combinations(ARRAY[1, 2, 2], 2);
          -- [[1, 2], [1, 2], [2, 2]]
 
-    Order of subgroups is deterministic but unspecified. Order of elements within
-    a subgroup deterministic but unspecified. ``n`` must be not be greater than 5,
-    and the total size of subgroups generated must be smaller than 100,000.
+    Order of sub-groups is deterministic but unspecified. Order of elements within
+    a sub-group deterministic but unspecified. ``n`` must be not be greater than 5,
+    and the total size of sub-groups generated must be smaller than 100,000.
 
 .. function:: contains(x, element) -> boolean
 
@@ -318,6 +318,16 @@ Array functions
 
     Subsets array ``x`` starting from index ``start`` (or starting from the end
     if ``start`` is negative) with a length of ``length``.
+
+.. function:: trim_array(x, n) -> array
+
+    Remove ``n`` elements from the end of array::
+
+        SELECT trim_array(ARRAY[1, 2, 3, 4], 1);
+        -- [1, 2, 3]
+
+        SELECT trim_array(ARRAY[1, 2, 3, 4], 2);
+        -- [1, 2]
 
 .. function:: transform(array(T), function(T,U)) -> array(U)
 

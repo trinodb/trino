@@ -17,8 +17,8 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.trino.RowPageBuilder;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.aggregation.Accumulator;
-import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.operator.aggregation.Aggregator;
+import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -26,12 +26,13 @@ import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.OptionalInt;
 
-import static io.trino.metadata.FunctionExtractor.extractFunctions;
+import static io.trino.metadata.InternalFunctionBundle.extractFunctions;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static org.testng.Assert.assertEquals;
 
 public class TestEvaluateClassifierPredictions
@@ -39,15 +40,14 @@ public class TestEvaluateClassifierPredictions
     @Test
     public void testEvaluateClassifierPredictions()
     {
-        TestingFunctionResolution functionResolution = new TestingFunctionResolution()
-                .addFunctions(extractFunctions(new MLPlugin().getFunctions()));
-        InternalAggregationFunction aggregation = functionResolution.getAggregateFunctionImplementation(
+        TestingFunctionResolution functionResolution = new TestingFunctionResolution(extractFunctions(new MLPlugin().getFunctions()));
+        TestingAggregationFunction aggregation = functionResolution.getAggregateFunction(
                 QualifiedName.of("evaluate_classifier_predictions"),
                 fromTypes(BIGINT, BIGINT));
-        Accumulator accumulator = aggregation.bind(ImmutableList.of(0, 1), Optional.empty()).createAccumulator();
-        accumulator.addInput(getPage());
-        BlockBuilder finalOut = accumulator.getFinalType().createBlockBuilder(null, 1);
-        accumulator.evaluateFinal(finalOut);
+        Aggregator aggregator = aggregation.createAggregatorFactory(SINGLE, ImmutableList.of(0, 1), OptionalInt.empty()).createAggregator();
+        aggregator.processPage(getPage());
+        BlockBuilder finalOut = VARCHAR.createBlockBuilder(null, 1);
+        aggregator.evaluate(finalOut);
         Block block = finalOut.build();
 
         String output = VARCHAR.getSlice(block, 0).toStringUtf8();

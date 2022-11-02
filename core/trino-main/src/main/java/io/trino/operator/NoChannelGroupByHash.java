@@ -23,11 +23,12 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.List;
 
 import static io.trino.spi.type.BigintType.BIGINT;
+import static java.lang.Math.toIntExact;
 
 public class NoChannelGroupByHash
         implements GroupByHash
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(NoChannelGroupByHash.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(NoChannelGroupByHash.class).instanceSize());
 
     private int groupCount;
 
@@ -62,7 +63,7 @@ public class NoChannelGroupByHash
     }
 
     @Override
-    public void appendValuesTo(int groupId, PageBuilder pageBuilder, int outputChannelOffset)
+    public void appendValuesTo(int groupId, PageBuilder pageBuilder)
     {
         throw new UnsupportedOperationException("NoChannelGroupByHash does not support appendValuesTo");
     }

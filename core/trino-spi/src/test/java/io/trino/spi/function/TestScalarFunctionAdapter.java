@@ -39,6 +39,7 @@ import java.util.BitSet;
 import java.util.List;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -46,6 +47,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.block.TestingSession.SESSION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.IN_OUT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -63,6 +65,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Collections.nCopies;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Fail.fail;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -181,7 +184,7 @@ public class TestScalarFunctionAdapter
             throws Throwable
     {
         List<List<InvocationArgumentConvention>> allArgumentConventions = allCombinations(
-                ImmutableList.of(NEVER_NULL, BOXED_NULLABLE, NULL_FLAG, BLOCK_POSITION),
+                ImmutableList.of(NEVER_NULL, BOXED_NULLABLE, NULL_FLAG, BLOCK_POSITION, IN_OUT),
                 argumentTypes.size());
         for (List<InvocationArgumentConvention> argumentConventions : allArgumentConventions) {
             for (InvocationReturnConvention returnConvention : InvocationReturnConvention.values()) {
@@ -226,7 +229,7 @@ public class TestScalarFunctionAdapter
                 expectedConvention.getArgumentConventions(),
                 expectedConvention.getReturnConvention(),
                 actualConvention.supportsSession(),
-                actualConvention.supportsInstanceFactor());
+                actualConvention.supportsInstanceFactory());
 
         // crete an exact invoker to the handle, so we can use object invoke interface without type coercion concerns
         MethodHandle exactInvoker = MethodHandles.exactInvoker(adaptedMethodHandle.type())
@@ -273,6 +276,10 @@ public class TestScalarFunctionAdapter
                 // this conversion is not allowed
                 return true;
             }
+            if (actualArgumentConvention == IN_OUT) {
+                // this conversion is not allowed
+                return true;
+            }
         }
         return false;
     }
@@ -290,7 +297,9 @@ public class TestScalarFunctionAdapter
     private static boolean hasNullBlockAndPositionToNeverNullArgument(InvocationConvention actualConvention, InvocationConvention expectedConvention, BitSet nullArguments)
     {
         for (int i = 0; i < actualConvention.getArgumentConventions().size(); i++) {
-            if (nullArguments.get(i) && actualConvention.getArgumentConvention(i) == NEVER_NULL && expectedConvention.getArgumentConvention(i) == BLOCK_POSITION) {
+            InvocationArgumentConvention argumentConvention = actualConvention.getArgumentConvention(i);
+            InvocationArgumentConvention expectedArgumentConvention = expectedConvention.getArgumentConvention(i);
+            if (nullArguments.get(i) && argumentConvention == NEVER_NULL && (expectedArgumentConvention == BLOCK_POSITION || expectedArgumentConvention == IN_OUT)) {
                 return true;
             }
         }
@@ -321,6 +330,9 @@ public class TestScalarFunctionAdapter
                 case BLOCK_POSITION:
                     expectedArguments.add(Block.class);
                     expectedArguments.add(int.class);
+                    break;
+                case IN_OUT:
+                    expectedArguments.add(InOut.class);
                     break;
                 default:
                     throw new IllegalArgumentException("Unsupported argument convention: " + argumentConvention);
@@ -366,6 +378,9 @@ public class TestScalarFunctionAdapter
 
                     callArguments.add(blockBuilder.build());
                     callArguments.add(1);
+                    break;
+                case IN_OUT:
+                    callArguments.add(new TestingInOut(argumentType, testValue));
                     break;
                 default:
                     throw new IllegalArgumentException("Unsupported argument convention: " + argumentConvention);
@@ -697,6 +712,166 @@ public class TestScalarFunctionAdapter
             for (int position = 0; position < actual.getPositionCount(); position++) {
                 assertEquals(type.getObjectValue(SESSION, actual, position), type.getObjectValue(SESSION, expected, position));
             }
+        }
+    }
+
+    private static class TestingInOut
+            implements InOut, InternalDataAccessor
+    {
+        private final Type type;
+        private Object value;
+
+        public TestingInOut(Type type, Object value)
+        {
+            this.type = requireNonNull(type, "type is null");
+            this.value = value;
+
+            if (value != null) {
+                Class<?> javaType = type.getJavaType();
+                if (javaType.equals(boolean.class)) {
+                    checkArgument(value instanceof Boolean, "Value must be a Boolean for type %s", type);
+                }
+                else if (javaType.equals(long.class)) {
+                    checkArgument(value instanceof Long, "Value must be a Long for type %s", type);
+                }
+                else if (javaType.equals(double.class)) {
+                    checkArgument(value instanceof Double, "Value must be a Double for type %s", type);
+                }
+            }
+        }
+
+        @Override
+        public AccumulatorState copy()
+        {
+            return new TestingInOut(type, value);
+        }
+
+        @Override
+        public long getEstimatedSize()
+        {
+            return 0;
+        }
+
+        @Override
+        public Type getType()
+        {
+            return type;
+        }
+
+        @Override
+        public final boolean isNull()
+        {
+            return value == null;
+        }
+
+        @Override
+        public final void get(BlockBuilder blockBuilder)
+        {
+            Class<?> javaType = type.getJavaType();
+
+            Object value = this.value;
+            if (value == null) {
+                blockBuilder.appendNull();
+            }
+            else if (javaType.equals(boolean.class)) {
+                type.writeBoolean(blockBuilder, (Boolean) value);
+            }
+            else if (javaType.equals(long.class)) {
+                type.writeLong(blockBuilder, (Long) value);
+            }
+            else if (javaType.equals(double.class)) {
+                type.writeDouble(blockBuilder, (Double) value);
+            }
+            else if (javaType.equals(Slice.class)) {
+                type.writeSlice(blockBuilder, (Slice) value);
+            }
+            else {
+                type.writeObject(blockBuilder, value);
+            }
+        }
+
+        @Override
+        public final void set(Block block, int position)
+        {
+            Class<?> javaType = type.getJavaType();
+
+            Object value;
+            if (block.isNull(position)) {
+                value = null;
+            }
+            else if (javaType.equals(boolean.class)) {
+                value = type.getBoolean(block, position);
+            }
+            else if (javaType.equals(long.class)) {
+                value = type.getLong(block, position);
+            }
+            else if (javaType.equals(double.class)) {
+                value = type.getDouble(block, position);
+            }
+            else if (javaType.equals(Slice.class)) {
+                value = type.getSlice(block, position);
+            }
+            else {
+                value = type.getObject(block, position);
+            }
+            this.value = value;
+        }
+
+        @Override
+        public final void set(InOut otherState)
+        {
+            checkArgument(type.equals(otherState.getType()), "Expected other state to be type %s, but is type %s", type, otherState.getType());
+
+            Class<?> javaType = type.getJavaType();
+            Object value;
+            if (otherState.isNull()) {
+                value = null;
+            }
+            else if (javaType.equals(boolean.class)) {
+                value = ((InternalDataAccessor) otherState).getBooleanValue();
+            }
+            else if (javaType.equals(long.class)) {
+                value = ((InternalDataAccessor) otherState).getLongValue();
+            }
+            else if (javaType.equals(double.class)) {
+                value = ((InternalDataAccessor) otherState).getDoubleValue();
+            }
+            else {
+                value = ((InternalDataAccessor) otherState).getObjectValue();
+            }
+            this.value = value;
+        }
+
+        @Override
+        public final boolean getBooleanValue()
+        {
+            checkArgument(type.getJavaType().equals(boolean.class), "Type %s does not have a boolean stack type", type);
+            Object value = this.value;
+            return value != null && (Boolean) value;
+        }
+
+        @Override
+        public final double getDoubleValue()
+        {
+            checkArgument(type.getJavaType().equals(double.class), "Type %s does not have a double stack type", type);
+            Object value = this.value;
+            return value == null ? 0.0 : (Double) value;
+        }
+
+        @Override
+        public final long getLongValue()
+        {
+            checkArgument(type.getJavaType().equals(long.class), "Type %s does not have a long stack type", type);
+            Object value = this.value;
+            return value == null ? 0L : (Long) value;
+        }
+
+        @Override
+        public final Object getObjectValue()
+        {
+            checkArgument(!type.getJavaType().isPrimitive(), "Type %s does not have an Object stack type", type);
+            Object value = this.value;
+            return value;
         }
     }
 }

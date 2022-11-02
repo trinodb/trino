@@ -17,11 +17,11 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.cost.ComposableStatsCalculator.Rule;
 import io.trino.matching.Pattern;
-import io.trino.metadata.Metadata;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.block.SingleRowBlock;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Lookup;
@@ -41,6 +41,7 @@ import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static io.trino.sql.planner.plan.Patterns.values;
 import static io.trino.type.UnknownType.UNKNOWN;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class ValuesStatsRule
@@ -48,11 +49,11 @@ public class ValuesStatsRule
 {
     private static final Pattern<ValuesNode> PATTERN = values();
 
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
 
-    public ValuesStatsRule(Metadata metadata)
+    public ValuesStatsRule(PlannerContext plannerContext)
     {
-        this.metadata = metadata;
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
     }
 
     @Override
@@ -62,7 +63,7 @@ public class ValuesStatsRule
     }
 
     @Override
-    public Optional<PlanNodeStatsEstimate> calculate(ValuesNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
+    public Optional<PlanNodeStatsEstimate> calculate(ValuesNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
     {
         PlanNodeStatsEstimate.Builder statsBuilder = PlanNodeStatsEstimate.builder();
         statsBuilder.setOutputRowCount(node.getRowCount());
@@ -94,7 +95,7 @@ public class ValuesStatsRule
         checkState(valuesNode.getRows().isPresent(), "rows is empty");
         return valuesNode.getRows().get().stream()
                 .map(row -> {
-                    Object rowValue = evaluateConstantExpression(row, rowType, metadata, session, new AllowAllAccessControl(), ImmutableMap.of());
+                    Object rowValue = evaluateConstantExpression(row, rowType, plannerContext, session, new AllowAllAccessControl(), ImmutableMap.of());
                     return readNativeValue(symbolType, (SingleRowBlock) rowValue, symbolId);
                 })
                 .collect(toList());

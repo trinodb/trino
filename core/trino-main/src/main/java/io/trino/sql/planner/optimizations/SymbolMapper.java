@@ -25,6 +25,8 @@ import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.MergeProcessorNode;
+import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
 import io.trino.sql.planner.plan.PlanNode;
@@ -38,8 +40,10 @@ import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.WindowNode;
+import io.trino.sql.planner.rowpattern.AggregationValuePointer;
 import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
-import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ValuePointer;
+import io.trino.sql.planner.rowpattern.ScalarValuePointer;
+import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
@@ -147,7 +151,7 @@ public class SymbolMapper
         return new AggregationNode(
                 newNodeId,
                 source,
-                aggregations.build(),
+                aggregations.buildOrThrow(),
                 groupingSets(
                         mapAndDistinct(node.getGroupingKeys()),
                         node.getGroupingSetCount(),
@@ -213,7 +217,7 @@ public class SymbolMapper
                 node.getId(),
                 source,
                 mapAndDistinct(node.getSpecification()),
-                newFunctions.build(),
+                newFunctions.buildOrThrow(),
                 node.getHashSymbol().map(this::map),
                 node.getPrePartitionedInputs().stream()
                         .map(this::map)
@@ -272,8 +276,8 @@ public class SymbolMapper
                         .map(this::map)
                         .collect(toImmutableSet()),
                 node.getPreSortedOrderPrefix(),
-                newFunctions.build(),
-                newMeasures.build(),
+                newFunctions.buildOrThrow(),
+                newMeasures.buildOrThrow(),
                 node.getCommonBaseFrame().map(this::map),
                 node.getRowsPerMatch(),
                 node.getSkipToLabel(),
@@ -281,7 +285,7 @@ public class SymbolMapper
                 node.isInitial(),
                 node.getPattern(),
                 node.getSubsets(),
-                newVariableDefinitions.build());
+                newVariableDefinitions.buildOrThrow());
     }
 
     private ExpressionAndValuePointers map(ExpressionAndValuePointers expressionAndValuePointers)
@@ -289,25 +293,50 @@ public class SymbolMapper
         // Map only the input symbols of ValuePointers. These are the symbols produced by the source node.
         // Other symbols present in the ExpressionAndValuePointers structure are synthetic unique symbols
         // with no outer usage or dependencies.
-        Set<Symbol> syntheticClassifierSymbols = expressionAndValuePointers.getClassifierSymbols();
-        Set<Symbol> syntheticMatchNumberSymbols = expressionAndValuePointers.getMatchNumberSymbols();
+        ImmutableList.Builder<ValuePointer> newValuePointers = ImmutableList.builder();
+        for (ValuePointer valuePointer : expressionAndValuePointers.getValuePointers()) {
+            if (valuePointer instanceof ScalarValuePointer) {
+                ScalarValuePointer scalarValuePointer = (ScalarValuePointer) valuePointer;
+                Symbol inputSymbol = scalarValuePointer.getInputSymbol();
+                if (expressionAndValuePointers.getClassifierSymbols().contains(inputSymbol) || expressionAndValuePointers.getMatchNumberSymbols().contains(inputSymbol)) {
+                    newValuePointers.add(scalarValuePointer);
+                }
+                else {
+                    newValuePointers.add(new ScalarValuePointer(scalarValuePointer.getLogicalIndexPointer(), map(inputSymbol)));
+                }
+            }
+            else {
+                AggregationValuePointer aggregationValuePointer = (AggregationValuePointer) valuePointer;
 
-        List<ValuePointer> newValuePointers = expressionAndValuePointers.getValuePointers().stream()
-                .map(pointer -> {
-                    Symbol inputSymbol = pointer.getInputSymbol();
-                    if (syntheticClassifierSymbols.contains(inputSymbol) || syntheticMatchNumberSymbols.contains(inputSymbol)) {
-                        return pointer;
-                    }
-                    return new ValuePointer(pointer.getLogicalIndexPointer(), map(inputSymbol));
-                })
-                .collect(toImmutableList());
+                List<Expression> newArguments = aggregationValuePointer.getArguments().stream()
+                        .map(expression -> ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
+                        {
+                            @Override
+                            public Expression rewriteSymbolReference(SymbolReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+                            {
+                                if (Symbol.from(node).equals(aggregationValuePointer.getClassifierSymbol()) || Symbol.from(node).equals(aggregationValuePointer.getMatchNumberSymbol())) {
+                                    return node;
+                                }
+                                return map(node);
+                            }
+                        }, expression))
+                        .collect(toImmutableList());
+
+                newValuePointers.add(new AggregationValuePointer(
+                        aggregationValuePointer.getFunction(),
+                        aggregationValuePointer.getSetDescriptor(),
+                        newArguments,
+                        aggregationValuePointer.getClassifierSymbol(),
+                        aggregationValuePointer.getMatchNumberSymbol()));
+            }
+        }
 
         return new ExpressionAndValuePointers(
                 expressionAndValuePointers.getExpression(),
                 expressionAndValuePointers.getLayout(),
-                newValuePointers,
-                syntheticClassifierSymbols,
-                syntheticMatchNumberSymbols);
+                newValuePointers.build(),
+                expressionAndValuePointers.getClassifierSymbols(),
+                expressionAndValuePointers.getMatchNumberSymbols());
     }
 
     public LimitNode map(LimitNode node, PlanNode source)
@@ -335,7 +364,7 @@ public class SymbolMapper
                 newOrderings.put(canonical, orderingScheme.getOrdering(symbol));
             }
         }
-        return new OrderingScheme(newSymbols.build(), newOrderings.build());
+        return new OrderingScheme(newSymbols.build(), newOrderings.buildOrThrow());
     }
 
     public DistinctLimitNode map(DistinctLimitNode node, PlanNode source)
@@ -376,7 +405,6 @@ public class SymbolMapper
                 map(node.getFragmentSymbol()),
                 map(node.getColumns()),
                 node.getColumnNames(),
-                node.getNotNullColumnSymbols(),
                 node.getPartitioningScheme().map(partitioningScheme -> map(partitioningScheme, source.getOutputSymbols())),
                 node.getPreferredPartitioningScheme().map(partitioningScheme -> map(partitioningScheme, source.getOutputSymbols())),
                 node.getStatisticsAggregation().map(this::map),
@@ -401,6 +429,49 @@ public class SymbolMapper
                 node.getColumnNames(),
                 node.getPartitioningScheme().map(partitioningScheme -> map(partitioningScheme, source.getOutputSymbols())),
                 node.getPreferredPartitioningScheme().map(partitioningScheme -> map(partitioningScheme, source.getOutputSymbols())));
+    }
+
+    public MergeWriterNode map(MergeWriterNode node, PlanNode source)
+    {
+        // Intentionally does not use mapAndDistinct on columns as that would remove columns
+        List<Symbol> newOutputs = map(node.getOutputSymbols());
+
+        return new MergeWriterNode(
+                node.getId(),
+                source,
+                node.getTarget(),
+                map(node.getProjectedSymbols()),
+                node.getPartitioningScheme().map(partitioningScheme -> map(partitioningScheme, source.getOutputSymbols())),
+                newOutputs);
+    }
+
+    public MergeWriterNode map(MergeWriterNode node, PlanNode source, PlanNodeId newId)
+    {
+        // Intentionally does not use mapAndDistinct on columns as that would remove columns
+        List<Symbol> newOutputs = map(node.getOutputSymbols());
+
+        return new MergeWriterNode(
+                newId,
+                source,
+                node.getTarget(),
+                map(node.getProjectedSymbols()),
+                node.getPartitioningScheme().map(partitioningScheme -> map(partitioningScheme, source.getOutputSymbols())),
+                newOutputs);
+    }
+
+    public MergeProcessorNode map(MergeProcessorNode node, PlanNode source)
+    {
+        List<Symbol> newOutputs = map(node.getOutputSymbols());
+
+        return new MergeProcessorNode(
+                node.getId(),
+                source,
+                node.getTarget(),
+                map(node.getRowIdSymbol()),
+                map(node.getMergeRowSymbol()),
+                map(node.getDataColumnSymbols()),
+                map(node.getRedistributionColumnSymbols()),
+                newOutputs);
     }
 
     public PartitioningScheme map(PartitioningScheme scheme, List<Symbol> sourceLayout)
@@ -487,7 +558,7 @@ public class SymbolMapper
 
         public SymbolMapper build()
         {
-            return SymbolMapper.symbolMapper(mappings.build());
+            return SymbolMapper.symbolMapper(mappings.buildOrThrow());
         }
     }
 }

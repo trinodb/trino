@@ -48,7 +48,7 @@ public class TestConnectorEventListener
                 .build();
         queryRunner.createCatalog(
                 "event_listening",
-                new MockConnectorFactory.Builder()
+                MockConnectorFactory.builder()
                         .withEventListener(listenerFactory)
                         .build(),
                 ImmutableMap.of());

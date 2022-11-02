@@ -17,7 +17,7 @@ import io.trino.sql.analyzer.FieldId;
 import io.trino.sql.analyzer.RelationId;
 import io.trino.sql.analyzer.ResolvedField;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.ArrayConstructor;
+import io.trino.sql.tree.Array;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.GroupingOperation;
@@ -51,29 +51,27 @@ public final class GroupingOperationRewriter
         if (groupingSets.size() == 1) {
             return new LongLiteral("0");
         }
-        else {
-            checkState(groupIdSymbol.isPresent(), "groupId symbol is missing");
+        checkState(groupIdSymbol.isPresent(), "groupId symbol is missing");
 
-            RelationId relationId = columnReferenceFields.get(NodeRef.of(expression.getGroupingColumns().get(0))).getFieldId().getRelationId();
+        RelationId relationId = columnReferenceFields.get(NodeRef.of(expression.getGroupingColumns().get(0))).getFieldId().getRelationId();
 
-            List<Integer> columns = expression.getGroupingColumns().stream()
-                    .map(NodeRef::of)
-                    .peek(groupingColumn -> checkState(columnReferenceFields.containsKey(groupingColumn), "the grouping column is not in the columnReferencesField map"))
-                    .map(columnReferenceFields::get)
-                    .map(ResolvedField::getFieldId)
-                    .map(fieldId -> translateFieldToInteger(fieldId, relationId))
-                    .collect(toImmutableList());
+        List<Integer> columns = expression.getGroupingColumns().stream()
+                .map(NodeRef::of)
+                .peek(groupingColumn -> checkState(columnReferenceFields.containsKey(groupingColumn), "the grouping column is not in the columnReferencesField map"))
+                .map(columnReferenceFields::get)
+                .map(ResolvedField::getFieldId)
+                .map(fieldId -> translateFieldToInteger(fieldId, relationId))
+                .collect(toImmutableList());
 
-            List<Expression> groupingResults = groupingSets.stream()
-                    .map(groupingSet -> String.valueOf(calculateGrouping(groupingSet, columns)))
-                    .map(LongLiteral::new)
-                    .collect(toImmutableList());
+        List<Expression> groupingResults = groupingSets.stream()
+                .map(groupingSet -> String.valueOf(calculateGrouping(groupingSet, columns)))
+                .map(LongLiteral::new)
+                .collect(toImmutableList());
 
-            // It is necessary to add a 1 to the groupId because the underlying array is indexed starting at 1
-            return new SubscriptExpression(
-                    new ArrayConstructor(groupingResults),
-                    new ArithmeticBinaryExpression(ADD, groupIdSymbol.get().toSymbolReference(), new GenericLiteral("BIGINT", "1")));
-        }
+        // It is necessary to add a 1 to the groupId because the underlying array is indexed starting at 1
+        return new SubscriptExpression(
+                new Array(groupingResults),
+                new ArithmeticBinaryExpression(ADD, groupIdSymbol.get().toSymbolReference(), new GenericLiteral("BIGINT", "1")));
     }
 
     private static int translateFieldToInteger(FieldId fieldId, RelationId requiredOriginRelationId)

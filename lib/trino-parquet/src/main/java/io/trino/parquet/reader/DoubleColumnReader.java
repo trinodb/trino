@@ -13,34 +13,21 @@
  */
 package io.trino.parquet.reader;
 
-import io.trino.parquet.RichColumnDescriptor;
+import io.trino.parquet.PrimitiveField;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 
 public class DoubleColumnReader
         extends PrimitiveColumnReader
 {
-    public DoubleColumnReader(RichColumnDescriptor descriptor)
+    public DoubleColumnReader(PrimitiveField field)
     {
-        super(descriptor);
+        super(field);
     }
 
     @Override
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            type.writeDouble(blockBuilder, valuesReader.readDouble());
-        }
-        else if (isValueNull()) {
-            blockBuilder.appendNull();
-        }
-    }
-
-    @Override
-    protected void skipValue()
-    {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readDouble();
-        }
+        type.writeDouble(blockBuilder, valuesReader.readDouble());
     }
 }

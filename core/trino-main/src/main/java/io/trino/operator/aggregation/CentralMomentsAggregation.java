@@ -24,8 +24,6 @@ import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
-import static io.trino.operator.aggregation.AggregationUtils.mergeCentralMomentsState;
-import static io.trino.operator.aggregation.AggregationUtils.updateCentralMomentsState;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 
 @AggregationFunction
@@ -37,19 +35,19 @@ public final class CentralMomentsAggregation
     @InputFunction
     public static void doubleInput(@AggregationState CentralMomentsState state, @SqlType(StandardTypes.DOUBLE) double value)
     {
-        updateCentralMomentsState(state, value);
+        state.update(value);
     }
 
     @InputFunction
     public static void bigintInput(@AggregationState CentralMomentsState state, @SqlType(StandardTypes.BIGINT) long value)
     {
-        updateCentralMomentsState(state, (double) value);
+        state.update((double) value);
     }
 
     @CombineFunction
     public static void combine(@AggregationState CentralMomentsState state, @AggregationState CentralMomentsState otherState)
     {
-        mergeCentralMomentsState(state, otherState);
+        state.merge(otherState);
     }
 
     @AggregationFunction("skewness")

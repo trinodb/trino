@@ -86,7 +86,7 @@ public class TestTrinoAzureConfigurationInitializer
         testProperties(setters);
 
         // Dropping any one property fails
-        for (var setter : setters) {
+        for (BiConsumer<HiveAzureConfig, String> setter : setters) {
             assertThatThrownBy(() -> testProperties(difference(setters, Set.of(setter))))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage(expectedErrorMessage);
@@ -101,8 +101,8 @@ public class TestTrinoAzureConfigurationInitializer
 
     private static void testProperties(Set<BiConsumer<HiveAzureConfig, String>> setters)
     {
-        var config = new HiveAzureConfig();
-        for (var setter : setters) {
+        HiveAzureConfig config = new HiveAzureConfig();
+        for (BiConsumer<HiveAzureConfig, String> setter : setters) {
             setter.accept(config, "test value");
         }
         new TrinoAzureConfigurationInitializer(config);

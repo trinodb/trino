@@ -26,6 +26,7 @@ import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.query.QueryExecutionException;
 import io.trino.tempto.query.QueryExecutor.QueryParam;
 import io.trino.tempto.query.QueryResult;
+import io.trino.testng.services.Flaky;
 import io.trino.tests.product.utils.JdbcDriverUtils;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.assertj.core.api.Assertions;
@@ -54,19 +55,19 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.immutableEntry;
 import static io.trino.plugin.hive.HiveTimestampPrecision.MICROSECONDS;
 import static io.trino.plugin.hive.HiveTimestampPrecision.MILLISECONDS;
 import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
-import static io.trino.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static io.trino.tempto.query.QueryExecutor.param;
 import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS_DETAILED;
 import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
+import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
+import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static io.trino.tests.product.utils.JdbcDriverUtils.setSessionProperty;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -76,6 +77,7 @@ import static java.util.Collections.nCopies;
 import static java.util.Comparator.comparingInt;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 public class TestHiveStorageFormats
@@ -243,7 +245,7 @@ public class TestHiveStorageFormats
         return new StorageFormat[] {
                 storageFormat("ORC", ImmutableMap.of("hive.orc_optimized_writer_validate", "true")),
                 storageFormat("PARQUET"),
-                storageFormat("PARQUET", ImmutableMap.of("hive.experimental_parquet_optimized_writer_enabled", "true")),
+                storageFormat("PARQUET", ImmutableMap.of("hive.parquet_optimized_writer_enabled", "true")),
                 storageFormat("RCBINARY", ImmutableMap.of("hive.rcfile_optimized_writer_validate", "true")),
                 storageFormat("RCTEXT", ImmutableMap.of("hive.rcfile_optimized_writer_validate", "true")),
                 storageFormat("SEQUENCEFILE"),
@@ -290,8 +292,7 @@ public class TestHiveStorageFormats
     @Test
     public void verifyDataProviderCompleteness()
     {
-        String formatsDescription = (String) getOnlyElement(getOnlyElement(
-                onTrino().executeQuery("SELECT description FROM system.metadata.table_properties WHERE catalog_name = CURRENT_CATALOG AND property_name = 'format'").rows()));
+        String formatsDescription = (String) onTrino().executeQuery("SELECT description FROM system.metadata.table_properties WHERE catalog_name = CURRENT_CATALOG AND property_name = 'format'").getOnlyValue();
         Pattern pattern = Pattern.compile("Hive storage format for the table. Possible values: \\[([A-Z]+(, [A-z]+)+)]");
         Assertions.assertThat(formatsDescription).matches(pattern);
         Matcher matcher = pattern.matcher(formatsDescription);
@@ -458,6 +459,7 @@ public class TestHiveStorageFormats
     }
 
     @Test(dataProvider = "storageFormatsWithZeroByteFile", groups = STORAGE_FORMATS_DETAILED)
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testSelectFromZeroByteFile(StorageFormat storageFormat)
     {
         String tableName = format(
@@ -478,6 +480,7 @@ public class TestHiveStorageFormats
     }
 
     @Test(dataProvider = "storageFormatsWithNullFormat", groups = STORAGE_FORMATS_DETAILED)
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testSelectWithNullFormat(StorageFormat storageFormat)
     {
         String nullFormat = "null_value";
@@ -635,6 +638,7 @@ public class TestHiveStorageFormats
     }
 
     @Test(groups = STORAGE_FORMATS_DETAILED)
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testOrcStructsWithNonLowercaseFields()
             throws SQLException
     {
@@ -671,6 +675,7 @@ public class TestHiveStorageFormats
     }
 
     @Test(dataProvider = "storageFormatsWithNanosecondPrecision", groups = STORAGE_FORMATS_DETAILED)
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testTimestampCreatedFromHive(StorageFormat storageFormat)
     {
         String tableName = createSimpleTimestampTable("timestamps_from_hive", storageFormat);
@@ -704,6 +709,7 @@ public class TestHiveStorageFormats
     }
 
     @Test(dataProvider = "storageFormatsWithNanosecondPrecision", groups = STORAGE_FORMATS_DETAILED)
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testStructTimestampsFromHive(StorageFormat format)
     {
         String tableName = createStructTimestampTable("hive_struct_timestamp", format);
@@ -755,7 +761,7 @@ public class TestHiveStorageFormats
                                             + " array[map(array[%2$s], array[row(array[%2$s])])]",
                                     entry.getId(),
                                     format("TIMESTAMP '%s'", entry.getWriteValue())))
-                                    .collect(Collectors.joining("), ("))));
+                                    .collect(joining("), ("))));
                 });
 
         assertStructTimestamps(tableName, TIMESTAMPS_FROM_TRINO);
@@ -773,6 +779,7 @@ public class TestHiveStorageFormats
                 "PARQUET",
                 ImmutableMap.of(
                         "hive.parquet_writer_page_size", reducedRowGroupSize.toBytesValueString(),
+                        "task_scale_writers_enabled", "false",
                         "task_writer_count", "1")));
     }
 
@@ -783,8 +790,9 @@ public class TestHiveStorageFormats
         runLargeInsert(storageFormat(
                 "PARQUET",
                 ImmutableMap.of(
-                        "hive.experimental_parquet_optimized_writer_enabled", "true",
+                        "hive.parquet_optimized_writer_enabled", "true",
                         "hive.parquet_writer_page_size", reducedRowGroupSize.toBytesValueString(),
+                        "task_scale_writers_enabled", "false",
                         "task_writer_count", "1")));
     }
 
@@ -941,7 +949,7 @@ public class TestHiveStorageFormats
     {
         QueryResult expected = onTrino().executeQuery(format(query, "tpch." + TPCH_SCHEMA + ".lineitem"));
         List<Row> expectedRows = expected.rows().stream()
-                .map((columns) -> row(columns.toArray()))
+                .map(columns -> row(columns.toArray()))
                 .collect(toImmutableList());
         QueryResult actual = onTrino().executeQuery(format(query, tableName));
         assertThat(actual)
@@ -951,7 +959,7 @@ public class TestHiveStorageFormats
 
     private void setAdminRole()
     {
-        setAdminRole(defaultQueryExecutor().getConnection());
+        setAdminRole(onTrino().getConnection());
     }
 
     private void setAdminRole(Connection connection)
@@ -997,7 +1005,7 @@ public class TestHiveStorageFormats
 
     private static void setSessionProperties(StorageFormat storageFormat)
     {
-        setSessionProperties(defaultQueryExecutor().getConnection(), storageFormat);
+        setSessionProperties(onTrino().getConnection(), storageFormat);
     }
 
     private static void setSessionProperties(Connection connection, StorageFormat storageFormat)
@@ -1010,6 +1018,7 @@ public class TestHiveStorageFormats
         try {
             // create more than one split
             setSessionProperty(connection, "task_writer_count", "4");
+            setSessionProperty(connection, "task_scale_writers_enabled", "false");
             setSessionProperty(connection, "redistribute_writes", "false");
             for (Map.Entry<String, String> sessionProperty : sessionProperties.entrySet()) {
                 setSessionProperty(connection, sessionProperty.getKey(), sessionProperty.getValue());
@@ -1038,7 +1047,7 @@ public class TestHiveStorageFormats
         return new StorageFormat(name, sessionProperties, properties);
     }
 
-    private static class StorageFormat
+    public static class StorageFormat
     {
         private final String name;
         private final Map<String, String> properties;
@@ -1065,7 +1074,7 @@ public class TestHiveStorageFormats
                     Stream.of(immutableEntry("format", name)),
                     properties.entrySet().stream())
                     .map(entry -> format("%s = '%s'", entry.getKey(), entry.getValue()))
-                    .collect(Collectors.joining(", "));
+                    .collect(joining(", "));
         }
 
         public Map<String, String> getSessionProperties()

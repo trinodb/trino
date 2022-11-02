@@ -15,29 +15,13 @@ package io.trino.spi.connector;
 
 public interface ConnectorSplitManager
 {
-    @Deprecated
-    default ConnectorSplitSource getSplits(
-            ConnectorTransactionHandle transactionHandle,
-            ConnectorSession session,
-            ConnectorTableLayoutHandle layout,
-            SplitSchedulingStrategy splitSchedulingStrategy)
-    {
-        throw new UnsupportedOperationException();
-    }
-
     default ConnectorSplitSource getSplits(
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle table,
-            SplitSchedulingStrategy splitSchedulingStrategy,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            Constraint constraint)
     {
         throw new UnsupportedOperationException();
-    }
-
-    enum SplitSchedulingStrategy
-    {
-        UNGROUPED_SCHEDULING,
-        GROUPED_SCHEDULING,
     }
 }

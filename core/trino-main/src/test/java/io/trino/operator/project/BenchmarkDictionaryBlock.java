@@ -16,6 +16,7 @@ package io.trino.operator.project;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.StandardTypes;
@@ -43,8 +44,9 @@ import java.util.stream.IntStream;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.block.BlockAssertions.createSlicesBlock;
 import static io.trino.jmh.Benchmarks.benchmark;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -63,17 +65,30 @@ public class BenchmarkDictionaryBlock
     }
 
     @Benchmark
+    public long getPositionsSizeInBytes(BenchmarkData data)
+    {
+        return data.getAllPositionsDictionaryBlock().getPositionsSizeInBytes(data.getSelectedPositionsMask(), data.getSelectedPositionCount());
+    }
+
+    @Benchmark
+    public long getPositionsThenGetSizeInBytes(BenchmarkData data)
+    {
+        int[] positionIds = data.getPositionsIds();
+        return data.getAllPositionsDictionaryBlock().getPositions(positionIds, 0, positionIds.length).getSizeInBytes();
+    }
+
+    @Benchmark
     public Block copyPositions(BenchmarkData data)
     {
         int[] positionIds = data.getPositionsIds();
-        return data.getAllPositionsDictionaryBlock().copyPositions(data.getPositionsIds(), 0, positionIds.length);
+        return data.getAllPositionsDictionaryBlock().copyPositions(positionIds, 0, positionIds.length);
     }
 
     @Benchmark
     public Block copyPositionsCompactDictionary(BenchmarkData data)
     {
         int[] positionIds = data.getPositionsIds();
-        return data.getAllPositionsCompactDictionaryBlock().copyPositions(data.getPositionsIds(), 0, positionIds.length);
+        return data.getAllPositionsCompactDictionaryBlock().copyPositions(positionIds, 0, positionIds.length);
     }
 
     @State(Scope.Thread)
@@ -83,27 +98,49 @@ public class BenchmarkDictionaryBlock
         @Param({"100", "1000", "10000", "100000"})
         private String selectedPositions = "100";
 
+        @Param({"varchar", "integer"})
+        private String valueType = "integer";
+
         private int[] positionsIds;
         private DictionaryBlock dictionaryBlock;
         private DictionaryBlock allPositionsDictionaryBlock;
         private DictionaryBlock allPositionsCompactDictionaryBlock;
+        private boolean[] selectedPositionsMask;
+        private int selectedPositionCount;
 
-        @Setup(Level.Invocation)
+        @Setup(Level.Trial)
         public void setup()
         {
             positionsIds = generateIds(Integer.parseInt(selectedPositions), POSITIONS);
-            Block mapBlock = createMapBlock(POSITIONS);
-            dictionaryBlock = new DictionaryBlock(mapBlock, positionsIds);
+            selectedPositionsMask = new boolean[POSITIONS];
+            for (int position : positionsIds) {
+                if (!selectedPositionsMask[position]) {
+                    selectedPositionsMask[position] = true;
+                    selectedPositionCount++;
+                }
+            }
+            Block mapBlock;
+            switch (valueType) {
+                case "varchar":
+                    mapBlock = createVarcharMapBlock(POSITIONS);
+                    break;
+                case "integer":
+                    mapBlock = createIntMapBlock(POSITIONS);
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unrecognized value type: " + valueType);
+            }
+            dictionaryBlock = (DictionaryBlock) DictionaryBlock.create(positionsIds.length, mapBlock, positionsIds);
             int[] allPositions = IntStream.range(0, POSITIONS).toArray();
-            allPositionsDictionaryBlock = new DictionaryBlock(mapBlock, allPositions);
-            allPositionsCompactDictionaryBlock = new DictionaryBlock(POSITIONS, mapBlock, allPositions, true);
+            allPositionsDictionaryBlock = (DictionaryBlock) DictionaryBlock.create(allPositions.length, mapBlock, allPositions);
+            allPositionsCompactDictionaryBlock = (DictionaryBlock) DictionaryBlock.create(POSITIONS, mapBlock, allPositions);
         }
 
-        private static Block createMapBlock(int positionCount)
+        private static Block createVarcharMapBlock(int positionCount)
         {
-            MapType mapType = (MapType) createTestMetadataManager().getType(new TypeSignature(StandardTypes.MAP, TypeSignatureParameter.typeParameter(VARCHAR.getTypeSignature()), TypeSignatureParameter.typeParameter(VARCHAR.getTypeSignature())));
-            Block keyBlock = createDictionaryBlock(generateList("key", positionCount));
-            Block valueBlock = createDictionaryBlock(generateList("value", positionCount));
+            MapType mapType = (MapType) TESTING_TYPE_MANAGER.getType(new TypeSignature(StandardTypes.MAP, TypeSignatureParameter.typeParameter(VARCHAR.getTypeSignature()), TypeSignatureParameter.typeParameter(VARCHAR.getTypeSignature())));
+            Block keyBlock = createVarcharDictionaryBlock(generateList("key", positionCount));
+            Block valueBlock = createVarcharDictionaryBlock(generateList("value", positionCount));
             int[] offsets = new int[positionCount + 1];
             int mapSize = keyBlock.getPositionCount() / positionCount;
             for (int i = 0; i < offsets.length; i++) {
@@ -112,14 +149,46 @@ public class BenchmarkDictionaryBlock
             return mapType.createBlockFromKeyValue(Optional.empty(), offsets, keyBlock, valueBlock);
         }
 
-        private static Block createDictionaryBlock(List<String> values)
+        private static Block createVarcharDictionaryBlock(List<String> values)
         {
             Block dictionary = createSliceArrayBlock(values);
             int[] ids = new int[values.size()];
             for (int i = 0; i < ids.length; i++) {
                 ids[i] = i;
             }
-            return new DictionaryBlock(dictionary, ids);
+            return DictionaryBlock.create(ids.length, dictionary, ids);
+        }
+
+        private static Block createIntMapBlock(int positionCount)
+        {
+            MapType mapType = (MapType) TESTING_TYPE_MANAGER.getType(new TypeSignature(StandardTypes.MAP, TypeSignatureParameter.typeParameter(INTEGER.getTypeSignature()), TypeSignatureParameter.typeParameter(INTEGER.getTypeSignature())));
+            Block keyBlock = createIntDictionaryBlock(positionCount);
+            Block valueBlock = createIntDictionaryBlock(positionCount);
+            int[] offsets = new int[positionCount + 1];
+            int mapSize = keyBlock.getPositionCount() / positionCount;
+            for (int i = 0; i < offsets.length; i++) {
+                offsets[i] = mapSize * i;
+            }
+            return mapType.createBlockFromKeyValue(Optional.empty(), offsets, keyBlock, valueBlock);
+        }
+
+        private static Block createIntDictionaryBlock(int positionCount)
+        {
+            Block dictionary = createIntBlock(positionCount);
+            int[] ids = new int[positionCount];
+            for (int i = 0; i < ids.length; i++) {
+                ids[i] = i;
+            }
+            return DictionaryBlock.create(ids.length, dictionary, ids);
+        }
+
+        private static Block createIntBlock(int positionCount)
+        {
+            BlockBuilder builder = INTEGER.createFixedSizeBlockBuilder(positionCount);
+            for (int i = 0; i < positionCount; i++) {
+                INTEGER.writeLong(builder, i);
+            }
+            return builder.build();
         }
 
         private static Block createSliceArrayBlock(List<String> values)
@@ -151,6 +220,16 @@ public class BenchmarkDictionaryBlock
             return positionsIds;
         }
 
+        public boolean[] getSelectedPositionsMask()
+        {
+            return selectedPositionsMask;
+        }
+
+        public int getSelectedPositionCount()
+        {
+            return selectedPositionCount;
+        }
+
         public DictionaryBlock getDictionaryBlock()
         {
             return dictionaryBlock;
@@ -173,6 +252,22 @@ public class BenchmarkDictionaryBlock
         BenchmarkData data = new BenchmarkData();
         data.setup();
         getSizeInBytes(data);
+    }
+
+    @Test
+    public void testGetPositionsSizeInBytes()
+    {
+        BenchmarkData data = new BenchmarkData();
+        data.setup();
+        getPositionsSizeInBytes(data);
+    }
+
+    @Test
+    public void testGetPositionsThenGetSizeInBytes()
+    {
+        BenchmarkData data = new BenchmarkData();
+        data.setup();
+        getPositionsThenGetSizeInBytes(data);
     }
 
     @Test

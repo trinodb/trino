@@ -21,19 +21,25 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.util.Optional;
-import java.util.function.BiConsumer;
+import java.util.OptionalInt;
+import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
+import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
 import static io.trino.spi.block.BlockUtil.compactOffsets;
 import static io.trino.spi.block.BlockUtil.compactSlice;
+import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
+import static io.trino.spi.block.BlockUtil.copyOffsetsAndAppendNull;
+import static java.lang.Math.toIntExact;
 
 public class VariableWidthBlock
         extends AbstractVariableWidthBlock
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(VariableWidthBlock.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(VariableWidthBlock.class).instanceSize());
 
     private final int arrayOffset;
     private final int positionCount;
@@ -80,6 +86,23 @@ public class VariableWidthBlock
         retainedSizeInBytes = INSTANCE_SIZE + slice.getRetainedSize() + sizeOf(valueIsNull) + sizeOf(offsets);
     }
 
+    /**
+     * Gets the raw {@link Slice} that keeps the actual data bytes.
+     */
+    public Slice getRawSlice()
+    {
+        return slice;
+    }
+
+    /**
+     * Gets the offset of the value at the {@code position} in the {@link Slice} returned by {@link #getRawSlice())}.
+     */
+    public int getRawSliceOffset(int position)
+    {
+        checkReadablePosition(this, position);
+        return getPositionOffset(position);
+    }
+
     @Override
     protected final int getPositionOffset(int position)
     {
@@ -89,7 +112,7 @@ public class VariableWidthBlock
     @Override
     public int getSliceLength(int position)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return getPositionOffset(position + 1) - getPositionOffset(position);
     }
 
@@ -112,6 +135,12 @@ public class VariableWidthBlock
     }
 
     @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.empty(); // size varies per element and is not fixed
+    }
+
+    @Override
     public long getSizeInBytes()
     {
         return sizeInBytes;
@@ -124,17 +153,21 @@ public class VariableWidthBlock
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount)
     {
+        if (selectedPositionsCount == 0) {
+            return 0;
+        }
+        if (selectedPositionsCount == positionCount) {
+            return getSizeInBytes();
+        }
         long sizeInBytes = 0;
-        int usedPositionCount = 0;
         for (int i = 0; i < positions.length; ++i) {
             if (positions[i]) {
-                usedPositionCount++;
                 sizeInBytes += offsets[arrayOffset + i + 1] - offsets[arrayOffset + i];
             }
         }
-        return sizeInBytes + (Integer.BYTES + Byte.BYTES) * (long) usedPositionCount;
+        return sizeInBytes + (Integer.BYTES + Byte.BYTES) * (long) selectedPositionsCount;
     }
 
     @Override
@@ -144,42 +177,57 @@ public class VariableWidthBlock
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(slice, slice.getRetainedSize());
         consumer.accept(offsets, sizeOf(offsets));
         if (valueIsNull != null) {
             consumer.accept(valueIsNull, sizeOf(valueIsNull));
         }
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
     public Block copyPositions(int[] positions, int offset, int length)
     {
         checkArrayRange(positions, offset, length);
-
-        int finalLength = 0;
-        for (int i = offset; i < offset + length; i++) {
-            finalLength += getSliceLength(positions[i]);
+        if (length == 0) {
+            return new VariableWidthBlock(0, 0, EMPTY_SLICE, new int[1], null);
         }
-        SliceOutput newSlice = Slices.allocate(finalLength).getOutput();
+
         int[] newOffsets = new int[length + 1];
-        boolean[] newValueIsNull = null;
-        if (valueIsNull != null) {
-            newValueIsNull = new boolean[length];
-        }
-
+        int finalLength = 0;
         for (int i = 0; i < length; i++) {
             int position = positions[offset + i];
-            if (!isEntryNull(position)) {
-                newSlice.writeBytes(slice, getPositionOffset(position), getSliceLength(position));
-            }
-            else if (newValueIsNull != null) {
-                newValueIsNull[i] = true;
-            }
-            newOffsets[i + 1] = newSlice.size();
+            finalLength += getSliceLength(position);
+            newOffsets[i + 1] = finalLength;
         }
+
+        SliceOutput newSlice = Slices.allocate(finalLength).getOutput();
+        boolean[] newValueIsNull = null;
+        int firstPosition = positions[offset];
+        if (valueIsNull != null) {
+            newValueIsNull = new boolean[length];
+            newValueIsNull[0] = valueIsNull[firstPosition + arrayOffset];
+        }
+        int currentStart = getPositionOffset(firstPosition);
+        int currentEnd = getPositionOffset(firstPosition + 1);
+        for (int i = 1; i < length; i++) {
+            int position = positions[offset + i];
+            if (valueIsNull != null) {
+                newValueIsNull[i] = valueIsNull[position + arrayOffset];
+            }
+            // Null positions must have valid offsets for getSliceLength to work correctly on the next non-null position
+            int currentOffset = getPositionOffset(position);
+            if (currentOffset != currentEnd) {
+                // Copy last continuous range of bytes and update currentStart to start new range
+                newSlice.writeBytes(slice, currentStart, currentEnd - currentStart);
+                currentStart = currentOffset;
+            }
+            currentEnd = getPositionOffset(position + 1);
+        }
+        // Copy last range of bytes
+        newSlice.writeBytes(slice, currentStart, currentEnd - currentStart);
         return new VariableWidthBlock(0, length, newSlice.slice(), newOffsets, newValueIsNull);
     }
 
@@ -211,6 +259,15 @@ public class VariableWidthBlock
             return this;
         }
         return new VariableWidthBlock(0, length, newSlice, newOffsets, newValueIsNull);
+    }
+
+    @Override
+    public Block copyWithAppendedNull()
+    {
+        boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, arrayOffset, positionCount);
+        int[] newOffsets = copyOffsetsAndAppendNull(offsets, arrayOffset, positionCount);
+
+        return new VariableWidthBlock(arrayOffset, positionCount + 1, slice, newOffsets, newValueIsNull);
     }
 
     @Override

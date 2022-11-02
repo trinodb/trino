@@ -46,7 +46,7 @@ public final class Utils
         return blockBuilder.build();
     }
 
-    static Object blockToNativeValue(Type type, Block block)
+    public static Object blockToNativeValue(Type type, Block block)
     {
         if (block.getPositionCount() != 1) {
             throw new IllegalArgumentException("Block should have exactly one position, but has: " + block.getPositionCount());

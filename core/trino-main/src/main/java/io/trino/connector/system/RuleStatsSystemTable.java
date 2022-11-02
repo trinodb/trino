@@ -14,7 +14,6 @@
 package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.Metadata;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -27,6 +26,7 @@ import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.TypeManager;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.iterative.RuleStats;
 
@@ -53,10 +53,10 @@ public class RuleStatsSystemTable
     private final Optional<RuleStatsRecorder> ruleStatsRecorder;
 
     @Inject
-    public RuleStatsSystemTable(Optional<RuleStatsRecorder> ruleStatsRecorder, Metadata metadata)
+    public RuleStatsSystemTable(Optional<RuleStatsRecorder> ruleStatsRecorder, TypeManager typeManager)
     {
         this.ruleStatsRecorder = requireNonNull(ruleStatsRecorder, "ruleStatsRecorder is null");
-        requireNonNull(metadata, "metadata is null");
+        requireNonNull(typeManager, "typeManager is null");
 
         this.ruleStatsTable = tableMetadataBuilder(TABLE_NAME)
                 .column("rule_name", VARCHAR)
@@ -64,7 +64,7 @@ public class RuleStatsSystemTable
                 .column("matches", BIGINT)
                 .column("failures", BIGINT)
                 .column("average_time", DOUBLE)
-                .column("time_distribution_percentiles", metadata.getType(mapType(DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature())))
+                .column("time_distribution_percentiles", typeManager.getType(mapType(DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature())))
                 .build();
     }
 

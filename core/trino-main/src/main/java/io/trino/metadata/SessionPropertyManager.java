@@ -14,14 +14,15 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.SystemSessionPropertiesProvider;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
@@ -34,6 +35,7 @@ import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.ParameterRewriter;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionTreeRewriter;
@@ -41,11 +43,9 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 
 import javax.annotation.Nullable;
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
@@ -65,7 +65,7 @@ public final class SessionPropertyManager
 {
     private static final JsonCodecFactory JSON_CODEC_FACTORY = new JsonCodecFactory();
     private final ConcurrentMap<String, PropertyMetadata<?>> systemSessionProperties = new ConcurrentHashMap<>();
-    private final ConcurrentMap<CatalogName, Map<String, PropertyMetadata<?>>> connectorSessionProperties = new ConcurrentHashMap<>();
+    private final CatalogServiceProvider<Map<String, PropertyMetadata<?>>> connectorSessionProperties;
 
     public SessionPropertyManager()
     {
@@ -74,21 +74,16 @@ public final class SessionPropertyManager
 
     public SessionPropertyManager(SystemSessionPropertiesProvider systemSessionPropertiesProvider)
     {
-        this(ImmutableSet.of(systemSessionPropertiesProvider));
+        this(ImmutableSet.of(systemSessionPropertiesProvider), connectorName -> ImmutableMap.of());
     }
 
-    @Inject
-    public SessionPropertyManager(Set<SystemSessionPropertiesProvider> systemSessionProperties)
+    public SessionPropertyManager(Set<SystemSessionPropertiesProvider> systemSessionProperties, CatalogServiceProvider<Map<String, PropertyMetadata<?>>> connectorSessionProperties)
     {
-        this(systemSessionProperties
+        addSystemSessionProperties(systemSessionProperties
                 .stream()
                 .flatMap(provider -> provider.getSessionProperties().stream())
                 .collect(toImmutableList()));
-    }
-
-    public SessionPropertyManager(List<PropertyMetadata<?>> systemSessionProperties)
-    {
-        addSystemSessionProperties(systemSessionProperties);
+        this.connectorSessionProperties = requireNonNull(connectorSessionProperties, "connectorSessionProperties is null");
     }
 
     public void addSystemSessionProperties(List<PropertyMetadata<?>> systemSessionProperties)
@@ -104,20 +99,6 @@ public final class SessionPropertyManager
                 "System session property '%s' are already registered", sessionProperty.getName());
     }
 
-    public void addConnectorSessionProperties(CatalogName catalogName, List<PropertyMetadata<?>> properties)
-    {
-        requireNonNull(catalogName, "catalogName is null");
-        requireNonNull(properties, "properties is null");
-
-        Map<String, PropertyMetadata<?>> propertiesByName = Maps.uniqueIndex(properties, PropertyMetadata::getName);
-        checkState(connectorSessionProperties.putIfAbsent(catalogName, propertiesByName) == null, "Session properties for catalog '%s' are already registered", catalogName);
-    }
-
-    public void removeConnectorSessionProperties(CatalogName catalogName)
-    {
-        connectorSessionProperties.remove(catalogName);
-    }
-
     public Optional<PropertyMetadata<?>> getSystemSessionPropertyMetadata(String name)
     {
         requireNonNull(name, "name is null");
@@ -125,22 +106,15 @@ public final class SessionPropertyManager
         return Optional.ofNullable(systemSessionProperties.get(name));
     }
 
-    public Optional<PropertyMetadata<?>> getConnectorSessionPropertyMetadata(CatalogName catalogName, String propertyName)
+    public Optional<PropertyMetadata<?>> getConnectorSessionPropertyMetadata(CatalogHandle catalogHandle, String propertyName)
     {
-        requireNonNull(catalogName, "catalogName is null");
+        requireNonNull(catalogHandle, "catalogHandle is null");
         requireNonNull(propertyName, "propertyName is null");
-        Map<String, PropertyMetadata<?>> properties = connectorSessionProperties.get(catalogName);
-        if (properties == null) {
-            throw new TrinoException(INVALID_SESSION_PROPERTY, "Unknown catalog: " + catalogName);
-        }
-        if (properties.isEmpty()) {
-            throw new TrinoException(INVALID_SESSION_PROPERTY, "No session properties found for catalog: " + catalogName);
-        }
-
+        Map<String, PropertyMetadata<?>> properties = connectorSessionProperties.getService(catalogHandle);
         return Optional.ofNullable(properties.get(propertyName));
     }
 
-    public List<SessionPropertyValue> getAllSessionProperties(Session session, Map<String, CatalogName> catalogs)
+    public List<SessionPropertyValue> getAllSessionProperties(Session session, List<CatalogInfo> catalogInfos)
     {
         requireNonNull(session, "session is null");
 
@@ -160,20 +134,20 @@ public final class SessionPropertyManager
                     property.isHidden()));
         }
 
-        for (Entry<String, CatalogName> entry : new TreeMap<>(catalogs).entrySet()) {
-            String catalog = entry.getKey();
-            CatalogName catalogName = entry.getValue();
-            Map<String, String> connectorProperties = session.getConnectorProperties(catalogName);
+        for (CatalogInfo catalogInfo : catalogInfos) {
+            CatalogHandle catalogHandle = catalogInfo.getCatalogHandle();
+            String catalogName = catalogInfo.getCatalogName();
+            Map<String, String> connectorProperties = session.getCatalogProperties(catalogName);
 
-            for (PropertyMetadata<?> property : new TreeMap<>(connectorSessionProperties.get(catalogName)).values()) {
+            for (PropertyMetadata<?> property : new TreeMap<>(connectorSessionProperties.getService(catalogHandle)).values()) {
                 String defaultValue = firstNonNull(property.getDefaultValue(), "").toString();
                 String value = connectorProperties.getOrDefault(property.getName(), defaultValue);
 
                 sessionPropertyValues.add(new SessionPropertyValue(
                         value,
                         defaultValue,
-                        catalog + "." + property.getName(),
-                        Optional.of(catalog),
+                        catalogName + "." + property.getName(),
+                        Optional.of(catalogName),
                         property.getName(),
                         property.getDescription(),
                         property.getSqlType().getDisplayName(),
@@ -192,10 +166,10 @@ public final class SessionPropertyManager
         return decodePropertyValue(name, value, type, property);
     }
 
-    public <T> T decodeCatalogPropertyValue(CatalogName catalog, String catalogName, String propertyName, @Nullable String propertyValue, Class<T> type)
+    public <T> T decodeCatalogPropertyValue(CatalogHandle catalogHandle, String catalogName, String propertyName, @Nullable String propertyValue, Class<T> type)
     {
         String fullPropertyName = catalogName + "." + propertyName;
-        PropertyMetadata<?> property = getConnectorSessionPropertyMetadata(catalog, propertyName)
+        PropertyMetadata<?> property = getConnectorSessionPropertyMetadata(catalogHandle, propertyName)
                 .orElseThrow(() -> new TrinoException(INVALID_SESSION_PROPERTY, "Unknown session property " + fullPropertyName));
 
         return decodePropertyValue(fullPropertyName, propertyValue, type, property);
@@ -209,10 +183,10 @@ public final class SessionPropertyManager
         decodePropertyValue(propertyName, propertyValue, propertyMetadata.getJavaType(), propertyMetadata);
     }
 
-    public void validateCatalogSessionProperty(CatalogName catalog, String propertyName, String propertyValue)
+    public void validateCatalogSessionProperty(String catalogName, CatalogHandle catalogHandle, String propertyName, String propertyValue)
     {
-        String fullPropertyName = catalog.getCatalogName() + "." + propertyName;
-        PropertyMetadata<?> propertyMetadata = getConnectorSessionPropertyMetadata(catalog, propertyName)
+        String fullPropertyName = catalogName + "." + propertyName;
+        PropertyMetadata<?> propertyMetadata = getConnectorSessionPropertyMetadata(catalogHandle, propertyName)
                 .orElseThrow(() -> new TrinoException(INVALID_SESSION_PROPERTY, "Unknown session property " + fullPropertyName));
 
         decodePropertyValue(fullPropertyName, propertyValue, propertyMetadata.getJavaType(), propertyMetadata);
@@ -241,10 +215,10 @@ public final class SessionPropertyManager
         }
     }
 
-    public static Object evaluatePropertyValue(Expression expression, Type expectedType, Session session, Metadata metadata, AccessControl accessControl, Map<NodeRef<Parameter>, Expression> parameters)
+    public static Object evaluatePropertyValue(Expression expression, Type expectedType, Session session, PlannerContext plannerContext, AccessControl accessControl, Map<NodeRef<Parameter>, Expression> parameters)
     {
         Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), expression);
-        Object value = evaluateConstantExpression(rewritten, expectedType, metadata, session, accessControl, parameters);
+        Object value = evaluateConstantExpression(rewritten, expectedType, plannerContext, session, accessControl, parameters);
 
         // convert to object value type of SQL type
         BlockBuilder blockBuilder = expectedType.createBlockBuilder(null, 1);

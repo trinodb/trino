@@ -64,11 +64,15 @@ public class TestWorkProcessorOperatorAdapter
 
         operator.getOutput();
         assertThat(operator.isFinished()).isFalse();
-        assertThat(getOnlyElement(context.getNestedOperatorStats()).getMetrics().getMetrics()).isEqualTo(ImmutableMap.of("testOperatorMetric", new LongCount(1)));
+        assertThat(getOnlyElement(context.getNestedOperatorStats()).getMetrics().getMetrics())
+                .hasSize(5)
+                .containsEntry("testOperatorMetric", new LongCount(1));
 
         operator.getOutput();
         assertThat(operator.isFinished()).isTrue();
-        assertThat(getOnlyElement(context.getNestedOperatorStats()).getMetrics().getMetrics()).isEqualTo(ImmutableMap.of("testOperatorMetric", new LongCount(2)));
+        assertThat(getOnlyElement(context.getNestedOperatorStats()).getMetrics().getMetrics())
+                .hasSize(5)
+                .containsEntry("testOperatorMetric", new LongCount(2));
     }
 
     private static class TestWorkProcessorOperatorFactory

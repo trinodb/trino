@@ -31,7 +31,7 @@ public class RoleGrant
     public RoleGrant(@JsonProperty("grantee") TrinoPrincipal grantee, @JsonProperty("roleName") String roleName, @JsonProperty("grantable") boolean grantable)
     {
         this.grantee = requireNonNull(grantee, "grantee is null");
-        this.roleName = requireNonNull(roleName, "roleName is null").toLowerCase(ENGLISH);
+        this.roleName = roleName.toLowerCase(ENGLISH);
         this.grantable = grantable;
     }
 

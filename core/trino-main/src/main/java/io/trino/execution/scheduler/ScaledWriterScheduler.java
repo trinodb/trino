@@ -14,11 +14,12 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import io.trino.execution.RemoteTask;
-import io.trino.execution.SqlStageExecution;
 import io.trino.execution.TaskStatus;
+import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.metadata.InternalNode;
 
 import java.util.Collection;
@@ -39,30 +40,33 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class ScaledWriterScheduler
         implements StageScheduler
 {
-    private final SqlStageExecution stage;
+    private final StageExecution stage;
     private final Supplier<Collection<TaskStatus>> sourceTasksProvider;
     private final Supplier<Collection<TaskStatus>> writerTasksProvider;
     private final NodeSelector nodeSelector;
     private final ScheduledExecutorService executor;
     private final long writerMinSizeBytes;
+    private final int maxTaskWriterCount;
     private final Set<InternalNode> scheduledNodes = new HashSet<>();
     private final AtomicBoolean done = new AtomicBoolean();
     private volatile SettableFuture<Void> future = SettableFuture.create();
 
     public ScaledWriterScheduler(
-            SqlStageExecution stage,
+            StageExecution stage,
             Supplier<Collection<TaskStatus>> sourceTasksProvider,
             Supplier<Collection<TaskStatus>> writerTasksProvider,
             NodeSelector nodeSelector,
             ScheduledExecutorService executor,
-            DataSize writerMinSize)
+            DataSize writerMinSize,
+            int maxTaskWriterCount)
     {
         this.stage = requireNonNull(stage, "stage is null");
         this.sourceTasksProvider = requireNonNull(sourceTasksProvider, "sourceTasksProvider is null");
         this.writerTasksProvider = requireNonNull(writerTasksProvider, "writerTasksProvider is null");
         this.nodeSelector = requireNonNull(nodeSelector, "nodeSelector is null");
         this.executor = requireNonNull(executor, "executor is null");
-        this.writerMinSizeBytes = requireNonNull(writerMinSize, "writerMinSize is null").toBytes();
+        this.writerMinSizeBytes = writerMinSize.toBytes();
+        this.maxTaskWriterCount = maxTaskWriterCount;
     }
 
     public void finish()
@@ -91,7 +95,8 @@ public class ScaledWriterScheduler
 
         double fullTasks = sourceTasksProvider.get().stream()
                 .filter(task -> !task.getState().isDone())
-                .map(TaskStatus::isOutputBufferOverutilized)
+                .map(TaskStatus::getOutputBufferStatus)
+                .map(OutputBufferStatus::isOverutilized)
                 .mapToDouble(full -> full ? 1.0 : 0.0)
                 .average().orElse(0.0);
 
@@ -100,7 +105,7 @@ public class ScaledWriterScheduler
                 .mapToLong(DataSize::toBytes)
                 .sum();
 
-        if ((fullTasks >= 0.5) && (writtenBytes >= (writerMinSizeBytes * scheduledNodes.size()))) {
+        if ((fullTasks >= 0.5) && (writtenBytes >= (writerMinSizeBytes * maxTaskWriterCount * scheduledNodes.size()))) {
             return 1;
         }
 
@@ -119,7 +124,7 @@ public class ScaledWriterScheduler
 
         ImmutableList.Builder<RemoteTask> tasks = ImmutableList.builder();
         for (InternalNode node : nodes) {
-            Optional<RemoteTask> remoteTask = stage.scheduleTask(node, scheduledNodes.size());
+            Optional<RemoteTask> remoteTask = stage.scheduleTask(node, scheduledNodes.size(), ImmutableMultimap.of());
             remoteTask.ifPresent(task -> {
                 tasks.add(task);
                 scheduledNodes.add(node);

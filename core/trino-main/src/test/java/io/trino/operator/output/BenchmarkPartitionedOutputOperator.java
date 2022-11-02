@@ -14,28 +14,30 @@
 package io.trino.operator.output;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
-import io.trino.Session;
-import io.trino.execution.StateMachine;
-import io.trino.execution.buffer.BufferState;
-import io.trino.execution.buffer.OutputBuffers;
+import io.trino.execution.StageId;
+import io.trino.execution.TaskId;
+import io.trino.execution.buffer.OutputBufferStateMachine;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.PartitionedOutputBuffer;
-import io.trino.execution.buffer.SerializedPage;
+import io.trino.execution.buffer.PipelinedOutputBuffers;
+import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.jmh.Benchmarks;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.DriverContext;
-import io.trino.operator.OperatorFactories;
-import io.trino.operator.OutputFactory;
+import io.trino.operator.PageTestUtils;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.PrecomputedHashGenerator;
-import io.trino.operator.TaskContext;
-import io.trino.operator.TrinoOperatorFactories;
+import io.trino.operator.output.PartitionedOutputOperator.PartitionedOutputFactory;
 import io.trino.spi.Page;
+import io.trino.spi.QueryId;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -49,6 +51,7 @@ import io.trino.spi.type.VarcharType;
 import io.trino.sql.planner.HashBucketFunction;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingTaskContext;
+import io.trino.type.BlockTypeOperators;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -67,6 +70,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -79,25 +83,19 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.block.BlockAssertions.chooseNullPositions;
 import static io.trino.block.BlockAssertions.createLongDictionaryBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
-import static io.trino.block.BlockAssertions.createRLEBlock;
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
 import static io.trino.block.BlockAssertions.createRandomLongsBlock;
-import static io.trino.execution.buffer.BufferState.OPEN;
-import static io.trino.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
-import static io.trino.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
-import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
+import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
-import static io.trino.operator.PageTestUtils.createRandomDictionaryPage;
-import static io.trino.operator.PageTestUtils.createRandomPage;
-import static io.trino.operator.PageTestUtils.createRandomRlePage;
 import static io.trino.operator.output.BenchmarkPartitionedOutputOperator.BenchmarkData.TestType;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
-import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Collections.nCopies;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
@@ -113,7 +111,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 @BenchmarkMode(Mode.AverageTime)
 public class BenchmarkPartitionedOutputOperator
 {
-    private static final OperatorFactories OPERATOR_FACTORIES = new TrinoOperatorFactories();
+    private static final PositionsAppenderFactory POSITIONS_APPENDER_FACTORY = new PositionsAppenderFactory(new BlockTypeOperators());
 
     @Benchmark
     public void addPage(BenchmarkData data)
@@ -142,9 +140,6 @@ public class BenchmarkPartitionedOutputOperator
         private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("BenchmarkPartitionedOutputOperator-executor-%s"));
         private static final ScheduledExecutorService SCHEDULER = newScheduledThreadPool(1, daemonThreadsNamed("BenchmarkPartitionedOutputOperator-scheduledExecutor-%s"));
 
-        private final OperatorFactories operatorFactories;
-        private final Session session;
-
         @Param({"2", "16", "256"})
         private int partitionCount = 256;
 
@@ -158,29 +153,68 @@ public class BenchmarkPartitionedOutputOperator
         private int positionCount = DEFAULT_POSITION_COUNT;
 
         @Param({
+                // Flat BIGINT data channel, flat BIGINT partition channel.
                 "BIGINT",
-                "BIGINT_SKEWED_HASH",
+                // Flat BIGINT data channel, flat BIGINT partition channel with only 2 values.
+                "BIGINT_PARTITION_CHANNEL_SKEWED",
+                // Dictionary BIGINT data channel, flat BIGINT partition channel.
                 "DICTIONARY_BIGINT",
+                // Rle BIGINT data channel, flat BIGINT partition channel.
                 "RLE_BIGINT",
+                // Flat BIGINT data channel, flat BIGINT partition channel with number of distinct values equal to 20% of data page size.
                 "BIGINT_PARTITION_CHANNEL_20_PERCENT",
-                "BIGINT_DICTIONARY_PARTITION_CHANNEL_20_PERCENT",
-                "BIGINT_DICTIONARY_PARTITION_CHANNEL_50_PERCENT",
-                "BIGINT_DICTIONARY_PARTITION_CHANNEL_80_PERCENT",
-                "BIGINT_DICTIONARY_PARTITION_CHANNEL_100_PERCENT",
-                "RLE_PARTITION_BIGINT",
-                "RLE_PARTITION_NULL_BIGINT",
+                // Flat BIGINT data channel, dictionary BIGINT partition channel with dictionary size equal to 20% of data page size.
+                // To be compared with BIGINT_PARTITION_CHANNEL_20_PERCENT.
+                "BIGINT_PARTITION_CHANNEL_DICTIONARY_20_PERCENT",
+                // Flat BIGINT data channel, dictionary BIGINT partition channel with dictionary size equal to 50% of data page size.
+                "BIGINT_PARTITION_CHANNEL_DICTIONARY_50_PERCENT",
+                // Flat BIGINT data channel, dictionary BIGINT partition channel with dictionary size equal to 80% of data page size.
+                "BIGINT_PARTITION_CHANNEL_DICTIONARY_80_PERCENT",
+                // Flat BIGINT data channel, dictionary BIGINT partition channel with dictionary size equal to data page size.
+                "BIGINT_PARTITION_CHANNEL_DICTIONARY_100_PERCENT",
+                // Flat BIGINT data channel, dictionary BIGINT partition channel with dictionary size equal to data page size - 1.
+                // To be compared with BIGINT_PARTITION_CHANNEL_DICTIONARY_100_PERCENT.
+                "BIGINT_PARTITION_CHANNEL_DICTIONARY_100_PERCENT_MINUS_1",
+                // Flat BIGINT data channel, rle BIGINT partition channel with not null value.
+                "BIGINT_PARTITION_CHANNEL_RLE",
+                // Flat BIGINT data channel, rle BIGINT partition channel with null value.
+                "BIGINT_PARTITION_CHANNEL_RLE_NULL",
+                // Flat LONG_DECIMAL data channel, flat BIGINT partition channel.
                 "LONG_DECIMAL",
+                // Dictionary LONG_DECIMAL data channel, flat BIGINT partition channel.
+                "DICTIONARY_LONG_DECIMAL",
+                // Flat INTEGER data channel, flat BIGINT partition channel.
                 "INTEGER",
+                // Dictionary INTEGER data channel, flat BIGINT partition channel.
+                "DICTIONARY_INTEGER",
+                // Flat SMALLINT data channel, flat BIGINT partition channel.
                 "SMALLINT",
+                // Dictionary SMALLINT data channel, flat BIGINT partition channel.
+                "DICTIONARY_SMALLINT",
+                // Flat BOOLEAN data channel, flat BIGINT partition channel.
                 "BOOLEAN",
+                // Dictionary BOOLEAN data channel, flat BIGINT partition channel.
+                "DICTIONARY_BOOLEAN",
+                // Flat VARCHAR data channel, flat BIGINT partition channel.
                 "VARCHAR",
+                // Dictionary VARCHAR data channel, flat BIGINT partition channel.
+                "DICTIONARY_VARCHAR",
+                // Flat array of BIGINT data channel, flat BIGINT partition channel.
                 "ARRAY_BIGINT",
+                // Flat array of VARCHAR data channel, flat BIGINT partition channel.
                 "ARRAY_VARCHAR",
+                // Flat array of array of BIGINT data channel, flat BIGINT partition channel.
                 "ARRAY_ARRAY_BIGINT",
+                // Flat map<BIGINT, BIGINT> data channel, flat BIGINT partition channel.
                 "MAP_BIGINT_BIGINT",
+                // Flat map<BIGINT map<BIGINT, BIGINT>> data channel, flat BIGINT partition channel.
                 "MAP_BIGINT_MAP_BIGINT_BIGINT",
+                // Flat RowType with two BIGINT fields data channel, flat BIGINT partition channel.
                 "ROW_BIGINT_BIGINT",
-                "ROW_ARRAY_BIGINT_ARRAY_BIGINT"
+                // Flat RowType with BIGINT and array of BIGINT fields data channel, flat BIGINT partition channel.
+                "ROW_ARRAY_BIGINT_ARRAY_BIGINT",
+                // Flat RowType with rle BIGINT and flat BIGINT fields data channel, flat BIGINT partition channel.
+                "ROW_RLE_BIGINT_BIGINT",
         })
         private TestType type = TestType.BIGINT;
 
@@ -197,141 +231,114 @@ public class BenchmarkPartitionedOutputOperator
         public enum TestType
         {
             BIGINT(BigintType.BIGINT, 5000),
-            BIGINT_SKEWED_HASH(BigintType.BIGINT, 5000) {
-                @Override
-                public Page createPage(List<Type> types, int positionCount, float nullRate)
-                {
-                    return page(
-                            positionCount,
-                            types.size(),
-                            () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
-                            createRandomLongsBlock(positionCount, 2));
-                }
-            },
-            DICTIONARY_BIGINT(BigintType.BIGINT, 3000) {
-                @Override
-                public Page createPage(List<Type> types, int positionCount, float nullRate)
-                {
-                    return createRandomDictionaryPage(types, positionCount, nullRate);
-                }
-            },
-            RLE_BIGINT(BigintType.BIGINT, 3000) {
-                @Override
-                public Page createPage(List<Type> types, int positionCount, float nullRate)
-                {
-                    return createRandomRlePage(types, positionCount, nullRate);
-                }
-            },
-            BIGINT_PARTITION_CHANNEL_20_PERCENT(BigintType.BIGINT, 3000) {
-                @Override
-                public Page createPage(List<Type> types, int positionCount, float nullRate)
-                {
-                    return page(
-                            positionCount,
-                            types.size(),
-                            () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
-                            createLongsBlock(LongStream.range(0, positionCount)
-                                    .mapToObj(value -> value % (positionCount / 5))
-                                    .collect(toImmutableList())));
-                }
-            },
-            BIGINT_DICTIONARY_PARTITION_CHANNEL_20_PERCENT(BigintType.BIGINT, 3000) {
-                @Override
-                public Page createPage(List<Type> types, int positionCount, float nullRate)
-                {
-                    return page(
-                            positionCount,
-                            types.size(),
-                            () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
-                            createLongDictionaryBlock(0, positionCount, positionCount / 5));
-                }
-            },
-            BIGINT_DICTIONARY_PARTITION_CHANNEL_50_PERCENT(BigintType.BIGINT, 3000) {
-                @Override
-                public Page createPage(List<Type> types, int positionCount, float nullRate)
-                {
-                    return page(
-                            positionCount,
-                            types.size(),
-                            () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
-                            createLongDictionaryBlock(0, positionCount, positionCount / 2));
-                }
-            },
-            BIGINT_DICTIONARY_PARTITION_CHANNEL_80_PERCENT(BigintType.BIGINT, 3000) {
-                @Override
-                public Page createPage(List<Type> types, int positionCount, float nullRate)
-                {
-                    return page(
-                            positionCount,
-                            types.size(),
-                            () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
-                            createLongDictionaryBlock(0, positionCount, (int) (positionCount * 0.8)));
-                }
-            },
-            BIGINT_DICTIONARY_PARTITION_CHANNEL_100_PERCENT(BigintType.BIGINT, 3000) {
-                @Override
-                public Page createPage(List<Type> types, int positionCount, float nullRate)
-                {
-                    return page(
-                            positionCount,
-                            types.size(),
-                            () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
-                            createLongDictionaryBlock(0, positionCount, positionCount));
-                }
-            },
-            RLE_PARTITION_BIGINT(BigintType.BIGINT, 5000) {
-                @Override
-                public Page createPage(List<Type> types, int positionCount, float nullRate)
-                {
-                    return page(
-                            positionCount,
-                            types.size(),
-                            () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
-                            createRLEBlock(42, positionCount));
-                }
-            },
-            RLE_PARTITION_NULL_BIGINT(BigintType.BIGINT, 20) {
-                @Override
-                public Page createPage(List<Type> types, int positionCount, float nullRate)
-                {
-                    return page(
-                            positionCount,
-                            types.size(),
-                            () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
-                            new RunLengthEncodedBlock(createLongsBlock((Long) null), positionCount));
-                }
-
-                @Override
-                public OptionalInt getNullChannel()
-                {
-                    return OptionalInt.of(1);
-                }
-            },
+            BIGINT_PARTITION_CHANNEL_SKEWED(BigintType.BIGINT, 5000, (types, positionCount, nullRate) -> {
+                return page(
+                        positionCount,
+                        types.size(),
+                        () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
+                        createRandomLongsBlock(positionCount, 2));
+            }),
+            DICTIONARY_BIGINT(BigintType.BIGINT, 5000, PageTestUtils::createRandomDictionaryPage),
+            RLE_BIGINT(BigintType.BIGINT, 3000, PageTestUtils::createRandomRlePage),
+            BIGINT_PARTITION_CHANNEL_20_PERCENT(BigintType.BIGINT, 3000, (types, positionCount, nullRate) -> {
+                return page(
+                        positionCount,
+                        types.size(),
+                        () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
+                        createLongsBlock(LongStream.range(0, positionCount)
+                                .mapToObj(value -> value % (positionCount / 5))
+                                .collect(toImmutableList())));
+            }),
+            BIGINT_PARTITION_CHANNEL_DICTIONARY_20_PERCENT(BigintType.BIGINT, 3000, (types, positionCount, nullRate) ->
+                    createDictionaryPartitionChannelPage(types, positionCount, nullRate, positionCount / 5)),
+            BIGINT_PARTITION_CHANNEL_DICTIONARY_50_PERCENT(BigintType.BIGINT, 3000, (types, positionCount, nullRate) ->
+                    createDictionaryPartitionChannelPage(types, positionCount, nullRate, positionCount / 2)),
+            BIGINT_PARTITION_CHANNEL_DICTIONARY_80_PERCENT(BigintType.BIGINT, 3000, (types, positionCount, nullRate) ->
+                    createDictionaryPartitionChannelPage(types, positionCount, nullRate, (int) (positionCount * 0.8))),
+            BIGINT_PARTITION_CHANNEL_DICTIONARY_100_PERCENT(BigintType.BIGINT, 3000, (types, positionCount, nullRate) ->
+                    createDictionaryPartitionChannelPage(types, positionCount, nullRate, positionCount)),
+            BIGINT_PARTITION_CHANNEL_DICTIONARY_100_PERCENT_MINUS_1(BigintType.BIGINT, 3000, (types, positionCount, nullRate) ->
+                    createDictionaryPartitionChannelPage(types, positionCount, nullRate, positionCount - 1)),
+            BIGINT_PARTITION_CHANNEL_RLE(BigintType.BIGINT, 5000, (types, positionCount, nullRate) -> {
+                return page(
+                        positionCount,
+                        types.size(),
+                        () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
+                        createRepeatedValuesBlock(42, positionCount));
+            }),
+            BIGINT_PARTITION_CHANNEL_RLE_NULL(BigintType.BIGINT, 20, (types, positionCount, nullRate) -> {
+                return page(
+                        positionCount,
+                        types.size(),
+                        () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
+                        RunLengthEncodedBlock.create(createLongsBlock((Long) null), positionCount));
+            }),
             LONG_DECIMAL(createDecimalType(MAX_SHORT_PRECISION + 1), 5000),
+            DICTIONARY_LONG_DECIMAL(createDecimalType(MAX_SHORT_PRECISION + 1), 5000, PageTestUtils::createRandomDictionaryPage),
             INTEGER(IntegerType.INTEGER, 5000),
+            DICTIONARY_INTEGER(IntegerType.INTEGER, 5000, PageTestUtils::createRandomDictionaryPage),
             SMALLINT(SmallintType.SMALLINT, 5000),
+            DICTIONARY_SMALLINT(SmallintType.SMALLINT, 5000, PageTestUtils::createRandomDictionaryPage),
             BOOLEAN(BooleanType.BOOLEAN, 5000),
+            DICTIONARY_BOOLEAN(BooleanType.BOOLEAN, 5000, PageTestUtils::createRandomDictionaryPage),
             VARCHAR(VarcharType.VARCHAR, 5000),
+            DICTIONARY_VARCHAR(VarcharType.VARCHAR, 5000, PageTestUtils::createRandomDictionaryPage),
             ARRAY_BIGINT(new ArrayType(BigintType.BIGINT), 1000),
             ARRAY_VARCHAR(new ArrayType(VarcharType.VARCHAR), 1000),
             ARRAY_ARRAY_BIGINT(new ArrayType(new ArrayType(BigintType.BIGINT)), 1000),
             MAP_BIGINT_BIGINT(createMapType(BigintType.BIGINT, BigintType.BIGINT), 1000),
             MAP_BIGINT_MAP_BIGINT_BIGINT(createMapType(BigintType.BIGINT, createMapType(BigintType.BIGINT, BigintType.BIGINT)), 1000),
             ROW_BIGINT_BIGINT(rowTypeWithDefaultFieldNames(ImmutableList.of(BigintType.BIGINT, BigintType.BIGINT)), 1000),
-            ROW_ARRAY_BIGINT_ARRAY_BIGINT(rowTypeWithDefaultFieldNames(ImmutableList.of(new ArrayType(BigintType.BIGINT), new ArrayType(BigintType.BIGINT))), 1000);
+            ROW_ARRAY_BIGINT_ARRAY_BIGINT(rowTypeWithDefaultFieldNames(ImmutableList.of(new ArrayType(BigintType.BIGINT), new ArrayType(BigintType.BIGINT))), 1000),
+            ROW_RLE_BIGINT_BIGINT(rowTypeWithDefaultFieldNames(ImmutableList.of(BigintType.BIGINT, BigintType.BIGINT)), 1000, (types, positionCount, nullRate) -> {
+                return PageTestUtils.createPage(
+                        types,
+                        positionCount,
+                        Optional.of(ImmutableList.of(0)),
+                        types.stream()
+                                .map(type -> {
+                                    boolean[] isNull = null;
+                                    int nullPositionCount = 0;
+                                    if (nullRate > 0) {
+                                        isNull = new boolean[positionCount];
+                                        Set<Integer> nullPositions = chooseNullPositions(positionCount, nullRate);
+                                        for (int nullPosition : nullPositions) {
+                                            isNull[nullPosition] = true;
+                                        }
+                                        nullPositionCount = nullPositions.size();
+                                    }
+
+                                    int notNullPositionsCount = positionCount - nullPositionCount;
+                                    return RowBlock.fromFieldBlocks(
+                                            positionCount,
+                                            Optional.ofNullable(isNull),
+                                            new Block[] {
+                                                    RunLengthEncodedBlock.create(createLongsBlock(-65128734213L), notNullPositionsCount),
+                                                    createRandomLongsBlock(notNullPositionsCount, nullRate)});
+                                })
+                                .collect(toImmutableList()));
+            });
 
             private final Type type;
             private final int pageCount;
 
+            private final PageGenerator pageGenerator;
+
             TestType(Type type, int pageCount)
+            {
+                this(type, pageCount, PageTestUtils::createRandomPage);
+            }
+
+            TestType(Type type, int pageCount, PageGenerator pageGenerator)
             {
                 this.type = requireNonNull(type, "type is null");
                 this.pageCount = pageCount;
+                this.pageGenerator = requireNonNull(pageGenerator, "pageGenerator is null");
             }
 
-            public Page createPage(List<Type> types, int positionCount, float nullRate)
+            public PageGenerator getPageGenerator()
             {
-                return createRandomPage(types, positionCount, nullRate);
+                return pageGenerator;
             }
 
             public int getPageCount()
@@ -348,17 +355,20 @@ public class BenchmarkPartitionedOutputOperator
             {
                 return nCopies(channelCount, type);
             }
-        }
 
-        public BenchmarkData()
-        {
-            this(OPERATOR_FACTORIES, testSessionBuilder().build());
-        }
+            interface PageGenerator
+            {
+                Page createPage(List<Type> types, int positionCount, float nullRate);
+            }
 
-        protected BenchmarkData(OperatorFactories operatorFactories, Session session)
-        {
-            this.operatorFactories = requireNonNull(operatorFactories, "operatorFactories is null");
-            this.session = requireNonNull(session, "session is null");
+            private static Page createDictionaryPartitionChannelPage(List<Type> types, int positionCount, float nullRate, int dictionarySize)
+            {
+                return page(
+                        positionCount,
+                        types.size(),
+                        () -> createRandomBlockForType(types.get(0), positionCount, nullRate),
+                        createLongDictionaryBlock(0, positionCount, dictionarySize));
+            }
         }
 
         public int getPageCount()
@@ -369,6 +379,16 @@ public class BenchmarkPartitionedOutputOperator
         public void setPageCount(int pageCount)
         {
             this.pageCount = pageCount;
+        }
+
+        public void setPartitionCount(int partitionCount)
+        {
+            this.partitionCount = partitionCount;
+        }
+
+        public void setPositionCount(int positionCount)
+        {
+            this.positionCount = positionCount;
         }
 
         public void setType(TestType type)
@@ -384,11 +404,17 @@ public class BenchmarkPartitionedOutputOperator
         @Setup
         public void setup(Blackhole blackhole)
         {
+            setupData(blackhole);
+            pollute();
+        }
+
+        private void setupData(Blackhole blackhole)
+        {
             // We don't check blackhole is not null, because blackhole has to be injected by jmh (should not be created manually)
             // and in case of unit test it will be null
             this.blackhole = blackhole;
             types = type.getTypes(channelCount);
-            dataPage = type.createPage(types, positionCount, nullRate);
+            dataPage = type.getPageGenerator().createPage(types, positionCount, nullRate);
             pageCount = type.getPageCount();
             nullChannel = type.getNullChannel();
             types = ImmutableList.<Type>builder()
@@ -411,9 +437,9 @@ public class BenchmarkPartitionedOutputOperator
 
         private PartitionedOutputBuffer createPartitionedOutputBuffer()
         {
-            OutputBuffers buffers = createInitialEmptyOutputBuffers(PARTITIONED);
+            PipelinedOutputBuffers buffers = PipelinedOutputBuffers.createInitial(PARTITIONED);
             for (int partition = 0; partition < partitionCount; partition++) {
-                buffers = buffers.withBuffer(new OutputBuffers.OutputBufferId(partition), partition);
+                buffers = buffers.withBuffer(new OutputBufferId(partition), partition);
             }
 
             return createPartitionedBuffer(
@@ -426,42 +452,37 @@ public class BenchmarkPartitionedOutputOperator
             PartitionFunction partitionFunction = new BucketPartitionFunction(
                     new HashBucketFunction(new PrecomputedHashGenerator(0), partitionCount),
                     IntStream.range(0, partitionCount).toArray());
-            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(createTestMetadataManager().getBlockEncodingSerde(), enableCompression);
+            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new TestingBlockEncodingSerde(), enableCompression);
 
             PartitionedOutputBuffer buffer = createPartitionedOutputBuffer();
-            TaskContext taskContext = createTaskContext();
 
-            OutputFactory operatorFactory = operatorFactories.partitionedOutput(
-                    taskContext,
+            PartitionedOutputFactory operatorFactory = new PartitionedOutputFactory(
                     partitionFunction,
                     ImmutableList.of(types.size() - 1), // hash block is at the last channel
                     ImmutableList.of(Optional.empty()),
                     false,
-                    nullChannel,
+                    OptionalInt.empty(),
                     buffer,
-                    MAX_PARTITION_BUFFER_SIZE);
+                    MAX_PARTITION_BUFFER_SIZE,
+                    POSITIONS_APPENDER_FACTORY);
             return (PartitionedOutputOperator) operatorFactory
                     .createOutputOperator(0, new PlanNodeId("plan-node-0"), types, Function.identity(), serdeFactory)
-                    .createOperator(createDriverContext(taskContext));
+                    .createOperator(createDriverContext());
         }
 
-        private DriverContext createDriverContext(TaskContext taskContext)
+        private DriverContext createDriverContext()
         {
-            return taskContext
+            return TestingTaskContext.builder(EXECUTOR, SCHEDULER, TEST_SESSION)
+                    .build()
                     .addPipelineContext(0, true, true, false)
                     .addDriverContext();
         }
 
-        private TaskContext createTaskContext()
-        {
-            return TestingTaskContext.builder(EXECUTOR, SCHEDULER, session).build();
-        }
-
-        private TestingPartitionedOutputBuffer createPartitionedBuffer(OutputBuffers buffers, DataSize dataSize)
+        private TestingPartitionedOutputBuffer createPartitionedBuffer(PipelinedOutputBuffers buffers, DataSize dataSize)
         {
             return new TestingPartitionedOutputBuffer(
                     "task-instance-id",
-                    new StateMachine<>("bufferState", SCHEDULER, OPEN, TERMINAL_BUFFER_STATES),
+                    new OutputBufferStateMachine(new TaskId(new StageId(new QueryId("query"), 0), 0, 0), SCHEDULER),
                     buffers,
                     dataSize,
                     () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
@@ -476,20 +497,20 @@ public class BenchmarkPartitionedOutputOperator
 
             public TestingPartitionedOutputBuffer(
                     String taskInstanceId,
-                    StateMachine<BufferState> state,
-                    OutputBuffers outputBuffers,
+                    OutputBufferStateMachine stateMachine,
+                    PipelinedOutputBuffers outputBuffers,
                     DataSize maxBufferSize,
-                    Supplier<LocalMemoryContext> systemMemoryContextSupplier,
+                    Supplier<LocalMemoryContext> memoryContextSupplier,
                     Executor notificationExecutor,
                     Blackhole blackhole)
             {
-                super(taskInstanceId, state, outputBuffers, maxBufferSize, systemMemoryContextSupplier, notificationExecutor);
+                super(taskInstanceId, stateMachine, outputBuffers, maxBufferSize, memoryContextSupplier, notificationExecutor);
                 this.blackhole = blackhole;
             }
 
             // Use a dummy enqueue method to avoid OutOfMemory error
             @Override
-            public void enqueue(int partitionNumber, List<SerializedPage> pages)
+            public void enqueue(int partitionNumber, List<Slice> pages)
             {
                 // The blackhole will be null only for not benchmark runs (test and profile pollution).
                 // For the benchmarks, the instance will be provided by jmh infra via setup method.
@@ -519,7 +540,8 @@ public class BenchmarkPartitionedOutputOperator
                 new TypeOperators());
     }
 
-    static {
+    private static void pollute()
+    {
         try {
             List<TestType> types = List.of(
                     TestType.BIGINT,
@@ -536,8 +558,16 @@ public class BenchmarkPartitionedOutputOperator
             types.forEach(type -> {
                 BenchmarkData data = new BenchmarkData();
                 data.setType(type);
-                data.setup(null);
+                data.setupData(null);
                 data.setPageCount(1);
+                benchmark.addPage(data);
+                // pollute row-wise processing
+                data = new BenchmarkData();
+                data.setType(type);
+                data.setPartitionCount(256);
+                data.setPositionCount(256);
+                data.setupData(null);
+                data.setPageCount(50);
                 benchmark.addPage(data);
             });
         }

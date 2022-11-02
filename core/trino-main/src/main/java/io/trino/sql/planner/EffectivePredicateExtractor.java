@@ -20,11 +20,15 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.SingleRowBlock;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.DistinctLimitNode;
@@ -94,36 +98,38 @@ public class EffectivePredicateExtractor
                 return new ComparisonExpression(EQUAL, reference, expression);
             };
 
+    private final PlannerContext plannerContext;
     private final DomainTranslator domainTranslator;
-    private final Metadata metadata;
     private final boolean useTableProperties;
 
-    public EffectivePredicateExtractor(DomainTranslator domainTranslator, Metadata metadata, boolean useTableProperties)
+    public EffectivePredicateExtractor(DomainTranslator domainTranslator, PlannerContext plannerContext, boolean useTableProperties)
     {
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
         this.useTableProperties = useTableProperties;
     }
 
     public Expression extract(Session session, PlanNode node, TypeProvider types, TypeAnalyzer typeAnalyzer)
     {
-        return node.accept(new Visitor(domainTranslator, metadata, session, types, typeAnalyzer, useTableProperties), null);
+        return node.accept(new Visitor(domainTranslator, plannerContext, session, types, typeAnalyzer, useTableProperties), null);
     }
 
     private static class Visitor
             extends PlanVisitor<Expression, Void>
     {
         private final DomainTranslator domainTranslator;
+        private final PlannerContext plannerContext;
         private final Metadata metadata;
         private final Session session;
         private final TypeProvider types;
         private final TypeAnalyzer typeAnalyzer;
         private final boolean useTableProperties;
 
-        public Visitor(DomainTranslator domainTranslator, Metadata metadata, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer, boolean useTableProperties)
+        public Visitor(DomainTranslator domainTranslator, PlannerContext plannerContext, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer, boolean useTableProperties)
         {
             this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
-            this.metadata = requireNonNull(metadata, "metadata is null");
+            this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+            this.metadata = plannerContext.getMetadata();
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
@@ -253,7 +259,7 @@ public class EffectivePredicateExtractor
             }
 
             // TODO: replace with metadata.getTableProperties() when table layouts are fully removed
-            return domainTranslator.toPredicate(predicate.simplify()
+            return domainTranslator.toPredicate(session, predicate.simplify()
                     .filter((columnHandle, domain) -> assignments.containsKey(columnHandle))
                     .transformKeys(assignments::get));
         }
@@ -288,17 +294,12 @@ public class EffectivePredicateExtractor
         {
             Expression sourcePredicate = node.getSource().accept(this, context);
 
-            switch (node.getJoinType()) {
-                case INNER:
-                case LEFT:
-                    return pullExpressionThroughSymbols(
-                            combineConjuncts(metadata, node.getFilter().orElse(TRUE_LITERAL), sourcePredicate),
-                            node.getOutputSymbols());
-                case RIGHT:
-                case FULL:
-                    return TRUE_LITERAL;
-            }
-            throw new UnsupportedOperationException("Unknown UNNEST join type: " + node.getJoinType());
+            return switch (node.getJoinType()) {
+                case INNER, LEFT -> pullExpressionThroughSymbols(
+                        combineConjuncts(metadata, node.getFilter().orElse(TRUE_LITERAL), sourcePredicate),
+                        node.getOutputSymbols());
+                case RIGHT, FULL -> TRUE_LITERAL;
+            };
         }
 
         @Override
@@ -311,34 +312,29 @@ public class EffectivePredicateExtractor
                     .map(JoinNode.EquiJoinClause::toExpression)
                     .collect(toImmutableList());
 
-            switch (node.getType()) {
-                case INNER:
-                    return pullExpressionThroughSymbols(combineConjuncts(metadata, ImmutableList.<Expression>builder()
-                            .add(leftPredicate)
-                            .add(rightPredicate)
-                            .add(combineConjuncts(metadata, joinConjuncts))
-                            .add(node.getFilter().orElse(TRUE_LITERAL))
-                            .build()), node.getOutputSymbols());
-                case LEFT:
-                    return combineConjuncts(metadata, ImmutableList.<Expression>builder()
-                            .add(pullExpressionThroughSymbols(leftPredicate, node.getOutputSymbols()))
-                            .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
-                            .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
-                            .build());
-                case RIGHT:
-                    return combineConjuncts(metadata, ImmutableList.<Expression>builder()
-                            .add(pullExpressionThroughSymbols(rightPredicate, node.getOutputSymbols()))
-                            .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(leftPredicate), node.getOutputSymbols(), node.getLeft().getOutputSymbols()::contains))
-                            .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, node.getOutputSymbols(), node.getLeft().getOutputSymbols()::contains))
-                            .build());
-                case FULL:
-                    return combineConjuncts(metadata, ImmutableList.<Expression>builder()
-                            .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(leftPredicate), node.getOutputSymbols(), node.getLeft().getOutputSymbols()::contains))
-                            .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
-                            .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, node.getOutputSymbols(), node.getLeft().getOutputSymbols()::contains, node.getRight().getOutputSymbols()::contains))
-                            .build());
-            }
-            throw new UnsupportedOperationException("Unknown join type: " + node.getType());
+            return switch (node.getType()) {
+                case INNER -> pullExpressionThroughSymbols(combineConjuncts(metadata, ImmutableList.<Expression>builder()
+                        .add(leftPredicate)
+                        .add(rightPredicate)
+                        .add(combineConjuncts(metadata, joinConjuncts))
+                        .add(node.getFilter().orElse(TRUE_LITERAL))
+                        .build()), node.getOutputSymbols());
+                case LEFT -> combineConjuncts(metadata, ImmutableList.<Expression>builder()
+                        .add(pullExpressionThroughSymbols(leftPredicate, node.getOutputSymbols()))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
+                        .build());
+                case RIGHT -> combineConjuncts(metadata, ImmutableList.<Expression>builder()
+                        .add(pullExpressionThroughSymbols(rightPredicate, node.getOutputSymbols()))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(leftPredicate), node.getOutputSymbols(), node.getLeft().getOutputSymbols()::contains))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, node.getOutputSymbols(), node.getLeft().getOutputSymbols()::contains))
+                        .build());
+                case FULL -> combineConjuncts(metadata, ImmutableList.<Expression>builder()
+                        .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(leftPredicate), node.getOutputSymbols(), node.getLeft().getOutputSymbols()::contains))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, node.getOutputSymbols(), node.getLeft().getOutputSymbols()::contains, node.getRight().getOutputSymbols()::contains))
+                        .build());
+            };
         }
 
         @Override
@@ -380,7 +376,7 @@ public class EffectivePredicateExtractor
                             nonDeterministic[i] = true;
                         }
                         else {
-                            ExpressionInterpreter interpreter = new ExpressionInterpreter(value, metadata, session, expressionTypes);
+                            ExpressionInterpreter interpreter = new ExpressionInterpreter(value, plannerContext, session, expressionTypes);
                             Object item = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
                             if (item instanceof Expression) {
                                 return TRUE_LITERAL;
@@ -390,6 +386,11 @@ public class EffectivePredicateExtractor
                             }
                             else {
                                 Type type = types.get(node.getOutputSymbols().get(i));
+                                if (hasNestedNulls(type, item)) {
+                                    // Workaround solution to deal with array and row comparisons don't support null elements currently.
+                                    // TODO: remove when comparisons are fixed
+                                    return TRUE_LITERAL;
+                                }
                                 if (isFloatingPointNaN(type, item)) {
                                     hasNaN[i] = true;
                                 }
@@ -402,7 +403,7 @@ public class EffectivePredicateExtractor
                     if (!DeterminismEvaluator.isDeterministic(row, metadata)) {
                         return TRUE_LITERAL;
                     }
-                    ExpressionInterpreter interpreter = new ExpressionInterpreter(row, metadata, session, expressionTypes);
+                    ExpressionInterpreter interpreter = new ExpressionInterpreter(row, plannerContext, session, expressionTypes);
                     Object evaluated = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
                     if (evaluated instanceof Expression) {
                         return TRUE_LITERAL;
@@ -414,6 +415,11 @@ public class EffectivePredicateExtractor
                             hasNull[i] = true;
                         }
                         else {
+                            if (hasNestedNulls(type, item)) {
+                                // Workaround solution to deal with array and row comparisons don't support null elements currently.
+                                // TODO: remove when comparisons are fixed
+                                return TRUE_LITERAL;
+                            }
                             if (isFloatingPointNaN(type, item)) {
                                 hasNaN[i] = true;
                             }
@@ -455,11 +461,49 @@ public class EffectivePredicateExtractor
             }
 
             // simplify to avoid a large expression if there are many rows in ValuesNode
-            return domainTranslator.toPredicate(TupleDomain.withColumnDomains(domains.build()).simplify());
+            return domainTranslator.toPredicate(session, TupleDomain.withColumnDomains(domains.buildOrThrow()).simplify());
+        }
+
+        private boolean hasNestedNulls(Type type, Object value)
+        {
+            if (type instanceof RowType) {
+                Block container = (Block) value;
+                RowType rowType = (RowType) type;
+                for (int i = 0; i < rowType.getFields().size(); i++) {
+                    Type elementType = rowType.getFields().get(i).getType();
+
+                    if (container.isNull(i) || elementHasNulls(elementType, container, i)) {
+                        return true;
+                    }
+                }
+            }
+            else if (type instanceof ArrayType) {
+                Block container = (Block) value;
+                ArrayType arrayType = (ArrayType) type;
+                Type elementType = arrayType.getElementType();
+
+                for (int i = 0; i < container.getPositionCount(); i++) {
+                    if (container.isNull(i) || elementHasNulls(elementType, container, i)) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private boolean elementHasNulls(Type elementType, Block container, int position)
+        {
+            if (elementType instanceof RowType || elementType instanceof ArrayType) {
+                Block element = (Block) elementType.getObject(container, position);
+                return hasNestedNulls(elementType, element);
+            }
+
+            return false;
         }
 
         @SafeVarargs
-        private final Iterable<Expression> pullNullableConjunctsThroughOuterJoin(List<Expression> conjuncts, Collection<Symbol> outputSymbols, Predicate<Symbol>... nullSymbolScopes)
+        private Iterable<Expression> pullNullableConjunctsThroughOuterJoin(List<Expression> conjuncts, Collection<Symbol> outputSymbols, Predicate<Symbol>... nullSymbolScopes)
         {
             // Conjuncts without any symbol dependencies cannot be applied to the effective predicate (e.g. FALSE literal)
             return conjuncts.stream()
@@ -482,19 +526,16 @@ public class EffectivePredicateExtractor
             Expression leftPredicate = node.getLeft().accept(this, context);
             Expression rightPredicate = node.getRight().accept(this, context);
 
-            switch (node.getType()) {
-                case INNER:
-                    return combineConjuncts(metadata, ImmutableList.<Expression>builder()
-                            .add(pullExpressionThroughSymbols(leftPredicate, node.getOutputSymbols()))
-                            .add(pullExpressionThroughSymbols(rightPredicate, node.getOutputSymbols()))
-                            .build());
-                case LEFT:
-                    return combineConjuncts(metadata, ImmutableList.<Expression>builder()
-                            .add(pullExpressionThroughSymbols(leftPredicate, node.getOutputSymbols()))
-                            .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
-                            .build());
-            }
-            throw new IllegalArgumentException("Unsupported spatial join type: " + node.getType());
+            return switch (node.getType()) {
+                case INNER -> combineConjuncts(metadata, ImmutableList.<Expression>builder()
+                        .add(pullExpressionThroughSymbols(leftPredicate, node.getOutputSymbols()))
+                        .add(pullExpressionThroughSymbols(rightPredicate, node.getOutputSymbols()))
+                        .build());
+                case LEFT -> combineConjuncts(metadata, ImmutableList.<Expression>builder()
+                        .add(pullExpressionThroughSymbols(leftPredicate, node.getOutputSymbols()))
+                        .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
+                        .build());
+            };
         }
 
         private Expression deriveCommonPredicates(PlanNode node, Function<Integer, Collection<Map.Entry<Symbol, SymbolReference>>> mapping)

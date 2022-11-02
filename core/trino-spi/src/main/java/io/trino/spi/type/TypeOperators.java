@@ -22,7 +22,6 @@ import io.trino.spi.function.InvocationConvention.InvocationReturnConvention;
 import io.trino.spi.function.OperatorMethodHandle;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarFunctionAdapter;
-import io.trino.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -50,6 +49,7 @@ import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy.RETURN_NULL_ON_NULL;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.collectArguments;
 import static java.lang.invoke.MethodHandles.dropArguments;
@@ -63,13 +63,20 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 
 public class TypeOperators
 {
-    private final ScalarFunctionAdapter functionAdapter = new ScalarFunctionAdapter(NullAdaptationPolicy.UNSUPPORTED);
+    private final ScalarFunctionAdapter functionAdapter = new ScalarFunctionAdapter(RETURN_NULL_ON_NULL);
     private final BiFunction<Object, Supplier<Object>, Object> cache;
 
     public TypeOperators()
     {
         ConcurrentHashMap<Object, Object> cache = new ConcurrentHashMap<>();
-        this.cache = (operatorConvention, supplier) -> cache.computeIfAbsent(operatorConvention, key -> supplier.get());
+        this.cache = (operatorConvention, supplier) -> {
+            // preform explicit get before calling computeIfAbsent since computeIfAbsent cause lock contention
+            Object operator = cache.get(operatorConvention);
+            if (operator != null) {
+                return operator;
+            }
+            return cache.computeIfAbsent(operatorConvention, key -> supplier.get());
+        };
     }
 
     public TypeOperators(BiFunction<Object, Supplier<Object>, Object> cache)
@@ -597,12 +604,12 @@ public class TypeOperators
 
         // False; return orderComparisonResult(comparison(leftValue, rightValue))
         // (leftValue, rightValue)::int
-        MethodHandle orderComparision = filterReturnValue(comparison, ORDER_COMPARISON_RESULT.bindTo(sortOrder));
+        MethodHandle orderComparison = filterReturnValue(comparison, ORDER_COMPARISON_RESULT.bindTo(sortOrder));
         // (leftIsNull, rightIsNull, comparison_args)::int
-        orderComparision = dropArguments(orderComparision, 0, boolean.class, boolean.class);
+        orderComparison = dropArguments(orderComparison, 0, boolean.class, boolean.class);
 
         // (leftIsNull, rightIsNull, comparison_args)::int
-        return guardWithTest(eitherIsNull, orderNulls, orderComparision);
+        return guardWithTest(eitherIsNull, orderNulls, orderComparison);
     }
 
     private static int orderNulls(SortOrder sortOrder, boolean leftIsNull, boolean rightIsNull)

@@ -47,10 +47,10 @@ public class ClassLoaderSafeConnectorPageSink
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getSystemMemoryUsage();
+            return delegate.getMemoryUsage();
         }
     }
 

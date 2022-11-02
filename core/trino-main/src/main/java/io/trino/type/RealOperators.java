@@ -19,10 +19,13 @@ import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.trino.operator.scalar.MathFunctions;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
+
+import java.text.DecimalFormat;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
@@ -47,6 +50,8 @@ public final class RealOperators
     private static final float MAX_SHORT_PLUS_ONE_AS_FLOAT = 0x1p15f;
     private static final float MIN_BYTE_AS_FLOAT = -0x1p7f;
     private static final float MAX_BYTE_PLUS_ONE_AS_FLOAT = 0x1p7f;
+
+    private static final ThreadLocal<DecimalFormat> FORMAT = ThreadLocal.withInitial(() -> new DecimalFormat("0.0#####E0"));
 
     private RealOperators()
     {
@@ -97,9 +102,38 @@ public final class RealOperators
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice castToVarchar(@SqlType(StandardTypes.REAL) long value)
+    public static Slice castToVarchar(@LiteralParameter("x") long x, @SqlType(StandardTypes.REAL) long value)
     {
-        return utf8Slice(String.valueOf(intBitsToFloat((int) value)));
+        float floatValue = intBitsToFloat((int) value);
+        String stringValue;
+
+        // handle positive and negative 0
+        if (floatValue == 0.0f) {
+            if (1.0f / floatValue > 0) {
+                stringValue = "0E0";
+            }
+            else {
+                stringValue = "-0E0";
+            }
+        }
+        else if (Float.isInfinite(floatValue)) {
+            if (floatValue > 0) {
+                stringValue = "Infinity";
+            }
+            else {
+                stringValue = "-Infinity";
+            }
+        }
+        else {
+            stringValue = FORMAT.get().format(Double.parseDouble(Float.toString(floatValue)));
+        }
+
+        // String is all-ASCII, so String.length() here returns actual code points count
+        if (stringValue.length() <= x) {
+            return utf8Slice(stringValue);
+        }
+
+        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Value %s (%s) cannot be represented as varchar(%s)", floatValue, stringValue, x));
     }
 
     @ScalarOperator(CAST)

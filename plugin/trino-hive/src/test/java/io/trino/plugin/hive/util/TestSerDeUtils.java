@@ -24,6 +24,7 @@ import io.trino.block.BlockSerdeUtil;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import org.apache.hadoop.hive.common.type.Date;
@@ -42,7 +43,6 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.plugin.hive.HiveTestUtils.mapType;
 import static io.trino.plugin.hive.util.SerDeUtils.getBlockObject;
 import static io.trino.plugin.hive.util.SerDeUtils.serializeObject;
@@ -73,13 +73,15 @@ import static org.testng.Assert.assertEquals;
 @SuppressWarnings("PackageVisibleField")
 public class TestSerDeUtils
 {
-    private final BlockEncodingSerde blockEncodingSerde = createTestMetadataManager().getBlockEncodingSerde();
+    private final BlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
 
+    @SuppressWarnings("UnusedVariable") // these fields are serialized to a Block and verified there
     private static class ListHolder
     {
         List<InnerStruct> array;
     }
 
+    @SuppressWarnings("UnusedVariable") // these fields are serialized to a Block and verified there
     private static class InnerStruct
     {
         public InnerStruct(Integer intVal, Long longVal)
@@ -92,6 +94,7 @@ public class TestSerDeUtils
         Long longVal;
     }
 
+    @SuppressWarnings("UnusedVariable") // these fields are serialized to a Block and verified there
     private static class OuterStruct
     {
         Byte byteVal;
@@ -112,7 +115,7 @@ public class TestSerDeUtils
         // ObjectInspectorFactory.getReflectionObjectInspector is not thread-safe although it
         // gives people a first impression that it is. This may have been fixed in HIVE-11586.
 
-        // Presto only uses getReflectionObjectInspector here, in a test method. Therefore, we
+        // Trino only uses getReflectionObjectInspector here, in a test method. Therefore, we
         // choose to work around this issue by synchronizing this method. Before synchronizing
         // this method, test in this class fails approximately 1 out of 10 runs on Travis.
 

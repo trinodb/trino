@@ -65,8 +65,10 @@ public class Storage
 
     public String getLocation()
     {
-        // Default getter requires location to be set. Location is not set only in rare case when in CREATE TABLE flow in Hive connector when
-        // delegate-transactional-managed-table-location-to-metastore is set to true and location is determined by HMS.
+        // Default getter requires location to be set. Location is not set in the following scenarios:
+        // 1. CREATE TABLE flow in Hive connector sets delegate-transactional-managed-table-location-to-metastore to true and location is determined by HMS.
+        // 2. Iceberg format tables
+        // 3. Delta format tables (sometimes)
         return location.orElseThrow();
     }
 

@@ -144,7 +144,7 @@ General aggregate functions
 
     Returns the geometric mean of all input values.
 
-.. function:: listagg(x, separator)
+.. function:: listagg(x, separator) -> varchar
 
     Returns the concatenated input values, separated by the ``separator`` string.
 
@@ -368,7 +368,7 @@ Approximate aggregate functions
 
     Returns the approximate weighed percentile for all input values of ``x``
     using the per-item weight ``w`` at the percentage ``percentage``. Weights must be
-    strictly positive. Integer-value weights can be thought of as a replication
+    greater or equal to 1. Integer-value weights can be thought of as a replication
     count for the value ``x`` in the percentile set. The value of ``percentage`` must be
     between zero and one and must be constant for all input rows.
 
@@ -377,7 +377,7 @@ Approximate aggregate functions
 
     Returns the approximate weighed percentile for all input values of ``x``
     using the per-item weight ``w`` at each of the given percentages specified
-    in the array. Weights must be strictly positive. Integer-value weights can
+    in the array. Weights must be greater or equal to 1. Integer-value weights can
     be thought of as a replication count for the value ``x`` in the percentile
     set. Each element of the ``percentages`` array must be between zero and one, and the array
     must be constant for all input rows.

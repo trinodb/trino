@@ -28,14 +28,19 @@ import static java.util.Objects.requireNonNull;
 public class CassandraPageSinkProvider
         implements ConnectorPageSinkProvider
 {
+    private final CassandraTypeManager cassandraTypeManager;
     private final CassandraSession cassandraSession;
     private final int batchSize;
 
     @Inject
-    public CassandraPageSinkProvider(CassandraSession cassandraSession, CassandraClientConfig cassandraClientConfig)
+    public CassandraPageSinkProvider(
+            CassandraTypeManager cassandraTypeManager,
+            CassandraSession cassandraSession,
+            CassandraClientConfig cassandraClientConfig)
     {
+        this.cassandraTypeManager = requireNonNull(cassandraTypeManager, "cassandraTypeManager is null");
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
-        this.batchSize = requireNonNull(cassandraClientConfig, "cassandraClientConfig is null").getBatchSize();
+        this.batchSize = cassandraClientConfig.getBatchSize();
     }
 
     @Override
@@ -46,6 +51,7 @@ public class CassandraPageSinkProvider
         CassandraOutputTableHandle handle = (CassandraOutputTableHandle) tableHandle;
 
         return new CassandraPageSink(
+                cassandraTypeManager,
                 cassandraSession,
                 cassandraSession.getProtocolVersion(),
                 handle.getSchemaName(),
@@ -64,6 +70,7 @@ public class CassandraPageSinkProvider
         CassandraInsertTableHandle handle = (CassandraInsertTableHandle) tableHandle;
 
         return new CassandraPageSink(
+                cassandraTypeManager,
                 cassandraSession,
                 cassandraSession.getProtocolVersion(),
                 handle.getSchemaName(),

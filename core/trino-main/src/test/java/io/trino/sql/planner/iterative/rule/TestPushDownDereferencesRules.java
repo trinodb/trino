@@ -15,7 +15,6 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.connector.CatalogName;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
@@ -67,11 +66,11 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.unnest;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
-import static io.trino.sql.planner.iterative.rule.test.RuleTester.CATALOG_ID;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
 import static io.trino.sql.tree.SortItem.NullOrdering.FIRST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static java.util.Collections.singletonList;
 
 public class TestPushDownDereferencesRules
@@ -157,21 +156,23 @@ public class TestPushDownDereferencesRules
                                         .put("left_x", PlanMatchPattern.expression("x"))
                                         .put("right_y", PlanMatchPattern.expression("y"))
                                         .put("z", PlanMatchPattern.expression("z"))
-                                        .build(),
-                                join(INNER, ImmutableList.of(),
-                                        strictProject(
-                                                ImmutableMap.of(
-                                                        "x", PlanMatchPattern.expression("msg1[1]"),
-                                                        "msg1", PlanMatchPattern.expression("msg1"),
-                                                        "unreferenced_symbol", PlanMatchPattern.expression("unreferenced_symbol")),
-                                                values("msg1", "unreferenced_symbol")),
-                                        strictProject(
-                                                ImmutableMap.<String, ExpressionMatcher>builder()
-                                                        .put("y", PlanMatchPattern.expression("msg2[2]"))
-                                                        .put("z", PlanMatchPattern.expression("z"))
-                                                        .put("msg2", PlanMatchPattern.expression("msg2"))
-                                                        .build(),
-                                                values("msg2", "z")))));
+                                        .buildOrThrow(),
+                                join(INNER, builder -> builder
+                                        .left(
+                                                strictProject(
+                                                        ImmutableMap.of(
+                                                                "x", PlanMatchPattern.expression("msg1[1]"),
+                                                                "msg1", PlanMatchPattern.expression("msg1"),
+                                                                "unreferenced_symbol", PlanMatchPattern.expression("unreferenced_symbol")),
+                                                        values("msg1", "unreferenced_symbol")))
+                                        .right(
+                                                strictProject(
+                                                        ImmutableMap.<String, ExpressionMatcher>builder()
+                                                                .put("y", PlanMatchPattern.expression("msg2[2]"))
+                                                                .put("z", PlanMatchPattern.expression("z"))
+                                                                .put("msg2", PlanMatchPattern.expression("msg2"))
+                                                                .buildOrThrow(),
+                                                        values("msg2", "z"))))));
 
         // Verify pushdown for filters
         tester().assertThat(new PushDownDereferenceThroughJoin(tester().getTypeAnalyzer()))
@@ -189,13 +190,15 @@ public class TestPushDownDereferencesRules
                                 ImmutableMap.of(
                                         "expr", PlanMatchPattern.expression("msg1_x"),
                                         "expr_2", PlanMatchPattern.expression("msg2")),
-                                join(INNER, ImmutableList.of(), Optional.of("msg1_x + msg2[2] > BIGINT '10'"),
-                                        strictProject(
-                                                ImmutableMap.of(
-                                                        "msg1_x", PlanMatchPattern.expression("msg1[1]"),
-                                                        "msg1", PlanMatchPattern.expression("msg1")),
-                                                values("msg1")),
-                                        values("msg2"))));
+                                join(INNER, builder -> builder
+                                        .filter("msg1_x + msg2[2] > BIGINT '10'")
+                                        .left(
+                                                strictProject(
+                                                        ImmutableMap.of(
+                                                                "msg1_x", PlanMatchPattern.expression("msg1[1]"),
+                                                                "msg1", PlanMatchPattern.expression("msg1")),
+                                                        values("msg1")))
+                                        .right(values("msg2")))));
     }
 
     @Test
@@ -221,7 +224,7 @@ public class TestPushDownDereferencesRules
                                 ImmutableMap.<String, ExpressionMatcher>builder()
                                         .put("msg1_x", PlanMatchPattern.expression("expr"))
                                         .put("msg2_x", PlanMatchPattern.expression("msg2[1]"))   // Not pushed down because msg2 is sourceJoinSymbol
-                                        .build(),
+                                        .buildOrThrow(),
                                 semiJoin(
                                         "msg2",
                                         "filtering_msg",
@@ -298,10 +301,9 @@ public class TestPushDownDereferencesRules
     public void testExtractDereferencesFromFilterAboveScan()
     {
         TableHandle testTable = new TableHandle(
-                new CatalogName(CATALOG_ID),
-                new TpchTableHandle("orders", 1.0),
-                TestingTransactionHandle.create(),
-                Optional.empty());
+                TEST_CATALOG_HANDLE,
+                new TpchTableHandle("sf1", "orders", 1.0),
+                TestingTransactionHandle.create());
 
         RowType nestedRowType = RowType.from(ImmutableList.of(new RowType.Field(Optional.of("nested"), ROW_TYPE)));
         tester().assertThat(new ExtractDereferencesFromFilterAboveScan(tester().getTypeAnalyzer()))
@@ -377,7 +379,7 @@ public class TestPushDownDereferencesRules
                                         .put("msg1_x", PlanMatchPattern.expression("x"))
                                         .put("msg2_y", PlanMatchPattern.expression("msg2[2]"))
                                         .put("z", PlanMatchPattern.expression("z"))
-                                        .build(),
+                                        .buildOrThrow(),
                                 limit(
                                         10,
                                         ImmutableList.of(sort("msg2", ASCENDING, FIRST)),
@@ -387,7 +389,7 @@ public class TestPushDownDereferencesRules
                                                         .put("z", PlanMatchPattern.expression("z"))
                                                         .put("msg1", PlanMatchPattern.expression("msg1"))
                                                         .put("msg2", PlanMatchPattern.expression("msg2"))
-                                                        .build(),
+                                                        .buildOrThrow(),
                                                 values("msg1", "msg2", "z")))));
     }
 
@@ -412,7 +414,7 @@ public class TestPushDownDereferencesRules
                                         .put("msg1_x", PlanMatchPattern.expression("x"))
                                         .put("msg2_y", PlanMatchPattern.expression("msg2[2]"))
                                         .put("z", PlanMatchPattern.expression("z"))
-                                        .build(),
+                                        .buildOrThrow(),
                                 limit(
                                         10,
                                         ImmutableList.of(),
@@ -424,7 +426,7 @@ public class TestPushDownDereferencesRules
                                                         .put("z", PlanMatchPattern.expression("z"))
                                                         .put("msg1", PlanMatchPattern.expression("msg1"))
                                                         .put("msg2", PlanMatchPattern.expression("msg2"))
-                                                        .build(),
+                                                        .buildOrThrow(),
                                                 values("msg1", "msg2", "z")))));
     }
 
@@ -460,14 +462,14 @@ public class TestPushDownDereferencesRules
                                 ImmutableMap.<String, ExpressionMatcher>builder()
                                         .put("msg_x", PlanMatchPattern.expression("x"))
                                         .put("z", PlanMatchPattern.expression("z"))
-                                        .build(),
+                                        .buildOrThrow(),
                                 sort(ImmutableList.of(sort("z", ASCENDING, SortItem.NullOrdering.FIRST)),
                                         strictProject(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
                                                         .put("x", PlanMatchPattern.expression("msg[1]"))
                                                         .put("z", PlanMatchPattern.expression("z"))
                                                         .put("msg", PlanMatchPattern.expression("msg"))
-                                                        .build(),
+                                                        .buildOrThrow(),
                                                 values("msg", "z")))));
     }
 
@@ -491,7 +493,7 @@ public class TestPushDownDereferencesRules
                                 ImmutableMap.<String, ExpressionMatcher>builder()
                                         .put("msg1_x", PlanMatchPattern.expression("msg1[1]"))
                                         .put("msg2_x", PlanMatchPattern.expression("expr"))
-                                        .build(),
+                                        .buildOrThrow(),
                                 rowNumber(
                                         pattern -> pattern
                                                 .partitionBy(ImmutableList.of("msg1")),
@@ -500,7 +502,7 @@ public class TestPushDownDereferencesRules
                                                         .put("expr", PlanMatchPattern.expression("msg2[1]"))
                                                         .put("msg1", PlanMatchPattern.expression("msg1"))
                                                         .put("msg2", PlanMatchPattern.expression("msg2"))
-                                                        .build(),
+                                                        .buildOrThrow(),
                                                 values("msg1", "msg2")))));
     }
 
@@ -532,7 +534,7 @@ public class TestPushDownDereferencesRules
                                         .put("msg1_x", PlanMatchPattern.expression("msg1[1]"))
                                         .put("msg2_x", PlanMatchPattern.expression("msg2[1]"))
                                         .put("msg3_x", PlanMatchPattern.expression("expr"))
-                                        .build(),
+                                        .buildOrThrow(),
                                 topNRanking(
                                         pattern -> pattern.specification(singletonList("msg1"), singletonList("msg2"), ImmutableMap.of("msg2", ASC_NULLS_FIRST)),
                                         strictProject(
@@ -541,7 +543,7 @@ public class TestPushDownDereferencesRules
                                                         .put("msg1", PlanMatchPattern.expression("msg1"))
                                                         .put("msg2", PlanMatchPattern.expression("msg2"))
                                                         .put("msg3", PlanMatchPattern.expression("msg3"))
-                                                        .build(),
+                                                        .buildOrThrow(),
                                                 values("msg1", "msg2", "msg3")))));
     }
 
@@ -562,14 +564,14 @@ public class TestPushDownDereferencesRules
                                 ImmutableMap.<String, ExpressionMatcher>builder()
                                         .put("msg1_x", PlanMatchPattern.expression("msg1[1]"))
                                         .put("msg2_x", PlanMatchPattern.expression("expr"))
-                                        .build(),
+                                        .buildOrThrow(),
                                 topN(5, ImmutableList.of(sort("msg1", ASCENDING, FIRST)),
                                         strictProject(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
                                                         .put("expr", PlanMatchPattern.expression("msg2[1]"))
                                                         .put("msg1", PlanMatchPattern.expression("msg1"))
                                                         .put("msg2", PlanMatchPattern.expression("msg2"))
-                                                        .build(),
+                                                        .buildOrThrow(),
                                                 values("msg1", "msg2")))));
     }
 
@@ -623,7 +625,7 @@ public class TestPushDownDereferencesRules
                                         .put("msg3_x", PlanMatchPattern.expression("msg3[1]")) // not pushed down because the whole column is used in windowNode function
                                         .put("msg4_x", PlanMatchPattern.expression("expr")) // pushed down because msg4[1] is being used in the function
                                         .put("msg5_x", PlanMatchPattern.expression("expr2")) // pushed down because not referenced in windowNode
-                                        .build(),
+                                        .buildOrThrow(),
                                 window(
                                         windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(singletonList("msg1"), singletonList("msg2"), ImmutableMap.of("msg2", SortOrder.ASC_NULLS_FIRST))
@@ -637,7 +639,7 @@ public class TestPushDownDereferencesRules
                                                         .put("msg5", PlanMatchPattern.expression("msg5"))
                                                         .put("expr", PlanMatchPattern.expression("msg4[1]"))
                                                         .put("expr2", PlanMatchPattern.expression("msg5[1]"))
-                                                        .build(),
+                                                        .buildOrThrow(),
                                                 values("msg1", "msg2", "msg3", "msg4", "msg5")))));
     }
 
@@ -662,7 +664,7 @@ public class TestPushDownDereferencesRules
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
                                                         .put("msg1", PlanMatchPattern.expression("msg1"))
                                                         .put("msg1_x", PlanMatchPattern.expression("msg1[1]"))
-                                                        .build(),
+                                                        .buildOrThrow(),
                                                 values("msg1")))));
     }
 
@@ -693,7 +695,7 @@ public class TestPushDownDereferencesRules
                                                         .put("msg1", PlanMatchPattern.expression("msg1"))
                                                         .put("msg2", PlanMatchPattern.expression("msg2"))
                                                         .put("expr", PlanMatchPattern.expression("msg1[1]"))
-                                                        .build(),
+                                                        .buildOrThrow(),
                                                 values("msg1", "msg2")))));
     }
 

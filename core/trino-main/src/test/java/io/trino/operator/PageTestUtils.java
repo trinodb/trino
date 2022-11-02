@@ -55,17 +55,17 @@ public class PageTestUtils
 
     public static Page createRandomPage(List<Type> types, int positionCount, float nullRate)
     {
-        return createRandomPage(types, positionCount, Optional.of(ImmutableList.of(0)), nullRate, Optional.empty());
+        return createRandomPage(types, positionCount, Optional.of(ImmutableList.of(0)), nullRate, ImmutableList.of());
     }
 
     public static Page createRandomDictionaryPage(List<Type> types, int positionCount, float nullRate)
     {
-        return createRandomPage(types, positionCount, Optional.of(ImmutableList.of(0)), nullRate, Optional.of(DICTIONARY));
+        return createRandomPage(types, positionCount, Optional.of(ImmutableList.of(0)), nullRate, ImmutableList.of(DICTIONARY));
     }
 
     public static Page createRandomRlePage(List<Type> types, int positionCount, float nullRate)
     {
-        return createRandomPage(types, positionCount, Optional.of(ImmutableList.of(0)), nullRate, Optional.of(RUN_LENGTH));
+        return createRandomPage(types, positionCount, Optional.of(ImmutableList.of(0)), nullRate, ImmutableList.of(RUN_LENGTH));
     }
 
     public static Page createRandomPage(
@@ -73,26 +73,37 @@ public class PageTestUtils
             int positionCount,
             Optional<List<Integer>> hashChannels,
             float nullRate,
-            Optional<Wrapping> wrapping)
+            List<Wrapping> wrappings)
     {
-        int channelCount = types.size();
-        ImmutableList.Builder<Block> blocks = ImmutableList.builder();
+        List<Block> blocks = types.stream()
+                .map(type -> {
+                    Block block = createRandomBlockForType(type, positionCount, nullRate);
+                    for (Wrapping wrapping : wrappings) {
+                        block = wrapping.wrap(block, positionCount);
+                    }
+                    return block;
+                })
+                .collect(toImmutableList());
 
-        for (int i = 0; i < channelCount; i++) {
-            Block block = createRandomBlockForType(types.get(i), positionCount, nullRate);
-            blocks.add(wrapping.map(w -> w.wrap(block, positionCount)).orElse(block));
-        }
+        return createPage(types, positionCount, hashChannels, blocks);
+    }
+
+    public static Page createPage(
+            List<Type> types,
+            int positionCount,
+            Optional<List<Integer>> hashChannels,
+            List<Block> blocks)
+    {
+        ImmutableList.Builder<Block> finalBlocks = ImmutableList.<Block>builder().addAll(blocks);
 
         hashChannels.ifPresent(channels -> {
-            ImmutableList<Block> blocksWithoutHash = blocks.build();
-
-            blocks.add(getHashBlock(
+            finalBlocks.add(getHashBlock(
                     channels.stream()
                             .map(types::get)
                             .collect(toImmutableList()),
-                    channels.stream().map(blocksWithoutHash::get).toArray(Block[]::new)));
+                    channels.stream().map(blocks::get).toArray(Block[]::new)));
         });
 
-        return new Page(positionCount, blocks.build().toArray(Block[]::new));
+        return new Page(positionCount, finalBlocks.build().toArray(Block[]::new));
     }
 }

@@ -7,7 +7,7 @@ Task properties
 
 * **Type:** :ref:`prop-type-integer`
 * **Restrictions:** Must be a power of two
-* **Default value:** ``16``
+* **Default value:** min(max(number of physical CPUs of the node, 2), 32)
 
 Default local concurrency for parallel operators, such as joins and aggregations.
 This value should be adjusted up or down based on the query concurrency and worker
@@ -111,16 +111,92 @@ resource utilization, but uses additional memory.
 The minimum number of drivers guaranteed to run concurrently for a single task given
 the task has remaining splits to process.
 
+``task.scale-writers.enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Description:** :ref:`prop-task-scale-writers`
+
+``task.scale-writers.max-writer-count``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Description:** :ref:`prop-task-scale-writers-max-writer-count`
+
 ``task.writer-count``
 ^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** :ref:`prop-type-integer`
-* **Restrictions:** Must be a power of two
 * **Default value:** ``1``
 
-The number of concurrent writer threads per worker per query. Increasing this value may
-increase write speed, especially when a query is not I/O bound and can take advantage
-of additional CPU for parallel writes. Some connectors can be bottlenecked on CPU when
-writing due to compression or other factors. Setting this too high may cause the cluster
-to become overloaded due to excessive resource utilization. This can also be specified on
-a per-query basis using the ``task_writer_count`` session property.
+The number of concurrent writer threads per worker per query when
+:ref:`preferred partitioning <preferred-write-partitioning>` and
+:ref:`task writer scaling <prop-task-scale-writers>` are not used. Increasing this value may
+increase write speed, especially when a query is not I/O bound and can take advantage of
+additional CPU for parallel writes.
+
+Some connectors can be bottlenecked on the CPU when writing due to compression or other factors.
+Setting this too high may cause the cluster to become overloaded due to excessive resource
+utilization. Especially when the engine is inserting into a partitioned table without using
+:ref:`preferred partitioning <preferred-write-partitioning>`. In such case, each writer thread
+could write to all partitions. This can lead to out of memory error since writing to a partition
+allocates a certain amount of memory for buffering.
+
+This can also be specified on a per-query basis using the ``task_writer_count`` session property.
+
+``task.partitioned-writer-count``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-integer`
+* **Restrictions:** Must be a power of two
+* **Default value:** min(max(number of physical CPUs of the node, 2), 32)
+
+The number of concurrent writer threads per worker per query when
+:ref:`preferred partitioning <preferred-write-partitioning>` is used. Increasing this value may
+increase write speed, especially when a query is not I/O bound and can take advantage of additional
+CPU for parallel writes. Some connectors can be bottlenecked on CPU when writing due to compression
+or other factors. Setting this too high may cause the cluster to become overloaded due to excessive
+resource utilization. This can also be specified on a per-query basis using the
+``task_partitioned_writer_count`` session property.
+
+``task.interrupt-stuck-split-tasks-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-boolean`
+* **Default value:** ``true``
+
+Enables Trino detecting and failing tasks containing splits that have been stuck. Can be
+specified by ``task.interrupt-stuck-split-tasks-timeout`` and
+``task.interrupt-stuck-split-tasks-detection-interval``. Only applies to threads that
+are blocked by the third-party Joni regular expression library.
+
+
+``task.interrupt-stuck-split-tasks-warning-threshold``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-duration`
+* **Minimum value:** ``1m``
+* **Default value:** ``10m``
+
+Print out call stacks at ``/v1/maxActiveSplits`` endpoint and generate JMX metrics
+for splits running longer than the threshold.
+
+``task.interrupt-stuck-split-tasks-timeout``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-duration`
+* **Minimum value:** ``3m``
+* **Default value:** ``10m``
+
+The length of time Trino waits for a blocked split processing thread before failing the
+task. Only applies to threads that are blocked by the third-party Joni regular
+expression library.
+
+``task.interrupt-stuck-split-tasks-detection-interval``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-duration`
+* **Minimum value:** ``1m``
+* **Default value:** ``2m``
+
+The interval of Trino checks for splits that have processing time exceeding
+``task.interrupt-stuck-split-tasks-timeout``. Only applies to threads that are blocked
+by the third-party Joni regular expression library.

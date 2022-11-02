@@ -14,6 +14,7 @@
 package io.trino.sql.analyzer;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.spi.Location;
 import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
@@ -38,9 +39,9 @@ public final class ExpressionTreeUtils
 {
     private ExpressionTreeUtils() {}
 
-    static List<FunctionCall> extractAggregateFunctions(Iterable<? extends Node> nodes, Metadata metadata)
+    static List<FunctionCall> extractAggregateFunctions(Iterable<? extends Node> nodes, Session session, Metadata metadata)
     {
-        return extractExpressions(nodes, FunctionCall.class, function -> isAggregation(function, metadata));
+        return extractExpressions(nodes, FunctionCall.class, function -> isAggregation(function, session, metadata));
     }
 
     static List<Expression> extractWindowExpressions(Iterable<? extends Node> nodes)
@@ -68,9 +69,9 @@ public final class ExpressionTreeUtils
         return extractExpressions(nodes, clazz, alwaysTrue());
     }
 
-    private static boolean isAggregation(FunctionCall functionCall, Metadata metadata)
+    private static boolean isAggregation(FunctionCall functionCall, Session session, Metadata metadata)
     {
-        return ((metadata.isAggregationFunction(functionCall.getName()) || functionCall.getFilter().isPresent())
+        return ((metadata.isAggregationFunction(session, functionCall.getName()) || functionCall.getFilter().isPresent())
                 && functionCall.getWindow().isEmpty())
                 || functionCall.getOrderBy().isPresent();
     }

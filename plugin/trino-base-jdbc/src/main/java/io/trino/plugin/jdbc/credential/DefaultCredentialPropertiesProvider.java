@@ -37,6 +37,6 @@ public class DefaultCredentialPropertiesProvider
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         provider.getConnectionUser(Optional.of(identity)).ifPresent(user -> properties.put("user", user));
         provider.getConnectionPassword(Optional.of(identity)).ifPresent(password -> properties.put("password", password));
-        return properties.build();
+        return properties.buildOrThrow();
     }
 }

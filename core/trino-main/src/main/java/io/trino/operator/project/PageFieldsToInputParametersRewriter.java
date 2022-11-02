@@ -25,8 +25,11 @@ import io.trino.sql.relational.VariableReferenceExpression;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.sql.relational.Expressions.field;
@@ -42,16 +45,17 @@ public final class PageFieldsToInputParametersRewriter
     public static Result rewritePageFieldsToInputParameters(RowExpression expression)
     {
         Visitor visitor = new Visitor();
-        RowExpression rewrittenProjection = expression.accept(visitor, null);
-        InputChannels inputChannels = new InputChannels(visitor.getInputChannels());
+        RowExpression rewrittenProjection = expression.accept(visitor, true);
+        InputChannels inputChannels = new InputChannels(visitor.getInputChannels(), visitor.getEagerlyLoadedChannels());
         return new Result(rewrittenProjection, inputChannels);
     }
 
     private static class Visitor
-            implements RowExpressionVisitor<RowExpression, Void>
+            implements RowExpressionVisitor<RowExpression, Boolean>
     {
         private final Map<Integer, Integer> fieldToParameter = new HashMap<>();
         private final List<Integer> inputChannels = new ArrayList<>();
+        private final Set<Integer> eagerlyLoadedChannels = new HashSet<>();
         private int nextParameter;
 
         public List<Integer> getInputChannels()
@@ -59,9 +63,17 @@ public final class PageFieldsToInputParametersRewriter
             return ImmutableList.copyOf(inputChannels);
         }
 
-        @Override
-        public RowExpression visitInputReference(InputReferenceExpression reference, Void context)
+        public List<Integer> getEagerlyLoadedChannels()
         {
+            return ImmutableList.copyOf(eagerlyLoadedChannels);
+        }
+
+        @Override
+        public RowExpression visitInputReference(InputReferenceExpression reference, Boolean unconditionallyEvaluated)
+        {
+            if (unconditionallyEvaluated) {
+                eagerlyLoadedChannels.add(reference.getField());
+            }
             int parameter = getParameterForField(reference);
             return field(parameter, reference.getType());
         }
@@ -75,44 +87,73 @@ public final class PageFieldsToInputParametersRewriter
         }
 
         @Override
-        public RowExpression visitCall(CallExpression call, Void context)
+        public RowExpression visitCall(CallExpression call, Boolean unconditionallyEvaluated)
         {
+            boolean containsLambdaExpression = call.getArguments().stream().anyMatch(LambdaDefinitionExpression.class::isInstance);
             return new CallExpression(
                     call.getResolvedFunction(),
                     call.getArguments().stream()
-                            .map(expression -> expression.accept(this, context))
+                            // Lambda expressions may use only some of their input references, e.g. transform(elements, x -> 1)
+                            // TODO: Currently we fallback to assuming that all the arguments are conditionally evaluated when
+                            //   a lambda expression is encountered for the sake of simplicity.
+                            .map(expression -> expression.accept(this, unconditionallyEvaluated && !containsLambdaExpression))
                             .collect(toImmutableList()));
         }
 
         @Override
-        public RowExpression visitSpecialForm(SpecialForm specialForm, Void context)
+        public RowExpression visitSpecialForm(SpecialForm specialForm, Boolean unconditionallyEvaluated)
         {
-            return new SpecialForm(
-                    specialForm.getForm(),
-                    specialForm.getType(),
-                    specialForm.getArguments().stream()
-                            .map(expression -> expression.accept(this, context))
-                            .collect(toImmutableList()),
-                    specialForm.getFunctionDependencies());
+            switch (specialForm.getForm()) {
+                case IF:
+                case SWITCH:
+                case BETWEEN:
+                case AND:
+                case OR:
+                case COALESCE:
+                    List<RowExpression> arguments = specialForm.getArguments();
+                    return new SpecialForm(
+                            specialForm.getForm(),
+                            specialForm.getType(),
+                            IntStream.range(0, arguments.size()).boxed()
+                                    // All the arguments after the first one are assumed to be conditionally evaluated
+                                    .map(index -> arguments.get(index).accept(this, index == 0 && unconditionallyEvaluated))
+                                    .collect(toImmutableList()),
+                            specialForm.getFunctionDependencies());
+                case BIND:
+                case IN:
+                case WHEN:
+                case IS_NULL:
+                case NULL_IF:
+                case DEREFERENCE:
+                case ROW_CONSTRUCTOR:
+                    return new SpecialForm(
+                            specialForm.getForm(),
+                            specialForm.getType(),
+                            specialForm.getArguments().stream()
+                                    .map(expression -> expression.accept(this, unconditionallyEvaluated))
+                                    .collect(toImmutableList()),
+                            specialForm.getFunctionDependencies());
+            }
+            throw new IllegalArgumentException("Unsupported special form " + specialForm.getForm());
         }
 
         @Override
-        public RowExpression visitConstant(ConstantExpression literal, Void context)
+        public RowExpression visitConstant(ConstantExpression literal, Boolean unconditionallyEvaluated)
         {
             return literal;
         }
 
         @Override
-        public RowExpression visitLambda(LambdaDefinitionExpression lambda, Void context)
+        public RowExpression visitLambda(LambdaDefinitionExpression lambda, Boolean unconditionallyEvaluated)
         {
             return new LambdaDefinitionExpression(
                     lambda.getArgumentTypes(),
                     lambda.getArguments(),
-                    lambda.getBody().accept(this, context));
+                    lambda.getBody().accept(this, unconditionallyEvaluated));
         }
 
         @Override
-        public RowExpression visitVariableReference(VariableReferenceExpression reference, Void context)
+        public RowExpression visitVariableReference(VariableReferenceExpression reference, Boolean unconditionallyEvaluated)
         {
             return reference;
         }

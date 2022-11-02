@@ -68,7 +68,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static io.trino.connector.system.jdbc.FilterUtil.tablePrefix;
 import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
-import static io.trino.metadata.MetadataListing.listCatalogs;
+import static io.trino.metadata.MetadataListing.listCatalogNames;
 import static io.trino.metadata.MetadataListing.listSchemas;
 import static io.trino.metadata.MetadataListing.listTableColumns;
 import static io.trino.metadata.MetadataListing.listTables;
@@ -154,7 +154,7 @@ public class ColumnJdbcTable
             return tupleDomain;
         }
         Predicate<Map<ColumnHandle, NullableValue>> predicate = constraint.predicate().get();
-        Set<ColumnHandle> predicateColumns = constraint.getColumns().orElseThrow(() -> new VerifyException("columns not present for a predicate"));
+        Set<ColumnHandle> predicateColumns = constraint.getPredicateColumns().orElseThrow(() -> new VerifyException("columns not present for a predicate"));
 
         boolean hasSchemaPredicate = predicateColumns.contains(TABLE_SCHEMA_COLUMN);
         boolean hasTablePredicate = predicateColumns.contains(TABLE_NAME_COLUMN);
@@ -174,7 +174,7 @@ public class ColumnJdbcTable
             return tupleDomain;
         }
 
-        List<String> catalogs = listCatalogs(session, metadata, accessControl, catalogFilter).keySet().stream()
+        List<String> catalogs = listCatalogNames(session, metadata, accessControl, catalogFilter).stream()
                 .filter(catalogName -> predicate.test(ImmutableMap.of(TABLE_CATALOG_COLUMN, toNullableValue(catalogName))))
                 .collect(toImmutableList());
 
@@ -197,7 +197,7 @@ public class ColumnJdbcTable
                             .map(CatalogSchemaName::getSchemaName)
                             .collect(toVarcharDomain())
                             .simplify(MAX_DOMAIN_SIZE))
-                    .build());
+                    .buildOrThrow());
         }
 
         List<CatalogSchemaTableName> tables = schemas.stream()
@@ -227,7 +227,7 @@ public class ColumnJdbcTable
                         .map(catalogSchemaTableName -> catalogSchemaTableName.getSchemaTableName().getTableName())
                         .collect(toVarcharDomain())
                         .simplify(MAX_DOMAIN_SIZE))
-                .build());
+                .buildOrThrow());
     }
 
     @Override
@@ -253,7 +253,7 @@ public class ColumnJdbcTable
             return table.build().cursor();
         }
 
-        for (String catalog : listCatalogs(session, metadata, accessControl, catalogFilter).keySet()) {
+        for (String catalog : listCatalogNames(session, metadata, accessControl, catalogFilter)) {
             if (!catalogDomain.includesNullableValue(utf8Slice(catalog))) {
                 continue;
             }
@@ -326,7 +326,7 @@ public class ColumnJdbcTable
                     null,
                     charOctetLength(column.getType()),
                     ordinalPosition,
-                    "",
+                    column.isNullable() ? "YES" : "NO",
                     null,
                     null,
                     null,

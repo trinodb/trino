@@ -18,13 +18,12 @@ import io.trino.Session;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.metadata.Metadata;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
-import io.trino.spi.type.TypeOperators;
 import io.trino.sql.ExpressionUtils;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
@@ -42,11 +41,11 @@ import static com.google.common.base.Verify.verify;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.planner.DomainTranslator.fromPredicate;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static io.trino.sql.planner.plan.Patterns.rowNumber;
 import static io.trino.sql.planner.plan.Patterns.source;
 import static java.lang.Math.toIntExact;
+import static java.util.Objects.requireNonNull;
 
 public class PushdownFilterIntoRowNumber
         implements Rule<FilterNode>
@@ -54,13 +53,11 @@ public class PushdownFilterIntoRowNumber
     private static final Capture<RowNumberNode> CHILD = newCapture();
     private static final Pattern<FilterNode> PATTERN = filter().with(source().matching(rowNumber().capturedAs(CHILD)));
 
-    private final Metadata metadata;
-    private final TypeOperators typeOperators;
+    private final PlannerContext plannerContext;
 
-    public PushdownFilterIntoRowNumber(Metadata metadata, TypeOperators typeOperators)
+    public PushdownFilterIntoRowNumber(PlannerContext plannerContext)
     {
-        this.metadata = metadata;
-        this.typeOperators = typeOperators;
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
     }
 
     @Override
@@ -75,7 +72,7 @@ public class PushdownFilterIntoRowNumber
         Session session = context.getSession();
         TypeProvider types = context.getSymbolAllocator().getTypes();
 
-        DomainTranslator.ExtractionResult extractionResult = fromPredicate(metadata, typeOperators, session, node.getPredicate(), types);
+        DomainTranslator.ExtractionResult extractionResult = DomainTranslator.getExtractionResult(plannerContext, session, node.getPredicate(), types);
         TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
 
         RowNumberNode source = captures.get(CHILD);
@@ -100,16 +97,14 @@ public class PushdownFilterIntoRowNumber
             if (needRewriteSource) {
                 return Result.ofPlanNode(new FilterNode(node.getId(), source, node.getPredicate()));
             }
-            else {
-                return Result.empty();
-            }
+            return Result.empty();
         }
 
         TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(rowNumberSymbol));
         Expression newPredicate = ExpressionUtils.combineConjuncts(
-                metadata,
+                plannerContext.getMetadata(),
                 extractionResult.getRemainingExpression(),
-                new DomainTranslator(session, metadata).toPredicate(newTupleDomain));
+                new DomainTranslator(plannerContext).toPredicate(session, newTupleDomain));
 
         if (newPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
             return Result.ofPlanNode(source);

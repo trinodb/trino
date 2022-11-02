@@ -40,6 +40,12 @@ where ``from_item`` is one of
 For detailed description of ``MATCH_RECOGNIZE`` clause, see :doc:`pattern
 recognition in FROM clause</sql/match-recognize>`.
 
+.. code-block:: text
+
+    TABLE (table_function_invocation) [ [ AS ] alias [ ( column_alias [, ...] ) ] ]
+
+For description of table functions usage, see :doc:`table functions</functions/table>`.
+
 and ``join_type`` is one of
 
 .. code-block:: text
@@ -696,18 +702,17 @@ to combine the results of more than one select statement into a single result se
 
 .. code-block:: text
 
-    query INTERSECT [DISTINCT] query
+    query INTERSECT [ALL | DISTINCT] query
 
 .. code-block:: text
 
-    query EXCEPT [DISTINCT] query
+    query EXCEPT [ALL | DISTINCT] query
 
 The argument ``ALL`` or ``DISTINCT`` controls which rows are included in
 the final result set. If the argument ``ALL`` is specified all rows are
 included even if the rows are identical.  If the argument ``DISTINCT``
 is specified only unique rows are included in the combined result set.
-If neither is specified, the behavior defaults to ``DISTINCT``.  The ``ALL``
-argument is not supported for ``INTERSECT`` or ``EXCEPT``.
+If neither is specified, the behavior defaults to ``DISTINCT``.
 
 
 Multiple set operations are processed left to right, unless the order is explicitly
@@ -1027,21 +1032,123 @@ UNNEST
 ------
 
 ``UNNEST`` can be used to expand an :ref:`array_type` or :ref:`map_type` into a relation.
-Arrays are expanded into a single column, and maps are expanded into two columns (key, value).
-``UNNEST`` can also be used with multiple arguments, in which case they are expanded into multiple columns,
-with as many rows as the highest cardinality argument (the other columns are padded with nulls).
-``UNNEST`` can optionally have a ``WITH ORDINALITY`` clause, in which case an additional ordinality column
-is added to the end.
-``UNNEST`` is normally used with a ``JOIN`` and can reference columns
-from relations on the left side of the join.
+Arrays are expanded into a single column::
 
-Using a single column::
+    SELECT * FROM UNNEST(ARRAY[1,2]) AS t(number);
+
+.. code-block:: text
+
+     number
+    --------
+          1
+          2
+    (2 rows)
+
+
+Maps are expanded into two columns (key, value)::
+
+    SELECT * FROM UNNEST(
+            map_from_entries(
+                ARRAY[
+                    ('SQL',1974),
+                    ('Java', 1995)
+                ]
+            )
+    ) AS t(language, first_appeared_year);
+
+
+.. code-block:: text
+
+     language | first_appeared_year
+    ----------+---------------------
+     SQL      |                1974
+     Java     |                1995
+    (2 rows)
+
+``UNNEST`` can be used in combination with an ``ARRAY`` of :ref:`row_type` structures for expanding each
+field of the ``ROW`` into a corresponding column::
+
+    SELECT *
+    FROM UNNEST(
+            ARRAY[
+                ROW('Java',  1995),
+                ROW('SQL' , 1974)],
+            ARRAY[
+                ROW(false),
+                ROW(true)]
+    ) as t(language,first_appeared_year,declarative);
+
+.. code-block:: text
+
+     language | first_appeared_year | declarative
+    ----------+---------------------+-------------
+     Java     |                1995 | false
+     SQL      |                1974 | true
+    (2 rows)
+
+``UNNEST`` can optionally have a ``WITH ORDINALITY`` clause, in which case an additional ordinality column
+is added to the end::
+
+    SELECT a, b, rownumber
+    FROM UNNEST (
+        ARRAY[2, 5],
+        ARRAY[7, 8, 9]
+         ) WITH ORDINALITY AS t(a, b, rownumber);
+
+.. code-block:: text
+
+      a   | b | rownumber
+    ------+---+-----------
+        2 | 7 |         1
+        5 | 8 |         2
+     NULL | 9 |         3
+    (3 rows)
+
+``UNNEST`` returns zero entries when the array/map is empty::
+
+    SELECT * FROM UNNEST (ARRAY[]) AS t(value);
+
+.. code-block:: text
+
+     value
+    -------
+    (0 rows)
+
+``UNNEST`` returns zero entries when the array/map is null::
+
+    SELECT * FROM UNNEST (CAST(null AS ARRAY(integer))) AS t(number);
+
+.. code-block:: text
+
+     number
+    --------
+    (0 rows)
+
+``UNNEST`` is normally used with a ``JOIN``, and can reference columns
+from relations on the left side of the join::
 
     SELECT student, score
-    FROM tests
-    CROSS JOIN UNNEST(scores) AS t (score);
+    FROM (
+       VALUES
+          ('John', ARRAY[7, 10, 9]),
+          ('Mary', ARRAY[4, 8, 9])
+    ) AS tests (student, scores)
+    CROSS JOIN UNNEST(scores) AS t(score);
 
-Using multiple columns::
+.. code-block:: text
+
+     student | score
+    ---------+-------
+     John    |     7
+     John    |    10
+     John    |     9
+     Mary    |     4
+     Mary    |     8
+     Mary    |     9
+    (6 rows)
+
+``UNNEST`` can also be used with multiple arguments, in which case they are expanded into multiple columns,
+with as many rows as the highest cardinality argument (the other columns are padded with nulls)::
 
     SELECT numbers, animals, n, a
     FROM (
@@ -1063,26 +1170,33 @@ Using multiple columns::
      [7, 8, 9] | [cow, pig]       |    9 | NULL
     (6 rows)
 
-``WITH ORDINALITY`` clause::
+``LEFT JOIN`` is preferable in order to avoid losing the the row containing the array/map field in question
+when referenced columns from relations on the left side of the join can be empty or have ``NULL`` values::
 
-    SELECT numbers, n, a
+    SELECT runner, checkpoint
     FROM (
-      VALUES
-        (ARRAY[2, 5]),
-        (ARRAY[7, 8, 9])
-    ) AS x (numbers)
-    CROSS JOIN UNNEST(numbers) WITH ORDINALITY AS t (n, a);
+       VALUES
+          ('Joe', ARRAY[10, 20, 30, 42]),
+          ('Roger', ARRAY[10]),
+          ('Dave', ARRAY[]),
+          ('Levi', NULL)
+    ) AS marathon (runner, checkpoints)
+    LEFT JOIN UNNEST(checkpoints) AS t(checkpoint) ON TRUE;
 
 .. code-block:: text
 
-      numbers  | n | a
-    -----------+---+---
-     [2, 5]    | 2 | 1
-     [2, 5]    | 5 | 2
-     [7, 8, 9] | 7 | 1
-     [7, 8, 9] | 8 | 2
-     [7, 8, 9] | 9 | 3
-    (5 rows)
+     runner | checkpoint
+    --------+------------
+     Joe    |         10
+     Joe    |         20
+     Joe    |         30
+     Joe    |         42
+     Roger  |         10
+     Dave   |       NULL
+     Levi   |       NULL
+    (7 rows)
+
+Note that in case of using ``LEFT JOIN`` the only condition supported by the current implementation is ``ON TRUE``.
 
 Joins
 -----

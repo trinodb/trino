@@ -14,19 +14,16 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Sets;
-import io.trino.execution.Lifespan;
 import io.trino.sql.planner.plan.PlanNodeId;
 
-import java.util.HashSet;
+import javax.annotation.concurrent.GuardedBy;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -38,13 +35,11 @@ public class DriverFactory
     private final List<OperatorFactory> operatorFactories;
     private final Optional<PlanNodeId> sourceId;
     private final OptionalInt driverInstances;
-    private final PipelineExecutionStrategy pipelineExecutionStrategy;
 
-    private boolean closed;
-    private final Set<Lifespan> encounteredLifespans = new HashSet<>();
-    private final Set<Lifespan> closedLifespans = new HashSet<>();
+    @GuardedBy("this")
+    private boolean noMoreDrivers;
 
-    public DriverFactory(int pipelineId, boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances, PipelineExecutionStrategy pipelineExecutionStrategy)
+    public DriverFactory(int pipelineId, boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances)
     {
         this.pipelineId = pipelineId;
         this.inputDriver = inputDriver;
@@ -52,7 +47,6 @@ public class DriverFactory
         this.operatorFactories = ImmutableList.copyOf(requireNonNull(operatorFactories, "operatorFactories is null"));
         checkArgument(!operatorFactories.isEmpty(), "There must be at least one operator");
         this.driverInstances = requireNonNull(driverInstances, "driverInstances is null");
-        this.pipelineExecutionStrategy = requireNonNull(pipelineExecutionStrategy, "pipelineExecutionStrategy is null");
 
         List<PlanNodeId> sourceIds = operatorFactories.stream()
                 .filter(SourceOperatorFactory.class::isInstance)
@@ -93,11 +87,6 @@ public class DriverFactory
         return driverInstances;
     }
 
-    public PipelineExecutionStrategy getPipelineExecutionStrategy()
-    {
-        return pipelineExecutionStrategy;
-    }
-
     public List<OperatorFactory> getOperatorFactories()
     {
         return operatorFactories;
@@ -105,10 +94,8 @@ public class DriverFactory
 
     public synchronized Driver createDriver(DriverContext driverContext)
     {
-        checkState(!closed, "DriverFactory is already closed");
+        checkState(!noMoreDrivers, "noMoreDrivers is already set");
         requireNonNull(driverContext, "driverContext is null");
-        checkState(!closedLifespans.contains(driverContext.getLifespan()), "DriverFactory is already closed for driver group %s", driverContext.getLifespan());
-        encounteredLifespans.add(driverContext.getLifespan());
         ImmutableList.Builder<Operator> operators = ImmutableList.builder();
         for (OperatorFactory operatorFactory : operatorFactories) {
             Operator operator = operatorFactory.createOperator(driverContext);
@@ -117,30 +104,19 @@ public class DriverFactory
         return Driver.createDriver(driverContext, operators.build());
     }
 
-    public synchronized void noMoreDrivers(Lifespan lifespan)
-    {
-        if (closedLifespans.contains(lifespan)) {
-            return;
-        }
-        encounteredLifespans.add(lifespan);
-        closedLifespans.add(lifespan);
-        for (OperatorFactory operatorFactory : operatorFactories) {
-            operatorFactory.noMoreOperators(lifespan);
-        }
-    }
-
     public synchronized void noMoreDrivers()
     {
-        if (closed) {
+        if (noMoreDrivers) {
             return;
         }
-        if (encounteredLifespans.size() != closedLifespans.size()) {
-            Sets.difference(encounteredLifespans, closedLifespans).forEach(this::noMoreDrivers);
-            verify(encounteredLifespans.size() == closedLifespans.size());
-        }
-        closed = true;
+        noMoreDrivers = true;
         for (OperatorFactory operatorFactory : operatorFactories) {
             operatorFactory.noMoreOperators();
         }
+    }
+
+    public synchronized boolean isNoMoreDrivers()
+    {
+        return noMoreDrivers;
     }
 }

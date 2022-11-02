@@ -13,12 +13,16 @@
  */
 package io.trino.plugin.hive;
 
+import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
+import java.net.URI;
 
-import static io.trino.plugin.hive.HiveWriterFactory.computeBucketedFileName;
+import static io.trino.plugin.hive.HiveWriterFactory.computeNonTransactionalBucketedFilename;
+import static io.trino.plugin.hive.HiveWriterFactory.computeTransactionalBucketedFilename;
+import static io.trino.plugin.hive.HiveWriterFactory.setSchemeToFileIfAbsent;
 import static org.apache.hadoop.hive.ql.exec.Utilities.getBucketIdFromFile;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveWriterFactory
@@ -26,12 +30,44 @@ public class TestHiveWriterFactory
     @Test
     public void testComputeBucketedFileName()
     {
-        String name = computeBucketedFileName(Optional.of("20180102_030405_00641_x1y2z"), 1234);
-        assertEquals(name, "001234_0_20180102_030405_00641_x1y2z");
+        String name = computeNonTransactionalBucketedFilename("20180102_030405_00641_x1y2z", 1234);
+        assertThat(name).matches("001234_0_.*_20180102_030405_00641_x1y2z");
         assertEquals(getBucketIdFromFile(name), 1234);
 
-        name = computeBucketedFileName(Optional.empty(), 1234);
+        name = computeTransactionalBucketedFilename(1234);
         assertEquals(name, "001234_0");
         assertEquals(getBucketIdFromFile(name), 1234);
+    }
+
+    @Test
+    public void testSetsSchemeToFile()
+    {
+        String pathWithoutScheme = "/simple/file/path";
+        String result = setSchemeToFileIfAbsent(pathWithoutScheme);
+        assertThat(result).isEqualTo("file:////simple/file/path");
+        URI resultUri = new Path(result).toUri();
+        assertThat(resultUri.getScheme()).isEqualTo("file");
+        assertThat(resultUri.getPath()).isEqualTo("/simple/file/path");
+
+        String pathWithScheme = "s3://simple/file/path";
+        result = setSchemeToFileIfAbsent(pathWithScheme);
+        assertThat(result).isEqualTo(pathWithScheme);
+        resultUri = new Path(result).toUri();
+        assertThat(resultUri.getScheme()).isEqualTo("s3");
+        assertThat(resultUri.getPath()).isEqualTo("/file/path");
+
+        String pathWithEmptySpaces = "/simple/file 1/path";
+        result = setSchemeToFileIfAbsent(pathWithEmptySpaces);
+        assertThat(result).isEqualTo("file:////simple/file 1/path");
+        resultUri = new Path(result).toUri();
+        assertThat(resultUri.getScheme()).isEqualTo("file");
+        assertThat(resultUri.getPath()).isEqualTo("/simple/file 1/path");
+
+        String pathWithEmptySpacesAndScheme = "s3://simple/file 1/path";
+        result = setSchemeToFileIfAbsent(pathWithEmptySpacesAndScheme);
+        assertThat(result).isEqualTo(pathWithEmptySpacesAndScheme);
+        resultUri = new Path(result).toUri();
+        assertThat(resultUri.getScheme()).isEqualTo("s3");
+        assertThat(resultUri.getPath()).isEqualTo("/file 1/path");
     }
 }

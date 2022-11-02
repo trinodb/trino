@@ -13,23 +13,28 @@
  */
 package io.trino.operator.window.matcher;
 
+import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.window.pattern.LabelEvaluator;
-import io.trino.operator.window.pattern.PhysicalValuePointer;
+import io.trino.operator.window.pattern.MatchAggregation.MatchAggregationInstantiator;
+import io.trino.operator.window.pattern.PhysicalValueAccessor;
+import io.trino.sql.planner.LocalExecutionPlanner.MatchAggregationLabelDependency;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
 import static io.trino.operator.window.matcher.MatchResult.NO_MATCH;
+import static java.lang.Math.toIntExact;
 
 public class Matcher
 {
     private final Program program;
     private final ThreadEquivalence threadEquivalence;
+    private final List<MatchAggregationInstantiator> aggregations;
 
     private static class Runtime
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(Runtime.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(Runtime.class).instanceSize());
 
         // a helper structure for identifying equivalent threads
         // program pointer (instruction) --> list of threads that have reached this instruction
@@ -42,7 +47,10 @@ public class Matcher
         private final boolean matchingAtPartitionStart;
         private final Captures captures;
 
-        public Runtime(Program program, int inputLength, boolean matchingAtPartitionStart)
+        // for each thread, array of MatchAggregations evaluated by this thread
+        private final MatchAggregations aggregations;
+
+        public Runtime(Program program, int inputLength, boolean matchingAtPartitionStart, List<MatchAggregationInstantiator> aggregationInstantiators, AggregatedMemoryContext aggregationsMemoryContext)
         {
             int initialCapacity = 2 * program.size();
             threads = new IntList(initialCapacity);
@@ -50,6 +58,7 @@ public class Matcher
             this.captures = new Captures(initialCapacity, program.getMinSlotCount(), program.getMinLabelCount());
             this.inputLength = inputLength;
             this.matchingAtPartitionStart = matchingAtPartitionStart;
+            this.aggregations = new MatchAggregations(initialCapacity, aggregationInstantiators, aggregationsMemoryContext);
 
             this.threadsAtInstructions = new IntMultimap(program.size(), program.size());
         }
@@ -58,6 +67,7 @@ public class Matcher
         {
             int child = newThread();
             captures.copy(parent, child);
+            aggregations.copy(parent, child);
             return child;
         }
 
@@ -73,21 +83,23 @@ public class Matcher
         {
             freeThreadIds.push(threadId);
             captures.release(threadId);
+            aggregations.release(threadId);
         }
 
         private long getSizeInBytes()
         {
-            return INSTANCE_SIZE + threadsAtInstructions.getSizeInBytes() + threads.getSizeInBytes() + freeThreadIds.getSizeInBytes() + captures.getSizeInBytes();
+            return INSTANCE_SIZE + threadsAtInstructions.getSizeInBytes() + threads.getSizeInBytes() + freeThreadIds.getSizeInBytes() + captures.getSizeInBytes() + aggregations.getSizeInBytes();
         }
     }
 
-    public Matcher(Program program, List<List<PhysicalValuePointer>> valuePointers)
+    public Matcher(Program program, List<List<PhysicalValueAccessor>> accessors, List<MatchAggregationLabelDependency> labelDependencies, List<MatchAggregationInstantiator> aggregations)
     {
         this.program = program;
-        this.threadEquivalence = new ThreadEquivalence(program, valuePointers);
+        this.threadEquivalence = new ThreadEquivalence(program, accessors, labelDependencies);
+        this.aggregations = aggregations;
     }
 
-    public MatchResult run(LabelEvaluator labelEvaluator, LocalMemoryContext memoryContext)
+    public MatchResult run(LabelEvaluator labelEvaluator, LocalMemoryContext memoryContext, AggregatedMemoryContext aggregationsMemoryContext)
     {
         IntList current = new IntList(program.size());
         IntList next = new IntList(program.size());
@@ -95,7 +107,7 @@ public class Matcher
         int inputLength = labelEvaluator.getInputLength();
         boolean matchingAtPartitionStart = labelEvaluator.isMatchingAtPartitionStart();
 
-        Runtime runtime = new Runtime(program, inputLength, matchingAtPartitionStart);
+        Runtime runtime = new Runtime(program, inputLength, matchingAtPartitionStart, aggregations, aggregationsMemoryContext);
 
         advanceAndSchedule(current, runtime.newThread(), 0, 0, runtime);
 
@@ -121,8 +133,11 @@ public class Matcher
                 switch (instruction.type()) {
                     case MATCH_LABEL:
                         int label = ((MatchLabel) instruction).getLabel();
-                        if (labelEvaluator.evaluateLabel(label, runtime.captures.getLabels(threadId))) {
-                            runtime.captures.saveLabel(threadId, label);
+                        // save the label before evaluating the defining condition, because evaluating assumes that the label is tentatively matched
+                        // - if the condition is true, the label is already saved
+                        // - if the condition is false, the thread is killed along with its captures, so the incorrectly saved label does not matter
+                        runtime.captures.saveLabel(threadId, label);
+                        if (labelEvaluator.evaluateLabel(runtime.captures.getLabels(threadId), runtime.aggregations.get(threadId))) {
                             advanceAndSchedule(next, threadId, pointer + 1, index + 1, runtime);
                         }
                         else {
@@ -179,7 +194,14 @@ public class Matcher
         ArrayView threadsAtInstruction = runtime.threadsAtInstructions.getArrayView(pointer);
         for (int i = 0; i < threadsAtInstruction.length(); i++) {
             int thread = threadsAtInstruction.get(i);
-            if (threadEquivalence.equivalent(thread, runtime.captures.getLabels(thread), threadId, runtime.captures.getLabels(threadId), pointer)) {
+            if (threadEquivalence.equivalent(
+                    thread,
+                    runtime.captures.getLabels(thread),
+                    runtime.aggregations.get(thread),
+                    threadId,
+                    runtime.captures.getLabels(threadId),
+                    runtime.aggregations.get(threadId),
+                    pointer)) {
                 // in case of equivalent threads, kill the one that comes later, because it is on a less preferred path
                 runtime.killThread(threadId);
                 return;

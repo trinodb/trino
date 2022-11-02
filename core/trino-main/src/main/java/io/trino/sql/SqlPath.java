@@ -16,6 +16,7 @@ package io.trino.sql;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.PathElement;
 
@@ -43,6 +44,9 @@ public final class SqlPath
     {
         requireNonNull(path, "path is null");
         this.rawPath = path;
+        if (rawPath.isEmpty()) {
+            parsedPath = ImmutableList.of();
+        }
     }
 
     @JsonProperty

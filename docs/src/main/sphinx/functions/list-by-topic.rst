@@ -84,6 +84,7 @@ For more details, see :doc:`array`
 * :func:`shuffle`
 * :func:`slice`
 * :func:`transform`
+* :func:`trim_array`
 * :func:`zip`
 * :func:`zip_with`
 
@@ -94,6 +95,7 @@ For more details, see :doc:`binary`
 
 * ``concat()``
 * :func:`crc32`
+* :func:`from_base32`
 * :func:`from_base64`
 * :func:`from_base64url`
 * :func:`from_big_endian_32`
@@ -117,6 +119,7 @@ For more details, see :doc:`binary`
 * :func:`spooky_hash_v2_32`
 * :func:`spooky_hash_v2_64`
 * ``substr()``
+* :func:`to_base32`
 * :func:`to_base64`
 * :func:`to_base64url`
 * :func:`to_big_endian_32`
@@ -196,6 +199,7 @@ For more details, see :doc:`datetime`
 * :func:`date_format`
 * :func:`date_parse`
 * :func:`date_trunc`
+* :func:`format_datetime`
 * :func:`from_iso8601_date`
 * :func:`from_iso8601_timestamp`
 * :func:`from_unixtime`
@@ -313,10 +317,13 @@ For more details, see :doc:`json`
 * :func:`is_json_scalar`
 * :func:`json_array_contains`
 * :func:`json_array_length`
+* :ref:`json_exists() <json_exists>`
 * :func:`json_extract`
 * :func:`json_format`
 * :func:`json_parse`
+* :ref:`json_query() <json_query>`
 * :func:`json_size`
+* :ref:`json_value() <json_value>`
 
 Lambda
 ------

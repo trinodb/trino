@@ -16,10 +16,13 @@ Trino server on initial connection.
     client certificates in order to use this authentication type. Consider
     instead using another :ref:`authentication type <cl-access-auth>`.
 
+Using :doc:`TLS <tls>` and :doc:`a configured shared secret
+</security/internal-communication>` is required for certificate authentication.
+
 Using certificate authentication
 --------------------------------
 
-All clients connecting with HTTPS/TLS go through the following initial steps:
+All clients connecting with TLS/HTTPS go through the following initial steps:
 
 1. The client attempts to contact the coordinator.
 2. The coordinator returns its certificate to the client.
@@ -94,14 +97,14 @@ The following configuration properties are also available:
      - The path to a JSON file that contains a set of :doc:`user mapping
        rules </security/user-mapping>` for this authentication type.
 
-Use certificate authencation with clients
------------------------------------------
+Use certificate authentication with clients
+-------------------------------------------
 
-When using the Trino :doc:`CLI </installation/cli>`, specify the
+When using the Trino :doc:`CLI </client/cli>`, specify the
 ``--keystore-path`` and ``--keystore-password`` options as described
 in :ref:`cli-certificate-auth`.
 
-When using the Trino :doc:`JDBC driver </installation/jdbc>` to connect to a
+When using the Trino :doc:`JDBC driver </client/jdbc>` to connect to a
 cluster with certificate authentication enabled, use the ``SSLKeyStoreType`` and
 ``SSLKeyStorePassword`` :ref:`parameters <jdbc-parameter-reference>` to specify
 the path to the client's certificate and its password, if any.

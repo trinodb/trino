@@ -4,6 +4,8 @@ set -euo pipefail -x
 
 . "${BASH_SOURCE%/*}/common.sh"
 
+abort_if_not_gib_impacted
+
 check_vars S3_BUCKET S3_BUCKET_ENDPOINT \
     AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
 
@@ -44,6 +46,38 @@ exec_in_hadoop_master_container /usr/bin/hive -e "
     LOCATION '${table_path}'
     TBLPROPERTIES ('skip.header.line.count'='2', 'skip.footer.line.count'='2')"
 
+table_path="s3a://${S3_BUCKET}/${test_directory}/trino_s3select_test_external_fs_with_pipe_delimiter/"
+exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
+exec_in_hadoop_master_container hadoop fs -put -f /docker/files/test_table_with_pipe_delimiter.csv{,.gz,.bz2} "${table_path}"
+exec_in_hadoop_master_container /usr/bin/hive -e "
+    CREATE EXTERNAL TABLE trino_s3select_test_external_fs_with_pipe_delimiter(t_bigint bigint, s_bigint bigint)
+    ROW FORMAT DELIMITED
+    FIELDS TERMINATED BY '|'
+    STORED AS TEXTFILE
+    LOCATION '${table_path}'"
+
+table_path="s3a://${S3_BUCKET}/${test_directory}/trino_s3select_test_external_fs_with_comma_delimiter/"
+exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
+exec_in_hadoop_master_container hadoop fs -put -f /docker/files/test_table_with_comma_delimiter.csv{,.gz,.bz2} "${table_path}"
+exec_in_hadoop_master_container /usr/bin/hive -e "
+    CREATE EXTERNAL TABLE trino_s3select_test_external_fs_with_comma_delimiter(t_bigint bigint, s_bigint bigint)
+    ROW FORMAT DELIMITED
+    FIELDS TERMINATED BY ','
+    STORED AS TEXTFILE
+    LOCATION '${table_path}'"
+
+table_path="s3a://${S3_BUCKET}/${test_directory}/trino_s3select_test_csv_scan_range_pushdown/"
+exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
+exec_in_hadoop_master_container /docker/files/hadoop-put.sh /docker/files/test_table_csv_scan_range_select_pushdown_{1,2,3}.csv "${table_path}"
+exec_in_hadoop_master_container sudo -Eu hive beeline -u jdbc:hive2://localhost:10000/default -n hive -e "
+    CREATE EXTERNAL TABLE trino_s3select_test_csv_scan_range_pushdown(index bigint, id string, value1 bigint, value2 bigint, value3 bigint,
+     value4 bigint, value5 bigint, title string, firstname string, lastname string, flag string, day bigint,
+     month bigint, year bigint, country string, comment string, email string, identifier string)
+    ROW FORMAT DELIMITED
+    FIELDS TERMINATED BY '|'
+    STORED AS TEXTFILE
+    LOCATION '${table_path}'"
+
 stop_unnecessary_hadoop_services
 
 # restart hive-metastore to apply S3 changes in core-site.xml
@@ -53,11 +87,12 @@ retry check_hadoop
 # run product tests
 pushd "${PROJECT_ROOT}"
 set +e
-./mvnw -B -pl :trino-hive-hadoop2 test -P test-hive-hadoop2-s3 \
+./mvnw ${MAVEN_TEST:--B} -pl :trino-hive-hadoop2 test -P test-hive-hadoop2-s3 \
     -DHADOOP_USER_NAME=hive \
     -Dhive.hadoop2.metastoreHost=localhost \
     -Dhive.hadoop2.metastorePort=9083 \
     -Dhive.hadoop2.databaseName=default \
+    -Dhive.hadoop2.s3.endpoint="${S3_BUCKET_ENDPOINT}" \
     -Dhive.hadoop2.s3.awsAccessKey="${AWS_ACCESS_KEY_ID}" \
     -Dhive.hadoop2.s3.awsSecretKey="${AWS_SECRET_ACCESS_KEY}" \
     -Dhive.hadoop2.s3.writableBucket="${S3_BUCKET}" \

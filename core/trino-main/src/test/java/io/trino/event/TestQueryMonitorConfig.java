@@ -36,9 +36,9 @@ public class TestQueryMonitorConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("event.max-output-stage-size", "512kB")
-                .build();
+                .buildOrThrow();
 
         QueryMonitorConfig expected = new QueryMonitorConfig()
                 .setMaxOutputStageJsonSize(DataSize.of(512, Unit.KILOBYTE));

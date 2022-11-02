@@ -16,6 +16,9 @@ basic credentials.  This can also be used to secure the :ref:`Web UI <web-ui-aut
     Salesforce data. Salesforce authentication is simply a means by which users
     can authenticate to Trino, similar to :doc:`ldap` or :doc:`password-file`.
 
+Using :doc:`TLS <tls>` and :doc:`a configured shared secret
+</security/internal-communication>` is required for Salesforce authentication.
+
 Salesforce authenticator configuration
 --------------------------------------
 

@@ -13,16 +13,12 @@
  */
 package io.trino.spi.function;
 
-public interface AccumulatorStateFactory<T>
+public interface AccumulatorStateFactory<T extends AccumulatorState>
 {
     T createSingleState();
-
-    Class<? extends T> getSingleStateClass();
 
     /**
      * Return value is also guaranteed to implement GroupedAccumulatorState
      */
     T createGroupedState();
-
-    Class<? extends T> getGroupedStateClass();
 }

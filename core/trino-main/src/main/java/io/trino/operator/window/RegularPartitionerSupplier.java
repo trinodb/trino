@@ -13,11 +13,13 @@
  */
 package io.trino.operator.window;
 
+import io.trino.memory.context.AggregatedMemoryContext;
+
 public class RegularPartitionerSupplier
         implements PartitionerSupplier
 {
     @Override
-    public Partitioner get()
+    public Partitioner get(AggregatedMemoryContext memoryContext)
     {
         return new RegularWindowPartitioner();
     }

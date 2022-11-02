@@ -1,9 +1,0 @@
-<configuration>
-    <property>
-        <name>dfs.client.key.provider.cache.expiry</name>
-        <!-- A cache may contain a valid entry which otherwise the current thread would not be able to calculate.
-             For example, Trino was able to read Parquet from KMS but only after a TEXTFILE was read from KMS.
-             Disabling the cache allows us to test behavior of individual file formats. -->
-        <value>0</value><!-- disables cache -->
-    </property>
-</configuration>

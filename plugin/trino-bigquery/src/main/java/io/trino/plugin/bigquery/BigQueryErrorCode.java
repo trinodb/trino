@@ -18,6 +18,7 @@ import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.ErrorType;
 
 import static io.trino.spi.ErrorType.EXTERNAL;
+import static io.trino.spi.ErrorType.USER_ERROR;
 
 public enum BigQueryErrorCode
         implements ErrorCodeSupplier
@@ -27,6 +28,8 @@ public enum BigQueryErrorCode
     BIGQUERY_FAILED_TO_EXECUTE_QUERY(2, EXTERNAL),
     BIGQUERY_AMBIGUOUS_OBJECT_NAME(3, EXTERNAL),
     BIGQUERY_LISTING_DATASET_ERROR(4, EXTERNAL),
+    BIGQUERY_UNSUPPORTED_OPERATION(5, USER_ERROR),
+    BIGQUERY_INVALID_STATEMENT(6, USER_ERROR),
     /**/;
 
     private final ErrorCode errorCode;

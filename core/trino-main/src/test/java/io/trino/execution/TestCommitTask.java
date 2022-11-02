@@ -21,7 +21,6 @@ import io.trino.metadata.Metadata;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
-import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.tree.Commit;
 import io.trino.transaction.TransactionId;
@@ -74,7 +73,7 @@ public class TestCommitTask
         assertTrue(stateMachine.getSession().getTransactionId().isPresent());
         assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
 
-        getFutureValue(new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList(), WarningCollector.NOOP));
+        getFutureValue(new CommitTask(transactionManager).execute(new Commit(), stateMachine, emptyList(), WarningCollector.NOOP));
         assertTrue(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
 
@@ -91,7 +90,7 @@ public class TestCommitTask
         QueryStateMachine stateMachine = createQueryStateMachine("COMMIT", session, transactionManager);
 
         assertTrinoExceptionThrownBy(
-                () -> getFutureValue(new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList(), WarningCollector.NOOP)))
+                () -> getFutureValue(new CommitTask(transactionManager).execute(new Commit(), stateMachine, emptyList(), WarningCollector.NOOP)))
                 .hasErrorCode(NOT_IN_TRANSACTION);
 
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
@@ -110,7 +109,7 @@ public class TestCommitTask
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine("COMMIT", session, transactionManager);
 
-        Future<?> future = new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList(), WarningCollector.NOOP);
+        Future<?> future = new CommitTask(transactionManager).execute(new Commit(), stateMachine, emptyList(), WarningCollector.NOOP);
         assertTrinoExceptionThrownBy(() -> getFutureValue(future))
                 .hasErrorCode(UNKNOWN_TRANSACTION);
 
@@ -123,6 +122,7 @@ public class TestCommitTask
     private QueryStateMachine createQueryStateMachine(String query, Session session, TransactionManager transactionManager)
     {
         return QueryStateMachine.begin(
+                Optional.empty(),
                 query,
                 Optional.empty(),
                 session,

@@ -41,26 +41,29 @@ public class TestBaseJdbcConfig
                 .setJdbcTypesMappedToVarchar("")
                 .setMetadataCacheTtl(ZERO)
                 .setCacheMissing(false)
-                .setCacheMaximumSize(10000));
+                .setCacheMaximumSize(10000)
+                .setReuseConnection(true));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("connection-url", "jdbc:h2:mem:config")
                 .put("jdbc-types-mapped-to-varchar", "mytype,struct_type1")
                 .put("metadata.cache-ttl", "1s")
                 .put("metadata.cache-missing", "true")
                 .put("metadata.cache-maximum-size", "5000")
-                .build();
+                .put("query.reuse-connection", "false")
+                .buildOrThrow();
 
         BaseJdbcConfig expected = new BaseJdbcConfig()
                 .setConnectionUrl("jdbc:h2:mem:config")
                 .setJdbcTypesMappedToVarchar("mytype, struct_type1")
                 .setMetadataCacheTtl(new Duration(1, SECONDS))
                 .setCacheMissing(true)
-                .setCacheMaximumSize(5000);
+                .setCacheMaximumSize(5000)
+                .setReuseConnection(false);
 
         assertFullMapping(properties, expected);
 

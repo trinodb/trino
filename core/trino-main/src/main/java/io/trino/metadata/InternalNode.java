@@ -17,11 +17,15 @@ import io.trino.client.NodeVersion;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
 
+import java.net.InetAddress;
 import java.net.URI;
+import java.net.UnknownHostException;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
+import static io.airlift.node.AddressToHostname.tryDecodeHostnameToAddress;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -66,6 +70,16 @@ public class InternalNode
     public URI getInternalUri()
     {
         return internalUri;
+    }
+
+    public InetAddress getInternalAddress()
+            throws UnknownHostException
+    {
+        Optional<InetAddress> address = tryDecodeHostnameToAddress(internalUri.getHost());
+        if (address.isPresent()) {
+            return address.get();
+        }
+        return InetAddress.getByName(internalUri.getHost());
     }
 
     @Override

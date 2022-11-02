@@ -2,6 +2,10 @@
 SQL Server connector
 ====================
 
+.. raw:: html
+
+  <img src="../_static/img/sqlserver.png" class="connector-logo">
+
 The SQL Server connector allows querying and creating tables in an external
 `Microsoft SQL Server <https://www.microsoft.com/sql-server/>`_ database. This
 can be used to join data between different systems like SQL Server and Hive, or
@@ -30,7 +34,7 @@ appropriate for your setup:
 .. code-block:: properties
 
     connector.name=sqlserver
-    connection-url=jdbc:sqlserver://<host>:<port>;database=<database>
+    connection-url=jdbc:sqlserver://<host>:<port>;database=<database>;encrypt=false
     connection-user=root
     connection-password=secret
 
@@ -43,6 +47,27 @@ The ``connection-user`` and ``connection-password`` are typically required and
 determine the user credentials for the connection, often a service user. You can
 use :doc:`secrets </security/secrets>` to avoid actual values in the catalog
 properties files.
+
+.. _sqlserver-tls:
+
+Connection security
+^^^^^^^^^^^^^^^^^^^
+
+The JDBC driver, and therefore the connector, automatically use Transport Layer
+Security (TLS) encryption and certificate validation. This requires a suitable
+TLS certificate configured on your SQL Server database host.
+
+If you do not have the necessary configuration established, you can disable
+encryption in the connection string with the ``encrypt`` property:
+
+.. code-block:: properties
+
+  connection-url=jdbc:sqlserver://<host>:<port>;database=<database>;encrypt=false
+
+Further parameters like ``trustServerCertificate``, ``hostNameInCertificate``,
+``trustStore``, and ``trustStorePassword`` are details in the `TLS section of
+SQL Server JDBC driver documentation
+<https://docs.microsoft.com/en-us/sql/connect/jdbc/using-ssl-encryption>`_.
 
 Multiple SQL Server databases or servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -58,6 +83,28 @@ if you name the property file ``sales.properties``, Trino creates a
 catalog named ``sales`` using the configured connector.
 
 .. include:: jdbc-common-configurations.fragment
+
+.. |default_domain_compaction_threshold| replace:: ``32``
+.. include:: jdbc-domain-compaction-threshold.fragment
+
+Specific configuration properties
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The SQL Server connector supports additional catalog properties to configure the
+behavior of the connector and the issues queries to the database.
+
+.. list-table::
+  :widths: 45, 55
+  :header-rows: 1
+
+  * - Property name
+    - Description
+  * - ``sqlserver.snapshot-isolation.disabled``
+    - Control the automatic use of snapshot isolation for transactions issued by
+      Trino in SQL Server. Defaults to ``false``, which means that snapshot
+      isolation is enabled.
+
+.. include:: jdbc-procedures.fragment
 
 .. include:: jdbc-case-insensitive-matching.fragment
 
@@ -96,24 +143,169 @@ that catalog name instead of ``sqlserver`` in the above examples.
 Type mapping
 ------------
 
-Trino supports the following SQL Server data types:
+Because Trino and SQL Server each support types that the other does not, this
+connector :ref:`modifies some types <type-mapping-overview>` when reading or
+writing data. Data types may not map the same way in both directions between
+Trino and the data source. Refer to the following sections for type mapping in
+each direction.
 
-==================================  ===============================
-SQL Server Type                     Trino Type
-==================================  ===============================
-``bigint``                          ``bigint``
-``smallint``                        ``smallint``
-``int``                             ``integer``
-``float``                           ``double``
-``char(n)``                         ``char(n)``
-``varchar(n)``                      ``varchar(n)``
-``date``                            ``date``
-``datetime2(n)``                    ``timestamp(n)``
-``datetimeoffset(n)``               ``timestamp(n) with time zone``
-==================================  ===============================
+SQL Server type to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps SQL server types to the corresponding Trino types following this table:
+
+.. list-table:: SQL Server type to Trino type mapping
+  :widths: 30, 20, 50
+  :header-rows: 1
+
+  * - SQL Server database type
+    - Trino type
+    - Notes
+  * - ``BIT``
+    - ``BOOLEAN``
+    -
+  * - ``TINYINT``
+    - ``SMALLINT``
+    - SQL Server ``TINYINT`` is actually ``unsigned tinyint``
+  * - ``SMALLINT``
+    - ``SMALLINT``
+    -
+  * - ``INTEGER``
+    - ``INTEGER``
+    -
+  * - ``BIGINT``
+    - ``BIGINT``
+    -
+  * - ``DOUBLE PRECISION``
+    - ``DOUBLE``
+    -
+  * - ``FLOAT[(n)]``
+    - ``REAL`` or ``DOUBLE``
+    -  See :ref:`sqlserver-numeric-mapping`
+  * - ``REAL``
+    - ``REAL``
+    -
+  * - ``DECIMAL[(p[, s])]``, ``NUMERIC[(p[, s])]``
+    - ``DECIMAL(p, s)``
+    -
+  * - ``CHAR[(n)]``
+    - ``CHAR(n)``
+    - ``1 <= n <= 8000``
+  * - ``NCHAR[(n)]``
+    - ``CHAR(n)``
+    - ``1 <= n <= 4000``
+  * - ``VARCHAR[(n | max)]``, ``NVARCHAR[(n | max)]``
+    - ``VARCHAR(n)``
+    - ``1 <= n <= 8000``, ``max = 2147483647``
+  * - ``TEXT``
+    - ``VARCHAR(2147483647)``
+    -
+  * - ``NTEXT``
+    - ``VARCHAR(1073741823)``
+    -
+  * - ``VARBINARY[(n | max)]``
+    - ``VARBINARY``
+    - ``1 <= n <= 8000``, ``max = 2147483647``
+  * - ``DATE``
+    - ``DATE``
+    -
+  * - ``TIME[(n)]``
+    - ``TIME(n)``
+    - ``0 <= n <= 7``
+  * - ``DATETIME2[(n)]``
+    - ``TIMESTAMP(n)``
+    - ``0 <= n <= 7``
+  * - ``SMALLDATETIME``
+    - ``TIMESTAMP(0)``
+    -
+  * - ``DATETIMEOFFSET[(n)]``
+    - ``TIMESTAMP(n) WITH TIME ZONE``
+    - ``0 <= n <= 7``
+
+Trino type to SQL Server type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps Trino types to the corresponding SQL Server types following this table:
+
+.. list-table:: Trino type to SQL Server type mapping
+  :widths: 30, 20, 50
+  :header-rows: 1
+
+  * - Trino type
+    - SQL Server type
+    - Notes
+  * - ``BOOLEAN``
+    - ``BIT``
+    -
+  * - ``TINYINT``
+    - ``TINYINT``
+    - Trino only supports writing values belonging to ``[0, 127]``
+  * - ``SMALLINT``
+    - ``SMALLINT``
+    -
+  * - ``INTEGER``
+    - ``INTEGER``
+    -
+  * - ``BIGINT``
+    - ``BIGINT``
+    -
+  * - ``REAL``
+    - ``REAL``
+    -
+  * - ``DOUBLE``
+    - ``DOUBLE PRECISION``
+    -
+  * - ``DECIMAL(p, s)``
+    - ``DECIMAL(p, s)``
+    -
+  * - ``CHAR(n)``
+    - ``NCHAR(n)`` or ``NVARCHAR(max)``
+    -  See :ref:`sqlserver-character-mapping`
+  * - ``VARCHAR(n)``
+    - ``NVARCHAR(n)`` or ``NVARCHAR(max)``
+    -  See :ref:`sqlserver-character-mapping`
+  * - ``VARBINARY``
+    - ``VARBINARY(max)``
+    -
+  * - ``DATE``
+    - ``DATE``
+    -
+  * - ``TIME(n)``
+    - ``TIME(n)``
+    - ``0 <= n <= 7``
+  * - ``TIMESTAMP(n)``
+    - ``DATETIME2(n)``
+    - ``0 <= n <= 7``
 
 Complete list of `SQL Server data types
 <https://msdn.microsoft.com/en-us/library/ms187752.aspx>`_.
+
+.. _sqlserver-numeric-mapping:
+
+Numeric type mapping
+^^^^^^^^^^^^^^^^^^^^
+
+For SQL Server ``FLOAT[(n)]``:
+
+- If ``n`` is not specified maps to Trino ``Double``
+- If ``1 <= n <= 24`` maps to Trino ``REAL``
+- If ``24 < n <= 53`` maps to Trino ``DOUBLE``
+
+.. _sqlserver-character-mapping:
+
+Character type mapping
+^^^^^^^^^^^^^^^^^^^^^^
+
+For Trino ``CHAR(n)``:
+
+- If ``1 <= n <= 4000`` maps SQL Server ``NCHAR(n)``
+- If ``n > 4000`` maps SQL Server ``NVARCHAR(max)``
+
+
+For Trino ``VARCHAR(n)``:
+
+- If ``1 <= n <= 4000`` maps SQL Server ``NVARCHAR(n)``
+- If ``n > 4000`` maps SQL Server ``NVARCHAR(max)``
 
 .. include:: jdbc-type-mapping.fragment
 
@@ -136,10 +328,85 @@ supports the following features:
 
 .. include:: alter-table-limitation.fragment
 
+Table functions
+---------------
+
+The connector provides specific :doc:`table functions </functions/table>` to
+access SQL Server.
+
+.. _sqlserver-query-function:
+
+``query(varchar) -> table``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``query`` function allows you to query the underlying database directly. It
+requires syntax native to SQL Server, because the full query is pushed down and
+processed in SQL Server. This can be useful for accessing native features which
+are not implemented in Trino or for improving query performance in situations
+where running a query natively may be faster.
+
+.. include:: polymorphic-table-function-ordering.fragment
+
+For example, select the top 10 percent of nations by population::
+
+    SELECT
+      *
+    FROM
+      TABLE(
+        sqlserver.system.query(
+          query => 'SELECT
+            TOP(10) PERCENT
+          FROM
+            tpch.nation
+          ORDER BY
+            population DESC'
+        )
+      );
+
+
+Performance
+-----------
+
+The connector includes a number of performance improvements, detailed in the
+following sections.
+
+.. _sqlserver-table-statistics:
+
+Table statistics
+^^^^^^^^^^^^^^^^
+
+The SQL Server connector can use :doc:`table and column statistics
+</optimizer/statistics>` for :doc:`cost based optimizations
+</optimizer/cost-based-optimizations>`, to improve query processing performance
+based on the actual data in the data source.
+
+The statistics are collected by SQL Server and retrieved by the connector.
+
+The connector can use information stored in single-column statistics. SQL Server
+Database can automatically create column statistics for certain columns. If
+column statistics are not created automatically for a certain column, you can
+create them by executing the following statement in SQL Server Database.
+
+.. code-block:: sql
+
+    CREATE STATISTICS my_statistics_name ON table_schema.table_name (column_name);
+
+SQL Server Database routinely updates the statistics. In some cases, you may
+want to force statistics update (e.g. after defining new column statistics or
+after changing data in the table). You can do that by executing the following
+statement in SQL Server Database.
+
+.. code-block:: sql
+
+    UPDATE STATISTICS table_schema.table_name;
+
+Refer to SQL Server documentation for information about options, limitations and
+additional considerations.
+
 .. _sqlserver-pushdown:
 
 Pushdown
---------
+^^^^^^^^
 
 The connector supports pushdown for a number of operations:
 
@@ -160,6 +427,49 @@ The connector supports pushdown for a number of operations:
 * :func:`variance`
 * :func:`var_pop`
 * :func:`var_samp`
+
+.. include:: join-pushdown-enabled-true.fragment
+
+.. include:: no-pushdown-text-type.fragment
+
+.. _sqlserver-bulk-insert:
+
+Bulk insert
+^^^^^^^^^^^
+
+You can optionally use the `bulk copy API
+<https://docs.microsoft.com/en-us/sql/connect/jdbc/use-bulk-copy-api-batch-insert-operation>`_
+to drastically speed up write operations.
+
+Enable bulk copying and a lock on the destination table to meet `minimal
+logging requirements
+<https://docs.microsoft.com/en-us/sql/relational-databases/import-export/prerequisites-for-minimal-logging-in-bulk-import>`_.
+
+The following table shows the relevant catalog configuration properties and
+their default values:
+
+.. list-table:: Bulk load properties
+  :widths: 30, 60, 10
+  :header-rows: 1
+
+  * - Property name
+    - Description
+    - Default
+  * - ``sqlserver.bulk-copy-for-write.enabled``
+    - Use the SQL Server bulk copy API for writes. The corresponding catalog
+      session property is ``bulk_copy_for_write``.
+    - ``false``
+  * - ``sqlserver.bulk-copy-for-write.lock-destination-table``
+    - Obtain a bulk update lock on the destination table for write operations.
+      The corresponding catalog session property is
+      ``bulk_copy_for_write_lock_destination_table``. Setting is only used when
+      ``bulk-copy-for-write.enabled=true``.
+    - ``false``
+
+Limitations:
+
+* Column names with leading and trailing spaces are not supported.
+
 
 Data compression
 ----------------

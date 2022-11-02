@@ -32,7 +32,6 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapred.FileSplit;
 import org.testng.annotations.Test;
 
@@ -48,14 +47,16 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping.buildColumnMappings;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.plugin.hive.HiveTestUtils.TYPE_MANAGER;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.StructuralTestUtil.rowBlockOf;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
@@ -99,7 +100,7 @@ public class TestOrcPredicates
         file.delete();
         try {
             // Write data
-            OrcFileWriterFactory writerFactory = new OrcFileWriterFactory(HDFS_ENVIRONMENT, TYPE_MANAGER, new NodeVersion("test"), STATS, new OrcWriterOptions());
+            OrcFileWriterFactory writerFactory = new OrcFileWriterFactory(TESTING_TYPE_MANAGER, new NodeVersion("test"), STATS, new OrcWriterOptions(), HDFS_FILE_SYSTEM_FACTORY);
             FileSplit split = createTestFileTrino(file.getAbsolutePath(), ORC, HiveCompressionCodec.NONE, columnsToWrite, session, NUM_ROWS, writerFactory);
 
             TupleDomain<TestColumn> testingPredicate;
@@ -163,11 +164,11 @@ public class TestOrcPredicates
             ConnectorSession session,
             FileSplit split)
     {
-        OrcPageSourceFactory readerFactory = new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_ENVIRONMENT, STATS, UTC);
+        OrcPageSourceFactory readerFactory = new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_FACTORY, STATS, UTC);
 
         Properties splitProperties = new Properties();
         splitProperties.setProperty(FILE_INPUT_FORMAT, ORC.getInputFormat());
-        splitProperties.setProperty(SERIALIZATION_LIB, ORC.getSerDe());
+        splitProperties.setProperty(SERIALIZATION_LIB, ORC.getSerde());
 
         // Use full columns in split properties
         ImmutableList.Builder<String> splitPropertiesColumnNames = ImmutableList.builder();
@@ -219,7 +220,7 @@ public class TestOrcPredicates
         Optional<ConnectorPageSource> pageSource = HivePageSourceProvider.createHivePageSource(
                 ImmutableSet.of(readerFactory),
                 ImmutableSet.of(),
-                new Configuration(false),
+                newEmptyConfiguration(),
                 session,
                 split.getPath(),
                 OptionalInt.empty(),
@@ -229,7 +230,7 @@ public class TestOrcPredicates
                 splitProperties,
                 predicate,
                 columnHandles,
-                TYPE_MANAGER,
+                TESTING_TYPE_MANAGER,
                 Optional.empty(),
                 Optional.empty(),
                 false,

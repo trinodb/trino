@@ -14,6 +14,11 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.hdfs.ConfigurationInitializer;
+import io.trino.hdfs.DynamicHdfsConfiguration;
+import io.trino.hdfs.HdfsConfig;
+import io.trino.hdfs.HdfsConfiguration;
+import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.plugin.hive.s3.HiveS3Config;
 import io.trino.plugin.hive.s3.TrinoS3ConfigurationInitializer;
 import org.apache.hadoop.fs.FileSystem;
@@ -65,7 +70,7 @@ public abstract class AbstractTestHiveFileSystemS3
                 .setS3AwsAccessKey(awsAccessKey)
                 .setS3AwsSecretKey(awsSecretKey));
         HdfsConfigurationInitializer initializer = new HdfsConfigurationInitializer(new HdfsConfig(), ImmutableSet.of(s3Config));
-        return new HiveHdfsConfiguration(initializer, ImmutableSet.of());
+        return new DynamicHdfsConfiguration(initializer, ImmutableSet.of());
     }
 
     @Override

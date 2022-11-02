@@ -15,7 +15,6 @@ package io.trino.plugin.hive.benchmark;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.hadoop.HadoopNative;
-import io.trino.metadata.Metadata;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveType;
@@ -57,13 +56,13 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.jmh.Benchmarks.benchmark;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.TestHiveReaderProjectionsUtil.createProjectedColumnHandle;
 import static io.trino.plugin.hive.benchmark.BenchmarkFileFormat.TRINO_ORC;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 
@@ -141,8 +140,7 @@ public class BenchmarkProjectionPushdownHive
                 throws IOException
         {
             fileFormat = benchmarkFileFormat.getFormat();
-            Metadata metadata = createTestMetadataManager();
-            Type columnType = metadata.fromSqlType(columnTypeString);
+            Type columnType = TESTING_TYPE_MANAGER.fromSqlType(columnTypeString);
             checkState(columnType instanceof RowType, "expected column to have RowType");
 
             if (STRUCT.equals(writeStrategy)) {
@@ -276,21 +274,21 @@ public class BenchmarkProjectionPushdownHive
 
                 return RowBlock.fromFieldBlocks(rowCount, Optional.empty(), fieldBlocks);
             }
-            else if (type instanceof VarcharType) {
+            if (type instanceof VarcharType) {
                 BlockBuilder builder = VARCHAR.createBlockBuilder(null, rowCount);
                 for (int i = 0; i < rowCount; i++) {
                     VARCHAR.writeString(builder, generateRandomString(random, 500));
                 }
                 return builder.build();
             }
-            else if (type instanceof ArrayType) {
+            if (type instanceof ArrayType) {
                 ArrayType arrayType = (ArrayType) type;
                 Type elementType = arrayType.getElementType();
 
                 BlockBuilder blockBuilder = type.createBlockBuilder(null, rowCount);
                 for (int i = 0; i < rowCount; i++) {
                     Block elementBlock = createBlock(elementType, DEFAULT_ARRAY_SIZE);
-                    blockBuilder.appendStructure(elementBlock);
+                    type.writeObject(blockBuilder, elementBlock);
                 }
 
                 return blockBuilder.build();
@@ -337,7 +335,7 @@ public class BenchmarkProjectionPushdownHive
             throws Exception
     {
         benchmark(BenchmarkProjectionPushdownHive.class)
-                .withOptions(optionsBuilder -> optionsBuilder.jvmArgsAppend("-Xmx4g", "-Xms4g", "-XX:+UseG1GC"))
+                .withOptions(optionsBuilder -> optionsBuilder.jvmArgsAppend("-Xmx4g", "-Xms4g"))
                 .run();
     }
 

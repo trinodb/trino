@@ -14,7 +14,6 @@
 package io.trino.tests.product.launcher.env;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.tests.product.launcher.env.common.EnvironmentExtender;
 
@@ -66,22 +65,22 @@ public abstract class EnvironmentProvider
         extender.getDependencies()
                 .forEach(dependencyExtender -> extend(dependencyExtender, builder, extraOptions, seen));
         if (seen.add(extender)) {
+            Map<String, String> extraOptionsForExtender;
             if (extender.getExtraOptionsPrefix().isPresent()) {
                 String prefix = extender.getExtraOptionsPrefix().get();
-                ImmutableMap<String, String> extraOptionsForExtender = extraOptions.entrySet().stream()
+                extraOptionsForExtender = extraOptions.entrySet().stream()
                         .filter(entry -> entry.getKey().startsWith(prefix))
                         .collect(toImmutableMap(
                                 // remove prefix
                                 entry -> entry.getKey().substring(prefix.length()),
                                 Map.Entry::getValue));
-                log.info("Building environment %s with extender: %s; options: %s", builder.getEnvironmentName(), extender.getClass().getSimpleName(), extraOptionsForExtender);
-                extender.setExtraOptions(extraOptionsForExtender);
             }
             else {
-                log.info("Building environment %s with extender: %s", builder.getEnvironmentName(), extender.getClass().getSimpleName());
+                extraOptionsForExtender = Map.of();
             }
 
-            extender.extendEnvironment(builder);
+            log.info("Building environment %s with extender: %s; options: %s", builder.getEnvironmentName(), extender.getClass().getSimpleName(), extraOptionsForExtender);
+            extender.extendEnvironment(builder, extraOptionsForExtender);
         }
     }
 }

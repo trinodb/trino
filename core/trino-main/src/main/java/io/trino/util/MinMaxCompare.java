@@ -15,8 +15,8 @@ package io.trino.util;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.FunctionDependencies;
-import io.trino.metadata.FunctionDependencyDeclaration;
+import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
@@ -40,7 +40,7 @@ public final class MinMaxCompare
 
     public static FunctionDependencyDeclaration getMinMaxCompareFunctionDependencies(TypeSignature typeSignature, boolean min)
     {
-        OperatorType comparisonOperator = min ? COMPARISON_UNORDERED_LAST : COMPARISON_UNORDERED_FIRST;
+        OperatorType comparisonOperator = getMinMaxCompareOperatorType(min);
         return FunctionDependencyDeclaration.builder()
                 .addOperatorSignature(comparisonOperator, ImmutableList.of(typeSignature, typeSignature))
                 .build();
@@ -48,9 +48,9 @@ public final class MinMaxCompare
 
     public static MethodHandle getMinMaxCompare(FunctionDependencies dependencies, Type type, InvocationConvention convention, boolean min)
     {
-        OperatorType comparisonOperator = min ? COMPARISON_UNORDERED_LAST : COMPARISON_UNORDERED_FIRST;
-        MethodHandle handle = dependencies.getOperatorInvoker(comparisonOperator, List.of(type, type), convention).getMethodHandle();
-        return filterReturnValue(handle, min ? MIN_FUNCTION : MAX_FUNCTION);
+        OperatorType comparisonOperator = getMinMaxCompareOperatorType(min);
+        MethodHandle handle = dependencies.getOperatorImplementation(comparisonOperator, List.of(type, type), convention).getMethodHandle();
+        return comparisonToMinMaxResult(min, handle);
     }
 
     public static MethodHandle getMinMaxCompare(TypeOperators typeOperators, Type type, InvocationConvention convention, boolean min)
@@ -62,6 +62,16 @@ public final class MinMaxCompare
         else {
             handle = typeOperators.getComparisonUnorderedFirstOperator(type, convention);
         }
+        return comparisonToMinMaxResult(min, handle);
+    }
+
+    public static OperatorType getMinMaxCompareOperatorType(boolean min)
+    {
+        return min ? COMPARISON_UNORDERED_LAST : COMPARISON_UNORDERED_FIRST;
+    }
+
+    public static MethodHandle comparisonToMinMaxResult(boolean min, MethodHandle handle)
+    {
         return filterReturnValue(handle, min ? MIN_FUNCTION : MAX_FUNCTION);
     }
 

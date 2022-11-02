@@ -19,9 +19,9 @@ import com.google.common.io.Closer;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
-import io.trino.execution.Lifespan;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.DriverContext;
+import io.trino.operator.HashArraySizeSupplier;
 import io.trino.operator.HashCollisionsCounter;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorContext;
@@ -38,9 +38,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
@@ -80,8 +78,9 @@ public class HashBuilderOperator
         private final int expectedPositions;
         private final boolean spillEnabled;
         private final SingleStreamSpillerFactory singleStreamSpillerFactory;
+        private final HashArraySizeSupplier hashArraySizeSupplier;
 
-        private final Map<Lifespan, Integer> partitionIndexManager = new HashMap<>();
+        private int partitionIndex;
 
         private boolean closed;
 
@@ -98,7 +97,8 @@ public class HashBuilderOperator
                 int expectedPositions,
                 PagesIndex.Factory pagesIndexFactory,
                 boolean spillEnabled,
-                SingleStreamSpillerFactory singleStreamSpillerFactory)
+                SingleStreamSpillerFactory singleStreamSpillerFactory,
+                HashArraySizeSupplier hashArraySizeSupplier)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -116,6 +116,7 @@ public class HashBuilderOperator
             this.pagesIndexFactory = requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
             this.spillEnabled = spillEnabled;
             this.singleStreamSpillerFactory = requireNonNull(singleStreamSpillerFactory, "singleStreamSpillerFactory is null");
+            this.hashArraySizeSupplier = requireNonNull(hashArraySizeSupplier, "hashArraySizeSupplier is null");
 
             this.expectedPositions = expectedPositions;
         }
@@ -126,13 +127,13 @@ public class HashBuilderOperator
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, HashBuilderOperator.class.getSimpleName());
 
-            PartitionedLookupSourceFactory lookupSourceFactory = this.lookupSourceFactoryManager.getJoinBridge(driverContext.getLifespan());
-            int partitionIndex = getAndIncrementPartitionIndex(driverContext.getLifespan());
+            PartitionedLookupSourceFactory lookupSourceFactory = this.lookupSourceFactoryManager.getJoinBridge();
             verify(partitionIndex < lookupSourceFactory.partitions());
+            partitionIndex++;
             return new HashBuilderOperator(
                     operatorContext,
                     lookupSourceFactory,
-                    partitionIndex,
+                    partitionIndex - 1,
                     outputChannels,
                     hashChannels,
                     preComputedHashChannel,
@@ -142,7 +143,8 @@ public class HashBuilderOperator
                     expectedPositions,
                     pagesIndexFactory,
                     spillEnabled,
-                    singleStreamSpillerFactory);
+                    singleStreamSpillerFactory,
+                    hashArraySizeSupplier);
         }
 
         @Override
@@ -155,11 +157,6 @@ public class HashBuilderOperator
         public OperatorFactory duplicate()
         {
             throw new UnsupportedOperationException("Parallel hash build cannot be duplicated");
-        }
-
-        private int getAndIncrementPartitionIndex(Lifespan lifespan)
-        {
-            return partitionIndexManager.compute(lifespan, (k, v) -> v == null ? 1 : v + 1) - 1;
         }
     }
 
@@ -219,6 +216,7 @@ public class HashBuilderOperator
     private final List<JoinFilterFunctionFactory> searchFunctionFactories;
 
     private final PagesIndex index;
+    private final HashArraySizeSupplier hashArraySizeSupplier;
 
     private final boolean spillEnabled;
     private final SingleStreamSpillerFactory singleStreamSpillerFactory;
@@ -250,7 +248,8 @@ public class HashBuilderOperator
             int expectedPositions,
             PagesIndex.Factory pagesIndexFactory,
             boolean spillEnabled,
-            SingleStreamSpillerFactory singleStreamSpillerFactory)
+            SingleStreamSpillerFactory singleStreamSpillerFactory,
+            HashArraySizeSupplier hashArraySizeSupplier)
     {
         requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
 
@@ -275,6 +274,7 @@ public class HashBuilderOperator
 
         this.spillEnabled = spillEnabled;
         this.singleStreamSpillerFactory = requireNonNull(singleStreamSpillerFactory, "singleStreamSpillerFactory is null");
+        this.hashArraySizeSupplier = requireNonNull(hashArraySizeSupplier, "hashArraySizeSupplier is null");
     }
 
     @Override
@@ -425,7 +425,7 @@ public class HashBuilderOperator
         spiller = Optional.of(singleStreamSpillerFactory.create(
                 index.getTypes(),
                 operatorContext.getSpillContext().newLocalSpillContext(),
-                operatorContext.newLocalSystemMemoryContext(HashBuilderOperator.class.getSimpleName())));
+                operatorContext.newLocalUserMemoryContext(HashBuilderOperator.class.getSimpleName())));
         return getSpiller().spill(index.getPages());
     }
 
@@ -615,7 +615,7 @@ public class HashBuilderOperator
 
     private LookupSourceSupplier buildLookupSource()
     {
-        LookupSourceSupplier partition = index.createLookupSourceSupplier(operatorContext.getSession(), hashChannels, preComputedHashChannel, filterFunctionFactory, sortChannel, searchFunctionFactories, Optional.of(outputChannels));
+        LookupSourceSupplier partition = index.createLookupSourceSupplier(operatorContext.getSession(), hashChannels, preComputedHashChannel, filterFunctionFactory, sortChannel, searchFunctionFactories, Optional.of(outputChannels), hashArraySizeSupplier);
         hashCollisionsCounter.recordHashCollision(partition.getHashCollisions(), partition.getExpectedHashCollisions());
         checkState(lookupSourceSupplier == null, "lookupSourceSupplier is already set");
         this.lookupSourceSupplier = partition;

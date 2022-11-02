@@ -107,7 +107,19 @@ public class TestBigQueryCaseInsensitiveMapping
             assertQuery("SELECT upper_case_name FROM " + trinoSchema + ".nonlowercasetable", "VALUES 'c'");
             assertQuery("SELECT upper_case_name FROM " + bigQuerySchema + ".NonLowerCaseTable", "VALUES 'c'");
             assertQuery("SELECT upper_case_name FROM \"" + bigQuerySchema + "\".\"NonLowerCaseTable\"", "VALUES 'c'");
-            // TODO: test with INSERT and CTAS https://github.com/trinodb/trino/issues/6868, https://github.com/trinodb/trino/issues/6869
+
+            assertUpdate("INSERT INTO " + trinoSchema + ".nonlowercasetable (lower_case_name) VALUES ('l')", 1);
+            assertUpdate("INSERT INTO " + trinoSchema + ".nonlowercasetable (mixed_case_name) VALUES ('m')", 1);
+            assertUpdate("INSERT INTO " + trinoSchema + ".nonlowercasetable (upper_case_name) VALUES ('u')", 1);
+            assertQuery(
+                    "SELECT * FROM " + trinoSchema + ".nonlowercasetable",
+                    "VALUES ('a', 'b', 'c')," +
+                            "('l', NULL, NULL)," +
+                            "(NULL, 'm', NULL)," +
+                            "(NULL, NULL, 'u')");
+
+            assertUpdate("CREATE TABLE " + trinoSchema + ".test_ctas_in_nonlowercase_schema AS SELECT 1 x", 1);
+            assertQuery("SELECt * FROM " + trinoSchema + ".test_ctas_in_nonlowercase_schema", "VALUES 1");
         }
     }
 
@@ -211,6 +223,25 @@ public class TestBigQueryCaseInsensitiveMapping
                     // TODO: test with INSERT and CTAS https://github.com/trinodb/trino/issues/6868, https://github.com/trinodb/trino/issues/6869
                 }
             }
+        }
+    }
+
+    @Test
+    public void testCreateSchema()
+    {
+        String schemaName = "Test_Create_Case_Sensitive_" + randomTableSuffix();
+        assertUpdate("CREATE SCHEMA " + schemaName.toLowerCase(ENGLISH));
+        assertQuery(format("SELECT schema_name FROM information_schema.schemata WHERE schema_name = '%s'", schemaName.toLowerCase(ENGLISH)), format("VALUES '%s'", schemaName.toLowerCase(ENGLISH)));
+        assertUpdate("DROP SCHEMA " + schemaName.toLowerCase(ENGLISH));
+    }
+
+    @Test
+    public void testCreateSchemaNameClash()
+            throws Exception
+    {
+        String schemaName = "Test_Create_Case_Sensitive_Clash_" + randomTableSuffix();
+        try (AutoCloseable schema = withSchema(schemaName)) {
+            assertQueryFails("CREATE SCHEMA " + schemaName.toLowerCase(ENGLISH), ".*Schema 'bigquery\\.\\Q" + schemaName.toLowerCase(ENGLISH) + "\\E' already exists");
         }
     }
 

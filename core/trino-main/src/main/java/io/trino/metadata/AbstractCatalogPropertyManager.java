@@ -14,64 +14,92 @@
 package io.trino.metadata;
 
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.security.AccessControl;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.session.PropertyMetadata;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.Property;
 
-import java.util.List;
+import java.util.Collection;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Optional;
+
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.metadata.PropertyUtil.evaluateProperties;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 abstract class AbstractCatalogPropertyManager
-        extends AbstractPropertyManager<CatalogName>
 {
-    protected AbstractCatalogPropertyManager(String propertyType, ErrorCodeSupplier propertyError)
-    {
-        super(propertyType, propertyError);
-    }
+    private final String propertyType;
+    private final ErrorCodeSupplier propertyError;
+    private final CatalogServiceProvider<Map<String, PropertyMetadata<?>>> connectorProperties;
 
-    public void addProperties(CatalogName catalogName, List<PropertyMetadata<?>> properties)
+    protected AbstractCatalogPropertyManager(
+            String propertyType,
+            ErrorCodeSupplier propertyError,
+            CatalogServiceProvider<Map<String, PropertyMetadata<?>>> connectorProperties)
     {
-        doAddProperties(catalogName, properties);
-    }
-
-    public void removeProperties(CatalogName catalogName)
-    {
-        doRemoveProperties(catalogName);
+        this.propertyType = requireNonNull(propertyType, "propertyType is null");
+        this.propertyError = requireNonNull(propertyError, "propertyError is null");
+        this.connectorProperties = requireNonNull(connectorProperties, "connectorProperties is null");
     }
 
     public Map<String, Object> getProperties(
-            CatalogName catalog,
-            String catalogNameForDiagnostics,
-            Map<String, Expression> sqlPropertyValues,
+            String catalogName,
+            CatalogHandle catalogHandle,
+            Iterable<Property> properties,
             Session session,
-            Metadata metadata,
+            PlannerContext plannerContext,
             AccessControl accessControl,
             Map<NodeRef<Parameter>, Expression> parameters,
-            boolean setDefaultProperties)
+            boolean includeAllProperties)
     {
-        return doGetProperties(
-                catalog,
-                catalogNameForDiagnostics,
-                sqlPropertyValues,
+        Map<String, Optional<Object>> nullableValues = getNullableProperties(
+                catalogName,
+                catalogHandle,
+                properties,
                 session,
-                metadata,
+                plannerContext,
                 accessControl,
                 parameters,
-                setDefaultProperties);
+                includeAllProperties);
+        return nullableValues.entrySet().stream()
+                .filter(entry -> entry.getValue().isPresent())
+                .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().orElseThrow()));
     }
 
-    public Map<CatalogName, Map<String, PropertyMetadata<?>>> getAllProperties()
+    public Map<String, Optional<Object>> getNullableProperties(
+            String catalogName,
+            CatalogHandle catalogHandle,
+            Iterable<Property> properties,
+            Session session,
+            PlannerContext plannerContext,
+            AccessControl accessControl,
+            Map<NodeRef<Parameter>, Expression> parameters,
+            boolean includeAllProperties)
     {
-        return doGetAllProperties();
+        Map<String, PropertyMetadata<?>> propertyMetadata = connectorProperties.getService(catalogHandle);
+        return evaluateProperties(
+                properties,
+                session,
+                plannerContext,
+                accessControl,
+                parameters,
+                includeAllProperties,
+                propertyMetadata,
+                propertyError,
+                format("catalog '%s' %s property", catalogName, propertyType));
     }
 
-    @Override
-    protected String formatPropertiesKeyForMessage(String catalogName, CatalogName ignored)
+    public Collection<PropertyMetadata<?>> getAllProperties(CatalogHandle catalogHandle)
     {
-        return "Catalog '" + catalogName + "'";
+        return connectorProperties.getService(catalogHandle).values();
     }
 }

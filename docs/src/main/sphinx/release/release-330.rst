@@ -39,11 +39,11 @@ Server
 Security
 --------
 
-* :ref:`principal_rules` are deprecated and will be removed in a future release.
+* :ref:`system-file-auth-principal-rules` are deprecated and will be removed in a future release.
   These rules have been replaced with :doc:`/security/user-mapping`, which
   specifies how a complex authentication user name is mapped to a simple
-  user name for Presto, and :ref:`impersonation_rules` which control the ability
-  of a user to impersonate another user. (:issue:`2215`)
+  user name for Presto, and :ref:`system-file-auth-impersonation-rules` which
+  control the ability of a user to impersonate another user. (:issue:`2215`)
 * A shared secret is now required when using :doc:`/security/internal-communication`. (:issue:`2202`)
 * Kerberos for :doc:`/security/internal-communication` has been replaced with the new shared secret mechanism.
   The ``internal-communication.kerberos.enabled`` and ``internal-communication.kerberos.use-canonical-hostname``

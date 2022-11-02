@@ -14,11 +14,9 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.metadata.Metadata;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
-import io.trino.sql.analyzer.FeaturesConfig;
-import io.trino.sql.parser.SqlParser;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
@@ -29,22 +27,25 @@ import io.trino.transaction.TransactionManager;
 import org.testng.annotations.Test;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ExpressionTestUtils.assertExpressionEquals;
+import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.rewrite;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.transaction.TransactionBuilder.transaction;
 
 public class TestCanonicalizeExpressionRewriter
 {
-    public static final TransactionManager TRANSACTION_MANAGER = createTestTransactionManager();
-    private static final Metadata METADATA = createTestMetadataManager(TRANSACTION_MANAGER, new FeaturesConfig());
-    private static final TypeAnalyzer TYPE_ANALYZER = new TypeAnalyzer(new SqlParser(), METADATA);
-    public static final AllowAllAccessControl ACCESS_CONTROL = new AllowAllAccessControl();
+    private static final TransactionManager TRANSACTION_MANAGER = createTestTransactionManager();
+    private static final PlannerContext PLANNER_CONTEXT = plannerContextBuilder()
+            .withTransactionManager(TRANSACTION_MANAGER)
+            .build();
+    private static final TypeAnalyzer TYPE_ANALYZER = createTestingTypeAnalyzer(PLANNER_CONTEXT);
+    private static final AllowAllAccessControl ACCESS_CONTROL = new AllowAllAccessControl();
 
     @Test
     public void testRewriteIsNotNullPredicate()
@@ -126,7 +127,7 @@ public class TestCanonicalizeExpressionRewriter
                     return rewrite(
                             PlanBuilder.expression(from),
                             transactedSession,
-                            METADATA,
+                            PLANNER_CONTEXT,
                             TYPE_ANALYZER,
                                     TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
                                             .put(new Symbol("x"), BIGINT)
@@ -134,7 +135,7 @@ public class TestCanonicalizeExpressionRewriter
                                             .put(new Symbol("ts"), createTimestampType(3))
                                             .put(new Symbol("tstz"), createTimestampWithTimeZoneType(3))
                                             .put(new Symbol("v"), createVarcharType(100))
-                                            .build()));
+                                            .buildOrThrow()));
                 }),
                 PlanBuilder.expression(to),
                 SymbolAliases.builder()

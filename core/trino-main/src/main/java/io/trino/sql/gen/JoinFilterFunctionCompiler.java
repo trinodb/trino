@@ -15,7 +15,6 @@ package io.trino.sql.gen;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -30,7 +29,8 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.jmx.CacheStatsMBean;
-import io.trino.metadata.Metadata;
+import io.trino.collect.cache.NonEvictableLoadingCache;
+import io.trino.metadata.FunctionManager;
 import io.trino.operator.join.InternalJoinFilterFunction;
 import io.trino.operator.join.JoinFilterFunction;
 import io.trino.operator.join.StandardJoinFilterFunction;
@@ -62,6 +62,7 @@ import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
 import static io.trino.util.CompilerUtils.defineClass;
@@ -70,18 +71,19 @@ import static java.util.Objects.requireNonNull;
 
 public class JoinFilterFunctionCompiler
 {
-    private final Metadata metadata;
+    private final FunctionManager functionManager;
 
     @Inject
-    public JoinFilterFunctionCompiler(Metadata metadata)
+    public JoinFilterFunctionCompiler(FunctionManager functionManager)
     {
-        this.metadata = metadata;
+        this.functionManager = functionManager;
     }
 
-    private final LoadingCache<JoinFilterCacheKey, JoinFilterFunctionFactory> joinFilterFunctionFactories = CacheBuilder.newBuilder()
-            .recordStats()
-            .maximumSize(1000)
-            .build(CacheLoader.from(key -> internalCompileFilterFunctionFactory(key.getFilter(), key.getLeftBlocksSize())));
+    private final NonEvictableLoadingCache<JoinFilterCacheKey, JoinFilterFunctionFactory> joinFilterFunctionFactories = buildNonEvictableCache(
+            CacheBuilder.newBuilder()
+                    .recordStats()
+                    .maximumSize(1000),
+            CacheLoader.from(key -> internalCompileFilterFunctionFactory(key.getFilter(), key.getLeftBlocksSize())));
 
     @Managed
     @Nested
@@ -111,7 +113,7 @@ public class JoinFilterFunctionCompiler
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
-        new JoinFilterFunctionCompiler(metadata).generateMethods(classDefinition, callSiteBinder, filterExpression, leftBlocksSize);
+        new JoinFilterFunctionCompiler(functionManager).generateMethods(classDefinition, callSiteBinder, filterExpression, leftBlocksSize);
 
         //
         // toString method
@@ -196,7 +198,7 @@ public class JoinFilterFunctionCompiler
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(callSiteBinder, leftPosition, leftPage, rightPosition, rightPage, leftBlocksSize),
-                metadata,
+                functionManager,
                 compiledLambdaMap);
 
         BytecodeNode visitorBody = compiler.compile(filter, scope);
@@ -225,15 +227,15 @@ public class JoinFilterFunctionCompiler
                     lambdaExpression,
                     "lambda_" + counter,
                     containerClassDefinition,
-                    compiledLambdaMap.build(),
+                    compiledLambdaMap.buildOrThrow(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    metadata);
+                    functionManager);
             compiledLambdaMap.put(lambdaExpression, compiledLambda);
             counter++;
         }
 
-        return compiledLambdaMap.build();
+        return compiledLambdaMap.buildOrThrow();
     }
 
     private static void generateToString(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String string)

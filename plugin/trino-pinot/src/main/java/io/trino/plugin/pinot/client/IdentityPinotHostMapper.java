@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.pinot.client;
 
+import com.google.common.net.HostAndPort;
 import org.apache.helix.model.InstanceConfig;
 import org.apache.pinot.core.transport.ServerInstance;
 
@@ -31,5 +32,12 @@ public class IdentityPinotHostMapper
     public ServerInstance getServerInstance(String serverHost)
     {
         return new ServerInstance(InstanceConfig.toInstanceConfig(serverHost));
+    }
+
+    @Override
+    public HostAndPort getServerGrpcHostAndPort(String serverHost, int grpcPort)
+    {
+        ServerInstance serverInstance = getServerInstance(serverHost);
+        return HostAndPort.fromParts(serverInstance.getHostname(), grpcPort);
     }
 }

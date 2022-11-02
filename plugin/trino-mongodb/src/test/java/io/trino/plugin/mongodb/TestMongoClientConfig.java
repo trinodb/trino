@@ -15,11 +15,11 @@ package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableMap;
 import com.mongodb.MongoCredential;
+import io.airlift.configuration.ConfigurationFactory;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static org.testng.Assert.assertEquals;
@@ -30,6 +30,7 @@ public class TestMongoClientConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(MongoClientConfig.class)
+                .setConnectionUrl(null)
                 .setSchemaCollection("_schema")
                 .setCaseInsensitiveNameMatching(false)
                 .setSeeds("")
@@ -39,7 +40,6 @@ public class TestMongoClientConfig
                 .setMaxWaitTime(120_000)
                 .setConnectionTimeout(10_000)
                 .setSocketTimeout(0)
-                .setSocketKeepAlive(true)
                 .setSslEnabled(false)
                 .setMaxConnectionIdleTime(0)
                 .setCursorBatchSize(0)
@@ -52,17 +52,17 @@ public class TestMongoClientConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("mongodb.schema-collection", "_my_schema")
                 .put("mongodb.case-insensitive-name-matching", "true")
-                .put("mongodb.seeds", "host1,host2:27016")
+                .put("mongodb.seeds", "")
+                .put("mongodb.connection-url", "mongodb://router1.example.com:27017,router2.example2.com:27017,router3.example3.com:27017/")
                 .put("mongodb.credentials", "username:password@collection")
                 .put("mongodb.min-connections-per-host", "1")
                 .put("mongodb.connections-per-host", "99")
                 .put("mongodb.max-wait-time", "120001")
                 .put("mongodb.connection-timeout", "9999")
                 .put("mongodb.socket-timeout", "1")
-                .put("mongodb.socket-keep-alive", "false")
                 .put("mongodb.ssl.enabled", "true")
                 .put("mongodb.max-connection-idle-time", "180000")
                 .put("mongodb.cursor-batch-size", "1")
@@ -70,19 +70,22 @@ public class TestMongoClientConfig
                 .put("mongodb.write-concern", "UNACKNOWLEDGED")
                 .put("mongodb.required-replica-set", "replica_set")
                 .put("mongodb.implicit-row-field-prefix", "_prefix")
-                .build();
+                .buildOrThrow();
+
+        ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
+        MongoClientConfig config = configurationFactory.build(MongoClientConfig.class);
 
         MongoClientConfig expected = new MongoClientConfig()
                 .setSchemaCollection("_my_schema")
                 .setCaseInsensitiveNameMatching(true)
-                .setSeeds("host1", "host2:27016")
+                .setSeeds("")
+                .setConnectionUrl("mongodb://router1.example.com:27017,router2.example2.com:27017,router3.example3.com:27017/")
                 .setCredentials("username:password@collection")
                 .setMinConnectionsPerHost(1)
                 .setConnectionsPerHost(99)
                 .setMaxWaitTime(120_001)
                 .setConnectionTimeout(9_999)
                 .setSocketTimeout(1)
-                .setSocketKeepAlive(false)
                 .setSslEnabled(true)
                 .setMaxConnectionIdleTime(180_000)
                 .setCursorBatchSize(1)
@@ -91,7 +94,23 @@ public class TestMongoClientConfig
                 .setRequiredReplicaSetName("replica_set")
                 .setImplicitRowFieldPrefix("_prefix");
 
-        assertFullMapping(properties, expected);
+        assertEquals(config.getSchemaCollection(), expected.getSchemaCollection());
+        assertEquals(config.isCaseInsensitiveNameMatching(), expected.isCaseInsensitiveNameMatching());
+        assertEquals(config.getSeeds(), expected.getSeeds());
+        assertEquals(config.getConnectionUrl(), expected.getConnectionUrl());
+        assertEquals(config.getCredentials(), expected.getCredentials());
+        assertEquals(config.getMinConnectionsPerHost(), expected.getMinConnectionsPerHost());
+        assertEquals(config.getConnectionsPerHost(), expected.getConnectionsPerHost());
+        assertEquals(config.getMaxWaitTime(), expected.getMaxWaitTime());
+        assertEquals(config.getConnectionTimeout(), expected.getConnectionTimeout());
+        assertEquals(config.getSocketTimeout(), expected.getSocketTimeout());
+        assertEquals(config.getSslEnabled(), expected.getSslEnabled());
+        assertEquals(config.getMaxConnectionIdleTime(), expected.getMaxConnectionIdleTime());
+        assertEquals(config.getCursorBatchSize(), expected.getCursorBatchSize());
+        assertEquals(config.getReadPreference(), expected.getReadPreference());
+        assertEquals(config.getWriteConcern(), expected.getWriteConcern());
+        assertEquals(config.getRequiredReplicaSetName(), expected.getRequiredReplicaSetName());
+        assertEquals(config.getImplicitRowFieldPrefix(), expected.getImplicitRowFieldPrefix());
     }
 
     @Test

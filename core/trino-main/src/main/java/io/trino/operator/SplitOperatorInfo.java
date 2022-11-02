@@ -15,23 +15,23 @@ package io.trino.operator;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 
 import static java.util.Objects.requireNonNull;
 
 public class SplitOperatorInfo
         implements OperatorInfo
 {
-    private final CatalogName catalogName;
+    private final CatalogHandle catalogHandle;
     // NOTE: this deserializes to a map instead of the expected type
     private final Object splitInfo;
 
     @JsonCreator
     public SplitOperatorInfo(
-            @JsonProperty("catalogName") CatalogName catalogName,
+            @JsonProperty("catalogHandle") CatalogHandle catalogHandle,
             @JsonProperty("splitInfo") Object splitInfo)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.splitInfo = splitInfo;
     }
 
@@ -48,8 +48,8 @@ public class SplitOperatorInfo
     }
 
     @JsonProperty
-    public CatalogName getCatalogName()
+    public CatalogHandle getCatalogHandle()
     {
-        return catalogName;
+        return catalogHandle;
     }
 }

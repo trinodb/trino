@@ -73,7 +73,7 @@ public final class SqlPathElement
     public String toString()
     {
         if (catalog.isPresent()) {
-            return format("%s.%s", catalog.get().toString(), schema.toString());
+            return format("%s.%s", catalog.get(), schema.toString());
         }
         return schema.toString();
     }

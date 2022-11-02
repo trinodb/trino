@@ -42,13 +42,10 @@ public class SampleNode
 
         public static Type fromType(SampledRelation.Type sampleType)
         {
-            switch (sampleType) {
-                case BERNOULLI:
-                    return Type.BERNOULLI;
-                case SYSTEM:
-                    return Type.SYSTEM;
-            }
-            throw new UnsupportedOperationException("Unsupported sample type: " + sampleType);
+            return switch (sampleType) {
+                case BERNOULLI -> Type.BERNOULLI;
+                case SYSTEM -> Type.SYSTEM;
+            };
         }
     }
 

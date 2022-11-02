@@ -27,6 +27,8 @@ public abstract class AbstractTestDecimalSumAggregation
 {
     protected abstract DecimalType getDecimalType();
 
+    protected abstract DecimalType getExpectedType();
+
     @Override
     protected Block[] getSequenceBlocks(int start, int length)
     {
@@ -55,7 +57,9 @@ public abstract class AbstractTestDecimalSumAggregation
         for (int i = start; i < start + length; i++) {
             sum = sum.add(getBigDecimalForCounter(i));
         }
-        return new SqlDecimal(sum.unscaledValue(), sum.precision(), sum.scale());
+
+        DecimalType expectedType = getExpectedType();
+        return new SqlDecimal(sum.unscaledValue(), expectedType.getPrecision(), expectedType.getScale());
     }
 
     @Override

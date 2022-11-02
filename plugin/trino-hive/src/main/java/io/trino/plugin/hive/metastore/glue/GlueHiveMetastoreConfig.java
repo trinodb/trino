@@ -18,19 +18,25 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
 
+import javax.annotation.PostConstruct;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 
 import java.util.Optional;
+
+import static com.google.common.base.Preconditions.checkState;
 
 @DefunctConfig("hive.metastore.glue.use-instance-credentials")
 public class GlueHiveMetastoreConfig
 {
     private Optional<String> glueRegion = Optional.empty();
     private Optional<String> glueEndpointUrl = Optional.empty();
+    private Optional<String> glueStsRegion = Optional.empty();
+    private Optional<String> glueStsEndpointUrl = Optional.empty();
+    private Optional<String> glueProxyApiId = Optional.empty();
     private boolean pinGlueClientToCurrentRegion;
     private int maxGlueErrorRetries = 10;
-    private int maxGlueConnections = 5;
+    private int maxGlueConnections = 30;
     private Optional<String> defaultWarehouseDir = Optional.empty();
     private Optional<String> iamRole = Optional.empty();
     private Optional<String> externalId = Optional.empty();
@@ -67,6 +73,45 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setGlueEndpointUrl(String glueEndpointUrl)
     {
         this.glueEndpointUrl = Optional.ofNullable(glueEndpointUrl);
+        return this;
+    }
+
+    public Optional<String> getGlueStsRegion()
+    {
+        return glueStsRegion;
+    }
+
+    @Config("hive.metastore.glue.sts.region")
+    @ConfigDescription("AWS STS signing region for Glue authentication")
+    public GlueHiveMetastoreConfig setGlueStsRegion(String glueStsRegion)
+    {
+        this.glueStsRegion = Optional.ofNullable(glueStsRegion);
+        return this;
+    }
+
+    public Optional<String> getGlueStsEndpointUrl()
+    {
+        return glueStsEndpointUrl;
+    }
+
+    @Config("hive.metastore.glue.sts.endpoint")
+    @ConfigDescription("AWS STS endpoint for Glue authentication")
+    public GlueHiveMetastoreConfig setGlueStsEndpointUrl(String glueStsEndpointUrl)
+    {
+        this.glueStsEndpointUrl = Optional.ofNullable(glueStsEndpointUrl);
+        return this;
+    }
+
+    public Optional<String> getGlueProxyApiId()
+    {
+        return glueProxyApiId;
+    }
+
+    @Config("hive.metastore.glue.proxy-api-id")
+    @ConfigDescription("ID of Glue Proxy API")
+    public GlueHiveMetastoreConfig setGlueProxyApiId(String glueProxyApiId)
+    {
+        this.glueProxyApiId = Optional.ofNullable(glueProxyApiId);
         return this;
     }
 
@@ -271,5 +316,14 @@ public class GlueHiveMetastoreConfig
     {
         this.writeStatisticsThreads = writeStatisticsThreads;
         return this;
+    }
+
+    @PostConstruct
+    public void validate()
+    {
+        if (getGlueProxyApiId().isPresent()) {
+            checkState(getGlueRegion().isPresent() && getGlueEndpointUrl().isPresent(),
+                    "Both Glue region and Glue endpoint URL must be provided when Glue proxy API ID is present");
+        }
     }
 }

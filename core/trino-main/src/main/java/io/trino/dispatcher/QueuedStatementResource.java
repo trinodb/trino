@@ -32,6 +32,7 @@ import io.trino.server.ServerConfig;
 import io.trino.server.SessionContext;
 import io.trino.server.protocol.QueryInfoUrlFactory;
 import io.trino.server.protocol.Slug;
+import io.trino.server.security.InternalPrincipal;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
@@ -94,6 +95,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import static javax.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
 import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
+import static javax.ws.rs.core.Response.Status.FORBIDDEN;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
 @Path("/v1/statement")
@@ -128,17 +130,11 @@ public class QueuedStatementResource
     {
         this.sessionContextFactory = requireNonNull(sessionContextFactory, "sessionContextFactory is null");
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
-
-        requireNonNull(dispatchManager, "dispatchManager is null");
-        this.responseExecutor = requireNonNull(executor, "executor is null").getExecutor();
-        this.timeoutExecutor = requireNonNull(executor, "executor is null").getScheduledExecutor();
-
+        this.responseExecutor = executor.getExecutor();
+        this.timeoutExecutor = executor.getScheduledExecutor();
         this.queryInfoUrlFactory = requireNonNull(queryInfoUrlTemplate, "queryInfoUrlTemplate is null");
-
-        this.compressionEnabled = requireNonNull(serverConfig, "serverConfig is null").isQueryResultsCompressionEnabled();
-        this.alternateHeaderName = requireNonNull(protocolConfig, "protocolConfig is null").getAlternateHeaderName();
-
-        requireNonNull(queryManagerConfig, "queryManagerConfig is null");
+        this.compressionEnabled = serverConfig.isQueryResultsCompressionEnabled();
+        this.alternateHeaderName = protocolConfig.getAlternateHeaderName();
         queryManager = new QueryManager(queryManagerConfig.getClientTimeout());
     }
 
@@ -176,6 +172,10 @@ public class QueuedStatementResource
     {
         Optional<String> remoteAddress = Optional.ofNullable(servletRequest.getRemoteAddr());
         Optional<Identity> identity = Optional.ofNullable((Identity) servletRequest.getAttribute(AUTHENTICATED_IDENTITY));
+        if (identity.flatMap(Identity::getPrincipal).map(InternalPrincipal.class::isInstance).orElse(false)) {
+            throw badRequest(FORBIDDEN, "Internal communication can not be used to start a query");
+        }
+
         MultivaluedMap<String, String> headers = httpHeaders.getRequestHeaders();
 
         SessionContext sessionContext = sessionContextFactory.createSessionContext(headers, alternateHeaderName, remoteAddress, identity);
@@ -389,15 +389,13 @@ public class QueuedStatementResource
                         DispatchInfo.queued(NO_DURATION, NO_DURATION));
             }
 
-            Optional<DispatchInfo> dispatchInfo = dispatchManager.getDispatchInfo(queryId);
-            if (dispatchInfo.isEmpty()) {
-                // query should always be found, but it may have just been determined to be abandoned
-                throw new WebApplicationException(Response
-                        .status(NOT_FOUND)
-                        .build());
-            }
+            DispatchInfo dispatchInfo = dispatchManager.getDispatchInfo(queryId)
+                    // query should always be found, but it may have just been determined to be abandoned
+                    .orElseThrow(() -> new WebApplicationException(Response
+                            .status(NOT_FOUND)
+                            .build()));
 
-            return createQueryResults(token + 1, uriInfo, dispatchInfo.get());
+            return createQueryResults(token + 1, uriInfo, dispatchInfo);
         }
 
         public void cancel()

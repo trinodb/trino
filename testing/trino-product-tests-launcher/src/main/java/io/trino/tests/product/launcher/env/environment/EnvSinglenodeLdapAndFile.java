@@ -27,8 +27,8 @@ import javax.inject.Inject;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_CONFIG_PROPERTIES;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
@@ -46,17 +46,18 @@ public class EnvSinglenodeLdapAndFile
     {
         super.extendEnvironment(builder);
         ResourceProvider configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/singlenode-ldap-and-file");
+        builder.addPasswordAuthenticator(
+                "file",
+                forHostPath(configDir.getPath("file-authenticator.properties")),
+                CONTAINER_TRINO_ETC + "/file-authenticator.properties");
         builder.configureContainer(COORDINATOR, dockerContainer -> {
             dockerContainer
                     .withCopyFileToContainer(
                             forHostPath(configDir.getPath("config.properties")),
-                            CONTAINER_PRESTO_CONFIG_PROPERTIES)
-                    .withCopyFileToContainer(
-                            forHostPath(configDir.getPath("file-authenticator.properties")),
-                            CONTAINER_PRESTO_ETC + "/file-authenticator.properties")
+                            CONTAINER_TRINO_CONFIG_PROPERTIES)
                     .withCopyFileToContainer(
                             forHostPath(configDir.getPath("password.db")),
-                            CONTAINER_PRESTO_ETC + "/password.db");
+                            CONTAINER_TRINO_ETC + "/password.db");
         });
 
         configureTempto(builder, configDir);

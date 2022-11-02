@@ -2,6 +2,10 @@
 Phoenix connector
 =================
 
+.. raw:: html
+
+  <img src="../_static/img/phoenix.png" class="connector-logo">
+
 The Phoenix connector allows querying data stored in
 `Apache HBase <https://hbase.apache.org/>`_ using
 `Apache Phoenix <https://phoenix.apache.org/>`_.
@@ -13,13 +17,7 @@ To query HBase data through Phoenix, you need:
 
 *  Network access from the Trino coordinator and workers to the ZooKeeper
    servers. The default port is 2181.
-*  A compatible version of Phoenix. There are two versions of this connector to
-   support different Phoenix versions:
-
-   *  The ``phoenix`` connector is compatible with all Phoenix 4.x versions
-      starting from 4.14.1.
-   *  The ``phoenix5`` connector is compatible with all Phoenix 5.x versions
-      starting from 5.1.0.
+*  A compatible version of Phoenix: all 5.x versions starting from 5.1.0 are supported.
 
 Configuration
 -------------
@@ -31,23 +29,17 @@ nodes used for discovery of the HBase cluster:
 
 .. code-block:: text
 
-    connector.name=phoenix
+    connector.name=phoenix5
     phoenix.connection-url=jdbc:phoenix:host1,host2,host3:2181:/hbase
     phoenix.config.resources=/path/to/hbase-site.xml
 
 The optional paths to Hadoop resource files, such as ``hbase-site.xml`` are used
 to load custom Phoenix client connection properties.
 
-For HBase 2.x and Phoenix 5.x (5.1.0 or later) use:
-
-.. code-block:: text
-
-    connector.name=phoenix5
-
 The following Phoenix-specific configuration properties are available:
 
 ================================================== ========== ===================================================================================
-Property Name                                      Required   Description
+Property name                                      Required   Description
 ================================================== ========== ===================================================================================
 ``phoenix.connection-url``                         Yes        ``jdbc:phoenix[:zk_quorum][:zk_port][:zk_hbase_path]``.
                                                               The ``zk_quorum`` is a comma separated list of ZooKeeper servers.
@@ -56,9 +48,19 @@ Property Name                                      Required   Description
                                                               default the location is ``/hbase``
 ``phoenix.config.resources``                       No         Comma-separated list of configuration files (e.g. ``hbase-site.xml``) to use for
                                                               connection properties.  These files must exist on the machines running Trino.
+``phoenix.max-scans-per-split``                    No         Maximum number of HBase scans that will be performed in a single split. Default is 20.
+                                                              Lower values will lead to more splits in Trino.
+                                                              Can also be set via session propery ``max_scans_per_split``.
+                                                              For details see: `<https://phoenix.apache.org/update_statistics.html>`_.
+                                                              (This setting has no effect when guideposts are disabled in Phoenix.)
 ================================================== ========== ===================================================================================
 
 .. include:: jdbc-common-configurations.fragment
+
+.. |default_domain_compaction_threshold| replace:: ``5000``
+.. include:: jdbc-domain-compaction-threshold.fragment
+
+.. include:: jdbc-procedures.fragment
 
 .. include:: jdbc-case-insensitive-matching.fragment
 
@@ -95,31 +97,117 @@ that catalog name instead of ``phoenix`` in the above examples.
 Type mapping
 ------------
 
-The data type mappings are as follows:
+Because Trino and Phoenix each support types that the other does not, this
+connector :ref:`modifies some types <type-mapping-overview>` when reading or
+writing data. Data types may not map the same way in both directions between
+Trino and the data source. Refer to the following sections for type mapping in
+each direction.
 
-==========================   ============
-Phoenix                      Trino
-==========================   ============
-``BOOLEAN``                  (same)
-``BIGINT``                   (same)
-``INTEGER``                  (same)
-``SMALLINT``                 (same)
-``TINYINT``                  (same)
-``DOUBLE``                   (same)
-``FLOAT``                    ``REAL``
-``DECIMAL``                  (same)
-``BINARY``                   ``VARBINARY``
-``VARBINARY``                (same)
-``DATE``                     (same)
-``TIME``                     (same)
-``VARCHAR``                  (same)
-``CHAR``                     (same)
-==========================   ============
+Phoenix type to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The Phoenix fixed length ``BINARY`` data type is mapped to the Trino
-variable length ``VARBINARY`` data type. There is no way to create a
-Phoenix table in Trino that uses the ``BINARY`` data type, as Trino
-does not have an equivalent type.
+The connector maps Phoenix types to the corresponding Trino types following this
+table:
+
+.. list-table:: Phoenix type to Trino type mapping
+  :widths: 30, 20
+  :header-rows: 1
+
+  * - Phoenix database type
+    - Trino type
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+  * - ``TINYINT``
+    - ``TINYINT``
+  * - ``UNSIGNED_TINYINT``
+    - ``TINYINT``
+  * - ``SMALLINT``
+    - ``SMALLINT``
+  * - ``UNSIGNED_SMALLINT``
+    - ``SMALLINT``
+  * - ``INTEGER``
+    - ``INTEGER``
+  * - ``UNSIGNED_INT``
+    - ``INTEGER``
+  * - ``BIGINT``
+    - ``BIGINT``
+  * - ``UNSIGNED_LONG``
+    - ``BIGINT``
+  * - ``FLOAT``
+    - ``REAL``
+  * - ``UNSIGNED_FLOAT``
+    - ``REAL``
+  * - ``DOUBLE``
+    - ``DOUBLE``
+  * - ``UNSIGNED_DOUBLE``
+    - ``DOUBLE``
+  * - ``DECIMAL(p,s)``
+    - ``DECIMAL(p,s)``
+  * - ``CHAR(n)``
+    - ``CHAR(n)``
+  * - ``VARCHAR(n)``
+    - ``VARCHAR(n)``
+  * - ``BINARY``
+    - ``VARBINARY``
+  * - ``VARBINARY``
+    - ``VARBINARY``
+  * - ``DATE``
+    - ``DATE``
+  * - ``UNSIGNED_DATE``
+    - ``DATE``
+  * - ``ARRAY``
+    - ``ARRAY``
+
+No other types are supported.
+
+Trino type to Phoenix type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The Phoenix fixed length ``BINARY`` data type is mapped to the Trino variable
+length ``VARBINARY`` data type. There is no way to create a Phoenix table in
+Trino that uses the ``BINARY`` data type, as Trino does not have an equivalent
+type.
+
+The connector maps Trino types to the corresponding Phoenix types following this
+table:
+
+.. list-table:: Trino type to Phoenix type mapping
+  :widths: 30, 20
+  :header-rows: 1
+
+  * - Trino database type
+    - Phoenix type
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+  * - ``TINYINT``
+    - ``TINYINT``
+  * - ``SMALLINT``
+    - ``SMALLINT``
+  * - ``INTEGER``
+    - ``INTEGER``
+  * - ``BIGINT``
+    - ``BIGINT``
+  * - ``REAL``
+    - ``FLOAT``
+  * - ``DOUBLE``
+    - ``DOUBLE``
+  * - ``DECIMAL(p,s)``
+    - ``DECIMAL(p,s)``
+  * - ``CHAR(n)``
+    - ``CHAR(n)``
+  * - ``VARCHAR(n)``
+    - ``VARCHAR(n)``
+  * - ``VARBINARY``
+    - ``VARBINARY``
+  * - ``TIME``
+    - ``TIME``
+  * - ``DATE``
+    - ``DATE``
+  * - ``ARRAY``
+    - ``ARRAY``
+
+No other types are supported.
+
+.. include:: decimal-type-handling.fragment
 
 .. include:: jdbc-type-mapping.fragment
 
@@ -142,7 +230,7 @@ Table property usage example::
 The following are supported Phoenix table properties from `<https://phoenix.apache.org/language/index.html#options>`_
 
 =========================== ================ ==============================================================================================================
-Property Name               Default Value    Description
+Property name               Default value    Description
 =========================== ================ ==============================================================================================================
 ``rowkeys``                 ``ROWKEY``       Comma-separated list of primary key columns.  See further description below
 
@@ -170,7 +258,7 @@ The following are the supported HBase table properties that are passed through b
 Use them in the same way as above: in the ``WITH`` clause of the ``CREATE TABLE`` statement.
 
 =========================== ================ ==============================================================================================================
-Property Name               Default Value    Description
+Property name               Default value    Description
 =========================== ================ ==============================================================================================================
 ``versions``                ``1``            The maximum number of versions of each cell to keep.
 

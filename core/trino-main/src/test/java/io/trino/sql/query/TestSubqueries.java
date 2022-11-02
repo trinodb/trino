@@ -19,9 +19,10 @@ import io.trino.Session;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.testing.LocalQueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.List;
 import java.util.Optional;
@@ -34,7 +35,6 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -47,35 +47,37 @@ import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestSubqueries
 {
     private static final String UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG = "line .*: Given correlated subquery is not supported";
-    private static final String CATALOG = "local";
 
     private QueryAssertions assertions;
 
-    @BeforeClass
+    @BeforeAll
     public void init()
     {
         Session session = testSessionBuilder()
-                .setCatalog(CATALOG)
+                .setCatalog(TEST_CATALOG_NAME)
                 .setSchema(TINY_SCHEMA_NAME)
                 .build();
 
         LocalQueryRunner runner = LocalQueryRunner.builder(session)
                 .build();
 
-        runner.createCatalog(CATALOG, new TpchConnectorFactory(1), ImmutableMap.of());
+        runner.createCatalog(TEST_CATALOG_NAME, new TpchConnectorFactory(1), ImmutableMap.of());
 
         assertions = new QueryAssertions(runner);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void teardown()
     {
         assertions.close();
@@ -202,51 +204,47 @@ public class TestSubqueries
                 "SELECT (SELECT t.a FROM (VALUES 1, 2, 3) t(a) WHERE t.a = t2.b ORDER BY a LIMIT 1) FROM (VALUES 1.0, 2.0) t2(b)",
                 "VALUES 1, 2",
                 output(
-                        join(
-                                INNER,
-                                ImmutableList.of(equiJoinClause("cast_b", "cast_a")),
-                                Optional.empty(),
-                                Optional.empty(),
-                                Optional.empty(),
-                                any(
-                                        project(
-                                                ImmutableMap.of("cast_b", expression("CAST(b AS decimal(11, 1))")),
-                                                any(
-                                                        values("b")))),
-                                anyTree(
-                                        project(
-                                                ImmutableMap.of("cast_a", expression("CAST(a AS decimal(11, 1))")),
-                                                any(
-                                                        rowNumber(
-                                                                builder -> builder
-                                                                        .maxRowCountPerPartition(Optional.of(1))
-                                                                        .partitionBy(ImmutableList.of("a")),
-                                                                anyTree(
-                                                                        values("a")))))))));
+                        join(INNER, builder -> builder
+                                .equiCriteria("cast_b", "cast_a")
+                                .left(
+                                        any(
+                                                project(
+                                                        ImmutableMap.of("cast_b", expression("CAST(b AS decimal(11, 1))")),
+                                                        any(
+                                                                values("b")))))
+                                .right(
+                                        anyTree(
+                                                project(
+                                                        ImmutableMap.of("cast_a", expression("CAST(a AS decimal(11, 1))")),
+                                                        any(
+                                                                rowNumber(
+                                                                        rowBuilder -> rowBuilder
+                                                                                .maxRowCountPerPartition(Optional.of(1))
+                                                                                .partitionBy(ImmutableList.of("a")),
+                                                                        anyTree(
+                                                                                values("a"))))))))));
 
         // subquery symbol is equal to constant expression
         assertions.assertQueryAndPlan(
                 "SELECT (SELECT t.a FROM (VALUES 1, 2, 3, 4, 5) t(a) WHERE t.a = t2.b * t2.c - 1 ORDER BY a LIMIT 1) FROM (VALUES (1, 2), (2, 3)) t2(b, c)",
                 "VALUES 1, 5",
                 output(
-                        join(
-                                INNER,
-                                ImmutableList.of(equiJoinClause("expr", "a")),
-                                Optional.empty(),
-                                Optional.empty(),
-                                Optional.empty(),
-                                any(
-                                        project(
-                                                ImmutableMap.of("expr", expression("b * c - 1")),
-                                                any(
-                                                        values("b", "c")))),
-                                any(
-                                        rowNumber(
-                                                builder -> builder
-                                                        .maxRowCountPerPartition(Optional.of(1))
-                                                        .partitionBy(ImmutableList.of("a")),
-                                                anyTree(
-                                                        values("a")))))));
+                        join(INNER, builder -> builder
+                                .equiCriteria("expr", "a")
+                                .left(
+                                        any(
+                                                project(
+                                                        ImmutableMap.of("expr", expression("b * c - 1")),
+                                                        any(
+                                                                values("b", "c")))))
+                                .right(
+                                        any(
+                                                rowNumber(
+                                                        rowBuilder -> rowBuilder
+                                                                .maxRowCountPerPartition(Optional.of(1))
+                                                                .partitionBy(ImmutableList.of("a")),
+                                                        anyTree(
+                                                                values("a"))))))));
 
         // non-injective coercion bigint -> double
         assertThatThrownBy(() -> assertions.query(

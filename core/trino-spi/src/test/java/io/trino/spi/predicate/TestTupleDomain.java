@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.spi.block.Block;
@@ -35,18 +36,22 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.spi.predicate.TupleDomain.all;
 import static io.trino.spi.predicate.TupleDomain.columnWiseUnion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestTupleDomain
 {
@@ -89,7 +94,7 @@ public class TestTupleDomain
                         .put(B, Domain.notNull(DOUBLE))
                         .put(C, Domain.singleValue(BIGINT, 1L))
                         .put(D, Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(DOUBLE, 0.0)), true))
-                        .build());
+                        .buildOrThrow());
 
         TupleDomain<ColumnHandle> tupleDomain2 = TupleDomain.withColumnDomains(
                 ImmutableMap.<ColumnHandle, Domain>builder()
@@ -97,7 +102,7 @@ public class TestTupleDomain
                         .put(B, Domain.singleValue(DOUBLE, 0.0))
                         .put(C, Domain.singleValue(BIGINT, 1L))
                         .put(D, Domain.create(ValueSet.ofRanges(Range.lessThan(DOUBLE, 10.0)), false))
-                        .build());
+                        .buildOrThrow());
 
         TupleDomain<ColumnHandle> expectedTupleDomain = TupleDomain.withColumnDomains(
                 ImmutableMap.<ColumnHandle, Domain>builder()
@@ -105,10 +110,25 @@ public class TestTupleDomain
                         .put(B, Domain.singleValue(DOUBLE, 0.0))
                         .put(C, Domain.singleValue(BIGINT, 1L))
                         .put(D, Domain.create(ValueSet.ofRanges(Range.range(DOUBLE, 0.0, true, 10.0, false)), false))
-                        .build());
+                        .buildOrThrow());
 
         assertEquals(tupleDomain1.intersect(tupleDomain2), expectedTupleDomain);
         assertEquals(tupleDomain2.intersect(tupleDomain1), expectedTupleDomain);
+
+        assertEquals(TupleDomain.intersect(ImmutableList.of()), all());
+        assertEquals(TupleDomain.intersect(ImmutableList.of(tupleDomain1)), tupleDomain1);
+        assertEquals(TupleDomain.intersect(ImmutableList.of(tupleDomain1, tupleDomain2)), expectedTupleDomain);
+
+        TupleDomain<ColumnHandle> tupleDomain3 = TupleDomain.withColumnDomains(ImmutableMap.of(
+                C, Domain.singleValue(BIGINT, 1L),
+                D, Domain.create(ValueSet.ofRanges(Range.range(DOUBLE, 5.0, true, 100.0, true)), true)));
+        expectedTupleDomain = TupleDomain.withColumnDomains(
+                ImmutableMap.of(
+                        A, Domain.singleValue(VARCHAR, utf8Slice("value")),
+                        B, Domain.singleValue(DOUBLE, 0.0),
+                        C, Domain.singleValue(BIGINT, 1L),
+                        D, Domain.create(ValueSet.ofRanges(Range.range(DOUBLE, 5.0, true, 10.0, false)), false)));
+        assertEquals(TupleDomain.intersect(ImmutableList.of(tupleDomain1, tupleDomain2, tupleDomain3)), expectedTupleDomain);
     }
 
     @Test
@@ -145,6 +165,21 @@ public class TestTupleDomain
     }
 
     @Test
+    public void testIntersectResultType()
+    {
+        TupleDomain<Number> numberDomain = TupleDomain.withColumnDomains(Map.of(10, Domain.singleValue(BIGINT, 42L)));
+        TupleDomain<Integer> integerDomain = TupleDomain.withColumnDomains(Map.of(10, Domain.multipleValues(BIGINT, List.of(41L, 42L, 42L))));
+        // Declare explicit variable to verify assignability from the derived type of TupleDomain.intersect
+        TupleDomain<Number> intersection = numberDomain.intersect(integerDomain);
+        assertEquals(intersection, numberDomain);
+        // Sadly, this cannot be made to work:
+        //   intersection = integerDomain.intersect(numberDomain)
+        // but this can:
+        intersection = TupleDomain.intersect(List.of(integerDomain, numberDomain));
+        assertEquals(intersection, numberDomain);
+    }
+
+    @Test
     public void testColumnWiseUnion()
     {
         TupleDomain<ColumnHandle> tupleDomain1 = TupleDomain.withColumnDomains(
@@ -154,7 +189,7 @@ public class TestTupleDomain
                         .put(C, Domain.onlyNull(BIGINT))
                         .put(D, Domain.singleValue(BIGINT, 1L))
                         .put(E, Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(DOUBLE, 0.0)), true))
-                        .build());
+                        .buildOrThrow());
 
         TupleDomain<ColumnHandle> tupleDomain2 = TupleDomain.withColumnDomains(
                 ImmutableMap.<ColumnHandle, Domain>builder()
@@ -163,7 +198,7 @@ public class TestTupleDomain
                         .put(C, Domain.notNull(BIGINT))
                         .put(D, Domain.singleValue(BIGINT, 1L))
                         .put(E, Domain.create(ValueSet.ofRanges(Range.lessThan(DOUBLE, 10.0)), false))
-                        .build());
+                        .buildOrThrow());
 
         TupleDomain<ColumnHandle> expectedTupleDomain = TupleDomain.withColumnDomains(
                 ImmutableMap.<ColumnHandle, Domain>builder()
@@ -172,7 +207,7 @@ public class TestTupleDomain
                         .put(C, Domain.all(BIGINT))
                         .put(D, Domain.singleValue(BIGINT, 1L))
                         .put(E, Domain.all(DOUBLE))
-                        .build());
+                        .buildOrThrow());
 
         assertEquals(columnWiseUnion(tupleDomain1, tupleDomain2), expectedTupleDomain);
     }
@@ -583,7 +618,7 @@ public class TestTupleDomain
                                 .put(B, Domain.singleValue(VARCHAR, utf8Slice("value")))
                                 .put(C, Domain.onlyNull(BIGINT))
                                 .put(D, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L)), true))
-                                .build())).get(),
+                                .buildOrThrow())).get(),
                 ImmutableMap.of(
                         B, NullableValue.of(VARCHAR, utf8Slice("value")),
                         C, NullableValue.asNull(BIGINT)));
@@ -611,13 +646,13 @@ public class TestTupleDomain
                                 .put(B, NullableValue.of(VARCHAR, utf8Slice("value")))
                                 .put(C, NullableValue.of(DOUBLE, 0.01))
                                 .put(D, NullableValue.asNull(BOOLEAN))
-                                .build()),
+                                .buildOrThrow()),
                 TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
                         .put(A, Domain.singleValue(BIGINT, 1L))
                         .put(B, Domain.singleValue(VARCHAR, utf8Slice("value")))
                         .put(C, Domain.singleValue(DOUBLE, 0.01))
                         .put(D, Domain.onlyNull(BOOLEAN))
-                        .build()));
+                        .buildOrThrow()));
     }
 
     @Test
@@ -665,7 +700,7 @@ public class TestTupleDomain
                 .put(1, Domain.singleValue(BIGINT, 1L))
                 .put(2, Domain.singleValue(BIGINT, 2L))
                 .put(3, Domain.singleValue(BIGINT, 3L))
-                .build();
+                .buildOrThrow();
 
         TupleDomain<Integer> domain = TupleDomain.withColumnDomains(domains);
         TupleDomain<String> transformed = domain.transformKeys(Object::toString);
@@ -674,7 +709,7 @@ public class TestTupleDomain
                 .put("1", Domain.singleValue(BIGINT, 1L))
                 .put("2", Domain.singleValue(BIGINT, 2L))
                 .put("3", Domain.singleValue(BIGINT, 3L))
-                .build();
+                .buildOrThrow();
 
         assertEquals(transformed.getDomains().get(), expected);
     }
@@ -686,7 +721,7 @@ public class TestTupleDomain
                 .put(1, Domain.singleValue(BIGINT, 1L))
                 .put(2, Domain.singleValue(BIGINT, 2L))
                 .put(3, Domain.singleValue(BIGINT, 3L))
-                .build();
+                .buildOrThrow();
 
         TupleDomain<Integer> domain = TupleDomain.withColumnDomains(domains);
 
@@ -711,13 +746,92 @@ public class TestTupleDomain
                 .put(1, Domain.singleValue(BIGINT, 1L))
                 .put(2, Domain.singleValue(BIGINT, 2L))
                 .put(3, Domain.singleValue(BIGINT, 3L))
-                .build();
+                .buildOrThrow();
 
         TupleDomain<Integer> domain = TupleDomain.withColumnDomains(domains);
 
         assertThatThrownBy(() -> domain.transformKeys(input -> input == 2 ? null : input))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessageMatching("mapping function \\S+ returned null for 2");
+    }
+
+    @Test
+    public void testAsPredicate()
+    {
+        NullableValue doubleNull = NullableValue.asNull(DOUBLE);
+        NullableValue doubleZero = NullableValue.of(DOUBLE, 0.0);
+        NullableValue doubleOne = NullableValue.of(DOUBLE, 1.0);
+
+        ValueSet doublePositiveValues = ValueSet.ofRanges(Range.greaterThan(DOUBLE, 0.0));
+
+        TupleDomain<ColumnHandle> aJustZero = TupleDomain.withColumnDomains(Map.of(A, Domain.singleValue(DOUBLE, 0.0)));
+        TupleDomain<ColumnHandle> aJustNull = TupleDomain.withColumnDomains(Map.of(A, Domain.onlyNull(DOUBLE)));
+        TupleDomain<ColumnHandle> aZeroAndNull = TupleDomain.withColumnDomains(Map.of(A, Domain.create(ValueSet.of(DOUBLE, 0.0), true)));
+        TupleDomain<ColumnHandle> aPositive = TupleDomain.withColumnDomains(Map.of(A, Domain.create(doublePositiveValues, false)));
+        TupleDomain<ColumnHandle> bPositive = TupleDomain.withColumnDomains(Map.of(B, Domain.create(doublePositiveValues, false)));
+        TupleDomain<ColumnHandle> abPositive = TupleDomain.withColumnDomains(Map.of(
+                A, Domain.create(doublePositiveValues, false),
+                B, Domain.create(doublePositiveValues, false)));
+
+        // all
+        testAsPredicate(TupleDomain.all(), Map.of(), true);
+        testAsPredicate(TupleDomain.all(), Map.of(A, doubleZero), true);
+        testAsPredicate(TupleDomain.all(), Map.of(A, doubleNull), true);
+
+        // none
+        testAsPredicate(TupleDomain.none(), Map.of(), false);
+        testAsPredicate(TupleDomain.none(), Map.of(A, doubleZero), false);
+        testAsPredicate(TupleDomain.none(), Map.of(A, doubleNull), false);
+
+        // empty bindings
+        testAsPredicate(aJustZero, Map.of(), true);
+        testAsPredicate(aJustNull, Map.of(), true);
+        testAsPredicate(aPositive, Map.of(), true);
+        testAsPredicate(bPositive, Map.of(), true);
+        testAsPredicate(abPositive, Map.of(), true);
+
+        // constraint on same column
+        testAsPredicate(aJustZero, Map.of(A, doubleZero), true);
+        testAsPredicate(aJustZero, Map.of(A, doubleNull), false);
+
+        testAsPredicate(aJustNull, Map.of(A, doubleZero), false);
+        testAsPredicate(aJustNull, Map.of(A, doubleNull), true);
+
+        testAsPredicate(aZeroAndNull, Map.of(A, doubleZero), true);
+        testAsPredicate(aZeroAndNull, Map.of(A, doubleNull), true);
+
+        testAsPredicate(aPositive, Map.of(A, doubleZero), false);
+        testAsPredicate(aPositive, Map.of(A, doubleNull), false);
+
+        // constraint on different column
+        testAsPredicate(bPositive, Map.of(A, doubleZero), true);
+        testAsPredicate(bPositive, Map.of(A, doubleNull), true);
+
+        // constraint and binding keys intersecting
+        testAsPredicate(abPositive,
+                Map.of(
+                        B, doubleZero,
+                        C, doubleOne),
+                false);
+        testAsPredicate(abPositive,
+                Map.of(
+                        B, doubleOne,
+                        C, doubleOne),
+                true);
+        testAsPredicate(abPositive,
+                Map.of(
+                        B, doubleOne,
+                        C, doubleZero),
+                true);
+    }
+
+    private void testAsPredicate(TupleDomain<ColumnHandle> tupleDomain, Map<ColumnHandle, NullableValue> bindings, boolean expected)
+    {
+        Predicate<Map<ColumnHandle, NullableValue>> predicate = tupleDomain.asPredicate();
+        boolean result = predicate.test(bindings);
+        if (result != expected) {
+            fail(format("asPredicate(%s).test(%s) returned %s instead of %s", tupleDomain, bindings, result, expected));
+        }
     }
 
     private void verifyOverlaps(Map<ColumnHandle, Domain> domains1, Map<ColumnHandle, Domain> domains2, boolean expected)

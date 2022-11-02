@@ -23,7 +23,6 @@ import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
 
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.Set;
 
 public interface SystemSecurityMetadata
@@ -49,12 +48,6 @@ public interface SystemSecurityMetadata
      * List available roles.
      */
     Set<String> listRoles(Session session);
-
-    /**
-     * List all role grants,
-     * optionally filtered by passed role, grantee, and limit predicates.
-     */
-    Set<RoleGrant> listAllRoleGrants(Session session, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit);
 
     /**
      * List roles grants for a given principal, not recursively.
@@ -91,6 +84,11 @@ public interface SystemSecurityMetadata
     void grantSchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption);
 
     /**
+     * Denys the specified privilege to the specified user on the specified schema.
+     */
+    void denySchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, TrinoPrincipal grantee);
+
+    /**
      * Revokes the specified privilege on the specified schema from the specified user.
      */
     void revokeSchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption);
@@ -99,6 +97,11 @@ public interface SystemSecurityMetadata
      * Grants the specified privilege to the specified user on the specified table
      */
     void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption);
+
+    /**
+     * Denys the specified privilege to the specified user on the specified table
+     */
+    void denyTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee);
 
     /**
      * Revokes the specified privilege on the specified table from the specified user
@@ -127,7 +130,6 @@ public interface SystemSecurityMetadata
 
     /**
      * Get the identity to run the view as
-     * @return
      */
     Optional<Identity> getViewRunAsIdentity(Session session, CatalogSchemaTableName viewName);
 

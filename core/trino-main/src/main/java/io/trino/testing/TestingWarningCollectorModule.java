@@ -21,7 +21,6 @@ import io.trino.execution.warnings.WarningCollectorConfig;
 import io.trino.execution.warnings.WarningCollectorFactory;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static java.util.Objects.requireNonNull;
 
 public class TestingWarningCollectorModule
         implements Module
@@ -37,8 +36,6 @@ public class TestingWarningCollectorModule
     @Singleton
     public WarningCollectorFactory createWarningCollectorFactory(WarningCollectorConfig config, TestingWarningCollectorConfig testConfig)
     {
-        requireNonNull(config, "config is null");
-        requireNonNull(testConfig, "testConfig is null");
         return () -> new TestingWarningCollector(config, testConfig);
     }
 }

@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.isDictionaryAggregationEnabled;
-import static io.trino.operator.UpdateMemory.NOOP;
 import static io.trino.spi.type.BigintType.BIGINT;
 
 public interface GroupByHash
@@ -37,9 +36,10 @@ public interface GroupByHash
             Optional<Integer> inputHashChannel,
             int expectedSize,
             JoinCompiler joinCompiler,
-            BlockTypeOperators blockTypeOperators)
+            BlockTypeOperators blockTypeOperators,
+            UpdateMemory updateMemory)
     {
-        return createGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, isDictionaryAggregationEnabled(session), joinCompiler, blockTypeOperators, NOOP);
+        return createGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, isDictionaryAggregationEnabled(session), joinCompiler, blockTypeOperators, updateMemory);
     }
 
     static GroupByHash createGroupByHash(
@@ -68,10 +68,17 @@ public interface GroupByHash
 
     int getGroupCount();
 
-    void appendValuesTo(int groupId, PageBuilder pageBuilder, int outputChannelOffset);
+    void appendValuesTo(int groupId, PageBuilder pageBuilder);
 
     Work<?> addPage(Page page);
 
+    /**
+     * The order of new group ids need to be the same as the order of incoming rows,
+     * i.e. new group ids should be assigned in rows iteration order
+     * Example:
+     * rows:      A B C B D A E
+     * group ids: 1 2 3 2 4 1 5
+     */
     Work<GroupByIdBlock> getGroupIds(Page page);
 
     boolean contains(int position, Page page, int[] hashChannels);

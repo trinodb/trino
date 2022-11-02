@@ -24,8 +24,8 @@ import io.trino.orc.stream.InputStreamSource;
 import io.trino.orc.stream.InputStreamSources;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ByteArrayBlock;
+import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -43,13 +43,17 @@ import static io.trino.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.trino.orc.reader.ReaderUtils.minNonNullValueSize;
 import static io.trino.orc.reader.ReaderUtils.verifyStreamType;
 import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class ByteColumnReader
         implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ByteColumnReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ByteColumnReader.class).instanceSize());
+
+    private final Type type;
 
     private final OrcColumn column;
 
@@ -68,16 +72,17 @@ public class ByteColumnReader
 
     private byte[] nonNullValueTemp = new byte[0];
 
-    private final LocalMemoryContext systemMemoryContext;
+    private final LocalMemoryContext memoryContext;
 
-    public ByteColumnReader(Type type, OrcColumn column, LocalMemoryContext systemMemoryContext)
+    public ByteColumnReader(Type type, OrcColumn column, LocalMemoryContext memoryContext)
             throws OrcCorruptionException
     {
-        requireNonNull(type, "type is null");
-        verifyStreamType(column, type, TinyintType.class::isInstance);
+        this.type = requireNonNull(type, "type is null");
+        // Iceberg maps ORC tinyint type to integer
+        verifyStreamType(column, type, t -> t == TINYINT || t == INTEGER);
 
         this.column = requireNonNull(column, "column is null");
-        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
     }
 
     @Override
@@ -115,7 +120,7 @@ public class ByteColumnReader
                 throw new OrcCorruptionException(column.getOrcDataSourceId(), "Value is null but present stream is missing");
             }
             presentStream.skip(nextBatchSize);
-            block = RunLengthEncodedBlock.create(TINYINT, null, nextBatchSize);
+            block = RunLengthEncodedBlock.create(type, null, nextBatchSize);
         }
         else if (presentStream == null) {
             block = readNonNullBlock();
@@ -130,7 +135,7 @@ public class ByteColumnReader
                 block = readNullBlock(isNull, nextBatchSize - nullCount);
             }
             else {
-                block = RunLengthEncodedBlock.create(TINYINT, null, nextBatchSize);
+                block = RunLengthEncodedBlock.create(type, null, nextBatchSize);
             }
         }
 
@@ -144,8 +149,15 @@ public class ByteColumnReader
             throws IOException
     {
         verifyNotNull(dataStream);
-        byte[] values = dataStream.next(nextBatchSize);
-        return new ByteArrayBlock(nextBatchSize, Optional.empty(), values);
+        byte[] values = new byte[nextBatchSize];
+        dataStream.next(values, nextBatchSize);
+        if (type == TINYINT) {
+            return new ByteArrayBlock(nextBatchSize, Optional.empty(), values);
+        }
+        if (type == INTEGER) {
+            return new IntArrayBlock(nextBatchSize, Optional.empty(), convertToIntArray(values));
+        }
+        throw new VerifyError("Unsupported type " + type);
     }
 
     private Block readNullBlock(boolean[] isNull, int nonNullCount)
@@ -155,14 +167,19 @@ public class ByteColumnReader
         int minNonNullValueSize = minNonNullValueSize(nonNullCount);
         if (nonNullValueTemp.length < minNonNullValueSize) {
             nonNullValueTemp = new byte[minNonNullValueSize];
-            systemMemoryContext.setBytes(sizeOf(nonNullValueTemp));
+            memoryContext.setBytes(sizeOf(nonNullValueTemp));
         }
 
         dataStream.next(nonNullValueTemp, nonNullCount);
 
         byte[] result = ReaderUtils.unpackByteNulls(nonNullValueTemp, isNull);
-
-        return new ByteArrayBlock(nextBatchSize, Optional.of(isNull), result);
+        if (type == TINYINT) {
+            return new ByteArrayBlock(nextBatchSize, Optional.of(isNull), result);
+        }
+        if (type == INTEGER) {
+            return new IntArrayBlock(nextBatchSize, Optional.of(isNull), convertToIntArray(result));
+        }
+        throw new VerifyError("Unsupported type " + type);
     }
 
     private void openRowGroup()
@@ -204,6 +221,15 @@ public class ByteColumnReader
         rowGroupOpen = false;
     }
 
+    private static int[] convertToIntArray(byte[] bytes)
+    {
+        int[] values = new int[bytes.length];
+        for (int i = 0; i < bytes.length; i++) {
+            values[i] = bytes[i];
+        }
+        return values;
+    }
+
     @Override
     public String toString()
     {
@@ -215,7 +241,7 @@ public class ByteColumnReader
     @Override
     public void close()
     {
-        systemMemoryContext.close();
+        memoryContext.close();
     }
 
     @Override

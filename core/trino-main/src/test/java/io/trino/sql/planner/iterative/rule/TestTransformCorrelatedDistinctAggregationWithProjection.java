@@ -40,7 +40,7 @@ public class TestTransformCorrelatedDistinctAggregationWithProjection
     @Test
     public void doesNotFireOnUncorrelated()
     {
-        tester().assertThat(new TransformCorrelatedDistinctAggregationWithProjection(tester().getMetadata()))
+        tester().assertThat(new TransformCorrelatedDistinctAggregationWithProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(),
                         p.values(p.symbol("a")),
@@ -51,7 +51,7 @@ public class TestTransformCorrelatedDistinctAggregationWithProjection
     @Test
     public void doesNotFireOnCorrelatedWithNonDistinctAggregation()
     {
-        tester().assertThat(new TransformCorrelatedDistinctAggregationWithProjection(tester().getMetadata()))
+        tester().assertThat(new TransformCorrelatedDistinctAggregationWithProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -66,7 +66,7 @@ public class TestTransformCorrelatedDistinctAggregationWithProjection
     @Test
     public void rewritesOnSubqueryWithDistinct()
     {
-        tester().assertThat(new TransformCorrelatedDistinctAggregationWithProjection(tester().getMetadata()))
+        tester().assertThat(new TransformCorrelatedDistinctAggregationWithProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -86,15 +86,14 @@ public class TestTransformCorrelatedDistinctAggregationWithProjection
                                         ImmutableMap.of(),
                                         Optional.empty(),
                                         SINGLE,
-                                        join(
-                                                LEFT,
-                                                ImmutableList.of(),
-                                                Optional.of("b > corr"),
-                                                assignUniqueId(
-                                                        "unique",
-                                                        values("corr")),
-                                                filter(
+                                        join(LEFT, builder -> builder
+                                                .filter("b > corr")
+                                                .left(
+                                                        assignUniqueId(
+                                                                "unique",
+                                                                values("corr")))
+                                                .right(filter(
                                                         "true",
-                                                        values("a", "b"))))));
+                                                        values("a", "b")))))));
     }
 }

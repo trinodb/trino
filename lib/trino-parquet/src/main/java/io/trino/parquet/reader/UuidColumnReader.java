@@ -14,7 +14,7 @@
 package io.trino.parquet.reader;
 
 import io.airlift.slice.Slice;
-import io.trino.parquet.RichColumnDescriptor;
+import io.trino.parquet.PrimitiveField;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import org.apache.parquet.io.api.Binary;
@@ -26,9 +26,9 @@ import static io.trino.spi.type.UuidType.UUID;
 public class UuidColumnReader
         extends PrimitiveColumnReader
 {
-    public UuidColumnReader(RichColumnDescriptor descriptor)
+    public UuidColumnReader(PrimitiveField field)
     {
-        super(descriptor);
+        super(field);
     }
 
     @Override
@@ -36,21 +36,8 @@ public class UuidColumnReader
     {
         checkArgument(trinoType == UUID, "Unsupported type: %s", trinoType);
 
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            Binary binary = valuesReader.readBytes();
-            Slice slice = wrappedBuffer(binary.getBytes());
-            trinoType.writeSlice(blockBuilder, slice);
-        }
-        else if (isValueNull()) {
-            blockBuilder.appendNull();
-        }
-    }
-
-    @Override
-    protected void skipValue()
-    {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readBytes();
-        }
+        Binary binary = valuesReader.readBytes();
+        Slice slice = wrappedBuffer(binary.getBytes());
+        trinoType.writeSlice(blockBuilder, slice);
     }
 }

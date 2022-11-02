@@ -94,7 +94,7 @@ public final class OutputHandler
                 if (row == END_TOKEN) {
                     break;
                 }
-                else if (row != null) {
+                if (row != null) {
                     rowBuffer.add(row);
                 }
             }

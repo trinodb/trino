@@ -224,7 +224,7 @@ public final class TypeConverter
                 attributes = ImmutableMap.<String, String>builder()
                         .putAll(attributes)
                         .put(ICEBERG_LONG_TYPE, "TIME")
-                        .build();
+                        .buildOrThrow();
                 return ImmutableList.of(new OrcType(OrcTypeKind.LONG, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case TIMESTAMP:
                 OrcTypeKind timestampKind = ((Types.TimestampType) type).shouldAdjustToUTC() ? OrcTypeKind.TIMESTAMP_INSTANT : OrcTypeKind.TIMESTAMP;
@@ -242,7 +242,7 @@ public final class TypeConverter
                 attributes = ImmutableMap.<String, String>builder()
                         .putAll(attributes)
                         .put(ICEBERG_BINARY_TYPE, "UUID")
-                        .build();
+                        .buildOrThrow();
                 return ImmutableList.of(new OrcType(OrcTypeKind.BINARY, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case STRUCT:
                 return toOrcStructType(nextFieldTypeIndex, (Types.StructType) type, attributes);
@@ -266,7 +266,7 @@ public final class TypeConverter
             Map<String, String> fieldAttributes = ImmutableMap.<String, String>builder()
                     .put(ORC_ICEBERG_ID_KEY, Integer.toString(field.fieldId()))
                     .put(ORC_ICEBERG_REQUIRED_KEY, Boolean.toString(field.isRequired()))
-                    .build();
+                    .buildOrThrow();
             List<OrcType> fieldOrcTypes = toOrcType(nextFieldTypeIndex, field.type(), fieldAttributes);
             fieldTypesList.add(fieldOrcTypes);
             nextFieldTypeIndex += fieldOrcTypes.size();
@@ -292,7 +292,7 @@ public final class TypeConverter
         Map<String, String> elementAttributes = ImmutableMap.<String, String>builder()
                 .put(ORC_ICEBERG_ID_KEY, Integer.toString(listType.elementId()))
                 .put(ORC_ICEBERG_REQUIRED_KEY, Boolean.toString(listType.isElementRequired()))
-                .build();
+                .buildOrThrow();
         List<OrcType> itemTypes = toOrcType(nextFieldTypeIndex, listType.elementType(), elementAttributes);
 
         List<OrcType> orcTypes = new ArrayList<>();
@@ -315,12 +315,12 @@ public final class TypeConverter
         Map<String, String> keyAttributes = ImmutableMap.<String, String>builder()
                 .put(ORC_ICEBERG_ID_KEY, Integer.toString(mapType.keyId()))
                 .put(ORC_ICEBERG_REQUIRED_KEY, Boolean.toString(true))
-                .build();
+                .buildOrThrow();
         List<OrcType> keyTypes = toOrcType(nextFieldTypeIndex, mapType.keyType(), keyAttributes);
         Map<String, String> valueAttributes = ImmutableMap.<String, String>builder()
                 .put(ORC_ICEBERG_ID_KEY, Integer.toString(mapType.valueId()))
                 .put(ORC_ICEBERG_REQUIRED_KEY, Boolean.toString(mapType.isValueRequired()))
-                .build();
+                .buildOrThrow();
         List<OrcType> valueTypes = toOrcType(nextFieldTypeIndex + keyTypes.size(), mapType.valueType(), valueAttributes);
 
         List<OrcType> orcTypes = new ArrayList<>();

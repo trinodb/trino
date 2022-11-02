@@ -34,6 +34,7 @@ import org.testng.annotations.Test;
 
 import static io.trino.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 
@@ -45,7 +46,7 @@ public class TestIterativeOptimizer
     public void setUp()
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
-                .setCatalog("local")
+                .setCatalog(TEST_CATALOG_NAME)
                 .setSchema("tiny")
                 .setSystemProperty("task_concurrency", "1")
                 .setSystemProperty("iterative_optimizer_timeout", "1ms");
@@ -66,11 +67,11 @@ public class TestIterativeOptimizer
         }
     }
 
-    @Test(timeOut = 1000)
+    @Test(timeOut = 10_000)
     public void optimizerTimeoutsOnNonConvergingPlan()
     {
         PlanOptimizer optimizer = new IterativeOptimizer(
-                queryRunner.getMetadata(),
+                queryRunner.getPlannerContext(),
                 new RuleStatsRecorder(),
                 queryRunner.getStatsCalculator(),
                 queryRunner.getCostCalculator(),
@@ -78,7 +79,7 @@ public class TestIterativeOptimizer
 
         assertTrinoExceptionThrownBy(() -> queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, "SELECT nationkey FROM nation", ImmutableList.of(optimizer), WarningCollector.NOOP)))
                 .hasErrorCode(OPTIMIZER_TIMEOUT)
-                .hasMessage("The optimizer exhausted the time limit of 1 ms");
+                .hasMessageMatching("The optimizer exhausted the time limit of 1 ms: (no rules invoked|(?s)Top rules:.*(RemoveRedundantIdentityProjections|AddIdentityOverTableScan).*)");
     }
 
     private static class AddIdentityOverTableScan

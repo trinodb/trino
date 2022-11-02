@@ -49,20 +49,21 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static io.trino.orc.OrcReader.ProjectedLayout.fullyProjectedLayout;
+import static io.trino.orc.OrcReader.fullyProjectedLayout;
 import static io.trino.orc.metadata.Stream.StreamKind.DATA;
 import static io.trino.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.trino.orc.reader.ColumnReaders.createColumnReader;
 import static io.trino.orc.reader.ReaderUtils.verifyStreamType;
 import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 // Use row blocks to represent union objects when reading
 public class UnionColumnReader
         implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(UnionColumnReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(UnionColumnReader.class).instanceSize());
 
     private final OrcColumn column;
     private final OrcBlockFactory blockFactory;
@@ -82,7 +83,7 @@ public class UnionColumnReader
 
     private boolean rowGroupOpen;
 
-    UnionColumnReader(Type type, OrcColumn column, AggregatedMemoryContext systemMemoryContext, OrcBlockFactory blockFactory, FieldMapperFactory fieldMapperFactory)
+    UnionColumnReader(Type type, OrcColumn column, AggregatedMemoryContext memoryContext, OrcBlockFactory blockFactory, FieldMapperFactory fieldMapperFactory)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
@@ -99,7 +100,7 @@ public class UnionColumnReader
                     type.getTypeParameters().get(i + 1),
                     fields.get(i),
                     fullyProjectedLayout(),
-                    systemMemoryContext,
+                    memoryContext,
                     blockFactory,
                     fieldMapperFactory));
         }
@@ -259,7 +260,7 @@ public class UnionColumnReader
                 blocks[i + 1] = new LazyBlock(positionCount, new UnpackLazyBlockLoader(rawBlock, fieldType, valueIsNonNull[i]));
             }
             else {
-                blocks[i + 1] = new RunLengthEncodedBlock(
+                blocks[i + 1] = RunLengthEncodedBlock.create(
                         fieldType.createBlockBuilder(null, 1).appendNull().build(),
                         positionCount);
             }

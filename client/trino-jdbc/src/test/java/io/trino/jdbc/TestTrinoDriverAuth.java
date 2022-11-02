@@ -16,7 +16,6 @@ package io.trino.jdbc;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logging;
 import io.airlift.security.pem.PemReader;
-import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.server.testing.TestingTrinoServer;
@@ -43,6 +42,7 @@ import static com.google.common.io.Resources.getResource;
 import static io.jsonwebtoken.JwsHeader.KEY_ID;
 import static io.jsonwebtoken.SignatureAlgorithm.HS512;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
+import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Base64.getMimeDecoder;
@@ -68,7 +68,7 @@ public class TestTrinoDriverAuth
 
         URL resource = getClass().getClassLoader().getResource("33.privateKey");
         assertNotNull(resource, "key directory not found");
-        File keyDir = new File(resource.getFile()).getAbsoluteFile().getParentFile();
+        File keyDir = new File(resource.toURI()).getAbsoluteFile().getParentFile();
 
         defaultKey = hmacShaKeyFor(getMimeDecoder().decode(asCharSource(new File(keyDir, "default-key.key"), US_ASCII).read().getBytes(US_ASCII)));
         hmac222 = hmacShaKeyFor(getMimeDecoder().decode(asCharSource(new File(keyDir, "222.key"), US_ASCII).read().getBytes(US_ASCII)));
@@ -79,9 +79,9 @@ public class TestTrinoDriverAuth
                         .put("http-server.authentication.type", "JWT")
                         .put("http-server.authentication.jwt.key-file", new File(keyDir, "${KID}.key").getPath())
                         .put("http-server.https.enabled", "true")
-                        .put("http-server.https.keystore.path", getResource("localhost.keystore").getPath())
+                        .put("http-server.https.keystore.path", new File(getResource("localhost.keystore").toURI()).getPath())
                         .put("http-server.https.keystore.key", "changeit")
-                        .build())
+                        .buildOrThrow())
                 .build();
         server.installPlugin(new TpchPlugin());
         server.createCatalog(TEST_CATALOG, "tpch");
@@ -99,7 +99,7 @@ public class TestTrinoDriverAuth
     public void testSuccessDefaultKey()
             throws Exception
     {
-        String accessToken = Jwts.builder()
+        String accessToken = newJwtBuilder()
                 .setSubject("test")
                 .signWith(defaultKey)
                 .compact();
@@ -119,7 +119,7 @@ public class TestTrinoDriverAuth
     public void testSuccessHmac()
             throws Exception
     {
-        String accessToken = Jwts.builder()
+        String accessToken = newJwtBuilder()
                 .setSubject("test")
                 .setHeaderParam(KEY_ID, "222")
                 .signWith(hmac222)
@@ -140,7 +140,7 @@ public class TestTrinoDriverAuth
     public void testSuccessPublicKey()
             throws Exception
     {
-        String accessToken = Jwts.builder()
+        String accessToken = newJwtBuilder()
                 .setSubject("test")
                 .setHeaderParam(KEY_ID, "33")
                 .signWith(privateKey33)
@@ -172,7 +172,7 @@ public class TestTrinoDriverAuth
     public void testFailedUnsigned()
             throws Exception
     {
-        String accessToken = Jwts.builder()
+        String accessToken = newJwtBuilder()
                 .setSubject("test")
                 .compact();
 
@@ -188,7 +188,7 @@ public class TestTrinoDriverAuth
             throws Exception
     {
         Key badKey = Keys.secretKeyFor(HS512);
-        String accessToken = Jwts.builder()
+        String accessToken = newJwtBuilder()
                 .setSubject("test")
                 .signWith(badKey)
                 .compact();
@@ -204,7 +204,7 @@ public class TestTrinoDriverAuth
     public void testFailedWrongPublicKey()
             throws Exception
     {
-        String accessToken = Jwts.builder()
+        String accessToken = newJwtBuilder()
                 .setSubject("test")
                 .setHeaderParam(KEY_ID, "42")
                 .signWith(privateKey33)
@@ -221,7 +221,7 @@ public class TestTrinoDriverAuth
     public void testFailedUnknownPublicKey()
             throws Exception
     {
-        String accessToken = Jwts.builder()
+        String accessToken = newJwtBuilder()
                 .setSubject("test")
                 .setHeaderParam(KEY_ID, "unknown")
                 .signWith(privateKey33)
@@ -238,7 +238,7 @@ public class TestTrinoDriverAuth
     public void testSuccessFullSslVerification()
             throws Exception
     {
-        String accessToken = Jwts.builder()
+        String accessToken = newJwtBuilder()
                 .setSubject("test")
                 .setHeaderParam(KEY_ID, "33")
                 .signWith(privateKey33)
@@ -259,7 +259,7 @@ public class TestTrinoDriverAuth
     public void testSuccessCaSslVerification()
             throws Exception
     {
-        String accessToken = Jwts.builder()
+        String accessToken = newJwtBuilder()
                 .setSubject("test")
                 .setHeaderParam(KEY_ID, "33")
                 .signWith(privateKey33)
@@ -324,13 +324,12 @@ public class TestTrinoDriverAuth
     }
 
     private Connection createConnection(Map<String, String> additionalProperties)
-            throws SQLException
+            throws Exception
     {
         String url = format("jdbc:trino://localhost:%s", server.getHttpsAddress().getPort());
         Properties properties = new Properties();
-        properties.setProperty("user", "test");
         properties.setProperty("SSL", "true");
-        properties.setProperty("SSLTrustStorePath", getResource("localhost.truststore").getPath());
+        properties.setProperty("SSLTrustStorePath", new File(getResource("localhost.truststore").toURI()).getPath());
         properties.setProperty("SSLTrustStorePassword", "changeit");
         additionalProperties.forEach(properties::setProperty);
         return DriverManager.getConnection(url, properties);
@@ -341,7 +340,6 @@ public class TestTrinoDriverAuth
     {
         String url = format("jdbc:trino://localhost:%s", server.getHttpsAddress().getPort());
         Properties properties = new Properties();
-        properties.setProperty("user", "test");
         additionalProperties.forEach(properties::setProperty);
         return DriverManager.getConnection(url, properties);
     }

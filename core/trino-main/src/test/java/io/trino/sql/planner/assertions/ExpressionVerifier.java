@@ -116,9 +116,7 @@ public final class ExpressionVerifier
             return false;
         }
 
-        StringLiteral expected = (StringLiteral) expectedExpression;
-
-        return actual.getValue().equals(expected.getValue());
+        return getValueFromLiteral(actual).equals(getValueFromLiteral(expectedExpression));
     }
 
     @Override
@@ -201,6 +199,10 @@ public final class ExpressionVerifier
 
         if (expression instanceof GenericLiteral) {
             return ((GenericLiteral) expression).getValue();
+        }
+
+        if (expression instanceof StringLiteral) {
+            return ((StringLiteral) expression).getValue();
         }
 
         throw new IllegalArgumentException("Unsupported literal expression type: " + expression.getClass().getName());

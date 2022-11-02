@@ -16,7 +16,7 @@ package io.trino.server.ui;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.Hashing;
 import io.jsonwebtoken.JwtException;
-import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.JwtParser;
 import io.trino.server.security.AuthenticationException;
 import io.trino.server.security.Authenticator;
 import io.trino.spi.security.Identity;
@@ -45,6 +45,8 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.server.ServletSecurityUtils.sendWwwAuthenticate;
 import static io.trino.server.ServletSecurityUtils.setAuthenticatedIdentity;
+import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
+import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -64,7 +66,7 @@ public class FormWebUiAuthenticationFilter
     static final String UI_LOGIN = "/ui/login";
     static final String UI_LOGOUT = "/ui/logout";
 
-    private final Function<String, String> jwtParser;
+    private final JwtParser jwtParser;
     private final Function<String, String> jwtGenerator;
     private final FormAuthenticator formAuthenticator;
     private final Optional<Authenticator> authenticator;
@@ -85,7 +87,10 @@ public class FormWebUiAuthenticationFilter
         }
         Key hmac = hmacShaKeyFor(hmacBytes);
 
-        this.jwtParser = jwt -> parseJwt(hmac, jwt);
+        this.jwtParser = newJwtParserBuilder()
+                .setSigningKey(hmac)
+                .requireAudience(TRINO_UI_AUDIENCE)
+                .build();
 
         long sessionTimeoutNanos = config.getSessionTimeout().roundTo(NANOSECONDS);
         this.jwtGenerator = username -> generateJwt(hmac, username, sessionTimeoutNanos);
@@ -235,7 +240,7 @@ public class FormWebUiAuthenticationFilter
         }
 
         try {
-            return Optional.of(jwtParser.apply(cookie.getValue()));
+            return Optional.of(parseJwt(cookie.getValue()));
         }
         catch (JwtException e) {
             return Optional.empty();
@@ -288,7 +293,7 @@ public class FormWebUiAuthenticationFilter
 
     private static String generateJwt(Key hmac, String username, long sessionTimeoutNanos)
     {
-        return Jwts.builder()
+        return newJwtBuilder()
                 .signWith(hmac)
                 .setSubject(username)
                 .setExpiration(Date.from(ZonedDateTime.now().plusNanos(sessionTimeoutNanos).toInstant()))
@@ -296,12 +301,9 @@ public class FormWebUiAuthenticationFilter
                 .compact();
     }
 
-    private static String parseJwt(Key hmac, String jwt)
+    private String parseJwt(String jwt)
     {
-        return Jwts.parserBuilder()
-                .setSigningKey(hmac)
-                .requireAudience(TRINO_UI_AUDIENCE)
-                .build()
+        return jwtParser
                 .parseClaimsJws(jwt)
                 .getBody()
                 .getSubject();

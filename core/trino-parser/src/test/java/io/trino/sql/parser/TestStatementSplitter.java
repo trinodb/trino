@@ -15,7 +15,7 @@ package io.trino.sql.parser;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
@@ -23,9 +23,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.sql.parser.StatementSplitter.Statement;
 import static io.trino.sql.parser.StatementSplitter.isEmptyStatement;
 import static io.trino.sql.parser.StatementSplitter.squeezeStatement;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestStatementSplitter
 {
@@ -33,48 +33,48 @@ public class TestStatementSplitter
     public void testSplitterIncomplete()
     {
         StatementSplitter splitter = new StatementSplitter(" select * FROM foo  ");
-        assertEquals(splitter.getCompleteStatements(), ImmutableList.of());
-        assertEquals(splitter.getPartialStatement(), "select * FROM foo");
+        assertEquals(ImmutableList.of(), splitter.getCompleteStatements());
+        assertEquals("select * FROM foo", splitter.getPartialStatement());
     }
 
     @Test
     public void testSplitterEmptyInput()
     {
         StatementSplitter splitter = new StatementSplitter("");
-        assertEquals(splitter.getCompleteStatements(), ImmutableList.of());
-        assertEquals(splitter.getPartialStatement(), "");
+        assertEquals(ImmutableList.of(), splitter.getCompleteStatements());
+        assertEquals("", splitter.getPartialStatement());
     }
 
     @Test
     public void testSplitterEmptyStatements()
     {
         StatementSplitter splitter = new StatementSplitter(";;;");
-        assertEquals(splitter.getCompleteStatements(), ImmutableList.of());
-        assertEquals(splitter.getPartialStatement(), "");
+        assertEquals(ImmutableList.of(), splitter.getCompleteStatements());
+        assertEquals("", splitter.getPartialStatement());
     }
 
     @Test
     public void testSplitterSingle()
     {
         StatementSplitter splitter = new StatementSplitter("select * from foo;");
-        assertEquals(splitter.getCompleteStatements(), statements("select * from foo", ";"));
-        assertEquals(splitter.getPartialStatement(), "");
+        assertEquals(statements("select * from foo", ";"), splitter.getCompleteStatements());
+        assertEquals("", splitter.getPartialStatement());
     }
 
     @Test
     public void testSplitterMultiple()
     {
         StatementSplitter splitter = new StatementSplitter(" select * from  foo ; select * from t; select * from ");
-        assertEquals(splitter.getCompleteStatements(), statements("select * from  foo", ";", "select * from t", ";"));
-        assertEquals(splitter.getPartialStatement(), "select * from");
+        assertEquals(statements("select * from  foo", ";", "select * from t", ";"), splitter.getCompleteStatements());
+        assertEquals("select * from", splitter.getPartialStatement());
     }
 
     @Test
     public void testSplitterMultipleWithEmpty()
     {
         StatementSplitter splitter = new StatementSplitter("; select * from  foo ; select * from t;;;select * from ");
-        assertEquals(splitter.getCompleteStatements(), statements("select * from  foo", ";", "select * from t", ";"));
-        assertEquals(splitter.getPartialStatement(), "select * from");
+        assertEquals(statements("select * from  foo", ";", "select * from t", ";"), splitter.getCompleteStatements());
+        assertEquals("select * from", splitter.getPartialStatement());
     }
 
     @Test
@@ -82,24 +82,24 @@ public class TestStatementSplitter
     {
         String sql = "// select * from  foo // select * from t;//select * from ";
         StatementSplitter splitter = new StatementSplitter(sql, ImmutableSet.of(";", "//"));
-        assertEquals(splitter.getCompleteStatements(), statements("select * from  foo", "//", "select * from t", ";"));
-        assertEquals(splitter.getPartialStatement(), "select * from");
+        assertEquals(statements("select * from  foo", "//", "select * from t", ";"), splitter.getCompleteStatements());
+        assertEquals("select * from", splitter.getPartialStatement());
     }
 
     @Test
     public void testSplitterErrorBeforeComplete()
     {
         StatementSplitter splitter = new StatementSplitter(" select * from z# oops ; select ");
-        assertEquals(splitter.getCompleteStatements(), statements("select * from z# oops", ";"));
-        assertEquals(splitter.getPartialStatement(), "select");
+        assertEquals(statements("select * from z# oops", ";"), splitter.getCompleteStatements());
+        assertEquals("select", splitter.getPartialStatement());
     }
 
     @Test
     public void testSplitterErrorAfterComplete()
     {
         StatementSplitter splitter = new StatementSplitter("select * from foo; select z# oops ");
-        assertEquals(splitter.getCompleteStatements(), statements("select * from foo", ";"));
-        assertEquals(splitter.getPartialStatement(), "select z# oops");
+        assertEquals(statements("select * from foo", ";"), splitter.getCompleteStatements());
+        assertEquals("select z# oops", splitter.getPartialStatement());
     }
 
     @Test
@@ -107,8 +107,8 @@ public class TestStatementSplitter
     {
         String sql = "select 'foo bar' x from dual";
         StatementSplitter splitter = new StatementSplitter(sql);
-        assertEquals(splitter.getCompleteStatements(), ImmutableList.of());
-        assertEquals(splitter.getPartialStatement(), sql);
+        assertEquals(ImmutableList.of(), splitter.getCompleteStatements());
+        assertEquals(sql, splitter.getPartialStatement());
     }
 
     @Test
@@ -116,8 +116,8 @@ public class TestStatementSplitter
     {
         String sql = "select 'foo', 'bar";
         StatementSplitter splitter = new StatementSplitter(sql);
-        assertEquals(splitter.getCompleteStatements(), ImmutableList.of());
-        assertEquals(splitter.getPartialStatement(), sql);
+        assertEquals(ImmutableList.of(), splitter.getCompleteStatements());
+        assertEquals(sql, splitter.getPartialStatement());
     }
 
     @Test
@@ -125,8 +125,8 @@ public class TestStatementSplitter
     {
         String sql = "select 'hello''world' from dual";
         StatementSplitter splitter = new StatementSplitter(sql + ";");
-        assertEquals(splitter.getCompleteStatements(), statements(sql, ";"));
-        assertEquals(splitter.getPartialStatement(), "");
+        assertEquals(statements(sql, ";"), splitter.getCompleteStatements());
+        assertEquals("", splitter.getPartialStatement());
     }
 
     @Test
@@ -134,8 +134,8 @@ public class TestStatementSplitter
     {
         String sql = "select \"0\"\"bar\" from dual";
         StatementSplitter splitter = new StatementSplitter(sql + ";");
-        assertEquals(splitter.getCompleteStatements(), statements(sql, ";"));
-        assertEquals(splitter.getPartialStatement(), "");
+        assertEquals(statements(sql, ";"), splitter.getCompleteStatements());
+        assertEquals("", splitter.getPartialStatement());
     }
 
     @Test
@@ -143,8 +143,8 @@ public class TestStatementSplitter
     {
         String sql = "select  ` f``o o ` from dual";
         StatementSplitter splitter = new StatementSplitter(sql);
-        assertEquals(splitter.getCompleteStatements(), ImmutableList.of());
-        assertEquals(splitter.getPartialStatement(), sql);
+        assertEquals(ImmutableList.of(), splitter.getCompleteStatements());
+        assertEquals(sql, splitter.getPartialStatement());
     }
 
     @Test
@@ -152,24 +152,24 @@ public class TestStatementSplitter
     {
         String sql = "select   1x  from dual";
         StatementSplitter splitter = new StatementSplitter(sql);
-        assertEquals(splitter.getCompleteStatements(), ImmutableList.of());
-        assertEquals(splitter.getPartialStatement(), sql);
+        assertEquals(ImmutableList.of(), splitter.getCompleteStatements());
+        assertEquals(sql, splitter.getPartialStatement());
     }
 
     @Test
     public void testSplitterWithSingleLineComment()
     {
         StatementSplitter splitter = new StatementSplitter("--empty\n;-- start\nselect * -- junk\n-- hi\nfrom foo; -- done");
-        assertEquals(splitter.getCompleteStatements(), statements("--empty", ";", "-- start\nselect * -- junk\n-- hi\nfrom foo", ";"));
-        assertEquals(splitter.getPartialStatement(), "-- done");
+        assertEquals(statements("--empty", ";", "-- start\nselect * -- junk\n-- hi\nfrom foo", ";"), splitter.getCompleteStatements());
+        assertEquals("-- done", splitter.getPartialStatement());
     }
 
     @Test
     public void testSplitterWithMultiLineComment()
     {
         StatementSplitter splitter = new StatementSplitter("/* empty */;/* start */ select * /* middle */ from foo; /* end */");
-        assertEquals(splitter.getCompleteStatements(), statements("/* empty */", ";", "/* start */ select * /* middle */ from foo", ";"));
-        assertEquals(splitter.getPartialStatement(), "/* end */");
+        assertEquals(statements("/* empty */", ";", "/* start */ select * /* middle */ from foo", ";"), splitter.getCompleteStatements());
+        assertEquals("/* end */", splitter.getPartialStatement());
     }
 
     @Test
@@ -177,8 +177,8 @@ public class TestStatementSplitter
     {
         String sql = "-- start\nselect * -- junk\n-- hi\nfrom foo -- done";
         StatementSplitter splitter = new StatementSplitter(sql);
-        assertEquals(splitter.getCompleteStatements(), ImmutableList.of());
-        assertEquals(splitter.getPartialStatement(), sql);
+        assertEquals(ImmutableList.of(), splitter.getCompleteStatements());
+        assertEquals(sql, splitter.getPartialStatement());
     }
 
     @Test
@@ -186,8 +186,8 @@ public class TestStatementSplitter
     {
         String sql = "/* start */ select * /* middle */ from foo /* end */";
         StatementSplitter splitter = new StatementSplitter(sql);
-        assertEquals(splitter.getCompleteStatements(), ImmutableList.of());
-        assertEquals(splitter.getPartialStatement(), sql);
+        assertEquals(ImmutableList.of(), splitter.getCompleteStatements());
+        assertEquals(sql, splitter.getPartialStatement());
     }
 
     @Test
@@ -208,35 +208,35 @@ public class TestStatementSplitter
     public void testSqueezeStatement()
     {
         String sql = "select   *  from\n foo\n  order by x ; ";
-        assertEquals(squeezeStatement(sql), "select * from foo order by x ;");
+        assertEquals("select * from foo order by x ;", squeezeStatement(sql));
     }
 
     @Test
     public void testSqueezeStatementWithIncompleteQuotedString()
     {
         String sql = "select   *  from\n foo\n  where x = 'oops";
-        assertEquals(squeezeStatement(sql), "select * from foo where x = 'oops");
+        assertEquals("select * from foo where x = 'oops", squeezeStatement(sql));
     }
 
     @Test
     public void testSqueezeStatementWithBackquote()
     {
         String sql = "select  `  f``o  o`` `   from dual";
-        assertEquals(squeezeStatement(sql), "select `  f``o  o`` ` from dual");
+        assertEquals("select `  f``o  o`` ` from dual", squeezeStatement(sql));
     }
 
     @Test
     public void testSqueezeStatementAlternateDelimiter()
     {
         String sql = "select   *  from\n foo\n  order by x // ";
-        assertEquals(squeezeStatement(sql), "select * from foo order by x //");
+        assertEquals("select * from foo order by x //", squeezeStatement(sql));
     }
 
     @Test
     public void testSqueezeStatementError()
     {
         String sql = "select   *  from z#oops";
-        assertEquals(squeezeStatement(sql), "select * from z#oops");
+        assertEquals("select * from z#oops", squeezeStatement(sql));
     }
 
     private static List<Statement> statements(String... args)

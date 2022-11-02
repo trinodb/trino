@@ -425,7 +425,7 @@ public class TestColumnIndexFilter
                 23, 24, 25);
         /*assertRows(calculateRowRanges(FilterCompat.get(
                 and(
-                        userDefined(intColumn("column1"), IntegerIsDivisableWith3.class),
+                        userDefined(intColumn("column1"), IntegerIsDivisibleWith3.class),
                         and(
                                 userDefined(binaryColumn("column2"), BinaryUtf8StartsWithB.class),
                                 userDefined(doubleColumn("column3"), DoubleIsInteger.class)))),

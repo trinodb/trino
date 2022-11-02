@@ -414,16 +414,12 @@ export class WorkerStatus extends React.Component {
                 </div>
                 <div className="row">
                     <div className="col-xs-12">
-                        <h3>Memory Pools</h3>
+                        <h3>Memory</h3>
                         <hr className="h3-hr"/>
                         <div className="row">
                             <div className="col-xs-6">
-                                {WorkerStatus.renderPoolBar("General", serverInfo.memoryInfo.pools.general)}
-                                {this.renderPoolQueries(serverInfo.memoryInfo.pools.general)}
-                            </div>
-                            <div className="col-xs-6">
-                                {WorkerStatus.renderPoolBar("Reserved", serverInfo.memoryInfo.pools.reserved)}
-                                {this.renderPoolQueries(serverInfo.memoryInfo.pools.reserved)}
+                                {WorkerStatus.renderPoolBar("Memory Usage", serverInfo.memoryInfo.pool)}
+                                {this.renderPoolQueries(serverInfo.memoryInfo.pool)}
                             </div>
                         </div>
                     </div>

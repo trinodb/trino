@@ -13,6 +13,7 @@
  */
 package io.trino.operator;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import io.trino.array.LongBigArray;
@@ -109,6 +110,12 @@ public class GroupedTopNRowNumberBuilder
         pageManager.compactIfNeeded();
     }
 
+    @VisibleForTesting
+    GroupByHash getGroupByHash()
+    {
+        return groupByHash;
+    }
+
     private class ResultIterator
             extends AbstractIterator<Page>
     {
@@ -121,7 +128,7 @@ public class GroupedTopNRowNumberBuilder
 
         ResultIterator()
         {
-            ImmutableList.Builder<Type> sourceTypesBuilders = new ImmutableList.Builder<Type>().addAll(sourceTypes);
+            ImmutableList.Builder<Type> sourceTypesBuilders = ImmutableList.<Type>builder().addAll(sourceTypes);
             if (produceRowNumber) {
                 sourceTypesBuilders.add(BIGINT);
             }

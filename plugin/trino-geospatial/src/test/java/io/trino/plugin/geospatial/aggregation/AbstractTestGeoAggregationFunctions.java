@@ -17,7 +17,6 @@ import com.esri.core.geometry.ogc.OGCGeometry;
 import io.airlift.slice.Slice;
 import io.trino.block.BlockAssertions;
 import io.trino.geospatial.serde.GeometrySerde;
-import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.AbstractTestFunctions;
 import io.trino.plugin.geospatial.GeoPlugin;
 import io.trino.spi.Page;
@@ -30,7 +29,6 @@ import java.util.List;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -38,13 +36,10 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 public abstract class AbstractTestGeoAggregationFunctions
         extends AbstractTestFunctions
 {
-    private ResolvedFunction function;
-
     @BeforeClass
     public void registerFunctions()
     {
         functionAssertions.installPlugin(new GeoPlugin());
-        function = functionAssertions.getMetadata().resolveFunction(TEST_SESSION, QualifiedName.of(getFunctionName()), fromTypes(GEOMETRY));
     }
 
     protected void assertAggregatedGeometries(String testDescription, String expectedWkt, String... wkts)
@@ -71,16 +66,18 @@ public abstract class AbstractTestGeoAggregationFunctions
         };
         // Test in forward and reverse order to verify that ordering doesn't affect the output
         assertAggregation(
-                functionAssertions.getMetadata(),
-                function,
+                functionAssertions.getFunctionResolution(),
+                QualifiedName.of(getFunctionName()),
+                fromTypes(GEOMETRY),
                 equalityFunction,
                 testDescription,
                 new Page(BlockAssertions.createSlicesBlock(geometrySlices)),
                 expectedWkt);
         Collections.reverse(geometrySlices);
         assertAggregation(
-                functionAssertions.getMetadata(),
-                function,
+                functionAssertions.getFunctionResolution(),
+                QualifiedName.of(getFunctionName()),
+                fromTypes(GEOMETRY),
                 equalityFunction,
                 testDescription,
                 new Page(BlockAssertions.createSlicesBlock(geometrySlices)),

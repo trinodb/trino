@@ -16,6 +16,11 @@ package io.trino.tests.product.launcher.suite.suites;
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeOauth2;
+import io.trino.tests.product.launcher.env.environment.EnvSinglenodeOauth2HttpProxy;
+import io.trino.tests.product.launcher.env.environment.EnvSinglenodeOauth2HttpsProxy;
+import io.trino.tests.product.launcher.env.environment.EnvSinglenodeOauth2Refresh;
+import io.trino.tests.product.launcher.env.environment.EnvSinglenodeOidc;
+import io.trino.tests.product.launcher.env.environment.EnvSinglenodeOidcRefresh;
 import io.trino.tests.product.launcher.suite.Suite;
 import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
@@ -32,6 +37,21 @@ public class SuiteOauth2
         return ImmutableList.of(
                 testOnEnvironment(EnvSinglenodeOauth2.class)
                         .withGroups("oauth2")
+                        .build(),
+                testOnEnvironment(EnvSinglenodeOauth2HttpProxy.class)
+                        .withGroups("oauth2")
+                        .build(),
+                testOnEnvironment(EnvSinglenodeOauth2HttpsProxy.class)
+                        .withGroups("oauth2")
+                        .build(),
+                testOnEnvironment(EnvSinglenodeOidc.class)
+                        .withGroups("oauth2")
+                        .build(),
+                testOnEnvironment(EnvSinglenodeOauth2Refresh.class)
+                        .withGroups("oauth2_refresh")
+                        .build(),
+                testOnEnvironment(EnvSinglenodeOidcRefresh.class)
+                        .withGroups("oauth2_refresh")
                         .build());
     }
 }

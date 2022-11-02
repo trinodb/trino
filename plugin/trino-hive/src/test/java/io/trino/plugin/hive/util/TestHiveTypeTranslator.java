@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Map;
 
 import static io.airlift.testing.Assertions.assertContains;
-import static io.trino.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -44,6 +43,7 @@ import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -62,9 +62,9 @@ public class TestHiveTypeTranslator
             .put(createDecimalType(5, 3), HiveType.valueOf("decimal(5,3)"))
             .put(VARBINARY, HiveType.HIVE_BINARY)
             .put(new ArrayType(TIMESTAMP_MILLIS), HiveType.valueOf("array<timestamp>"))
-            .put(TYPE_MANAGER.getType(mapType(BOOLEAN.getTypeSignature(), VARBINARY.getTypeSignature())), HiveType.valueOf("map<boolean,binary>"))
+            .put(TESTING_TYPE_MANAGER.getType(mapType(BOOLEAN.getTypeSignature(), VARBINARY.getTypeSignature())), HiveType.valueOf("map<boolean,binary>"))
             .put(RowType.from(List.of(field("col0", INTEGER), field("col1", VARBINARY))), HiveType.valueOf("struct<col0:int,col1:binary>"))
-            .build();
+            .buildOrThrow();
 
     @Test
     public void testTypeTranslator()

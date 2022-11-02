@@ -21,6 +21,7 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.predicate.Domain;
@@ -50,7 +51,6 @@ public class AtopSplitManager
     public AtopSplitManager(NodeManager nodeManager, AtopConnectorConfig config)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        requireNonNull(config, "config is null");
         timeZone = config.getTimeZoneId();
         maxHistoryDays = config.getMaxHistoryDays();
     }
@@ -60,8 +60,8 @@ public class AtopSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle table,
-            SplitSchedulingStrategy splitSchedulingStrategy,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            Constraint constraint)
     {
         AtopTableHandle tableHandle = (AtopTableHandle) table;
 
@@ -80,7 +80,7 @@ public class AtopSplitManager
                                 true)),
                         false);
                 if (tableHandle.getStartTimeConstraint().overlaps(splitDomain) && tableHandle.getEndTimeConstraint().overlaps(splitDomain)) {
-                    splits.add(new AtopSplit(node.getHostAndPort(), start.toEpochSecond(), start.getZone()));
+                    splits.add(new AtopSplit(node.getHostAndPort(), start.toEpochSecond(), start.getZone().getId()));
                 }
                 start = start.plusDays(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
             }

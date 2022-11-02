@@ -30,6 +30,7 @@ import io.trino.execution.CreateViewTask;
 import io.trino.execution.DataDefinitionExecution.DataDefinitionExecutionFactory;
 import io.trino.execution.DataDefinitionTask;
 import io.trino.execution.DeallocateTask;
+import io.trino.execution.DenyTask;
 import io.trino.execution.DropColumnTask;
 import io.trino.execution.DropMaterializedViewTask;
 import io.trino.execution.DropRoleTask;
@@ -71,6 +72,7 @@ import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateView;
 import io.trino.sql.tree.Deallocate;
+import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.DropRole;
@@ -113,7 +115,8 @@ public class QueryExecutionFactoryModule
     @Override
     public void configure(Binder binder)
     {
-        var executionBinder = newMapBinder(binder, new TypeLiteral<Class<? extends Statement>>() {}, new TypeLiteral<QueryExecutionFactory<?>>() {});
+        MapBinder<Class<? extends Statement>, QueryExecutionFactory<?>> executionBinder =
+                newMapBinder(binder, new TypeLiteral<Class<? extends Statement>>() {}, new TypeLiteral<QueryExecutionFactory<?>>() {});
 
         binder.bind(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         for (Class<? extends Statement> statement : getNonDataDefinitionStatements()) {
@@ -130,6 +133,7 @@ public class QueryExecutionFactoryModule
         bindDataDefinitionTask(binder, executionBinder, CreateTable.class, CreateTableTask.class);
         bindDataDefinitionTask(binder, executionBinder, CreateView.class, CreateViewTask.class);
         bindDataDefinitionTask(binder, executionBinder, Deallocate.class, DeallocateTask.class);
+        bindDataDefinitionTask(binder, executionBinder, Deny.class, DenyTask.class);
         bindDataDefinitionTask(binder, executionBinder, DropColumn.class, DropColumnTask.class);
         bindDataDefinitionTask(binder, executionBinder, DropRole.class, DropRoleTask.class);
         bindDataDefinitionTask(binder, executionBinder, DropSchema.class, DropSchemaTask.class);
@@ -169,7 +173,8 @@ public class QueryExecutionFactoryModule
             Class<? extends DataDefinitionTask<T>> task)
     {
         checkArgument(isDataDefinitionStatement(statement));
-        var taskBinder = newMapBinder(binder, new TypeLiteral<Class<? extends Statement>>() {}, new TypeLiteral<DataDefinitionTask<?>>() {});
+        MapBinder<Class<? extends Statement>, DataDefinitionTask<?>> taskBinder =
+                newMapBinder(binder, new TypeLiteral<Class<? extends Statement>>() {}, new TypeLiteral<DataDefinitionTask<?>>() {});
         taskBinder.addBinding(statement).to(task).in(Scopes.SINGLETON);
         executionBinder.addBinding(statement).to(DataDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
     }

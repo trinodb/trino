@@ -3,18 +3,32 @@ SPI overview
 ============
 
 When you implement a new Trino plugin, you implement interfaces and
-override methods defined by the SPI.
+override methods defined by the Service Provider Interface (SPI).
 
-Plugins can provide additional :doc:`connectors`, :doc:`types`,
-:doc:`functions` and :doc:`system-access-control`.
+Plugins can provide additional:
+
+* :doc:`connectors`,
+* block encodings,
+* :doc:`types`,
+* :doc:`functions`,
+* :doc:`system-access-control`,
+* :doc:`group-provider`,
+* :doc:`password-authenticator`,
+* :doc:`header-authenticator`,
+* :doc:`certificate-authenticator`,
+* :doc:`event-listener`,
+* resource group configuration managers,
+* session property configuration managers,
+* and exchange managers.
+
 In particular, connectors are the source of all data for queries in
 Trino: they back each catalog available to Trino.
 
 Code
 ----
 
-The SPI source can be found in the ``trino-spi`` directory in the
-root of the Trino source tree.
+The SPI source can be found in the ``core/trino-spi`` directory in the Trino
+source tree.
 
 Plugin metadata
 ---------------
@@ -77,16 +91,26 @@ to provide isolation and to allow plugins to use a different version
 of a library that Trino uses internally.
 
 For an example ``pom.xml`` file, see the example HTTP connector in the
-``trino-example-http`` directory in the root of the Trino source tree.
+``plugin/trino-example-http`` directory in the Trino source tree.
 
 Deploying a custom plugin
 -------------------------
 
-In order to add a custom plugin to a Trino installation, create a directory
-for that plugin in the Trino plugin directory and add all the necessary jars
-for the plugin to that directory. For example, for a plugin called
-``my-functions``, you would create a directory ``my-functions`` in the Trino
-plugin directory and add the relevant jars to that directory.
+Because Trino plugins use the ``trino-plugin`` packaging type, building
+a plugin will create a ZIP file in the ``target`` directory. This file
+contains the plugin JAR and all its dependencies JAR files.
+
+In order to add a custom plugin to a Trino installation, extract the plugin
+ZIP file and move the extracted directory into the Trino plugin directory.
+For example, for a plugin called ``my-functions``, with a version of 1.0,
+you would extract ``my-functions-1.0.zip`` and then move ``my-functions-1.0``
+to ``my-functions`` in the Trino plugin directory.
+
+.. note::
+
+  Every Trino plugin should be in a separate directory. Do not put JAR files
+  directly into the ``plugin`` directory. Plugins should only contain JAR files,
+  so any subdirectories will not be traversed and will be ignored.
 
 By default, the plugin directory is the ``plugin`` directory relative to the
 directory in which Trino is installed, but it is configurable using the

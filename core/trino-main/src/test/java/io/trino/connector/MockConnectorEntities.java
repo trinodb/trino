@@ -15,9 +15,11 @@ package io.trino.connector;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.type.BigintType;
 
 import java.util.List;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 
@@ -30,6 +32,16 @@ public final class MockConnectorEntities
             .add(new ColumnMetadata("name", createUnboundedVarcharType()))
             .add(new ColumnMetadata("regionkey", BIGINT))
             .add(new ColumnMetadata("comment", createUnboundedVarcharType()))
+            .build();
+
+    public static final List<ColumnMetadata> TPCH_NATION_WITH_HIDDEN_COLUMN = ImmutableList.<ColumnMetadata>builder()
+            .addAll(TPCH_NATION_SCHEMA)
+            .add(ColumnMetadata.builder().setName("$hidden").setType(BigintType.BIGINT).setHidden(true).build())
+            .build();
+
+    public static final List<ColumnMetadata> TPCH_NATION_WITH_OPTIONAL_COLUMN = ImmutableList.<ColumnMetadata>builder()
+            .addAll(TPCH_NATION_SCHEMA)
+            .add(ColumnMetadata.builder().setName("optional").setType(createUnboundedVarcharType()).setNullable(true).build())
             .build();
 
     public static final List<List<?>> TPCH_NATION_DATA = ImmutableList.<List<?>>builder()
@@ -59,4 +71,8 @@ public final class MockConnectorEntities
             .add(ImmutableList.of(23, "UNITED KINGDOM", 3, "eans boost carefully special requests. accounts are. carefull"))
             .add(ImmutableList.of(24, "UNITED STATES", 1, "y final packages. slow foxes cajole quickly. quickly silent platelets breach ironic accounts. unusual pinto be"))
             .build();
+
+    public static final List<List<?>> TPCH_WITH_HIDDEN_COLUMN_DATA = TPCH_NATION_DATA.stream()
+            .map(row -> ImmutableList.builder().addAll(row).add(0).build())
+            .collect(toImmutableList());
 }

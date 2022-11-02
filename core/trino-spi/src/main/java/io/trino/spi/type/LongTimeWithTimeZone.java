@@ -13,13 +13,18 @@
  */
 package io.trino.spi.type;
 
+import org.openjdk.jol.info.ClassLayout;
+
 import java.util.Objects;
 
 import static io.trino.spi.type.TimeWithTimeZoneTypes.normalize;
+import static java.lang.Math.toIntExact;
 
 public final class LongTimeWithTimeZone
         implements Comparable<LongTimeWithTimeZone>
 {
+    public static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(LongTimeWithTimeZone.class).instanceSize());
+
     private final long picoseconds;
     private final int offsetMinutes;
 

@@ -16,6 +16,7 @@ package io.trino.sql.planner.optimizations;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.cost.TableStatsProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.BigintType;
@@ -25,7 +26,6 @@ import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.Assignments;
@@ -57,6 +57,7 @@ import static io.trino.sql.ExpressionUtils.combineConjuncts;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.plan.AggregationNode.globalAggregation;
+import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.SimplePlanRewriter.rewriteWith;
 import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -81,7 +82,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, TableStatsProvider tableStatsProvider)
     {
         return rewriteWith(new Rewriter(idAllocator, types, symbolAllocator, metadata, session), plan, null);
     }
@@ -140,7 +141,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
 
             List<Expression> outputColumnReferences = ImmutableList.of(outputColumn.toSymbolReference());
 
-            subqueryPlan = new AggregationNode(
+            subqueryPlan = singleAggregation(
                     idAllocator.getNextId(),
                     subqueryPlan,
                     ImmutableMap.of(
@@ -172,11 +173,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
                                     Optional.empty(),
                                     Optional.empty(),
                                     Optional.empty())),
-                    globalAggregation(),
-                    ImmutableList.of(),
-                    AggregationNode.Step.SINGLE,
-                    Optional.empty(),
-                    Optional.empty());
+                    globalAggregation());
 
             PlanNode join = new CorrelatedJoinNode(
                     node.getId(),
@@ -246,34 +243,18 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
 
         private static boolean shouldCompareValueWithLowerBound(QuantifiedComparisonExpression quantifiedComparison)
         {
-            switch (quantifiedComparison.getQuantifier()) {
-                case ALL:
-                    switch (quantifiedComparison.getOperator()) {
-                        case LESS_THAN:
-                        case LESS_THAN_OR_EQUAL:
-                            return true;
-                        case GREATER_THAN:
-                        case GREATER_THAN_OR_EQUAL:
-                            return false;
-                        default:
-                            // Caller guarantees no other cases need to be handled here
-                    }
-                    break;
-                case ANY:
-                case SOME:
-                    switch (quantifiedComparison.getOperator()) {
-                        case LESS_THAN:
-                        case LESS_THAN_OR_EQUAL:
-                            return false;
-                        case GREATER_THAN:
-                        case GREATER_THAN_OR_EQUAL:
-                            return true;
-                        default:
-                            // Caller guarantees no other cases need to be handled here
-                    }
-                    break;
-            }
-            throw new IllegalArgumentException("Unexpected quantifier: " + quantifiedComparison.getQuantifier());
+            return switch (quantifiedComparison.getQuantifier()) {
+                case ALL -> switch (quantifiedComparison.getOperator()) {
+                    case LESS_THAN, LESS_THAN_OR_EQUAL -> true;
+                    case GREATER_THAN, GREATER_THAN_OR_EQUAL -> false;
+                    default -> throw new IllegalArgumentException("Unexpected value: " + quantifiedComparison.getOperator());
+                };
+                case ANY, SOME -> switch (quantifiedComparison.getOperator()) {
+                    case LESS_THAN, LESS_THAN_OR_EQUAL -> false;
+                    case GREATER_THAN, GREATER_THAN_OR_EQUAL -> true;
+                    default -> throw new IllegalArgumentException("Unexpected value: " + quantifiedComparison.getOperator());
+                };
+            };
         }
 
         private ProjectNode projectExpressions(PlanNode input, Assignments subqueryAssignments)

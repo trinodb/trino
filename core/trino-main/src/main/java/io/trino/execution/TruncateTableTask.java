@@ -22,20 +22,31 @@ import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.TruncateTable;
-import io.trino.transaction.TransactionManager;
+
+import javax.inject.Inject;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static java.util.Objects.requireNonNull;
 
 public class TruncateTableTask
         implements DataDefinitionTask<TruncateTable>
 {
+    private final Metadata metadata;
+    private final AccessControl accessControl;
+
+    @Inject
+    public TruncateTableTask(Metadata metadata, AccessControl accessControl)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+    }
+
     @Override
     public String getName()
     {
@@ -45,9 +56,6 @@ public class TruncateTableTask
     @Override
     public ListenableFuture<Void> execute(
             TruncateTable statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)
@@ -63,14 +71,12 @@ public class TruncateTableTask
             throw semanticException(NOT_SUPPORTED, statement, "Cannot truncate a view");
         }
 
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
-        if (tableHandle.isEmpty()) {
-            throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
-        }
+        TableHandle tableHandle = metadata.getTableHandle(session, tableName)
+                .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName));
 
         accessControl.checkCanTruncateTable(session.toSecurityContext(), tableName);
 
-        metadata.truncateTable(session, tableHandle.get());
+        metadata.truncateTable(session, tableHandle);
 
         return immediateFuture(null);
     }

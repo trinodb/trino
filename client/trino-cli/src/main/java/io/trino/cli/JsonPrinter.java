@@ -40,17 +40,19 @@ public class JsonPrinter
     public void printRows(List<List<?>> rows, boolean complete)
             throws IOException
     {
-        JsonFactory jsonFactory = new JsonFactory();
-        for (List<?> row : rows) {
-            JsonGenerator jsonGenerator = jsonFactory.createGenerator(writer);
-            jsonGenerator.writeStartObject();
-            for (int position = 0; position < row.size(); position++) {
-                String columnName = fieldNames.get(position);
-                jsonGenerator.writeObjectField(columnName, formatValue(row.get(position)));
+        JsonFactory jsonFactory = new JsonFactory().configure(JsonGenerator.Feature.AUTO_CLOSE_TARGET, false);
+        try (JsonGenerator jsonGenerator = jsonFactory.createGenerator(writer)) {
+            jsonGenerator.setRootValueSeparator(null);
+            for (List<?> row : rows) {
+                jsonGenerator.writeStartObject();
+                for (int position = 0; position < row.size(); position++) {
+                    String columnName = fieldNames.get(position);
+                    jsonGenerator.writeObjectField(columnName, formatValue(row.get(position)));
+                }
+                jsonGenerator.writeEndObject();
+                jsonGenerator.writeRaw('\n');
+                jsonGenerator.flush();
             }
-            jsonGenerator.writeEndObject();
-            jsonGenerator.writeRaw('\n');
-            jsonGenerator.flush();
         }
     }
 

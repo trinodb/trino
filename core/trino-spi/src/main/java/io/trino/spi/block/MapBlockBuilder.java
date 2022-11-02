@@ -21,13 +21,13 @@ import javax.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.Optional;
-import java.util.function.BiConsumer;
+import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.trino.spi.block.BlockUtil.calculateBlockResetSize;
 import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
 import static io.trino.spi.block.MapBlock.createMapBlockInternal;
 import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -35,7 +35,7 @@ public class MapBlockBuilder
         extends AbstractMapBlock
         implements BlockBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapBlockBuilder.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(MapBlockBuilder.class).instanceSize());
 
     @Nullable
     private final BlockBuilderStatus blockBuilderStatus;
@@ -43,6 +43,7 @@ public class MapBlockBuilder
     private int positionCount;
     private int[] offsets;
     private boolean[] mapIsNull;
+    private boolean hasNullValue;
     private final BlockBuilder keyBlockBuilder;
     private final BlockBuilder valueBlockBuilder;
     private final MapHashTables hashTables;
@@ -120,10 +121,17 @@ public class MapBlockBuilder
         return 0;
     }
 
+    @Nullable
     @Override
     protected boolean[] getMapIsNull()
     {
-        return mapIsNull;
+        return hasNullValue ? mapIsNull : null;
+    }
+
+    @Override
+    public boolean mayHaveNull()
+    {
+        return hasNullValue;
     }
 
     @Override
@@ -156,14 +164,14 @@ public class MapBlockBuilder
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(keyBlockBuilder, keyBlockBuilder.getRetainedSizeInBytes());
         consumer.accept(valueBlockBuilder, valueBlockBuilder.getRetainedSizeInBytes());
         consumer.accept(offsets, sizeOf(offsets));
         consumer.accept(mapIsNull, sizeOf(mapIsNull));
         consumer.accept(hashTables, hashTables.getRetainedSizeInBytes());
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -226,32 +234,6 @@ public class MapBlockBuilder
         hashTables.buildHashTableStrict(keyBlockBuilder, previousAggregatedEntryCount, entryCount);
     }
 
-    private void closeEntry(Optional<int[]> providedHashTable, int providedHashTableOffset)
-    {
-        if (!currentEntryOpened) {
-            throw new IllegalStateException("Expected entry to be opened but was closed");
-        }
-
-        entryAdded(false);
-        currentEntryOpened = false;
-
-        ensureHashTableSize();
-        int previousAggregatedEntryCount = offsets[positionCount - 1];
-        int aggregatedEntryCount = offsets[positionCount];
-
-        if (providedHashTable.isPresent()) {
-            int hashTableOffset = previousAggregatedEntryCount * HASH_MULTIPLIER;
-            int hashTableSize = (aggregatedEntryCount - previousAggregatedEntryCount) * HASH_MULTIPLIER;
-            int[] rawProvidedHashTable = providedHashTable.get();
-            int[] rawHashTables = hashTables.get();
-            System.arraycopy(rawProvidedHashTable, providedHashTableOffset, rawHashTables, hashTableOffset, hashTableSize);
-        }
-        else {
-            int entryCount = aggregatedEntryCount - previousAggregatedEntryCount;
-            hashTables.buildHashTable(keyBlockBuilder, previousAggregatedEntryCount, entryCount);
-        }
-    }
-
     @Override
     public BlockBuilder appendNull()
     {
@@ -275,6 +257,7 @@ public class MapBlockBuilder
         }
         offsets[positionCount + 1] = keyBlockBuilder.getPositionCount();
         mapIsNull[positionCount] = isNull;
+        hasNullValue |= isNull;
         positionCount++;
 
         if (blockBuilderStatus != null) {
@@ -305,7 +288,7 @@ public class MapBlockBuilder
                 getMapType(),
                 0,
                 positionCount,
-                Optional.of(mapIsNull),
+                hasNullValue ? Optional.of(mapIsNull) : Optional.empty(),
                 offsets,
                 keyBlockBuilder.build(),
                 valueBlockBuilder.build(),
@@ -321,80 +304,15 @@ public class MapBlockBuilder
     }
 
     @Override
-    public BlockBuilder appendStructure(Block block)
+    public BlockBuilder newBlockBuilderLike(int expectedEntries, BlockBuilderStatus blockBuilderStatus)
     {
-        if (!(block instanceof SingleMapBlock)) {
-            throw new IllegalArgumentException("Expected SingleMapBlock");
-        }
-        if (currentEntryOpened) {
-            throw new IllegalStateException("Expected current entry to be closed but was opened");
-        }
-        currentEntryOpened = true;
-
-        SingleMapBlock singleMapBlock = (SingleMapBlock) block;
-        int blockPositionCount = singleMapBlock.getPositionCount();
-        if (blockPositionCount % 2 != 0) {
-            throw new IllegalArgumentException(format("block position count is not even: %s", blockPositionCount));
-        }
-        for (int i = 0; i < blockPositionCount; i += 2) {
-            if (singleMapBlock.isNull(i)) {
-                throw new IllegalArgumentException("Map keys must not be null");
-            }
-            singleMapBlock.writePositionTo(i, keyBlockBuilder);
-            if (singleMapBlock.isNull(i + 1)) {
-                valueBlockBuilder.appendNull();
-            }
-            else {
-                singleMapBlock.writePositionTo(i + 1, valueBlockBuilder);
-            }
-        }
-
-        closeEntry(singleMapBlock.tryGetHashTable(), singleMapBlock.getOffset() / 2 * HASH_MULTIPLIER);
-        return this;
-    }
-
-    @Override
-    public BlockBuilder appendStructureInternal(Block block, int position)
-    {
-        if (!(block instanceof AbstractMapBlock)) {
-            throw new IllegalArgumentException("Expected AbstractMapBlock");
-        }
-        if (currentEntryOpened) {
-            throw new IllegalStateException("Expected current entry to be closed but was opened");
-        }
-        currentEntryOpened = true;
-
-        AbstractMapBlock mapBlock = (AbstractMapBlock) block;
-        int startValueOffset = mapBlock.getOffset(position);
-        int endValueOffset = mapBlock.getOffset(position + 1);
-        for (int i = startValueOffset; i < endValueOffset; i++) {
-            if (mapBlock.getRawKeyBlock().isNull(i)) {
-                throw new IllegalArgumentException("Map keys must not be null");
-            }
-            mapBlock.getRawKeyBlock().writePositionTo(i, keyBlockBuilder);
-            if (mapBlock.getRawValueBlock().isNull(i)) {
-                valueBlockBuilder.appendNull();
-            }
-            else {
-                mapBlock.getRawValueBlock().writePositionTo(i, valueBlockBuilder);
-            }
-        }
-
-        closeEntry(mapBlock.getHashTables().tryGet(), startValueOffset * HASH_MULTIPLIER);
-        return this;
-    }
-
-    @Override
-    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
-    {
-        int newSize = calculateBlockResetSize(getPositionCount());
         return new MapBlockBuilder(
                 getMapType(),
                 blockBuilderStatus,
                 keyBlockBuilder.newBlockBuilderLike(blockBuilderStatus),
                 valueBlockBuilder.newBlockBuilderLike(blockBuilderStatus),
-                new int[newSize + 1],
-                new boolean[newSize]);
+                new int[expectedEntries + 1],
+                new boolean[expectedEntries]);
     }
 
     @Override

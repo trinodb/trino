@@ -15,8 +15,9 @@
 package io.trino.operator.aggregation.groupby;
 
 import io.trino.block.BlockAssertions;
-import io.trino.operator.aggregation.GroupedAccumulator;
+import io.trino.operator.aggregation.GroupedAggregator;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
 
 import java.util.function.BiConsumer;
 
@@ -32,13 +33,12 @@ public class AggregationTestOutput
         this.expectedValue = expectedValue;
     }
 
-    public void validateAccumulator(GroupedAccumulator groupedAccumulator, long groupId)
+    public void validateAggregator(Type finalType, GroupedAggregator groupedAggregator, long groupId)
     {
-        createEqualAssertion(expectedValue, groupId).accept(getGroupValue(groupedAccumulator, (int) groupId), expectedValue);
+        createEqualAssertion(expectedValue, groupId).accept(getGroupValue(finalType, groupedAggregator, (int) groupId), expectedValue);
     }
 
     private static BiConsumer<Object, Object> createEqualAssertion(Object expectedValue, long groupId)
-
     {
         BiConsumer<Object, Object> equalAssertion = (actual, expected) -> assertEquals(actual, expected, format("failure on group %s", groupId));
 
@@ -51,10 +51,10 @@ public class AggregationTestOutput
         return equalAssertion;
     }
 
-    private static Object getGroupValue(GroupedAccumulator groupedAggregation, int groupId)
+    private static Object getGroupValue(Type finalType, GroupedAggregator groupedAggregator, int groupId)
     {
-        BlockBuilder out = groupedAggregation.getFinalType().createBlockBuilder(null, 1);
-        groupedAggregation.evaluateFinal(groupId, out);
-        return BlockAssertions.getOnlyValue(groupedAggregation.getFinalType(), out.build());
+        BlockBuilder out = finalType.createBlockBuilder(null, 1);
+        groupedAggregator.evaluate(groupId, out);
+        return BlockAssertions.getOnlyValue(finalType, out.build());
     }
 }

@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>365-SNAPSHOT</version>
+        <version>402-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -16,12 +16,30 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.hbase.version>2.2.6</dep.hbase.version>
+
+        <!-- This is required for JDK 17 to start HBase server due to illegal reflective access -->
+        <air.test.jvm.additional-arguments>
+            --add-opens=java.base/sun.nio.ch=ALL-UNNAMED
+            --add-opens=java.base/java.nio=ALL-UNNAMED
+        </air.test.jvm.additional-arguments>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-base-jdbc</artifactId>
+        </dependency>
+
+        <!-- TODO(https://github.com/trinodb/trino/issues/13051): Use org.apache.phoenix:phoenix-client-embedded-hbase-2.4:5.2.0 instead when Phoenix 5.2 is released -->
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-phoenix5-patched</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.phoenix</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -47,11 +65,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
         </dependency>
 
         <dependency>
@@ -90,9 +103,13 @@
         </dependency>
 
         <dependency>
-            <groupId>org.apache.phoenix</groupId>
-            <artifactId>phoenix-client-embedded-hbase-2.2</artifactId>
-            <version>5.1.2</version>
+            <groupId>org.gaul</groupId>
+            <artifactId>modernizer-maven-annotations</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.weakref</groupId>
+            <artifactId>jmxutils</artifactId>
         </dependency>
 
         <!-- used by tests but also needed transitively -->
@@ -116,6 +133,12 @@
             </exclusions>
         </dependency>
 
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
@@ -133,6 +156,20 @@
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
             <scope>provided</scope>
+        </dependency>
+
+        <!-- ... this one is not Trino SPI -->
+        <dependency>
+            <!--
+              TODO(https://github.com/trinodb/trino/issues/13051): convert this back into normal dependency
+              The Phoenix code actually comes from trino-phoenix5-patched dependency, but IntelliJ does not support multi-module
+              projects with module using shading (as trino-phoenix5-patched does). See e.g. https://youtrack.jetbrains.com/issue/IDEA-266746
+              This dependency is here only to fool IntelliJ into compiling the project. -->
+            <groupId>org.apache.phoenix</groupId>
+            <artifactId>phoenix-client-embedded-hbase-2.2</artifactId>
+            <version>5.1.2</version>
+            <scope>provided</scope>
+            <optional>true</optional>
         </dependency>
 
         <dependency>
@@ -188,6 +225,12 @@
                     <artifactId>junit</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-testing-services</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -355,7 +398,33 @@
                             <groupId>javax.xml.bind</groupId>
                             <artifactId>jaxb-api</artifactId>
                         </dependency>
+                        <dependency>
+                            <groupId>org.apache.phoenix</groupId>
+                            <artifactId>phoenix-client-embedded-hbase-2.2</artifactId>
+                        </dependency>
                     </ignoredDependencies>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                <ignoredNonTestScopedDependencies>
+                    <!-- TODO(https://github.com/trinodb/trino/issues/13051): remove this -->
+                    <ignoredDependency>org.apache.phoenix:phoenix-client-embedded-hbase-2.2</ignoredDependency>
+                </ignoredNonTestScopedDependencies>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-maven-plugin</artifactId>
+                <extensions>true</extensions>
+                <configuration>
+                    <allowedProvidedDependencies>
+                        <!-- TODO(https://github.com/trinodb/trino/issues/13051): remove this -->
+                        <id>org.apache.phoenix:phoenix-client-embedded-hbase-2.2</id>
+                    </allowedProvidedDependencies>
                 </configuration>
             </plugin>
         </plugins>

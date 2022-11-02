@@ -13,351 +13,227 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
-import io.airlift.stats.CounterStat;
-import io.airlift.stats.TimeStat;
-import io.airlift.units.Duration;
-import io.trino.plugin.hive.aws.AbstractSdkMetricsCollector;
+import com.amazonaws.metrics.RequestMetricCollector;
+import io.trino.plugin.hive.aws.AwsApiCallStats;
+import io.trino.plugin.hive.aws.AwsSdkClientCoreStats;
+import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
-import java.util.concurrent.atomic.AtomicLong;
-
-import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-
 public class GlueMetastoreStats
 {
-    private final GlueMetastoreApiStats getAllDatabases = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats getDatabase = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats getAllTables = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats getTable = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats getAllViews = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats createDatabase = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats dropDatabase = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats renameDatabase = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats createTable = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats dropTable = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats replaceTable = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats getPartitionNames = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats getPartitions = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats getPartition = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats getPartitionByName = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats addPartitions = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats dropPartition = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats alterPartition = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats getColumnStatisticsForTable = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats getColumnStatisticsForPartition = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats updateColumnStatisticsForTable = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats deleteColumnStatisticsForTable = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats updateColumnStatisticsForPartition = new GlueMetastoreApiStats();
-    private final GlueMetastoreApiStats deleteColumnStatisticsForPartition = new GlueMetastoreApiStats();
+    private final AwsApiCallStats getDatabases = new AwsApiCallStats();
+    private final AwsApiCallStats getDatabase = new AwsApiCallStats();
+    private final AwsApiCallStats getTables = new AwsApiCallStats();
+    private final AwsApiCallStats getTable = new AwsApiCallStats();
+    private final AwsApiCallStats createDatabase = new AwsApiCallStats();
+    private final AwsApiCallStats deleteDatabase = new AwsApiCallStats();
+    private final AwsApiCallStats updateDatabase = new AwsApiCallStats();
+    private final AwsApiCallStats createTable = new AwsApiCallStats();
+    private final AwsApiCallStats deleteTable = new AwsApiCallStats();
+    private final AwsApiCallStats updateTable = new AwsApiCallStats();
+    private final AwsApiCallStats getPartitionNames = new AwsApiCallStats();
+    private final AwsApiCallStats getPartitions = new AwsApiCallStats();
+    private final AwsApiCallStats getPartition = new AwsApiCallStats();
+    private final AwsApiCallStats getPartitionByName = new AwsApiCallStats();
+    private final AwsApiCallStats createPartitions = new AwsApiCallStats();
+    private final AwsApiCallStats deletePartition = new AwsApiCallStats();
+    private final AwsApiCallStats updatePartition = new AwsApiCallStats();
+    private final AwsApiCallStats batchUpdatePartition = new AwsApiCallStats();
+    private final AwsApiCallStats batchCreatePartition = new AwsApiCallStats();
+    private final AwsApiCallStats getColumnStatisticsForTable = new AwsApiCallStats();
+    private final AwsApiCallStats getColumnStatisticsForPartition = new AwsApiCallStats();
+    private final AwsApiCallStats updateColumnStatisticsForTable = new AwsApiCallStats();
+    private final AwsApiCallStats deleteColumnStatisticsForTable = new AwsApiCallStats();
+    private final AwsApiCallStats updateColumnStatisticsForPartition = new AwsApiCallStats();
+    private final AwsApiCallStats deleteColumnStatisticsForPartition = new AwsApiCallStats();
 
-    // see AWSRequestMetrics
-    private final CounterStat awsRequestCount = new CounterStat();
-    private final CounterStat awsRetryCount = new CounterStat();
-    private final CounterStat awsThrottleExceptions = new CounterStat();
-    private final TimeStat awsRequestTime = new TimeStat(MILLISECONDS);
-    private final TimeStat awsClientExecuteTime = new TimeStat(MILLISECONDS);
-    private final TimeStat awsClientRetryPauseTime = new TimeStat(MILLISECONDS);
-    private final AtomicLong awsHttpClientPoolAvailableCount = new AtomicLong();
-    private final AtomicLong awsHttpClientPoolLeasedCount = new AtomicLong();
-    private final AtomicLong awsHttpClientPoolPendingCount = new AtomicLong();
+    private final AwsSdkClientCoreStats clientCoreStats = new AwsSdkClientCoreStats();
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getGetAllDatabases()
+    public AwsApiCallStats getGetDatabases()
     {
-        return getAllDatabases;
+        return getDatabases;
     }
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getGetDatabase()
+    public AwsApiCallStats getGetDatabase()
     {
         return getDatabase;
     }
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getGetAllTables()
+    public AwsApiCallStats getGetTables()
     {
-        return getAllTables;
+        return getTables;
     }
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getGetTable()
+    public AwsApiCallStats getGetTable()
     {
         return getTable;
     }
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getGetAllViews()
-    {
-        return getAllViews;
-    }
-
-    @Managed
-    @Nested
-    public GlueMetastoreApiStats getCreateDatabase()
+    public AwsApiCallStats getCreateDatabase()
     {
         return createDatabase;
     }
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getDropDatabase()
+    public AwsApiCallStats getDeleteDatabase()
     {
-        return dropDatabase;
+        return deleteDatabase;
     }
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getRenameDatabase()
+    public AwsApiCallStats getUpdateDatabase()
     {
-        return renameDatabase;
+        return updateDatabase;
     }
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getCreateTable()
+    public AwsApiCallStats getCreateTable()
     {
         return createTable;
     }
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getDropTable()
+    public AwsApiCallStats getDeleteTable()
     {
-        return dropTable;
+        return deleteTable;
     }
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getReplaceTable()
+    public AwsApiCallStats getUpdateTable()
     {
-        return replaceTable;
+        return updateTable;
     }
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getGetPartitionNames()
+    public AwsApiCallStats getGetPartitionNames()
     {
         return getPartitionNames;
     }
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getGetPartitions()
+    public AwsApiCallStats getGetPartitions()
     {
         return getPartitions;
     }
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getGetPartition()
+    public AwsApiCallStats getGetPartition()
     {
         return getPartition;
     }
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getGetPartitionByName()
+    public AwsApiCallStats getGetPartitionByName()
     {
         return getPartitionByName;
     }
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getAddPartitions()
+    public AwsApiCallStats getCreatePartitions()
     {
-        return addPartitions;
+        return createPartitions;
     }
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getDropPartition()
+    public AwsApiCallStats getDeletePartition()
     {
-        return dropPartition;
+        return deletePartition;
     }
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getAlterPartition()
+    public AwsApiCallStats getUpdatePartition()
     {
-        return alterPartition;
+        return updatePartition;
     }
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getGetColumnStatisticsForTable()
+    public AwsApiCallStats getBatchUpdatePartition()
+    {
+        return batchUpdatePartition;
+    }
+
+    @Managed
+    @Nested
+    public AwsApiCallStats getBatchCreatePartition()
+    {
+        return batchCreatePartition;
+    }
+
+    @Managed
+    @Nested
+    public AwsApiCallStats getGetColumnStatisticsForTable()
     {
         return getColumnStatisticsForTable;
     }
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getGetColumnStatisticsForPartition()
+    public AwsApiCallStats getGetColumnStatisticsForPartition()
     {
         return getColumnStatisticsForPartition;
     }
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getUpdateColumnStatisticsForTable()
+    public AwsApiCallStats getUpdateColumnStatisticsForTable()
     {
         return updateColumnStatisticsForTable;
     }
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getDeleteColumnStatisticsForTable()
+    public AwsApiCallStats getDeleteColumnStatisticsForTable()
     {
         return deleteColumnStatisticsForTable;
     }
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getUpdateColumnStatisticsForPartition()
+    public AwsApiCallStats getUpdateColumnStatisticsForPartition()
     {
         return updateColumnStatisticsForPartition;
     }
 
     @Managed
     @Nested
-    public GlueMetastoreApiStats getDeleteColumnStatisticsForPartition()
+    public AwsApiCallStats getDeleteColumnStatisticsForPartition()
     {
         return deleteColumnStatisticsForPartition;
     }
 
     @Managed
-    @Nested
-    public CounterStat getAwsRequestCount()
+    @Flatten
+    public AwsSdkClientCoreStats getClientCoreStats()
     {
-        return awsRequestCount;
+        return clientCoreStats;
     }
 
-    @Managed
-    @Nested
-    public CounterStat getAwsRetryCount()
+    public RequestMetricCollector newRequestMetricsCollector()
     {
-        return awsRetryCount;
-    }
-
-    @Managed
-    @Nested
-    public CounterStat getAwsThrottleExceptions()
-    {
-        return awsThrottleExceptions;
-    }
-
-    @Managed
-    @Nested
-    public TimeStat getAwsRequestTime()
-    {
-        return awsRequestTime;
-    }
-
-    @Managed
-    @Nested
-    public TimeStat getAwsClientExecuteTime()
-    {
-        return awsClientExecuteTime;
-    }
-
-    @Managed
-    @Nested
-    public TimeStat getAwsClientRetryPauseTime()
-    {
-        return awsClientRetryPauseTime;
-    }
-
-    @Managed
-    public long getAwsHttpClientPoolAvailableCount()
-    {
-        return awsHttpClientPoolAvailableCount.get();
-    }
-
-    @Managed
-    public long getAwsHttpClientPoolLeasedCount()
-    {
-        return awsHttpClientPoolLeasedCount.get();
-    }
-
-    @Managed
-    public long getAwsHttpClientPoolPendingCount()
-    {
-        return awsHttpClientPoolPendingCount.get();
-    }
-
-    public GlueSdkClientMetricsCollector newRequestMetricsCollector()
-    {
-        return new GlueSdkClientMetricsCollector(this);
-    }
-
-    public static class GlueSdkClientMetricsCollector
-            extends AbstractSdkMetricsCollector
-    {
-        private final GlueMetastoreStats stats;
-
-        public GlueSdkClientMetricsCollector(GlueMetastoreStats stats)
-        {
-            this.stats = requireNonNull(stats, "stats is null");
-        }
-
-        @Override
-        protected void recordRequestCount(long count)
-        {
-            stats.awsRequestCount.update(count);
-        }
-
-        @Override
-        protected void recordRetryCount(long count)
-        {
-            stats.awsRetryCount.update(count);
-        }
-
-        @Override
-        protected void recordThrottleExceptionCount(long count)
-        {
-            stats.awsThrottleExceptions.update(count);
-        }
-
-        @Override
-        protected void recordHttpRequestTime(Duration duration)
-        {
-            stats.awsRequestTime.add(duration);
-        }
-
-        @Override
-        protected void recordClientExecutionTime(Duration duration)
-        {
-            stats.awsClientExecuteTime.add(duration);
-        }
-
-        @Override
-        protected void recordRetryPauseTime(Duration duration)
-        {
-            stats.awsClientRetryPauseTime.add(duration);
-        }
-
-        @Override
-        protected void recordHttpClientPoolAvailableCount(long count)
-        {
-            stats.awsHttpClientPoolAvailableCount.set(count);
-        }
-
-        @Override
-        protected void recordHttpClientPoolLeasedCount(long count)
-        {
-            stats.awsHttpClientPoolLeasedCount.set(count);
-        }
-
-        @Override
-        protected void recordHttpClientPoolPendingCount(long count)
-        {
-            stats.awsHttpClientPoolPendingCount.set(count);
-        }
+        return clientCoreStats.newRequestMetricCollector();
     }
 }

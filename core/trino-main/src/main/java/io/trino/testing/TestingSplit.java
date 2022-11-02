@@ -18,12 +18,18 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
+
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static java.lang.Math.toIntExact;
 
 public class TestingSplit
         implements ConnectorSplit
 {
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TestingSplit.class).instanceSize());
+
     private static final HostAddress localHost = HostAddress.fromString("127.0.0.1");
 
     private final boolean remotelyAccessible;
@@ -69,5 +75,12 @@ public class TestingSplit
     public Object getInfo()
     {
         return this;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes);
     }
 }

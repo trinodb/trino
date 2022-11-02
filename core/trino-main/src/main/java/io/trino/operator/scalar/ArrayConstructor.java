@@ -25,14 +25,13 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
-import io.trino.metadata.FunctionArgumentDefinition;
-import io.trino.metadata.FunctionBinding;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.CallSiteBinder;
@@ -52,8 +51,6 @@ import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.equal;
-import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -68,34 +65,34 @@ import static java.util.Collections.nCopies;
 public final class ArrayConstructor
         extends SqlScalarFunction
 {
+    public static final String NAME = "$array";
+
     public static final ArrayConstructor ARRAY_CONSTRUCTOR = new ArrayConstructor();
 
     public ArrayConstructor()
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        "array_constructor",
-                        ImmutableList.of(typeVariable("E")),
-                        ImmutableList.of(),
-                        arrayType(new TypeSignature("E")),
-                        ImmutableList.of(new TypeSignature("E"), new TypeSignature("E")),
-                        true),
-                false,
-                ImmutableList.of(
-                        new FunctionArgumentDefinition(true),
-                        new FunctionArgumentDefinition(true)),
-                true,
-                true,
-                "",
-                SCALAR));
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .name(NAME)
+                        .typeVariable("E")
+                        .returnType(arrayType(new TypeSignature("E")))
+                        .argumentType(new TypeSignature("E"))
+                        .argumentType(new TypeSignature("E"))
+                        .variableArity()
+                        .build())
+                .nullable()
+                .argumentNullability(true, true)
+                .hidden()
+                .noDescription()
+                .build());
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         ImmutableList.Builder<Class<?>> builder = ImmutableList.builder();
-        Type type = functionBinding.getTypeVariable("E");
-        for (int i = 0; i < functionBinding.getArity(); i++) {
+        Type type = boundSignature.getArgumentTypes().get(0);
+        for (int i = 0; i < boundSignature.getArity(); i++) {
             if (type.getJavaType().isPrimitive()) {
                 builder.add(Primitives.wrap(type.getJavaType()));
             }
@@ -113,8 +110,8 @@ public final class ArrayConstructor
         catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);
         }
-        return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+        return new ChoicesSpecializedSqlScalarFunction(
+                boundSignature,
                 FAIL_ON_NULL,
                 nCopies(stackTypes.size(), BOXED_NULLABLE),
                 methodHandle);

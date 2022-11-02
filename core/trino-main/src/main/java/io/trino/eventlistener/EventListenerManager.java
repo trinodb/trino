@@ -13,6 +13,7 @@
  */
 package io.trino.eventlistener;
 
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
@@ -131,14 +132,15 @@ public class EventListenerManager
         }
     }
 
-    public void queryCompleted(QueryCompletedEvent queryCompletedEvent)
+    public void queryCompleted(Function<Boolean, QueryCompletedEvent> queryCompletedEventProvider)
     {
         for (EventListener listener : configuredEventListeners.get()) {
+            QueryCompletedEvent event = queryCompletedEventProvider.apply(listener.requiresAnonymizedPlan());
             try {
-                listener.queryCompleted(queryCompletedEvent);
+                listener.queryCompleted(event);
             }
             catch (Throwable e) {
-                log.warn(e, "Failed to publish QueryCompletedEvent for query %s", queryCompletedEvent.getMetadata().getQueryId());
+                log.warn(e, "Failed to publish QueryCompletedEvent for query %s", event.getMetadata().getQueryId());
             }
         }
     }

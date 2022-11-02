@@ -16,11 +16,12 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
-import io.trino.plugin.hive.authentication.HiveIdentity;
+import io.trino.plugin.hive.metastore.AcidTransactionOwner;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
+import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
@@ -29,7 +30,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
-import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.hive.metastore.api.DataOperationType;
 
@@ -50,6 +50,10 @@ public class HiveMetastoreClosure
 {
     private final HiveMetastore delegate;
 
+    /**
+     * Do not use this directly.  Instead, the closure should be fetched from the current SemiTransactionalHiveMetastore,
+     * which can be fetched from the current HiveMetadata.
+     */
     public HiveMetastoreClosure(HiveMetastore delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
@@ -65,49 +69,55 @@ public class HiveMetastoreClosure
         return delegate.getAllDatabases();
     }
 
-    private Table getExistingTable(HiveIdentity identity, String databaseName, String tableName)
+    private Table getExistingTable(String databaseName, String tableName)
     {
-        return delegate.getTable(identity, databaseName, tableName)
+        return delegate.getTable(databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
     }
 
-    public Optional<Table> getTable(HiveIdentity identity, String databaseName, String tableName)
+    public Optional<Table> getTable(String databaseName, String tableName)
     {
-        return delegate.getTable(identity, databaseName, tableName);
+        return delegate.getTable(databaseName, tableName);
     }
 
-    public Set<ColumnStatisticType> getSupportedColumnStatistics(Type type)
+    public Set<HiveColumnStatisticType> getSupportedColumnStatistics(Type type)
     {
         return delegate.getSupportedColumnStatistics(type);
     }
 
-    public PartitionStatistics getTableStatistics(HiveIdentity identity, String databaseName, String tableName)
+    public PartitionStatistics getTableStatistics(String databaseName, String tableName)
     {
-        return delegate.getTableStatistics(identity, getExistingTable(identity, databaseName, tableName));
+        return delegate.getTableStatistics(getExistingTable(databaseName, tableName));
     }
 
-    public Map<String, PartitionStatistics> getPartitionStatistics(HiveIdentity identity, String databaseName, String tableName, Set<String> partitionNames)
+    public Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames)
     {
-        Table table = getExistingTable(identity, databaseName, tableName);
-        List<Partition> partitions = getExistingPartitionsByNames(identity, table, ImmutableList.copyOf(partitionNames));
-        return delegate.getPartitionStatistics(identity, table, partitions);
+        Table table = getExistingTable(databaseName, tableName);
+        List<Partition> partitions = getExistingPartitionsByNames(table, ImmutableList.copyOf(partitionNames));
+        return delegate.getPartitionStatistics(table, partitions);
     }
 
-    public void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updateTableStatistics(String databaseName,
+            String tableName,
+            AcidTransaction transaction,
+            Function<PartitionStatistics, PartitionStatistics> update)
     {
-        delegate.updateTableStatistics(identity, databaseName, tableName, transaction, update);
+        delegate.updateTableStatistics(databaseName, tableName, transaction, update);
     }
 
-    public void updatePartitionStatistics(HiveIdentity identity, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updatePartitionStatistics(String databaseName,
+            String tableName,
+            String partitionName,
+            Function<PartitionStatistics, PartitionStatistics> update)
     {
-        Table table = getExistingTable(identity, databaseName, tableName);
-        delegate.updatePartitionStatistics(identity, table, partitionName, update);
+        Table table = getExistingTable(databaseName, tableName);
+        delegate.updatePartitionStatistics(table, partitionName, update);
     }
 
-    public void updatePartitionStatistics(HiveIdentity identity, String databaseName, String tableName, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
+    public void updatePartitionStatistics(String databaseName, String tableName, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
     {
-        Table table = getExistingTable(identity, databaseName, tableName);
-        delegate.updatePartitionStatistics(identity, table, updates);
+        Table table = getExistingTable(databaseName, tableName);
+        delegate.updatePartitionStatistics(table, updates);
     }
 
     public List<String> getAllTables(String databaseName)
@@ -125,95 +135,94 @@ public class HiveMetastoreClosure
         return delegate.getAllViews(databaseName);
     }
 
-    public void createDatabase(HiveIdentity identity, Database database)
+    public void createDatabase(Database database)
     {
-        delegate.createDatabase(identity, database);
+        delegate.createDatabase(database);
     }
 
-    public void dropDatabase(HiveIdentity identity, String databaseName)
+    public void dropDatabase(String databaseName, boolean deleteData)
     {
-        delegate.dropDatabase(identity, databaseName);
+        delegate.dropDatabase(databaseName, deleteData);
     }
 
-    public void renameDatabase(HiveIdentity identity, String databaseName, String newDatabaseName)
+    public void renameDatabase(String databaseName, String newDatabaseName)
     {
-        delegate.renameDatabase(identity, databaseName, newDatabaseName);
+        delegate.renameDatabase(databaseName, newDatabaseName);
     }
 
-    public void setDatabaseOwner(HiveIdentity identity, String databaseName, HivePrincipal principal)
+    public void setDatabaseOwner(String databaseName, HivePrincipal principal)
     {
-        delegate.setDatabaseOwner(identity, databaseName, principal);
+        delegate.setDatabaseOwner(databaseName, principal);
     }
 
-    public void setTableOwner(HiveIdentity identity, String databaseName, String tableName, HivePrincipal principal)
+    public void setTableOwner(String databaseName, String tableName, HivePrincipal principal)
     {
-        delegate.setTableOwner(identity, databaseName, tableName, principal);
+        delegate.setTableOwner(databaseName, tableName, principal);
     }
 
-    public void createTable(HiveIdentity identity, Table table, PrincipalPrivileges principalPrivileges)
+    public void createTable(Table table, PrincipalPrivileges principalPrivileges)
     {
-        delegate.createTable(identity, table, principalPrivileges);
+        delegate.createTable(table, principalPrivileges);
     }
 
-    public void dropTable(HiveIdentity identity, String databaseName, String tableName, boolean deleteData)
+    public void dropTable(String databaseName, String tableName, boolean deleteData)
     {
-        delegate.dropTable(identity, databaseName, tableName, deleteData);
+        delegate.dropTable(databaseName, tableName, deleteData);
     }
 
-    public void replaceTable(HiveIdentity identity, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
+    public void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
     {
-        delegate.replaceTable(identity, databaseName, tableName, newTable, principalPrivileges);
+        delegate.replaceTable(databaseName, tableName, newTable, principalPrivileges);
     }
 
-    public void renameTable(HiveIdentity identity, String databaseName, String tableName, String newDatabaseName, String newTableName)
+    public void renameTable(String databaseName, String tableName, String newDatabaseName, String newTableName)
     {
-        delegate.renameTable(identity, databaseName, tableName, newDatabaseName, newTableName);
+        delegate.renameTable(databaseName, tableName, newDatabaseName, newTableName);
     }
 
-    public void commentTable(HiveIdentity identity, String databaseName, String tableName, Optional<String> comment)
+    public void commentTable(String databaseName, String tableName, Optional<String> comment)
     {
-        delegate.commentTable(identity, databaseName, tableName, comment);
+        delegate.commentTable(databaseName, tableName, comment);
     }
 
-    public void commentColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, Optional<String> comment)
+    public void commentColumn(String databaseName, String tableName, String columnName, Optional<String> comment)
     {
-        delegate.commentColumn(identity, databaseName, tableName, columnName, comment);
+        delegate.commentColumn(databaseName, tableName, columnName, comment);
     }
 
-    public void addColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
+    public void addColumn(String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
     {
-        delegate.addColumn(identity, databaseName, tableName, columnName, columnType, columnComment);
+        delegate.addColumn(databaseName, tableName, columnName, columnType, columnComment);
     }
 
-    public void renameColumn(HiveIdentity identity, String databaseName, String tableName, String oldColumnName, String newColumnName)
+    public void renameColumn(String databaseName, String tableName, String oldColumnName, String newColumnName)
     {
-        delegate.renameColumn(identity, databaseName, tableName, oldColumnName, newColumnName);
+        delegate.renameColumn(databaseName, tableName, oldColumnName, newColumnName);
     }
 
-    public void dropColumn(HiveIdentity identity, String databaseName, String tableName, String columnName)
+    public void dropColumn(String databaseName, String tableName, String columnName)
     {
-        delegate.dropColumn(identity, databaseName, tableName, columnName);
+        delegate.dropColumn(databaseName, tableName, columnName);
     }
 
-    public Optional<Partition> getPartition(HiveIdentity identity, String databaseName, String tableName, List<String> partitionValues)
+    public Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues)
     {
-        return delegate.getTable(identity, databaseName, tableName)
-                .flatMap(table -> delegate.getPartition(identity, table, partitionValues));
+        return delegate.getTable(databaseName, tableName)
+                .flatMap(table -> delegate.getPartition(table, partitionValues));
     }
 
     public Optional<List<String>> getPartitionNamesByFilter(
-            HiveIdentity identity,
             String databaseName,
             String tableName,
             List<String> columnNames,
             TupleDomain<String> partitionKeysFilter)
     {
-        return delegate.getPartitionNamesByFilter(identity, databaseName, tableName, columnNames, partitionKeysFilter);
+        return delegate.getPartitionNamesByFilter(databaseName, tableName, columnNames, partitionKeysFilter);
     }
 
-    private List<Partition> getExistingPartitionsByNames(HiveIdentity identity, Table table, List<String> partitionNames)
+    private List<Partition> getExistingPartitionsByNames(Table table, List<String> partitionNames)
     {
-        Map<String, Partition> partitions = delegate.getPartitionsByNames(identity, table, partitionNames).entrySet().stream()
+        Map<String, Partition> partitions = delegate.getPartitionsByNames(table, partitionNames).entrySet().stream()
                 .map(entry -> immutableEntry(entry.getKey(), entry.getValue().orElseThrow(() ->
                         new PartitionNotFoundException(table.getSchemaTableName(), extractPartitionValues(entry.getKey())))))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -223,27 +232,27 @@ public class HiveMetastoreClosure
                 .collect(toImmutableList());
     }
 
-    public Map<String, Optional<Partition>> getPartitionsByNames(HiveIdentity identity, String databaseName, String tableName, List<String> partitionNames)
+    public Map<String, Optional<Partition>> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
     {
-        return delegate.getTable(identity, databaseName, tableName)
-                .map(table -> delegate.getPartitionsByNames(identity, table, partitionNames))
+        return delegate.getTable(databaseName, tableName)
+                .map(table -> delegate.getPartitionsByNames(table, partitionNames))
                 .orElseGet(() -> partitionNames.stream()
                         .collect(toImmutableMap(name -> name, name -> Optional.empty())));
     }
 
-    public void addPartitions(HiveIdentity identity, String databaseName, String tableName, List<PartitionWithStatistics> partitions)
+    public void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions)
     {
-        delegate.addPartitions(identity, databaseName, tableName, partitions);
+        delegate.addPartitions(databaseName, tableName, partitions);
     }
 
-    public void dropPartition(HiveIdentity identity, String databaseName, String tableName, List<String> parts, boolean deleteData)
+    public void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData)
     {
-        delegate.dropPartition(identity, databaseName, tableName, parts, deleteData);
+        delegate.dropPartition(databaseName, tableName, parts, deleteData);
     }
 
-    public void alterPartition(HiveIdentity identity, String databaseName, String tableName, PartitionWithStatistics partition)
+    public void alterPartition(String databaseName, String tableName, PartitionWithStatistics partition)
     {
-        delegate.alterPartition(identity, databaseName, tableName, partition);
+        delegate.alterPartition(databaseName, tableName, partition);
     }
 
     public void createRole(String role, String grantor)
@@ -281,49 +290,54 @@ public class HiveMetastoreClosure
         return delegate.listRoleGrants(principal);
     }
 
-    public void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption)
     {
-        delegate.grantTablePrivileges(databaseName, tableName, tableOwner, grantee, privileges);
+        delegate.grantTablePrivileges(databaseName, tableName, tableOwner, grantee, grantor, privileges, grantOption);
     }
 
-    public void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption)
     {
-        delegate.revokeTablePrivileges(databaseName, tableName, tableOwner, grantee, privileges);
+        delegate.revokeTablePrivileges(databaseName, tableName, tableOwner, grantee, grantor, privileges, grantOption);
     }
 
-    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, Optional<HivePrincipal> principal)
+    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, Optional<String> tableOwner, Optional<HivePrincipal> principal)
     {
         return delegate.listTablePrivileges(databaseName, tableName, tableOwner, principal);
     }
 
-    public boolean isImpersonationEnabled()
+    public long openTransaction(AcidTransactionOwner transactionOwner)
     {
-        return delegate.isImpersonationEnabled();
+        return delegate.openTransaction(transactionOwner);
     }
 
-    public long openTransaction(HiveIdentity identity)
+    public void commitTransaction(long transactionId)
     {
-        return delegate.openTransaction(identity);
+        delegate.commitTransaction(transactionId);
     }
 
-    public void commitTransaction(HiveIdentity identity, long transactionId)
+    public void abortTransaction(long transactionId)
     {
-        delegate.commitTransaction(identity, transactionId);
+        delegate.abortTransaction(transactionId);
     }
 
-    public void sendTransactionHeartbeat(HiveIdentity identity, long transactionId)
+    public void sendTransactionHeartbeat(long transactionId)
     {
-        delegate.sendTransactionHeartbeat(identity, transactionId);
+        delegate.sendTransactionHeartbeat(transactionId);
     }
 
-    public void acquireSharedReadLock(HiveIdentity identity, String queryId, long transactionId, List<SchemaTableName> fullTables, List<HivePartition> partitions)
+    public void acquireSharedReadLock(
+            AcidTransactionOwner transactionOwner,
+            String queryId,
+            long transactionId,
+            List<SchemaTableName> fullTables,
+            List<HivePartition> partitions)
     {
-        delegate.acquireSharedReadLock(identity, queryId, transactionId, fullTables, partitions);
+        delegate.acquireSharedReadLock(transactionOwner, queryId, transactionId, fullTables, partitions);
     }
 
-    public String getValidWriteIds(HiveIdentity identity, List<SchemaTableName> tables, long currentTransactionId)
+    public String getValidWriteIds(List<SchemaTableName> tables, long currentTransactionId)
     {
-        return delegate.getValidWriteIds(identity, tables, currentTransactionId);
+        return delegate.getValidWriteIds(tables, currentTransactionId);
     }
 
     public Optional<String> getConfigValue(String name)
@@ -331,33 +345,40 @@ public class HiveMetastoreClosure
         return delegate.getConfigValue(name);
     }
 
-    public long allocateWriteId(HiveIdentity identity, String dbName, String tableName, long transactionId)
+    public long allocateWriteId(String dbName, String tableName, long transactionId)
     {
-        return delegate.allocateWriteId(identity, dbName, tableName, transactionId);
+        return delegate.allocateWriteId(dbName, tableName, transactionId);
     }
 
-    public void acquireTableWriteLock(HiveIdentity identity, String queryId, long transactionId, String dbName, String tableName, DataOperationType operation, boolean isPartitioned)
+    public void acquireTableWriteLock(
+            AcidTransactionOwner transactionOwner,
+            String queryId,
+            long transactionId,
+            String dbName,
+            String tableName,
+            DataOperationType operation,
+            boolean isPartitioned)
     {
-        delegate.acquireTableWriteLock(identity, queryId, transactionId, dbName, tableName, operation, isPartitioned);
+        delegate.acquireTableWriteLock(transactionOwner, queryId, transactionId, dbName, tableName, operation, isPartitioned);
     }
 
-    public void updateTableWriteId(HiveIdentity identity, String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)
+    public void updateTableWriteId(String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)
     {
-        delegate.updateTableWriteId(identity, dbName, tableName, transactionId, writeId, rowCountChange);
+        delegate.updateTableWriteId(dbName, tableName, transactionId, writeId, rowCountChange);
     }
 
-    public void alterPartitions(HiveIdentity identity, String dbName, String tableName, List<Partition> partitions, long writeId)
+    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
     {
-        delegate.alterPartitions(identity, dbName, tableName, partitions, writeId);
+        delegate.alterPartitions(dbName, tableName, partitions, writeId);
     }
 
-    public void addDynamicPartitions(HiveIdentity identity, String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
+    public void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
     {
-        delegate.addDynamicPartitions(identity, dbName, tableName, partitionNames, transactionId, writeId, operation);
+        delegate.addDynamicPartitions(dbName, tableName, partitionNames, transactionId, writeId, operation);
     }
 
-    public void alterTransactionalTable(HiveIdentity identity, Table table, long transactionId, long writeId, PrincipalPrivileges principalPrivileges)
+    public void alterTransactionalTable(Table table, long transactionId, long writeId, PrincipalPrivileges principalPrivileges)
     {
-        delegate.alterTransactionalTable(identity, table, transactionId, writeId, principalPrivileges);
+        delegate.alterTransactionalTable(table, transactionId, writeId, principalPrivileges);
     }
 }

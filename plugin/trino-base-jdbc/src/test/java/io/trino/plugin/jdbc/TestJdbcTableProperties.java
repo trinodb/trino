@@ -41,7 +41,7 @@ public class TestJdbcTableProperties
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        TestingH2JdbcModule module = new TestingH2JdbcModule((config, connectionFactory) -> new TestingH2JdbcClient(config, connectionFactory)
+        TestingH2JdbcModule module = new TestingH2JdbcModule((config, connectionFactory, identifierMapping) -> new TestingH2JdbcClient(config, connectionFactory, identifierMapping)
         {
             @Override
             public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle)

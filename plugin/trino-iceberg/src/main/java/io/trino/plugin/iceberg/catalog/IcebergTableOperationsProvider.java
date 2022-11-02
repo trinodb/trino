@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg.catalog;
 
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.spi.connector.ConnectorSession;
 
 import java.util.Optional;
@@ -21,7 +20,7 @@ import java.util.Optional;
 public interface IcebergTableOperationsProvider
 {
     IcebergTableOperations createTableOperations(
-            HiveMetastore hiveMetastore,
+            TrinoCatalog catalog,
             ConnectorSession session,
             String database,
             String table,

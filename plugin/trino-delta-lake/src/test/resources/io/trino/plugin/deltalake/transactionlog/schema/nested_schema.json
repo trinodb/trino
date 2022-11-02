@@ -1,0 +1,73 @@
+{
+    "fields": [
+        {
+            "metadata": {},
+            "name": "arr",
+            "nullable": true,
+            "type": {
+                "containsNull": true,
+                "elementType": {
+                    "containsNull": true,
+                    "elementType": "integer",
+                    "type": "array"
+                },
+                "type": "array"
+            }
+        },
+        {
+            "metadata": {},
+            "name": "str",
+            "nullable": true,
+            "type": {
+                "fields": [
+                    {
+                        "metadata": {},
+                        "name": "s1",
+                        "nullable": true,
+                        "type": "string"
+                    },
+                    {
+                        "metadata": {},
+                        "name": "s2",
+                        "nullable": true,
+                        "type": {
+                            "fields": [
+                                {
+                                    "metadata": {},
+                                    "name": "i1",
+                                    "nullable": true,
+                                    "type": "integer"
+                                },
+                                {
+                                    "metadata": {},
+                                    "name": "d2",
+                                    "nullable": true,
+                                    "type": "decimal(38,0)"
+                                }
+                            ],
+                            "type": "struct"
+                        }
+                    }
+                ],
+                "type": "struct"
+            }
+        },
+        {
+            "metadata": {},
+            "name": "m",
+            "nullable": true,
+            "type": {
+                "keyType": "integer",
+                "type": "map",
+                "valueContainsNull": true,
+                "valueType": {
+                    "keyType": "integer",
+                    "type": "map",
+                    "valueContainsNull": true,
+                    "valueType": "integer"
+                }
+            }
+        }
+    ],
+    "type": "struct"
+}

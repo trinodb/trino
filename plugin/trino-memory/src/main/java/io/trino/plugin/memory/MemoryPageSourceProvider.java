@@ -163,9 +163,9 @@ public final class MemoryPageSourceProvider
         }
 
         @Override
-        public long getSystemMemoryUsage()
+        public long getMemoryUsage()
         {
-            return delegate.getSystemMemoryUsage();
+            return delegate.getMemoryUsage();
         }
 
         @Override

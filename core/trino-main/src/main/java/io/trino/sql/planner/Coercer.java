@@ -24,7 +24,9 @@ import io.trino.sql.tree.NodeRef;
 import java.util.Map;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.type.UnknownType.UNKNOWN;
 
 public final class Coercer
 {
@@ -32,11 +34,13 @@ public final class Coercer
 
     public static Expression addCoercions(Expression expression, Analysis analysis)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Rewriter(analysis.getCoercions(), analysis.getTypeOnlyCoercions()), expression);
+        return addCoercions(expression, analysis.getCoercions(), analysis.getTypeOnlyCoercions());
     }
 
     public static Expression addCoercions(Expression expression, Map<NodeRef<Expression>, Type> coercions, Set<NodeRef<Expression>> typeOnlyCoercions)
     {
+        // ExpressionAnalyzer checks for explicit Cast to unknown. The check here is to prevent engine from adding such invalid coercion.
+        checkArgument(coercions.values().stream().noneMatch(UNKNOWN::equals), "Cannot add coercion to UNKNOWN");
         return ExpressionTreeRewriter.rewriteWith(new Rewriter(coercions, typeOnlyCoercions), expression);
     }
 

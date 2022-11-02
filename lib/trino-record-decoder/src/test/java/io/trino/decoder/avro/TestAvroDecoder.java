@@ -21,7 +21,6 @@ import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.DecoderTestColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.decoder.RowDecoder;
-import io.trino.metadata.Metadata;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.ArrayType;
@@ -63,7 +62,6 @@ import static io.trino.decoder.avro.AvroDecoderTestUtil.checkMapValues;
 import static io.trino.decoder.avro.AvroDecoderTestUtil.checkRowValues;
 import static io.trino.decoder.util.DecoderTestUtil.checkIsNull;
 import static io.trino.decoder.util.DecoderTestUtil.checkValue;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -76,6 +74,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -87,13 +86,12 @@ public class TestAvroDecoder
     private static final String DATA_SCHEMA = "dataSchema";
     private static final AvroRowDecoderFactory DECODER_FACTORY = new AvroRowDecoderFactory(new FixedSchemaAvroReaderSupplier.Factory(), new AvroFileDeserializer.Factory());
 
-    private static final Metadata METADATA = createTestMetadataManager();
-    private static final Type VARCHAR_MAP_TYPE = METADATA.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
-    private static final Type DOUBLE_MAP_TYPE = METADATA.getType(mapType(VARCHAR.getTypeSignature(), DOUBLE.getTypeSignature()));
-    private static final Type REAL_MAP_TYPE = METADATA.getType(mapType(VARCHAR.getTypeSignature(), REAL.getTypeSignature()));
-    private static final Type MAP_OF_REAL_MAP_TYPE = METADATA.getType(mapType(VARCHAR.getTypeSignature(), REAL_MAP_TYPE.getTypeSignature()));
-    private static final Type MAP_OF_ARRAY_OF_MAP_TYPE = METADATA.getType(mapType(VARCHAR.getTypeSignature(), new ArrayType(REAL_MAP_TYPE).getTypeSignature()));
-    private static final Type MAP_OF_RECORD = METADATA.getType(mapType(VARCHAR.getTypeSignature(),
+    private static final Type VARCHAR_MAP_TYPE = TESTING_TYPE_MANAGER.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
+    private static final Type DOUBLE_MAP_TYPE = TESTING_TYPE_MANAGER.getType(mapType(VARCHAR.getTypeSignature(), DOUBLE.getTypeSignature()));
+    private static final Type REAL_MAP_TYPE = TESTING_TYPE_MANAGER.getType(mapType(VARCHAR.getTypeSignature(), REAL.getTypeSignature()));
+    private static final Type MAP_OF_REAL_MAP_TYPE = TESTING_TYPE_MANAGER.getType(mapType(VARCHAR.getTypeSignature(), REAL_MAP_TYPE.getTypeSignature()));
+    private static final Type MAP_OF_ARRAY_OF_MAP_TYPE = TESTING_TYPE_MANAGER.getType(mapType(VARCHAR.getTypeSignature(), new ArrayType(REAL_MAP_TYPE).getTypeSignature()));
+    private static final Type MAP_OF_RECORD = TESTING_TYPE_MANAGER.getType(mapType(VARCHAR.getTypeSignature(),
             RowType.from(ImmutableList.<RowType.Field>builder()
                     .add(RowType.field("sf1", DOUBLE))
                     .add(RowType.field("sf2", BOOLEAN))
@@ -775,7 +773,7 @@ public class TestAvroDecoder
         Map<String, Map<String, Float>> data = ImmutableMap.<String, Map<String, Float>>builder()
                 .put("k1", buildMapFromKeysAndValues(ImmutableList.of("key1", "key2", "key3"), ImmutableList.of(1.3F, 2.3F, -.5F)))
                 .put("k2", buildMapFromKeysAndValues(ImmutableList.of("key10", "key20", "key30"), ImmutableList.of(11.3F, 12.3F, -1.5F)))
-                .build();
+                .buildOrThrow();
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", MAP_OF_REAL_MAP_TYPE, "map_field", null, null, false, false, false);
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "map_field", schema.toString(), data);
         checkMapValue(decodedRow, row, data);
@@ -1038,7 +1036,7 @@ public class TestAvroDecoder
                                 .set("sf1", 4.5D)
                                 .set("sf2", false)
                                 .build())
-                        .build())
+                        .buildOrThrow())
                 .set("f12", new GenericRecordBuilder(schema.getField("f12").schema())
                         .set("sf1", 3)
                         .set("sf2", new GenericData.EnumSymbol(schema.getField("f12").schema().getField("sf2").schema(), "running"))
@@ -1114,7 +1112,7 @@ public class TestAvroDecoder
                 .set("f10", array)
                 .set("f11", ImmutableMap.builder()
                         .put("key1", new GenericRecordBuilder(schema.getField("f11").schema().getTypes().get(1).getValueType().getTypes().get(1)).build())
-                        .build())
+                        .buildOrThrow())
                 .set("f12", new GenericRecordBuilder(schema.getField("f12").schema().getTypes().get(1)).build())
                 .build();
         decodedRow = buildAndDecodeColumn(row, "record_field", schema.toString(), data);

@@ -16,20 +16,15 @@ package io.trino.sql;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.ExpressionAnalyzer;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.parser.SqlParser;
-import io.trino.sql.planner.DesugarArrayConstructorRewriter;
-import io.trino.sql.planner.DesugarLikeRewriter;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.ExpressionVerifier;
 import io.trino.sql.planner.assertions.SymbolAliases;
-import io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
@@ -47,6 +42,7 @@ import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static org.testng.internal.EclipseInterface.ASSERT_LEFT;
 import static org.testng.internal.EclipseInterface.ASSERT_MIDDLE;
@@ -80,47 +76,43 @@ public final class ExpressionTestUtils
         throw new AssertionError(formatted + ASSERT_LEFT + expected + ASSERT_MIDDLE + actual + ASSERT_RIGHT);
     }
 
-    public static Expression createExpression(Session session, String expression, Metadata metadata, TypeProvider symbolTypes)
+    public static Expression createExpression(Session session, String expression, PlannerContext plannerContext, TypeProvider symbolTypes)
     {
         Expression parsedExpression = SQL_PARSER.createExpression(expression, createParsingOptions(session));
-        return planExpression(metadata, session, symbolTypes, parsedExpression);
+        return planExpression(plannerContext, session, symbolTypes, parsedExpression);
     }
 
-    public static Expression createExpression(String expression, Metadata metadata, TypeProvider symbolTypes)
+    public static Expression createExpression(String expression, PlannerContext plannerContext, TypeProvider symbolTypes)
     {
-        return createExpression(TEST_SESSION, expression, metadata, symbolTypes);
+        return createExpression(TEST_SESSION, expression, plannerContext, symbolTypes);
     }
 
-    public static Expression planExpression(Metadata metadata, Session session, TypeProvider typeProvider, Expression expression)
+    public static Expression planExpression(PlannerContext plannerContext, Session session, TypeProvider typeProvider, Expression expression)
     {
         if (session.getTransactionId().isPresent()) {
-            return planExpressionInExistingTx(metadata, typeProvider, expression, session);
+            return planExpressionInExistingTx(plannerContext, typeProvider, expression, session);
         }
         return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(session, transactionSession -> {
-                    return planExpressionInExistingTx(metadata, typeProvider, expression, transactionSession);
+                    return planExpressionInExistingTx(plannerContext, typeProvider, expression, transactionSession);
                 });
     }
 
-    private static Expression planExpressionInExistingTx(Metadata metadata, TypeProvider typeProvider, Expression expression, Session transactionSession)
+    private static Expression planExpressionInExistingTx(PlannerContext plannerContext, TypeProvider typeProvider, Expression expression, Session transactionSession)
     {
-        Expression rewritten = rewriteIdentifiersToSymbolReferences(expression);
-        rewritten = DesugarLikeRewriter.rewrite(rewritten, transactionSession, metadata, new TypeAnalyzer(SQL_PARSER, metadata), typeProvider);
-        rewritten = DesugarArrayConstructorRewriter.rewrite(rewritten, transactionSession, metadata, new TypeAnalyzer(SQL_PARSER, metadata), typeProvider);
-        rewritten = CanonicalizeExpressionRewriter.rewrite(rewritten, transactionSession, metadata, new TypeAnalyzer(SQL_PARSER, metadata), typeProvider);
-        return resolveFunctionCalls(metadata, transactionSession, typeProvider, rewritten);
+        return resolveFunctionCalls(plannerContext, transactionSession, typeProvider, rewriteIdentifiersToSymbolReferences(expression));
     }
 
-    public static Expression resolveFunctionCalls(Metadata metadata, Session session, TypeProvider typeProvider, Expression expression)
+    public static Expression resolveFunctionCalls(PlannerContext plannerContext, Session session, TypeProvider typeProvider, Expression expression)
     {
-        return resolveFunctionCalls(metadata, session, typeProvider, expression, Scope.builder().build());
+        return resolveFunctionCalls(plannerContext, session, typeProvider, expression, Scope.builder().build());
     }
 
-    public static Expression resolveFunctionCalls(Metadata metadata, Session session, TypeProvider typeProvider, Expression expression, Scope scope)
+    public static Expression resolveFunctionCalls(PlannerContext plannerContext, Session session, TypeProvider typeProvider, Expression expression, Scope scope)
     {
         ExpressionAnalyzer analyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                metadata,
+                plannerContext,
                 new AllowAllAccessControl(),
                 session,
                 typeProvider,
@@ -177,15 +169,15 @@ public final class ExpressionTestUtils
         }, expression);
     }
 
-    public static Map<NodeRef<Expression>, Type> getTypes(Session session, Metadata metadata, TypeProvider typeProvider, Expression expression)
+    public static Map<NodeRef<Expression>, Type> getTypes(Session session, PlannerContext plannerContext, TypeProvider typeProvider, Expression expression)
     {
         if (session.getTransactionId().isPresent()) {
-            return new TypeAnalyzer(SQL_PARSER, metadata).getTypes(session, typeProvider, expression);
+            return createTestingTypeAnalyzer(plannerContext).getTypes(session, typeProvider, expression);
         }
         return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(session, transactionSession -> {
-                    return new TypeAnalyzer(SQL_PARSER, metadata).getTypes(transactionSession, typeProvider, expression);
+                    return createTestingTypeAnalyzer(plannerContext).getTypes(transactionSession, typeProvider, expression);
                 });
     }
 }

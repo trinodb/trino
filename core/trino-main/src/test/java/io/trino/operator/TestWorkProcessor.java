@@ -234,6 +234,33 @@ public class TestWorkProcessor
     }
 
     @Test(timeOut = 10_000)
+    public void testBlock()
+    {
+        SettableFuture<Void> phase1 = SettableFuture.create();
+
+        List<ProcessState<Integer>> scenario = ImmutableList.of(
+                ProcessState.blocked(phase1),
+                ProcessState.ofResult(1),
+                ProcessState.ofResult(2),
+                ProcessState.finished());
+
+        SettableFuture<Void> phase2 = SettableFuture.create();
+        WorkProcessor<Integer> processor = processorFrom(scenario)
+                .blocking(() -> phase2);
+
+        assertBlocks(processor);
+        assertUnblocks(processor, phase1);
+
+        assertBlocks(processor);
+        assertUnblocks(processor, phase2);
+
+        assertResult(processor, 1);
+        assertResult(processor, 2);
+
+        assertFinishes(processor);
+    }
+
+    @Test(timeOut = 10_000)
     public void testProcessStateMonitor()
     {
         SettableFuture<Void> future = SettableFuture.create();

@@ -31,7 +31,7 @@ public final class TpchQueryRunner
                         .put("http-server.http.port", "8080")
                         .put("sql.default-catalog", "tpch")
                         .put("sql.default-schema", "tiny")
-                        .build())
+                        .buildOrThrow())
                 .build();
         Thread.sleep(10);
         Logger log = Logger.get(TpchQueryRunner.class);

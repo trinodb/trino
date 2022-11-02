@@ -35,17 +35,17 @@ public class TriStateBooleanStateSerializer
     @Override
     public void serialize(TriStateBooleanState state, BlockBuilder out)
     {
-        if (state.getByte() == NULL_VALUE) {
+        if (state.getValue() == NULL_VALUE) {
             out.appendNull();
         }
         else {
-            out.writeByte(state.getByte() == TRUE_VALUE ? 1 : 0).closeEntry();
+            out.writeByte(state.getValue() == TRUE_VALUE ? 1 : 0).closeEntry();
         }
     }
 
     @Override
     public void deserialize(Block block, int index, TriStateBooleanState state)
     {
-        state.setByte(BOOLEAN.getBoolean(block, index) ? TRUE_VALUE : FALSE_VALUE);
+        state.setValue(BOOLEAN.getBoolean(block, index) ? TRUE_VALUE : FALSE_VALUE);
     }
 }

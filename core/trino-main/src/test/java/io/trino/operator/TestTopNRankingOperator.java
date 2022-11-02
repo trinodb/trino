@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import io.airlift.units.DataSize;
 import io.trino.RowPagesBuilder;
 import io.trino.operator.TopNRankingOperator.TopNRankingOperatorFactory;
 import io.trino.spi.Page;
@@ -52,7 +53,12 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestTopNRankingOperator
@@ -128,6 +134,7 @@ public class TestTopNRankingOperator
                 false,
                 Optional.empty(),
                 10,
+                Optional.empty(),
                 joinCompiler,
                 typeOperators,
                 blockTypeOperators);
@@ -179,6 +186,7 @@ public class TestTopNRankingOperator
                 partial,
                 Optional.empty(),
                 10,
+                partial ? Optional.of(DataSize.ofBytes(1)) : Optional.empty(),
                 joinCompiler,
                 typeOperators,
                 blockTypeOperators);
@@ -189,6 +197,11 @@ public class TestTopNRankingOperator
                     .row(0.1, "c")
                     .row(0.2, "b")
                     .row(0.3, "a")
+                    .row(0.4, "a")
+                    .row(0.5, "a")
+                    .row(0.6, "a")
+                    .row(0.7, "b")
+                    .row(0.9, "b")
                     .build();
         }
         else {
@@ -200,6 +213,62 @@ public class TestTopNRankingOperator
         }
 
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
+    }
+
+    @Test(dataProvider = "partial")
+    public void testPartialFlush(boolean partial)
+    {
+        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
+                .row(1L, 0.3)
+                .row(2L, 0.2)
+                .row(3L, 0.1)
+                .row(3L, 0.91)
+                .pageBreak()
+                .row(1L, 0.4)
+                .pageBreak()
+                .row(1L, 0.5)
+                .row(1L, 0.6)
+                .row(2L, 0.7)
+                .row(2L, 0.8)
+                .pageBreak()
+                .row(2L, 0.9)
+                .build();
+
+        TopNRankingOperatorFactory operatorFactory = new TopNRankingOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ROW_NUMBER,
+                ImmutableList.of(BIGINT, DOUBLE),
+                Ints.asList(1, 0),
+                Ints.asList(),
+                ImmutableList.of(),
+                Ints.asList(1),
+                ImmutableList.of(SortOrder.ASC_NULLS_LAST),
+                3,
+                partial,
+                Optional.empty(),
+                10,
+                partial ? Optional.of(DataSize.of(1, DataSize.Unit.BYTE)) : Optional.empty(),
+                joinCompiler,
+                typeOperators,
+                blockTypeOperators);
+
+        TopNRankingOperator operator = (TopNRankingOperator) operatorFactory.createOperator(driverContext);
+        for (Page inputPage : input) {
+            operator.addInput(inputPage);
+            if (partial) {
+                assertFalse(operator.needsInput()); // full
+                assertNotNull(operator.getOutput()); // partial flush
+                assertFalse(operator.isFinished()); // not finished. just partial flushing.
+                assertThatThrownBy(() -> operator.addInput(inputPage)).isInstanceOf(IllegalStateException.class); // while flushing
+                assertNull(operator.getOutput()); // clear flushing
+                assertTrue(operator.needsInput()); // flushing done
+            }
+            else {
+                assertTrue(operator.needsInput());
+                assertNull(operator.getOutput());
+            }
+        }
     }
 
     @Test
@@ -222,6 +291,7 @@ public class TestTopNRankingOperator
                 false,
                 Optional.empty(),
                 10,
+                Optional.empty(),
                 joinCompiler,
                 typeOperators,
                 blockTypeOperators);
@@ -231,8 +301,8 @@ public class TestTopNRankingOperator
                 input,
                 type,
                 operatorFactory,
-                operator -> ((TopNRankingOperator) operator).getCapacity(),
-                1_000_000);
+                operator -> ((TopNRankingOperator) operator).getGroupedTopNBuilder() == null ? 0 : ((GroupedTopNRowNumberBuilder) ((TopNRankingOperator) operator).getGroupedTopNBuilder()).getGroupByHash().getCapacity(),
+                450_000);
         assertGreaterThan(result.getYieldCount(), 3);
         assertGreaterThan(result.getMaxReservedBytes(), 5L << 20);
 
@@ -281,6 +351,7 @@ public class TestTopNRankingOperator
                 false,
                 Optional.empty(),
                 10,
+                Optional.empty(),
                 joinCompiler,
                 typeOperators,
                 blockTypeOperators);

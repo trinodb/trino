@@ -1,0 +1,14 @@
+Domain compaction threshold
+"""""""""""""""""""""""""""
+
+Pushing down a large list of predicates to the data source can compromise
+performance. Trino compacts large predicates into a simpler range predicate
+by default to ensure a balance between performance and predicate pushdown.
+If necessary, the threshold for this compaction can be increased to improve
+performance when the data source is capable of taking advantage of large
+predicates. Increasing this threshold may improve pushdown of large
+:doc:`dynamic filters </admin/dynamic-filtering>`.
+The ``domain-compaction-threshold`` catalog configuration property or the
+``domain_compaction_threshold`` :ref:`catalog session property
+<session-properties-definition>` can be used to adjust the default value of
+|default_domain_compaction_threshold| for this threshold.

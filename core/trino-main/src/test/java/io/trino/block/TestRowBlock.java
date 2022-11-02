@@ -125,12 +125,12 @@ public class TestRowBlock
     {
         BlockBuilder blockBuilder = createBlockBuilderWithValues(fieldTypes, expectedValues);
 
-        assertBlock(blockBuilder, () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
-        assertBlock(blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
+        assertBlock(blockBuilder, expectedValues);
+        assertBlock(blockBuilder.build(), expectedValues);
 
         IntArrayList positionList = generatePositionList(expectedValues.length, expectedValues.length / 2);
-        assertBlockFilteredPositions(expectedValues, blockBuilder, () -> blockBuilder.newBlockBuilderLike(null), positionList.toIntArray());
-        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), positionList.toIntArray());
+        assertBlockFilteredPositions(expectedValues, blockBuilder, positionList.toIntArray());
+        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), positionList.toIntArray());
     }
 
     private BlockBuilder createBlockBuilderWithValues(List<Type> fieldTypes, List<Object>[] rows)

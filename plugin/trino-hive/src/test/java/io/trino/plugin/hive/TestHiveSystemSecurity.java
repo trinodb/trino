@@ -48,6 +48,9 @@ public class TestHiveSystemSecurity
     {
         assertUpdate("CREATE VIEW system_security_invoker_view SECURITY INVOKER AS SELECT 42 as n");
         assertQuery("SELECT * from system_security_invoker_view", "SELECT 42 as n");
+        assertQueryFails("ALTER VIEW system_security_invoker_view SET AUTHORIZATION user", "Catalog does not support permission management: hive");
+        // disabled system security metadata does not have any roles
+        assertQueryFails("ALTER VIEW system_security_invoker_view SET AUTHORIZATION ROLE PUBLIC", ".*Role 'public' does not exist");
         assertUpdate("DROP VIEW system_security_invoker_view");
     }
 
@@ -57,6 +60,19 @@ public class TestHiveSystemSecurity
         assertUpdate("CREATE SCHEMA system_security_schema");
         assertThat((String) computeScalar("SHOW CREATE SCHEMA system_security_schema"))
                 .doesNotContain("AUTHORIZATION");
+        assertQueryFails("ALTER SCHEMA system_security_schema SET AUTHORIZATION user", "Catalog does not support permission management: hive");
+        // disabled system security metadata does not have any roles
+        assertQueryFails("ALTER SCHEMA system_security_schema SET AUTHORIZATION ROLE PUBLIC", ".*Role 'public' does not exist");
         assertUpdate("DROP SCHEMA system_security_schema");
+    }
+
+    @Test
+    public void testTableSchema()
+    {
+        assertUpdate("CREATE table system_security_table (n bigint)");
+        assertQueryFails("ALTER TABLE system_security_table SET AUTHORIZATION user", "Catalog does not support permission management: hive");
+        // disabled system security metadata does not have any roles
+        assertQueryFails("ALTER TABLE system_security_table SET AUTHORIZATION ROLE PUBLIC", ".*Role 'public' does not exist");
+        assertUpdate("DROP TABLE system_security_table");
     }
 }

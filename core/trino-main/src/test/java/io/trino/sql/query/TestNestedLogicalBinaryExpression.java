@@ -17,40 +17,42 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.testing.LocalQueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 /**
  * Regression test for https://github.com/trinodb/trino/issues/9250
  */
+@TestInstance(PER_CLASS)
 public class TestNestedLogicalBinaryExpression
 {
-    private static final String CATALOG = "local";
-
     private QueryAssertions assertions;
 
-    @BeforeClass
+    @BeforeAll
     public void init()
     {
         Session session = testSessionBuilder()
-                .setCatalog(CATALOG)
+                .setCatalog(TEST_CATALOG_NAME)
                 .setSchema(TINY_SCHEMA_NAME)
                 .build();
 
         LocalQueryRunner runner = LocalQueryRunner.builder(session)
                 .build();
 
-        runner.createCatalog(CATALOG, new TpchConnectorFactory(1), ImmutableMap.of());
+        runner.createCatalog(TEST_CATALOG_NAME, new TpchConnectorFactory(1), ImmutableMap.of());
 
         assertions = new QueryAssertions(runner);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void teardown()
     {
         assertions.close();

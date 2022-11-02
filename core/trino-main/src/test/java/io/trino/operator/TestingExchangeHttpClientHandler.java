@@ -23,17 +23,18 @@ import io.airlift.http.client.Response;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slice;
+import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerde;
-import io.trino.execution.buffer.SerializedPage;
 import io.trino.spi.Page;
 
 import static io.trino.TrinoMediaTypes.TRINO_PAGES;
 import static io.trino.execution.buffer.PagesSerdeUtil.calculateChecksum;
-import static io.trino.execution.buffer.PagesSerdeUtil.writeSerializedPage;
 import static io.trino.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN;
+import static io.trino.server.InternalHeaders.TRINO_TASK_FAILED;
 import static io.trino.server.InternalHeaders.TRINO_TASK_INSTANCE_ID;
 import static io.trino.server.PagesResponseWriter.SERIALIZED_PAGES_MAGIC;
 import static java.util.Objects.requireNonNull;
@@ -45,9 +46,9 @@ public class TestingExchangeHttpClientHandler
 {
     private static final PagesSerde PAGES_SERDE = testingPagesSerde();
 
-    private final LoadingCache<String, TestingTaskBuffer> taskBuffers;
+    private final LoadingCache<TaskId, TestingTaskBuffer> taskBuffers;
 
-    public TestingExchangeHttpClientHandler(LoadingCache<String, TestingTaskBuffer> taskBuffers)
+    public TestingExchangeHttpClientHandler(LoadingCache<TaskId, TestingTaskBuffer> taskBuffers)
     {
         this.taskBuffers = requireNonNull(taskBuffers, "taskBuffers is null");
     }
@@ -62,12 +63,13 @@ public class TestingExchangeHttpClientHandler
         }
 
         assertEquals(parts.size(), 2);
-        String taskId = parts.get(0);
+        TaskId taskId = TaskId.valueOf(parts.get(0));
         int pageToken = Integer.parseInt(parts.get(1));
 
         ImmutableListMultimap.Builder<String, String> headers = ImmutableListMultimap.builder();
         headers.put(TRINO_TASK_INSTANCE_ID, "task-instance-id");
         headers.put(TRINO_PAGE_TOKEN, String.valueOf(pageToken));
+        headers.put(TRINO_TASK_FAILED, "false");
 
         TestingTaskBuffer taskBuffer = taskBuffers.getUnchecked(taskId);
         Page page = taskBuffer.getPage(pageToken);
@@ -75,7 +77,7 @@ public class TestingExchangeHttpClientHandler
         if (page != null) {
             headers.put(TRINO_PAGE_NEXT_TOKEN, String.valueOf(pageToken + 1));
             headers.put(TRINO_BUFFER_COMPLETE, String.valueOf(false));
-            SerializedPage serializedPage;
+            Slice serializedPage;
             try (PagesSerde.PagesSerdeContext context = PAGES_SERDE.newContext()) {
                 serializedPage = PAGES_SERDE.serialize(context, page);
             }
@@ -83,10 +85,10 @@ public class TestingExchangeHttpClientHandler
             output.writeInt(SERIALIZED_PAGES_MAGIC);
             output.writeLong(calculateChecksum(ImmutableList.of(serializedPage)));
             output.writeInt(1);
-            writeSerializedPage(output, serializedPage);
+            output.writeBytes(serializedPage);
             return new TestingResponse(HttpStatus.OK, headers.build(), output.slice().getInput());
         }
-        else if (taskBuffer.isFinished()) {
+        if (taskBuffer.isFinished()) {
             headers.put(TRINO_PAGE_NEXT_TOKEN, String.valueOf(pageToken));
             headers.put(TRINO_BUFFER_COMPLETE, String.valueOf(true));
             DynamicSliceOutput output = new DynamicSliceOutput(8);
@@ -95,10 +97,8 @@ public class TestingExchangeHttpClientHandler
             output.writeInt(0);
             return new TestingResponse(HttpStatus.OK, headers.build(), output.slice().getInput());
         }
-        else {
-            headers.put(TRINO_PAGE_NEXT_TOKEN, String.valueOf(pageToken));
-            headers.put(TRINO_BUFFER_COMPLETE, String.valueOf(false));
-            return new TestingResponse(HttpStatus.NO_CONTENT, headers.build(), new byte[0]);
-        }
+        headers.put(TRINO_PAGE_NEXT_TOKEN, String.valueOf(pageToken));
+        headers.put(TRINO_BUFFER_COMPLETE, String.valueOf(false));
+        return new TestingResponse(HttpStatus.NO_CONTENT, headers.build(), new byte[0]);
     }
 }

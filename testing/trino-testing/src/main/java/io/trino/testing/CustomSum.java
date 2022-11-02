@@ -32,7 +32,7 @@ public final class CustomSum
     @InputFunction
     public static void input(@AggregationState NullableLongState state, @SqlType(StandardTypes.BIGINT) long value)
     {
-        state.setLong(state.getLong() + value);
+        state.setValue(state.getValue() + value);
         state.setNull(false);
     }
 
@@ -40,12 +40,11 @@ public final class CustomSum
     public static void combine(@AggregationState NullableLongState state, @AggregationState NullableLongState otherState)
     {
         if (state.isNull()) {
-            state.setNull(false);
-            state.setLong(otherState.getLong());
+            state.set(otherState);
             return;
         }
 
-        state.setLong(state.getLong() + otherState.getLong());
+        state.setValue(state.getValue() + otherState.getValue());
     }
 
     @OutputFunction(StandardTypes.BIGINT)

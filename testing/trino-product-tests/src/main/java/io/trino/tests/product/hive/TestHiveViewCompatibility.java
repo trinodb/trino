@@ -22,8 +22,8 @@ import org.testng.annotations.Test;
 import java.util.function.Consumer;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.HIVE_VIEW_COMPATIBILITY;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onCompatibilityTestServer;
@@ -69,8 +69,28 @@ public class TestHiveViewCompatibility
         onCompatibilityTestServer().executeQuery("DROP VIEW IF EXISTS hive_duplicate_view");
         onCompatibilityTestServer().executeQuery("CREATE VIEW hive_duplicate_view AS SELECT * FROM nation");
 
-        assertThat(() -> query("CREATE VIEW hive_duplicate_view AS SELECT * FROM nation"))
-                .failsWithMessage("View already exists");
+        assertQueryFailure(() -> onTrino().executeQuery("CREATE VIEW hive_duplicate_view AS SELECT * FROM nation"))
+                .hasMessageContaining("View already exists");
+    }
+
+    @Test(groups = {HIVE_VIEW_COMPATIBILITY, PROFILE_SPECIFIC_TESTS})
+    public void testCommentOnViewColumn()
+    {
+        onTrino().executeQuery("DROP VIEW IF EXISTS hive_test_view_comment_column");
+        onTrino().executeQuery("CREATE VIEW hive_test_view_comment_column AS SELECT * FROM nation");
+        onCompatibilityTestServer().executeQuery("DROP VIEW IF EXISTS hive_test_view_comment_column_compatibility");
+        onCompatibilityTestServer().executeQuery("CREATE VIEW hive_test_view_comment_column_compatibility AS SELECT * FROM nation");
+
+        assertViewQuery(onCompatibilityTestServer(), "SELECT * FROM hive_test_view_comment_column", queryAssert -> queryAssert.hasRowsCount(25));
+        assertViewQuery(onTrino(), "SELECT * FROM hive_test_view_comment_column_compatibility", queryAssert -> queryAssert.hasRowsCount(25));
+
+        // Verify that the views are still readable after adding a comment on one of their columns
+        onTrino().executeQuery("COMMENT ON COLUMN hive_test_view_comment_column.n_nationkey IS 'ID of the nation'");
+        assertViewQuery(onCompatibilityTestServer(), "SELECT * FROM hive_test_view_comment_column", queryAssert -> queryAssert.hasRowsCount(25));
+
+        onTrino().executeQuery("COMMENT ON COLUMN hive_test_view_comment_column_compatibility.n_nationkey IS 'ID of the nation'");
+        assertViewQuery(onCompatibilityTestServer(), "SELECT * FROM hive_test_view_comment_column_compatibility", queryAssert -> queryAssert.hasRowsCount(25));
+        assertViewQuery(onTrino(), "SELECT * FROM hive_test_view_comment_column_compatibility", queryAssert -> queryAssert.hasRowsCount(25));
     }
 
     protected static void assertViewQuery(QueryExecutor queryExecutor, String query, Consumer<QueryAssert> assertion)

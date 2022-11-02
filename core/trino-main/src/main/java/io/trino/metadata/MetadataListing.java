@@ -15,10 +15,9 @@ package io.trino.metadata;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
@@ -31,63 +30,50 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
-import java.util.SortedMap;
 import java.util.SortedSet;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.StandardErrorCode.TABLE_REDIRECTION_ERROR;
 
 public final class MetadataListing
 {
     private MetadataListing() {}
 
-    public static SortedMap<String, CatalogName> listCatalogs(Session session, Metadata metadata, AccessControl accessControl)
+    public static SortedSet<String> listCatalogNames(Session session, Metadata metadata, AccessControl accessControl)
     {
-        return listCatalogs(session, metadata, accessControl, Optional.empty());
+        return listCatalogNames(session, metadata, accessControl, Optional.empty());
     }
 
-    public static SortedMap<String, CatalogName> listCatalogs(Session session, Metadata metadata, AccessControl accessControl, Optional<String> catalogName)
+    public static SortedSet<String> listCatalogNames(Session session, Metadata metadata, AccessControl accessControl, Optional<String> catalogName)
     {
-        Map<String, CatalogName> catalogNames;
+        Set<String> catalogs;
         if (catalogName.isPresent()) {
-            Optional<CatalogName> catalogHandle = metadata.getCatalogHandle(session, catalogName.get());
+            Optional<CatalogHandle> catalogHandle = metadata.getCatalogHandle(session, catalogName.get());
             if (catalogHandle.isEmpty()) {
-                return ImmutableSortedMap.of();
+                return ImmutableSortedSet.of();
             }
-            catalogNames = ImmutableSortedMap.of(catalogName.get(), catalogHandle.get());
+            catalogs = ImmutableSet.of(catalogName.get());
         }
         else {
-            catalogNames = metadata.getCatalogs(session).entrySet().stream()
-                    .collect(toImmutableMap(
-                            Map.Entry::getKey,
-                            entry -> entry.getValue().getConnectorCatalogName()));
+            catalogs = metadata.listCatalogs(session).stream()
+                    .map(CatalogInfo::getCatalogName)
+                    .collect(toImmutableSet());
         }
-        Set<String> allowedCatalogs = accessControl.filterCatalogs(session.getIdentity(), catalogNames.keySet());
-
-        ImmutableSortedMap.Builder<String, CatalogName> result = ImmutableSortedMap.naturalOrder();
-        for (Map.Entry<String, CatalogName> entry : catalogNames.entrySet()) {
-            if (allowedCatalogs.contains(entry.getKey())) {
-                result.put(entry);
-            }
-        }
-        return result.build();
+        return ImmutableSortedSet.copyOf(accessControl.filterCatalogs(session.toSecurityContext(), catalogs));
     }
 
-    public static SortedMap<String, Catalog> getCatalogs(Session session, Metadata metadata, AccessControl accessControl)
+    public static List<CatalogInfo> listCatalogs(Session session, Metadata metadata, AccessControl accessControl)
     {
-        Map<String, Catalog> catalogs = metadata.getCatalogs(session);
-        Set<String> allowedCatalogs = accessControl.filterCatalogs(session.getIdentity(), catalogs.keySet());
-
-        ImmutableSortedMap.Builder<String, Catalog> result = ImmutableSortedMap.naturalOrder();
-        for (Map.Entry<String, Catalog> entry : catalogs.entrySet()) {
-            if (allowedCatalogs.contains(entry.getKey())) {
-                result.put(entry);
-            }
-        }
-        return result.build();
+        List<CatalogInfo> catalogs = metadata.listCatalogs(session);
+        Set<String> catalogNames = catalogs.stream()
+                .map(CatalogInfo::getCatalogName)
+                .collect(toImmutableSet());
+        Set<String> allowedCatalogs = accessControl.filterCatalogs(session.toSecurityContext(), catalogNames);
+        return catalogs.stream()
+                .filter(catalogInfo -> allowedCatalogs.contains(catalogInfo.getCatalogName()))
+                .collect(toImmutableList());
     }
 
     public static SortedSet<String> listSchemas(Session session, Metadata metadata, AccessControl accessControl, String catalogName)
@@ -175,7 +161,7 @@ public final class MetadataListing
 
     public static Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
     {
-        List<TableColumnsMetadata> catalogColumns = getOnlyElement(metadata.listTableColumns(session, prefix).values(), List.of());
+        List<TableColumnsMetadata> catalogColumns = metadata.listTableColumns(session, prefix);
 
         Map<SchemaTableName, Optional<List<ColumnMetadata>>> tableColumns = catalogColumns.stream()
                 .collect(toImmutableMap(TableColumnsMetadata::getTable, TableColumnsMetadata::getColumns));
@@ -224,7 +210,7 @@ public final class MetadataListing
                     }
                 }
 
-                if (redirectionSucceeded == false) {
+                if (!redirectionSucceeded) {
                     return;
                 }
 
@@ -245,6 +231,6 @@ public final class MetadataListing
                             .collect(toImmutableList()));
         });
 
-        return result.build();
+        return result.buildOrThrow();
     }
 }

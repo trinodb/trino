@@ -18,14 +18,13 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
-import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
-import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.TableProcedureMetadata;
@@ -48,7 +47,6 @@ public class HiveConnector
         implements Connector
 {
     private final LifeCycleManager lifeCycleManager;
-    private final TransactionalMetadataFactory metadataFactory;
     private final ConnectorSplitManager splitManager;
     private final ConnectorPageSourceProvider pageSourceProvider;
     private final ConnectorPageSinkProvider pageSinkProvider;
@@ -59,6 +57,7 @@ public class HiveConnector
     private final List<PropertyMetadata<?>> sessionProperties;
     private final List<PropertyMetadata<?>> schemaProperties;
     private final List<PropertyMetadata<?>> tableProperties;
+    private final List<PropertyMetadata<?>> columnProperties;
     private final List<PropertyMetadata<?>> analyzeProperties;
     private final List<PropertyMetadata<?>> materializedViewProperties;
 
@@ -66,10 +65,10 @@ public class HiveConnector
     private final ClassLoader classLoader;
 
     private final HiveTransactionManager transactionManager;
+    private final boolean singleStatementWritesOnly;
 
     public HiveConnector(
             LifeCycleManager lifeCycleManager,
-            TransactionalMetadataFactory metadataFactory,
             HiveTransactionManager transactionManager,
             ConnectorSplitManager splitManager,
             ConnectorPageSourceProvider pageSourceProvider,
@@ -81,13 +80,14 @@ public class HiveConnector
             Set<SessionPropertiesProvider> sessionPropertiesProviders,
             List<PropertyMetadata<?>> schemaProperties,
             List<PropertyMetadata<?>> tableProperties,
+            List<PropertyMetadata<?>> columnProperties,
             List<PropertyMetadata<?>> analyzeProperties,
             List<PropertyMetadata<?>> materializedViewProperties,
             Optional<ConnectorAccessControl> accessControl,
+            boolean singleStatementWritesOnly,
             ClassLoader classLoader)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
-        this.metadataFactory = requireNonNull(metadataFactory, "metadataFactory is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
@@ -96,27 +96,23 @@ public class HiveConnector
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
         this.tableProcedures = ImmutableSet.copyOf(requireNonNull(tableProcedures, "tableProcedures is null"));
         this.eventListeners = ImmutableSet.copyOf(requireNonNull(eventListeners, "eventListeners is null"));
-        this.sessionProperties = requireNonNull(sessionPropertiesProviders, "sessionPropertiesProviders is null").stream()
+        this.sessionProperties = sessionPropertiesProviders.stream()
                 .flatMap(sessionPropertiesProvider -> sessionPropertiesProvider.getSessionProperties().stream())
                 .collect(toImmutableList());
         this.schemaProperties = ImmutableList.copyOf(requireNonNull(schemaProperties, "schemaProperties is null"));
         this.tableProperties = ImmutableList.copyOf(requireNonNull(tableProperties, "tableProperties is null"));
+        this.columnProperties = ImmutableList.copyOf(requireNonNull(columnProperties, "columnProperties is null"));
         this.analyzeProperties = ImmutableList.copyOf(requireNonNull(analyzeProperties, "analyzeProperties is null"));
         this.materializedViewProperties = requireNonNull(materializedViewProperties, "materializedViewProperties is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.singleStatementWritesOnly = singleStatementWritesOnly;
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
     }
 
     @Override
-    public Optional<ConnectorHandleResolver> getHandleResolver()
+    public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transaction)
     {
-        return Optional.of(new HiveHandleResolver());
-    }
-
-    @Override
-    public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
-    {
-        ConnectorMetadata metadata = transactionManager.get(transaction);
+        ConnectorMetadata metadata = transactionManager.get(transaction, session.getIdentity());
         checkArgument(metadata != null, "no such transaction: %s", transaction);
         return new ClassLoaderSafeConnectorMetadata(metadata, classLoader);
     }
@@ -176,6 +172,12 @@ public class HiveConnector
     }
 
     @Override
+    public List<PropertyMetadata<?>> getColumnProperties()
+    {
+        return this.columnProperties;
+    }
+
+    @Override
     public List<PropertyMetadata<?>> getMaterializedViewProperties()
     {
         return materializedViewProperties;
@@ -196,38 +198,28 @@ public class HiveConnector
     @Override
     public boolean isSingleStatementWritesOnly()
     {
-        return false;
+        return singleStatementWritesOnly;
     }
 
     @Override
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
     {
         checkConnectorSupports(READ_UNCOMMITTED, isolationLevel);
-        ConnectorTransactionHandle transaction = new HiveTransactionHandle();
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            transactionManager.put(transaction, metadataFactory.create(autoCommit));
-        }
+        ConnectorTransactionHandle transaction = new HiveTransactionHandle(autoCommit);
+        transactionManager.begin(transaction);
         return transaction;
     }
 
     @Override
     public void commit(ConnectorTransactionHandle transaction)
     {
-        TransactionalMetadata metadata = transactionManager.remove(transaction);
-        checkArgument(metadata != null, "no such transaction: %s", transaction);
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            metadata.commit();
-        }
+        transactionManager.commit(transaction);
     }
 
     @Override
     public void rollback(ConnectorTransactionHandle transaction)
     {
-        TransactionalMetadata metadata = transactionManager.remove(transaction);
-        checkArgument(metadata != null, "no such transaction: %s", transaction);
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            metadata.rollback();
-        }
+        transactionManager.rollback(transaction);
     }
 
     @Override

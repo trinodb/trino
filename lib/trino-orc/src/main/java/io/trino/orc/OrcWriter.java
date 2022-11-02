@@ -86,7 +86,7 @@ import static java.util.stream.Collectors.toList;
 public final class OrcWriter
         implements Closeable
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcWriter.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(OrcWriter.class).instanceSize());
 
     private static final String TRINO_ORC_WRITER_VERSION_METADATA_KEY = "trino.writer.version";
     private static final String TRINO_ORC_WRITER_VERSION;
@@ -150,7 +150,7 @@ public final class OrcWriter
         recordValidation(validation -> validation.setTimeZone(ZoneId.of("UTC")));
 
         requireNonNull(options, "options is null");
-        checkArgument(options.getStripeMaxSize().compareTo(options.getStripeMinSize()) >= 0, "stripeMaxSize must be greater than stripeMinSize");
+        checkArgument(options.getStripeMaxSize().compareTo(options.getStripeMinSize()) >= 0, "stripeMaxSize must be greater than or equal to stripeMinSize");
         int stripeMinBytes = toIntExact(requireNonNull(options.getStripeMinSize(), "stripeMinSize is null").toBytes());
         this.stripeMaxBytes = toIntExact(requireNonNull(options.getStripeMaxSize(), "stripeMaxSize is null").toBytes());
         this.chunkMaxLogicalBytes = Math.max(1, stripeMaxBytes / 2);
@@ -183,7 +183,8 @@ public final class OrcWriter
                     compression,
                     maxCompressionBufferSize,
                     options.getMaxStringStatisticsLimit(),
-                    getBloomFilterBuilder(options, columnNames.get(fieldId)));
+                    getBloomFilterBuilder(options, columnNames.get(fieldId)),
+                    options.isShouldCompactMinMax());
             columnWriters.add(columnWriter);
 
             if (columnWriter instanceof SliceDictionaryColumnWriter) {
@@ -433,7 +434,7 @@ public final class OrcWriter
 
         // the 0th column is a struct column for the whole row
         columnEncodings.put(ROOT_COLUMN, new ColumnEncoding(DIRECT, 0));
-        columnStatistics.put(ROOT_COLUMN, new ColumnStatistics((long) stripeRowCount, 0, null, null, null, null, null, null, null, null, null));
+        columnStatistics.put(ROOT_COLUMN, new ColumnStatistics((long) stripeRowCount, 0, null, null, null, null, null, null, null, null, null, null));
 
         // add footer
         StripeFooter stripeFooter = new StripeFooter(allStreams, toColumnMetadata(columnEncodings, orcTypes.size()), ZoneId.of("UTC"));
@@ -467,6 +468,8 @@ public final class OrcWriter
         try (Closeable ignored = orcDataSink) {
             flushStripe(CLOSED);
         }
+
+        bufferedBytes = 0;
     }
 
     public enum OrcOperation
@@ -609,7 +612,7 @@ public final class OrcWriter
 
     private static class ClosedStripe
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(ClosedStripe.class).instanceSize() + ClassLayout.parseClass(StripeInformation.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ClosedStripe.class).instanceSize() + ClassLayout.parseClass(StripeInformation.class).instanceSize());
 
         private final StripeInformation stripeInformation;
         private final StripeStatistics statistics;

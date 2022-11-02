@@ -15,6 +15,7 @@ package io.trino.plugin.prometheus;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.units.Duration;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -24,15 +25,13 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
-import org.apache.http.NameValuePair;
-import org.apache.http.client.utils.URIBuilder;
-import org.apache.http.message.BasicNameValuePair;
 
 import javax.inject.Inject;
 
@@ -41,7 +40,6 @@ import java.math.RoundingMode;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -71,8 +69,6 @@ public class PrometheusSplitManager
     {
         this.prometheusClient = requireNonNull(prometheusClient, "prometheusClient is null");
         this.prometheusClock = requireNonNull(prometheusClock, "prometheusClock is null");
-
-        requireNonNull(config, "config is null");
         this.prometheusURI = config.getPrometheusURI();
         this.maxQueryRangeDuration = config.getMaxQueryRangeDuration();
         this.queryChunkSizeDuration = config.getQueryChunkSizeDuration();
@@ -83,8 +79,8 @@ public class PrometheusSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle connectorTableHandle,
-            SplitSchedulingStrategy splitSchedulingStrategy,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            Constraint constraint)
     {
         PrometheusTableHandle tableHandle = (PrometheusTableHandle) connectorTableHandle;
         PrometheusTable table = prometheusClient.getTable(tableHandle.getSchemaName(), tableHandle.getTableName());
@@ -101,7 +97,7 @@ public class PrometheusSplitManager
                                 prometheusURI,
                                 time,
                                 table.getName(),
-                                queryChunkSizeDuration));
+                                queryChunkSizeDuration).toString());
                     }
                     catch (URISyntaxException e) {
                         throw new TrinoException(PROMETHEUS_UNKNOWN_ERROR, "split URI invalid: " + e.getMessage());
@@ -110,17 +106,14 @@ public class PrometheusSplitManager
         return new FixedSplitSource(splits);
     }
 
-    // URIBuilder handles URI encode
+    // HttpUriBuilder handles URI encode
     private static URI buildQuery(URI baseURI, String time, String metricName, Duration queryChunkSizeDuration)
             throws URISyntaxException
     {
-        List<NameValuePair> nameValuePairs = new ArrayList<>(2);
-        nameValuePairs.add(new BasicNameValuePair("query", metricName + "[" + queryChunkSizeDuration.roundTo(queryChunkSizeDuration.getUnit()) +
-                Duration.timeUnitToString(queryChunkSizeDuration.getUnit()) + "]"));
-        nameValuePairs.add(new BasicNameValuePair("time", time));
-        return new URIBuilder(baseURI.toString())
-                .setPath("api/v1/query")
-                .setParameters(nameValuePairs)
+        return HttpUriBuilder.uriBuilderFrom(baseURI)
+                .appendPath("api/v1/query")
+                .addParameter("query", metricName + "[" + queryChunkSizeDuration.roundTo(queryChunkSizeDuration.getUnit()) + Duration.timeUnitToString(queryChunkSizeDuration.getUnit()) + "]")
+                .addParameter("time", time)
                 .build();
     }
 

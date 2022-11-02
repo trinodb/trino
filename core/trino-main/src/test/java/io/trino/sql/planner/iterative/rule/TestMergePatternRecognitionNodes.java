@@ -26,6 +26,8 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
@@ -43,6 +45,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFrame;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
+import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ALL_SHOW_EMPTY;
@@ -77,6 +80,22 @@ public class TestMergePatternRecognitionNodes
                                         .pattern(new IrLabel("X"))
                                         .addVariableDefinition(new IrLabel("X"), "false")
                                         .source(p.values(p.symbol("a"))))))))
+                .doesNotFire();
+
+        // aggregations in variable definitions do not match
+        QualifiedName count = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("count"), fromTypes(BIGINT)).toQualifiedName();
+        tester().assertThat(new MergePatternRecognitionNodesWithoutProject())
+                .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
+                        .pattern(new IrLabel("X"))
+                        .addVariableDefinition(
+                                new IrLabel("X"),
+                                new ComparisonExpression(GREATER_THAN, new FunctionCall(count, ImmutableList.of(expression("a"))), expression("5")))
+                        .source(p.patternRecognition(childBuilder -> childBuilder
+                                .pattern(new IrLabel("X"))
+                                .addVariableDefinition(
+                                        new IrLabel("X"),
+                                        new ComparisonExpression(GREATER_THAN, new FunctionCall(count, ImmutableList.of(expression("b"))), expression("5")))
+                                .source(p.values(p.symbol("a"), p.symbol("b")))))))
                 .doesNotFire();
     }
 
@@ -410,7 +429,7 @@ public class TestMergePatternRecognitionNodes
                                                 .put("child_measure", PlanMatchPattern.expression("child_measure"))
                                                 .put("expression_1", PlanMatchPattern.expression("expression_1"))
                                                 .put("expression_2", PlanMatchPattern.expression("a + b"))
-                                                .build(),
+                                                .buildOrThrow(),
                                         patternRecognition(builder -> builder
                                                         .addMeasure("parent_measure", "LAST(X.expression_1)", BIGINT)
                                                         .addMeasure("child_measure", "FIRST(X.b)", BIGINT)
@@ -477,5 +496,30 @@ public class TestMergePatternRecognitionNodes
                                                                 "b", PlanMatchPattern.expression("b"),
                                                                 "expression_1", PlanMatchPattern.expression("a * a")),
                                                         values("a", "b"))))));
+    }
+
+    @Test
+    public void testMergeWithAggregation()
+    {
+        QualifiedName count = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("count"), fromTypes(BIGINT)).toQualifiedName();
+        tester().assertThat(new MergePatternRecognitionNodesWithoutProject())
+                .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
+                        .pattern(new IrLabel("X"))
+                        .addVariableDefinition(
+                                new IrLabel("X"),
+                                new ComparisonExpression(GREATER_THAN, new FunctionCall(count, ImmutableList.of(expression("a"))), expression("5")))
+                        .source(p.patternRecognition(childBuilder -> childBuilder
+                                .pattern(new IrLabel("X"))
+                                .addVariableDefinition(
+                                        new IrLabel("X"),
+                                        new ComparisonExpression(GREATER_THAN, new FunctionCall(count, ImmutableList.of(expression("a"))), expression("5")))
+                                .source(p.values(p.symbol("a")))))))
+                .matches(
+                        patternRecognition(builder -> builder
+                                        .pattern(new IrLabel("X"))
+                                        .addVariableDefinition(
+                                                new IrLabel("X"),
+                                                new ComparisonExpression(GREATER_THAN, new FunctionCall(count, ImmutableList.of(expression("a"))), expression("5"))),
+                                values("a")));
     }
 }

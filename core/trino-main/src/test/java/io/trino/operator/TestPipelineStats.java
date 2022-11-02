@@ -53,7 +53,6 @@ public class TestPipelineStats
 
             DataSize.ofBytes(5),
             DataSize.ofBytes(6),
-            DataSize.ofBytes(7),
 
             getTestDistribution(8),
             getTestDistribution(9),
@@ -77,8 +76,12 @@ public class TestPipelineStats
             DataSize.ofBytes(16),
             17,
 
+            new Duration(101, NANOSECONDS),
+
             DataSize.ofBytes(18),
             19,
+
+            new Duration(102, NANOSECONDS),
 
             DataSize.ofBytes(20),
 
@@ -116,7 +119,6 @@ public class TestPipelineStats
 
         assertEquals(actual.getUserMemoryReservation(), DataSize.ofBytes(5));
         assertEquals(actual.getRevocableMemoryReservation(), DataSize.ofBytes(6));
-        assertEquals(actual.getSystemMemoryReservation(), DataSize.ofBytes(7));
 
         assertEquals(actual.getQueuedTime().getCount(), 8.0);
         assertEquals(actual.getElapsedTime().getCount(), 9.0);
@@ -138,8 +140,12 @@ public class TestPipelineStats
         assertEquals(actual.getProcessedInputDataSize(), DataSize.ofBytes(16));
         assertEquals(actual.getProcessedInputPositions(), 17);
 
+        assertEquals(actual.getInputBlockedTime(), new Duration(101, NANOSECONDS));
+
         assertEquals(actual.getOutputDataSize(), DataSize.ofBytes(18));
         assertEquals(actual.getOutputPositions(), 19);
+
+        assertEquals(actual.getOutputBlockedTime(), new Duration(102, NANOSECONDS));
 
         assertEquals(actual.getPhysicalWrittenDataSize(), DataSize.ofBytes(20));
 

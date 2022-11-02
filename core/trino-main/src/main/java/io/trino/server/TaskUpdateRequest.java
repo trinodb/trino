@@ -17,7 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.SessionRepresentation;
-import io.trino.execution.TaskSource;
+import io.trino.execution.SplitAssignment;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.PlanFragment;
@@ -36,7 +36,7 @@ public class TaskUpdateRequest
     // extraCredentials is stored separately from SessionRepresentation to avoid being leaked
     private final Map<String, String> extraCredentials;
     private final Optional<PlanFragment> fragment;
-    private final List<TaskSource> sources;
+    private final List<SplitAssignment> splitAssignments;
     private final OutputBuffers outputIds;
     private final Map<DynamicFilterId, Domain> dynamicFilterDomains;
 
@@ -45,21 +45,21 @@ public class TaskUpdateRequest
             @JsonProperty("session") SessionRepresentation session,
             @JsonProperty("extraCredentials") Map<String, String> extraCredentials,
             @JsonProperty("fragment") Optional<PlanFragment> fragment,
-            @JsonProperty("sources") List<TaskSource> sources,
+            @JsonProperty("splitAssignments") List<SplitAssignment> splitAssignments,
             @JsonProperty("outputIds") OutputBuffers outputIds,
             @JsonProperty("dynamicFilterDomains") Map<DynamicFilterId, Domain> dynamicFilterDomains)
     {
         requireNonNull(session, "session is null");
         requireNonNull(extraCredentials, "extraCredentials is null");
         requireNonNull(fragment, "fragment is null");
-        requireNonNull(sources, "sources is null");
+        requireNonNull(splitAssignments, "splitAssignments is null");
         requireNonNull(outputIds, "outputIds is null");
         requireNonNull(dynamicFilterDomains, "dynamicFilterDomains is null");
 
         this.session = session;
         this.extraCredentials = extraCredentials;
         this.fragment = fragment;
-        this.sources = ImmutableList.copyOf(sources);
+        this.splitAssignments = ImmutableList.copyOf(splitAssignments);
         this.outputIds = outputIds;
         this.dynamicFilterDomains = dynamicFilterDomains;
     }
@@ -83,9 +83,9 @@ public class TaskUpdateRequest
     }
 
     @JsonProperty
-    public List<TaskSource> getSources()
+    public List<SplitAssignment> getSplitAssignments()
     {
-        return sources;
+        return splitAssignments;
     }
 
     @JsonProperty
@@ -107,7 +107,7 @@ public class TaskUpdateRequest
                 .add("session", session)
                 .add("extraCredentials", extraCredentials.keySet())
                 .add("fragment", fragment)
-                .add("sources", sources)
+                .add("splitAssignments", splitAssignments)
                 .add("outputIds", outputIds)
                 .add("dynamicFilterDomains", dynamicFilterDomains)
                 .toString();

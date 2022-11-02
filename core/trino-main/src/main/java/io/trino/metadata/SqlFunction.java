@@ -13,13 +13,17 @@
  */
 package io.trino.metadata;
 
-import static io.trino.metadata.FunctionDependencyDeclaration.NO_DEPENDENCIES;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencyDeclaration;
+import io.trino.spi.function.FunctionMetadata;
+
+import static io.trino.spi.function.FunctionDependencyDeclaration.NO_DEPENDENCIES;
 
 public interface SqlFunction
 {
     FunctionMetadata getFunctionMetadata();
 
-    default FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    default FunctionDependencyDeclaration getFunctionDependencies(BoundSignature boundSignature)
     {
         return getFunctionDependencies();
     }

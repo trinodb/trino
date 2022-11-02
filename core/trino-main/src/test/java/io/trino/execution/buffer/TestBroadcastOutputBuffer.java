@@ -17,12 +17,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
-import io.trino.execution.StateMachine;
-import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.StageId;
+import io.trino.execution.TaskId;
+import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.MemoryReservationHandler;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.spi.Page;
+import io.trino.spi.QueryId;
 import io.trino.spi.type.BigintType;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -37,8 +39,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.execution.buffer.BufferResult.emptyResults;
+import static io.trino.execution.buffer.BufferState.ABORTED;
+import static io.trino.execution.buffer.BufferState.FINISHED;
+import static io.trino.execution.buffer.BufferState.FLUSHING;
+import static io.trino.execution.buffer.BufferState.NO_MORE_BUFFERS;
 import static io.trino.execution.buffer.BufferState.OPEN;
-import static io.trino.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
 import static io.trino.execution.buffer.BufferTestUtils.MAX_WAIT;
 import static io.trino.execution.buffer.BufferTestUtils.NO_WAIT;
 import static io.trino.execution.buffer.BufferTestUtils.acknowledgeBufferResult;
@@ -55,9 +60,8 @@ import static io.trino.execution.buffer.BufferTestUtils.getBufferResult;
 import static io.trino.execution.buffer.BufferTestUtils.getFuture;
 import static io.trino.execution.buffer.BufferTestUtils.serializePage;
 import static io.trino.execution.buffer.BufferTestUtils.sizeOfPages;
-import static io.trino.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
-import static io.trino.execution.buffer.OutputBuffers.BufferType.BROADCAST;
-import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.trino.execution.buffer.PipelinedOutputBuffers.BROADCAST_PARTITION_ID;
+import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.BROADCAST;
 import static io.trino.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -97,10 +101,10 @@ public class TestBroadcastOutputBuffer
     @Test
     public void testInvalidConstructorArg()
     {
-        assertThatThrownBy(() -> createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST).withBuffer(FIRST, BROADCAST_PARTITION_ID).withNoMoreBufferIds(), DataSize.ofBytes(0)))
+        assertThatThrownBy(() -> createBroadcastBuffer(PipelinedOutputBuffers.createInitial(BROADCAST).withBuffer(FIRST, BROADCAST_PARTITION_ID).withNoMoreBufferIds(), DataSize.ofBytes(0)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("maxBufferedBytes must be > 0");
-        assertThatThrownBy(() -> createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), DataSize.ofBytes(0)))
+        assertThatThrownBy(() -> createBroadcastBuffer(PipelinedOutputBuffers.createInitial(BROADCAST), DataSize.ofBytes(0)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("maxBufferedBytes must be > 0");
     }
@@ -108,7 +112,7 @@ public class TestBroadcastOutputBuffer
     @Test
     public void testSimple()
     {
-        OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(BROADCAST);
+        PipelinedOutputBuffers outputBuffers = PipelinedOutputBuffers.createInitial(BROADCAST);
         BroadcastOutputBuffer buffer = createBroadcastBuffer(outputBuffers, sizeOfPages(10));
 
         // add three items
@@ -116,7 +120,7 @@ public class TestBroadcastOutputBuffer
             addPage(buffer, createPage(i));
         }
 
-        outputBuffers = createInitialEmptyOutputBuffers(BROADCAST).withBuffer(FIRST, BROADCAST_PARTITION_ID);
+        outputBuffers = PipelinedOutputBuffers.createInitial(BROADCAST).withBuffer(FIRST, BROADCAST_PARTITION_ID);
 
         // add a queue
         buffer.setOutputBuffers(outputBuffers);
@@ -201,19 +205,19 @@ public class TestBroadcastOutputBuffer
 
         //
         // finish the buffer
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
         buffer.setNoMorePages();
         assertQueueState(buffer, FIRST, 10, 4);
         assertQueueState(buffer, SECOND, 4, 10);
 
         // not fully finished until all pages are consumed
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), FLUSHING);
 
         // remove a page, not finished
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 5, sizeOfPages(1), NO_WAIT), bufferResult(5, createPage(5)));
         assertQueueState(buffer, FIRST, 9, 5);
         assertQueueState(buffer, SECOND, 4, 10);
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), FLUSHING);
 
         // remove all remaining pages from first queue, should not be finished
         BufferResult x = getBufferResult(buffer, FIRST, 6, sizeOfPages(10), NO_WAIT);
@@ -229,10 +233,10 @@ public class TestBroadcastOutputBuffer
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 14, sizeOfPages(10), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 14, true));
 
         // finish first queue
-        buffer.abort(FIRST);
+        buffer.destroy(FIRST);
         assertQueueClosed(buffer, FIRST, 14);
         assertQueueState(buffer, SECOND, 4, 10);
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), FLUSHING);
 
         // remove all remaining pages from second queue, should be finished
         assertBufferResultEquals(TYPES, getBufferResult(buffer, SECOND, 10, sizeOfPages(10), NO_WAIT), bufferResult(10, createPage(10),
@@ -241,7 +245,7 @@ public class TestBroadcastOutputBuffer
                 createPage(13)));
         assertQueueState(buffer, SECOND, 4, 10);
         assertBufferResultEquals(TYPES, getBufferResult(buffer, SECOND, 14, sizeOfPages(10), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 14, true));
-        buffer.abort(SECOND);
+        buffer.destroy(SECOND);
         assertQueueClosed(buffer, FIRST, 14);
         assertQueueClosed(buffer, SECOND, 14);
         assertFinished(buffer);
@@ -254,7 +258,7 @@ public class TestBroadcastOutputBuffer
     @Test
     public void testAcknowledge()
     {
-        OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(BROADCAST);
+        OutputBuffers outputBuffers = PipelinedOutputBuffers.createInitial(BROADCAST);
         BroadcastOutputBuffer buffer = createBroadcastBuffer(outputBuffers, sizeOfPages(10));
 
         // add three items
@@ -262,7 +266,7 @@ public class TestBroadcastOutputBuffer
             addPage(buffer, createPage(i));
         }
 
-        outputBuffers = createInitialEmptyOutputBuffers(BROADCAST).withBuffer(FIRST, BROADCAST_PARTITION_ID);
+        outputBuffers = PipelinedOutputBuffers.createInitial(BROADCAST).withBuffer(FIRST, BROADCAST_PARTITION_ID);
 
         // add a queue
         buffer.setOutputBuffers(outputBuffers);
@@ -300,7 +304,7 @@ public class TestBroadcastOutputBuffer
     @Test
     public void testSharedBufferFull()
     {
-        BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), sizeOfPages(2));
+        BroadcastOutputBuffer buffer = createBroadcastBuffer(PipelinedOutputBuffers.createInitial(BROADCAST), sizeOfPages(2));
 
         // Add two pages, buffer is full
         addPage(buffer, createPage(1));
@@ -315,7 +319,7 @@ public class TestBroadcastOutputBuffer
     {
         AtomicInteger notifyCount = new AtomicInteger();
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
-                createInitialEmptyOutputBuffers(BROADCAST).withBuffer(FIRST, BROADCAST_PARTITION_ID),
+                PipelinedOutputBuffers.createInitial(BROADCAST).withBuffer(FIRST, BROADCAST_PARTITION_ID),
                 sizeOfPages(1),
                 notifyCount::incrementAndGet);
 
@@ -330,7 +334,7 @@ public class TestBroadcastOutputBuffer
         assertEquals(notifyCount.get(), 1);
 
         // Set no more buffers
-        buffer.setOutputBuffers(createInitialEmptyOutputBuffers(BROADCAST).withBuffer(FIRST, BROADCAST_PARTITION_ID).withNoMoreBufferIds());
+        buffer.setOutputBuffers(PipelinedOutputBuffers.createInitial(BROADCAST).withBuffer(FIRST, BROADCAST_PARTITION_ID).withNoMoreBufferIds());
 
         // Acknowledge both pages in the buffer to remove them
         buffer.acknowledge(FIRST, 2);
@@ -349,7 +353,7 @@ public class TestBroadcastOutputBuffer
     {
         AtomicInteger notifyCount = new AtomicInteger();
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
-                createInitialEmptyOutputBuffers(BROADCAST)
+                PipelinedOutputBuffers.createInitial(BROADCAST)
                         .withBuffer(FIRST, BROADCAST_PARTITION_ID)
                         .withNoMoreBufferIds(),
                 sizeOfPages(1),
@@ -381,7 +385,7 @@ public class TestBroadcastOutputBuffer
     public void testDuplicateRequests()
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
-                createInitialEmptyOutputBuffers(BROADCAST)
+                PipelinedOutputBuffers.createInitial(BROADCAST)
                         .withBuffer(FIRST, BROADCAST_PARTITION_ID)
                         .withNoMoreBufferIds(),
                 sizeOfPages(10));
@@ -417,14 +421,14 @@ public class TestBroadcastOutputBuffer
     public void testAddQueueAfterCreation()
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
-                createInitialEmptyOutputBuffers(BROADCAST)
+                PipelinedOutputBuffers.createInitial(BROADCAST)
                         .withBuffer(FIRST, BROADCAST_PARTITION_ID)
                         .withNoMoreBufferIds(),
                 sizeOfPages(10));
 
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
-        assertThatThrownBy(() -> buffer.setOutputBuffers(createInitialEmptyOutputBuffers(BROADCAST)
+        assertThatThrownBy(() -> buffer.setOutputBuffers(PipelinedOutputBuffers.createInitial(BROADCAST)
                 .withBuffer(FIRST, BROADCAST_PARTITION_ID)
                 .withBuffer(SECOND, BROADCAST_PARTITION_ID)
                 .withNoMoreBufferIds()))
@@ -436,7 +440,7 @@ public class TestBroadcastOutputBuffer
     public void testAddAfterFinish()
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
-                createInitialEmptyOutputBuffers(BROADCAST)
+                PipelinedOutputBuffers.createInitial(BROADCAST)
                         .withBuffer(FIRST, BROADCAST_PARTITION_ID)
                         .withNoMoreBufferIds(),
                 sizeOfPages(10));
@@ -449,27 +453,27 @@ public class TestBroadcastOutputBuffer
     @Test
     public void testAddQueueAfterNoMoreQueues()
     {
-        BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), sizeOfPages(10));
-        assertFalse(buffer.isFinished());
+        BroadcastOutputBuffer buffer = createBroadcastBuffer(PipelinedOutputBuffers.createInitial(BROADCAST), sizeOfPages(10));
+        assertEquals(buffer.getState(), OPEN);
 
         // tell buffer no more queues will be added
-        buffer.setOutputBuffers(createInitialEmptyOutputBuffers(BROADCAST).withNoMoreBufferIds());
-        assertTrue(buffer.isFinished());
+        buffer.setOutputBuffers(PipelinedOutputBuffers.createInitial(BROADCAST).withNoMoreBufferIds());
+        assertEquals(buffer.getState(), FINISHED);
 
         // set no more queues a second time to assure that we don't get an exception or such
-        buffer.setOutputBuffers(createInitialEmptyOutputBuffers(BROADCAST).withNoMoreBufferIds());
-        assertTrue(buffer.isFinished());
+        buffer.setOutputBuffers(PipelinedOutputBuffers.createInitial(BROADCAST).withNoMoreBufferIds());
+        assertEquals(buffer.getState(), FINISHED);
 
         // set no more queues a third time to assure that we don't get an exception or such
-        buffer.setOutputBuffers(createInitialEmptyOutputBuffers(BROADCAST).withNoMoreBufferIds());
-        assertTrue(buffer.isFinished());
+        buffer.setOutputBuffers(PipelinedOutputBuffers.createInitial(BROADCAST).withNoMoreBufferIds());
+        assertEquals(buffer.getState(), FINISHED);
     }
 
     @Test
     public void testAddAfterDestroy()
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
-                createInitialEmptyOutputBuffers(BROADCAST)
+                PipelinedOutputBuffers.createInitial(BROADCAST)
                         .withBuffer(FIRST, BROADCAST_PARTITION_ID)
                         .withNoMoreBufferIds(),
                 sizeOfPages(10));
@@ -482,8 +486,8 @@ public class TestBroadcastOutputBuffer
     @Test
     public void testGetBeforeCreate()
     {
-        BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), sizeOfPages(10));
-        assertFalse(buffer.isFinished());
+        BroadcastOutputBuffer buffer = createBroadcastBuffer(PipelinedOutputBuffers.createInitial(BROADCAST), sizeOfPages(10));
+        assertEquals(buffer.getState(), OPEN);
 
         // get a page from a buffer that doesn't exist yet
         ListenableFuture<BufferResult> future = buffer.get(FIRST, 0L, sizeOfPages(1));
@@ -498,8 +502,8 @@ public class TestBroadcastOutputBuffer
     @Test
     public void testSetFinalBuffersWihtoutDeclaringUsedBuffer()
     {
-        BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), sizeOfPages(10));
-        assertFalse(buffer.isFinished());
+        BroadcastOutputBuffer buffer = createBroadcastBuffer(PipelinedOutputBuffers.createInitial(BROADCAST), sizeOfPages(10));
+        assertEquals(buffer.getState(), OPEN);
 
         // get a page from a buffer that doesn't exist yet
         ListenableFuture<BufferResult> future = buffer.get(FIRST, 0L, sizeOfPages(1));
@@ -515,10 +519,10 @@ public class TestBroadcastOutputBuffer
 
         // acknowledge the page and verify we are finished
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 1, sizeOfPages(10), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 1, true));
-        buffer.abort(FIRST);
+        buffer.destroy(FIRST);
 
         // set final buffers to a set that does not contain the buffer, which will fail
-        assertThatThrownBy(() -> buffer.setOutputBuffers(createInitialEmptyOutputBuffers(BROADCAST).withNoMoreBufferIds()))
+        assertThatThrownBy(() -> buffer.setOutputBuffers(PipelinedOutputBuffers.createInitial(BROADCAST).withNoMoreBufferIds()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageMatching(".*does not contain.*\\[0]");
     }
@@ -527,11 +531,11 @@ public class TestBroadcastOutputBuffer
     public void testUseUndeclaredBufferAfterFinalBuffersSet()
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
-                createInitialEmptyOutputBuffers(BROADCAST)
+                PipelinedOutputBuffers.createInitial(BROADCAST)
                         .withBuffer(FIRST, BROADCAST_PARTITION_ID)
                         .withNoMoreBufferIds(),
                 sizeOfPages(10));
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
         // get a page from a buffer that was not declared, which will fail
         assertThatThrownBy(() -> buffer.get(SECOND, 0L, sizeOfPages(1)))
@@ -542,15 +546,15 @@ public class TestBroadcastOutputBuffer
     @Test
     public void testAbortBeforeCreate()
     {
-        BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), sizeOfPages(2));
-        assertFalse(buffer.isFinished());
+        BroadcastOutputBuffer buffer = createBroadcastBuffer(PipelinedOutputBuffers.createInitial(BROADCAST), sizeOfPages(2));
+        assertEquals(buffer.getState(), OPEN);
 
         // get a page from a buffer that doesn't exist yet
         ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(1));
         assertFalse(future.isDone());
 
-        // abort that buffer, and verify the future is complete and buffer is finished
-        buffer.abort(FIRST);
+        // destroy that buffer, and verify the future is complete and buffer is finished
+        buffer.destroy(FIRST);
         assertTrue(future.isDone());
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(10), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, true));
     }
@@ -559,7 +563,7 @@ public class TestBroadcastOutputBuffer
     public void testFullBufferBlocksWriter()
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
-                createInitialEmptyOutputBuffers(BROADCAST)
+                PipelinedOutputBuffers.createInitial(BROADCAST)
                         .withBuffer(FIRST, BROADCAST_PARTITION_ID)
                         .withBuffer(SECOND, BROADCAST_PARTITION_ID)
                         .withNoMoreBufferIds(),
@@ -577,7 +581,7 @@ public class TestBroadcastOutputBuffer
     public void testAcknowledgementFreesWriters()
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
-                createInitialEmptyOutputBuffers(BROADCAST)
+                PipelinedOutputBuffers.createInitial(BROADCAST)
                         .withBuffer(FIRST, BROADCAST_PARTITION_ID)
                         .withBuffer(SECOND, BROADCAST_PARTITION_ID)
                         .withNoMoreBufferIds(),
@@ -612,7 +616,7 @@ public class TestBroadcastOutputBuffer
     public void testAbort()
     {
         BroadcastOutputBuffer bufferedBuffer = createBroadcastBuffer(
-                createInitialEmptyOutputBuffers(BROADCAST)
+                PipelinedOutputBuffers.createInitial(BROADCAST)
                         .withBuffer(FIRST, BROADCAST_PARTITION_ID)
                         .withBuffer(SECOND, BROADCAST_PARTITION_ID)
                         .withNoMoreBufferIds(),
@@ -625,12 +629,12 @@ public class TestBroadcastOutputBuffer
         bufferedBuffer.setNoMorePages();
 
         assertBufferResultEquals(TYPES, getBufferResult(bufferedBuffer, FIRST, 0, sizeOfPages(1), NO_WAIT), bufferResult(0, createPage(0)));
-        bufferedBuffer.abort(FIRST);
+        bufferedBuffer.destroy(FIRST);
         assertQueueClosed(bufferedBuffer, FIRST, 0);
         assertBufferResultEquals(TYPES, getBufferResult(bufferedBuffer, FIRST, 1, sizeOfPages(1), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, true));
 
         assertBufferResultEquals(TYPES, getBufferResult(bufferedBuffer, SECOND, 0, sizeOfPages(1), NO_WAIT), bufferResult(0, createPage(0)));
-        bufferedBuffer.abort(SECOND);
+        bufferedBuffer.destroy(SECOND);
         assertQueueClosed(bufferedBuffer, SECOND, 0);
         assertFinished(bufferedBuffer);
         assertBufferResultEquals(TYPES, getBufferResult(bufferedBuffer, SECOND, 1, sizeOfPages(1), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, true));
@@ -640,7 +644,7 @@ public class TestBroadcastOutputBuffer
     public void testFinishClosesEmptyQueues()
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
-                createInitialEmptyOutputBuffers(BROADCAST)
+                PipelinedOutputBuffers.createInitial(BROADCAST)
                         .withBuffer(FIRST, BROADCAST_PARTITION_ID)
                         .withBuffer(SECOND, BROADCAST_PARTITION_ID)
                         .withNoMoreBufferIds(),
@@ -652,8 +656,8 @@ public class TestBroadcastOutputBuffer
         assertQueueState(buffer, FIRST, 0, 0);
         assertQueueState(buffer, SECOND, 0, 0);
 
-        buffer.abort(FIRST);
-        buffer.abort(SECOND);
+        buffer.destroy(FIRST);
+        buffer.destroy(SECOND);
 
         assertQueueClosed(buffer, FIRST, 0);
         assertQueueClosed(buffer, SECOND, 0);
@@ -663,12 +667,12 @@ public class TestBroadcastOutputBuffer
     public void testAbortFreesReader()
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
-                createInitialEmptyOutputBuffers(BROADCAST)
+                PipelinedOutputBuffers.createInitial(BROADCAST)
                         .withBuffer(FIRST, BROADCAST_PARTITION_ID)
                         .withBuffer(SECOND, BROADCAST_PARTITION_ID)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
         // attempt to get a page
         ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
@@ -687,8 +691,8 @@ public class TestBroadcastOutputBuffer
         future = buffer.get(FIRST, 1, sizeOfPages(10));
         assertFalse(future.isDone());
 
-        // abort the buffer
-        buffer.abort(FIRST);
+        // destroy the buffer
+        buffer.destroy(FIRST);
 
         // verify the future completed
         // broadcast buffer does not return a "complete" result in this case, but it doesn't mapper
@@ -702,11 +706,11 @@ public class TestBroadcastOutputBuffer
     public void testFinishFreesReader()
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
-                createInitialEmptyOutputBuffers(BROADCAST)
+                PipelinedOutputBuffers.createInitial(BROADCAST)
                         .withBuffer(FIRST, BROADCAST_PARTITION_ID)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
         // attempt to get a page
         ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
@@ -736,11 +740,11 @@ public class TestBroadcastOutputBuffer
     public void testFinishFreesWriter()
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
-                createInitialEmptyOutputBuffers(BROADCAST)
+                PipelinedOutputBuffers.createInitial(BROADCAST)
                         .withBuffer(FIRST, BROADCAST_PARTITION_ID)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
         // fill the buffer
         for (int i = 0; i < 5; i++) {
@@ -761,7 +765,7 @@ public class TestBroadcastOutputBuffer
 
         // finish the query
         buffer.setNoMorePages();
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), FLUSHING);
 
         // verify futures are complete
         assertFutureIsDone(firstEnqueuePage);
@@ -772,7 +776,7 @@ public class TestBroadcastOutputBuffer
                 bufferResult(1, createPage(1), createPage(2), createPage(3), createPage(4), createPage(5), createPage(6)));
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 7, sizeOfPages(100), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 7, true));
 
-        buffer.abort(FIRST);
+        buffer.destroy(FIRST);
 
         // verify finished
         assertFinished(buffer);
@@ -782,11 +786,11 @@ public class TestBroadcastOutputBuffer
     public void testDestroyFreesReader()
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
-                createInitialEmptyOutputBuffers(BROADCAST)
+                PipelinedOutputBuffers.createInitial(BROADCAST)
                         .withBuffer(FIRST, BROADCAST_PARTITION_ID)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
         // attempt to get a page
         ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
@@ -816,11 +820,11 @@ public class TestBroadcastOutputBuffer
     public void testDestroyFreesWriter()
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
-                createInitialEmptyOutputBuffers(BROADCAST)
+                PipelinedOutputBuffers.createInitial(BROADCAST)
                         .withBuffer(FIRST, BROADCAST_PARTITION_ID)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
         // fill the buffer
         for (int i = 0; i < 5; i++) {
@@ -852,11 +856,11 @@ public class TestBroadcastOutputBuffer
     public void testFailDoesNotFreeReader()
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
-                createInitialEmptyOutputBuffers(BROADCAST)
+                PipelinedOutputBuffers.createInitial(BROADCAST)
                         .withBuffer(FIRST, BROADCAST_PARTITION_ID)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
         // attempt to get a page
         ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
@@ -874,8 +878,8 @@ public class TestBroadcastOutputBuffer
         future = buffer.get(FIRST, 1, sizeOfPages(10));
         assertFalse(future.isDone());
 
-        // fail the buffer
-        buffer.fail();
+        // abort the buffer
+        buffer.abort();
 
         // future should have not finished
         assertFalse(future.isDone());
@@ -889,11 +893,11 @@ public class TestBroadcastOutputBuffer
     public void testFailFreesWriter()
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
-                createInitialEmptyOutputBuffers(BROADCAST)
+                PipelinedOutputBuffers.createInitial(BROADCAST)
                         .withBuffer(FIRST, BROADCAST_PARTITION_ID)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
         // fill the buffer
         for (int i = 0; i < 5; i++) {
@@ -912,9 +916,9 @@ public class TestBroadcastOutputBuffer
         assertFalse(firstEnqueuePage.isDone());
         assertFalse(secondEnqueuePage.isDone());
 
-        // fail the buffer (i.e., cancel the query)
-        buffer.fail();
-        assertFalse(buffer.isFinished());
+        // abort the buffer (i.e., fail the query)
+        buffer.abort();
+        assertEquals(buffer.getState(), ABORTED);
 
         // verify the futures are completed
         assertFutureIsDone(firstEnqueuePage);
@@ -924,10 +928,10 @@ public class TestBroadcastOutputBuffer
     @Test
     public void testAddBufferAfterFail()
     {
-        OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(BROADCAST)
+        PipelinedOutputBuffers outputBuffers = PipelinedOutputBuffers.createInitial(BROADCAST)
                 .withBuffer(FIRST, BROADCAST_PARTITION_ID);
         BroadcastOutputBuffer buffer = createBroadcastBuffer(outputBuffers, sizeOfPages(5));
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), OPEN);
 
         // attempt to get a page
         ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
@@ -941,8 +945,8 @@ public class TestBroadcastOutputBuffer
         // verify we got one page
         assertBufferResultEquals(TYPES, getFuture(future, NO_WAIT), bufferResult(0, createPage(0)));
 
-        // fail the buffer
-        buffer.fail();
+        // abort the buffer
+        buffer.abort();
 
         // add a buffer
         outputBuffers = outputBuffers.withBuffer(SECOND, BROADCAST_PARTITION_ID);
@@ -969,12 +973,12 @@ public class TestBroadcastOutputBuffer
     public void testBufferCompletion()
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
-                createInitialEmptyOutputBuffers(BROADCAST)
+                PipelinedOutputBuffers.createInitial(BROADCAST)
                         .withBuffer(FIRST, BROADCAST_PARTITION_ID)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
 
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
         // fill the buffer
         List<Page> pages = new ArrayList<>();
@@ -989,17 +993,14 @@ public class TestBroadcastOutputBuffer
         // get and acknowledge 5 pages
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(5), MAX_WAIT), createBufferResult(TASK_INSTANCE_ID, 0, pages));
 
-        // buffer is not finished
-        assertFalse(buffer.isFinished());
-
         // there are no more pages and no more buffers, but buffer is not finished because it didn't receive an acknowledgement yet
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), FLUSHING);
 
         // ask the buffer to finish
-        buffer.abort(FIRST);
+        buffer.destroy(FIRST);
 
         // verify that the buffer is finished
-        assertTrue(buffer.isFinished());
+        assertEquals(buffer.getState(), FINISHED);
     }
 
     @Test
@@ -1010,10 +1011,10 @@ public class TestBroadcastOutputBuffer
         AggregatedMemoryContext memoryContext = newRootAggregatedMemoryContext(reservationHandler, 0L);
 
         Page page = createPage(1);
-        long pageSize = serializePage(page).getRetainedSizeInBytes();
+        long pageSize = serializePage(page).getRetainedSize();
 
         // create a buffer that can only hold two pages
-        BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), DataSize.ofBytes(pageSize * 2), memoryContext, directExecutor());
+        BroadcastOutputBuffer buffer = createBroadcastBuffer(PipelinedOutputBuffers.createInitial(BROADCAST), DataSize.ofBytes(pageSize * 2), memoryContext, directExecutor());
         OutputBufferMemoryManager memoryManager = buffer.getMemoryManager();
 
         // adding the first page will block as no memory is available (MockMemoryReservationHandler will return a future that is not done)
@@ -1041,10 +1042,10 @@ public class TestBroadcastOutputBuffer
         AggregatedMemoryContext memoryContext = newRootAggregatedMemoryContext(reservationHandler, 0L);
 
         Page page = createPage(1);
-        long pageSize = serializePage(page).getRetainedSizeInBytes();
+        long pageSize = serializePage(page).getRetainedSize();
 
         // create a buffer that can only hold two pages
-        BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), DataSize.ofBytes(pageSize * 2), memoryContext, directExecutor());
+        BroadcastOutputBuffer buffer = createBroadcastBuffer(PipelinedOutputBuffers.createInitial(BROADCAST), DataSize.ofBytes(pageSize * 2), memoryContext, directExecutor());
         OutputBufferMemoryManager memoryManager = buffer.getMemoryManager();
 
         // add two pages to fill up the buffer (memory is available)
@@ -1087,10 +1088,10 @@ public class TestBroadcastOutputBuffer
         AggregatedMemoryContext memoryContext = newRootAggregatedMemoryContext(reservationHandler, 0L);
 
         Page page = createPage(1);
-        long pageSize = serializePage(page).getRetainedSizeInBytes();
+        long pageSize = serializePage(page).getRetainedSize();
 
         // create a buffer that can only hold two pages
-        BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), DataSize.ofBytes(pageSize * 2), memoryContext, directExecutor());
+        BroadcastOutputBuffer buffer = createBroadcastBuffer(PipelinedOutputBuffers.createInitial(BROADCAST), DataSize.ofBytes(pageSize * 2), memoryContext, directExecutor());
         OutputBufferMemoryManager memoryManager = buffer.getMemoryManager();
 
         memoryManager.setNoBlockOnFull();
@@ -1143,7 +1144,7 @@ public class TestBroadcastOutputBuffer
     {
         BroadcastOutputBuffer buffer = new BroadcastOutputBuffer(
                 TASK_INSTANCE_ID,
-                new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
+                new OutputBufferStateMachine(new TaskId(new StageId(new QueryId("query"), 0), 0, 0), stateNotificationExecutor),
                 dataSize,
                 () -> memoryContext.newLocalMemoryContext("test"),
                 notificationExecutor,
@@ -1156,7 +1157,7 @@ public class TestBroadcastOutputBuffer
     public void testBufferFinishesWhenClientBuffersDestroyed()
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
-                createInitialEmptyOutputBuffers(BROADCAST)
+                PipelinedOutputBuffers.createInitial(BROADCAST)
                         .withBuffer(FIRST, BROADCAST_PARTITION_ID)
                         .withBuffer(SECOND, BROADCAST_PARTITION_ID)
                         .withBuffer(THIRD, BROADCAST_PARTITION_ID)
@@ -1170,21 +1171,21 @@ public class TestBroadcastOutputBuffer
         }
 
         // the buffer is in the NO_MORE_BUFFERS state now
-        // and if we abort all the buffers it should destroy itself
+        // and if we destroy all the buffers it should destroy itself
         // and move to the FINISHED state
-        buffer.abort(FIRST);
-        assertFalse(buffer.isFinished());
-        buffer.abort(SECOND);
-        assertFalse(buffer.isFinished());
-        buffer.abort(THIRD);
-        assertTrue(buffer.isFinished());
+        buffer.destroy(FIRST);
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
+        buffer.destroy(SECOND);
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
+        buffer.destroy(THIRD);
+        assertEquals(buffer.getState(), FINISHED);
     }
 
     @Test
     public void testForceFreeMemory()
     {
         BroadcastOutputBuffer buffer = createBroadcastBuffer(
-                createInitialEmptyOutputBuffers(BROADCAST)
+                PipelinedOutputBuffers.createInitial(BROADCAST)
                         .withBuffer(FIRST, BROADCAST_PARTITION_ID)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
@@ -1209,7 +1210,7 @@ public class TestBroadcastOutputBuffer
     {
         BroadcastOutputBuffer buffer = new BroadcastOutputBuffer(
                 TASK_INSTANCE_ID,
-                new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
+                new OutputBufferStateMachine(new TaskId(new StageId(new QueryId("query"), 0), 0, 0), stateNotificationExecutor),
                 dataSize,
                 () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 stateNotificationExecutor,

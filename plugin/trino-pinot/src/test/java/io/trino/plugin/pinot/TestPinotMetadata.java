@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.TestingTypeManager;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -29,7 +30,7 @@ import static org.testng.Assert.assertEquals;
 public class TestPinotMetadata
 {
     private final PinotConfig pinotConfig = new PinotConfig().setControllerUrls("localhost:9000");
-    private final PinotMetadata metadata = new PinotMetadata(new MockPinotClient(pinotConfig), pinotConfig, Executors.newSingleThreadExecutor());
+    private final PinotMetadata metadata = new PinotMetadata(new MockPinotClient(pinotConfig), pinotConfig, Executors.newSingleThreadExecutor(), new PinotTypeConverter(new TestingTypeManager()));
 
     @Test
     public void testTables()
@@ -49,6 +50,6 @@ public class TestPinotMetadata
         PinotTableHandle withAnotherSchema = metadata.getTableHandle(session, new SchemaTableName(TestPinotSplitManager.realtimeOnlyTable.getTableName(), TestPinotSplitManager.realtimeOnlyTable.getTableName()));
         assertEquals(withAnotherSchema.getTableName(), TestPinotSplitManager.realtimeOnlyTable.getTableName());
         PinotTableHandle withUppercaseTable = metadata.getTableHandle(session, new SchemaTableName("default", TEST_TABLE));
-        assertEquals(withUppercaseTable.getTableName(), "airlinestats");
+        assertEquals(withUppercaseTable.getTableName(), "airlineStats");
     }
 }

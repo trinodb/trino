@@ -61,4 +61,10 @@ public class TestHiveInMemoryMetastore
     {
         throw new SkipException("not supported");
     }
+
+    @Override
+    public void testDisallowQueryingOfIcebergTables()
+    {
+        throw new SkipException("not supported");
+    }
 }

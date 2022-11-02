@@ -39,10 +39,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -64,10 +66,11 @@ class StatementClientV1
     private static final MediaType MEDIA_TYPE_TEXT = MediaType.parse("text/plain; charset=utf-8");
     private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
 
-    private static final Splitter SESSION_HEADER_SPLITTER = Splitter.on('=').limit(2).trimResults();
+    private static final Splitter COLLECTION_HEADER_SPLITTER = Splitter.on('=').limit(2).trimResults();
     private static final String USER_AGENT_VALUE = StatementClientV1.class.getSimpleName() +
             "/" +
             firstNonNull(StatementClientV1.class.getPackage().getImplementationVersion(), "unknown");
+    private static final long MAX_MATERIALIZED_JSON_RESPONSE_SIZE = 128 * 1024;
 
     private final OkHttpClient httpClient;
     private final String query;
@@ -84,7 +87,7 @@ class StatementClientV1
     private final AtomicBoolean clearTransactionId = new AtomicBoolean();
     private final ZoneId timeZone;
     private final Duration requestTimeoutNanos;
-    private final String user;
+    private final Optional<String> user;
     private final String clientCapabilities;
     private final boolean compressionDisabled;
 
@@ -100,13 +103,17 @@ class StatementClientV1
         this.timeZone = session.getTimeZone();
         this.query = query;
         this.requestTimeoutNanos = session.getClientRequestTimeout();
-        this.user = session.getUser().orElse(session.getPrincipal());
+        this.user = Stream.of(session.getUser(), session.getPrincipal())
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .findFirst();
         this.clientCapabilities = Joiner.on(",").join(ClientCapabilities.values());
         this.compressionDisabled = session.isCompressionDisabled();
 
         Request request = buildQueryRequest(session, query);
 
-        JsonResponse<QueryResults> response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request);
+        // Always materialize the first response to avoid losing the response body if the initial response parsing fails
+        JsonResponse<QueryResults> response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request, OptionalLong.empty());
         if ((response.getStatusCode() != HTTP_OK) || !response.hasValue()) {
             state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
             throw requestFailedException("starting query", request, response);
@@ -310,9 +317,9 @@ class StatementClientV1
     private Request.Builder prepareRequest(HttpUrl url)
     {
         Request.Builder builder = new Request.Builder()
-                .addHeader(TRINO_HEADERS.requestUser(), user)
                 .addHeader(USER_AGENT, USER_AGENT_VALUE)
                 .url(url);
+        user.ifPresent(requestUser -> builder.addHeader(TRINO_HEADERS.requestUser(), requestUser));
         if (compressionDisabled) {
             builder.header(ACCEPT_ENCODING, "identity");
         }
@@ -343,13 +350,12 @@ class StatementClientV1
                 return false;
             }
 
-            Duration sinceStart = Duration.nanosSince(start);
-            if (attempts > 0 && sinceStart.compareTo(requestTimeoutNanos) > 0) {
-                state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
-                throw new RuntimeException(format("Error fetching next (attempts: %s, duration: %s)", attempts, sinceStart), cause);
-            }
-
             if (attempts > 0) {
+                Duration sinceStart = Duration.nanosSince(start);
+                if (sinceStart.compareTo(requestTimeoutNanos) > 0) {
+                    state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
+                    throw new RuntimeException(format("Error fetching next (attempts: %s, duration: %s)", attempts, sinceStart), cause);
+                }
                 // back-off on retry
                 try {
                     MILLISECONDS.sleep(attempts * 100);
@@ -369,7 +375,7 @@ class StatementClientV1
 
             JsonResponse<QueryResults> response;
             try {
-                response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request);
+                response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request, OptionalLong.of(MAX_MATERIALIZED_JSON_RESPONSE_SIZE));
             }
             catch (RuntimeException e) {
                 cause = e;
@@ -395,7 +401,7 @@ class StatementClientV1
         setPath.set(headers.get(TRINO_HEADERS.responseSetPath()));
 
         for (String setSession : headers.values(TRINO_HEADERS.responseSetSession())) {
-            List<String> keyValue = SESSION_HEADER_SPLITTER.splitToList(setSession);
+            List<String> keyValue = COLLECTION_HEADER_SPLITTER.splitToList(setSession);
             if (keyValue.size() != 2) {
                 continue;
             }
@@ -404,7 +410,7 @@ class StatementClientV1
         resetSessionProperties.addAll(headers.values(TRINO_HEADERS.responseClearSession()));
 
         for (String setRole : headers.values(TRINO_HEADERS.responseSetRole())) {
-            List<String> keyValue = SESSION_HEADER_SPLITTER.splitToList(setRole);
+            List<String> keyValue = COLLECTION_HEADER_SPLITTER.splitToList(setRole);
             if (keyValue.size() != 2) {
                 continue;
             }
@@ -412,7 +418,7 @@ class StatementClientV1
         }
 
         for (String entry : headers.values(TRINO_HEADERS.responseAddedPrepare())) {
-            List<String> keyValue = SESSION_HEADER_SPLITTER.splitToList(entry);
+            List<String> keyValue = COLLECTION_HEADER_SPLITTER.splitToList(entry);
             if (keyValue.size() != 2) {
                 continue;
             }
@@ -443,7 +449,7 @@ class StatementClientV1
                                 .orElse(""));
             }
             return new RuntimeException(
-                    format("Error %s at %s returned an invalid response: %s [Error: %s]", task, request.url(), response, response.getResponseBody()),
+                    format("Error %s at %s returned an invalid response: %s [Error: %s]", task, request.url(), response, response.getResponseBody().orElse("<Response Too Large>")),
                     response.getException());
         }
         return new RuntimeException(format("Error %s at %s returned HTTP %s", task, request.url(), response.getStatusCode()));

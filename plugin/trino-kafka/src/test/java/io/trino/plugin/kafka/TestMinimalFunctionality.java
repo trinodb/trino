@@ -44,10 +44,10 @@ public class TestMinimalFunctionality
         QueryRunner queryRunner = KafkaQueryRunner.builder(testingKafka)
                 .setExtraTopicDescription(ImmutableMap.<SchemaTableName, KafkaTopicDescription>builder()
                         .put(createEmptyTopicDescription(topicName, new SchemaTableName("default", topicName)))
-                        .build())
+                        .buildOrThrow())
                 .setExtraKafkaProperties(ImmutableMap.<String, String>builder()
                         .put("kafka.messages-per-split", "100")
-                        .build())
+                        .buildOrThrow())
                 .build();
         return queryRunner;
     }

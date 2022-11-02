@@ -110,7 +110,6 @@ public class HeartbeatFailureDetector
         requireNonNull(selector, "selector is null");
         requireNonNull(httpClient, "httpClient is null");
         requireNonNull(nodeInfo, "nodeInfo is null");
-        requireNonNull(failureDetectorConfig, "failureDetectorConfig is null");
         checkArgument(failureDetectorConfig.getHeartbeatInterval().toMillis() >= 1, "heartbeat interval must be >= 1ms");
 
         this.selector = selector;
@@ -179,7 +178,7 @@ public class HeartbeatFailureDetector
                     return GONE;
                 }
                 if (lastFailureException instanceof SocketTimeoutException) {
-                    // TODO: distinguish between process unresponsiveness (e.g GC pause) and host reboot
+                    // TODO: distinguish between process unresponsiveness (e.g. GC pause) and host reboot
                     return UNRESPONSIVE;
                 }
 
@@ -214,7 +213,7 @@ public class HeartbeatFailureDetector
         for (MonitoringTask task : tasks.values()) {
             builder.put(task.getService(), task.getStats());
         }
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     @VisibleForTesting
@@ -515,7 +514,7 @@ public class HeartbeatFailureDetector
             for (Map.Entry<Class<? extends Throwable>, DecayCounter> entry : failureCountByType.entrySet()) {
                 builder.put(entry.getKey().getName(), entry.getValue().getCount());
             }
-            return builder.build();
+            return builder.buildOrThrow();
         }
     }
 }

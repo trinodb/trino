@@ -76,7 +76,7 @@ final class MetricComparator
         for (int columnId = 0; columnId < outputNode.getColumnNames().size(); ++columnId) {
             columnSymbols.put(outputNode.getColumnNames().get(columnId), outputNode.getOutputSymbols().get(columnId));
         }
-        return new StatsContext(columnSymbols.build(), queryPlan.getTypes());
+        return new StatsContext(columnSymbols.buildOrThrow(), queryPlan.getTypes());
     }
 
     private static List<OptionalDouble> getActualValues(List<Metric> metrics, String query, QueryRunner runner)

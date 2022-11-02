@@ -13,88 +13,51 @@
  */
 package io.trino.plugin.bigquery;
 
-import com.google.auth.oauth2.GoogleCredentials;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
-import io.airlift.configuration.ConfigSecuritySensitive;
-import io.airlift.configuration.validation.FileExists;
+import io.airlift.configuration.ConfigHidden;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
-import javax.validation.constraints.AssertTrue;
+import javax.annotation.PostConstruct;
+import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
-import java.io.IOException;
 import java.util.Optional;
-import java.util.OptionalInt;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
+@DefunctConfig("bigquery.case-insensitive-name-matching.cache-ttl")
 public class BigQueryConfig
 {
+    private static final int MAX_RPC_CONNECTIONS = 1024;
+
     public static final int DEFAULT_MAX_READ_ROWS_RETRIES = 3;
     public static final String VIEWS_ENABLED = "bigquery.views-enabled";
 
-    private Optional<String> credentialsKey = Optional.empty();
-    private Optional<String> credentialsFile = Optional.empty();
     private Optional<String> projectId = Optional.empty();
     private Optional<String> parentProjectId = Optional.empty();
-    private OptionalInt parallelism = OptionalInt.empty();
+    private Optional<Integer> parallelism = Optional.empty();
     private boolean viewsEnabled;
+    private Duration viewExpireDuration = new Duration(24, HOURS);
+    private boolean skipViewMaterialization;
     private Optional<String> viewMaterializationProject = Optional.empty();
     private Optional<String> viewMaterializationDataset = Optional.empty();
     private int maxReadRowsRetries = DEFAULT_MAX_READ_ROWS_RETRIES;
     private boolean caseInsensitiveNameMatching;
-    private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
     private Duration viewsCacheTtl = new Duration(15, MINUTES);
+    private Duration serviceCacheTtl = new Duration(3, MINUTES);
+    private boolean queryResultsCacheEnabled;
 
-    @AssertTrue(message = "Exactly one of 'bigquery.credentials-key' or 'bigquery.credentials-file' must be specified, or the default GoogleCredentials could be created")
-    public boolean isCredentialsConfigurationValid()
-    {
-        // only one of them (at most) should be present
-        if (credentialsKey.isPresent() && credentialsFile.isPresent()) {
-            return false;
-        }
-        // if no credentials were supplied, let's check if we can create the default ones
-        if (credentialsKey.isEmpty() && credentialsFile.isEmpty()) {
-            try {
-                GoogleCredentials.getApplicationDefault();
-            }
-            catch (IOException e) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    public Optional<String> getCredentialsKey()
-    {
-        return credentialsKey;
-    }
-
-    @Config("bigquery.credentials-key")
-    @ConfigDescription("The base64 encoded credentials key")
-    @ConfigSecuritySensitive
-    public BigQueryConfig setCredentialsKey(String credentialsKey)
-    {
-        this.credentialsKey = Optional.of(credentialsKey);
-        return this;
-    }
-
-    public Optional<@FileExists String> getCredentialsFile()
-    {
-        return credentialsFile;
-    }
-
-    @Config("bigquery.credentials-file")
-    @ConfigDescription("The path to the JSON credentials file")
-    public BigQueryConfig setCredentialsFile(String credentialsFile)
-    {
-        this.credentialsFile = Optional.of(credentialsFile);
-        return this;
-    }
+    private int rpcInitialChannelCount = 1;
+    private int rpcMinChannelCount = 1;
+    private int rpcMaxChannelCount = 1;
+    private int minRpcPerChannel;
+    private int maxRpcPerChannel = Integer.MAX_VALUE;
 
     public Optional<String> getProjectId()
     {
@@ -105,7 +68,7 @@ public class BigQueryConfig
     @ConfigDescription("The Google Cloud Project ID where the data reside")
     public BigQueryConfig setProjectId(String projectId)
     {
-        this.projectId = Optional.of(projectId);
+        this.projectId = Optional.ofNullable(projectId);
         return this;
     }
 
@@ -118,20 +81,21 @@ public class BigQueryConfig
     @ConfigDescription("The Google Cloud Project ID to bill for the export")
     public BigQueryConfig setParentProjectId(String parentProjectId)
     {
-        this.parentProjectId = Optional.of(parentProjectId);
+        this.parentProjectId = Optional.ofNullable(parentProjectId);
         return this;
     }
 
-    public OptionalInt getParallelism()
+    public Optional<Integer> getParallelism()
     {
         return parallelism;
     }
 
     @Config("bigquery.parallelism")
     @ConfigDescription("The number of partitions to split the data into.")
-    public BigQueryConfig setParallelism(int parallelism)
+    public BigQueryConfig setParallelism(Integer parallelism)
     {
-        this.parallelism = OptionalInt.of(parallelism);
+        this.parallelism = Optional.ofNullable(parallelism);
+
         return this;
     }
 
@@ -148,9 +112,30 @@ public class BigQueryConfig
         return this;
     }
 
-    public Duration getViewExpiration()
+    @NotNull
+    public Duration getViewExpireDuration()
     {
-        return new Duration(24, HOURS);
+        return viewExpireDuration;
+    }
+
+    @Config("bigquery.view-expire-duration")
+    public BigQueryConfig setViewExpireDuration(Duration viewExpireDuration)
+    {
+        this.viewExpireDuration = viewExpireDuration;
+        return this;
+    }
+
+    public boolean isSkipViewMaterialization()
+    {
+        return skipViewMaterialization;
+    }
+
+    @Config("bigquery.skip-view-materialization")
+    @ConfigDescription("Skip materializing views")
+    public BigQueryConfig setSkipViewMaterialization(boolean skipViewMaterialization)
+    {
+        this.skipViewMaterialization = skipViewMaterialization;
+        return this;
     }
 
     public Optional<String> getViewMaterializationProject()
@@ -162,7 +147,7 @@ public class BigQueryConfig
     @ConfigDescription("The project where the materialized view is going to be created")
     public BigQueryConfig setViewMaterializationProject(String viewMaterializationProject)
     {
-        this.viewMaterializationProject = Optional.of(viewMaterializationProject);
+        this.viewMaterializationProject = Optional.ofNullable(viewMaterializationProject);
         return this;
     }
 
@@ -175,7 +160,7 @@ public class BigQueryConfig
     @ConfigDescription("The dataset where the materialized view is going to be created")
     public BigQueryConfig setViewMaterializationDataset(String viewMaterializationDataset)
     {
-        this.viewMaterializationDataset = Optional.of(viewMaterializationDataset);
+        this.viewMaterializationDataset = Optional.ofNullable(viewMaterializationDataset);
         return this;
     }
 
@@ -207,21 +192,6 @@ public class BigQueryConfig
     }
 
     @NotNull
-    @MinDuration("0ms")
-    public Duration getCaseInsensitiveNameMatchingCacheTtl()
-    {
-        return caseInsensitiveNameMatchingCacheTtl;
-    }
-
-    @Config("bigquery.case-insensitive-name-matching.cache-ttl")
-    @ConfigDescription("Duration for which remote dataset and table names will be cached")
-    public BigQueryConfig setCaseInsensitiveNameMatchingCacheTtl(Duration caseInsensitiveNameMatchingCacheTtl)
-    {
-        this.caseInsensitiveNameMatchingCacheTtl = caseInsensitiveNameMatchingCacheTtl;
-        return this;
-    }
-
-    @NotNull
     @MinDuration("0m")
     public Duration getViewsCacheTtl()
     {
@@ -234,5 +204,116 @@ public class BigQueryConfig
     {
         this.viewsCacheTtl = viewsCacheTtl;
         return this;
+    }
+
+    @NotNull
+    @MinDuration("0m")
+    public Duration getServiceCacheTtl()
+    {
+        return serviceCacheTtl;
+    }
+
+    @ConfigHidden
+    @Config("bigquery.service-cache-ttl")
+    @ConfigDescription("Duration for which BigQuery client service instances are cached")
+    public BigQueryConfig setServiceCacheTtl(Duration serviceCacheTtl)
+    {
+        this.serviceCacheTtl = serviceCacheTtl;
+        return this;
+    }
+
+    public boolean isQueryResultsCacheEnabled()
+    {
+        return queryResultsCacheEnabled;
+    }
+
+    @Config("bigquery.query-results-cache.enabled")
+    public BigQueryConfig setQueryResultsCacheEnabled(boolean queryResultsCacheEnabled)
+    {
+        this.queryResultsCacheEnabled = queryResultsCacheEnabled;
+        return this;
+    }
+
+    @Min(1)
+    @Max(MAX_RPC_CONNECTIONS)
+    public int getRpcInitialChannelCount()
+    {
+        return rpcInitialChannelCount;
+    }
+
+    @ConfigHidden
+    @Config("bigquery.channel-pool.initial-size")
+    public BigQueryConfig setRpcInitialChannelCount(int rpcInitialChannelCount)
+    {
+        this.rpcInitialChannelCount = rpcInitialChannelCount;
+        return this;
+    }
+
+    @Min(1)
+    @Max(MAX_RPC_CONNECTIONS)
+    public int getRpcMinChannelCount()
+    {
+        return rpcMinChannelCount;
+    }
+
+    @ConfigHidden
+    @Config("bigquery.channel-pool.min-size")
+    public BigQueryConfig setRpcMinChannelCount(int rpcMinChannelCount)
+    {
+        this.rpcMinChannelCount = rpcMinChannelCount;
+        return this;
+    }
+
+    @Min(1)
+    @Max(MAX_RPC_CONNECTIONS)
+    public int getRpcMaxChannelCount()
+    {
+        return rpcMaxChannelCount;
+    }
+
+    @ConfigHidden
+    @Config("bigquery.channel-pool.max-size")
+    public BigQueryConfig setRpcMaxChannelCount(int rpcMaxChannelCount)
+    {
+        this.rpcMaxChannelCount = rpcMaxChannelCount;
+        return this;
+    }
+
+    @Min(0)
+    public int getMinRpcPerChannel()
+    {
+        return minRpcPerChannel;
+    }
+
+    @ConfigHidden
+    @Config("bigquery.channel-pool.min-rpc-per-channel")
+    public BigQueryConfig setMinRpcPerChannel(int minRpcPerChannel)
+    {
+        this.minRpcPerChannel = minRpcPerChannel;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxRpcPerChannel()
+    {
+        return maxRpcPerChannel;
+    }
+
+    @ConfigHidden
+    @Config("bigquery.channel-pool.max-rpc-per-channel")
+    public BigQueryConfig setMaxRpcPerChannel(int maxRpcPerChannel)
+    {
+        this.maxRpcPerChannel = maxRpcPerChannel;
+        return this;
+    }
+
+    @PostConstruct
+    public void validate()
+    {
+        checkState(viewExpireDuration.toMillis() > viewsCacheTtl.toMillis(), "View expiration duration must be longer than view cache TTL");
+
+        if (skipViewMaterialization) {
+            checkState(viewsEnabled, "%s config property must be enabled when skipping view materialization", VIEWS_ENABLED);
+        }
     }
 }

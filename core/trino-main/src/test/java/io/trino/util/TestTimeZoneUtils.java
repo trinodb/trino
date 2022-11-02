@@ -43,11 +43,6 @@ public class TestTimeZoneUtils
                 continue;
             }
 
-            // Remove when minimal Java version is raised to 11.0.10: https://github.com/trinodb/trino/issues/6662
-            if (zoneId.equals("US/Pacific-New")) {
-                continue;
-            }
-
             DateTimeZone dateTimeZone = DateTimeZone.forID(zoneId);
             DateTimeZone indexedZone = getDateTimeZone(TimeZoneKey.getTimeZoneKey(zoneId));
 

@@ -21,7 +21,6 @@ import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.execution.Lifespan;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
@@ -50,12 +49,15 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.operator.BlockedReason.WAITING_FOR_MEMORY;
+import static io.trino.operator.OperatorContext.getConnectorMetrics;
+import static io.trino.operator.OperatorContext.getOperatorMetrics;
 import static io.trino.operator.PageUtils.recordMaterializedBytes;
 import static io.trino.operator.WorkProcessor.ProcessState.Type.BLOCKED;
 import static io.trino.operator.WorkProcessor.ProcessState.Type.FINISHED;
 import static io.trino.operator.project.MergePages.mergePages;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class WorkProcessorPipelineSourceOperator
         implements SourceOperator
@@ -296,8 +298,7 @@ public class WorkProcessorPipelineSourceOperator
     {
         return new MemoryTrackingContext(
                 new InternalAggregatedMemoryContext(operatorContext.newAggregateUserMemoryContext(), () -> updatePeakMemoryReservations(operatorIndex)),
-                new InternalAggregatedMemoryContext(operatorContext.newAggregateRevocableMemoryContext(), () -> updatePeakMemoryReservations(operatorIndex)),
-                new InternalAggregatedMemoryContext(operatorContext.newAggregateSystemMemoryContext(), () -> updatePeakMemoryReservations(operatorIndex)));
+                new InternalAggregatedMemoryContext(operatorContext.newAggregateRevocableMemoryContext(), () -> updatePeakMemoryReservations(operatorIndex)));
     }
 
     private void updatePeakMemoryReservations(int operatorIndex)
@@ -318,12 +319,12 @@ public class WorkProcessorPipelineSourceOperator
 
                         // WorkProcessorOperator doesn't have addInput call
                         0,
-                        // source operators report read time though
-                        new Duration(context.readTimeNanos.get(), NANOSECONDS),
+                        new Duration(0, NANOSECONDS),
                         ZERO_DURATION,
 
                         succinctBytes(context.physicalInputDataSize.get()),
                         context.physicalInputPositions.get(),
+                        new Duration(context.operatorTiming.getWallNanos(), NANOSECONDS),
 
                         succinctBytes(context.internalNetworkInputDataSize.get()),
                         context.internalNetworkInputPositions.get(),
@@ -332,7 +333,7 @@ public class WorkProcessorPipelineSourceOperator
 
                         succinctBytes(context.inputDataSize.get()),
                         context.inputPositions.get(),
-                        context.inputPositions.get() * context.inputPositions.get(),
+                        (double) context.inputPositions.get() * context.inputPositions.get(),
 
                         context.operatorTiming.getCalls(),
                         new Duration(context.operatorTiming.getWallNanos(), NANOSECONDS),
@@ -342,8 +343,13 @@ public class WorkProcessorPipelineSourceOperator
                         context.outputPositions.get(),
 
                         context.dynamicFilterSplitsProcessed.get(),
-                        context.metrics.get(),
-                        context.connectorMetrics.get(),
+                        getOperatorMetrics(
+                                context.metrics.get(),
+                                context.inputPositions.get(),
+                                new Duration(context.operatorTiming.getCpuNanos(), NANOSECONDS).convertTo(SECONDS).getValue(),
+                                new Duration(context.operatorTiming.getWallNanos(), NANOSECONDS).convertTo(SECONDS).getValue(),
+                                new Duration(context.blockedWallNanos.get(), NANOSECONDS).convertTo(SECONDS).getValue()),
+                        getConnectorMetrics(context.connectorMetrics.get(), context.readTimeNanos.get()),
 
                         DataSize.ofBytes(0),
 
@@ -356,9 +362,7 @@ public class WorkProcessorPipelineSourceOperator
 
                         succinctBytes(context.memoryTrackingContext.getUserMemory()),
                         succinctBytes(context.memoryTrackingContext.getRevocableMemory()),
-                        succinctBytes(context.memoryTrackingContext.getSystemMemory()),
                         succinctBytes(context.peakUserMemoryReservation.get()),
-                        succinctBytes(context.peakSystemMemoryReservation.get()),
                         succinctBytes(context.peakRevocableMemoryReservation.get()),
                         succinctBytes(context.peakTotalMemoryReservation.get()),
                         DataSize.ofBytes(0),
@@ -393,7 +397,7 @@ public class WorkProcessorPipelineSourceOperator
 
         Object splitInfo = split.getInfo();
         if (splitInfo != null) {
-            operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(split.getCatalogName(), splitInfo)));
+            operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(split.getCatalogHandle(), splitInfo)));
         }
 
         pendingSplits.add(split);
@@ -693,7 +697,6 @@ public class WorkProcessorPipelineSourceOperator
         final AtomicReference<Metrics> connectorMetrics = new AtomicReference<>(Metrics.EMPTY);
 
         final AtomicLong peakUserMemoryReservation = new AtomicLong();
-        final AtomicLong peakSystemMemoryReservation = new AtomicLong();
         final AtomicLong peakRevocableMemoryReservation = new AtomicLong();
         final AtomicLong peakTotalMemoryReservation = new AtomicLong();
 
@@ -719,11 +722,9 @@ public class WorkProcessorPipelineSourceOperator
         void updatePeakMemoryReservations()
         {
             long userMemory = memoryTrackingContext.getUserMemory();
-            long systemMemory = memoryTrackingContext.getSystemMemory();
             long revocableMemory = memoryTrackingContext.getRevocableMemory();
-            long totalMemory = userMemory + systemMemory;
+            long totalMemory = userMemory;
             peakUserMemoryReservation.accumulateAndGet(userMemory, Math::max);
-            peakSystemMemoryReservation.accumulateAndGet(systemMemory, Math::max);
             peakRevocableMemoryReservation.accumulateAndGet(revocableMemory, Math::max);
             peakTotalMemoryReservation.accumulateAndGet(totalMemory, Math::max);
         }
@@ -777,12 +778,6 @@ public class WorkProcessorPipelineSourceOperator
         {
             this.operatorFactories.forEach(WorkProcessorOperatorFactory::close);
             closed = true;
-        }
-
-        @Override
-        public void noMoreOperators(Lifespan lifespan)
-        {
-            this.operatorFactories.forEach(operatorFactory -> operatorFactory.lifespanFinished(lifespan));
         }
     }
 }

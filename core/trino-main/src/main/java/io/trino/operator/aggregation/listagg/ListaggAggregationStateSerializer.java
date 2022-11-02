@@ -32,14 +32,12 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 public class ListaggAggregationStateSerializer
         implements AccumulatorStateSerializer<ListaggAggregationState>
 {
-    private final Type elementType;
     private final Type arrayType;
     private final Type serializedType;
 
-    public ListaggAggregationStateSerializer(Type elementType)
+    public ListaggAggregationStateSerializer()
     {
-        this.elementType = elementType;
-        this.arrayType = new ArrayType(elementType);
+        this.arrayType = new ArrayType(VARCHAR);
         this.serializedType = RowType.anonymous(ImmutableList.of(VARCHAR, BOOLEAN, VARCHAR, BOOLEAN, arrayType));
     }
 
@@ -64,7 +62,7 @@ public class ListaggAggregationStateSerializer
 
             BlockBuilder stateElementsBlockBuilder = rowBlockBuilder.beginBlockEntry();
             state.forEach((block, position) -> {
-                elementType.appendTo(block, position, stateElementsBlockBuilder);
+                VARCHAR.appendTo(block, position, stateElementsBlockBuilder);
                 return true;
             });
             rowBlockBuilder.closeEntry();

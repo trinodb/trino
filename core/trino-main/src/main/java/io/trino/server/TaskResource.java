@@ -18,18 +18,21 @@ import com.google.common.reflect.TypeToken;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.BoundedExecutor;
+import io.airlift.log.Logger;
+import io.airlift.slice.Slice;
 import io.airlift.stats.TimeStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
+import io.trino.execution.FailureInjector;
+import io.trino.execution.FailureInjector.InjectedFailure;
+import io.trino.execution.SqlTaskManager;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskInfo;
-import io.trino.execution.TaskManager;
+import io.trino.execution.TaskState;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.buffer.BufferResult;
-import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
-import io.trino.execution.buffer.SerializedPage;
+import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.server.security.ResourceSecurity;
 import org.weakref.jmx.Managed;
@@ -57,6 +60,7 @@ import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
@@ -72,6 +76,7 @@ import static io.trino.server.InternalHeaders.TRINO_MAX_SIZE;
 import static io.trino.server.InternalHeaders.TRINO_MAX_WAIT;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN;
+import static io.trino.server.InternalHeaders.TRINO_TASK_FAILED;
 import static io.trino.server.InternalHeaders.TRINO_TASK_INSTANCE_ID;
 import static io.trino.server.security.ResourceSecurity.AccessType.INTERNAL_ONLY;
 import static java.util.Objects.requireNonNull;
@@ -84,27 +89,32 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 @Path("/v1/task")
 public class TaskResource
 {
+    private static final Logger log = Logger.get(TaskResource.class);
+
     private static final Duration ADDITIONAL_WAIT_TIME = new Duration(5, SECONDS);
     private static final Duration DEFAULT_MAX_WAIT_TIME = new Duration(2, SECONDS);
 
-    private final TaskManager taskManager;
+    private final SqlTaskManager taskManager;
     private final SessionPropertyManager sessionPropertyManager;
     private final Executor responseExecutor;
     private final ScheduledExecutorService timeoutExecutor;
+    private final FailureInjector failureInjector;
     private final TimeStat readFromOutputBufferTime = new TimeStat();
     private final TimeStat resultsRequestTime = new TimeStat();
 
     @Inject
     public TaskResource(
-            TaskManager taskManager,
+            SqlTaskManager taskManager,
             SessionPropertyManager sessionPropertyManager,
             @ForAsyncHttp BoundedExecutor responseExecutor,
-            @ForAsyncHttp ScheduledExecutorService timeoutExecutor)
+            @ForAsyncHttp ScheduledExecutorService timeoutExecutor,
+            FailureInjector failureInjector)
     {
         this.taskManager = requireNonNull(taskManager, "taskManager is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
+        this.failureInjector = requireNonNull(failureInjector, "failureInjector is null");
     }
 
     @ResourceSecurity(INTERNAL_ONLY)
@@ -124,15 +134,24 @@ public class TaskResource
     @Path("{taskId}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response createOrUpdateTask(@PathParam("taskId") TaskId taskId, TaskUpdateRequest taskUpdateRequest, @Context UriInfo uriInfo)
+    public void createOrUpdateTask(
+            @PathParam("taskId") TaskId taskId,
+            TaskUpdateRequest taskUpdateRequest,
+            @Context UriInfo uriInfo,
+            @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskUpdateRequest, "taskUpdateRequest is null");
 
         Session session = taskUpdateRequest.getSession().toSession(sessionPropertyManager, taskUpdateRequest.getExtraCredentials());
+
+        if (injectFailure(session.getTraceToken(), taskId, RequestType.CREATE_OR_UPDATE_TASK, asyncResponse)) {
+            return;
+        }
+
         TaskInfo taskInfo = taskManager.updateTask(session,
                 taskId,
                 taskUpdateRequest.getFragment(),
-                taskUpdateRequest.getSources(),
+                taskUpdateRequest.getSplitAssignments(),
                 taskUpdateRequest.getOutputIds(),
                 taskUpdateRequest.getDynamicFilterDomains());
 
@@ -140,7 +159,7 @@ public class TaskResource
             taskInfo = taskInfo.summarize();
         }
 
-        return Response.ok().entity(taskInfo).build();
+        asyncResponse.resume(Response.ok().entity(taskInfo).build());
     }
 
     @ResourceSecurity(INTERNAL_ONLY)
@@ -155,6 +174,10 @@ public class TaskResource
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
+
+        if (injectFailure(taskManager.getTraceToken(taskId), taskId, RequestType.GET_TASK_INFO, asyncResponse)) {
+            return;
+        }
 
         if (currentVersion == null || maxWait == null) {
             TaskInfo taskInfo = taskManager.getTaskInfo(taskId);
@@ -195,6 +218,10 @@ public class TaskResource
     {
         requireNonNull(taskId, "taskId is null");
 
+        if (injectFailure(taskManager.getTraceToken(taskId), taskId, RequestType.GET_TASK_STATUS, asyncResponse)) {
+            return;
+        }
+
         if (currentVersion == null || maxWait == null) {
             TaskStatus taskStatus = taskManager.getTaskStatus(taskId);
             asyncResponse.resume(taskStatus);
@@ -221,14 +248,20 @@ public class TaskResource
     @GET
     @Path("{taskId}/dynamicfilters")
     @Produces(MediaType.APPLICATION_JSON)
-    public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(
+    public void acknowledgeAndGetNewDynamicFilterDomains(
             @PathParam("taskId") TaskId taskId,
             @HeaderParam(TRINO_CURRENT_VERSION) Long currentDynamicFiltersVersion,
-            @Context UriInfo uriInfo)
+            @Context UriInfo uriInfo,
+            @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(currentDynamicFiltersVersion, "currentDynamicFiltersVersion is null");
-        return taskManager.acknowledgeAndGetNewDynamicFilterDomains(taskId, currentDynamicFiltersVersion);
+
+        if (injectFailure(taskManager.getTraceToken(taskId), taskId, RequestType.ACKNOWLEDGE_AND_GET_NEW_DYNAMIC_FILTER_DOMAINS, asyncResponse)) {
+            return;
+        }
+
+        asyncResponse.resume(taskManager.acknowledgeAndGetNewDynamicFilterDomains(taskId, currentDynamicFiltersVersion));
     }
 
     @ResourceSecurity(INTERNAL_ONLY)
@@ -257,18 +290,40 @@ public class TaskResource
     }
 
     @ResourceSecurity(INTERNAL_ONLY)
+    @POST
+    @Path("{taskId}/fail")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public TaskInfo failTask(
+            @PathParam("taskId") TaskId taskId,
+            FailTaskRequest failTaskRequest,
+            @Context UriInfo uriInfo)
+    {
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(failTaskRequest, "failTaskRequest is null");
+        return taskManager.failTask(taskId, failTaskRequest.getFailureInfo().toException());
+    }
+
+    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}/results/{bufferId}/{token}")
     @Produces(TRINO_PAGES)
     public void getResults(
             @PathParam("taskId") TaskId taskId,
-            @PathParam("bufferId") OutputBufferId bufferId,
+            @PathParam("bufferId") PipelinedOutputBuffers.OutputBufferId bufferId,
             @PathParam("token") long token,
             @HeaderParam(TRINO_MAX_SIZE) DataSize maxSize,
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
+
+        if (injectFailure(taskManager.getTraceToken(taskId), taskId, RequestType.GET_RESULTS, asyncResponse)) {
+            return;
+        }
+
+        TaskState state = taskManager.getTaskStatus(taskId).getState();
+        boolean taskFailed = state == TaskState.ABORTED || state == TaskState.FAILED;
 
         long start = System.nanoTime();
         ListenableFuture<BufferResult> bufferResultFuture = taskManager.getTaskResults(taskId, bufferId, token, maxSize);
@@ -280,7 +335,7 @@ public class TaskResource
                 timeoutExecutor);
 
         ListenableFuture<Response> responseFuture = Futures.transform(bufferResultFuture, result -> {
-            List<SerializedPage> serializedPages = result.getSerializedPages();
+            List<Slice> serializedPages = result.getSerializedPages();
 
             GenericEntity<?> entity = null;
             Status status;
@@ -288,7 +343,7 @@ public class TaskResource
                 status = Status.NO_CONTENT;
             }
             else {
-                entity = new GenericEntity<>(serializedPages, new TypeToken<List<SerializedPage>>() {}.getType());
+                entity = new GenericEntity<>(serializedPages, new TypeToken<List<Slice>>() {}.getType());
                 status = Status.OK;
             }
 
@@ -298,6 +353,7 @@ public class TaskResource
                     .header(TRINO_PAGE_TOKEN, result.getToken())
                     .header(TRINO_PAGE_NEXT_TOKEN, result.getNextToken())
                     .header(TRINO_BUFFER_COMPLETE, result.isBufferComplete())
+                    .header(TRINO_TASK_FAILED, taskFailed)
                     .build();
         }, directExecutor());
 
@@ -310,6 +366,7 @@ public class TaskResource
                                 .header(TRINO_PAGE_TOKEN, token)
                                 .header(TRINO_PAGE_NEXT_TOKEN, token)
                                 .header(TRINO_BUFFER_COMPLETE, false)
+                                .header(TRINO_TASK_FAILED, taskFailed)
                                 .build());
 
         responseFuture.addListener(() -> readFromOutputBufferTime.add(Duration.nanosSince(start)), directExecutor());
@@ -321,7 +378,7 @@ public class TaskResource
     @Path("{taskId}/results/{bufferId}/{token}/acknowledge")
     public void acknowledgeResults(
             @PathParam("taskId") TaskId taskId,
-            @PathParam("bufferId") OutputBufferId bufferId,
+            @PathParam("bufferId") PipelinedOutputBuffers.OutputBufferId bufferId,
             @PathParam("token") long token)
     {
         requireNonNull(taskId, "taskId is null");
@@ -333,13 +390,105 @@ public class TaskResource
     @ResourceSecurity(INTERNAL_ONLY)
     @DELETE
     @Path("{taskId}/results/{bufferId}")
-    @Produces(MediaType.APPLICATION_JSON)
-    public void abortResults(@PathParam("taskId") TaskId taskId, @PathParam("bufferId") OutputBufferId bufferId, @Context UriInfo uriInfo)
+    public void destroyTaskResults(
+            @PathParam("taskId") TaskId taskId,
+            @PathParam("bufferId") PipelinedOutputBuffers.OutputBufferId bufferId,
+            @Context UriInfo uriInfo,
+            @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
 
-        taskManager.abortTaskResults(taskId, bufferId);
+        if (injectFailure(taskManager.getTraceToken(taskId), taskId, RequestType.DESTROY_RESULTS, asyncResponse)) {
+            return;
+        }
+
+        taskManager.destroyTaskResults(taskId, bufferId);
+        asyncResponse.resume(Response.noContent().build());
+    }
+
+    private boolean injectFailure(
+            Optional<String> traceToken,
+            TaskId taskId,
+            RequestType requestType,
+            AsyncResponse asyncResponse)
+    {
+        if (traceToken.isEmpty()) {
+            return false;
+        }
+
+        Optional<InjectedFailure> injectedFailure = failureInjector.getInjectedFailure(
+                traceToken.get(),
+                taskId.getStageId().getId(),
+                taskId.getPartitionId(),
+                taskId.getAttemptId());
+
+        if (injectedFailure.isEmpty()) {
+            return false;
+        }
+
+        InjectedFailure failure = injectedFailure.get();
+        Duration timeout = failureInjector.getRequestTimeout();
+        switch (failure.getInjectedFailureType()) {
+            case TASK_MANAGEMENT_REQUEST_FAILURE:
+                if (requestType.isTaskManagement()) {
+                    log.info("Failing %s request for task %s", requestType, taskId);
+                    asyncResponse.resume(Response.serverError().build());
+                    return true;
+                }
+                break;
+            case TASK_MANAGEMENT_REQUEST_TIMEOUT:
+                if (requestType.isTaskManagement()) {
+                    log.info("Timing out %s request for task %s", requestType, taskId);
+                    asyncResponse.setTimeout(timeout.toMillis(), MILLISECONDS);
+                    return true;
+                }
+                break;
+            case TASK_GET_RESULTS_REQUEST_FAILURE:
+                if (!requestType.isTaskManagement()) {
+                    log.info("Failing %s request for task %s", requestType, taskId);
+                    asyncResponse.resume(Response.serverError().build());
+                    return true;
+                }
+                break;
+            case TASK_GET_RESULTS_REQUEST_TIMEOUT:
+                if (!requestType.isTaskManagement()) {
+                    log.info("Timing out %s request for task %s", requestType, taskId);
+                    asyncResponse.setTimeout(timeout.toMillis(), MILLISECONDS);
+                    return true;
+                }
+                break;
+            case TASK_FAILURE:
+                log.info("Injecting failure for task %s at %s", taskId, requestType);
+                taskManager.failTask(taskId, injectedFailure.get().getTaskFailureException());
+                break;
+            default:
+                throw new IllegalArgumentException("unexpected failure type: " + failure.getInjectedFailureType());
+        }
+
+        return false;
+    }
+
+    private enum RequestType
+    {
+        CREATE_OR_UPDATE_TASK(true),
+        GET_TASK_INFO(true),
+        GET_TASK_STATUS(true),
+        ACKNOWLEDGE_AND_GET_NEW_DYNAMIC_FILTER_DOMAINS(true),
+        GET_RESULTS(false),
+        DESTROY_RESULTS(false);
+
+        private final boolean taskManagement;
+
+        RequestType(boolean taskManagement)
+        {
+            this.taskManagement = taskManagement;
+        }
+
+        public boolean isTaskManagement()
+        {
+            return taskManagement;
+        }
     }
 
     @Managed

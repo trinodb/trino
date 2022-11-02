@@ -14,41 +14,44 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.FunctionBinding;
-import io.trino.metadata.SqlOperator;
-import io.trino.spi.function.OperatorType;
+import io.trino.metadata.SqlScalarFunction;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.OperatorType.CAST;
 
 public class IdentityCast
-        extends SqlOperator
+        extends SqlScalarFunction
 {
     public static final IdentityCast IDENTITY_CAST = new IdentityCast();
 
-    protected IdentityCast()
+    private IdentityCast()
     {
-        super(OperatorType.CAST,
-                ImmutableList.of(typeVariable("T")),
-                ImmutableList.of(),
-                new TypeSignature("T"),
-                ImmutableList.of(new TypeSignature("T")),
-                false);
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .operatorType(CAST)
+                        .typeVariable("T")
+                        .returnType(new TypeSignature("T"))
+                        .argumentType(new TypeSignature("T"))
+                        .build())
+                .build());
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
-        Type type = functionBinding.getTypeVariable("T");
+        Type type = boundSignature.getReturnType();
         MethodHandle identity = MethodHandles.identity(type.getJavaType());
-        return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+        return new ChoicesSpecializedSqlScalarFunction(
+                boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),
                 identity);

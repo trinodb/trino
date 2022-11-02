@@ -22,15 +22,20 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static io.trino.spi.type.DecimalType.createDecimalType;
-import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
 
 public class TestShortDecimalAverageAggregation
         extends AbstractTestDecimalAverageAggregation
 {
-    private static final DecimalType SHORT_DECIMAL_TYPE = createDecimalType(MAX_SHORT_PRECISION - 1);
+    private static final DecimalType SHORT_DECIMAL_TYPE = createDecimalType(16, 2);
 
     @Override
     protected DecimalType getDecimalType()
+    {
+        return SHORT_DECIMAL_TYPE;
+    }
+
+    @Override
+    protected DecimalType getExpectedType()
     {
         return SHORT_DECIMAL_TYPE;
     }
@@ -44,6 +49,6 @@ public class TestShortDecimalAverageAggregation
     @Override
     protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of(createDecimalType(16, 2));
+        return ImmutableList.of(SHORT_DECIMAL_TYPE);
     }
 }

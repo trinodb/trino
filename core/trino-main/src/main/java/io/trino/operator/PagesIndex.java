@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
+import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.geospatial.Rectangle;
 import io.trino.operator.SpatialIndexBuilderOperator.SpatialPredicate;
@@ -32,7 +33,6 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.gen.JoinCompiler.LookupSourceSupplierFactory;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
@@ -46,13 +46,11 @@ import org.openjdk.jol.info.ClassLayout;
 
 import javax.inject.Inject;
 
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.function.IntUnaryOperator;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -61,10 +59,12 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.operator.HashArraySizeSupplier.defaultHashArraySizeSupplier;
 import static io.trino.operator.SyntheticAddress.decodePosition;
 import static io.trino.operator.SyntheticAddress.decodeSliceIndex;
 import static io.trino.operator.SyntheticAddress.encodeSyntheticAddress;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -79,7 +79,7 @@ import static java.util.Objects.requireNonNull;
 public class PagesIndex
         implements Swapper
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(PagesIndex.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(PagesIndex.class).instanceSize());
     private static final Logger log = Logger.get(PagesIndex.class);
 
     private final OrderingCompiler orderingCompiler;
@@ -134,19 +134,25 @@ public class PagesIndex
     {
         public static final TypeOperators TYPE_OPERATORS = new TypeOperators();
         private static final OrderingCompiler ORDERING_COMPILER = new OrderingCompiler(TYPE_OPERATORS);
-        private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(TYPE_OPERATORS);
+        private final JoinCompiler joinCompiler;
         private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(TYPE_OPERATORS);
         private final boolean eagerCompact;
 
         public TestingFactory(boolean eagerCompact)
         {
+            this(eagerCompact, true);
+        }
+
+        public TestingFactory(boolean eagerCompact, boolean enableSingleChannelBigintLookupSource)
+        {
             this.eagerCompact = eagerCompact;
+            joinCompiler = new JoinCompiler(TYPE_OPERATORS, enableSingleChannelBigintLookupSource);
         }
 
         @Override
         public PagesIndex newPagesIndex(List<Type> types, int expectedPositions)
         {
-            return new PagesIndex(ORDERING_COMPILER, JOIN_COMPILER, TYPE_OPERATOR_FACTORY, types, expectedPositions, eagerCompact);
+            return new PagesIndex(ORDERING_COMPILER, joinCompiler, TYPE_OPERATOR_FACTORY, types, expectedPositions, eagerCompact);
         }
     }
 
@@ -163,7 +169,7 @@ public class PagesIndex
         {
             this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
             this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
-            this.eagerCompact = requireNonNull(featuresConfig, "featuresConfig is null").isPagesIndexEagerCompactionEnabled();
+            this.eagerCompact = featuresConfig.isPagesIndexEagerCompactionEnabled();
             this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
         }
 
@@ -230,14 +236,14 @@ public class PagesIndex
             pagesMemorySize += block.getRetainedSizeInBytes();
         }
 
-        for (int position = 0; position < page.getPositionCount(); position++) {
-            long sliceAddress = encodeSyntheticAddress(pageIndex, position);
+        // this uses a long[] internally, so cap size to a nice round number for safety
+        int resultingSize = valueAddresses.size() + page.getPositionCount();
+        if (resultingSize < 0 || resultingSize >= 2_000_000_000) {
+            throw new TrinoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of pages index cannot exceed 2 billion entries");
+        }
 
-            // this uses a long[] internally, so cap size to a nice round number for safety
-            if (valueAddresses.size() >= 2_000_000_000) {
-                throw new TrinoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of pages index cannot exceed 2 billion entries");
-            }
-            valueAddresses.add(sliceAddress);
+        for (int position = 0; position < page.getPositionCount(); position++) {
+            valueAddresses.add(encodeSyntheticAddress(pageIndex, position));
         }
         estimatedSize = calculateEstimatedSize();
     }
@@ -291,7 +297,7 @@ public class PagesIndex
         elements[b] = temp;
     }
 
-    public int buildPage(int position, int[] outputChannels, PageBuilder pageBuilder)
+    private int buildPage(int position, PageBuilder pageBuilder)
     {
         while (!pageBuilder.isFull() && position < positionCount) {
             long pageAddress = valueAddresses.getLong(position);
@@ -300,11 +306,10 @@ public class PagesIndex
 
             // append the row
             pageBuilder.declarePosition();
-            for (int i = 0; i < outputChannels.length; i++) {
-                int outputChannel = outputChannels[i];
-                Type type = types.get(outputChannel);
-                Block block = this.channels[outputChannel].get(blockIndex);
-                type.appendTo(block, blockPosition, pageBuilder.getBlockBuilder(i));
+            for (int channel = 0; channel < channels.length; channel++) {
+                Type type = types.get(channel);
+                Block block = channels[channel].get(blockIndex);
+                type.appendTo(block, blockPosition, pageBuilder.getBlockBuilder(channel));
             }
 
             position++;
@@ -386,6 +391,18 @@ public class PagesIndex
         return block.getSingleValueBlock(blockPosition);
     }
 
+    public Block getRawBlock(int channel, int position)
+    {
+        long pageAddress = valueAddresses.getLong(position);
+        return channels[channel].get(decodeSliceIndex(pageAddress));
+    }
+
+    public int getRawBlockPosition(int position)
+    {
+        long pageAddress = valueAddresses.getLong(position);
+        return decodePosition(pageAddress);
+    }
+
     public void sort(List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
         sort(sortChannels, sortOrders, 0, getPositionCount());
@@ -436,7 +453,7 @@ public class PagesIndex
         return createPagesHashStrategy(joinChannels, hashChannel, Optional.empty());
     }
 
-    public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, OptionalInt hashChannel, Optional<List<Integer>> outputChannels)
+    private PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, OptionalInt hashChannel, Optional<List<Integer>> outputChannels)
     {
         try {
             return joinCompiler.compilePagesHashStrategyFactory(types, joinChannels, outputChannels)
@@ -471,7 +488,7 @@ public class PagesIndex
             Optional<Integer> sortChannel,
             List<JoinFilterFunctionFactory> searchFunctionFactories)
     {
-        return createLookupSourceSupplier(session, joinChannels, hashChannel, filterFunctionFactory, sortChannel, searchFunctionFactories, Optional.empty());
+        return createLookupSourceSupplier(session, joinChannels, hashChannel, filterFunctionFactory, sortChannel, searchFunctionFactories, Optional.empty(), defaultHashArraySizeSupplier());
     }
 
     public PagesSpatialIndexSupplier createPagesSpatialIndex(
@@ -496,7 +513,8 @@ public class PagesIndex
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             Optional<Integer> sortChannel,
             List<JoinFilterFunctionFactory> searchFunctionFactories,
-            Optional<List<Integer>> outputChannels)
+            Optional<List<Integer>> outputChannels,
+            HashArraySizeSupplier hashArraySizeSupplier)
     {
         List<List<Block>> channels = ImmutableList.copyOf(this.channels);
         if (!joinChannels.isEmpty()) {
@@ -512,10 +530,10 @@ public class PagesIndex
                     hashChannel,
                     filterFunctionFactory,
                     sortChannel,
-                    searchFunctionFactories);
+                    searchFunctionFactories,
+                    hashArraySizeSupplier);
         }
 
-        // if compilation fails
         PagesHashStrategy hashStrategy = new SimplePagesHashStrategy(
                 types,
                 outputChannels.orElse(rangeList(types.size())),
@@ -532,10 +550,12 @@ public class PagesIndex
                 channels,
                 filterFunctionFactory,
                 sortChannel,
-                searchFunctionFactories);
+                searchFunctionFactories,
+                hashArraySizeSupplier,
+                OptionalInt.empty());
     }
 
-    private List<Integer> rangeList(int endExclusive)
+    private static List<Integer> rangeList(int endExclusive)
     {
         return IntStream.range(0, endExclusive)
                 .boxed()
@@ -582,16 +602,11 @@ public class PagesIndex
         {
             private int currentPosition;
             private final PageBuilder pageBuilder = new PageBuilder(types);
-            private final int[] outputChannels = new int[types.size()];
-
-            {
-                Arrays.setAll(outputChannels, IntUnaryOperator.identity());
-            }
 
             @Override
             public Page computeNext()
             {
-                currentPosition = buildPage(currentPosition, outputChannels, pageBuilder);
+                currentPosition = buildPage(currentPosition, pageBuilder);
                 if (pageBuilder.isEmpty()) {
                     return endOfData();
                 }

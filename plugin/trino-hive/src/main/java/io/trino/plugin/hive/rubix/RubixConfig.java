@@ -27,7 +27,6 @@ import java.util.Optional;
 
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
 
 public class RubixConfig
@@ -51,7 +50,7 @@ public class RubixConfig
 
         public static ReadMode fromString(String value)
         {
-            switch (requireNonNull(value, "value is null").toLowerCase(ENGLISH)) {
+            switch (value.toLowerCase(ENGLISH)) {
                 case "async":
                     return ASYNC;
                 case "read-through":

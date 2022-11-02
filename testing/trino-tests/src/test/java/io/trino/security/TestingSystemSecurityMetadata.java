@@ -29,7 +29,6 @@ import io.trino.spi.security.TrinoPrincipal;
 import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.Queue;
 import java.util.Set;
 
@@ -74,12 +73,6 @@ class TestingSystemSecurityMetadata
     public Set<String> listRoles(Session session)
     {
         return ImmutableSet.copyOf(roles);
-    }
-
-    @Override
-    public Set<RoleGrant> listAllRoleGrants(Session session, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit)
-    {
-        return ImmutableSet.copyOf(roleGrants);
     }
 
     @Override
@@ -172,6 +165,12 @@ class TestingSystemSecurityMetadata
     }
 
     @Override
+    public void denySchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, TrinoPrincipal grantee)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void revokeSchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
         throw new UnsupportedOperationException();
@@ -179,6 +178,12 @@ class TestingSystemSecurityMetadata
 
     @Override
     public void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void denyTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee)
     {
         throw new UnsupportedOperationException();
     }

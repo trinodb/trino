@@ -21,7 +21,8 @@ import io.trino.rcfile.EncodeOutput;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
+import io.trino.spi.type.Int128Math;
 import io.trino.spi.type.Type;
 
 import java.math.BigInteger;
@@ -30,7 +31,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.trino.rcfile.RcFileDecoderUtils.decodeVIntSize;
 import static io.trino.rcfile.RcFileDecoderUtils.readVInt;
 import static io.trino.rcfile.RcFileDecoderUtils.writeVInt;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.Decimals.rescale;
 import static java.lang.Math.toIntExact;
 
@@ -63,7 +63,7 @@ public class DecimalEncoding
     @Override
     public void encodeValueInto(Block block, int position, SliceOutput output)
     {
-        if (isShortDecimal(type)) {
+        if (type.isShort()) {
             writeLong(output, type.getLong(block, position));
         }
         else {
@@ -84,11 +84,11 @@ public class DecimalEncoding
             if (length == 0) {
                 builder.appendNull();
             }
-            else if (isShortDecimal(type)) {
+            else if (type.isShort()) {
                 type.writeLong(builder, parseLong(slice, offset));
             }
             else {
-                type.writeSlice(builder, parseSlice(slice, offset));
+                type.writeObject(builder, parseSlice(slice, offset));
             }
         }
         return builder.build();
@@ -116,11 +116,11 @@ public class DecimalEncoding
     @Override
     public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
     {
-        if (isShortDecimal(type)) {
+        if (type.isShort()) {
             type.writeLong(builder, parseLong(slice, offset));
         }
         else {
-            type.writeSlice(builder, parseSlice(slice, offset));
+            type.writeObject(builder, parseSlice(slice, offset));
         }
     }
 
@@ -154,7 +154,7 @@ public class DecimalEncoding
         return value;
     }
 
-    private Slice parseSlice(Slice slice, int offset)
+    private Int128 parseSlice(Slice slice, int offset)
     {
         // first vint is scale
         int scale = toIntExact(readVInt(slice, offset));
@@ -178,13 +178,8 @@ public class DecimalEncoding
 
         resultSlice.setBytes(BYTES_IN_LONG_DECIMAL - length, slice, offset, length);
 
-        // todo get rid of BigInteger
-        BigInteger decimal = new BigInteger(resultBytes);
-        if (scale != type.getScale()) {
-            decimal = Decimals.rescale(decimal, scale, type.getScale());
-        }
-
-        return Decimals.encodeUnscaledValue(decimal);
+        Int128 result = Int128.fromBigEndian(resultBytes);
+        return Int128Math.rescale(result, type.getScale() - scale);
     }
 
     private void writeLong(SliceOutput output, long value)
@@ -220,7 +215,7 @@ public class DecimalEncoding
 
         // second vint is length
         // todo get rid of BigInteger
-        BigInteger decimal = Decimals.decodeUnscaledValue(type.getSlice(block, position));
+        BigInteger decimal = ((Int128) type.getObject(block, position)).toBigInteger();
         byte[] decimalBytes = decimal.toByteArray();
         writeVInt(output, decimalBytes.length);
 

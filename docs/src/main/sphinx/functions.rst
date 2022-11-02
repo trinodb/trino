@@ -2,13 +2,15 @@
 Functions and operators
 ***********************
 
-This chapter describes the SQL functions and operators supported by Trino. They
-allow you to implement complex functionality and behavior of the SQL executed by
-Trino operating on the underlying data sources.
+This chapter describes the built-in SQL functions and operators supported by
+Trino. They allow you to implement complex functionality and behavior of the SQL
+executed by Trino operating on the underlying data sources.
 
 If you are looking for a specific function or operator, see the :doc:`full
 alphabetical list</functions/list>` or the :doc:`full list by
-topic</functions/list-by-topic>`.
+topic</functions/list-by-topic>`. Using :doc:`SHOW FUNCTIONS
+</sql/show-functions>` returns a list of all available functions, including
+custom functions, with all supported arguments and a short description.
 
 Also see the :doc:`SQL data types</language>`
 and the :doc:`SQL statement and syntax reference</sql>`.
@@ -41,6 +43,7 @@ and the :doc:`SQL statement and syntax reference</sql>`.
     Set Digest          <functions/setdigest>
     String              <functions/string>
     System              <functions/system>
+    Table               <functions/table>
     Teradata            <functions/teradata>
     T-Digest            <functions/tdigest>
     URL                 <functions/url>

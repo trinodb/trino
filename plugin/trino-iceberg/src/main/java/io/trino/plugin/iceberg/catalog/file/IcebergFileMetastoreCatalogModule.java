@@ -14,10 +14,18 @@
 package io.trino.plugin.iceberg.catalog.file;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.hive.HideDeltaLakeTables;
+import io.trino.plugin.hive.metastore.DecoratedHiveMetastoreModule;
 import io.trino.plugin.hive.metastore.file.FileMetastoreModule;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.MetastoreValidator;
+import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
+import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalogFactory;
+
+import static io.trino.plugin.iceberg.catalog.hms.IcebergHiveMetastoreCatalogModule.HIDE_DELTA_LAKE_TABLES_IN_ICEBERG;
 
 public class IcebergFileMetastoreCatalogModule
         extends AbstractConfigurationAwareModule
@@ -27,5 +35,9 @@ public class IcebergFileMetastoreCatalogModule
     {
         install(new FileMetastoreModule());
         binder.bind(IcebergTableOperationsProvider.class).to(FileMetastoreTableOperationsProvider.class).in(Scopes.SINGLETON);
+        binder.bind(TrinoCatalogFactory.class).to(TrinoHiveCatalogFactory.class).in(Scopes.SINGLETON);
+        binder.bind(MetastoreValidator.class).asEagerSingleton();
+        binder.bind(Key.get(boolean.class, HideDeltaLakeTables.class)).toInstance(HIDE_DELTA_LAKE_TABLES_IN_ICEBERG);
+        install(new DecoratedHiveMetastoreModule());
     }
 }

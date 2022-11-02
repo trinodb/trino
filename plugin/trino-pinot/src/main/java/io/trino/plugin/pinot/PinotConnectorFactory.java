@@ -19,15 +19,16 @@ import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.trino.plugin.base.TypeDeserializerModule;
+import io.trino.plugin.pinot.auth.PinotAuthenticationModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.plugin.base.Versions.checkSpiVersion;
 import static java.util.Objects.requireNonNull;
 
 public class PinotConnectorFactory
@@ -47,22 +48,18 @@ public class PinotConnectorFactory
     }
 
     @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new PinotHandleResolver();
-    }
-
-    @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(config, "config is null");
+        checkSpiVersion(context, this);
 
         ImmutableList.Builder<Module> modulesBuilder = ImmutableList.<Module>builder()
                 .add(new JsonModule())
                 .add(new MBeanModule())
                 .add(new TypeDeserializerModule(context.getTypeManager()))
-                .add(new PinotModule(catalogName, context.getNodeManager()));
+                .add(new PinotModule(catalogName, context.getNodeManager()))
+                .add(new PinotAuthenticationModule());
 
         extension.ifPresent(modulesBuilder::add);
 

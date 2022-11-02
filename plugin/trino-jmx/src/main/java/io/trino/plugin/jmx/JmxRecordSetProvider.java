@@ -57,7 +57,7 @@ public class JmxRecordSetProvider
     public JmxRecordSetProvider(MBeanServer mbeanServer, NodeManager nodeManager, JmxHistoricalData jmxHistoricalData)
     {
         this.mbeanServer = requireNonNull(mbeanServer, "mbeanServer is null");
-        this.nodeId = requireNonNull(nodeManager, "nodeManager is null").getCurrentNode().getNodeIdentifier();
+        this.nodeId = nodeManager.getCurrentNode().getNodeIdentifier();
         this.jmxHistoricalData = requireNonNull(jmxHistoricalData, "jmxHistoricalData is null");
     }
 
@@ -220,7 +220,7 @@ public class JmxRecordSetProvider
         for (Attribute attribute : mbeanServer.getAttributes(objectName, columnNamesArray).asList()) {
             attributes.put(attribute.getName(), Optional.ofNullable(attribute.getValue()));
         }
-        return attributes.build();
+        return attributes.buildOrThrow();
     }
 
     private List<List<Object>> getLiveRows(JmxTableHandle tableHandle, List<? extends ColumnHandle> columns)

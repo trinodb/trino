@@ -42,12 +42,13 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static io.trino.orc.metadata.CompressionKind.NONE;
 import static io.trino.spi.block.ColumnarRow.toColumnarRow;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class StructColumnWriter
         implements ColumnWriter
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(StructColumnWriter.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(StructColumnWriter.class).instanceSize());
     private static final ColumnEncoding COLUMN_ENCODING = new ColumnEncoding(DIRECT, 0);
 
     private final OrcColumnId columnId;
@@ -89,7 +90,7 @@ public class StructColumnWriter
         structFields.stream()
                 .map(ColumnWriter::getColumnEncodings)
                 .forEach(encodings::putAll);
-        return encodings.build();
+        return encodings.buildOrThrow();
     }
 
     @Override
@@ -135,7 +136,7 @@ public class StructColumnWriter
     public Map<OrcColumnId, ColumnStatistics> finishRowGroup()
     {
         checkState(!closed);
-        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, 0, null, null, null, null, null, null, null, null, null);
+        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, 0, null, null, null, null, null, null, null, null, null, null);
         rowGroupColumnStatistics.add(statistics);
         nonNullValueCount = 0;
 
@@ -144,7 +145,7 @@ public class StructColumnWriter
         structFields.stream()
                 .map(ColumnWriter::finishRowGroup)
                 .forEach(columnStatistics::putAll);
-        return columnStatistics.build();
+        return columnStatistics.buildOrThrow();
     }
 
     @Override
@@ -164,7 +165,7 @@ public class StructColumnWriter
         structFields.stream()
                 .map(ColumnWriter::getColumnStripeStatistics)
                 .forEach(columnStatistics::putAll);
-        return columnStatistics.build();
+        return columnStatistics.buildOrThrow();
     }
 
     @Override

@@ -27,9 +27,11 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.PARTITION_PROJECTION_ENABLED;
+import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.PARTITION_PROJECTION_IGNORE;
+import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.PARTITION_PROJECTION_LOCATION_TEMPLATE;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
@@ -51,14 +53,10 @@ public class HiveTableProperties
     public static final String BUCKETING_VERSION = "bucketing_version";
     public static final String BUCKET_COUNT_PROPERTY = "bucket_count";
     public static final String SORTED_BY_PROPERTY = "sorted_by";
-    // TODO: This property represents the subset of columns to be analyzed. This exists mainly because there is no way
-    //       to pass the column names to ConnectorMetadata#getStatisticsCollectionMetadata; we should consider passing
-    //       ConnectorTableHandle instead of ConnectorTableMetadata as an argument since it makes more information
-    //       available (including the names of the columns to be analyzed)
-    public static final String ANALYZE_COLUMNS_PROPERTY = "presto.analyze_columns";
     public static final String ORC_BLOOM_FILTER_COLUMNS = "orc_bloom_filter_columns";
     public static final String ORC_BLOOM_FILTER_FPP = "orc_bloom_filter_fpp";
     public static final String AVRO_SCHEMA_URL = "avro_schema_url";
+    public static final String AVRO_SCHEMA_LITERAL = "avro_schema_literal";
     public static final String TEXTFILE_FIELD_SEPARATOR = "textfile_field_separator";
     public static final String TEXTFILE_FIELD_SEPARATOR_ESCAPE = "textfile_field_separator_escape";
     public static final String NULL_FORMAT_PROPERTY = "null_format";
@@ -146,6 +144,7 @@ public class HiveTableProperties
                 integerProperty(BUCKETING_VERSION, "Bucketing version", null, false),
                 integerProperty(BUCKET_COUNT_PROPERTY, "Number of buckets", 0, false),
                 stringProperty(AVRO_SCHEMA_URL, "URI pointing to Avro schema for the table", null, false),
+                stringProperty(AVRO_SCHEMA_LITERAL, "JSON-encoded Avro schema for the table", null, false),
                 integerProperty(SKIP_HEADER_LINE_COUNT, "Number of header lines", null, false),
                 integerProperty(SKIP_FOOTER_LINE_COUNT, "Number of footer lines", null, false),
                 stringProperty(TEXTFILE_FIELD_SEPARATOR, "TEXTFILE field separator character", null, false),
@@ -155,7 +154,22 @@ public class HiveTableProperties
                 stringProperty(CSV_QUOTE, "CSV quote character", null, false),
                 stringProperty(CSV_ESCAPE, "CSV escape character", null, false),
                 booleanProperty(TRANSACTIONAL, "Table is transactional", null, false),
-                booleanProperty(AUTO_PURGE, "Skip trash when table or partition is deleted", null, false));
+                booleanProperty(AUTO_PURGE, "Skip trash when table or partition is deleted", config.isAutoPurge(), false),
+                booleanProperty(
+                        PARTITION_PROJECTION_IGNORE,
+                        "Disable AWS Athena partition projection in Trino only",
+                        null,
+                        false),
+                booleanProperty(
+                        PARTITION_PROJECTION_ENABLED,
+                        "Enable AWS Athena partition projection",
+                        null,
+                        false),
+                stringProperty(
+                        PARTITION_PROJECTION_LOCATION_TEMPLATE,
+                        "Partition projection location template",
+                        null,
+                        false));
     }
 
     public List<PropertyMetadata<?>> getTableProperties()
@@ -171,6 +185,11 @@ public class HiveTableProperties
     public static String getAvroSchemaUrl(Map<String, Object> tableProperties)
     {
         return (String) tableProperties.get(AVRO_SCHEMA_URL);
+    }
+
+    public static String getAvroSchemaLiteral(Map<String, Object> tableProperties)
+    {
+        return (String) tableProperties.get(AVRO_SCHEMA_LITERAL);
     }
 
     public static Optional<Integer> getHeaderSkipCount(Map<String, Object> tableProperties)
@@ -198,12 +217,6 @@ public class HiveTableProperties
     {
         List<String> partitionedBy = (List<String>) tableProperties.get(PARTITIONED_BY_PROPERTY);
         return partitionedBy == null ? ImmutableList.of() : ImmutableList.copyOf(partitionedBy);
-    }
-
-    @SuppressWarnings("unchecked")
-    public static Optional<Set<String>> getAnalyzeColumns(Map<String, Object> tableProperties)
-    {
-        return Optional.ofNullable((Set<String>) tableProperties.get(ANALYZE_COLUMNS_PROPERTY));
     }
 
     public static Optional<HiveBucketProperty> getBucketProperty(Map<String, Object> tableProperties)

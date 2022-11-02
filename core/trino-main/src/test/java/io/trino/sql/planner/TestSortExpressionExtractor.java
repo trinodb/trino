@@ -15,7 +15,6 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.ExpressionTestUtils;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
@@ -30,10 +29,10 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.ExpressionUtils.extractConjuncts;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static org.testng.Assert.assertEquals;
 
 public class TestSortExpressionExtractor
@@ -43,9 +42,8 @@ public class TestSortExpressionExtractor
             .put(new Symbol("b2"), DOUBLE)
             .put(new Symbol("p1"), BIGINT)
             .put(new Symbol("p2"), DOUBLE)
-            .build());
+            .buildOrThrow());
     private static final Set<Symbol> BUILD_SYMBOLS = ImmutableSet.of(new Symbol("b1"), new Symbol("b2"));
-    private final Metadata metadata = createTestMetadataManager();
 
     @Test
     public void testGetSortExpression()
@@ -91,7 +89,7 @@ public class TestSortExpressionExtractor
 
     private Expression expression(String sql)
     {
-        return ExpressionTestUtils.planExpression(metadata, TEST_SESSION, TYPE_PROVIDER, PlanBuilder.expression(sql));
+        return ExpressionTestUtils.planExpression(PLANNER_CONTEXT, TEST_SESSION, TYPE_PROVIDER, PlanBuilder.expression(sql));
     }
 
     private void assertNoSortExpression(String expression)
@@ -101,7 +99,7 @@ public class TestSortExpressionExtractor
 
     private void assertNoSortExpression(Expression expression)
     {
-        Optional<SortExpressionContext> actual = SortExpressionExtractor.extractSortExpression(metadata, BUILD_SYMBOLS, expression);
+        Optional<SortExpressionContext> actual = SortExpressionExtractor.extractSortExpression(PLANNER_CONTEXT.getMetadata(), BUILD_SYMBOLS, expression);
         assertEquals(actual, Optional.empty());
     }
 
@@ -132,7 +130,7 @@ public class TestSortExpressionExtractor
     private void assertGetSortExpression(Expression expression, String expectedSymbol, List<Expression> searchExpressions)
     {
         Optional<SortExpressionContext> expected = Optional.of(new SortExpressionContext(new SymbolReference(expectedSymbol), searchExpressions));
-        Optional<SortExpressionContext> actual = SortExpressionExtractor.extractSortExpression(metadata, BUILD_SYMBOLS, expression);
+        Optional<SortExpressionContext> actual = SortExpressionExtractor.extractSortExpression(PLANNER_CONTEXT.getMetadata(), BUILD_SYMBOLS, expression);
         assertEquals(actual, expected);
     }
 }

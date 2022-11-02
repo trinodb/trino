@@ -109,11 +109,11 @@ public class RowType
     private final boolean comparable;
     private final boolean orderable;
 
-    private RowType(TypeSignature typeSignature, List<Field> fields)
+    private RowType(TypeSignature typeSignature, List<Field> originalFields)
     {
         super(typeSignature, Block.class);
 
-        this.fields = fields;
+        this.fields = List.copyOf(originalFields);
         this.fieldTypes = fields.stream()
                 .map(Field::getType)
                 .collect(toUnmodifiableList());
@@ -235,7 +235,7 @@ public class RowType
             blockBuilder.appendNull();
         }
         else {
-            block.writePositionTo(position, blockBuilder);
+            writeObject(blockBuilder, getObject(block, position));
         }
     }
 
@@ -248,7 +248,14 @@ public class RowType
     @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
-        blockBuilder.appendStructure((Block) value);
+        Block rowBlock = (Block) value;
+
+        BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
+        for (int i = 0; i < rowBlock.getPositionCount(); i++) {
+            fields.get(i).getType().appendTo(rowBlock, i, entryBuilder);
+        }
+
+        blockBuilder.closeEntry();
     }
 
     @Override

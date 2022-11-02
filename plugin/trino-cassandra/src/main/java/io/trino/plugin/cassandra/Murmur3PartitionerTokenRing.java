@@ -13,6 +13,9 @@
  */
 package io.trino.plugin.cassandra;
 
+import com.datastax.oss.driver.api.core.metadata.token.Token;
+import com.datastax.oss.driver.internal.core.metadata.token.Murmur3Token;
+
 import java.math.BigInteger;
 
 import static java.math.BigInteger.ZERO;
@@ -29,24 +32,22 @@ public final class Murmur3PartitionerTokenRing
     private Murmur3PartitionerTokenRing() {}
 
     @Override
-    public double getRingFraction(String start, String end)
+    public double getRingFraction(Token start, Token end)
     {
         return getTokenCountInRange(start, end).doubleValue() / TOTAL_TOKEN_COUNT.doubleValue();
     }
 
     @Override
-    public BigInteger getTokenCountInRange(String startToken, String endToken)
+    public BigInteger getTokenCountInRange(Token startToken, Token endToken)
     {
-        long start = Long.parseLong(startToken);
-        long end = Long.parseLong(endToken);
+        long start = ((Murmur3Token) startToken).getValue();
+        long end = ((Murmur3Token) endToken).getValue();
 
         if (start == end) {
             if (start == MIN_TOKEN) {
                 return TOTAL_TOKEN_COUNT;
             }
-            else {
-                return ZERO;
-            }
+            return ZERO;
         }
 
         BigInteger result = BigInteger.valueOf(end).subtract(BigInteger.valueOf(start));

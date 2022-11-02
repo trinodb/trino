@@ -42,13 +42,13 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class ServerIT
 {
-    private static final String BASE_IMAGE = "ghcr.io/trinodb/testing/centos7-oj11";
+    private static final String BASE_IMAGE = "ghcr.io/trinodb/testing/centos7-oj17";
 
     @Parameters("rpm")
     @Test
-    public void testWithJava11(String rpm)
+    public void testWithJava17(String rpm)
     {
-        testServer(rpm, "11");
+        testServer(rpm, "17");
     }
 
     @Parameters("rpm")
@@ -59,6 +59,9 @@ public class ServerIT
         String rpm = "/" + new File(rpmHostPath).getName();
         String installAndStartTrino = "" +
                 "yum localinstall -q -y " + rpm + "\n" +
+                // update default JDK to 17
+                "alternatives --set java /usr/lib/jvm/zulu-17/bin/java\n" +
+                "alternatives --set javac /usr/lib/jvm/zulu-17/bin/javac\n" +
                 "/etc/init.d/trino start\n" +
                 // allow tail to work with Docker's non-local file system
                 "tail ---disable-inotify -F /var/log/trino/server.log\n";
@@ -100,6 +103,9 @@ public class ServerIT
         String command = "" +
                 // install RPM
                 "yum localinstall -q -y " + rpm + "\n" +
+                // update default JDK to 17
+                "alternatives --set java /usr/lib/jvm/zulu-17/bin/java\n" +
+                "alternatives --set javac /usr/lib/jvm/zulu-17/bin/javac\n" +
                 // create Hive catalog file
                 "mkdir /etc/trino/catalog\n" +
                 "echo CONFIG_ENV[HMS_PORT]=9083 >> /etc/trino/env.sh\n" +
@@ -125,7 +131,7 @@ public class ServerIT
                     .withCommand("sh", "-xeuc", command)
                     .waitingFor(forLogMessage(".*SERVER STARTED.*", 1).withStartupTimeout(Duration.ofMinutes(5)))
                     .start();
-            QueryRunner queryRunner = new QueryRunner(container.getContainerIpAddress(), container.getMappedPort(8080));
+            QueryRunner queryRunner = new QueryRunner(container.getHost(), container.getMappedPort(8080));
             assertEquals(queryRunner.execute("SHOW CATALOGS"), ImmutableSet.of(asList("system"), asList("hive"), asList("jmx")));
             assertEquals(queryRunner.execute("SELECT node_id FROM system.runtime.nodes"), ImmutableSet.of(asList("test-node-id-injected-via-env")));
             // TODO remove usage of assertEventually once https://github.com/trinodb/trino/issues/2214 is fixed

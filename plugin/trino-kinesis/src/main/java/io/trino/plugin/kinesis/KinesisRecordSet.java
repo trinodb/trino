@@ -108,15 +108,15 @@ public class KinesisRecordSet
             KinesisClientProvider clientManager,
             List<KinesisColumnHandle> columnHandles,
             RowDecoder messageDecoder,
-            KinesisConfig kinesisConfig)
+            long dynamoReadCapacity,
+            long dynamoWriteCapacity,
+            boolean isLogBatches,
+            int fetchAttempts,
+            Duration sleepTime)
     {
         this.split = requireNonNull(split, "split is null");
         this.session = requireNonNull(session, "session is null");
-        requireNonNull(kinesisConfig, "kinesisConfig is null");
-        long dynamoReadCapacity = kinesisConfig.getDynamoReadCapacity();
-        long dynamoWriteCapacity = kinesisConfig.getDynamoWriteCapacity();
-        long checkPointIntervalMillis = kinesisConfig.getCheckpointInterval().toMillis();
-        this.isLogBatches = kinesisConfig.isLogBatches();
+        this.isLogBatches = isLogBatches;
 
         this.clientManager = requireNonNull(clientManager, "clientManager is null");
 
@@ -135,8 +135,8 @@ public class KinesisRecordSet
         this.batchSize = getBatchSize(session);
         this.maxBatches = getMaxBatches(this.session);
 
-        this.fetchAttempts = kinesisConfig.getFetchAttempts();
-        this.sleepTime = kinesisConfig.getSleepTime().toMillis();
+        this.fetchAttempts = fetchAttempts;
+        this.sleepTime = sleepTime.toMillis();
 
         this.checkpointEnabled = isCheckpointEnabled(session);
         this.lastReadSequenceNumber = null;
@@ -159,7 +159,6 @@ public class KinesisRecordSet
                     split,
                     logicalProcessName,
                     curIterationNumber,
-                    checkPointIntervalMillis,
                     dynamoReadCapacity,
                     dynamoWriteCapacity);
 
@@ -243,15 +242,13 @@ public class KinesisRecordSet
             if (listIterator.hasNext()) {
                 return nextRow();
             }
-            else {
-                log.debug("(%s:%s) Read all of the records from the shard:  %d batches and %d messages and %d total bytes.",
-                        split.getStreamName(),
-                        split.getShardId(),
-                        batchesRead,
-                        totalMessages,
-                        totalBytes);
-                return false;
-            }
+            log.debug("(%s:%s) Read all of the records from the shard:  %d batches and %d messages and %d total bytes.",
+                    split.getStreamName(),
+                    split.getShardId(),
+                    batchesRead,
+                    totalMessages,
+                    totalBytes);
+            return false;
         }
 
         private boolean shouldGetMoreRecords()

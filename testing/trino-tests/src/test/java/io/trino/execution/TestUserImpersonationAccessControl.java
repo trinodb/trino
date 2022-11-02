@@ -14,7 +14,6 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import io.trino.client.ClientSession;
 import io.trino.client.QueryError;
@@ -84,37 +83,26 @@ public class TestUserImpersonationAccessControl
     {
         OkHttpClient httpClient = new OkHttpClient();
         try {
-            ClientSession clientSession = new ClientSession(
-                    getDistributedQueryRunner().getCoordinator().getBaseUrl(),
-                    "user",
-                    Optional.of(assumedUser),
-                    "source",
-                    Optional.empty(),
-                    ImmutableSet.of(),
-                    null,
-                    null,
-                    null,
-                    null,
-                    ZoneId.of("America/Los_Angeles"),
-                    Locale.ENGLISH,
-                    ImmutableMap.of(),
-                    ImmutableMap.of(),
-                    ImmutableMap.of(),
-                    ImmutableMap.of(),
-                    ImmutableMap.of(),
-                    null,
-                    new Duration(2, MINUTES),
-                    true);
+            ClientSession clientSession = ClientSession.builder()
+                    .server(getDistributedQueryRunner().getCoordinator().getBaseUrl())
+                    .principal(Optional.of("user"))
+                    .user(Optional.of(assumedUser))
+                    .source("source")
+                    .timeZone(ZoneId.of("America/Los_Angeles"))
+                    .locale(Locale.ENGLISH)
+                    .clientRequestTimeout(new Duration(2, MINUTES))
+                    .compressionDisabled(true)
+                    .build();
 
             // start query
-            StatementClient client = newStatementClient(httpClient, clientSession, "SELECT * FROM tpch.tiny.nation");
+            try (StatementClient client = newStatementClient(httpClient, clientSession, "SELECT * FROM tpch.tiny.nation")) {
+                // wait for query to be fully scheduled
+                while (client.isRunning() && !client.currentStatusInfo().getStats().isScheduled()) {
+                    client.advance();
+                }
 
-            // wait for query to be fully scheduled
-            while (client.isRunning() && !client.currentStatusInfo().getStats().isScheduled()) {
-                client.advance();
+                return client.currentStatusInfo().getError();
             }
-
-            return client.currentStatusInfo().getError();
         }
         finally {
             // close the client since, query is not managed by the client protocol

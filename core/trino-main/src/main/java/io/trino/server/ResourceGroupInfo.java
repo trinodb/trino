@@ -93,8 +93,8 @@ public class ResourceGroupInfo
         this.numRunningQueries = numRunningQueries;
         this.numEligibleSubGroups = numEligibleSubGroups;
 
-        this.subGroups = requireNonNull(subGroups, "subGroups is null").map(ImmutableList::copyOf);
-        this.runningQueries = requireNonNull(runningQueries, "runningQueries is null").map(ImmutableList::copyOf);
+        this.subGroups = subGroups.map(ImmutableList::copyOf);
+        this.runningQueries = runningQueries.map(ImmutableList::copyOf);
     }
 
     @JsonProperty

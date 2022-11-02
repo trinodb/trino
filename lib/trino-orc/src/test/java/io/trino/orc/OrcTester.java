@@ -22,7 +22,8 @@ import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
-import io.trino.metadata.Metadata;
+import io.trino.hive.orc.OrcConf;
+import io.trino.orc.metadata.ColumnMetadata;
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.orc.metadata.OrcType;
 import io.trino.spi.Page;
@@ -31,7 +32,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.MapType;
@@ -49,7 +50,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveChar;
@@ -86,13 +86,13 @@ import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
-import org.apache.orc.OrcConf;
 import org.joda.time.DateTimeZone;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -105,6 +105,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -113,8 +114,8 @@ import static com.google.common.collect.Lists.newArrayList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
 import static io.trino.orc.OrcTester.Format.ORC_11;
 import static io.trino.orc.OrcTester.Format.ORC_12;
@@ -125,6 +126,8 @@ import static io.trino.orc.metadata.CompressionKind.NONE;
 import static io.trino.orc.metadata.CompressionKind.SNAPPY;
 import static io.trino.orc.metadata.CompressionKind.ZLIB;
 import static io.trino.orc.metadata.CompressionKind.ZSTD;
+import static io.trino.orc.metadata.OrcType.OrcTypeKind.BINARY;
+import static io.trino.orc.reader.ColumnReaders.ICEBERG_BINARY_TYPE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
@@ -149,10 +152,13 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.roundDiv;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.UuidType.UUID;
+import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.Varchars.truncateToLength;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_ALL_COLUMNS;
@@ -188,8 +194,6 @@ public class OrcTester
             .withStreamBufferSize(DataSize.of(1, MEGABYTE))
             .withTinyStripeThreshold(DataSize.of(1, MEGABYTE));
     public static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
-
-    private static final Metadata METADATA = createTestMetadataManager();
 
     public enum Format
     {
@@ -426,7 +430,7 @@ public class OrcTester
     {
         OrcWriterStats stats = new OrcWriterStats();
         for (CompressionKind compression : compressions) {
-            boolean hiveSupported = (compression != LZ4) && (compression != ZSTD) && !isTimestampTz(writeType) && !isTimestampTz(readType);
+            boolean hiveSupported = (compression != LZ4) && (compression != ZSTD) && !isTimestampTz(writeType) && !isTimestampTz(readType) && !isUuid(writeType) && !isUuid(readType);
 
             for (Format format : formats) {
                 // write Hive, read Trino
@@ -579,6 +583,10 @@ public class OrcTester
                 assertEquals(actualDouble, expectedDouble, 0.001);
             }
         }
+        else if (type.equals(UUID)) {
+            UUID actualUUID = java.util.UUID.fromString((String) actual);
+            assertEquals(actualUUID, expected);
+        }
         else if (!Objects.equals(actual, expected)) {
             assertEquals(actual, expected);
         }
@@ -637,11 +645,25 @@ public class OrcTester
         List<String> columnNames = ImmutableList.of("test");
         List<Type> types = ImmutableList.of(type);
 
+        ColumnMetadata<OrcType> orcType = OrcType.createRootOrcType(columnNames, types, Optional.of(mappedType -> {
+            if (UUID.equals(mappedType)) {
+                return Optional.of(new OrcType(
+                        BINARY,
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableMap.of(ICEBERG_BINARY_TYPE, "UUID")));
+            }
+            return Optional.empty();
+        }));
+
         OrcWriter writer = new OrcWriter(
                 new OutputStreamOrcDataSink(new FileOutputStream(outputFile)),
                 ImmutableList.of("test"),
                 types,
-                OrcType.createRootOrcType(columnNames, types),
+                orcType,
                 compression,
                 new OrcWriterOptions(),
                 ImmutableMap.of(),
@@ -672,11 +694,13 @@ public class OrcTester
             else if (TINYINT.equals(type) || SMALLINT.equals(type) || INTEGER.equals(type) || BIGINT.equals(type)) {
                 type.writeLong(blockBuilder, ((Number) value).longValue());
             }
-            else if (Decimals.isShortDecimal(type)) {
-                type.writeLong(blockBuilder, ((SqlDecimal) value).toBigDecimal().unscaledValue().longValue());
-            }
-            else if (Decimals.isLongDecimal(type)) {
-                type.writeSlice(blockBuilder, Decimals.encodeUnscaledValue(((SqlDecimal) value).toBigDecimal().unscaledValue()));
+            else if (type instanceof DecimalType decimalType) {
+                if (decimalType.isShort()) {
+                    type.writeLong(blockBuilder, ((SqlDecimal) value).toBigDecimal().unscaledValue().longValue());
+                }
+                else {
+                    type.writeObject(blockBuilder, Int128.valueOf(((SqlDecimal) value).toBigDecimal().unscaledValue()));
+                }
             }
             else if (DOUBLE.equals(type)) {
                 type.writeDouble(blockBuilder, ((Number) value).doubleValue());
@@ -695,6 +719,9 @@ public class OrcTester
             }
             else if (VARBINARY.equals(type)) {
                 type.writeSlice(blockBuilder, Slices.wrappedBuffer(((SqlVarbinary) value).getBytes()));
+            }
+            else if (UUID.equals(type)) {
+                type.writeSlice(blockBuilder, javaUuidToTrinoUuid((java.util.UUID) value));
             }
             else if (DATE.equals(type)) {
                 long days = ((SqlDate) value).getDays();
@@ -772,7 +799,7 @@ public class OrcTester
             Iterable<?> expectedValues)
             throws Exception
     {
-        JobConf configuration = new JobConf(new Configuration(false));
+        JobConf configuration = new JobConf(newEmptyConfiguration());
         configuration.set(READ_COLUMN_IDS_CONF_STR, "0");
         configuration.setBoolean(READ_ALL_COLUMNS, false);
 
@@ -807,7 +834,13 @@ public class OrcTester
             actualValue = ((ByteWritable) actualValue).get();
         }
         else if (actualValue instanceof BytesWritable) {
-            actualValue = new SqlVarbinary(((BytesWritable) actualValue).copyBytes());
+            if (UUID.equals(type)) {
+                ByteBuffer bytes = ByteBuffer.wrap(((BytesWritable) actualValue).copyBytes());
+                actualValue = new UUID(bytes.getLong(), bytes.getLong()).toString();
+            }
+            else {
+                actualValue = new SqlVarbinary(((BytesWritable) actualValue).copyBytes());
+            }
         }
         else if (actualValue instanceof DateWritableV2) {
             actualValue = new SqlDate(((DateWritableV2) actualValue).getDays());
@@ -986,6 +1019,9 @@ public class OrcTester
         if (type instanceof VarbinaryType) {
             return javaByteArrayObjectInspector;
         }
+        if (type.equals(UUID)) {
+            return javaByteArrayObjectInspector;
+        }
         if (type.equals(DATE)) {
             return javaDateObjectInspector;
         }
@@ -1055,6 +1091,9 @@ public class OrcTester
         if (type.equals(VARBINARY)) {
             return ((SqlVarbinary) value).getBytes();
         }
+        if (type.equals(UUID)) {
+            return javaUuidToTrinoUuid((java.util.UUID) value).getBytes();
+        }
         if (type.equals(DATE)) {
             return Date.ofEpochDay(((SqlDate) value).getDays());
         }
@@ -1100,7 +1139,7 @@ public class OrcTester
     static RecordWriter createOrcRecordWriter(File outputFile, Format format, CompressionKind compression, Type type)
             throws IOException
     {
-        JobConf jobConf = new JobConf();
+        JobConf jobConf = new JobConf(newEmptyConfiguration());
         OrcConf.WRITE_FORMAT.setString(jobConf, format == ORC_12 ? "0.12" : "0.11");
         OrcConf.COMPRESS.setString(jobConf, compression.name());
 
@@ -1183,12 +1222,12 @@ public class OrcTester
 
     private static Type arrayType(Type elementType)
     {
-        return METADATA.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(TypeSignatureParameter.typeParameter(elementType.getTypeSignature())));
+        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(TypeSignatureParameter.typeParameter(elementType.getTypeSignature())));
     }
 
     private static Type mapType(Type keyType, Type valueType)
     {
-        return METADATA.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.typeParameter(keyType.getTypeSignature()), TypeSignatureParameter.typeParameter(valueType.getTypeSignature())));
+        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.typeParameter(keyType.getTypeSignature()), TypeSignatureParameter.typeParameter(valueType.getTypeSignature())));
     }
 
     private static Type rowType(Type... fieldTypes)
@@ -1199,7 +1238,7 @@ public class OrcTester
             Type fieldType = fieldTypes[i];
             typeSignatureParameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(filedName)), fieldType.getTypeSignature())));
         }
-        return METADATA.getParameterizedType(StandardTypes.ROW, typeSignatureParameters.build());
+        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeSignatureParameters.build());
     }
 
     private static boolean isTimestampTz(Type type)
@@ -1217,6 +1256,25 @@ public class OrcTester
             return ((RowType) type).getFields().stream()
                     .map(RowType.Field::getType)
                     .anyMatch(OrcTester::isTimestampTz);
+        }
+        return false;
+    }
+
+    private static boolean isUuid(Type type)
+    {
+        if (type.equals(UUID)) {
+            return true;
+        }
+        if (type instanceof ArrayType) {
+            return isUuid(((ArrayType) type).getElementType());
+        }
+        if (type instanceof MapType) {
+            return isUuid(((MapType) type).getKeyType()) || isUuid(((MapType) type).getValueType());
+        }
+        if (type instanceof RowType) {
+            return ((RowType) type).getFields().stream()
+                    .map(RowType.Field::getType)
+                    .anyMatch(OrcTester::isUuid);
         }
         return false;
     }

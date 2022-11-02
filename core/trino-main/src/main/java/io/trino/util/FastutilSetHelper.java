@@ -13,9 +13,9 @@
  */
 package io.trino.util;
 
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import io.trino.collect.cache.NonEvictableCache;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.Hash;
 import it.unimi.dsi.fastutil.booleans.BooleanOpenHashSet;
@@ -31,11 +31,12 @@ import java.lang.invoke.MethodHandle;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verifyNotNull;
+import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.util.SingleAccessMethodCompiler.compileSingleAccessMethod;
 import static java.lang.Boolean.TRUE;
 import static java.lang.invoke.MethodType.methodType;
@@ -64,12 +65,10 @@ public final class FastutilSetHelper
         if (javaElementType == boolean.class) {
             return new BooleanOpenHashSet((Collection<Boolean>) set, 0.25f);
         }
-        else if (!type.getJavaType().isPrimitive()) {
+        if (!type.getJavaType().isPrimitive()) {
             return new ObjectOpenCustomHashSet<>(set, 0.25f, new ObjectStrategy(hashCodeHandle, equalsHandle, type));
         }
-        else {
-            throw new UnsupportedOperationException("Unsupported native type in set: " + type.getJavaType() + " with type " + type.getTypeSignature());
-        }
+        throw new UnsupportedOperationException("Unsupported native type in set: " + type.getJavaType() + " with type " + type.getTypeSignature());
     }
 
     public static boolean in(boolean booleanValue, BooleanOpenHashSet set)
@@ -238,21 +237,22 @@ public final class FastutilSetHelper
 
     private static class MethodGenerator
     {
-        private static final Cache<MethodKey<?>, GeneratedMethod<?>> generatedMethodCache = CacheBuilder.newBuilder()
-                .maximumSize(1_000)
-                .expireAfterWrite(2, TimeUnit.HOURS)
-                .build();
+        private static final NonEvictableCache<MethodKey<?>, GeneratedMethod<?>> generatedMethodCache = buildNonEvictableCache(
+                CacheBuilder.newBuilder()
+                        .maximumSize(1_000)
+                        .expireAfterWrite(2, TimeUnit.HOURS));
 
         private static <T> T getGeneratedMethod(Type type, Class<T> operatorInterface, MethodHandle methodHandle)
         {
             try {
                 @SuppressWarnings("unchecked")
-                GeneratedMethod<T> generatedMethod = (GeneratedMethod<T>) generatedMethodCache.get(
+                GeneratedMethod<T> generatedMethod = (GeneratedMethod<T>) uncheckedCacheGet(
+                        generatedMethodCache,
                         new MethodKey<>(type, operatorInterface),
                         () -> new GeneratedMethod<>(type, operatorInterface, methodHandle));
                 return generatedMethod.get();
             }
-            catch (ExecutionException | UncheckedExecutionException e) {
+            catch (UncheckedExecutionException e) {
                 throwIfUnchecked(e.getCause());
                 throw new RuntimeException(e.getCause());
             }

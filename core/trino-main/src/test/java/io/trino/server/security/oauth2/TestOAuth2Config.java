@@ -38,19 +38,18 @@ public class TestOAuth2Config
         assertRecordedDefaults(recordDefaults(OAuth2Config.class)
                 .setStateKey(null)
                 .setIssuer(null)
-                .setAccessTokenIssuer(null)
-                .setAuthUrl(null)
-                .setTokenUrl(null)
-                .setJwksUrl(null)
-                .setUserinfoUrl(null)
                 .setClientId(null)
                 .setClientSecret(null)
                 .setScopes("openid")
                 .setChallengeTimeout(new Duration(15, MINUTES))
                 .setPrincipalField("sub")
+                .setGroupsField(null)
                 .setAdditionalAudiences(Collections.emptyList())
+                .setMaxClockSkew(new Duration(1, MINUTES))
                 .setUserMappingPattern(null)
-                .setUserMappingFile(null));
+                .setUserMappingFile(null)
+                .setEnableRefreshTokens(false)
+                .setEnableDiscovery(true));
     }
 
     @Test
@@ -58,40 +57,38 @@ public class TestOAuth2Config
             throws IOException
     {
         Path userMappingFile = Files.createTempFile(null, null);
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("http-server.authentication.oauth2.state-key", "key-secret")
                 .put("http-server.authentication.oauth2.issuer", "http://127.0.0.1:9000/oauth2")
-                .put("http-server.authentication.oauth2.access-token-issuer", "http://127.0.0.1:9000/oauth2/access-token")
-                .put("http-server.authentication.oauth2.auth-url", "http://127.0.0.1:9000/oauth2/auth")
-                .put("http-server.authentication.oauth2.token-url", "http://127.0.0.1:9000/oauth2/token")
-                .put("http-server.authentication.oauth2.jwks-url", "http://127.0.0.1:9000/.well-known/jwks.json")
-                .put("http-server.authentication.oauth2.userinfo-url", "http://127.0.0.1:9000/oauth2/userinfo")
                 .put("http-server.authentication.oauth2.client-id", "another-consumer")
                 .put("http-server.authentication.oauth2.client-secret", "consumer-secret")
                 .put("http-server.authentication.oauth2.scopes", "email,offline")
                 .put("http-server.authentication.oauth2.principal-field", "some-field")
+                .put("http-server.authentication.oauth2.groups-field", "groups")
                 .put("http-server.authentication.oauth2.additional-audiences", "test-aud1,test-aud2")
                 .put("http-server.authentication.oauth2.challenge-timeout", "90s")
+                .put("http-server.authentication.oauth2.max-clock-skew", "15s")
                 .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)@something")
                 .put("http-server.authentication.oauth2.user-mapping.file", userMappingFile.toString())
-                .build();
+                .put("http-server.authentication.oauth2.refresh-tokens", "true")
+                .put("http-server.authentication.oauth2.oidc.discovery", "false")
+                .buildOrThrow();
 
         OAuth2Config expected = new OAuth2Config()
                 .setStateKey("key-secret")
                 .setIssuer("http://127.0.0.1:9000/oauth2")
-                .setAccessTokenIssuer("http://127.0.0.1:9000/oauth2/access-token")
-                .setAuthUrl("http://127.0.0.1:9000/oauth2/auth")
-                .setTokenUrl("http://127.0.0.1:9000/oauth2/token")
-                .setJwksUrl("http://127.0.0.1:9000/.well-known/jwks.json")
-                .setUserinfoUrl("http://127.0.0.1:9000/oauth2/userinfo")
                 .setClientId("another-consumer")
                 .setClientSecret("consumer-secret")
                 .setScopes("email, offline")
                 .setPrincipalField("some-field")
+                .setGroupsField("groups")
                 .setAdditionalAudiences(List.of("test-aud1", "test-aud2"))
                 .setChallengeTimeout(new Duration(90, SECONDS))
+                .setMaxClockSkew(new Duration(15, SECONDS))
                 .setUserMappingPattern("(.*)@something")
-                .setUserMappingFile(userMappingFile.toFile());
+                .setUserMappingFile(userMappingFile.toFile())
+                .setEnableRefreshTokens(true)
+                .setEnableDiscovery(false);
 
         assertFullMapping(properties, expected);
     }

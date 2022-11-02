@@ -16,32 +16,27 @@ package io.trino.spi.block;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.function.BiConsumer;
+import java.util.OptionalInt;
+import java.util.function.ObjLongConsumer;
 
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 public class SingleRowBlockWriter
         extends AbstractSingleRowBlock
         implements BlockBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleRowBlockWriter.class).instanceSize();
+    public static final int INSTANCE_SIZE = toIntExact(toIntExact(ClassLayout.parseClass(SingleRowBlockWriter.class).instanceSize()));
 
     private final BlockBuilder[] fieldBlockBuilders;
-    private final long initialBlockBuilderSize;
-    private int positionsWritten;
 
     private int currentFieldIndexToWrite;
+    private int rowIndex = -1;
     private boolean fieldBlockBuilderReturned;
 
-    SingleRowBlockWriter(int rowIndex, BlockBuilder[] fieldBlockBuilders)
+    SingleRowBlockWriter(BlockBuilder[] fieldBlockBuilders)
     {
-        super(rowIndex);
         this.fieldBlockBuilders = fieldBlockBuilders;
-        long initialBlockBuilderSize = 0;
-        for (BlockBuilder fieldBlockBuilder : fieldBlockBuilders) {
-            initialBlockBuilderSize += fieldBlockBuilder.getSizeInBytes();
-        }
-        this.initialBlockBuilderSize = initialBlockBuilderSize;
     }
 
     /**
@@ -75,13 +70,29 @@ public class SingleRowBlockWriter
     }
 
     @Override
+    protected int getRowIndex()
+    {
+        return rowIndex;
+    }
+
+    @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.empty();
+    }
+
+    @Override
     public long getSizeInBytes()
     {
         long currentBlockBuilderSize = 0;
+         /*
+          * We need to use subtraction in order to compute size because getRegionSizeInBytes(0, 1)
+          * returns non-zero result even if field block builder has no position appended
+          */
         for (BlockBuilder fieldBlockBuilder : fieldBlockBuilders) {
-            currentBlockBuilderSize += fieldBlockBuilder.getSizeInBytes();
+            currentBlockBuilderSize += fieldBlockBuilder.getSizeInBytes() - fieldBlockBuilder.getRegionSizeInBytes(0, rowIndex);
         }
-        return currentBlockBuilderSize - initialBlockBuilderSize;
+        return currentBlockBuilderSize;
     }
 
     @Override
@@ -95,12 +106,12 @@ public class SingleRowBlockWriter
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         for (BlockBuilder fieldBlockBuilder : fieldBlockBuilders) {
             consumer.accept(fieldBlockBuilder, fieldBlockBuilder.getRetainedSizeInBytes());
         }
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -144,24 +155,6 @@ public class SingleRowBlockWriter
     }
 
     @Override
-    public BlockBuilder appendStructure(Block block)
-    {
-        checkFieldIndexToWrite();
-        fieldBlockBuilders[currentFieldIndexToWrite].appendStructure(block);
-        entryAdded();
-        return this;
-    }
-
-    @Override
-    public BlockBuilder appendStructureInternal(Block block, int position)
-    {
-        checkFieldIndexToWrite();
-        fieldBlockBuilders[currentFieldIndexToWrite].appendStructureInternal(block, position);
-        entryAdded();
-        return this;
-    }
-
-    @Override
     public BlockBuilder beginBlockEntry()
     {
         checkFieldIndexToWrite();
@@ -189,7 +182,6 @@ public class SingleRowBlockWriter
     private void entryAdded()
     {
         currentFieldIndexToWrite++;
-        positionsWritten++;
     }
 
     @Override
@@ -198,7 +190,7 @@ public class SingleRowBlockWriter
         if (fieldBlockBuilderReturned) {
             throw new IllegalStateException("field block builder has been returned");
         }
-        return positionsWritten;
+        return currentFieldIndexToWrite;
     }
 
     @Override
@@ -214,7 +206,7 @@ public class SingleRowBlockWriter
     }
 
     @Override
-    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
+    public BlockBuilder newBlockBuilderLike(int expectedEntries, BlockBuilderStatus blockBuilderStatus)
     {
         throw new UnsupportedOperationException();
     }
@@ -225,9 +217,25 @@ public class SingleRowBlockWriter
         if (!fieldBlockBuilderReturned) {
             return format("SingleRowBlockWriter{numFields=%d, fieldBlockBuilderReturned=false, positionCount=%d}", fieldBlockBuilders.length, getPositionCount());
         }
-        else {
-            return format("SingleRowBlockWriter{numFields=%d, fieldBlockBuilderReturned=true}", fieldBlockBuilders.length);
+        return format("SingleRowBlockWriter{numFields=%d, fieldBlockBuilderReturned=true}", fieldBlockBuilders.length);
+    }
+
+    void setRowIndex(int rowIndex)
+    {
+        if (this.rowIndex != -1) {
+            throw new IllegalStateException("SingleRowBlockWriter should be reset before usage");
         }
+        this.rowIndex = rowIndex;
+    }
+
+    void reset()
+    {
+        if (this.rowIndex == -1) {
+            throw new IllegalStateException("SingleRowBlockWriter is already reset");
+        }
+        this.rowIndex = -1;
+        this.currentFieldIndexToWrite = 0;
+        this.fieldBlockBuilderReturned = false;
     }
 
     private void checkFieldIndexToWrite()

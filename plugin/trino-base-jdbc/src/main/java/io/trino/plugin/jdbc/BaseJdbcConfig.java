@@ -34,6 +34,9 @@ import static javax.validation.constraints.Pattern.Flag.CASE_INSENSITIVE;
 
 public class BaseJdbcConfig
 {
+    public static final String METADATA_CACHE_TTL = "metadata.cache-ttl";
+    public static final String METADATA_CACHE_MAXIMUM_SIZE = "metadata.cache-maximum-size";
+
     private String connectionUrl;
     private Set<String> jdbcTypesMappedToVarchar = ImmutableSet.of();
     public static final Duration CACHING_DISABLED = new Duration(0, MILLISECONDS);
@@ -41,6 +44,7 @@ public class BaseJdbcConfig
     private boolean cacheMissing;
     public static final long DEFAULT_METADATA_CACHE_SIZE = 10000;
     private long cacheMaximumSize = DEFAULT_METADATA_CACHE_SIZE;
+    private boolean reuseConnection = true;
 
     @NotNull
     // Some drivers match case insensitive in Driver.acceptURL
@@ -76,7 +80,7 @@ public class BaseJdbcConfig
         return metadataCacheTtl;
     }
 
-    @Config("metadata.cache-ttl")
+    @Config(METADATA_CACHE_TTL)
     @ConfigDescription("Determines how long meta information will be cached")
     public BaseJdbcConfig setMetadataCacheTtl(Duration metadataCacheTtl)
     {
@@ -103,11 +107,24 @@ public class BaseJdbcConfig
         return cacheMaximumSize;
     }
 
-    @Config("metadata.cache-maximum-size")
+    @Config(METADATA_CACHE_MAXIMUM_SIZE)
     @ConfigDescription("Maximum number of objects stored in the metadata cache")
     public BaseJdbcConfig setCacheMaximumSize(long cacheMaximumSize)
     {
         this.cacheMaximumSize = cacheMaximumSize;
+        return this;
+    }
+
+    public boolean isReuseConnection()
+    {
+        return reuseConnection;
+    }
+
+    @Config("query.reuse-connection")
+    @ConfigDescription("Enables reusing JDBC connection for metadata queries to data source within a single Trino query")
+    public BaseJdbcConfig setReuseConnection(boolean reuseConnection)
+    {
+        this.reuseConnection = reuseConnection;
         return this;
     }
 
@@ -116,7 +133,7 @@ public class BaseJdbcConfig
     {
         if (metadataCacheTtl.equals(CACHING_DISABLED) && cacheMaximumSize != BaseJdbcConfig.DEFAULT_METADATA_CACHE_SIZE) {
             throw new IllegalArgumentException(
-                    format("metadata.cache-ttl must be set to a non-zero value when metadata.cache-maximum-size is set"));
+                    format("%s must be set to a non-zero value when %s is set", METADATA_CACHE_TTL, METADATA_CACHE_MAXIMUM_SIZE));
         }
     }
 }

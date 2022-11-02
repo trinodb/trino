@@ -16,7 +16,6 @@ package io.trino.tests.product.cli;
 import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.google.common.io.Files;
 import com.google.common.io.Resources;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
@@ -41,8 +40,10 @@ import static io.trino.tempto.process.CliProcess.trimLines;
 import static io.trino.tests.product.TestGroups.AUTHORIZATION;
 import static io.trino.tests.product.TestGroups.CLI;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.Files.writeString;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -96,10 +97,10 @@ public class TestTrinoCli
 
     @AfterTestWithContext
     @Override
-    public void stopPresto()
+    public void stopCli()
             throws InterruptedException
     {
-        super.stopPresto();
+        super.stopCli();
     }
 
     @Override
@@ -151,7 +152,7 @@ public class TestTrinoCli
             throws Exception
     {
         try (TempFile file = new TempFile()) {
-            Files.write("select * from hive.default.nation;", file.file(), UTF_8);
+            writeString(file.path(), "select * from hive.default.nation;");
 
             launchTrinoCliWithRedirectedStdin(file.file());
             assertThat(trimLines(trino.readRemainingOutputLines())).containsAll(nationTableBatchLines);
@@ -164,7 +165,7 @@ public class TestTrinoCli
             throws Exception
     {
         try (TempFile file = new TempFile()) {
-            Files.write("select * from hive.default.nation;select 1;select 2", file.file(), UTF_8);
+            writeString(file.path(), "select * from hive.default.nation;select 1;select 2");
 
             launchTrinoCliWithRedirectedStdin(file.file());
 
@@ -239,7 +240,7 @@ public class TestTrinoCli
             throws Exception
     {
         try (TempFile file = new TempFile()) {
-            Files.write("select * from hive.default.nation;\n", file.file(), UTF_8);
+            writeString(file.path(), "select * from hive.default.nation;\n");
 
             launchTrinoCliWithServerArgument("--file", file.file().getAbsolutePath());
             assertThat(trimLines(trino.readRemainingOutputLines())).containsAll(nationTableBatchLines);
@@ -264,7 +265,7 @@ public class TestTrinoCli
             throws IOException
     {
         try (TempFile file = new TempFile()) {
-            Files.write("select * from hive.default.nations;\nselect * from hive.default.nation;\n", file.file(), UTF_8);
+            writeString(file.path(), "select * from hive.default.nations;\nselect * from hive.default.nation;\n");
 
             launchTrinoCliWithServerArgument("--file", file.file().getAbsolutePath());
             assertThat(trimLines(trino.readRemainingOutputLines())).isEmpty();
@@ -289,7 +290,7 @@ public class TestTrinoCli
             throws IOException
     {
         try (TempFile file = new TempFile()) {
-            Files.write("select * from hive.default.nations;\nselect * from hive.default.nation;\n", file.file(), UTF_8);
+            writeString(file.path(), "select * from hive.default.nations;\nselect * from hive.default.nation;\n");
 
             launchTrinoCliWithServerArgument("--file", file.file().getAbsolutePath(), "--ignore-errors", "true");
             assertThat(trimLines(trino.readRemainingOutputLines())).containsAll(nationTableBatchLines);
@@ -403,6 +404,33 @@ public class TestTrinoCli
         assertThat(trimLines(trino.readLinesUntilPrompt())).doesNotContain("admin");
     }
 
+    @Test(groups = CLI, timeOut = TIMEOUT)
+    public void shouldPrintExplainAnalyzePlan()
+            throws Exception
+    {
+        launchTrinoCliWithServerArgument();
+        trino.waitForPrompt();
+        trino.getProcessInput().println("EXPLAIN ANALYZE CREATE TABLE iceberg.default.test_print_explain_analyze AS SELECT * FROM hive.default.nation LIMIT 10;");
+        List<String> lines = trimLines(trino.readLinesUntilPrompt());
+        // TODO once https://github.com/trinodb/trino/issues/14253 is done this should be assertThat(lines).contains("CREATE TABLE: 1 row", "Query Plan");
+        assertThat(lines).contains("CREATE TABLE", "Query Plan");
+        // TODO once https://github.com/trinodb/trino/issues/14253 is done this should be assertThat(lines).contains("INSERT: 1 row", "Query Plan");
+        trino.getProcessInput().println("EXPLAIN ANALYZE INSERT INTO iceberg.default.test_print_explain_analyze VALUES(100, 'URUGUAY', 3, 'test comment');");
+        lines = trimLines(trino.readLinesUntilPrompt());
+        assertThat(lines).contains("INSERT", "Query Plan");
+        // TODO once https://github.com/trinodb/trino/issues/14253 is done this should be assertThat(lines).contains("UPDATE: 1 row", "Query Plan");
+        trino.getProcessInput().println("EXPLAIN ANALYZE UPDATE iceberg.default.test_print_explain_analyze SET n_comment = 'testValue 5' WHERE n_nationkey = 100;");
+        lines = trimLines(trino.readLinesUntilPrompt());
+        assertThat(lines).contains("UPDATE", "Query Plan");
+        // TODO once https://github.com/trinodb/trino/issues/14253 is done this should be assertThat(lines).contains("DELETE: 1 row", "Query Plan");
+        trino.getProcessInput().println("EXPLAIN ANALYZE DELETE FROM iceberg.default.test_print_explain_analyze WHERE n_nationkey = 100;");
+        lines = trimLines(trino.readLinesUntilPrompt());
+        assertThat(lines).contains("DELETE", "Query Plan");
+
+        // cleanup
+        onTrino().executeQuery("DROP TABLE iceberg.default.test_print_explain_analyze");
+    }
+
     private void launchTrinoCliWithServerArgument(String... arguments)
             throws IOException
     {
@@ -422,7 +450,7 @@ public class TestTrinoCli
 
         File tempFile = File.createTempFile(".trino_config", "");
         tempFile.deleteOnExit();
-        Files.write(fileContent.getBytes(UTF_8), tempFile);
+        writeString(tempFile.toPath(), fileContent);
 
         processBuilder.environment().put("TRINO_CONFIG", tempFile.getAbsolutePath());
         trino = new TrinoCliProcess(processBuilder.start());

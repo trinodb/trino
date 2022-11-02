@@ -14,134 +14,77 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.Session;
-import io.trino.connector.CatalogName;
-import io.trino.metadata.AbstractMockMetadata;
-import io.trino.metadata.Catalog;
-import io.trino.metadata.CatalogManager;
+import com.google.common.collect.ImmutableMap;
+import io.trino.connector.CatalogServiceProvider;
+import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.SchemaPropertyManager;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
-import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.transaction.TransactionManager;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.CopyOnWriteArrayList;
-
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
-import static io.trino.testing.TestingSession.createBogusTestingCatalog;
-import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static java.util.Collections.emptyList;
-import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestCreateSchemaTask
+        extends BaseDataDefinitionTaskTest
 {
-    private static final String CATALOG_NAME = "catalog";
-    private Session testSession;
-    private TestCreateSchemaTask.MockMetadata metadata;
-
-    @BeforeMethod
-    public void setUp()
-    {
-        CatalogManager catalogManager = new CatalogManager();
-        TransactionManager transactionManager = createTestTransactionManager(catalogManager);
-        Catalog testCatalog = createBogusTestingCatalog(CATALOG_NAME);
-        catalogManager.registerCatalog(testCatalog);
-        SchemaPropertyManager schemaPropertyManager = new SchemaPropertyManager();
-        schemaPropertyManager.addProperties(testCatalog.getConnectorCatalogName(), ImmutableList.of());
-        testSession = testSessionBuilder()
-                .setTransactionId(transactionManager.beginTransaction(false))
-                .build();
-        metadata = new TestCreateSchemaTask.MockMetadata(
-                schemaPropertyManager,
-                testCatalog.getConnectorCatalogName());
-    }
+    private static final CatalogSchemaName CATALOG_SCHEMA_NAME = new CatalogSchemaName(TEST_CATALOG_NAME, "test_db");
 
     @Test
     public void testDuplicatedCreateSchema()
     {
-        String schemaName = "test_db";
-        CreateSchema statement = new CreateSchema(QualifiedName.of(schemaName), false, ImmutableList.of());
-        getFutureValue(CreateSchemaTask.internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList()));
-        assertEquals(metadata.getCreateSchemaCount(), 1);
+        CreateSchemaTask task = getCreateSchemaTask();
+        CreateSchema statement = new CreateSchema(QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), false, ImmutableList.of());
+        getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP));
+        assertTrue(metadata.schemaExists(testSession, CATALOG_SCHEMA_NAME));
         assertThatExceptionOfType(TrinoException.class)
-                .isThrownBy(() -> getFutureValue(CreateSchemaTask.internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList())))
-                .withMessage("Schema already exists");
+                .isThrownBy(() -> getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP)))
+                .withMessage("Schema 'test-catalog.test_db' already exists");
     }
 
     @Test
     public void testDuplicatedCreateSchemaIfNotExists()
     {
-        String schemaName = "test_db";
-        CreateSchema statement = new CreateSchema(QualifiedName.of(schemaName), true, ImmutableList.of());
-        getFutureValue(CreateSchemaTask.internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList()));
-        assertEquals(metadata.getCreateSchemaCount(), 1);
-        getFutureValue(CreateSchemaTask.internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList()));
-        assertEquals(metadata.getCreateSchemaCount(), 1);
+        CreateSchemaTask task = getCreateSchemaTask();
+        CreateSchema statement = new CreateSchema(QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), true, ImmutableList.of());
+        getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP));
+        assertTrue(metadata.schemaExists(testSession, CATALOG_SCHEMA_NAME));
+        getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP));
+        assertTrue(metadata.schemaExists(testSession, CATALOG_SCHEMA_NAME));
     }
 
-    private static class MockMetadata
-            extends AbstractMockMetadata
+    @Test
+    public void failCreateSchema()
     {
-        private final CatalogName catalogHandle;
-        private final List<CatalogSchemaName> schemas;
-        private final SchemaPropertyManager schemaPropertyManager;
+        CreateSchemaTask task = getCreateSchemaTask();
+        metadata.failCreateSchema();
+        assertThatExceptionOfType(TrinoException.class)
+                .isThrownBy(() -> getFutureValue(task.execute(
+                        new CreateSchema(QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), false, ImmutableList.of()),
+                        queryStateMachine,
+                        emptyList(),
+                        WarningCollector.NOOP)))
+                .withMessage("TEST create schema fail: test-catalog.test_db");
+        assertThatExceptionOfType(TrinoException.class)
+                .isThrownBy(() -> getFutureValue(task.execute(
+                        new CreateSchema(QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), true, ImmutableList.of()),
+                        queryStateMachine,
+                        emptyList(),
+                        WarningCollector.NOOP)))
+                .withMessage("TEST create schema fail: test-catalog.test_db");
+    }
 
-        public MockMetadata(
-                SchemaPropertyManager schemaPropertyManager,
-                CatalogName catalogHandle)
-        {
-            this.schemaPropertyManager = requireNonNull(schemaPropertyManager, "schemaPropertyManager is null");
-            this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
-            this.schemas = new CopyOnWriteArrayList<>();
-        }
-
-        @Override
-        public SchemaPropertyManager getSchemaPropertyManager()
-        {
-            return schemaPropertyManager;
-        }
-
-        @Override
-        public boolean schemaExists(Session session, CatalogSchemaName schema)
-        {
-            // To check the exception handling thrown by createSchema.
-            return false;
-        }
-
-        @Override
-        public void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties, TrinoPrincipal principal)
-        {
-            if (schemas.contains(schema)) {
-                throw new TrinoException(ALREADY_EXISTS, "Schema already exists");
-            }
-            schemas.add(schema);
-        }
-
-        @Override
-        public Optional<CatalogName> getCatalogHandle(Session session, String catalogName)
-        {
-            if (catalogHandle.getCatalogName().equals(catalogName)) {
-                return Optional.of(catalogHandle);
-            }
-            return Optional.empty();
-        }
-
-        public int getCreateSchemaCount()
-        {
-            return schemas.size();
-        }
+    private CreateSchemaTask getCreateSchemaTask()
+    {
+        SchemaPropertyManager schemaPropertyManager = new SchemaPropertyManager(CatalogServiceProvider.singleton(TEST_CATALOG_HANDLE, ImmutableMap.of()));
+        return new CreateSchemaTask(plannerContext, new AllowAllAccessControl(), schemaPropertyManager);
     }
 }

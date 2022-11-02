@@ -40,7 +40,7 @@ public class PhoenixOutputTableHandle
             @JsonProperty("jdbcColumnTypes") Optional<List<JdbcTypeHandle>> jdbcColumnTypes,
             @JsonProperty("rowkeyColumn") Optional<String> rowkeyColumn)
     {
-        super("", schemaName, tableName, columnNames, columnTypes, jdbcColumnTypes, "");
+        super("", schemaName, tableName, columnNames, columnTypes, jdbcColumnTypes, Optional.empty(), Optional.empty());
         this.rowkeyColumn = requireNonNull(rowkeyColumn, "rowkeyColumn is null");
     }
 

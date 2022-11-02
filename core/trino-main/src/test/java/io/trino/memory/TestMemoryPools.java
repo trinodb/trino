@@ -19,6 +19,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import io.trino.Session;
+import io.trino.execution.StageId;
+import io.trino.execution.TaskId;
 import io.trino.execution.buffer.TestingPagesSerdeFactory;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.Driver;
@@ -31,7 +33,6 @@ import io.trino.operator.TaskContext;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
-import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spiller.SpillSpaceTracker;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.LocalQueryRunner;
@@ -54,10 +55,10 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -67,7 +68,7 @@ public class TestMemoryPools
     private static final DataSize TEN_MEGABYTES_WITHOUT_TWO_BYTES = DataSize.ofBytes(TEN_MEGABYTES.toBytes() - 2);
     private static final DataSize ONE_BYTE = DataSize.ofBytes(1);
 
-    private QueryId fakeQueryId;
+    private TaskId fakeTaskId;
     private LocalQueryRunner localQueryRunner;
     private MemoryPool userPool;
     private List<Driver> drivers;
@@ -90,12 +91,12 @@ public class TestMemoryPools
         // add tpch
         localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
 
-        userPool = new MemoryPool(new MemoryPoolId("test"), TEN_MEGABYTES);
-        fakeQueryId = new QueryId("fake");
+        userPool = new MemoryPool(TEN_MEGABYTES);
+        QueryId queryId = new QueryId("fake");
+        fakeTaskId = new TaskId(new StageId(queryId, 0), 0, 0);
         SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(DataSize.of(1, GIGABYTE));
         QueryContext queryContext = new QueryContext(new QueryId("query"),
                 TEN_MEGABYTES,
-                DataSize.of(20, MEGABYTE),
                 userPool,
                 new TestingGcMonitor(),
                 localQueryRunner.getExecutor(),
@@ -149,10 +150,10 @@ public class TestMemoryPools
     public void testBlockingOnUserMemory()
     {
         setUpCountStarFromOrdersWithJoin();
-        assertTrue(userPool.tryReserve(fakeQueryId, "test", TEN_MEGABYTES.toBytes()));
+        assertTrue(userPool.tryReserve(fakeTaskId, "test", TEN_MEGABYTES.toBytes()));
         runDriversUntilBlocked(waitingForUserMemory());
         assertTrue(userPool.getFreeBytes() <= 0, format("Expected empty pool but got [%d]", userPool.getFreeBytes()));
-        userPool.free(fakeQueryId, "test", TEN_MEGABYTES.toBytes());
+        userPool.free(fakeTaskId, "test", TEN_MEGABYTES.toBytes());
         assertDriversProgress(waitingForUserMemory());
     }
 
@@ -167,7 +168,7 @@ public class TestMemoryPools
             notifiedBytes.set(pool.getReservedBytes());
         }));
 
-        userPool.reserve(fakeQueryId, "test", 3);
+        userPool.reserve(fakeTaskId, "test", 3);
         assertEquals(notifiedPool.get(), userPool);
         assertEquals(notifiedBytes.get(), 3L);
     }
@@ -176,12 +177,12 @@ public class TestMemoryPools
     public void testMemoryFutureCancellation()
     {
         setUpCountStarFromOrdersWithJoin();
-        ListenableFuture<Void> future = userPool.reserve(fakeQueryId, "test", TEN_MEGABYTES.toBytes());
+        ListenableFuture<Void> future = userPool.reserve(fakeTaskId, "test", TEN_MEGABYTES.toBytes());
         assertTrue(!future.isDone());
         assertThatThrownBy(() -> future.cancel(true))
                 .isInstanceOf(UnsupportedOperationException.class)
                 .hasMessage("cancellation is not supported");
-        userPool.free(fakeQueryId, "test", TEN_MEGABYTES.toBytes());
+        userPool.free(fakeTaskId, "test", TEN_MEGABYTES.toBytes());
         assertTrue(future.isDone());
     }
 
@@ -189,20 +190,20 @@ public class TestMemoryPools
     public void testBlockingOnRevocableMemoryFreeUser()
     {
         setupConsumeRevocableMemory(ONE_BYTE, 10);
-        assertTrue(userPool.tryReserve(fakeQueryId, "test", TEN_MEGABYTES_WITHOUT_TWO_BYTES.toBytes()));
+        assertTrue(userPool.tryReserve(fakeTaskId, "test", TEN_MEGABYTES_WITHOUT_TWO_BYTES.toBytes()));
 
         // we expect 2 iterations as we have 2 bytes remaining in memory pool and we allocate 1 byte per page
-        assertEquals(runDriversUntilBlocked(waitingForRevocableSystemMemory()), 2);
+        assertEquals(runDriversUntilBlocked(waitingForRevocableMemory()), 2);
         assertTrue(userPool.getFreeBytes() <= 0, format("Expected empty pool but got [%d]", userPool.getFreeBytes()));
 
         // lets free 5 bytes
-        userPool.free(fakeQueryId, "test", 5);
-        assertEquals(runDriversUntilBlocked(waitingForRevocableSystemMemory()), 5);
+        userPool.free(fakeTaskId, "test", 5);
+        assertEquals(runDriversUntilBlocked(waitingForRevocableMemory()), 5);
         assertTrue(userPool.getFreeBytes() <= 0, format("Expected empty pool but got [%d]", userPool.getFreeBytes()));
 
         // 3 more bytes is enough for driver to finish
-        userPool.free(fakeQueryId, "test", 3);
-        assertDriversProgress(waitingForRevocableSystemMemory());
+        userPool.free(fakeTaskId, "test", 3);
+        assertDriversProgress(waitingForRevocableMemory());
         assertEquals(userPool.getFreeBytes(), 10);
     }
 
@@ -210,83 +211,222 @@ public class TestMemoryPools
     public void testBlockingOnRevocableMemoryFreeViaRevoke()
     {
         RevocableMemoryOperator revocableMemoryOperator = setupConsumeRevocableMemory(ONE_BYTE, 5);
-        assertTrue(userPool.tryReserve(fakeQueryId, "test", TEN_MEGABYTES_WITHOUT_TWO_BYTES.toBytes()));
+        assertTrue(userPool.tryReserve(fakeTaskId, "test", TEN_MEGABYTES_WITHOUT_TWO_BYTES.toBytes()));
 
         // we expect 2 iterations as we have 2 bytes remaining in memory pool and we allocate 1 byte per page
-        assertEquals(runDriversUntilBlocked(waitingForRevocableSystemMemory()), 2);
+        assertEquals(runDriversUntilBlocked(waitingForRevocableMemory()), 2);
         revocableMemoryOperator.getOperatorContext().requestMemoryRevoking();
 
         // 2 more iterations
-        assertEquals(runDriversUntilBlocked(waitingForRevocableSystemMemory()), 2);
+        assertEquals(runDriversUntilBlocked(waitingForRevocableMemory()), 2);
         revocableMemoryOperator.getOperatorContext().requestMemoryRevoking();
 
         // 3 more bytes is enough for driver to finish
-        assertDriversProgress(waitingForRevocableSystemMemory());
+        assertDriversProgress(waitingForRevocableMemory());
         assertEquals(userPool.getFreeBytes(), 2);
     }
 
     @Test
     public void testTaggedAllocations()
     {
-        QueryId testQuery = new QueryId("test_query");
-        MemoryPool testPool = new MemoryPool(new MemoryPoolId("test"), DataSize.ofBytes(1000));
+        TaskId testTask = new TaskId(new StageId(new QueryId("test_query"), 0), 0, 0);
+        MemoryPool testPool = new MemoryPool(DataSize.ofBytes(1000));
 
-        testPool.reserve(testQuery, "test_tag", 10);
+        testPool.reserve(testTask, "test_tag", 10);
 
-        Map<String, Long> allocations = testPool.getTaggedMemoryAllocations().get(testQuery);
+        Map<String, Long> allocations = testPool.getTaggedMemoryAllocations().get(new QueryId("test_query"));
         assertEquals(allocations, ImmutableMap.of("test_tag", 10L));
 
         // free 5 bytes for test_tag
-        testPool.free(testQuery, "test_tag", 5);
+        testPool.free(testTask, "test_tag", 5);
         assertEquals(allocations, ImmutableMap.of("test_tag", 5L));
 
-        testPool.reserve(testQuery, "test_tag2", 20);
+        testPool.reserve(testTask, "test_tag2", 20);
         assertEquals(allocations, ImmutableMap.of("test_tag", 5L, "test_tag2", 20L));
 
         // free the remaining 5 bytes for test_tag
-        testPool.free(testQuery, "test_tag", 5);
+        testPool.free(testTask, "test_tag", 5);
         assertEquals(allocations, ImmutableMap.of("test_tag2", 20L));
 
         // free all for test_tag2
-        testPool.free(testQuery, "test_tag2", 20);
+        testPool.free(testTask, "test_tag2", 20);
         assertEquals(testPool.getTaggedMemoryAllocations().size(), 0);
     }
 
     @Test
-    public void testMoveQuery()
+    public void testPerTaskAllocations()
     {
-        QueryId testQuery = new QueryId("test_query");
-        MemoryPool pool1 = new MemoryPool(new MemoryPoolId("test"), DataSize.ofBytes(1000));
-        MemoryPool pool2 = new MemoryPool(new MemoryPoolId("test"), DataSize.ofBytes(1000));
-        pool1.reserve(testQuery, "test_tag", 10);
+        QueryId query1 = new QueryId("test_query1");
+        TaskId q1task1 = new TaskId(new StageId(query1, 0), 0, 0);
+        TaskId q1task2 = new TaskId(new StageId(query1, 0), 1, 0);
 
-        Map<String, Long> allocations = pool1.getTaggedMemoryAllocations().get(testQuery);
-        assertEquals(allocations, ImmutableMap.of("test_tag", 10L));
+        QueryId query2 = new QueryId("test_query2");
+        TaskId q2task1 = new TaskId(new StageId(query2, 0), 0, 0);
 
-        pool1.moveQuery(testQuery, pool2);
-        assertNull(pool1.getTaggedMemoryAllocations().get(testQuery));
-        allocations = pool2.getTaggedMemoryAllocations().get(testQuery);
-        assertEquals(allocations, ImmutableMap.of("test_tag", 10L));
+        MemoryPool testPool = new MemoryPool(DataSize.ofBytes(1000));
 
-        assertEquals(pool1.getFreeBytes(), 1000);
-        assertEquals(pool2.getFreeBytes(), 990);
+        // allocate for some task for q1
+        testPool.reserve(q1task1, "tag", 10);
+        assertThat(testPool.getQueryMemoryReservations().keySet()).hasSize(1);
+        assertThat(testPool.getQueryMemoryReservation(query1)).isEqualTo(10L);
+        assertThat(testPool.getTaskMemoryReservations().keySet()).hasSize(1);
+        assertThat(testPool.getTaskMemoryReservation(q1task1)).isEqualTo(10L);
 
-        pool2.free(testQuery, "test", 10);
-        assertEquals(pool2.getFreeBytes(), 1000);
+        // different task same for q1
+        testPool.reserve(q1task2, "tag", 7);
+        assertThat(testPool.getQueryMemoryReservations().keySet()).hasSize(1);
+        assertThat(testPool.getQueryMemoryReservation(query1)).isEqualTo(17L);
+        assertThat(testPool.getTaskMemoryReservations().keySet()).hasSize(2);
+        assertThat(testPool.getTaskMemoryReservation(q1task1)).isEqualTo(10L);
+        assertThat(testPool.getTaskMemoryReservation(q1task2)).isEqualTo(7L);
+
+        // task for a different query
+        testPool.reserve(q2task1, "tag", 9);
+        assertThat(testPool.getQueryMemoryReservations().keySet()).hasSize(2);
+        assertThat(testPool.getQueryMemoryReservation(query1)).isEqualTo(17L);
+        assertThat(testPool.getQueryMemoryReservation(query2)).isEqualTo(9L);
+        assertThat(testPool.getTaskMemoryReservation(q1task1)).isEqualTo(10L);
+        assertThat(testPool.getTaskMemoryReservations().keySet()).hasSize(3);
+        assertThat(testPool.getTaskMemoryReservation(q1task2)).isEqualTo(7L);
+        assertThat(testPool.getTaskMemoryReservation(q2task1)).isEqualTo(9L);
+
+        // increase memory for one of the tasks
+        testPool.reserve(q1task1, "tag", 3);
+        assertThat(testPool.getQueryMemoryReservation(query1)).isEqualTo(20L);
+        assertThat(testPool.getQueryMemoryReservation(query2)).isEqualTo(9L);
+        assertThat(testPool.getTaskMemoryReservations().keySet()).hasSize(3);
+        assertThat(testPool.getTaskMemoryReservation(q1task1)).isEqualTo(13L);
+        assertThat(testPool.getTaskMemoryReservation(q1task2)).isEqualTo(7L);
+        assertThat(testPool.getTaskMemoryReservation(q2task1)).isEqualTo(9L);
+
+        // decrease memory for one of the tasks
+        testPool.free(q1task1, "tag", 5);
+        assertThat(testPool.getQueryMemoryReservations().keySet()).hasSize(2);
+        assertThat(testPool.getQueryMemoryReservation(query1)).isEqualTo(15L);
+        assertThat(testPool.getQueryMemoryReservation(query2)).isEqualTo(9L);
+        assertThat(testPool.getTaskMemoryReservations().keySet()).hasSize(3);
+        assertThat(testPool.getTaskMemoryReservation(q1task1)).isEqualTo(8L);
+        assertThat(testPool.getTaskMemoryReservation(q1task2)).isEqualTo(7L);
+        assertThat(testPool.getTaskMemoryReservation(q2task1)).isEqualTo(9L);
+
+        // try to reserve more than allocated by task
+        assertThatThrownBy(() -> testPool.free(q1task1, "tag", 9))
+                .hasMessage("tried to free more memory than is reserved by task");
+        assertThat(testPool.getQueryMemoryReservations().keySet()).hasSize(2);
+        assertThat(testPool.getQueryMemoryReservation(query1)).isEqualTo(15L);
+        assertThat(testPool.getQueryMemoryReservation(query2)).isEqualTo(9L);
+        assertThat(testPool.getTaskMemoryReservations().keySet()).hasSize(3);
+        assertThat(testPool.getTaskMemoryReservation(q1task1)).isEqualTo(8L);
+        assertThat(testPool.getTaskMemoryReservation(q1task2)).isEqualTo(7L);
+        assertThat(testPool.getTaskMemoryReservation(q2task1)).isEqualTo(9L);
+
+        // zero memory for one of the tasks
+        testPool.free(q1task1, "tag", 8);
+        assertThat(testPool.getQueryMemoryReservations().keySet()).hasSize(2);
+        assertThat(testPool.getQueryMemoryReservation(query1)).isEqualTo(7L);
+        assertThat(testPool.getQueryMemoryReservation(query2)).isEqualTo(9L);
+        assertThat(testPool.getTaskMemoryReservations().keySet()).hasSize(2);
+        assertThat(testPool.getTaskMemoryReservation(q1task1)).isEqualTo(0L);
+        assertThat(testPool.getTaskMemoryReservation(q1task2)).isEqualTo(7L);
+        assertThat(testPool.getTaskMemoryReservation(q2task1)).isEqualTo(9L);
+
+        // zero memory for all query the tasks
+        testPool.free(q1task2, "tag", 7);
+        assertThat(testPool.getQueryMemoryReservations().keySet()).hasSize(1);
+        assertThat(testPool.getQueryMemoryReservation(query1)).isEqualTo(0L);
+        assertThat(testPool.getQueryMemoryReservation(query2)).isEqualTo(9L);
+        assertThat(testPool.getTaskMemoryReservations().keySet()).hasSize(1);
+        assertThat(testPool.getTaskMemoryReservation(q1task1)).isEqualTo(0L);
+        assertThat(testPool.getTaskMemoryReservation(q1task2)).isEqualTo(0L);
+        assertThat(testPool.getTaskMemoryReservation(q2task1)).isEqualTo(9L);
     }
 
     @Test
-    public void testMoveUnknownQuery()
+    public void testPerTaskRevocableAllocations()
     {
-        QueryId testQuery = new QueryId("test_query");
-        MemoryPool pool1 = new MemoryPool(new MemoryPoolId("test"), DataSize.ofBytes(1000));
-        MemoryPool pool2 = new MemoryPool(new MemoryPoolId("test"), DataSize.ofBytes(1000));
+        QueryId query1 = new QueryId("test_query1");
+        TaskId q1task1 = new TaskId(new StageId(query1, 0), 0, 0);
+        TaskId q1task2 = new TaskId(new StageId(query1, 0), 1, 0);
 
-        assertNull(pool1.getTaggedMemoryAllocations().get(testQuery));
+        QueryId query2 = new QueryId("test_query2");
+        TaskId q2task1 = new TaskId(new StageId(query2, 0), 0, 0);
 
-        pool1.moveQuery(testQuery, pool2);
-        assertNull(pool1.getTaggedMemoryAllocations().get(testQuery));
-        assertNull(pool2.getTaggedMemoryAllocations().get(testQuery));
+        MemoryPool testPool = new MemoryPool(DataSize.ofBytes(1000));
+
+        // allocate for some task for q1
+        testPool.reserveRevocable(q1task1, 10);
+        assertThat(testPool.getQueryRevocableMemoryReservations().keySet()).hasSize(1);
+        assertThat(testPool.getQueryRevocableMemoryReservation(query1)).isEqualTo(10L);
+        assertThat(testPool.getTaskRevocableMemoryReservations().keySet()).hasSize(1);
+        assertThat(testPool.getTaskRevocableMemoryReservation(q1task1)).isEqualTo(10L);
+
+        // different task same for q1
+        testPool.reserveRevocable(q1task2, 7);
+        assertThat(testPool.getQueryRevocableMemoryReservations().keySet()).hasSize(1);
+        assertThat(testPool.getQueryRevocableMemoryReservation(query1)).isEqualTo(17L);
+        assertThat(testPool.getTaskRevocableMemoryReservations().keySet()).hasSize(2);
+        assertThat(testPool.getTaskRevocableMemoryReservation(q1task1)).isEqualTo(10L);
+        assertThat(testPool.getTaskRevocableMemoryReservation(q1task2)).isEqualTo(7L);
+
+        // task for a different query
+        testPool.reserveRevocable(q2task1, 9);
+        assertThat(testPool.getQueryRevocableMemoryReservations().keySet()).hasSize(2);
+        assertThat(testPool.getQueryRevocableMemoryReservation(query1)).isEqualTo(17L);
+        assertThat(testPool.getQueryRevocableMemoryReservation(query2)).isEqualTo(9L);
+        assertThat(testPool.getTaskRevocableMemoryReservation(q1task1)).isEqualTo(10L);
+        assertThat(testPool.getTaskRevocableMemoryReservations().keySet()).hasSize(3);
+        assertThat(testPool.getTaskRevocableMemoryReservation(q1task2)).isEqualTo(7L);
+        assertThat(testPool.getTaskRevocableMemoryReservation(q2task1)).isEqualTo(9L);
+
+        // increase memory for one of the tasks
+        testPool.reserveRevocable(q1task1, 3);
+        assertThat(testPool.getQueryRevocableMemoryReservation(query1)).isEqualTo(20L);
+        assertThat(testPool.getQueryRevocableMemoryReservation(query2)).isEqualTo(9L);
+        assertThat(testPool.getTaskRevocableMemoryReservations().keySet()).hasSize(3);
+        assertThat(testPool.getTaskRevocableMemoryReservation(q1task1)).isEqualTo(13L);
+        assertThat(testPool.getTaskRevocableMemoryReservation(q1task2)).isEqualTo(7L);
+        assertThat(testPool.getTaskRevocableMemoryReservation(q2task1)).isEqualTo(9L);
+
+        // decrease memory for one of the tasks
+        testPool.freeRevocable(q1task1, 5);
+        assertThat(testPool.getQueryRevocableMemoryReservations().keySet()).hasSize(2);
+        assertThat(testPool.getQueryRevocableMemoryReservation(query1)).isEqualTo(15L);
+        assertThat(testPool.getQueryRevocableMemoryReservation(query2)).isEqualTo(9L);
+        assertThat(testPool.getTaskRevocableMemoryReservations().keySet()).hasSize(3);
+        assertThat(testPool.getTaskRevocableMemoryReservation(q1task1)).isEqualTo(8L);
+        assertThat(testPool.getTaskRevocableMemoryReservation(q1task2)).isEqualTo(7L);
+        assertThat(testPool.getTaskRevocableMemoryReservation(q2task1)).isEqualTo(9L);
+
+        // try to reserve more than allocated by task
+        assertThatThrownBy(() -> testPool.freeRevocable(q1task1, 9))
+                .hasMessage("tried to free more revocable memory than is reserved by task");
+        assertThat(testPool.getQueryRevocableMemoryReservations().keySet()).hasSize(2);
+        assertThat(testPool.getQueryRevocableMemoryReservation(query1)).isEqualTo(15L);
+        assertThat(testPool.getQueryRevocableMemoryReservation(query2)).isEqualTo(9L);
+        assertThat(testPool.getTaskRevocableMemoryReservations().keySet()).hasSize(3);
+        assertThat(testPool.getTaskRevocableMemoryReservation(q1task1)).isEqualTo(8L);
+        assertThat(testPool.getTaskRevocableMemoryReservation(q1task2)).isEqualTo(7L);
+        assertThat(testPool.getTaskRevocableMemoryReservation(q2task1)).isEqualTo(9L);
+
+        // zero memory for one of the tasks
+        testPool.freeRevocable(q1task1, 8);
+        assertThat(testPool.getQueryRevocableMemoryReservations().keySet()).hasSize(2);
+        assertThat(testPool.getQueryRevocableMemoryReservation(query1)).isEqualTo(7L);
+        assertThat(testPool.getQueryRevocableMemoryReservation(query2)).isEqualTo(9L);
+        assertThat(testPool.getTaskRevocableMemoryReservations().keySet()).hasSize(2);
+        assertThat(testPool.getTaskRevocableMemoryReservation(q1task1)).isEqualTo(0L);
+        assertThat(testPool.getTaskRevocableMemoryReservation(q1task2)).isEqualTo(7L);
+        assertThat(testPool.getTaskRevocableMemoryReservation(q2task1)).isEqualTo(9L);
+
+        // zero memory for all query the tasks
+        testPool.freeRevocable(q1task2, 7);
+        assertThat(testPool.getQueryRevocableMemoryReservations().keySet()).hasSize(1);
+        assertThat(testPool.getQueryRevocableMemoryReservation(query1)).isEqualTo(0L);
+        assertThat(testPool.getQueryRevocableMemoryReservation(query2)).isEqualTo(9L);
+        assertThat(testPool.getTaskRevocableMemoryReservations().keySet()).hasSize(1);
+        assertThat(testPool.getTaskRevocableMemoryReservation(q1task1)).isEqualTo(0L);
+        assertThat(testPool.getTaskRevocableMemoryReservation(q1task2)).isEqualTo(0L);
+        assertThat(testPool.getTaskRevocableMemoryReservation(q2task1)).isEqualTo(9L);
     }
 
     private long runDriversUntilBlocked(Predicate<OperatorContext> reason)
@@ -296,7 +436,7 @@ public class TestMemoryPools
         // run driver, until it blocks
         while (!isOperatorBlocked(drivers, reason)) {
             for (Driver driver : drivers) {
-                driver.process();
+                driver.processForNumberOfIterations(1);
             }
             iterationsCount++;
         }
@@ -314,7 +454,7 @@ public class TestMemoryPools
             assertFalse(isOperatorBlocked(drivers, reason));
             boolean progress = false;
             for (Driver driver : drivers) {
-                ListenableFuture<Void> blocked = driver.process();
+                ListenableFuture<Void> blocked = driver.processUntilBlocked();
                 progress = progress | blocked.isDone();
             }
             // query should not block
@@ -328,7 +468,7 @@ public class TestMemoryPools
         return (OperatorContext operatorContext) -> !operatorContext.isWaitingForMemory().isDone();
     }
 
-    private Predicate<OperatorContext> waitingForRevocableSystemMemory()
+    private Predicate<OperatorContext> waitingForRevocableMemory()
     {
         return (OperatorContext operatorContext) ->
                 !operatorContext.isWaitingForRevocableMemory().isDone() &&

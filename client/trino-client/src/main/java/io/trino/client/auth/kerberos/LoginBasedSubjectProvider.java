@@ -61,6 +61,11 @@ public class LoginBasedSubjectProvider
                     "Refusing to set system property 'java.security.krb5.conf' to '%s', it is already set to '%s'",
                     newValue,
                     currentValue);
+            checkState(
+                    file.exists() && !file.isDirectory(),
+                    "Kerberos config file '%s' does not exist or is a directory",
+                    newValue);
+            checkState(file.canRead(), "Kerberos config file '%s' is not readable", newValue);
             System.setProperty("java.security.krb5.conf", newValue);
         });
     }
@@ -95,14 +100,17 @@ public class LoginBasedSubjectProvider
 
                 credentialCache.ifPresent(file -> {
                     options.put("ticketCache", file.getAbsolutePath());
-                    options.put("useTicketCache", "true");
                     options.put("renewTGT", "true");
                 });
+
+                if (!keytab.isPresent() || credentialCache.isPresent()) {
+                    options.put("useTicketCache", "true");
+                }
 
                 principal.ifPresent(value -> options.put("principal", value));
 
                 return new AppConfigurationEntry[] {
-                        new AppConfigurationEntry(Krb5LoginModule.class.getName(), REQUIRED, options.build())
+                        new AppConfigurationEntry(Krb5LoginModule.class.getName(), REQUIRED, options.buildOrThrow())
                 };
             }
         });

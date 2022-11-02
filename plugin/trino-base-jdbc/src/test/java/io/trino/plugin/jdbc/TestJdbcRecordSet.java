@@ -35,6 +35,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -121,7 +122,9 @@ public class TestJdbcRecordSet
                     .put("ten", 10L)
                     .put("eleven", 11L)
                     .put("twelve", 12L)
-                    .build());
+                    .buildOrThrow());
+
+            assertThat(cursor.getReadTimeNanos()).isGreaterThan(0);
         }
     }
 
@@ -151,7 +154,9 @@ public class TestJdbcRecordSet
                     .put("ten", 10L)
                     .put("eleven", 11L)
                     .put("twelve", 12L)
-                    .build());
+                    .buildOrThrow());
+
+            assertThat(cursor.getReadTimeNanos()).isGreaterThan(0);
         }
     }
 

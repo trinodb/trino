@@ -22,7 +22,6 @@ import javax.annotation.PreDestroy;
 import java.sql.Connection;
 import java.sql.SQLException;
 
-import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class ClickHouseConnectionFactory
@@ -44,20 +43,25 @@ public class ClickHouseConnectionFactory
             private final Connection delegate = ClickHouseConnectionFactory.this.delegate.openConnection(session);
 
             @Override
-            protected Connection getDelegate()
+            protected Connection delegate()
             {
                 return delegate;
             }
 
+            // Since https://github.com/ClickHouse/clickhouse-jdbc/commit/259682eaa8d5af741e4df57ca745f21ae3ae574c setAutoCommit(false) will fail
             @Override
-            public boolean getAutoCommit()
-                    throws SQLException
+            public void setAutoCommit(boolean autoCommit)
             {
-                // ClickHouse's Connection (ru.yandex.clickhouse.ClickHouseConnectionImpl) ignores setAutoCommit, commit and rollback,
-                // but still returns false from getAutoCommit().
-                // TODO once https://github.com/ClickHouse/clickhouse-jdbc/issues/657 is solved, remove the workaround.
-                verify(!delegate.getAutoCommit(), "ClickHouse connection declared auto-commit mode, the code needs update");
-                return true;
+            }
+
+            @Override
+            public void commit()
+            {
+            }
+
+            @Override
+            public void rollback()
+            {
             }
         };
     }

@@ -16,27 +16,21 @@ package io.trino.operator.aggregation.listagg;
 import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.Verify.verify;
-import static java.util.Objects.requireNonNull;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.Math.toIntExact;
 
 public class SingleListaggAggregationState
         implements ListaggAggregationState
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleListaggAggregationState.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SingleListaggAggregationState.class).instanceSize());
     private BlockBuilder blockBuilder;
     private Slice separator;
     private boolean overflowError;
     private Slice overflowFiller;
     private boolean showOverflowEntryCount;
-    private final Type type;
-
-    public SingleListaggAggregationState(Type type)
-    {
-        this.type = requireNonNull(type, "type is null");
-    }
 
     @Override
     public long getEstimatedSize()
@@ -100,9 +94,9 @@ public class SingleListaggAggregationState
     public void add(Block block, int position)
     {
         if (blockBuilder == null) {
-            blockBuilder = type.createBlockBuilder(null, 16);
+            blockBuilder = VARCHAR.createBlockBuilder(null, 16);
         }
-        type.appendTo(block, position, blockBuilder);
+        VARCHAR.appendTo(block, position, blockBuilder);
     }
 
     @Override

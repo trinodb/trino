@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class TestStatsCalculator
@@ -36,7 +37,7 @@ public class TestStatsCalculator
     public TestStatsCalculator()
     {
         this.queryRunner = LocalQueryRunner.create(testSessionBuilder()
-                .setCatalog("local")
+                .setCatalog(TEST_CATALOG_NAME)
                 .setSchema("tiny")
                 .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
                 .build());
@@ -66,7 +67,13 @@ public class TestStatsCalculator
     {
         queryRunner.inTransaction(transactionSession -> {
             Plan actualPlan = queryRunner.createPlan(transactionSession, sql, stage, WarningCollector.NOOP);
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getStatsCalculator(), actualPlan, pattern);
+            PlanAssert.assertPlan(
+                    transactionSession,
+                    queryRunner.getMetadata(),
+                    queryRunner.getFunctionManager(),
+                    queryRunner.getStatsCalculator(),
+                    actualPlan,
+                    pattern);
             return null;
         });
     }

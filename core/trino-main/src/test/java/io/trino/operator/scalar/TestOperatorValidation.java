@@ -13,7 +13,7 @@
  */
 package io.trino.operator.scalar;
 
-import io.trino.metadata.FunctionListBuilder;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
@@ -45,6 +45,6 @@ public class TestOperatorValidation
 
     private static void extractScalars(Class<?> clazz)
     {
-        new FunctionListBuilder().scalars(clazz);
+        InternalFunctionBundle.builder().scalars(clazz);
     }
 }

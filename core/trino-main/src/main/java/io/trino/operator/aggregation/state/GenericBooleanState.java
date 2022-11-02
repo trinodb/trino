@@ -22,14 +22,20 @@ import io.trino.spi.type.Type;
 public interface GenericBooleanState
         extends AccumulatorState
 {
-    boolean getBoolean();
+    boolean getValue();
 
-    void setBoolean(boolean value);
+    void setValue(boolean value);
 
     @InitialBooleanValue(true)
     boolean isNull();
 
     void setNull(boolean value);
+
+    default void set(GenericBooleanState state)
+    {
+        setValue(state.getValue());
+        setNull(state.isNull());
+    }
 
     static void write(Type type, GenericBooleanState state, BlockBuilder out)
     {
@@ -37,7 +43,7 @@ public interface GenericBooleanState
             out.appendNull();
         }
         else {
-            type.writeBoolean(out, state.getBoolean());
+            type.writeBoolean(out, state.getValue());
         }
     }
 }

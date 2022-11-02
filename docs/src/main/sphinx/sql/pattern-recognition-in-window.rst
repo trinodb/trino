@@ -121,9 +121,10 @@ Measures defined in a window can be referenced in the ``SELECT`` clause and in
 the ``ORDER BY`` clause of the enclosing query.
 
 The ``RUNNING`` and ``FINAL`` keywords are allowed in the ``MEASURES`` clause.
-They can precede a logical navigation function ``FIRST`` or ``LAST``. However,
-they have no effect. Every computation is performed from the position of the
-final row of the match, so the semantics is effectively ``FINAL``.
+They can precede a logical navigation function ``FIRST`` or ``LAST``, or an
+aggregate function. However, they have no effect. Every computation is
+performed from the position of the final row of the match, so the semantics is
+effectively ``FINAL``.
 
 The ``AFTER MATCH SKIP`` clause has the same syntax as the
 :ref:`AFTER MATCH SKIP clause of MATCH_RECOGNIZE<after_match_skip>`.
@@ -243,8 +244,3 @@ matches, and ``null`` for every unmatched row::
                   ...
                  )
 
-Limitations
------------
-
-Standard SQL syntax allows you to use aggregate functions inside pattern
-recognition expressions. Trino does not support it.

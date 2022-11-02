@@ -14,11 +14,11 @@
 package io.trino.tests.product.iceberg;
 
 import io.trino.tempto.ProductTest;
+import org.assertj.core.api.Assertions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.ICEBERG;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
@@ -33,7 +33,7 @@ public class TestIcebergPartitionEvolution
     {
         onTrino().executeQuery("USE iceberg.default");
         onTrino().executeQuery("DROP TABLE IF EXISTS test_dropped_partition_field");
-        onTrino().executeQuery("CREATE TABLE test_dropped_partition_field(a varchar, b varchar, c varchar) WITH (partitioning = ARRAY['a','b'])");
+        onTrino().executeQuery("CREATE TABLE test_dropped_partition_field(a varchar, b varchar, c varchar) WITH (format_version = 1, partitioning = ARRAY['a','b'])");
         onTrino().executeQuery("INSERT INTO test_dropped_partition_field VALUES " +
                 "('one', 'small', 'snake')," +
                 "('one', 'small', 'rabbit')," +
@@ -44,17 +44,19 @@ public class TestIcebergPartitionEvolution
 
         onSpark().executeQuery("ALTER TABLE iceberg_test.default.test_dropped_partition_field DROP PARTITION FIELD " + (dropFirst ? "a" : "b"));
 
-        assertThat(onTrino().executeQuery("SHOW CREATE TABLE test_dropped_partition_field"))
-                .containsOnly(
-                        row("CREATE TABLE iceberg.default.test_dropped_partition_field (\n" +
+        Assertions.assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE test_dropped_partition_field").getOnlyValue())
+                .matches(
+                        "\\QCREATE TABLE iceberg.default.test_dropped_partition_field (\n" +
                                 "   a varchar,\n" +
                                 "   b varchar,\n" +
                                 "   c varchar\n" +
                                 ")\n" +
                                 "WITH (\n" +
                                 "   format = 'ORC',\n" +
+                                "   format_version = 1,\n" +
+                                "   location = 'hdfs://hadoop-master:9000/user/hive/warehouse/test_dropped_partition_field-\\E.*\\Q',\n" +
                                 "   partitioning = ARRAY[" + (dropFirst ? "'void(a)','b'" : "'a','void(b)'") + "]\n" +
-                                ")"));
+                                ")\\E");
 
         assertThat(onTrino().executeQuery("SELECT * FROM test_dropped_partition_field"))
                 .containsOnly(
@@ -74,18 +76,64 @@ public class TestIcebergPartitionEvolution
 
         assertThat(onTrino().executeQuery("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'test_dropped_partition_field$partitions'"))
                 .containsOnly(
-                        row("a", "varchar"),
-                        row("b", "varchar"),
-                        // A/B is now partitioning column in the first partitioning spec, and non-partitioning in new one
-                        // TODO (https://github.com/trinodb/trino/issues/8729): $partitions table (as every other table) cannot have duplicate column names
-                        row(dropFirst ? "a" : "b", "row(min varchar, max varchar, null_count bigint)"),
-                        row("row_count", "bigint"),
+                        row("partition", "row(a varchar, b varchar)"),
+                        row("record_count", "bigint"),
                         row("file_count", "bigint"),
                         row("total_size", "bigint"),
-                        row("c", "row(min varchar, max varchar, null_count bigint)"));
-        assertQueryFailure(() -> onTrino().executeQuery("SELECT a, b, c.min, c.max, row_count FROM \"test_dropped_partition_field$partitions\""))
-                // TODO (https://github.com/trinodb/trino/issues/8729): cannot read from $partitions table because of duplicate column names
-                .hasMessageMatching("Query failed \\(#\\w+\\):\\Q Multiple entries with same key: " + (dropFirst ? "a=a and a=a" : "b=b and b=b"));
+                        row("data", "row(" +
+                                // A/B is now partitioning column in the first partitioning spec, and non-partitioning in new one
+                                (dropFirst ? "a" : "b") + " row(min varchar, max varchar, null_count bigint, nan_count bigint), " +
+                                "c row(min varchar, max varchar, null_count bigint, nan_count bigint))"));
+        assertThat(onTrino().executeQuery("SELECT partition, record_count, file_count, data FROM \"test_dropped_partition_field$partitions\""))
+                .containsOnly(
+                        row(
+                                rowBuilder().addField("a", "one").addField("b", "small").build(),
+                                2L,
+                                1L,
+                                rowBuilder()
+                                        .addField(
+                                                dropFirst ? "a" : "b",
+                                                dropFirst ? singletonMetrics("one") : singletonMetrics("small"))
+                                        .addField("c", dataMetrics("rabbit", "snake", 0, null))
+                                        .build()),
+                        row(
+                                rowBuilder().addField("a", "one").addField("b", "big").build(),
+                                1L,
+                                1L,
+                                rowBuilder()
+                                        .addField(
+                                                dropFirst ? "a" : "b",
+                                                dropFirst ? singletonMetrics("one") : singletonMetrics("big"))
+                                        .addField("c", singletonMetrics("rabbit"))
+                                        .build()),
+                        row(
+                                rowBuilder().addField("a", "another").addField("b", "small").build(),
+                                1L,
+                                1L,
+                                rowBuilder()
+                                        .addField(
+                                                dropFirst ? "a" : "b",
+                                                dropFirst ? singletonMetrics("another") : singletonMetrics("small"))
+                                        .addField("c", singletonMetrics("snake"))
+                                        .build()),
+                        row(
+                                rowBuilder().addField("a", "something").addField("b", "completely").build(),
+                                1L,
+                                1L,
+                                rowBuilder()
+                                        .addField(
+                                                dropFirst ? "a" : "b",
+                                                dropFirst ? singletonMetrics("something") : singletonMetrics("completely"))
+                                        .addField("c", singletonMetrics("else"))
+                                        .build()),
+                        row(
+                                rowBuilder().addField("a", null).addField("b", null).build(),
+                                1L,
+                                1L,
+                                rowBuilder()
+                                        .addField(dropFirst ? "a" : "b", dataMetrics(null, null, 1, null))
+                                        .addField("c", singletonMetrics("nothing"))
+                                        .build()));
 
         onTrino().executeQuery("INSERT INTO test_dropped_partition_field VALUES ('yet', 'another', 'row')");
         assertThat(onTrino().executeQuery("SELECT * FROM test_dropped_partition_field"))
@@ -103,5 +151,25 @@ public class TestIcebergPartitionEvolution
     public Object[][] testDroppedPartitionFieldDataProvider()
     {
         return new Object[][] {{true}, {false}};
+    }
+
+    private static io.trino.jdbc.Row singletonMetrics(Object value)
+    {
+        return dataMetrics(value, value, 0, null);
+    }
+
+    private static io.trino.jdbc.Row dataMetrics(Object min, Object max, long nullCount, Long nanCount)
+    {
+        return rowBuilder()
+                .addField("min", min)
+                .addField("max", max)
+                .addField("null_count", nullCount)
+                .addField("nan_count", nanCount)
+                .build();
+    }
+
+    private static io.trino.jdbc.Row.Builder rowBuilder()
+    {
+        return io.trino.jdbc.Row.builder();
     }
 }

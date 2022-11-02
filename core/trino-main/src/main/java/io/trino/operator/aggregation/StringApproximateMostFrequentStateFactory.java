@@ -28,21 +28,9 @@ public class StringApproximateMostFrequentStateFactory
     }
 
     @Override
-    public Class<? extends VarcharApproximateMostFrequent.State> getSingleStateClass()
-    {
-        return StringApproximateMostFrequentStateFactory.SingleLongApproximateMostFrequentState.class;
-    }
-
-    @Override
     public VarcharApproximateMostFrequent.State createGroupedState()
     {
         return new StringApproximateMostFrequentStateFactory.GroupedLongApproximateMostFrequentState();
-    }
-
-    @Override
-    public Class<? extends VarcharApproximateMostFrequent.State> getGroupedStateClass()
-    {
-        return StringApproximateMostFrequentStateFactory.GroupedLongApproximateMostFrequentState.class;
     }
 
     public static class SingleLongApproximateMostFrequentState

@@ -21,11 +21,11 @@ import io.trino.spi.NodeManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 
 import java.util.Map;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.base.Versions.checkSpiVersion;
 
 public class JmxConnectorFactory
         implements ConnectorFactory
@@ -37,14 +37,10 @@ public class JmxConnectorFactory
     }
 
     @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new JmxHandleResolver();
-    }
-
-    @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
+        checkSpiVersion(context, this);
+
         Bootstrap app = new Bootstrap(
                 new MBeanServerModule(),
                 binder -> {

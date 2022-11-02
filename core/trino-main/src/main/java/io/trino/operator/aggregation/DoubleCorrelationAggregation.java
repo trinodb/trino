@@ -23,9 +23,6 @@ import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
-import static io.trino.operator.aggregation.AggregationUtils.getCorrelation;
-import static io.trino.operator.aggregation.AggregationUtils.mergeCorrelationState;
-import static io.trino.operator.aggregation.AggregationUtils.updateCorrelationState;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 
 @AggregationFunction("corr")
@@ -36,19 +33,19 @@ public final class DoubleCorrelationAggregation
     @InputFunction
     public static void input(@AggregationState CorrelationState state, @SqlType(StandardTypes.DOUBLE) double dependentValue, @SqlType(StandardTypes.DOUBLE) double independentValue)
     {
-        updateCorrelationState(state, independentValue, dependentValue);
+        state.update(independentValue, dependentValue);
     }
 
     @CombineFunction
     public static void combine(@AggregationState CorrelationState state, @AggregationState CorrelationState otherState)
     {
-        mergeCorrelationState(state, otherState);
+        state.merge(otherState);
     }
 
     @OutputFunction(StandardTypes.DOUBLE)
     public static void corr(@AggregationState CorrelationState state, BlockBuilder out)
     {
-        double result = getCorrelation(state);
+        double result = state.getCorrelation();
         if (Double.isFinite(result)) {
             DOUBLE.writeDouble(out, result);
         }

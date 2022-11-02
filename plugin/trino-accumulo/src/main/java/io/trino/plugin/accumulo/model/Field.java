@@ -24,10 +24,8 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
-import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
-import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -41,7 +39,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -87,7 +85,7 @@ public class Field
             this.value = field.getBoolean();
         }
         else if (type.equals(DATE)) {
-            this.value = new Date(field.getDate().getTime());
+            this.value = field.getDate();
         }
         else if (type.equals(DOUBLE)) {
             this.value = field.getDouble();
@@ -101,7 +99,7 @@ public class Field
         else if (type.equals(SMALLINT)) {
             this.value = field.getShort();
         }
-        else if (type.equals(TIME)) {
+        else if (type.equals(TIME_MILLIS)) {
             this.value = new Time(field.getTime().getTime());
         }
         else if (type.equals(TIMESTAMP_MILLIS)) {
@@ -146,9 +144,9 @@ public class Field
         return (Byte) value;
     }
 
-    public Date getDate()
+    public long getDate()
     {
-        return (Date) value;
+        return (Long) value;
     }
 
     public Double getDouble()
@@ -235,7 +233,7 @@ public class Field
                     // aren't they so fancy
                     retval = Arrays.equals((byte[]) value, (byte[]) field.getObject());
                 }
-                else if (type.equals(DATE) || type.equals(TIME) || type.equals(TIMESTAMP_MILLIS)) {
+                else if (type.equals(DATE) || type.equals(TIME_MILLIS) || type.equals(TIMESTAMP_MILLIS)) {
                     retval = value.toString().equals(field.getObject().toString());
                 }
                 else {
@@ -316,7 +314,8 @@ public class Field
         }
 
         if (type.equals(DATE)) {
-            return Date.valueOf(LocalDate.ofEpochDay((long) value));
+            // long
+            return value;
         }
 
         if (type.equals(DOUBLE)) {
@@ -332,7 +331,7 @@ public class Field
             return Shorts.checkedCast((long) value);
         }
 
-        if (type.equals(TIME)) {
+        if (type.equals(TIME_MILLIS)) {
             return new Time((long) value);
         }
 

@@ -26,7 +26,8 @@ import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.node.NodeConfig;
 import io.airlift.node.NodeInfo;
 import io.trino.client.NodeVersion;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogManagerConfig;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.failuredetector.NoOpFailureDetector;
 import io.trino.server.InternalCommunicationConfig;
 import org.testng.annotations.BeforeMethod;
@@ -89,11 +90,18 @@ public class TestDiscoveryNodeManager
     @Test
     public void testGetAllNodes()
     {
-        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, nodeInfo, new NoOpFailureDetector(), expectedVersion, testHttpClient, internalCommunicationConfig);
+        DiscoveryNodeManager manager = new DiscoveryNodeManager(
+                selector,
+                nodeInfo,
+                new NoOpFailureDetector(),
+                expectedVersion,
+                testHttpClient,
+                internalCommunicationConfig,
+                new CatalogManagerConfig());
         try {
             AllNodes allNodes = manager.getAllNodes();
 
-            Set<InternalNode> connectorNodes = manager.getActiveConnectorNodes(new CatalogName("system"));
+            Set<InternalNode> connectorNodes = manager.getActiveCatalogNodes(GlobalSystemConnector.CATALOG_HANDLE);
             assertEquals(connectorNodes.size(), 4);
             assertTrue(connectorNodes.stream().anyMatch(InternalNode::isCoordinator));
 
@@ -131,7 +139,14 @@ public class TestDiscoveryNodeManager
                 .setEnvironment("test")
                 .setNodeId(currentNode.getNodeIdentifier()));
 
-        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, nodeInfo, new NoOpFailureDetector(), expectedVersion, testHttpClient, internalCommunicationConfig);
+        DiscoveryNodeManager manager = new DiscoveryNodeManager(
+                selector,
+                nodeInfo,
+                new NoOpFailureDetector(),
+                expectedVersion,
+                testHttpClient,
+                internalCommunicationConfig,
+                new CatalogManagerConfig());
         try {
             assertEquals(manager.getCurrentNode(), currentNode);
         }
@@ -143,7 +158,14 @@ public class TestDiscoveryNodeManager
     @Test
     public void testGetCoordinators()
     {
-        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, nodeInfo, new NoOpFailureDetector(), expectedVersion, testHttpClient, internalCommunicationConfig);
+        DiscoveryNodeManager manager = new DiscoveryNodeManager(
+                selector,
+                nodeInfo,
+                new NoOpFailureDetector(),
+                expectedVersion,
+                testHttpClient,
+                internalCommunicationConfig,
+                new CatalogManagerConfig());
         try {
             assertEquals(manager.getCoordinators(), ImmutableSet.of(coordinator));
         }
@@ -156,14 +178,28 @@ public class TestDiscoveryNodeManager
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = ".* current node not returned .*")
     public void testGetCurrentNodeRequired()
     {
-        new DiscoveryNodeManager(selector, new NodeInfo("test"), new NoOpFailureDetector(), expectedVersion, testHttpClient, internalCommunicationConfig);
+        new DiscoveryNodeManager(
+                selector,
+                new NodeInfo("test"),
+                new NoOpFailureDetector(),
+                expectedVersion,
+                testHttpClient,
+                internalCommunicationConfig,
+                new CatalogManagerConfig());
     }
 
     @Test(timeOut = 60000)
     public void testNodeChangeListener()
             throws Exception
     {
-        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, nodeInfo, new NoOpFailureDetector(), expectedVersion, testHttpClient, internalCommunicationConfig);
+        DiscoveryNodeManager manager = new DiscoveryNodeManager(
+                selector,
+                nodeInfo,
+                new NoOpFailureDetector(),
+                expectedVersion,
+                testHttpClient,
+                internalCommunicationConfig,
+                new CatalogManagerConfig());
         try {
             manager.startPollingNodeStates();
 

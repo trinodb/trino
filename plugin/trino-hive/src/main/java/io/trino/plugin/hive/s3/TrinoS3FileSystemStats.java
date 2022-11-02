@@ -14,17 +14,15 @@
 package io.trino.plugin.hive.s3;
 
 import com.amazonaws.AbortedException;
+import com.amazonaws.metrics.RequestMetricCollector;
 import io.airlift.stats.CounterStat;
-import io.airlift.stats.TimeStat;
-import io.airlift.units.Duration;
+import io.trino.plugin.hive.aws.AwsSdkClientCoreStats;
+import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
-import java.util.concurrent.atomic.AtomicLong;
-
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class TrinoS3FileSystemStats
 {
@@ -47,15 +45,7 @@ public class TrinoS3FileSystemStats
     private final CounterStat readRetries = new CounterStat();
 
     // see AWSRequestMetrics
-    private final CounterStat awsRequestCount = new CounterStat();
-    private final CounterStat awsRetryCount = new CounterStat();
-    private final CounterStat awsThrottleExceptions = new CounterStat();
-    private final TimeStat awsRequestTime = new TimeStat(MILLISECONDS);
-    private final TimeStat awsClientExecuteTime = new TimeStat(MILLISECONDS);
-    private final TimeStat awsClientRetryPauseTime = new TimeStat(MILLISECONDS);
-    private final AtomicLong awsHttpClientPoolAvailableCount = new AtomicLong();
-    private final AtomicLong awsHttpClientPoolLeasedCount = new AtomicLong();
-    private final AtomicLong awsHttpClientPoolPendingCount = new AtomicLong();
+    private final AwsSdkClientCoreStats clientCoreStats = new AwsSdkClientCoreStats();
 
     @Managed
     @Nested
@@ -156,63 +146,10 @@ public class TrinoS3FileSystemStats
     }
 
     @Managed
-    @Nested
-    public CounterStat getAwsRequestCount()
+    @Flatten
+    public AwsSdkClientCoreStats getClientCoreStats()
     {
-        return awsRequestCount;
-    }
-
-    @Managed
-    @Nested
-    public CounterStat getAwsRetryCount()
-    {
-        return awsRetryCount;
-    }
-
-    @Managed
-    @Nested
-    public CounterStat getAwsThrottleExceptions()
-    {
-        return awsThrottleExceptions;
-    }
-
-    @Managed
-    @Nested
-    public TimeStat getAwsRequestTime()
-    {
-        return awsRequestTime;
-    }
-
-    @Managed
-    @Nested
-    public TimeStat getAwsClientExecuteTime()
-    {
-        return awsClientExecuteTime;
-    }
-
-    @Managed
-    @Nested
-    public TimeStat getAwsClientRetryPauseTime()
-    {
-        return awsClientRetryPauseTime;
-    }
-
-    @Managed
-    public long getAwsHttpClientPoolAvailableCount()
-    {
-        return awsHttpClientPoolAvailableCount.get();
-    }
-
-    @Managed
-    public long getAwsHttpClientPoolLeasedCount()
-    {
-        return awsHttpClientPoolLeasedCount.get();
-    }
-
-    @Managed
-    public long getAwsHttpClientPoolPendingCount()
-    {
-        return awsHttpClientPoolPendingCount.get();
+        return clientCoreStats;
     }
 
     @Managed
@@ -234,6 +171,11 @@ public class TrinoS3FileSystemStats
     public CounterStat getReadRetries()
     {
         return readRetries;
+    }
+
+    public RequestMetricCollector newRequestMetricCollector()
+    {
+        return clientCoreStats.newRequestMetricCollector();
     }
 
     public void connectionOpened()
@@ -305,51 +247,6 @@ public class TrinoS3FileSystemStats
     public void newGetMetadataError()
     {
         getMetadataErrors.update(1);
-    }
-
-    public void updateAwsRequestCount(long requestCount)
-    {
-        awsRequestCount.update(requestCount);
-    }
-
-    public void updateAwsRetryCount(long retryCount)
-    {
-        awsRetryCount.update(retryCount);
-    }
-
-    public void updateAwsThrottleExceptionsCount(long throttleExceptionsCount)
-    {
-        awsThrottleExceptions.update(throttleExceptionsCount);
-    }
-
-    public void addAwsRequestTime(Duration duration)
-    {
-        awsRequestTime.add(duration);
-    }
-
-    public void addAwsClientExecuteTime(Duration duration)
-    {
-        awsClientExecuteTime.add(duration);
-    }
-
-    public void addAwsClientRetryPauseTime(Duration duration)
-    {
-        awsClientRetryPauseTime.add(duration);
-    }
-
-    public void setAwsHttpClientPoolAvailableCount(long count)
-    {
-        this.awsHttpClientPoolAvailableCount.set(count);
-    }
-
-    public void setAwsHttpClientPoolLeasedCount(long count)
-    {
-        this.awsHttpClientPoolLeasedCount.set(count);
-    }
-
-    public void setAwsHttpClientPoolPendingCount(long count)
-    {
-        this.awsHttpClientPoolPendingCount.set(count);
     }
 
     public void newGetObjectRetry()

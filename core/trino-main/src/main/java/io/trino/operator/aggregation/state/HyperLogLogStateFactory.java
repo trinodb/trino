@@ -18,6 +18,7 @@ import io.trino.array.ObjectBigArray;
 import io.trino.spi.function.AccumulatorStateFactory;
 import org.openjdk.jol.info.ClassLayout;
 
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class HyperLogLogStateFactory
@@ -30,28 +31,16 @@ public class HyperLogLogStateFactory
     }
 
     @Override
-    public Class<? extends HyperLogLogState> getSingleStateClass()
-    {
-        return SingleHyperLogLogState.class;
-    }
-
-    @Override
     public HyperLogLogState createGroupedState()
     {
         return new GroupedHyperLogLogState();
-    }
-
-    @Override
-    public Class<? extends HyperLogLogState> getGroupedStateClass()
-    {
-        return GroupedHyperLogLogState.class;
     }
 
     public static class GroupedHyperLogLogState
             extends AbstractGroupedAccumulatorState
             implements HyperLogLogState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedHyperLogLogState.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(GroupedHyperLogLogState.class).instanceSize());
         private final ObjectBigArray<HyperLogLog> hlls = new ObjectBigArray<>();
         private long size;
 
@@ -90,7 +79,7 @@ public class HyperLogLogStateFactory
     public static class SingleHyperLogLogState
             implements HyperLogLogState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleHyperLogLogState.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SingleHyperLogLogState.class).instanceSize());
         private HyperLogLog hll;
 
         @Override

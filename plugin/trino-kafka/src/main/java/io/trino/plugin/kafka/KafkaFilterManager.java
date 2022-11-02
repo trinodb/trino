@@ -15,6 +15,7 @@ package io.trino.plugin.kafka;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -45,12 +46,13 @@ import java.util.function.Function;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.kafka.KafkaErrorCode.KAFKA_SPLIT_ERROR;
-import static io.trino.plugin.kafka.KafkaInternalFieldManager.OFFSET_TIMESTAMP_FIELD;
-import static io.trino.plugin.kafka.KafkaInternalFieldManager.PARTITION_ID_FIELD;
-import static io.trino.plugin.kafka.KafkaInternalFieldManager.PARTITION_OFFSET_FIELD;
+import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.OFFSET_TIMESTAMP_FIELD;
+import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.PARTITION_ID_FIELD;
+import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.PARTITION_OFFSET_FIELD;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.Math.floorDiv;
@@ -65,12 +67,14 @@ public class KafkaFilterManager
 
     private final KafkaConsumerFactory consumerFactory;
     private final KafkaAdminFactory adminFactory;
+    private final KafkaInternalFieldManager kafkaInternalFieldManager;
 
     @Inject
-    public KafkaFilterManager(KafkaConsumerFactory consumerFactory, KafkaAdminFactory adminFactory)
+    public KafkaFilterManager(KafkaConsumerFactory consumerFactory, KafkaAdminFactory adminFactory, KafkaInternalFieldManager kafkaInternalFieldManager)
     {
         this.consumerFactory = requireNonNull(consumerFactory, "consumerFactory is null");
         this.adminFactory = requireNonNull(adminFactory, "adminFactory is null");
+        this.kafkaInternalFieldManager = requireNonNull(kafkaInternalFieldManager, "kafkaInternalFieldManager is null");
     }
 
     public KafkaFilteringResult getKafkaFilterResult(
@@ -91,30 +95,20 @@ public class KafkaFilterManager
 
         if (!constraint.isAll()) {
             Set<Long> partitionIds = partitionInfos.stream().map(partitionInfo -> (long) partitionInfo.partition()).collect(toImmutableSet());
-            Optional<Range> offsetRanged = Optional.empty();
-            Optional<Range> offsetTimestampRanged = Optional.empty();
-            Set<Long> partitionIdsFiltered = partitionIds;
-            Optional<Map<ColumnHandle, Domain>> domains = constraint.getDomains();
 
-            for (Map.Entry<ColumnHandle, Domain> entry : domains.get().entrySet()) {
-                KafkaColumnHandle columnHandle = (KafkaColumnHandle) entry.getKey();
-                if (!columnHandle.isInternal()) {
-                    continue;
-                }
-                switch (columnHandle.getName()) {
-                    case PARTITION_OFFSET_FIELD:
-                        offsetRanged = filterRangeByDomain(entry.getValue());
-                        break;
-                    case PARTITION_ID_FIELD:
-                        partitionIdsFiltered = filterValuesByDomain(entry.getValue(), partitionIds);
-                        break;
-                    case OFFSET_TIMESTAMP_FIELD:
-                        offsetTimestampRanged = filterRangeByDomain(entry.getValue());
-                        break;
-                    default:
-                        break;
-                }
-            }
+            Map<String, Domain> domains = constraint.getDomains().orElseThrow()
+                    .entrySet().stream()
+                    .collect(toImmutableMap(
+                            entry -> ((KafkaColumnHandle) entry.getKey()).getName(),
+                            Map.Entry::getValue));
+
+            Optional<Range> offsetRanged = getDomain(PARTITION_OFFSET_FIELD, domains)
+                    .flatMap(KafkaFilterManager::filterRangeByDomain);
+            Set<Long> partitionIdsFiltered = getDomain(PARTITION_ID_FIELD, domains)
+                    .map(domain -> filterValuesByDomain(domain, partitionIds))
+                    .orElse(partitionIds);
+            Optional<Range> offsetTimestampRanged = getDomain(OFFSET_TIMESTAMP_FIELD, domains)
+                    .flatMap(KafkaFilterManager::filterRangeByDomain);
 
             // push down offset
             if (offsetRanged.isPresent()) {
@@ -128,24 +122,33 @@ public class KafkaFilterManager
             // push down timestamp if possible
             if (offsetTimestampRanged.isPresent()) {
                 try (KafkaConsumer<byte[], byte[]> kafkaConsumer = consumerFactory.create(session)) {
-                    Optional<Range> finalOffsetTimestampRanged = offsetTimestampRanged;
-                    partitionBeginOffsets = overridePartitionBeginOffsets(partitionBeginOffsets,
-                            partition -> findOffsetsForTimestampGreaterOrEqual(kafkaConsumer, partition, finalOffsetTimestampRanged.get().getBegin()));
+                    // filter negative value to avoid java.lang.IllegalArgumentException when using KafkaConsumer offsetsForTimes
+                    if (offsetTimestampRanged.get().getBegin() > INVALID_KAFKA_RANGE_INDEX) {
+                        partitionBeginOffsets = overridePartitionBeginOffsets(partitionBeginOffsets,
+                                partition -> findOffsetsForTimestampGreaterOrEqual(kafkaConsumer, partition, offsetTimestampRanged.get().getBegin()));
+                    }
                     if (isTimestampUpperBoundPushdownEnabled(session, kafkaTableHandle.getTopicName())) {
-                        partitionEndOffsets = overridePartitionEndOffsets(partitionEndOffsets,
-                                partition -> findOffsetsForTimestampGreaterOrEqual(kafkaConsumer, partition, finalOffsetTimestampRanged.get().getEnd()));
+                        if (offsetTimestampRanged.get().getEnd() > INVALID_KAFKA_RANGE_INDEX) {
+                            partitionEndOffsets = overridePartitionEndOffsets(partitionEndOffsets,
+                                    partition -> findOffsetsForTimestampGreaterOrEqual(kafkaConsumer, partition, offsetTimestampRanged.get().getEnd()));
+                        }
                     }
                 }
             }
 
             // push down partitions
-            final Set<Long> finalPartitionIdsFiltered = partitionIdsFiltered;
             List<PartitionInfo> partitionFilteredInfos = partitionInfos.stream()
-                    .filter(partitionInfo -> finalPartitionIdsFiltered.contains((long) partitionInfo.partition()))
+                    .filter(partitionInfo -> partitionIdsFiltered.contains((long) partitionInfo.partition()))
                     .collect(toImmutableList());
             return new KafkaFilteringResult(partitionFilteredInfos, partitionBeginOffsets, partitionEndOffsets);
         }
         return new KafkaFilteringResult(partitionInfos, partitionBeginOffsets, partitionEndOffsets);
+    }
+
+    private Optional<Domain> getDomain(InternalFieldId internalFieldId, Map<String, Domain> columnNameToDomain)
+    {
+        String columnName = kafkaInternalFieldManager.getFieldById(internalFieldId).getColumnName();
+        return Optional.ofNullable(columnNameToDomain.get(columnName));
     }
 
     private boolean isTimestampUpperBoundPushdownEnabled(ConnectorSession session, String topic)
@@ -185,7 +188,7 @@ public class KafkaFilterManager
             Optional<Long> newOffset = overrideFunction.apply(partition);
             partitionFilteredBeginOffsetsBuilder.put(partition, newOffset.map(index -> Long.max(partitionIndex, index)).orElse(partitionIndex));
         });
-        return partitionFilteredBeginOffsetsBuilder.build();
+        return partitionFilteredBeginOffsetsBuilder.buildOrThrow();
     }
 
     private static Map<TopicPartition, Long> overridePartitionEndOffsets(Map<TopicPartition, Long> partitionEndOffsets,
@@ -196,7 +199,7 @@ public class KafkaFilterManager
             Optional<Long> newOffset = overrideFunction.apply(partition);
             partitionFilteredEndOffsetsBuilder.put(partition, newOffset.map(index -> Long.min(partitionIndex, index)).orElse(partitionIndex));
         });
-        return partitionFilteredEndOffsetsBuilder.build();
+        return partitionFilteredEndOffsetsBuilder.buildOrThrow();
     }
 
     @VisibleForTesting
@@ -243,27 +246,23 @@ public class KafkaFilterManager
             long singleValue = (long) domain.getSingleValue();
             return sourceValues.stream().filter(sourceValue -> sourceValue == singleValue).collect(toImmutableSet());
         }
-        else {
-            ValueSet valueSet = domain.getValues();
-            if (valueSet instanceof SortedRangeSet) {
-                Ranges ranges = ((SortedRangeSet) valueSet).getRanges();
-                List<io.trino.spi.predicate.Range> rangeList = ranges.getOrderedRanges();
-                if (rangeList.stream().allMatch(io.trino.spi.predicate.Range::isSingleValue)) {
-                    return rangeList.stream()
-                            .map(range -> (Long) range.getSingleValue())
-                            .filter(sourceValues::contains)
-                            .collect(toImmutableSet());
-                }
-                else {
-                    // still return values for range case like (_partition_id > 1)
-                    io.trino.spi.predicate.Range span = ranges.getSpan();
-                    long low = getLowIncludedValue(span).orElse(0L);
-                    long high = getHighIncludedValue(span).orElse(Long.MAX_VALUE);
-                    return sourceValues.stream()
-                            .filter(item -> item >= low && item <= high)
-                            .collect(toImmutableSet());
-                }
+        ValueSet valueSet = domain.getValues();
+        if (valueSet instanceof SortedRangeSet) {
+            Ranges ranges = ((SortedRangeSet) valueSet).getRanges();
+            List<io.trino.spi.predicate.Range> rangeList = ranges.getOrderedRanges();
+            if (rangeList.stream().allMatch(io.trino.spi.predicate.Range::isSingleValue)) {
+                return rangeList.stream()
+                        .map(range -> (Long) range.getSingleValue())
+                        .filter(sourceValues::contains)
+                        .collect(toImmutableSet());
             }
+            // still return values for range case like (_partition_id > 1)
+            io.trino.spi.predicate.Range span = ranges.getSpan();
+            long low = getLowIncludedValue(span).orElse(0L);
+            long high = getHighIncludedValue(span).orElse(Long.MAX_VALUE);
+            return sourceValues.stream()
+                    .filter(item -> item >= low && item <= high)
+                    .collect(toImmutableSet());
         }
         return sourceValues;
     }

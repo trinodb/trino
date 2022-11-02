@@ -13,8 +13,11 @@
  */
 package io.trino.plugin.cassandra;
 
-import com.datastax.driver.core.Cluster;
-import com.google.common.collect.ImmutableList;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.CqlSessionBuilder;
+import com.datastax.oss.driver.api.core.ProtocolVersion;
+import com.datastax.oss.driver.api.core.config.DriverConfigLoader;
+import com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBuilder;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -25,7 +28,11 @@ import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 
-import static com.datastax.driver.core.ProtocolVersion.V3;
+import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.CONTROL_CONNECTION_AGREEMENT_TIMEOUT;
+import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.METADATA_SCHEMA_REFRESHED_KEYSPACES;
+import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.PROTOCOL_VERSION;
+import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.REQUEST_TIMEOUT;
+import static io.trino.plugin.cassandra.CassandraTestingUtils.CASSANDRA_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -56,16 +63,23 @@ public class TestingScyllaServer
                 .withExposedPorts(PORT);
         container.start();
 
-        Cluster.Builder clusterBuilder = Cluster.builder()
-                .withProtocolVersion(V3)
-                .withClusterName("TestCluster")
-                .addContactPointsWithPorts(ImmutableList.of(
-                        new InetSocketAddress(container.getContainerIpAddress(), container.getMappedPort(PORT))))
-                .withMaxSchemaAgreementWaitSeconds(60);
+        ProgrammaticDriverConfigLoaderBuilder config = DriverConfigLoader.programmaticBuilder();
+        config.withDuration(REQUEST_TIMEOUT, java.time.Duration.ofSeconds(12));
+        config.withString(PROTOCOL_VERSION, ProtocolVersion.V3.name());
+        config.withDuration(CONTROL_CONNECTION_AGREEMENT_TIMEOUT, java.time.Duration.ofSeconds(30));
+        // allow the retrieval of metadata for the system keyspaces
+        config.withStringList(METADATA_SCHEMA_REFRESHED_KEYSPACES, List.of());
+
+        CqlSessionBuilder cqlSessionBuilder = CqlSession.builder()
+                .withApplicationName("TestCluster")
+                .addContactPoint(new InetSocketAddress(this.container.getHost(), this.container.getMappedPort(PORT)))
+                .withLocalDatacenter("datacenter1")
+                .withConfigLoader(config.build());
 
         session = new CassandraSession(
+                CASSANDRA_TYPE_MANAGER,
                 JsonCodec.listJsonCodec(ExtraColumnMetadata.class),
-                new ReopeningCluster(clusterBuilder::build),
+                cqlSessionBuilder::build,
                 new Duration(1, MINUTES));
     }
 
@@ -76,7 +90,7 @@ public class TestingScyllaServer
 
     public String getHost()
     {
-        return container.getContainerIpAddress();
+        return container.getHost();
     }
 
     public int getPort()
@@ -117,6 +131,9 @@ public class TestingScyllaServer
     @Override
     public void close()
     {
+        if (session != null) {
+            session.close();
+        }
         container.close();
     }
 }

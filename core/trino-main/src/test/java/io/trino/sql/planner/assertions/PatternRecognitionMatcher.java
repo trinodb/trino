@@ -13,20 +13,16 @@
  */
 package io.trino.sql.planner.assertions;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
-import io.trino.sql.parser.ParsingOptions;
-import io.trino.sql.parser.SqlParser;
-import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.rowpattern.ExpressionAndValuePointersEquivalence;
-import io.trino.sql.planner.rowpattern.LogicalIndexExtractor;
 import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
@@ -34,7 +30,6 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch;
 import io.trino.sql.tree.SkipTo;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.AbstractMap;
 import java.util.HashMap;
@@ -47,12 +42,10 @@ import java.util.Set;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.trino.sql.planner.assertions.MatchResult.match;
+import static io.trino.sql.planner.assertions.PatternRecognitionExpressionRewriter.rewrite;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
-import static io.trino.sql.planner.iterative.rule.test.PatternRecognitionBuilder.rewriteIdentifiers;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
 import static io.trino.sql.tree.SkipTo.Position.PAST_LAST;
 import static java.util.Objects.requireNonNull;
@@ -68,7 +61,7 @@ public class PatternRecognitionMatcher
     private final boolean initial;
     private final IrRowPattern pattern;
     private final Map<IrLabel, Set<IrLabel>> subsets;
-    private final Map<IrLabel, String> variableDefinitions;
+    private final Map<IrLabel, ExpressionAndValuePointers> variableDefinitions;
 
     private PatternRecognitionMatcher(
             Optional<ExpectedValueProvider<WindowNode.Specification>> specification,
@@ -79,7 +72,7 @@ public class PatternRecognitionMatcher
             boolean initial,
             IrRowPattern pattern,
             Map<IrLabel, Set<IrLabel>> subsets,
-            Map<IrLabel, String> variableDefinitions)
+            Map<IrLabel, ExpressionAndValuePointers> variableDefinitions)
     {
         this.specification = requireNonNull(specification, "specification is null");
         this.frame = requireNonNull(frame, "frame is null");
@@ -147,31 +140,23 @@ public class PatternRecognitionMatcher
             return NO_MATCH;
         }
 
-        for (Map.Entry<IrLabel, String> entry : variableDefinitions.entrySet()) {
+        for (Map.Entry<IrLabel, ExpressionAndValuePointers> entry : variableDefinitions.entrySet()) {
             IrLabel name = entry.getKey();
             ExpressionAndValuePointers actual = patternRecognitionNode.getVariableDefinitions().get(name);
             if (actual == null) {
                 return NO_MATCH;
             }
-            ExpressionAndValuePointers rewritten = rewrite(entry.getValue(), subsets);
+            ExpressionAndValuePointers expected = entry.getValue();
             ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
             if (!ExpressionAndValuePointersEquivalence.equivalent(
                     actual,
-                    rewritten,
+                    expected,
                     (actualSymbol, expectedSymbol) -> verifier.process(actualSymbol.toSymbolReference(), expectedSymbol.toSymbolReference()))) {
                 return NO_MATCH;
             }
         }
 
         return match();
-    }
-
-    static ExpressionAndValuePointers rewrite(String definition, Map<IrLabel, Set<IrLabel>> subsets)
-    {
-        Expression expression = rewriteIdentifiers(new SqlParser().createExpression(definition, new ParsingOptions()));
-        Map<Symbol, Type> types = extractExpressions(ImmutableList.of(expression), SymbolReference.class).stream()
-                .collect(toImmutableMap(Symbol::from, reference -> BIGINT));
-        return LogicalIndexExtractor.rewrite(expression, subsets, new SymbolAllocator(types));
     }
 
     @Override
@@ -204,43 +189,50 @@ public class PatternRecognitionMatcher
         private boolean initial = true;
         private IrRowPattern pattern;
         private final Map<IrLabel, Set<IrLabel>> subsets = new HashMap<>();
-        private final Map<IrLabel, String> variableDefinitions = new HashMap<>();
+        private final Map<IrLabel, String> variableDefinitionsBySql = new HashMap<>();
+        private final Map<IrLabel, Expression> variableDefinitionsByExpression = new HashMap<>();
 
         Builder(PlanMatchPattern source)
         {
             this.source = requireNonNull(source, "source is null");
         }
 
+        @CanIgnoreReturnValue
         public Builder specification(ExpectedValueProvider<WindowNode.Specification> specification)
         {
             this.specification = Optional.of(specification);
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder addFunction(String outputAlias, ExpectedValueProvider<FunctionCall> functionCall)
         {
             windowFunctionMatchers.add(new AliasMatcher(Optional.of(outputAlias), new WindowFunctionMatcher(functionCall, Optional.empty(), Optional.empty())));
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder addMeasure(String outputAlias, String expression, Type type)
         {
             measures.put(outputAlias, new AbstractMap.SimpleEntry<>(expression, type));
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder frame(ExpectedValueProvider<WindowNode.Frame> frame)
         {
             this.frame = Optional.of(frame);
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder rowsPerMatch(RowsPerMatch rowsPerMatch)
         {
             this.rowsPerMatch = rowsPerMatch;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder skipTo(SkipTo.Position position, IrLabel label)
         {
             this.skipToLabel = Optional.of(label);
@@ -248,38 +240,56 @@ public class PatternRecognitionMatcher
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder skipTo(SkipTo.Position position)
         {
             this.skipToPosition = position;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder seek()
         {
             this.initial = false;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder pattern(IrRowPattern pattern)
         {
             this.pattern = pattern;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder addSubset(IrLabel name, Set<IrLabel> elements)
         {
             subsets.put(name, elements);
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder addVariableDefinition(IrLabel name, String expression)
         {
-            this.variableDefinitions.put(name, expression);
+            this.variableDefinitionsBySql.put(name, expression);
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public Builder addVariableDefinition(IrLabel name, Expression expression)
+        {
+            this.variableDefinitionsByExpression.put(name, expression);
             return this;
         }
 
         public PlanMatchPattern build()
         {
+            ImmutableMap.Builder<IrLabel, ExpressionAndValuePointers> variableDefinitions = ImmutableMap.<IrLabel, ExpressionAndValuePointers>builder()
+                    .putAll(variableDefinitionsBySql.entrySet().stream()
+                            .collect(toImmutableMap(Map.Entry::getKey, entry -> rewrite(entry.getValue(), subsets))))
+                    .putAll(variableDefinitionsByExpression.entrySet().stream()
+                            .collect(toImmutableMap(Map.Entry::getKey, entry -> rewrite(entry.getValue(), subsets))));
+
             PlanMatchPattern result = node(PatternRecognitionNode.class, source).with(
                     new PatternRecognitionMatcher(
                             specification,
@@ -290,7 +300,7 @@ public class PatternRecognitionMatcher
                             initial,
                             pattern,
                             subsets,
-                            variableDefinitions));
+                            variableDefinitions.buildOrThrow()));
             windowFunctionMatchers.forEach(result::with);
             measures.entrySet().stream()
                     .map(entry -> {

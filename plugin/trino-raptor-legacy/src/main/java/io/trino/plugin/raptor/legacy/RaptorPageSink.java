@@ -87,7 +87,7 @@ public class RaptorPageSink
         this.columnIds = ImmutableList.copyOf(requireNonNull(columnIds, "columnIds is null"));
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
         this.storageManager = requireNonNull(storageManager, "storageManager is null");
-        this.maxBufferBytes = requireNonNull(maxBufferSize, "maxBufferSize is null").toBytes();
+        this.maxBufferBytes = maxBufferSize.toBytes();
 
         this.sortFields = ImmutableList.copyOf(sortColumnIds.stream().map(columnIds::indexOf).collect(toList()));
         this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));

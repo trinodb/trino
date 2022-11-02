@@ -55,6 +55,7 @@ import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.optimizations.DistinctOutputQueryUtil.isDistinct;
 import static io.trino.sql.planner.optimizations.SymbolMapper.symbolMapper;
 import static io.trino.sql.planner.plan.AggregationNode.globalAggregation;
+import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static io.trino.sql.planner.plan.Patterns.join;
@@ -137,15 +138,11 @@ public class PushAggregationThroughOuterJoin
         List<Symbol> groupingKeys = join.getCriteria().stream()
                 .map(join.getType() == JoinNode.Type.RIGHT ? JoinNode.EquiJoinClause::getLeft : JoinNode.EquiJoinClause::getRight)
                 .collect(toImmutableList());
-        AggregationNode rewrittenAggregation = new AggregationNode(
-                aggregation.getId(),
-                getInnerTable(join),
-                aggregation.getAggregations(),
-                singleGroupingSet(groupingKeys),
-                ImmutableList.of(),
-                aggregation.getStep(),
-                aggregation.getHashSymbol(),
-                aggregation.getGroupIdSymbol());
+        AggregationNode rewrittenAggregation = AggregationNode.builderFrom(aggregation)
+                .setSource(getInnerTable(join))
+                .setGroupingSets(singleGroupingSet(groupingKeys))
+                .setPreGroupedSymbols(ImmutableList.of())
+                .build();
 
         JoinNode rewrittenJoin;
         if (join.getType() == JoinNode.Type.LEFT) {
@@ -298,7 +295,7 @@ public class PushAggregationThroughOuterJoin
         // symbols in these new aggregations.
         ImmutableMap.Builder<Symbol, Symbol> aggregationsSymbolMappingBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> aggregationsOverNullBuilder = ImmutableMap.builder();
-        SymbolMapper mapper = symbolMapper(sourcesSymbolMappingBuilder.build());
+        SymbolMapper mapper = symbolMapper(sourcesSymbolMappingBuilder.buildOrThrow());
         for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : referenceAggregation.getAggregations().entrySet()) {
             Symbol aggregationSymbol = entry.getKey();
             Aggregation overNullAggregation = mapper.map(entry.getValue());
@@ -306,18 +303,14 @@ public class PushAggregationThroughOuterJoin
             aggregationsOverNullBuilder.put(overNullSymbol, overNullAggregation);
             aggregationsSymbolMappingBuilder.put(aggregationSymbol, overNullSymbol);
         }
-        Map<Symbol, Symbol> aggregationsSymbolMapping = aggregationsSymbolMappingBuilder.build();
+        Map<Symbol, Symbol> aggregationsSymbolMapping = aggregationsSymbolMappingBuilder.buildOrThrow();
 
         // create an aggregation node whose source is the null row.
-        AggregationNode aggregationOverNullRow = new AggregationNode(
+        AggregationNode aggregationOverNullRow = singleAggregation(
                 idAllocator.getNextId(),
                 nullRow,
-                aggregationsOverNullBuilder.build(),
-                globalAggregation(),
-                ImmutableList.of(),
-                AggregationNode.Step.SINGLE,
-                Optional.empty(),
-                Optional.empty());
+                aggregationsOverNullBuilder.buildOrThrow(),
+                globalAggregation());
 
         return new MappedAggregationInfo(aggregationOverNullRow, aggregationsSymbolMapping);
     }

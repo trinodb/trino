@@ -15,84 +15,70 @@ package io.trino.operator.window;
 
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
-import io.trino.metadata.Signature;
-import io.trino.operator.aggregation.LambdaProvider;
-import io.trino.spi.function.Description;
-import io.trino.spi.function.ValueWindowFunction;
 import io.trino.spi.function.WindowFunction;
-import io.trino.spi.type.Type;
+import io.trino.spi.function.WindowFunctionSupplier;
 
-import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Supplier;
+import java.util.stream.IntStream;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
-        extends AbstractWindowFunctionSupplier
+public class ReflectionWindowFunctionSupplier
+        implements WindowFunctionSupplier
 {
-    private enum ConstructorType
-    {
-        NO_INPUTS,
-        INPUTS,
-        INPUTS_IGNORE_NULLS
-    }
-
-    private final Constructor<T> constructor;
+    private final int argumentCount;
+    private final Constructor<? extends WindowFunction> constructor;
     private final ConstructorType constructorType;
 
-    public ReflectionWindowFunctionSupplier(String name, Type returnType, List<? extends Type> argumentTypes, Class<T> type)
+    public ReflectionWindowFunctionSupplier(int argumentCount, Class<? extends WindowFunction> type)
     {
-        this(new Signature(name, returnType.getTypeSignature(), Lists.transform(argumentTypes, Type::getTypeSignature)), type);
-    }
+        this.argumentCount = argumentCount;
 
-    public ReflectionWindowFunctionSupplier(Signature signature, Class<T> type)
-    {
-        super(signature, getDescription(requireNonNull(type, "type is null")), ImmutableList.of());
-        try {
-            Constructor<T> constructor;
-            ConstructorType constructorType;
+        Constructor<? extends WindowFunction> constructor = null;
+        ConstructorType constructorType = null;
 
-            if (signature.getArgumentTypes().isEmpty()) {
-                constructor = type.getConstructor();
-                constructorType = ConstructorType.NO_INPUTS;
+        for (ConstructorType constructorTypeValue : ConstructorType.values()) {
+            constructorType = constructorTypeValue;
+            constructor = constructorType.tryGetConstructor(type).orElse(null);
+            if (constructor != null) {
+                break;
             }
-            else if (ValueWindowFunction.class.isAssignableFrom(type)) {
-                try {
-                    constructor = type.getConstructor(List.class, boolean.class);
-                    constructorType = ConstructorType.INPUTS_IGNORE_NULLS;
-                }
-                catch (NoSuchMethodException e) {
-                    // Fallback to default constructor.
-                    constructor = type.getConstructor(List.class);
-                    constructorType = ConstructorType.INPUTS;
-                }
-            }
-            else {
-                constructor = type.getConstructor(List.class);
-                constructorType = ConstructorType.INPUTS;
-            }
-
-            this.constructor = constructor;
-            this.constructorType = constructorType;
         }
-        catch (NoSuchMethodException e) {
-            throw new RuntimeException(e);
-        }
+
+        checkArgument(constructor != null, "No constructor found for type: %s", type.getName());
+
+        this.constructor = constructor;
+        this.constructorType = constructorType;
     }
 
     @Override
-    protected T newWindowFunction(List<Integer> inputs, boolean ignoreNulls, List<LambdaProvider> lambdaProviders)
+    public List<Class<?>> getLambdaInterfaces()
     {
+        return ImmutableList.of();
+    }
+
+    @Override
+    public WindowFunction createWindowFunction(boolean ignoreNulls, List<Supplier<Object>> lambdaProviders)
+    {
+        requireNonNull(lambdaProviders, "lambdaProviders is null");
+        checkArgument(lambdaProviders.isEmpty(), "lambdaProviders is not empty");
+
+        List<Integer> argumentChannels = IntStream.range(0, argumentCount).boxed().collect(toImmutableList());
         try {
             switch (constructorType) {
                 case NO_INPUTS:
                     return constructor.newInstance();
+                case IGNORE_NULLS:
+                    return constructor.newInstance(ignoreNulls);
                 case INPUTS:
-                    return constructor.newInstance(inputs);
+                    return constructor.newInstance(argumentChannels);
                 case INPUTS_IGNORE_NULLS:
-                    return constructor.newInstance(inputs, ignoreNulls);
+                    return constructor.newInstance(argumentChannels, ignoreNulls);
             }
             throw new VerifyException("Unhandled constructor type: " + constructorType);
         }
@@ -101,9 +87,47 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
         }
     }
 
-    private static String getDescription(AnnotatedElement annotatedElement)
+    private enum ConstructorType
     {
-        Description description = annotatedElement.getAnnotation(Description.class);
-        return (description == null) ? null : description.value();
+        INPUTS_IGNORE_NULLS {
+            @Override
+            Optional<Constructor<? extends WindowFunction>> tryGetConstructor(Class<? extends WindowFunction> type)
+            {
+                return optionalConstructor(type, List.class, boolean.class);
+            }
+        },
+        INPUTS {
+            @Override
+            Optional<Constructor<? extends WindowFunction>> tryGetConstructor(Class<? extends WindowFunction> type)
+            {
+                return optionalConstructor(type, List.class);
+            }
+        },
+        IGNORE_NULLS {
+            @Override
+            Optional<Constructor<? extends WindowFunction>> tryGetConstructor(Class<? extends WindowFunction> type)
+            {
+                return optionalConstructor(type, boolean.class);
+            }
+        },
+        NO_INPUTS {
+            @Override
+            Optional<Constructor<? extends WindowFunction>> tryGetConstructor(Class<? extends WindowFunction> type)
+            {
+                return optionalConstructor(type);
+            }
+        };
+
+        abstract Optional<Constructor<? extends WindowFunction>> tryGetConstructor(Class<? extends WindowFunction> type);
+
+        private static Optional<Constructor<? extends WindowFunction>> optionalConstructor(Class<? extends WindowFunction> type, Class<?>... parameterTypes)
+        {
+            try {
+                return Optional.of(type.getConstructor(parameterTypes));
+            }
+            catch (NoSuchMethodException e) {
+                return Optional.empty();
+            }
+        }
     }
 }

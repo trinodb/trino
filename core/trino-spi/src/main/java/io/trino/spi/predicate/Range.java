@@ -46,13 +46,17 @@ public final class Range
 
     Range(Type type, boolean lowInclusive, Optional<Object> lowValue, boolean highInclusive, Optional<Object> highValue)
     {
+        this(type, lowInclusive, lowValue, highInclusive, highValue, getComparisonOperator(type));
+    }
+
+    Range(Type type, boolean lowInclusive, Optional<Object> lowValue, boolean highInclusive, Optional<Object> highValue, MethodHandle comparisonOperator)
+    {
         requireNonNull(type, "type is null");
         this.type = type;
-        // choice of placing unordered values first or last does not matter for this code
-        MethodHandle comparisonOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getComparisonUnorderedLastOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
 
         requireNonNull(lowValue, "lowValue is null");
         requireNonNull(highValue, "highValue is null");
+        requireNonNull(comparisonOperator, "comparisonOperator is null");
 
         if (lowValue.isEmpty() && lowInclusive) {
             throw new IllegalArgumentException("low bound must be exclusive for low unbounded range");
@@ -90,6 +94,12 @@ public final class Range
         if (isFloatingPointNaN(type, value)) {
             throw new IllegalArgumentException("cannot use NaN as range bound");
         }
+    }
+
+    protected static MethodHandle getComparisonOperator(Type type)
+    {
+        // choice of placing unordered values first or last does not matter for this code
+        return TUPLE_DOMAIN_TYPE_OPERATORS.getComparisonUnorderedLastOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
     }
 
     public static Range all(Type type)

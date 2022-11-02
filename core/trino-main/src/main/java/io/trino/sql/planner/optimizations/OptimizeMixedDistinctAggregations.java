@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.trino.Session;
+import io.trino.cost.TableStatsProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
@@ -68,7 +69,8 @@ import static java.util.Objects.requireNonNull;
  *
  *  SELECT a1, a2,..., an, arbitrary(if(group = 0, f1)),...., arbitrary(if(group = 0, fm)), F(if(group = 1, c)) FROM
  *      SELECT a1, a2,..., an, F1(b1) as f1, F2(b2) as f2,...., Fm(bm) as fm, c, group FROM
- *        SELECT a1, a2,..., an, b1, b2, ... ,bn, c FROM Table GROUP BY GROUPING SETS ((a1, a2,..., an, b1, b2, ... ,bn), (a1, a2,..., an, c))
+ *        GroupIdNode ((a1, a2,..., an, b1, b2, ... ,bn), (a1, a2,..., an, c))
+ *          SELECT a1, a2,..., an, b1, b2, ... ,bn, c FROM Table
  *      GROUP BY a1, a2,..., an, c, group
  *  GROUP BY a1, a2,..., an
  */
@@ -83,7 +85,7 @@ public class OptimizeMixedDistinctAggregations
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, TableStatsProvider tableStatsProvider)
     {
         if (isOptimizeDistinctAggregationEnabled(session)) {
             return SimplePlanRewriter.rewriteWith(new Optimizer(session, idAllocator, symbolAllocator, metadata), plan, Optional.empty());
@@ -189,12 +191,12 @@ public class OptimizeMixedDistinctAggregations
                     }
                 }
             }
-            Map<Symbol, Symbol> coalesceSymbols = coalesceSymbolsBuilder.build();
+            Map<Symbol, Symbol> coalesceSymbols = coalesceSymbolsBuilder.buildOrThrow();
 
             AggregationNode aggregationNode = new AggregationNode(
                     idAllocator.getNextId(),
                     source,
-                    aggregations.build(),
+                    aggregations.buildOrThrow(),
                     node.getGroupingSets(),
                     ImmutableList.of(),
                     node.getStep(),
@@ -278,7 +280,7 @@ public class OptimizeMixedDistinctAggregations
                     node,
                     aggregationOutputSymbolsMapBuilder);
             // This map has mapping only for aggregation on non-distinct symbols which the new AggregationNode handles
-            Map<Symbol, Symbol> aggregationOutputSymbolsMap = aggregationOutputSymbolsMapBuilder.build();
+            Map<Symbol, Symbol> aggregationOutputSymbolsMap = aggregationOutputSymbolsMapBuilder.buildOrThrow();
 
             // 3. Add new project node that adds if expressions
             ProjectNode projectNode = createProjectNode(
@@ -361,7 +363,7 @@ public class OptimizeMixedDistinctAggregations
             // unused mask will be removed by PruneUnreferencedOutputs
             outputSymbols.put(aggregateInfo.getMask(), new NullLiteral());
 
-            aggregateInfo.setNewNonDistinctAggregateSymbols(outputNonDistinctAggregateSymbols.build());
+            aggregateInfo.setNewNonDistinctAggregateSymbols(outputNonDistinctAggregateSymbols.buildOrThrow());
 
             return new ProjectNode(idAllocator.getNextId(), source, outputSymbols.build());
         }
@@ -455,7 +457,7 @@ public class OptimizeMixedDistinctAggregations
             return new AggregationNode(
                     idAllocator.getNextId(),
                     groupIdNode,
-                    aggregations.build(),
+                    aggregations.buildOrThrow(),
                     singleGroupingSet(ImmutableList.copyOf(groupByKeys)),
                     ImmutableList.of(),
                     SINGLE,

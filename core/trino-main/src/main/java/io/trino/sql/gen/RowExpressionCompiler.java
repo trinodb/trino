@@ -19,7 +19,7 @@ import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.FunctionManager;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import io.trino.sql.relational.CallExpression;
@@ -48,20 +48,20 @@ public class RowExpressionCompiler
     private final CallSiteBinder callSiteBinder;
     private final CachedInstanceBinder cachedInstanceBinder;
     private final RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler;
-    private final Metadata metadata;
+    private final FunctionManager functionManager;
     private final Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap;
 
     RowExpressionCompiler(
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler,
-            Metadata metadata,
+            FunctionManager functionManager,
             Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap)
     {
         this.callSiteBinder = callSiteBinder;
         this.cachedInstanceBinder = cachedInstanceBinder;
         this.fieldReferenceCompiler = fieldReferenceCompiler;
-        this.metadata = metadata;
+        this.functionManager = functionManager;
         this.compiledLambdaMap = compiledLambdaMap;
     }
 
@@ -86,7 +86,7 @@ public class RowExpressionCompiler
                     context.getScope(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    metadata);
+                    functionManager);
 
             return generatorContext.generateFullCall(call.getResolvedFunction(), call.getArguments());
         }
@@ -147,7 +147,7 @@ public class RowExpressionCompiler
                     context.getScope(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    metadata);
+                    functionManager);
 
             return generator.generateExpression(generatorContext);
         }
@@ -209,7 +209,7 @@ public class RowExpressionCompiler
                     context.getScope(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    metadata);
+                    functionManager);
 
             return generateLambda(
                     generatorContext,

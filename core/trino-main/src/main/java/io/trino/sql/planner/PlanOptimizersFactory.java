@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.iterative.RuleStats;
 import io.trino.sql.planner.optimizations.OptimizerStats;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
@@ -24,7 +25,13 @@ public interface PlanOptimizersFactory
 {
     List<PlanOptimizer> get();
 
-    Map<Class<?>, OptimizerStats> getOptimizerStats();
+    default Map<Class<?>, OptimizerStats> getOptimizerStats()
+    {
+        return ImmutableMap.of();
+    }
 
-    Map<Class<?>, RuleStats> getRuleStats();
+    default Map<Class<?>, RuleStats> getRuleStats()
+    {
+        return ImmutableMap.of();
+    }
 }

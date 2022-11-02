@@ -29,7 +29,6 @@ import java.util.Optional;
 import static io.trino.plugin.accumulo.AccumuloQueryRunner.createAccumuloQueryRunner;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -54,29 +53,36 @@ public class TestAccumuloConnectorTest
         return createAccumuloQueryRunner(ImmutableMap.of());
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_CREATE_SCHEMA:
+            case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
+            case SUPPORTS_RENAME_SCHEMA:
+                return false;
+
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
                 return false;
 
             case SUPPORTS_ADD_COLUMN:
-            case SUPPORTS_DROP_COLUMN:
                 return false;
 
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
 
-            case SUPPORTS_TOPN_PUSHDOWN:
-                return false;
-
             case SUPPORTS_CREATE_VIEW:
                 return true;
+
+            case SUPPORTS_NOT_NULL_CONSTRAINT:
+                return false;
+
+            case SUPPORTS_ROW_TYPE:
+                return false;
 
             default:
                 return super.hasBehavior(connectorBehavior);
@@ -193,7 +199,7 @@ public class TestAccumuloConnectorTest
     @Override
     public void testShowColumns()
     {
-        // Override base class because table descriptions for Accumulo connector include comments
+        // Override base class because table descriptions for Accumulo connector include extra info
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
 
         assertEquals(actual.getMaterializedRows().get(0).getField(0), "orderkey");
@@ -258,36 +264,18 @@ public class TestAccumuloConnectorTest
     public void testDescribeTable()
     {
         MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "", "Accumulo row ID")
-                .row("custkey", "bigint", "", "Accumulo column custkey:custkey. Indexed: false")
-                .row("orderstatus", "varchar(1)", "", "Accumulo column orderstatus:orderstatus. Indexed: false")
-                .row("totalprice", "double", "", "Accumulo column totalprice:totalprice. Indexed: false")
-                .row("orderdate", "date", "", "Accumulo column orderdate:orderdate. Indexed: true")
-                .row("orderpriority", "varchar(15)", "", "Accumulo column orderpriority:orderpriority. Indexed: false")
-                .row("clerk", "varchar(15)", "", "Accumulo column clerk:clerk. Indexed: false")
-                .row("shippriority", "integer", "", "Accumulo column shippriority:shippriority. Indexed: false")
-                .row("comment", "varchar(79)", "", "Accumulo column comment:comment. Indexed: false")
+                .row("orderkey", "bigint", "Accumulo row ID", "")
+                .row("custkey", "bigint", "Accumulo column custkey:custkey. Indexed: false", "")
+                .row("orderstatus", "varchar(1)", "Accumulo column orderstatus:orderstatus. Indexed: false", "")
+                .row("totalprice", "double", "Accumulo column totalprice:totalprice. Indexed: false", "")
+                .row("orderdate", "date", "Accumulo column orderdate:orderdate. Indexed: true", "")
+                .row("orderpriority", "varchar(15)", "Accumulo column orderpriority:orderpriority. Indexed: false", "")
+                .row("clerk", "varchar(15)", "Accumulo column clerk:clerk. Indexed: false", "")
+                .row("shippriority", "integer", "Accumulo column shippriority:shippriority. Indexed: false", "")
+                .row("comment", "varchar(79)", "Accumulo column comment:comment. Indexed: false", "")
                 .build();
         MaterializedResult actualColumns = computeActual("DESCRIBE orders");
         Assert.assertEquals(actualColumns, expectedColumns);
-    }
-
-    @Test
-    @Override
-    public void testShowCreateTable()
-    {
-        assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("CREATE TABLE accumulo.tpch.orders (\n" +
-                        "   orderkey bigint COMMENT 'Accumulo row ID',\n" +
-                        "   custkey bigint COMMENT 'Accumulo column custkey:custkey. Indexed: false',\n" +
-                        "   orderstatus varchar(1) COMMENT 'Accumulo column orderstatus:orderstatus. Indexed: false',\n" +
-                        "   totalprice double COMMENT 'Accumulo column totalprice:totalprice. Indexed: false',\n" +
-                        "   orderdate date COMMENT 'Accumulo column orderdate:orderdate. Indexed: true',\n" +
-                        "   orderpriority varchar(15) COMMENT 'Accumulo column orderpriority:orderpriority. Indexed: false',\n" +
-                        "   clerk varchar(15) COMMENT 'Accumulo column clerk:clerk. Indexed: false',\n" +
-                        "   shippriority integer COMMENT 'Accumulo column shippriority:shippriority. Indexed: false',\n" +
-                        "   comment varchar(79) COMMENT 'Accumulo column comment:comment. Indexed: false'\n" +
-                        ")");
     }
 
     @Override
@@ -295,7 +283,10 @@ public class TestAccumuloConnectorTest
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
         if (typeName.startsWith("decimal(")
+                || typeName.equals("time(6)")
+                || typeName.equals("timestamp(6)")
                 || typeName.equals("timestamp(3) with time zone")
+                || typeName.equals("timestamp(6) with time zone")
                 || typeName.startsWith("char(")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }

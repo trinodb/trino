@@ -15,6 +15,7 @@ package io.trino.plugin.pinot;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.pinot.client.PinotClient;
+import io.trino.spi.type.TestingTypeManager;
 import org.apache.pinot.spi.data.FieldSpec.DataType;
 import org.apache.pinot.spi.data.Schema;
 import org.apache.pinot.spi.data.Schema.SchemaBuilder;
@@ -28,6 +29,8 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class TestPinotQueryBase
 {
+    protected static final PinotTypeConverter TESTING_TYPE_CONVERTER = new PinotTypeConverter(new TestingTypeManager());
+
     protected static PinotTableHandle realtimeOnlyTable = new PinotTableHandle("schema", "realtimeOnly");
     protected static PinotTableHandle hybridTable = new PinotTableHandle("schema", "hybrid");
 
@@ -37,11 +40,13 @@ public class TestPinotQueryBase
     protected final PinotMetadata pinotMetadata = new PinotMetadata(
             mockClusterInfoFetcher,
             pinotConfig,
-            newCachedThreadPool(threadsNamed("mock-pinot-metadata-fetcher")));
+            newCachedThreadPool(threadsNamed("mock-pinot-metadata-fetcher")),
+            TESTING_TYPE_CONVERTER);
 
     protected List<String> getColumnNames(String table)
     {
-        return pinotMetadata.getPinotColumns(table).stream()
+        return pinotMetadata.getPinotColumnHandles(table).values().stream()
+                .map(PinotColumnHandle.class::cast)
                 .map(PinotColumnHandle::getColumnName)
                 .collect(toImmutableList());
     }
@@ -108,6 +113,6 @@ public class TestPinotQueryBase
                         .addSingleValueDimension("non_quoted", DataType.STRING)
                         .addSingleValueDimension("qu\"ot\"ed", DataType.STRING)
                         .build())
-                .build();
+                .buildOrThrow();
     }
 }

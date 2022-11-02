@@ -25,10 +25,12 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.session.PropertyMetadata;
 import io.trino.testing.TestingConnectorSession;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -43,14 +45,11 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
-import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static java.lang.String.format;
-import static java.util.Collections.emptyMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -69,8 +68,43 @@ public class TestDefaultJdbcMetadata
             throws Exception
     {
         database = new TestingDatabase();
-        metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(database.getJdbcClient()), false);
+        metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(database.getJdbcClient(), Optional.empty()), false, ImmutableSet.of());
         tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
+    }
+
+    @Test
+    public void testSupportsRetriesValidation()
+    {
+        metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(database.getJdbcClient(), Optional.of(false)), false, ImmutableSet.of());
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(new SchemaTableName("example", "numbers"), ImmutableList.of());
+
+        assertThatThrownBy(() -> {
+            metadata.beginCreateTable(SESSION, tableMetadata, Optional.empty(), RetryMode.RETRIES_ENABLED);
+        }).hasMessageContaining("This connector does not support query or task retries");
+
+        assertThatThrownBy(() -> {
+            metadata.beginInsert(SESSION, tableHandle, ImmutableList.of(), RetryMode.RETRIES_ENABLED);
+        }).hasMessageContaining("This connector does not support query or task retries");
+    }
+
+    @Test
+    public void testNonTransactionalInsertValidation()
+    {
+        metadata = new DefaultJdbcMetadata(new GroupingSetsEnabledJdbcClient(database.getJdbcClient(), Optional.of(true)), false, ImmutableSet.of());
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(new SchemaTableName("example", "numbers"), ImmutableList.of());
+
+        ConnectorSession session = TestingConnectorSession.builder()
+                .setPropertyMetadata(ImmutableList.of(
+                        PropertyMetadata.booleanProperty(JdbcWriteSessionProperties.NON_TRANSACTIONAL_INSERT, "description", true, false)))
+                .build();
+
+        assertThatThrownBy(() -> {
+            metadata.beginCreateTable(session, tableMetadata, Optional.empty(), RetryMode.RETRIES_ENABLED);
+        }).hasMessageContaining("Query and task retries are incompatible with non-transactional inserts");
+
+        assertThatThrownBy(() -> {
+            metadata.beginInsert(session, tableHandle, ImmutableList.of(), RetryMode.RETRIES_ENABLED);
+        }).hasMessageContaining("Query and task retries are incompatible with non-transactional inserts");
     }
 
     @AfterMethod(alwaysRun = true)
@@ -106,15 +140,15 @@ public class TestDefaultJdbcMetadata
                 "value", new JdbcColumnHandle("VALUE", JDBC_BIGINT, BIGINT)));
 
         // unknown table
-        unknownTableColumnHandle(new JdbcTableHandle(new SchemaTableName("unknown", "unknown"), "unknown", "unknown", "unknown"));
-        unknownTableColumnHandle(new JdbcTableHandle(new SchemaTableName("example", "numbers"), null, "example", "unknown"));
+        unknownTableColumnHandle(new JdbcTableHandle(new SchemaTableName("unknown", "unknown"), new RemoteTableName(Optional.of("unknown"), Optional.of("unknown"), "unknown"), Optional.empty()));
+        unknownTableColumnHandle(new JdbcTableHandle(new SchemaTableName("example", "numbers"), new RemoteTableName(Optional.empty(), Optional.of("example"), "unknown"), Optional.empty()));
     }
 
     private void unknownTableColumnHandle(JdbcTableHandle tableHandle)
     {
         assertThatThrownBy(() -> metadata.getColumnHandles(SESSION, tableHandle))
                 .isInstanceOf(TableNotFoundException.class)
-                .hasMessage(format("Table '%s' has no supported columns (all 0 columns are not supported)", tableHandle.getSchemaTableName()));
+                .hasMessage("Table '%s' has no supported columns (all 0 columns are not supported)", tableHandle.asPlainTable().getSchemaTableName());
     }
 
     @Test
@@ -124,7 +158,7 @@ public class TestDefaultJdbcMetadata
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, tableHandle);
         assertEquals(tableMetadata.getTable(), new SchemaTableName("example", "numbers"));
         assertEquals(tableMetadata.getColumns(), ImmutableList.of(
-                new ColumnMetadata("text", VARCHAR, false, null, null, false, emptyMap()), // primary key is not null in H2
+                ColumnMetadata.builder().setName("text").setType(VARCHAR).setNullable(false).build(), // primary key is not null in H2
                 new ColumnMetadata("text_short", createVarcharType(32)),
                 new ColumnMetadata("value", BIGINT)));
 
@@ -133,20 +167,20 @@ public class TestDefaultJdbcMetadata
         ConnectorTableMetadata specialTableMetadata = metadata.getTableMetadata(SESSION, specialTableHandle);
         assertEquals(specialTableMetadata.getTable(), new SchemaTableName("exa_ple", "num_ers"));
         assertEquals(specialTableMetadata.getColumns(), ImmutableList.of(
-                new ColumnMetadata("te_t", VARCHAR, false, null, null, false, emptyMap()), // primary key is not null in H2
+                ColumnMetadata.builder().setName("te_t").setType(VARCHAR).setNullable(false).build(), // primary key is not null in H2
                 new ColumnMetadata("va%ue", BIGINT)));
 
         // unknown tables should produce null
-        unknownTableMetadata(new JdbcTableHandle(new SchemaTableName("u", "numbers"), null, "unknown", "unknown"));
-        unknownTableMetadata(new JdbcTableHandle(new SchemaTableName("example", "numbers"), null, "example", "unknown"));
-        unknownTableMetadata(new JdbcTableHandle(new SchemaTableName("example", "numbers"), null, "unknown", "numbers"));
+        unknownTableMetadata(new JdbcTableHandle(new SchemaTableName("u", "numbers"), new RemoteTableName(Optional.empty(), Optional.of("unknown"), "unknown"), Optional.empty()));
+        unknownTableMetadata(new JdbcTableHandle(new SchemaTableName("example", "numbers"), new RemoteTableName(Optional.empty(), Optional.of("example"), "unknown"), Optional.empty()));
+        unknownTableMetadata(new JdbcTableHandle(new SchemaTableName("example", "numbers"), new RemoteTableName(Optional.empty(), Optional.of("unknown"), "numbers"), Optional.empty()));
     }
 
     private void unknownTableMetadata(JdbcTableHandle tableHandle)
     {
         assertThatThrownBy(() -> metadata.getTableMetadata(SESSION, tableHandle))
                 .isInstanceOf(TableNotFoundException.class)
-                .hasMessage(format("Table '%s' has no supported columns (all 0 columns are not supported)", tableHandle.getSchemaTableName()));
+                .hasMessage("Table '%s' has no supported columns (all 0 columns are not supported)", tableHandle.asPlainTable().getSchemaTableName());
     }
 
     @Test
@@ -225,16 +259,10 @@ public class TestDefaultJdbcMetadata
     @Test
     public void testDropTableTable()
     {
-        assertTrinoExceptionThrownBy(() -> metadata.dropTable(SESSION, tableHandle))
-                .hasErrorCode(PERMISSION_DENIED)
-                .hasMessage("DROP TABLE is disabled in this catalog");
-
-        metadata = new DefaultJdbcMetadata(database.getJdbcClient(), true);
         metadata.dropTable(SESSION, tableHandle);
 
         assertTrinoExceptionThrownBy(() -> metadata.getTableMetadata(SESSION, tableHandle))
-                .hasErrorCode(NOT_FOUND)
-                .hasMessageMatching("Table '.*' has no supported columns \\(all \\d+ columns are not supported\\)");
+                .hasErrorCode(NOT_FOUND);
     }
 
     @Test
@@ -390,16 +418,24 @@ public class TestDefaultJdbcMetadata
             extends ForwardingJdbcClient
     {
         private final JdbcClient delegate;
+        private final Optional<Boolean> supportsRetriesOverride;
 
-        public GroupingSetsEnabledJdbcClient(JdbcClient jdbcClient)
+        public GroupingSetsEnabledJdbcClient(JdbcClient jdbcClient, Optional<Boolean> supportsRetriesOverride)
         {
             this.delegate = jdbcClient;
+            this.supportsRetriesOverride = supportsRetriesOverride;
         }
 
         @Override
         protected JdbcClient delegate()
         {
             return delegate;
+        }
+
+        @Override
+        public boolean supportsRetries()
+        {
+            return supportsRetriesOverride.orElseGet(super::supportsRetries);
         }
 
         @Override

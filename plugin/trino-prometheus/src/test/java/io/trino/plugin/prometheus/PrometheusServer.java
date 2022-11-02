@@ -20,43 +20,46 @@ import java.io.Closeable;
 import java.net.URI;
 import java.time.Duration;
 
-import static org.testng.Assert.fail;
+import static org.testcontainers.utility.MountableFile.forClasspathResource;
 
 public class PrometheusServer
         implements Closeable
 {
     private static final int PROMETHEUS_PORT = 9090;
-    private static final String PROMETHEUS_DOCKER_IMAGE = "prom/prometheus:v2.15.1";
-    private static final Integer MAX_TRIES = 120;
-    private static final Integer TIME_BETWEEN_TRIES_MILLIS = 1000;
+    private static final String DEFAULT_VERSION = "v2.15.1";
+    public static final String LATEST_VERSION = "v2.35.0";
+
+    public static final String USER = "admin";
+    public static final String PASSWORD = "password";
+    public static final String PROMETHEUS_QUERY_API = "/api/v1/query?query=up[1d]";
 
     private final GenericContainer<?> dockerContainer;
 
     public PrometheusServer()
     {
-        this.dockerContainer = new GenericContainer<>(PROMETHEUS_DOCKER_IMAGE)
-                .withExposedPorts(PROMETHEUS_PORT)
-                .waitingFor(Wait.forHttp("/"))
-                .withStartupTimeout(Duration.ofSeconds(120));
-        this.dockerContainer.start();
+        this(DEFAULT_VERSION, false);
     }
 
-    protected static void checkServerReady(PrometheusClient client)
-            throws Exception
+    public PrometheusServer(String version, boolean enableBasicAuth)
     {
-        // ensure Prometheus available and ready to answer metrics list query
-        for (int tries = 0; tries < MAX_TRIES; tries++) {
-            if (client.getTableNames("default").contains("up")) {
-                return;
-            }
-            Thread.sleep(TIME_BETWEEN_TRIES_MILLIS);
+        this.dockerContainer = new GenericContainer<>("prom/prometheus:" + version)
+                .withExposedPorts(PROMETHEUS_PORT)
+                .waitingFor(Wait.forHttp(PROMETHEUS_QUERY_API).forResponsePredicate(response -> response.contains("\"values\"")))
+                .withStartupTimeout(Duration.ofSeconds(360));
+        // Basic authentication was introduced in v2.24.0
+        if (enableBasicAuth) {
+            this.dockerContainer
+                    .withCommand("--config.file=/etc/prometheus/prometheus.yml", "--web.config.file=/etc/prometheus/web.yml")
+                    .withCopyFileToContainer(forClasspathResource("web.yml"), "/etc/prometheus/web.yml")
+                    .waitingFor(Wait.forHttp(PROMETHEUS_QUERY_API).forResponsePredicate(response -> response.contains("\"values\"")).withBasicCredentials(USER, PASSWORD))
+                    .withStartupTimeout(Duration.ofSeconds(360));
         }
-        fail("Prometheus container not available for metrics query in " + MAX_TRIES * TIME_BETWEEN_TRIES_MILLIS + " milliseconds.");
+        this.dockerContainer.start();
     }
 
     public URI getUri()
     {
-        return URI.create("http://" + dockerContainer.getContainerIpAddress() + ":" + dockerContainer.getMappedPort(PROMETHEUS_PORT) + "/");
+        return URI.create("http://" + dockerContainer.getHost() + ":" + dockerContainer.getMappedPort(PROMETHEUS_PORT) + "/");
     }
 
     @Override

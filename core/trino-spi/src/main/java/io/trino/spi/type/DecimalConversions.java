@@ -13,7 +13,6 @@
  */
 package io.trino.spi.type;
 
-import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
 
 import java.math.BigDecimal;
@@ -21,11 +20,8 @@ import java.math.BigInteger;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.type.Decimals.overflows;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.compareAbsolute;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.rescale;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUnscaledLongUnsafe;
+import static io.trino.spi.type.Int128Math.compareAbsolute;
+import static io.trino.spi.type.Int128Math.rescale;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
@@ -51,8 +47,8 @@ public final class DecimalConversions
             1.0e0f, 1.0e1f, 1.0e2f, 1.0e3f, 1.0e4f, 1.0e5f,
             1.0e6f, 1.0e7f, 1.0e8f, 1.0e9f, 1.0e10f
     };
-    private static final Slice MAX_EXACT_DOUBLE = unscaledDecimal((1L << 52) - 1);
-    private static final Slice MAX_EXACT_FLOAT = unscaledDecimal((1L << 22) - 1);
+    private static final Int128 MAX_EXACT_DOUBLE = Int128.valueOf((1L << 52) - 1);
+    private static final Int128 MAX_EXACT_FLOAT = Int128.valueOf((1L << 22) - 1);
 
     private DecimalConversions() {}
 
@@ -61,11 +57,11 @@ public final class DecimalConversions
         return ((double) decimal) / tenToScale;
     }
 
-    public static double longDecimalToDouble(Slice decimal, long scale)
+    public static double longDecimalToDouble(Int128 decimal, long scale)
     {
         // If both decimal and scale can be represented exactly in double then compute rescaled and rounded result directly in double.
         if (scale < DOUBLE_10_POW.length && compareAbsolute(decimal, MAX_EXACT_DOUBLE) <= 0) {
-            return (double) unscaledDecimalToUnscaledLongUnsafe(decimal) / DOUBLE_10_POW[intScale(scale)];
+            return (double) decimal.toLong() / DOUBLE_10_POW[intScale(scale)];
         }
 
         // TODO: optimize and convert directly to double in similar fashion as in double to decimal casts
@@ -77,11 +73,11 @@ public final class DecimalConversions
         return floatToRawIntBits(((float) decimal) / tenToScale);
     }
 
-    public static long longDecimalToReal(Slice decimal, long scale)
+    public static long longDecimalToReal(Int128 decimal, long scale)
     {
         // If both decimal and scale can be represented exactly in float then compute rescaled and rounded result directly in float.
         if (scale < FLOAT_10_POW.length && compareAbsolute(decimal, MAX_EXACT_FLOAT) <= 0) {
-            return floatToRawIntBits((float) unscaledDecimalToUnscaledLongUnsafe(decimal) / FLOAT_10_POW[intScale(scale)]);
+            return floatToRawIntBits((float) decimal.toLong() / FLOAT_10_POW[intScale(scale)]);
         }
 
         // TODO: optimize and convert directly to float in similar fashion as in double to decimal casts
@@ -91,27 +87,22 @@ public final class DecimalConversions
     public static long doubleToShortDecimal(double value, long precision, long scale)
     {
         // TODO: implement specialized version for short decimals
-        Slice decimal = internalDoubleToLongDecimal(value, precision, scale);
+        Int128 decimal = internalDoubleToLongDecimal(value, precision, scale);
 
-        long low = UnscaledDecimal128Arithmetic.getLong(decimal, 0);
-        long high = UnscaledDecimal128Arithmetic.getLong(decimal, 1);
+        long low = decimal.getLow();
+        long high = decimal.getHigh();
 
-        checkState(high == 0 && low >= 0, "Unexpected long decimal");
+        checkState(high == (low >> 63), "Unexpected long decimal");
 
-        if (UnscaledDecimal128Arithmetic.isNegative(decimal)) {
-            return -low;
-        }
-        else {
-            return low;
-        }
+        return low;
     }
 
-    public static Slice doubleToLongDecimal(double value, long precision, long scale)
+    public static Int128 doubleToLongDecimal(double value, long precision, long scale)
     {
         return internalDoubleToLongDecimal(value, precision, scale);
     }
 
-    private static Slice internalDoubleToLongDecimal(double value, long precision, long scale)
+    private static Int128 internalDoubleToLongDecimal(double value, long precision, long scale)
     {
         if (Double.isInfinite(value) || Double.isNaN(value)) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", value, precision, scale));
@@ -120,8 +111,8 @@ public final class DecimalConversions
         try {
             // todo consider changing this implementation to more performant one which does not use intermediate String objects
             BigDecimal bigDecimal = BigDecimal.valueOf(value).setScale(intScale(scale), HALF_UP);
-            Slice decimal = Decimals.encodeScaledValue(bigDecimal);
-            if (UnscaledDecimal128Arithmetic.overflows(decimal, intScale(precision))) {
+            Int128 decimal = Decimals.valueOf(bigDecimal);
+            if (Decimals.overflows(decimal, intScale(precision))) {
                 throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
             return decimal;
@@ -134,22 +125,17 @@ public final class DecimalConversions
     public static long realToShortDecimal(long value, long precision, long scale)
     {
         // TODO: implement specialized version for short decimals
-        Slice decimal = realToLongDecimal(value, precision, scale);
+        Int128 decimal = realToLongDecimal(value, precision, scale);
 
-        long low = UnscaledDecimal128Arithmetic.getLong(decimal, 0);
-        long high = UnscaledDecimal128Arithmetic.getLong(decimal, 1);
+        long low = decimal.getLow();
+        long high = decimal.getHigh();
 
-        checkState(high == 0 && low >= 0, "Unexpected long decimal");
+        checkState(high == (low >> 63), "Unexpected long decimal");
 
-        if (UnscaledDecimal128Arithmetic.isNegative(decimal)) {
-            return -low;
-        }
-        else {
-            return low;
-        }
+        return low;
     }
 
-    public static Slice realToLongDecimal(long value, long precision, long scale)
+    public static Int128 realToLongDecimal(long value, long precision, long scale)
     {
         float floatValue = intBitsToFloat(intScale(value));
         if (Float.isInfinite(floatValue) || Float.isNaN(floatValue)) {
@@ -159,8 +145,8 @@ public final class DecimalConversions
         try {
             // todo consider changing this implementation to more performant one which does not use intermediate String objects
             BigDecimal bigDecimal = new BigDecimal(String.valueOf(floatValue)).setScale(intScale(scale), HALF_UP);
-            Slice decimal = Decimals.encodeScaledValue(bigDecimal);
-            if (UnscaledDecimal128Arithmetic.overflows(decimal, intScale(precision))) {
+            Int128 decimal = Decimals.valueOf(bigDecimal);
+            if (Decimals.overflows(decimal, intScale(precision))) {
                 throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", floatValue, precision, scale));
             }
             return decimal;
@@ -202,28 +188,28 @@ public final class DecimalConversions
         return returnValue;
     }
 
-    public static Slice shortToLongCast(
+    public static Int128 shortToLongCast(
             long value,
             long sourcePrecision,
             long sourceScale,
             long resultPrecision,
             long resultScale)
     {
-        return longToLongCast(unscaledDecimal(value), sourcePrecision, sourceScale, resultPrecision, resultScale);
+        return longToLongCast(Int128.valueOf(value), sourcePrecision, sourceScale, resultPrecision, resultScale);
     }
 
     public static long longToShortCast(
-            Slice value,
+            Int128 value,
             long sourcePrecision,
             long sourceScale,
             long resultPrecision,
             long resultScale)
     {
-        return unscaledDecimalToUnscaledLongUnsafe(longToLongCast(value, sourcePrecision, sourceScale, resultPrecision, resultScale));
+        return longToLongCast(value, sourcePrecision, sourceScale, resultPrecision, resultScale).toLong();
     }
 
-    public static Slice longToLongCast(
-            Slice value,
+    public static Int128 longToLongCast(
+            Int128 value,
             long sourcePrecision,
             long sourceScale,
             long resultPrecision,
@@ -234,14 +220,14 @@ public final class DecimalConversions
         }
 
         try {
-            Slice result = rescale(value, (int) (resultScale - sourceScale));
-            if (UnscaledDecimal128Arithmetic.overflows(result, (int) resultPrecision)) {
-                throw throwCastException(unscaledDecimalToBigInteger(value), sourcePrecision, sourceScale, resultPrecision, resultScale);
+            Int128 result = rescale(value, (int) (resultScale - sourceScale));
+            if (Decimals.overflows(result, (int) resultPrecision)) {
+                throw throwCastException(value.toBigInteger(), sourcePrecision, sourceScale, resultPrecision, resultScale);
             }
             return result;
         }
         catch (ArithmeticException e) {
-            throw throwCastException(unscaledDecimalToBigInteger(value), sourcePrecision, sourceScale, resultPrecision, resultScale);
+            throw throwCastException(value.toBigInteger(), sourcePrecision, sourceScale, resultPrecision, resultScale);
         }
     }
 

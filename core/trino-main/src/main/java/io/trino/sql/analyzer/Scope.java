@@ -248,7 +248,7 @@ public class Scope
         if (matches.size() > 1) {
             throw ambiguousAttributeException(node, name);
         }
-        else if (matches.size() == 1) {
+        if (matches.size() == 1) {
             int parentFieldCount = getLocalParent()
                     .map(Scope::getLocalScopeFieldCount)
                     .orElse(0);
@@ -256,18 +256,16 @@ public class Scope
             Field field = getOnlyElement(matches);
             return Optional.of(asResolvedField(field, parentFieldCount, local));
         }
-        else {
-            if (isColumnReference(name, relation)) {
-                return Optional.empty();
-            }
-            if (parent.isPresent()) {
-                if (queryBoundary) {
-                    return parent.get().resolveField(node, name, false);
-                }
-                return parent.get().resolveField(node, name, local);
-            }
+        if (isColumnReference(name, relation)) {
             return Optional.empty();
         }
+        if (parent.isPresent()) {
+            if (queryBoundary) {
+                return parent.get().resolveField(node, name, false);
+            }
+            return parent.get().resolveField(node, name, local);
+        }
+        return Optional.empty();
     }
 
     public ResolvedField getField(int index)
@@ -338,6 +336,16 @@ public class Scope
         private final Map<String, WithQuery> namedQueries = new HashMap<>();
         private Optional<Scope> parent = Optional.empty();
         private boolean queryBoundary;
+
+        public Builder like(Scope other)
+        {
+            relationId = other.relationId;
+            relationType = other.relation;
+            namedQueries.putAll(other.namedQueries);
+            parent = other.parent;
+            queryBoundary = other.queryBoundary;
+            return this;
+        }
 
         public Builder withRelationType(RelationId relationId, RelationType relationType)
         {

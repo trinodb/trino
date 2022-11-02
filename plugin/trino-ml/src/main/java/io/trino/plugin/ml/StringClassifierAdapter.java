@@ -89,7 +89,7 @@ public class StringClassifierAdapter
             builder.put(key, value);
         }
 
-        return new StringClassifierAdapter((Classifier<Integer>) classifier, builder.build());
+        return new StringClassifierAdapter((Classifier<Integer>) classifier, builder.buildOrThrow());
     }
 
     @Override

@@ -13,45 +13,114 @@
  */
 package io.trino.operator.scalar;
 
-import io.trino.spi.type.Type;
-import org.testng.annotations.Test;
+import io.trino.spi.type.DecimalType;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.SqlDecimal.decimal;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestDataSizeFunctions
-        extends AbstractTestFunctions
 {
-    private static final Type DECIMAL = createDecimalType(38, 0);
+    private static final DecimalType DECIMAL = createDecimalType(38, 0);
+
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
+    {
+        assertions = new QueryAssertions();
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
+    }
 
     @Test
     public void testParseDataSize()
     {
-        assertFunction("parse_data_size('0B')", DECIMAL, decimal("0"));
-        assertFunction("parse_data_size('1B')", DECIMAL, decimal("1"));
-        assertFunction("parse_data_size('1.2B')", DECIMAL, decimal("1"));
-        assertFunction("parse_data_size('1.9B')", DECIMAL, decimal("1"));
-        assertFunction("parse_data_size('2.2kB')", DECIMAL, decimal("2252"));
-        assertFunction("parse_data_size('2.23kB')", DECIMAL, decimal("2283"));
-        assertFunction("parse_data_size('2.23kB')", DECIMAL, decimal("2283"));
-        assertFunction("parse_data_size('2.234kB')", DECIMAL, decimal("2287"));
-        assertFunction("parse_data_size('3MB')", DECIMAL, decimal("3145728"));
-        assertFunction("parse_data_size('4GB')", DECIMAL, decimal("4294967296"));
-        assertFunction("parse_data_size('4TB')", DECIMAL, decimal("4398046511104"));
-        assertFunction("parse_data_size('5PB')", DECIMAL, decimal("5629499534213120"));
-        assertFunction("parse_data_size('6EB')", DECIMAL, decimal("6917529027641081856"));
-        assertFunction("parse_data_size('7ZB')", DECIMAL, decimal("8264141345021879123968"));
-        assertFunction("parse_data_size('8YB')", DECIMAL, decimal("9671406556917033397649408"));
-        assertFunction("parse_data_size('6917529027641081856EB')", DECIMAL, decimal("7975367974709495237422842361682067456"));
-        assertFunction("parse_data_size('69175290276410818560EB')", DECIMAL, decimal("79753679747094952374228423616820674560"));
+        assertThat(assertions.function("parse_data_size", "'0B'"))
+                .isEqualTo(decimal("0", DECIMAL));
 
-        assertInvalidFunction("parse_data_size('')", "Invalid data size: ''");
-        assertInvalidFunction("parse_data_size('0')", "Invalid data size: '0'");
-        assertInvalidFunction("parse_data_size('10KB')", "Invalid data size: '10KB'");
-        assertInvalidFunction("parse_data_size('KB')", "Invalid data size: 'KB'");
-        assertInvalidFunction("parse_data_size('-1B')", "Invalid data size: '-1B'");
-        assertInvalidFunction("parse_data_size('12345K')", "Invalid data size: '12345K'");
-        assertInvalidFunction("parse_data_size('A12345B')", "Invalid data size: 'A12345B'");
-        assertInvalidFunction("parse_data_size('99999999999999YB')", NUMERIC_VALUE_OUT_OF_RANGE, "Value out of range: '99999999999999YB' ('120892581961461708544797985370825293824B')");
+        assertThat(assertions.function("parse_data_size", "'1B'"))
+                .isEqualTo(decimal("1", DECIMAL));
+
+        assertThat(assertions.function("parse_data_size", "'1.2B'"))
+                .isEqualTo(decimal("1", DECIMAL));
+
+        assertThat(assertions.function("parse_data_size", "'1.9B'"))
+                .isEqualTo(decimal("1", DECIMAL));
+
+        assertThat(assertions.function("parse_data_size", "'2.2kB'"))
+                .isEqualTo(decimal("2252", DECIMAL));
+
+        assertThat(assertions.function("parse_data_size", "'2.23kB'"))
+                .isEqualTo(decimal("2283", DECIMAL));
+
+        assertThat(assertions.function("parse_data_size", "'2.234kB'"))
+                .isEqualTo(decimal("2287", DECIMAL));
+
+        assertThat(assertions.function("parse_data_size", "'3MB'"))
+                .isEqualTo(decimal("3145728", DECIMAL));
+
+        assertThat(assertions.function("parse_data_size", "'4GB'"))
+                .isEqualTo(decimal("4294967296", DECIMAL));
+
+        assertThat(assertions.function("parse_data_size", "'4TB'"))
+                .isEqualTo(decimal("4398046511104", DECIMAL));
+
+        assertThat(assertions.function("parse_data_size", "'5PB'"))
+                .isEqualTo(decimal("5629499534213120", DECIMAL));
+
+        assertThat(assertions.function("parse_data_size", "'6EB'"))
+                .isEqualTo(decimal("6917529027641081856", DECIMAL));
+
+        assertThat(assertions.function("parse_data_size", "'7ZB'"))
+                .isEqualTo(decimal("8264141345021879123968", DECIMAL));
+
+        assertThat(assertions.function("parse_data_size", "'8YB'"))
+                .isEqualTo(decimal("9671406556917033397649408", DECIMAL));
+
+        assertThat(assertions.function("parse_data_size", "'6917529027641081856EB'"))
+                .isEqualTo(decimal("7975367974709495237422842361682067456", DECIMAL));
+
+        assertThat(assertions.function("parse_data_size", "'69175290276410818560EB'"))
+                .isEqualTo(decimal("79753679747094952374228423616820674560", DECIMAL));
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("parse_data_size", "''").evaluate())
+                .hasMessage("Invalid data size: ''");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("parse_data_size", "'0'").evaluate())
+                .hasMessage("Invalid data size: '0'");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("parse_data_size", "'10KB'").evaluate())
+                .hasMessage("Invalid data size: '10KB'");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("parse_data_size", "'KB'").evaluate())
+                .hasMessage("Invalid data size: 'KB'");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("parse_data_size", "'-1B'").evaluate())
+                .hasMessage("Invalid data size: '-1B'");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("parse_data_size", "'12345K'").evaluate())
+                .hasMessage("Invalid data size: '12345K'");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("parse_data_size", "'A12345B'").evaluate())
+                .hasMessage("Invalid data size: 'A12345B'");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("parse_data_size", "'99999999999999YB'").evaluate())
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Value out of range: '99999999999999YB' ('120892581961461708544797985370825293824B')");
     }
 }

@@ -40,6 +40,11 @@ public class ParsingException
         this(message, null, 1, 1);
     }
 
+    public ParsingException(String message, RecognitionException cause)
+    {
+        this(message, cause, 1, 1);
+    }
+
     public ParsingException(String message, NodeLocation nodeLocation)
     {
         this(message, null, nodeLocation.getLineNumber(), nodeLocation.getColumnNumber());

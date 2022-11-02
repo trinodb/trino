@@ -21,6 +21,7 @@ import io.trino.client.QueryData;
 import io.trino.client.QueryStatusInfo;
 import io.trino.client.Row;
 import io.trino.client.RowField;
+import io.trino.client.StatementStats;
 import io.trino.client.Warning;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.type.ArrayType;
@@ -122,10 +123,12 @@ public class TestingTrinoClient
         private final ImmutableList.Builder<MaterializedRow> rows = ImmutableList.builder();
 
         private final AtomicReference<List<Type>> types = new AtomicReference<>();
+        private final AtomicReference<List<String>> columnNames = new AtomicReference<>();
 
         private final AtomicReference<Optional<String>> updateType = new AtomicReference<>(Optional.empty());
         private final AtomicReference<OptionalLong> updateCount = new AtomicReference<>(OptionalLong.empty());
         private final AtomicReference<List<Warning>> warnings = new AtomicReference<>(ImmutableList.of());
+        private final AtomicReference<Optional<StatementStats>> statementStats = new AtomicReference<>(Optional.empty());
 
         @Override
         public void setUpdateType(String type)
@@ -146,10 +149,17 @@ public class TestingTrinoClient
         }
 
         @Override
+        public void setStatementStats(StatementStats statementStats)
+        {
+            this.statementStats.set(Optional.of(statementStats));
+        }
+
+        @Override
         public void addResults(QueryStatusInfo statusInfo, QueryData data)
         {
             if (types.get() == null && statusInfo.getColumns() != null) {
                 types.set(getTypes(statusInfo.getColumns()));
+                columnNames.set(getNames(statusInfo.getColumns()));
             }
 
             if (data.getData() != null) {
@@ -165,11 +175,13 @@ public class TestingTrinoClient
             return new MaterializedResult(
                     rows.build(),
                     types.get(),
+                    columnNames.get(),
                     setSessionProperties,
                     resetSessionProperties,
                     updateType.get(),
                     updateCount.get(),
-                    warnings.get());
+                    warnings.get(),
+                    statementStats.get());
         }
     }
 

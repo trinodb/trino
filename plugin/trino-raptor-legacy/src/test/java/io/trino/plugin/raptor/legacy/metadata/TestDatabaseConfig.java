@@ -36,7 +36,7 @@ public class TestDatabaseConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("metadata.db.type", "h2")
-                .build();
+                .buildOrThrow();
 
         DatabaseConfig expected = new DatabaseConfig()
                 .setDatabaseType("h2");

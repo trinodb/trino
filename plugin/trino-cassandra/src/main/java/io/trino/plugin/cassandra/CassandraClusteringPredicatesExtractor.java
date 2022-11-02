@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.cassandra;
 
-import com.datastax.driver.core.VersionNumber;
+import com.datastax.oss.driver.api.core.Version;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -33,11 +33,13 @@ import static java.util.stream.Collectors.joining;
 
 public class CassandraClusteringPredicatesExtractor
 {
+    private final CassandraTypeManager cassandraTypeManager;
     private final ClusteringPushDownResult clusteringPushDownResult;
     private final TupleDomain<ColumnHandle> predicates;
 
-    public CassandraClusteringPredicatesExtractor(List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates, VersionNumber cassandraVersion)
+    public CassandraClusteringPredicatesExtractor(CassandraTypeManager cassandraTypeManager, List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates, Version cassandraVersion)
     {
+        this.cassandraTypeManager = requireNonNull(cassandraTypeManager, "cassandraTypeManager is null");
         this.predicates = requireNonNull(predicates, "predicates is null");
         this.clusteringPushDownResult = getClusteringKeysSet(clusteringColumns, predicates, requireNonNull(cassandraVersion, "cassandraVersion is null"));
     }
@@ -52,7 +54,7 @@ public class CassandraClusteringPredicatesExtractor
         return predicates.filter(((columnHandle, domain) -> !clusteringPushDownResult.hasBeenFullyPushed(columnHandle)));
     }
 
-    private static ClusteringPushDownResult getClusteringKeysSet(List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates, VersionNumber cassandraVersion)
+    private ClusteringPushDownResult getClusteringKeysSet(List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates, Version cassandraVersion)
     {
         ImmutableSet.Builder<ColumnHandle> fullyPushedColumnPredicates = ImmutableSet.builder();
         ImmutableList.Builder<String> clusteringColumnSql = ImmutableList.builder();
@@ -101,7 +103,7 @@ public class CassandraClusteringPredicatesExtractor
                             }
 
                             String inValues = discreteValues.getValues().stream()
-                                    .map(columnHandle.getCassandraType()::toCqlLiteral)
+                                    .map(value -> cassandraTypeManager.toCqlLiteral(columnHandle.getCassandraType(), value))
                                     .collect(joining(","));
                             fullyPushedColumnPredicates.add(columnHandle);
                             return CassandraCqlUtils.validColumnName(columnHandle.getName()) + " IN (" + inValues + " )";
@@ -127,17 +129,17 @@ public class CassandraClusteringPredicatesExtractor
     /**
      * IN restriction allowed only on last clustering column for Cassandra version <= 2.2.0
      */
-    private static boolean isInExpressionNotAllowed(List<CassandraColumnHandle> clusteringColumns, VersionNumber cassandraVersion, int currentlyProcessedClusteringColumn)
+    private static boolean isInExpressionNotAllowed(List<CassandraColumnHandle> clusteringColumns, Version cassandraVersion, int currentlyProcessedClusteringColumn)
     {
-        return cassandraVersion.compareTo(VersionNumber.parse("2.2.0")) < 0 && currentlyProcessedClusteringColumn != (clusteringColumns.size() - 1);
+        return cassandraVersion.compareTo(Version.parse("2.2.0")) < 0 && currentlyProcessedClusteringColumn != (clusteringColumns.size() - 1);
     }
 
-    private static String toCqlLiteral(CassandraColumnHandle columnHandle, Object value)
+    private String toCqlLiteral(CassandraColumnHandle columnHandle, Object value)
     {
-        return columnHandle.getCassandraType().toCqlLiteral(value);
+        return cassandraTypeManager.toCqlLiteral(columnHandle.getCassandraType(), value);
     }
 
-    private static String translateRangeIntoCql(CassandraColumnHandle columnHandle, Range range)
+    private String translateRangeIntoCql(CassandraColumnHandle columnHandle, Range range)
     {
         if (columnHandle.getCassandraType().getKind() == CassandraType.Kind.TUPLE || columnHandle.getCassandraType().getKind() == CassandraType.Kind.UDT) {
             // Building CQL literals for TUPLE and UDT type is not supported

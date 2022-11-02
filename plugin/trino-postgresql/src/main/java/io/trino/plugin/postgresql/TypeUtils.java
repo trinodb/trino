@@ -22,6 +22,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
@@ -48,7 +49,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.decodeUnscaledValue;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -118,7 +118,7 @@ final class TypeUtils
         Object[] valuesArray = new Object[positionCount];
         int subArrayLength = 1;
         for (int i = 0; i < positionCount; i++) {
-            Object objectValue = prestoNativeToJdbcObject(session, elementType, readNativeValue(elementType, block, i));
+            Object objectValue = trinoNativeToJdbcObject(session, elementType, readNativeValue(elementType, block, i));
             valuesArray[i] = objectValue;
             if (objectValue != null && objectValue.getClass().isArray()) {
                 subArrayLength = Math.max(subArrayLength, Array.getLength(objectValue));
@@ -154,79 +154,77 @@ final class TypeUtils
         }
     }
 
-    private static Object prestoNativeToJdbcObject(ConnectorSession session, Type prestoType, Object prestoNative)
+    private static Object trinoNativeToJdbcObject(ConnectorSession session, Type trinoType, Object trinoNative)
             throws SQLException
     {
-        if (prestoNative == null) {
+        if (trinoNative == null) {
             return null;
         }
 
-        if (DOUBLE.equals(prestoType) || BOOLEAN.equals(prestoType) || BIGINT.equals(prestoType)) {
-            return prestoNative;
+        if (DOUBLE.equals(trinoType) || BOOLEAN.equals(trinoType) || BIGINT.equals(trinoType)) {
+            return trinoNative;
         }
 
-        if (prestoType instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) prestoType;
+        if (trinoType instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) trinoType;
             if (decimalType.isShort()) {
-                BigInteger unscaledValue = BigInteger.valueOf((long) prestoNative);
+                BigInteger unscaledValue = BigInteger.valueOf((long) trinoNative);
                 return new BigDecimal(unscaledValue, decimalType.getScale(), new MathContext(decimalType.getPrecision()));
             }
-            BigInteger unscaledValue = decodeUnscaledValue((Slice) prestoNative);
+            BigInteger unscaledValue = ((Int128) trinoNative).toBigInteger();
             return new BigDecimal(unscaledValue, decimalType.getScale(), new MathContext(decimalType.getPrecision()));
         }
 
-        if (REAL.equals(prestoType)) {
-            return intBitsToFloat(toIntExact((long) prestoNative));
+        if (REAL.equals(trinoType)) {
+            return intBitsToFloat(toIntExact((long) trinoNative));
         }
 
-        if (TINYINT.equals(prestoType)) {
-            return SignedBytes.checkedCast((long) prestoNative);
+        if (TINYINT.equals(trinoType)) {
+            return SignedBytes.checkedCast((long) trinoNative);
         }
 
-        if (SMALLINT.equals(prestoType)) {
-            return Shorts.checkedCast((long) prestoNative);
+        if (SMALLINT.equals(trinoType)) {
+            return Shorts.checkedCast((long) trinoNative);
         }
 
-        if (INTEGER.equals(prestoType)) {
-            return toIntExact((long) prestoNative);
+        if (INTEGER.equals(trinoType)) {
+            return toIntExact((long) trinoNative);
         }
 
-        if (DATE.equals(prestoType)) {
+        if (DATE.equals(trinoType)) {
             // convert to midnight in default time zone
-            long millis = DAYS.toMillis((long) prestoNative);
+            long millis = DAYS.toMillis((long) trinoNative);
             return new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millis));
         }
 
-        if (prestoType instanceof TimestampType && ((TimestampType) prestoType).isShort()) {
-            return toPgTimestamp(fromTrinoTimestamp((long) prestoNative));
+        if (trinoType instanceof TimestampType && ((TimestampType) trinoType).isShort()) {
+            return toPgTimestamp(fromTrinoTimestamp((long) trinoNative));
         }
 
-        if (prestoType instanceof TimestampWithTimeZoneType) {
+        if (trinoType instanceof TimestampWithTimeZoneType) {
             // PostgreSQL does not store zone, only the point in time
-            int precision = ((TimestampWithTimeZoneType) prestoType).getPrecision();
+            int precision = ((TimestampWithTimeZoneType) trinoType).getPrecision();
             if (precision <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
-                long millisUtc = unpackMillisUtc((long) prestoNative);
+                long millisUtc = unpackMillisUtc((long) trinoNative);
                 return new Timestamp(millisUtc);
             }
-            else {
-                LongTimestampWithTimeZone value = (LongTimestampWithTimeZone) prestoNative;
-                long epochSeconds = floorDiv(value.getEpochMillis(), MILLISECONDS_PER_SECOND);
-                long nanosOfSecond = floorMod(value.getEpochMillis(), MILLISECONDS_PER_SECOND) * NANOSECONDS_PER_MILLISECOND
-                        + value.getPicosOfMilli() / PICOSECONDS_PER_NANOSECOND;
-                return OffsetDateTime.ofInstant(Instant.ofEpochSecond(epochSeconds, nanosOfSecond), UTC_KEY.getZoneId());
-            }
+            LongTimestampWithTimeZone value = (LongTimestampWithTimeZone) trinoNative;
+            long epochSeconds = floorDiv(value.getEpochMillis(), MILLISECONDS_PER_SECOND);
+            long nanosOfSecond = floorMod(value.getEpochMillis(), MILLISECONDS_PER_SECOND) * NANOSECONDS_PER_MILLISECOND
+                    + value.getPicosOfMilli() / PICOSECONDS_PER_NANOSECOND;
+            return OffsetDateTime.ofInstant(Instant.ofEpochSecond(epochSeconds, nanosOfSecond), UTC_KEY.getZoneId());
         }
 
-        if (prestoType instanceof VarcharType || prestoType instanceof CharType) {
-            return ((Slice) prestoNative).toStringUtf8();
+        if (trinoType instanceof VarcharType || trinoType instanceof CharType) {
+            return ((Slice) trinoNative).toStringUtf8();
         }
 
-        if (prestoType instanceof ArrayType) {
+        if (trinoType instanceof ArrayType) {
             // process subarray of multi-dimensional array
-            return getJdbcObjectArray(session, ((ArrayType) prestoType).getElementType(), (Block) prestoNative);
+            return getJdbcObjectArray(session, ((ArrayType) trinoType).getElementType(), (Block) trinoNative);
         }
 
-        throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + prestoType);
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + trinoType);
     }
 
     static PGobject toPgTimestamp(LocalDateTime localDateTime)

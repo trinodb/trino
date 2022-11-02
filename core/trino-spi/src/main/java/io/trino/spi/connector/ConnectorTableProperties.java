@@ -36,16 +36,6 @@ public class ConnectorTableProperties
         this(TupleDomain.all(), Optional.empty(), Optional.empty(), Optional.empty(), emptyList());
     }
 
-    @Deprecated
-    public ConnectorTableProperties(ConnectorTableLayout layout)
-    {
-        this(layout.getPredicate(),
-                layout.getTablePartitioning(),
-                layout.getStreamPartitioningColumns(),
-                layout.getDiscretePredicates(),
-                layout.getLocalProperties());
-    }
-
     public ConnectorTableProperties(
             TupleDomain<ColumnHandle> predicate,
             Optional<ConnectorTablePartitioning> tablePartitioning,

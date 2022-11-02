@@ -18,6 +18,7 @@ import com.google.inject.ConfigurationException;
 import com.google.inject.spi.Message;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
@@ -35,7 +36,11 @@ public class PrometheusConnectorConfig
     private Duration queryChunkSizeDuration = new Duration(1, TimeUnit.DAYS);
     private Duration maxQueryRangeDuration = new Duration(21, TimeUnit.DAYS);
     private Duration cacheDuration = new Duration(30, TimeUnit.SECONDS);
+    private Duration readTimeout = new Duration(10, TimeUnit.SECONDS);
     private File bearerTokenFile;
+    private String user;
+    private String password;
+    private boolean caseInsensitiveNameMatching;
 
     @NotNull
     public URI getPrometheusURI()
@@ -106,6 +111,60 @@ public class PrometheusConnectorConfig
         return this;
     }
 
+    @NotNull
+    public Optional<String> getUser()
+    {
+        return Optional.ofNullable(user);
+    }
+
+    @Config("prometheus.auth.user")
+    public PrometheusConnectorConfig setUser(String user)
+    {
+        this.user = user;
+        return this;
+    }
+
+    @NotNull
+    public Optional<String> getPassword()
+    {
+        return Optional.ofNullable(password);
+    }
+
+    @Config("prometheus.auth.password")
+    @ConfigSecuritySensitive
+    public PrometheusConnectorConfig setPassword(String password)
+    {
+        this.password = password;
+        return this;
+    }
+
+    @MinDuration("1s")
+    public Duration getReadTimeout()
+    {
+        return readTimeout;
+    }
+
+    @Config("prometheus.read-timeout")
+    @ConfigDescription("How much time a query to Prometheus has before timing out")
+    public PrometheusConnectorConfig setReadTimeout(Duration readTimeout)
+    {
+        this.readTimeout = readTimeout;
+        return this;
+    }
+
+    public boolean isCaseInsensitiveNameMatching()
+    {
+        return caseInsensitiveNameMatching;
+    }
+
+    @Config("prometheus.case-insensitive-name-matching")
+    @ConfigDescription("Where to match the prometheus metric name case insensitively ")
+    public PrometheusConnectorConfig setCaseInsensitiveNameMatching(boolean caseInsensitiveNameMatching)
+    {
+        this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
+        return this;
+    }
+
     @PostConstruct
     public void checkConfig()
     {
@@ -113,6 +172,12 @@ public class PrometheusConnectorConfig
         long queryChunkSizeDuration = (long) getQueryChunkSizeDuration().getValue(TimeUnit.SECONDS);
         if (maxQueryRangeDuration < queryChunkSizeDuration) {
             throw new ConfigurationException(ImmutableList.of(new Message("prometheus.max.query.range.duration must be greater than prometheus.query.chunk.size.duration")));
+        }
+        if (getBearerTokenFile().isPresent() && (getUser().isPresent() || getPassword().isPresent())) {
+            throw new IllegalStateException("Either on of bearer token file or basic authentication should be used");
+        }
+        if (getUser().isPresent() ^ getPassword().isPresent()) {
+            throw new IllegalStateException("Both username and password must be set when using basic authentication");
         }
     }
 }

@@ -18,7 +18,8 @@ import io.trino.Session;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.metadata.Metadata;
+import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.LimitNode;
@@ -46,11 +47,13 @@ public class PushDistinctLimitIntoTableScan
                     .with(isPartial().equalTo(false))
                     .with(source().matching(tableScan().capturedAs(TABLE_SCAN)));
 
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
+    private final TypeAnalyzer typeAnalyzer;
 
-    public PushDistinctLimitIntoTableScan(Metadata metadata)
+    public PushDistinctLimitIntoTableScan(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
     @Override
@@ -69,7 +72,8 @@ public class PushDistinctLimitIntoTableScan
     public Result apply(DistinctLimitNode node, Captures captures, Context context)
     {
         Optional<PlanNode> result = pushAggregationIntoTableScan(
-                metadata,
+                plannerContext,
+                typeAnalyzer,
                 context,
                 node,
                 captures.get(TABLE_SCAN),

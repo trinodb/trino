@@ -30,16 +30,23 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * A set of unique SQL values stored in a {@link Block}.
+ *
+ * <p>Depending on the factory method used, the values' equality may be
+ * determined using SQL equality or {@code IS DISTINCT FROM} semantics.
+ */
 public class TypedSet
 {
     @VisibleForTesting
     public static final DataSize MAX_FUNCTION_MEMORY = DataSize.of(4, MEGABYTE);
 
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TypedSet.class).instanceSize();
-    private static final int INT_ARRAY_LIST_INSTANCE_SIZE = ClassLayout.parseClass(IntArrayList.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TypedSet.class).instanceSize());
+    private static final int INT_ARRAY_LIST_INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(IntArrayList.class).instanceSize());
     private static final float FILL_RATIO = 0.75f;
 
     private final Type elementType;
@@ -53,8 +60,8 @@ public class TypedSet
 
     private final int initialElementBlockOffset;
     private final long initialElementBlockSizeInBytes;
-    // size is the number of elements added to the TypedSet (including null).
-    // It is equal to elementBlock.size() - initialElementBlockOffset
+    // The number of elements added to the TypedSet (including null). Should
+    // always be equal to elementBlock.getPositionsCount() - initialElementBlockOffset.
     private int size;
     private int hashCapacity;
     private int maxFill;
@@ -63,6 +70,10 @@ public class TypedSet
 
     private boolean containsNullElement;
 
+    /**
+     * Create a {@code TypedSet} that compares its elements using SQL equality
+     * comparison.
+     */
     public static TypedSet createEqualityTypedSet(
             Type elementType,
             BlockPositionEqual elementEqualOperator,
@@ -76,30 +87,67 @@ public class TypedSet
                 elementHashCodeOperator,
                 elementType.createBlockBuilder(null, expectedSize),
                 expectedSize,
-                functionName,
-                false);
+                functionName);
     }
 
+    /**
+     * Create a {@code TypedSet} that compares its elements using SQL equality
+     * comparison.
+     *
+     * <p>The elements of the set will be written in the given {@code BlockBuilder}.
+     * If the {@code BlockBuilder} is modified by the caller, the set will stop
+     * functioning correctly.
+     */
     public static TypedSet createEqualityTypedSet(
             Type elementType,
             BlockPositionEqual elementEqualOperator,
             BlockPositionHashCode elementHashCodeOperator,
-            BlockBuilder blockBuilder,
+            BlockBuilder elementBlock,
             int expectedSize,
-            String functionName,
-            boolean unboundedMemory)
+            String functionName)
     {
         return new TypedSet(
                 elementType,
                 elementEqualOperator,
                 null,
                 elementHashCodeOperator,
-                blockBuilder,
+                elementBlock,
                 expectedSize,
                 functionName,
-                unboundedMemory);
+                false);
     }
 
+    /**
+     * Create a {@code TypedSet} with no size limit that compares its elements
+     * using SQL equality comparison.
+     *
+     * <p>The elements of the set will be written in the given {@code BlockBuilder}.
+     * If the {@code BlockBuilder} is modified by the caller, the set will stop
+     * functioning correctly.
+     */
+    public static TypedSet createUnboundedEqualityTypedSet(
+            Type elementType,
+            BlockPositionEqual elementEqualOperator,
+            BlockPositionHashCode elementHashCodeOperator,
+            BlockBuilder elementBlock,
+            int expectedSize,
+            String functionName)
+    {
+        return new TypedSet(
+                elementType,
+                elementEqualOperator,
+                null,
+                elementHashCodeOperator,
+                elementBlock,
+                expectedSize,
+                functionName,
+                true);
+    }
+
+    /**
+     * Create a {@code TypedSet} that compares its elements using the semantics
+     * of {@code IS DISTINCT}.
+     */
     public static TypedSet createDistinctTypedSet(
             Type elementType,
             BlockPositionIsDistinctFrom elementDistinctFromOperator,
@@ -116,11 +164,19 @@ public class TypedSet
                 functionName);
     }
 
+    /**
+     * Create a {@code TypedSet} that compares its elements using the semantics
+     * of {@code IS DISTINCT}.
+     *
+     * <p>The elements of the set will be written in the given {@code BlockBuilder}.
+     * If the {@code BlockBuilder} is modified by the caller, the set will stop
+     * functioning correctly.
+     */
     public static TypedSet createDistinctTypedSet(
             Type elementType,
             BlockPositionIsDistinctFrom elementDistinctFromOperator,
             BlockPositionHashCode elementHashCodeOperator,
-            BlockBuilder blockBuilder,
+            BlockBuilder elementBlock,
             int expectedSize,
             String functionName)
     {
@@ -129,18 +185,18 @@ public class TypedSet
                 null,
                 elementDistinctFromOperator,
                 elementHashCodeOperator,
-                blockBuilder,
+                elementBlock,
                 expectedSize,
                 functionName,
                 false);
     }
 
-    public TypedSet(
+    private TypedSet(
             Type elementType,
             BlockPositionEqual elementEqualOperator,
             BlockPositionIsDistinctFrom elementDistinctFromOperator,
             BlockPositionHashCode elementHashCodeOperator,
-            BlockBuilder blockBuilder,
+            BlockBuilder elementBlock,
             int expectedSize,
             String functionName,
             boolean unboundedMemory)
@@ -153,7 +209,7 @@ public class TypedSet
         this.elementDistinctFromOperator = elementDistinctFromOperator;
         this.elementHashCodeOperator = requireNonNull(elementHashCodeOperator, "elementHashCodeOperator is null");
 
-        this.elementBlock = requireNonNull(blockBuilder, "blockBuilder must not be null");
+        this.elementBlock = requireNonNull(elementBlock, "elementBlock must not be null");
         this.functionName = functionName;
         this.maxBlockMemoryInBytes = unboundedMemory ? Long.MAX_VALUE : MAX_FUNCTION_MEMORY.toBytes();
 
@@ -174,11 +230,22 @@ public class TypedSet
         this.containsNullElement = false;
     }
 
+    /**
+     * Returns the retained size of this block in memory, including over-allocations.
+     * This method is called from the innermost execution loop and must be fast.
+     */
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + INT_ARRAY_LIST_INSTANCE_SIZE + elementBlock.getRetainedSizeInBytes() + blockPositionByHash.size() * Integer.BYTES;
+        return INSTANCE_SIZE
+                + INT_ARRAY_LIST_INSTANCE_SIZE
+                + elementBlock.getRetainedSizeInBytes()
+                + blockPositionByHash.size() * (long) Integer.BYTES;
     }
 
+    /**
+     * Return whether this set contains the value at the given {@code position}
+     * in the given {@code block}.
+     */
     public boolean contains(Block block, int position)
     {
         requireNonNull(block, "block must not be null");
@@ -187,32 +254,50 @@ public class TypedSet
         if (block.isNull(position)) {
             return containsNullElement;
         }
-        else {
-            return blockPositionByHash.getInt(getHashPositionOfElement(block, position)) != EMPTY_SLOT;
-        }
+        return blockPositionByHash.getInt(getHashPositionOfElement(block, position)) != EMPTY_SLOT;
     }
 
-    public void add(Block block, int position)
+    /**
+     * Add the value at the given {@code position} in the given {@code block}
+     * to this set.
+     *
+     * @return {@code true} if the value was added, or {@code false} if it was
+     * already in this set.
+     */
+    public boolean add(Block block, int position)
     {
         requireNonNull(block, "block must not be null");
         checkArgument(position >= 0, "position must be >= 0");
 
         // containsNullElement flag is maintained so contains() method can have shortcut for null value
         if (block.isNull(position)) {
+            if (containsNullElement) {
+                return false;
+            }
             containsNullElement = true;
         }
 
         int hashPosition = getHashPositionOfElement(block, position);
         if (blockPositionByHash.getInt(hashPosition) == EMPTY_SLOT) {
             addNewElement(hashPosition, block, position);
+            return true;
         }
+        return false;
     }
 
+    /**
+     * Returns the number of elements in this set.
+     */
     public int size()
     {
         return size;
     }
 
+    /**
+     * Return the position in this set's {@code BlockBuilder} of the value at
+     * the given {@code position} in the given {@code block}, or -1 if the
+     * value is not in this set.
+     */
     public int positionOf(Block block, int position)
     {
         return blockPositionByHash.getInt(getHashPositionOfElement(block, position));

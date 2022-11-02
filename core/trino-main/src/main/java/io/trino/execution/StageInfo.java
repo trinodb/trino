@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.spi.QueryId;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -37,6 +38,7 @@ public class StageInfo
     private final StageId stageId;
     private final StageState state;
     private final PlanFragment plan;
+    private final boolean coordinatorOnly;
     private final List<Type> types;
     private final StageStats stageStats;
     private final List<TaskInfo> tasks;
@@ -49,6 +51,7 @@ public class StageInfo
             @JsonProperty("stageId") StageId stageId,
             @JsonProperty("state") StageState state,
             @JsonProperty("plan") @Nullable PlanFragment plan,
+            @JsonProperty("coordinatorOnly") boolean coordinatorOnly,
             @JsonProperty("types") List<Type> types,
             @JsonProperty("stageStats") StageStats stageStats,
             @JsonProperty("tasks") List<TaskInfo> tasks,
@@ -66,6 +69,7 @@ public class StageInfo
         this.stageId = stageId;
         this.state = state;
         this.plan = plan;
+        this.coordinatorOnly = coordinatorOnly;
         this.types = types;
         this.stageStats = stageStats;
         this.tasks = ImmutableList.copyOf(tasks);
@@ -91,6 +95,12 @@ public class StageInfo
     public PlanFragment getPlan()
     {
         return plan;
+    }
+
+    @JsonProperty
+    public boolean isCoordinatorOnly()
+    {
+        return coordinatorOnly;
     }
 
     @JsonProperty
@@ -143,24 +153,53 @@ public class StageInfo
                 .toString();
     }
 
+    public StageInfo withSubStages(List<StageInfo> subStages)
+    {
+        return new StageInfo(
+                stageId,
+                state,
+                plan,
+                coordinatorOnly,
+                types,
+                stageStats,
+                tasks,
+                subStages,
+                tables,
+                failureCause);
+    }
+
+    public static StageInfo createInitial(QueryId queryId, StageState state, PlanFragment fragment)
+    {
+        return new StageInfo(
+                StageId.create(queryId, fragment.getId()),
+                state,
+                fragment,
+                fragment.getPartitioning().isCoordinatorOnly(),
+                fragment.getTypes(),
+                StageStats.createInitial(),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                ImmutableMap.of(),
+                null);
+    }
+
     public static List<StageInfo> getAllStages(Optional<StageInfo> stageInfo)
     {
+        if (stageInfo.isEmpty()) {
+            return ImmutableList.of();
+        }
         ImmutableList.Builder<StageInfo> collector = ImmutableList.builder();
-        addAllStages(stageInfo, collector);
+        addAllStages(stageInfo.get(), collector);
         return collector.build();
     }
 
-    private static void addAllStages(Optional<StageInfo> stageInfo, ImmutableList.Builder<StageInfo> collector)
+    private static void addAllStages(@Nullable StageInfo stage, ImmutableList.Builder<StageInfo> collector)
     {
-        stageInfo.ifPresent(stage -> {
+        if (stage != null) {
             collector.add(stage);
-            stage.getSubStages().stream()
-                    .forEach(subStage -> addAllStages(Optional.ofNullable(subStage), collector));
-        });
-    }
-
-    public boolean isCompleteInfo()
-    {
-        return state.isDone() && tasks.stream().allMatch(taskInfo -> taskInfo.getTaskStatus().getState().isDone());
+            for (StageInfo subStage : stage.getSubStages()) {
+                addAllStages(subStage, collector);
+            }
+        }
     }
 }

@@ -42,10 +42,10 @@ import static java.util.Objects.requireNonNull;
 public class ApproximateMostFrequentHistogram<K>
 {
     private static final byte FORMAT_TAG = 0;
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ApproximateMostFrequentHistogram.class).instanceSize();
-    private static final int STREAM_SUMMARY_SIZE = ClassLayout.parseClass(StreamSummary.class).instanceSize();
-    private static final int LIST_NODE2_SIZE = ClassLayout.parseClass(ListNode2.class).instanceSize();
-    private static final int COUNTER_SIZE = ClassLayout.parseClass(Counter.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ApproximateMostFrequentHistogram.class).instanceSize());
+    private static final int STREAM_SUMMARY_SIZE = toIntExact(ClassLayout.parseClass(StreamSummary.class).instanceSize());
+    private static final int LIST_NODE2_SIZE = toIntExact(ClassLayout.parseClass(ListNode2.class).instanceSize());
+    private static final int COUNTER_SIZE = toIntExact(ClassLayout.parseClass(Counter.class).instanceSize());
 
     private final StreamSummary<K> streamSummary;
     private final int maxBuckets;
@@ -145,10 +145,10 @@ public class ApproximateMostFrequentHistogram<K>
     @VisibleForTesting
     public Map<K, Long> getBuckets()
     {
-        ImmutableMap.Builder<K, Long> buckets = new ImmutableMap.Builder<>();
+        ImmutableMap.Builder<K, Long> buckets = ImmutableMap.builder();
         forEachBucket(buckets::put);
 
-        return buckets.build();
+        return buckets.buildOrThrow();
     }
 
     public long estimatedInMemorySize()

@@ -80,7 +80,6 @@ public class S3TableConfigClient
             KinesisClientProvider clientManager,
             JsonCodec<KinesisStreamDescription> jsonCodec)
     {
-        requireNonNull(connectorConfig, "connectorConfig is null");
         this.tableDescriptionRefreshInterval = connectorConfig.getTableDescriptionRefreshInterval();
         this.clientManager = requireNonNull(clientManager, "clientManager is null");
         this.streamDescriptionCodec = requireNonNull(jsonCodec, "jsonCodec is null");
@@ -125,7 +124,7 @@ public class S3TableConfigClient
         for (KinesisStreamDescription stream : streamValues) {
             builder.put(new SchemaTableName(stream.getSchemaName(), stream.getTableName()), stream);
         }
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     @Override
@@ -167,7 +166,7 @@ public class S3TableConfigClient
             log.info("Completed getting S3 object listing.");
         }
         catch (AmazonClientException e) {
-            log.error("Skipping update as faced error fetching table descriptions from S3 " + e.toString());
+            log.error("Skipping update as faced error fetching table descriptions from S3 %s", e);
         }
         return result;
     }

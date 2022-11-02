@@ -26,9 +26,8 @@ import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.UnionNode;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.sql.planner.plan.ChildReplacer.replaceChildren;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 
@@ -51,16 +50,14 @@ public class PruneDistinctAggregation
         DistinctAggregationRewriter rewriter = new DistinctAggregationRewriter(lookup);
 
         List<PlanNode> newSources = node.getSources().stream()
-                .flatMap(lookup::resolveGroup)
+                .map(lookup::resolve)
                 .map(source -> source.accept(rewriter, true))
-                .collect(Collectors.toList());
+                .collect(toImmutableList());
 
         if (rewriter.isRewritten()) {
             return Result.ofPlanNode(replaceChildren(node, newSources));
         }
-        else {
-            return Result.empty();
-        }
+        return Result.empty();
     }
 
     private static boolean isDistinctOperator(AggregationNode node)
@@ -88,8 +85,9 @@ public class PruneDistinctAggregation
         private PlanNode rewriteChildren(PlanNode node, Boolean context)
         {
             List<PlanNode> newSources = node.getSources().stream()
-                    .flatMap(lookup::resolveGroup)
-                    .map(source -> source.accept(this, context)).collect(Collectors.toList());
+                    .map(lookup::resolve)
+                    .map(source -> source.accept(this, context))
+                    .collect(toImmutableList());
 
             return replaceChildren(node, newSources);
         }
@@ -130,8 +128,7 @@ public class PruneDistinctAggregation
         {
             boolean distinct = isDistinctOperator(node);
 
-            PlanNode rewrittenNode = getOnlyElement(lookup.resolveGroup(node.getSource())
-                    .map(source -> source.accept(this, distinct)).collect(Collectors.toList()));
+            PlanNode rewrittenNode = lookup.resolve(node.getSource()).accept(this, distinct);
 
             if (context && distinct) {
                 this.rewritten = true;
@@ -139,15 +136,10 @@ public class PruneDistinctAggregation
                 return rewrittenNode;
             }
 
-            return new AggregationNode(
-                    node.getId(),
-                    rewrittenNode,
-                    node.getAggregations(),
-                    node.getGroupingSets(),
-                    ImmutableList.of(),
-                    node.getStep(),
-                    node.getHashSymbol(),
-                    node.getGroupIdSymbol());
+            return AggregationNode.builderFrom(node)
+                    .setSource(rewrittenNode)
+                    .setPreGroupedSymbols(ImmutableList.of())
+                    .build();
         }
     }
 }

@@ -125,7 +125,7 @@ public class AssignUniqueIdOperator
         {
             this.rowIdPool = requireNonNull(rowIdPool, "rowIdPool is null");
 
-            uniqueValueMask = (((long) taskId.getStageId().getId()) << 54) | (((long) taskId.getId()) << 40);
+            uniqueValueMask = (((long) taskId.getStageId().getId()) << 54) | (((long) taskId.getPartitionId()) << 40);
             requestValues();
         }
 

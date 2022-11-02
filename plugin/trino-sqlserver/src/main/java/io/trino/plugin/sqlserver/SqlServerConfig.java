@@ -19,6 +19,34 @@ import io.airlift.configuration.ConfigDescription;
 public class SqlServerConfig
 {
     private boolean snapshotIsolationDisabled;
+    private boolean bulkCopyForWrite;
+    private boolean bulkCopyForWriteLockDestinationTable;
+
+    public boolean isBulkCopyForWrite()
+    {
+        return bulkCopyForWrite;
+    }
+
+    @Config("sqlserver.bulk-copy-for-write.enabled")
+    @ConfigDescription("Use SQL Server Bulk Copy API for writes")
+    public SqlServerConfig setBulkCopyForWrite(boolean bulkCopyForWrite)
+    {
+        this.bulkCopyForWrite = bulkCopyForWrite;
+        return this;
+    }
+
+    public boolean isBulkCopyForWriteLockDestinationTable()
+    {
+        return bulkCopyForWriteLockDestinationTable;
+    }
+
+    @Config("sqlserver.bulk-copy-for-write.lock-destination-table")
+    @ConfigDescription("Obtain a Bulk Update lock on destination table on write")
+    public SqlServerConfig setBulkCopyForWriteLockDestinationTable(boolean bulkCopyForWriteLockDestinationTable)
+    {
+        this.bulkCopyForWriteLockDestinationTable = bulkCopyForWriteLockDestinationTable;
+        return this;
+    }
 
     public boolean isSnapshotIsolationDisabled()
     {

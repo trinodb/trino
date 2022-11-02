@@ -16,9 +16,10 @@ package io.trino.sql.query;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.spi.type.TimeZoneKey;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.time.LocalTime;
 import java.util.List;
@@ -27,21 +28,23 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestUnwrapCastInComparison
 {
     private static final List<String> COMPARISON_OPERATORS = asList("=", "<>", ">=", ">", "<=", "<", "IS DISTINCT FROM");
 
     private QueryAssertions assertions;
 
-    @BeforeClass
+    @BeforeAll
     public void init()
     {
         assertions = new QueryAssertions();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void teardown()
     {
         assertions.close();
@@ -337,6 +340,56 @@ public class TestUnwrapCastInComparison
                         "FROM (VALUES CAST(%s AS %s)) t(v)",
                 toType, operator, toValue, toType,
                 fromValue, toType, operator, toValue, toType,
+                fromValue, fromType);
+
+        boolean result = (boolean) assertions.execute(session, query)
+                .getMaterializedRows()
+                .get(0)
+                .getField(0);
+
+        assertTrue(result, "Query evaluated to false: " + query);
+    }
+
+    @Test
+    public void testUnwrapTimestampToDate()
+    {
+        for (String from : asList(
+                null,
+                "1981-06-21 23:59:59.999",
+                "1981-06-22 00:00:00.000",
+                "1981-06-22 00:00:00.001",
+                "1981-06-22 23:59:59.999",
+                "1981-06-23 00:00:00.000",
+                "1981-06-23 00:00:00.001")) {
+            for (String operator : COMPARISON_OPERATORS) {
+                for (String to : asList(
+                        null,
+                        "1981-06-21",
+                        "1981-06-22",
+                        "1981-06-23")) {
+                    String fromLiteral = from == null ? "NULL" : format("TIMESTAMP '%s'", from);
+                    String toLiteral = to == null ? "NULL" : format("DATE '%s'", to);
+                    validate(operator, "timestamp(3)", fromLiteral, "date", toLiteral);
+                    validateWithDateFunction(operator, "timestamp(3)", fromLiteral, toLiteral);
+                }
+            }
+        }
+    }
+
+    private void validateWithDateFunction(String operator, String fromType, Object fromValue, Object toValue)
+    {
+        validateWithDateFunction(assertions.getDefaultSession(), operator, fromType, fromValue, toValue);
+    }
+
+    private void validateWithDateFunction(Session session, String operator, String fromType, Object fromValue, Object toValue)
+    {
+        String query = format(
+                "SELECT (date(v) %s CAST(%s AS date)) " +
+                        "IS NOT DISTINCT FROM " +
+                        "(CAST(%s AS date) %s CAST(%s AS date)) " +
+                        "FROM (VALUES CAST(%s AS %s)) t(v)",
+                operator, toValue,
+                fromValue, operator, toValue,
                 fromValue, fromType);
 
         boolean result = (boolean) assertions.execute(session, query)

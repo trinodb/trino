@@ -49,7 +49,7 @@ Configuration properties
 The following configuration properties are available:
 
 =============================================  ==============================================================
-Property Name                                  Description
+Property name                                  Description
 =============================================  ==============================================================
 ``trino.thrift.client.addresses``               Location of Thrift servers
 ``trino-thrift.max-response-size``              Maximum size of data returned from Thrift server
@@ -103,6 +103,13 @@ The following IDL describes the ``TrinoThriftService`` that must be implemented:
 
 .. literalinclude:: /include/TrinoThriftService.thrift
     :language: thrift
+
+.. _thrift-type-mapping:
+
+Type mapping
+------------
+
+The Thrift service defines data type support and mappings to Trino data types.
 
 .. _thrift-sql-support:
 

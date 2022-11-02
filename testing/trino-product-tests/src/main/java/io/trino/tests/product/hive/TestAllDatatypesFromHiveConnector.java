@@ -37,9 +37,7 @@ import static io.trino.tempto.context.ThreadLocalTestContextHolder.testContext;
 import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
 import static io.trino.tempto.fulfillment.table.TableHandle.tableHandle;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.JDBC;
-import static io.trino.tests.product.TestGroups.SKIP_ON_CDH;
 import static io.trino.tests.product.TestGroups.SMOKE;
 import static io.trino.tests.product.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_AVRO;
 import static io.trino.tests.product.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_ORC;
@@ -48,6 +46,7 @@ import static io.trino.tests.product.hive.AllSimpleTypesTableDefinitions.ALL_HIV
 import static io.trino.tests.product.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
 import static io.trino.tests.product.hive.AllSimpleTypesTableDefinitions.populateDataToHiveTable;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.sql.JDBCType.BIGINT;
@@ -130,7 +129,7 @@ public class TestAllDatatypesFromHiveConnector
         String tableName = ALL_HIVE_SIMPLE_TYPES_TEXTFILE.getName();
 
         assertProperAllDatatypesSchema(tableName);
-        QueryResult queryResult = query(format("SELECT * FROM %s", tableName));
+        QueryResult queryResult = onTrino().executeQuery(format("SELECT * FROM %s", tableName));
 
         assertColumnTypes(queryResult);
         assertThat(queryResult).containsOnly(
@@ -162,7 +161,7 @@ public class TestAllDatatypesFromHiveConnector
 
         assertProperAllDatatypesSchema(tableName);
 
-        QueryResult queryResult = query(format("SELECT * FROM %s", tableName));
+        QueryResult queryResult = onTrino().executeQuery(format("SELECT * FROM %s", tableName));
         assertColumnTypes(queryResult);
         assertThat(queryResult).containsOnly(
                 row(
@@ -193,7 +192,7 @@ public class TestAllDatatypesFromHiveConnector
 
         assertProperAllDatatypesSchema(tableName);
 
-        QueryResult queryResult = query(format("SELECT * FROM %s", tableName));
+        QueryResult queryResult = onTrino().executeQuery(format("SELECT * FROM %s", tableName));
         assertColumnTypes(queryResult);
         assertThat(queryResult).containsOnly(
                 row(
@@ -215,7 +214,7 @@ public class TestAllDatatypesFromHiveConnector
     }
 
     @Requires(AvroRequirements.class)
-    @Test(groups = {JDBC, SKIP_ON_CDH /* CDH 5's Avro does not support date type */})
+    @Test(groups = JDBC)
     public void testSelectAllDatatypesAvro()
     {
         String tableName = mutableTableInstanceOf(ALL_HIVE_SIMPLE_TYPES_AVRO).getNameInDatabase();
@@ -237,7 +236,7 @@ public class TestAllDatatypesFromHiveConnector
                         ")",
                 tableName));
 
-        assertThat(query("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
+        assertThat(onTrino().executeQuery("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
                 row("c_int", "integer"),
                 row("c_bigint", "bigint"),
                 row("c_float", "real"),
@@ -252,7 +251,7 @@ public class TestAllDatatypesFromHiveConnector
                 row("c_boolean", "boolean"),
                 row("c_binary", "varbinary"));
 
-        QueryResult queryResult = query("SELECT * FROM " + tableName);
+        QueryResult queryResult = onTrino().executeQuery("SELECT * FROM " + tableName);
         assertThat(queryResult).hasColumns(
                 INTEGER,
                 BIGINT,
@@ -290,7 +289,7 @@ public class TestAllDatatypesFromHiveConnector
 
     private void assertProperAllDatatypesSchema(String tableName)
     {
-        assertThat(query("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
+        assertThat(onTrino().executeQuery("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
                 row("c_tinyint", "tinyint"),
                 row("c_smallint", "smallint"),
                 row("c_int", "integer"),
@@ -370,7 +369,7 @@ public class TestAllDatatypesFromHiveConnector
                 "'kot binarny'" +
                 ")", tableName));
 
-        assertThat(query(format("SHOW COLUMNS FROM %s", tableName)).project(1, 2)).containsExactlyInOrder(
+        assertThat(onTrino().executeQuery(format("SHOW COLUMNS FROM %s", tableName)).project(1, 2)).containsExactlyInOrder(
                 row("c_tinyint", "tinyint"),
                 row("c_smallint", "smallint"),
                 row("c_int", "integer"),
@@ -386,7 +385,7 @@ public class TestAllDatatypesFromHiveConnector
                 row("c_boolean", "boolean"),
                 row("c_binary", "varbinary"));
 
-        QueryResult queryResult = query(format("SELECT * FROM %s", tableName));
+        QueryResult queryResult = onTrino().executeQuery(format("SELECT * FROM %s", tableName));
         assertColumnTypesParquet(queryResult);
         assertThat(queryResult).containsOnly(
                 row(
@@ -406,25 +405,12 @@ public class TestAllDatatypesFromHiveConnector
                         "kot binarny".getBytes(UTF_8)));
     }
 
-    private boolean isHiveWithBrokenAvroTimestamps()
-    {
-        // In 3.1.0 timestamp semantics in hive changed in backward incompatible way,
-        // which was fixed for Parquet and Avro in 3.1.2 (https://issues.apache.org/jira/browse/HIVE-21002)
-        // we do have a work-around for Parquet, but still need this for Avro until
-        // https://github.com/trinodb/trino/issues/5144 is addressed
-        return getHiveVersionMajor() == 3 &&
-                getHiveVersionMinor() == 1 &&
-                (getHiveVersionPatch() == 0 || getHiveVersionPatch() == 1);
-    }
-
     private static TableInstance<?> mutableTableInstanceOf(TableDefinition tableDefinition)
     {
         if (tableDefinition.getDatabase().isPresent()) {
             return mutableTableInstanceOf(tableDefinition, tableDefinition.getDatabase().get());
         }
-        else {
-            return mutableTableInstanceOf(tableHandleInSchema(tableDefinition));
-        }
+        return mutableTableInstanceOf(tableHandleInSchema(tableDefinition));
     }
 
     private static TableInstance<?> mutableTableInstanceOf(TableDefinition tableDefinition, String database)

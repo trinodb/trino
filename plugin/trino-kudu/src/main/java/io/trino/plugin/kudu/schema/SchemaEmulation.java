@@ -13,20 +13,20 @@
  */
 package io.trino.plugin.kudu.schema;
 
+import io.trino.plugin.kudu.KuduClientWrapper;
 import io.trino.spi.connector.SchemaTableName;
-import org.apache.kudu.client.KuduClient;
 
 import java.util.List;
 
 public interface SchemaEmulation
 {
-    void createSchema(KuduClient client, String schemaName);
+    void createSchema(KuduClientWrapper client, String schemaName);
 
-    void dropSchema(KuduClient client, String schemaName);
+    void dropSchema(KuduClientWrapper client, String schemaName);
 
-    boolean existsSchema(KuduClient client, String schemaName);
+    boolean existsSchema(KuduClientWrapper client, String schemaName);
 
-    List<String> listSchemaNames(KuduClient client);
+    List<String> listSchemaNames(KuduClientWrapper client);
 
     String toRawName(SchemaTableName schemaTableName);
 

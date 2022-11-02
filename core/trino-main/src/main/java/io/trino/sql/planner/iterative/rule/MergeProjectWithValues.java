@@ -179,6 +179,6 @@ public class MergeProjectWithValues
         for (int i = 0; i < row.getItems().size(); i++) {
             mappingBuilder.put(symbols.get(i).toSymbolReference(), row.getItems().get(i));
         }
-        return mappingBuilder.build();
+        return mappingBuilder.buildOrThrow();
     }
 }

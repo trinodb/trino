@@ -20,14 +20,17 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.event.client.EventClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
-import io.trino.plugin.hive.authentication.HiveIdentity;
-import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.hdfs.HdfsEnvironment;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.HivePageSinkMetadataProvider;
 import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorMergeSink;
+import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
@@ -41,9 +44,11 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
@@ -54,9 +59,10 @@ public class HivePageSinkProvider
         implements ConnectorPageSinkProvider
 {
     private final Set<HiveFileWriterFactory> fileWriterFactories;
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final HdfsEnvironment hdfsEnvironment;
     private final PageSorter pageSorter;
-    private final HiveMetastore metastore;
+    private final HiveMetastoreFactory metastoreFactory;
     private final PageIndexerFactory pageIndexerFactory;
     private final TypeManager typeManager;
     private final int maxOpenPartitions;
@@ -75,9 +81,10 @@ public class HivePageSinkProvider
     @Inject
     public HivePageSinkProvider(
             Set<HiveFileWriterFactory> fileWriterFactories,
+            TrinoFileSystemFactory fileSystemFactory,
             HdfsEnvironment hdfsEnvironment,
             PageSorter pageSorter,
-            HiveMetastore metastore,
+            HiveMetastoreFactory metastoreFactory,
             PageIndexerFactory pageIndexerFactory,
             TypeManager typeManager,
             HiveConfig config,
@@ -89,9 +96,10 @@ public class HivePageSinkProvider
             HiveWriterStats hiveWriterStats)
     {
         this.fileWriterFactories = ImmutableSet.copyOf(requireNonNull(fileWriterFactories, "fileWriterFactories is null"));
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
-        this.metastore = requireNonNull(metastore, "metastore is null");
+        this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.maxOpenPartitions = config.getMaxPartitionsPerWriter();
@@ -129,7 +137,16 @@ public class HivePageSinkProvider
         return createPageSink(handle, false, session, ImmutableMap.of());
     }
 
-    private ConnectorPageSink createPageSink(HiveWritableTableHandle handle, boolean isCreateTable, ConnectorSession session, Map<String, String> additionalTableParameters)
+    @Override
+    public ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorMergeTableHandle mergeHandle)
+    {
+        HiveMergeTableHandle hiveMergeHandle = (HiveMergeTableHandle) mergeHandle;
+        HiveInsertTableHandle insertHandle = hiveMergeHandle.getInsertHandle();
+        checkArgument(insertHandle.getTransaction().isMerge(), "handle isn't an ACID MERGE");
+        return createPageSink(insertHandle, false, session, ImmutableMap.of());
+    }
+
+    private HivePageSink createPageSink(HiveWritableTableHandle handle, boolean isCreateTable, ConnectorSession session, Map<String, String> additionalTableParameters)
     {
         OptionalInt bucketCount = OptionalInt.empty();
         List<SortingColumn> sortedBy = ImmutableList.of();
@@ -141,6 +158,7 @@ public class HivePageSinkProvider
 
         HiveWriterFactory writerFactory = new HiveWriterFactory(
                 fileWriterFactories,
+                fileSystemFactory,
                 handle.getSchemaName(),
                 handle.getTableName(),
                 isCreateTable,
@@ -156,8 +174,7 @@ public class HivePageSinkProvider
                 session.getQueryId(),
                 new HivePageSinkMetadataProvider(
                         handle.getPageSinkMetadata(),
-                        new HiveMetastoreClosure(memoizeMetastore(metastore, perTransactionMetastoreCacheMaximumSize)),
-                        new HiveIdentity(session)),
+                        new HiveMetastoreClosure(memoizeMetastore(metastoreFactory.createMetastore(Optional.of(session.getIdentity())), perTransactionMetastoreCacheMaximumSize))),
                 typeManager,
                 hdfsEnvironment,
                 pageSorter,
@@ -171,8 +188,10 @@ public class HivePageSinkProvider
                 hiveWriterStats);
 
         return new HivePageSink(
+                handle,
                 writerFactory,
                 handle.getInputColumns(),
+                handle.isTransactional(),
                 handle.getBucketProperty(),
                 pageIndexerFactory,
                 hdfsEnvironment,

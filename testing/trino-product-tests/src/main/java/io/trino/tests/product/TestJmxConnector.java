@@ -17,9 +17,9 @@ import io.trino.tempto.ProductTest;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.JDBC;
 import static io.trino.tests.product.TestGroups.JMX_CONNECTOR;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.VARCHAR;
 
@@ -30,7 +30,7 @@ public class TestJmxConnector
     public void selectFromJavaRuntimeJmxMBean()
     {
         String sql = "SELECT node, vmname, vmversion FROM jmx.current.\"java.lang:type=runtime\"";
-        assertThat(query(sql))
+        assertThat(onTrino().executeQuery(sql))
                 .hasColumns(VARCHAR, VARCHAR, VARCHAR)
                 .hasAnyRows();
     }
@@ -38,7 +38,7 @@ public class TestJmxConnector
     @Test(groups = JMX_CONNECTOR)
     public void selectFromJavaOperatingSystemJmxMBean()
     {
-        assertThat(query("SELECT openfiledescriptorcount, maxfiledescriptorcount " +
+        assertThat(onTrino().executeQuery("SELECT openfiledescriptorcount, maxfiledescriptorcount " +
                 "FROM jmx.current.\"java.lang:type=operatingsystem\""))
                 .hasColumns(BIGINT, BIGINT)
                 .hasAnyRows();

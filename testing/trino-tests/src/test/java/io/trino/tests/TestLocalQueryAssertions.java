@@ -68,7 +68,7 @@ public class TestLocalQueryAssertions
     public void testNullInErrorMessage()
     {
         assertThatThrownBy(() -> assertThat(query("SELECT CAST(null AS integer)")).matches("SELECT 1"))
-                .hasMessage("[Rows] \n" +
+                .hasMessage("[Rows for query [SELECT CAST(null AS integer)]] \n" +
                         "Expecting:\n" +
                         "  <(null)>\n" +
                         "to contain exactly in any order:\n" +
@@ -79,7 +79,7 @@ public class TestLocalQueryAssertions
                         "  <(null)>\n");
 
         assertThatThrownBy(() -> assertThat(query("SELECT 1")).matches("SELECT CAST(null AS integer)"))
-                .hasMessage("[Rows] \n" +
+                .hasMessage("[Rows for query [SELECT 1]] \n" +
                         "Expecting:\n" +
                         "  <(1)>\n" +
                         "to contain exactly in any order:\n" +

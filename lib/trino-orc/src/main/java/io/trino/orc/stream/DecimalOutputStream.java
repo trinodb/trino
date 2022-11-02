@@ -14,13 +14,12 @@
 package io.trino.orc.stream;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 import io.trino.orc.OrcOutputBuffer;
 import io.trino.orc.checkpoint.DecimalStreamCheckpoint;
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.orc.metadata.OrcColumnId;
 import io.trino.orc.metadata.Stream;
-import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.math.BigInteger;
@@ -38,7 +37,7 @@ import static java.lang.Math.toIntExact;
 public class DecimalOutputStream
         implements ValueOutputStream<DecimalStreamCheckpoint>
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DecimalOutputStream.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(DecimalOutputStream.class).instanceSize());
     private final OrcOutputBuffer buffer;
     private final List<DecimalStreamCheckpoint> checkpoints = new ArrayList<>();
 
@@ -51,9 +50,9 @@ public class DecimalOutputStream
 
     // todo rewrite without BigInteger
     // This comes from the Apache Hive ORC code
-    public void writeUnscaledValue(Slice slice)
+    public void writeUnscaledValue(Int128 decimal)
     {
-        BigInteger value = Decimals.decodeUnscaledValue(slice);
+        BigInteger value = decimal.toBigInteger();
 
         // encode the signed number as a positive integer
         value = value.shiftLeft(1);
@@ -73,10 +72,8 @@ public class DecimalOutputStream
                     buffer.write((byte) lowBits);
                     return;
                 }
-                else {
-                    buffer.write((byte) (0x80 | (lowBits & 0x7f)));
-                    lowBits >>>= 7;
-                }
+                buffer.write((byte) (0x80 | (lowBits & 0x7f)));
+                lowBits >>>= 7;
             }
             value = value.shiftRight(63);
         }

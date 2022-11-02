@@ -14,28 +14,19 @@
 package io.trino.sql.planner.plan;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.KeyDeserializer;
-import com.fasterxml.jackson.databind.SerializerProvider;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
-import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.statistics.TableStatisticType;
 
-import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verifyNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
@@ -50,15 +41,28 @@ public class StatisticAggregationsDescriptor<T>
         return StatisticAggregationsDescriptor.<T>builder().build();
     }
 
-    @JsonCreator
     public StatisticAggregationsDescriptor(
-            @JsonProperty("grouping") Map<String, T> grouping,
-            @JsonProperty("tableStatistics") Map<TableStatisticType, T> tableStatistics,
-            @JsonProperty("columnStatistics") Map<ColumnStatisticMetadata, T> columnStatistics)
+            Map<String, T> grouping,
+            Map<TableStatisticType, T> tableStatistics,
+            Map<ColumnStatisticMetadata, T> columnStatistics)
     {
         this.grouping = ImmutableMap.copyOf(requireNonNull(grouping, "grouping is null"));
         this.tableStatistics = ImmutableMap.copyOf(requireNonNull(tableStatistics, "tableStatistics is null"));
         this.columnStatistics = ImmutableMap.copyOf(requireNonNull(columnStatistics, "columnStatistics is null"));
+    }
+
+    @JsonCreator
+    @Deprecated // for JSON serialization only
+    public static <T> StatisticAggregationsDescriptor<T> fromJson(
+            @JsonProperty("grouping") Map<String, T> grouping,
+            @JsonProperty("tableStatistics") Map<TableStatisticType, T> tableStatistics,
+            @JsonProperty("columnStatisticsList") List<ColumnStatisticAggregationsDescriptor<T>> columnStatistics)
+    {
+        return new StatisticAggregationsDescriptor<>(
+                grouping,
+                tableStatistics,
+                columnStatistics.stream()
+                        .collect(toImmutableMap(ColumnStatisticAggregationsDescriptor::metadata, ColumnStatisticAggregationsDescriptor::input)));
     }
 
     @JsonProperty
@@ -73,12 +77,19 @@ public class StatisticAggregationsDescriptor<T>
         return tableStatistics;
     }
 
-    @JsonProperty
-    @JsonSerialize(keyUsing = ColumnStatisticMetadataKeySerializer.class)
-    @JsonDeserialize(keyUsing = ColumnStatisticMetadataKeyDeserializer.class)
+    @JsonIgnore
     public Map<ColumnStatisticMetadata, T> getColumnStatistics()
     {
         return columnStatistics;
+    }
+
+    @JsonProperty
+    @Deprecated // for JSON serialization only
+    public List<ColumnStatisticAggregationsDescriptor<T>> getColumnStatisticsList()
+    {
+        return columnStatistics.entrySet().stream()
+                .map(entry -> new ColumnStatisticAggregationsDescriptor<T>(entry.getKey(), entry.getValue()))
+                .collect(toImmutableList());
     }
 
     @Override
@@ -155,44 +166,9 @@ public class StatisticAggregationsDescriptor<T>
 
         public StatisticAggregationsDescriptor<T> build()
         {
-            return new StatisticAggregationsDescriptor<>(grouping.build(), tableStatistics.build(), columnStatistics.build());
+            return new StatisticAggregationsDescriptor<>(grouping.buildOrThrow(), tableStatistics.buildOrThrow(), columnStatistics.buildOrThrow());
         }
     }
 
-    public static class ColumnStatisticMetadataKeySerializer
-            extends JsonSerializer<ColumnStatisticMetadata>
-    {
-        @Override
-        public void serialize(ColumnStatisticMetadata value, JsonGenerator gen, SerializerProvider serializers)
-                throws IOException
-        {
-            gen.writeFieldName(serialize(verifyNotNull(value, "value is null")));
-        }
-
-        @VisibleForTesting
-        static String serialize(ColumnStatisticMetadata value)
-        {
-            return value.getStatisticType().name() + ":" + value.getColumnName();
-        }
-    }
-
-    public static class ColumnStatisticMetadataKeyDeserializer
-            extends KeyDeserializer
-    {
-        @Override
-        public ColumnStatisticMetadata deserializeKey(String key, DeserializationContext ctxt)
-        {
-            return deserialize(requireNonNull(key, "key is null"));
-        }
-
-        @VisibleForTesting
-        static ColumnStatisticMetadata deserialize(String value)
-        {
-            int separatorIndex = value.indexOf(':');
-            checkArgument(separatorIndex >= 0, "separator not found: %s", value);
-            String statisticType = value.substring(0, separatorIndex);
-            String column = value.substring(separatorIndex + 1);
-            return new ColumnStatisticMetadata(column, ColumnStatisticType.valueOf(statisticType));
-        }
-    }
+    public record ColumnStatisticAggregationsDescriptor<T>(ColumnStatisticMetadata metadata, T input) {}
 }

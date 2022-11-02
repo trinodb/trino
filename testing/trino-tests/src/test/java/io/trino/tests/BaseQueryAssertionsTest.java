@@ -77,7 +77,7 @@ public abstract class BaseQueryAssertionsTest
         Map<String, String> jdbcWithAggregationPushdownDisabledConfigurationProperties = ImmutableMap.<String, String>builder()
                 .putAll(jdbcConfigurationProperties)
                 .put("aggregation-pushdown.enabled", "false")
-                .build();
+                .buildOrThrow();
         queryRunner.createCatalog("jdbc_with_aggregation_pushdown_disabled", "base-jdbc", jdbcWithAggregationPushdownDisabledConfigurationProperties);
     }
 
@@ -93,7 +93,15 @@ public abstract class BaseQueryAssertionsTest
     {
         QueryAssert queryAssert = assertThat(query("SELECT X'001234'"));
         assertThatThrownBy(() -> queryAssert.matches("VALUES '001234'"))
-                .hasMessageContaining("[Output types] expected:<[var[char(6)]]> but was:<[var[binary]]>");
+                .hasMessageContaining("[Output types for query [SELECT X'001234']] expected:<[var[char(6)]]> but was:<[var[binary]]>");
+    }
+
+    @Test
+    public void testWrongTypeWithEmptyResult()
+    {
+        QueryAssert queryAssert = assertThat(query("SELECT X'001234' WHERE false"));
+        assertThatThrownBy(() -> queryAssert.matches("SELECT '001234' WHERE false"))
+                .hasMessageContaining("[Output types for query [SELECT X'001234' WHERE false]] expected:<[var[char(6)]]> but was:<[var[binary]]>");
     }
 
     @Test
@@ -103,11 +111,11 @@ public abstract class BaseQueryAssertionsTest
 
         QueryAssert queryAssert = assertThat(query("VALUES 'foobar'"));
         assertThatThrownBy(queryAssert::returnsEmptyResult)
-                .hasMessage("[rows] \nExpecting empty but was:<[[foobar]]>");
+                .hasMessage("[Rows for query [VALUES 'foobar']] \nExpecting empty but was:<[[foobar]]>");
 
         queryAssert = assertThat(query("VALUES 'foo', 'bar'"));
         assertThatThrownBy(queryAssert::returnsEmptyResult)
-                .hasMessage("[rows] \nExpecting empty but was:<[[foo], [bar]]>");
+                .hasMessage("[Rows for query [VALUES 'foo', 'bar']] \nExpecting empty but was:<[[foo], [bar]]>");
     }
 
     @Test
@@ -278,7 +286,7 @@ public abstract class BaseQueryAssertionsTest
                                 "\n" +
                                 "] but found [\n" +
                                 "\n" +
-                                "Output[name]\n");
+                                "Output[columnNames = [name]]\n");
     }
 
     @Test
@@ -307,7 +315,7 @@ public abstract class BaseQueryAssertionsTest
                                 "\n" +
                                 "] but found [\n" +
                                 "\n" +
-                                "Output[_col0]\n");
+                                "Output[columnNames = [_col0]]\n");
     }
 
     @Test
@@ -327,6 +335,6 @@ public abstract class BaseQueryAssertionsTest
                                 "\n" +
                                 "] but found [\n" +
                                 "\n" +
-                                "Output[name]\n");
+                                "Output[columnNames = [name]]\n");
     }
 }

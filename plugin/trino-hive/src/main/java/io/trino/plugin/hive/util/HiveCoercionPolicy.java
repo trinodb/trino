@@ -61,7 +61,7 @@ public final class HiveCoercionPolicy
                     toHiveType.equals(HIVE_LONG);
         }
         if (toType instanceof VarcharType) {
-            return fromHiveType.equals(HIVE_BYTE) || fromHiveType.equals(HIVE_SHORT) || fromHiveType.equals(HIVE_INT) || fromHiveType.equals(HIVE_LONG);
+            return fromHiveType.equals(HIVE_BYTE) || fromHiveType.equals(HIVE_SHORT) || fromHiveType.equals(HIVE_INT) || fromHiveType.equals(HIVE_LONG) || fromType instanceof DecimalType;
         }
         if (fromHiveType.equals(HIVE_BYTE)) {
             return toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG);
@@ -82,7 +82,22 @@ public final class HiveCoercionPolicy
             return toType instanceof DecimalType || toHiveType.equals(HIVE_FLOAT) || toHiveType.equals(HIVE_DOUBLE);
         }
 
-        return canCoerceForList(fromHiveType, toHiveType) || canCoerceForMap(fromHiveType, toHiveType) || canCoerceForStruct(fromHiveType, toHiveType);
+        return canCoerceForList(fromHiveType, toHiveType)
+                || canCoerceForMap(fromHiveType, toHiveType)
+                || canCoerceForStruct(fromHiveType, toHiveType)
+                || canCoerceForUnionType(fromHiveType, toHiveType);
+    }
+
+    private boolean canCoerceForUnionType(HiveType fromHiveType, HiveType toHiveType)
+    {
+        if (fromHiveType.getCategory() != Category.UNION || toHiveType.getCategory() != Category.UNION) {
+            return false;
+        }
+
+        // Delegate to the struct coercion logic, since Trino sees union types as structs.
+        HiveType fromHiveTypeStruct = HiveType.toHiveType(fromHiveType.getType(typeManager));
+        HiveType toHiveTypeStruct = HiveType.toHiveType(toHiveType.getType(typeManager));
+        return canCoerceForStruct(fromHiveTypeStruct, toHiveTypeStruct);
     }
 
     private boolean canCoerceForMap(HiveType fromHiveType, HiveType toHiveType)
@@ -122,7 +137,7 @@ public final class HiveCoercionPolicy
         // * For all other field indices, the corresponding fields must have
         //   the same name, and the type must be coercible.
         for (int i = 0; i < min(fromFieldTypes.size(), toFieldTypes.size()); i++) {
-            if (!fromFieldNames.get(i).equals(toFieldNames.get(i))) {
+            if (!fromFieldNames.get(i).equalsIgnoreCase(toFieldNames.get(i))) {
                 return false;
             }
             if (!fromFieldTypes.get(i).equals(toFieldTypes.get(i)) && !canCoerce(fromFieldTypes.get(i), toFieldTypes.get(i))) {

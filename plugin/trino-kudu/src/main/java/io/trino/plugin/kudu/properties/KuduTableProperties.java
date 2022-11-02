@@ -42,6 +42,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.base.util.JsonUtils.parseJson;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
@@ -170,7 +171,7 @@ public final class KuduTableProperties
         @SuppressWarnings("unchecked")
         List<String> hashColumns = (List<String>) tableProperties.get(PARTITION_BY_HASH_COLUMNS);
         @SuppressWarnings("unchecked")
-        List<String> hashColumns2 = (List<String>) tableProperties.get(PARTITION_BY_HASH_COLUMNS_2);
+        List<String> hashColumns2 = (List<String>) tableProperties.getOrDefault(PARTITION_BY_HASH_COLUMNS_2, ImmutableList.of());
 
         PartitionDesign design = new PartitionDesign();
         if (!hashColumns.isEmpty()) {
@@ -246,21 +247,14 @@ public final class KuduTableProperties
 
         @SuppressWarnings("unchecked")
         String json = (String) tableProperties.get(RANGE_PARTITIONS);
-        if (json != null) {
-            try {
-                RangePartition[] partitions = mapper.readValue(json, RangePartition[].class);
-                if (partitions == null) {
-                    return ImmutableList.of();
-                }
-                return ImmutableList.copyOf(partitions);
-            }
-            catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        else {
+        if (json == null) {
             return ImmutableList.of();
         }
+        RangePartition[] partitions = parseJson(mapper, json, RangePartition[].class);
+        if (partitions == null) {
+            return ImmutableList.of();
+        }
+        return ImmutableList.copyOf(partitions);
     }
 
     public static RangePartition parseRangePartition(String json)
@@ -268,14 +262,7 @@ public final class KuduTableProperties
         if (json == null) {
             return null;
         }
-        else {
-            try {
-                return mapper.readValue(json, RangePartition.class);
-            }
-            catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
+        return parseJson(mapper, json, RangePartition.class);
     }
 
     public static Optional<Integer> getNumReplicas(Map<String, Object> tableProperties)
@@ -355,23 +342,21 @@ public final class KuduTableProperties
         if (rangeKey.length == 0) {
             return null;
         }
-        else {
-            Schema schema = table.getSchema();
-            PartitionSchema partitionSchema = table.getPartitionSchema();
-            PartitionSchema.RangeSchema rangeSchema = partitionSchema.getRangeSchema();
-            List<Integer> rangeColumns = rangeSchema.getColumnIds();
+        Schema schema = table.getSchema();
+        PartitionSchema partitionSchema = table.getPartitionSchema();
+        PartitionSchema.RangeSchema rangeSchema = partitionSchema.getRangeSchema();
+        List<Integer> rangeColumns = rangeSchema.getColumnIds();
 
-            int numColumns = rangeColumns.size();
+        int numColumns = rangeColumns.size();
 
-            PartialRow bound = KeyEncoderAccessor.decodeRangePartitionKey(schema, partitionSchema, rangeKey);
+        PartialRow bound = KeyEncoderAccessor.decodeRangePartitionKey(schema, partitionSchema, rangeKey);
 
-            ArrayList<Object> list = new ArrayList<>();
-            for (int i = 0; i < numColumns; i++) {
-                Object obj = toValue(schema, bound, rangeColumns.get(i));
-                list.add(obj);
-            }
-            return new RangeBoundValue(list);
+        ArrayList<Object> list = new ArrayList<>();
+        for (int i = 0; i < numColumns; i++) {
+            Object obj = toValue(schema, bound, rangeColumns.get(i));
+            list.add(obj);
         }
+        return new RangeBoundValue(list);
     }
 
     private static Object toValue(Schema schema, PartialRow bound, Integer idx)
@@ -400,6 +385,10 @@ public final class KuduTableProperties
                 return bound.getBoolean(idx);
             case BINARY:
                 return bound.getBinaryCopy(idx);
+            // TODO: add support for varchar and date types: https://github.com/trinodb/trino/issues/11009
+            case VARCHAR:
+            case DATE:
+                break;
         }
         throw new IllegalStateException("Unhandled type " + type + " for range partition");
     }
@@ -515,13 +504,11 @@ public final class KuduTableProperties
         if (obj instanceof byte[]) {
             return (byte[]) obj;
         }
-        else if (obj instanceof String) {
+        if (obj instanceof String) {
             return Base64.getDecoder().decode((String) obj);
         }
-        else {
-            handleInvalidValue(name, type, obj);
-            return null;
-        }
+        handleInvalidValue(name, type, obj);
+        return null;
     }
 
     private static boolean toBoolean(Object obj, Type type, String name)
@@ -529,13 +516,11 @@ public final class KuduTableProperties
         if (obj instanceof Boolean) {
             return (Boolean) obj;
         }
-        else if (obj instanceof String) {
+        if (obj instanceof String) {
             return Boolean.valueOf((String) obj);
         }
-        else {
-            handleInvalidValue(name, type, obj);
-            return false;
-        }
+        handleInvalidValue(name, type, obj);
+        return false;
     }
 
     private static long toUnixTimeMicros(Object obj, Type type, String name)
@@ -543,16 +528,14 @@ public final class KuduTableProperties
         if (Number.class.isAssignableFrom(obj.getClass())) {
             return ((Number) obj).longValue();
         }
-        else if (obj instanceof String) {
+        if (obj instanceof String) {
             String s = (String) obj;
             s = s.trim().replace(' ', 'T');
             long millis = ISODateTimeFormat.dateOptionalTimeParser().withZone(DateTimeZone.UTC).parseMillis(s);
             return millis * 1000;
         }
-        else {
-            handleInvalidValue(name, type, obj);
-            return 0;
-        }
+        handleInvalidValue(name, type, obj);
+        return 0;
     }
 
     private static Number toNumber(Object obj, Type type, String name)
@@ -560,13 +543,11 @@ public final class KuduTableProperties
         if (Number.class.isAssignableFrom(obj.getClass())) {
             return (Number) obj;
         }
-        else if (obj instanceof String) {
+        if (obj instanceof String) {
             return new BigDecimal((String) obj);
         }
-        else {
-            handleInvalidValue(name, type, obj);
-            return 0;
-        }
+        handleInvalidValue(name, type, obj);
+        return 0;
     }
 
     private static void handleInvalidValue(String name, Type type, Object obj)

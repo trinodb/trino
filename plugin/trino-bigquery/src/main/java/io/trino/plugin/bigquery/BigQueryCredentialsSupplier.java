@@ -13,56 +13,12 @@
  */
 package io.trino.plugin.bigquery;
 
-import com.google.api.client.util.Base64;
 import com.google.auth.Credentials;
-import com.google.auth.oauth2.GoogleCredentials;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
+import io.trino.spi.connector.ConnectorSession;
 
-import java.io.ByteArrayInputStream;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.Optional;
 
-import static java.util.Objects.requireNonNull;
-
-public class BigQueryCredentialsSupplier
+public interface BigQueryCredentialsSupplier
 {
-    private final Supplier<Optional<Credentials>> credentialsCreator;
-
-    public BigQueryCredentialsSupplier(Optional<String> credentialsKey, Optional<String> credentialsFile)
-    {
-        requireNonNull(credentialsKey, "credentialsKey is null");
-        requireNonNull(credentialsFile, "credentialsFile is null");
-        // lazy creation, cache once it's created
-        this.credentialsCreator = Suppliers.memoize(() ->
-            credentialsKey.map(BigQueryCredentialsSupplier::createCredentialsFromKey)
-                    .or(() -> credentialsFile.map(BigQueryCredentialsSupplier::createCredentialsFromFile)));
-    }
-
-    private static Credentials createCredentialsFromKey(String key)
-    {
-        try {
-            return GoogleCredentials.fromStream(new ByteArrayInputStream(Base64.decodeBase64(key)));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException("Failed to create Credentials from key", e);
-        }
-    }
-
-    private static Credentials createCredentialsFromFile(String file)
-    {
-        try {
-            return GoogleCredentials.fromStream(new FileInputStream(file));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException("Failed to create Credentials from file", e);
-        }
-    }
-
-    public Optional<Credentials> getCredentials()
-    {
-        return credentialsCreator.get();
-    }
+    Optional<Credentials> getCredentials(ConnectorSession session);
 }

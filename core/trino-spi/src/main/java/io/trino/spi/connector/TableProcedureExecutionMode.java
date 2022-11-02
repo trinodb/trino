@@ -18,15 +18,8 @@ public final class TableProcedureExecutionMode
     private final boolean readsData;
     private final boolean supportsFilter;
 
-    public TableProcedureExecutionMode(boolean readsData, boolean supportsFilter)
+    private TableProcedureExecutionMode(boolean readsData, boolean supportsFilter)
     {
-        if (!readsData) {
-            // TODO currently only table procedures which process data are supported
-            // this is temporary check to be dropped when execution flow will be added for
-            // table procedures which do not read data
-            throw new IllegalArgumentException("procedures that do not read data are not supported yet");
-        }
-
         if (!readsData) {
             if (supportsFilter) {
                 throw new IllegalArgumentException("filtering not supported if table data is not processed");
@@ -46,6 +39,10 @@ public final class TableProcedureExecutionMode
         return supportsFilter;
     }
 
+    /**
+     * Table procedure that does not read any table data and only executes on the coordinator.
+     * Such procedures are useful for custom DDL-type operations.
+     */
     public static TableProcedureExecutionMode coordinatorOnly()
     {
         return new TableProcedureExecutionMode(false, false);

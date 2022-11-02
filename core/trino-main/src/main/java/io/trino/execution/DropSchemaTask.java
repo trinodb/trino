@@ -23,7 +23,8 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.sql.tree.DropSchema;
 import io.trino.sql.tree.Expression;
-import io.trino.transaction.TransactionManager;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
@@ -34,10 +35,21 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static java.util.Objects.requireNonNull;
 
 public class DropSchemaTask
         implements DataDefinitionTask<DropSchema>
 {
+    private final Metadata metadata;
+    private final AccessControl accessControl;
+
+    @Inject
+    public DropSchemaTask(Metadata metadata, AccessControl accessControl)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+    }
+
     @Override
     public String getName()
     {
@@ -45,17 +57,8 @@ public class DropSchemaTask
     }
 
     @Override
-    public String explain(DropSchema statement, List<Expression> parameters)
-    {
-        return "DROP SCHEMA " + statement.getSchemaName();
-    }
-
-    @Override
     public ListenableFuture<Void> execute(
             DropSchema statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)
@@ -89,19 +92,7 @@ public class DropSchemaTask
     {
         QualifiedTablePrefix tablePrefix = new QualifiedTablePrefix(schema.getCatalogName(), schema.getSchemaName());
 
-        // These are best efforts checks that don't provide any guarantees against concurrent DDL operations
-        if (!metadata.listTables(session, tablePrefix).isEmpty()) {
-            return false;
-        }
-
-        if (!metadata.listViews(session, tablePrefix).isEmpty()) {
-            return false;
-        }
-
-        if (!metadata.listMaterializedViews(session, tablePrefix).isEmpty()) {
-            return false;
-        }
-
-        return true;
+        // This is a best effort check that doesn't provide any guarantees against concurrent DDL operations
+        return metadata.listTables(session, tablePrefix).isEmpty();
     }
 }

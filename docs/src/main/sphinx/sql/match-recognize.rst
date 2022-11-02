@@ -612,6 +612,109 @@ This is incorrect::
 
     LAST(A.totalprice + B.totalprice)
 
+Aggregate functions
+^^^^^^^^^^^^^^^^^^^
+
+It is allowed to use aggregate functions in a row pattern recognition context.
+Aggregate functions are evaluated over all rows of the current match or over a
+subset of rows based on the matched pattern variables. The
+:ref:`running and final semantics<running_and_final>` are supported, with
+``running`` as the default.
+
+The following expression returns the average value of the ``totalprice`` column
+for all rows matched to pattern variable ``A``::
+
+    avg(A.totalprice)
+
+The following expression returns the average value of the ``totalprice`` column
+for all rows matched to pattern variables from subset ``U``::
+
+    avg(U.totalprice)
+
+The following expression returns the average value of the ``totalprice`` column
+for all rows of the match::
+
+    avg(totalprice)
+
+Aggregation arguments
+"""""""""""""""""""""
+
+In case when the aggregate function has multiple arguments, it is required that
+all arguments refer consistently to the same set of rows::
+
+    max_by(totalprice, tax) /* aggregate over all rows of the match */
+
+    max_by(CLASSIFIER(A), A.tax) /* aggregate over all rows matched to A */
+
+This is incorrect::
+
+    max_by(A.totalprice, tax)
+
+    max_by(A.totalprice, A.tax + B.tax)
+
+If an aggregate argument does not contain any column reference or
+``classifier`` function, it does not refer to any pattern variable. In such a
+case other aggregate arguments determine the set of rows to aggregate over. If
+none of the arguments contains a pattern variable reference, the universal row
+pattern variable is implicit. This means that the aggregate function applies to
+all rows of the match::
+
+    count(1) /* aggregate over all rows of the match */
+
+    min_by(1, 2) /* aggregate over all rows of the match */
+
+    min_by(1, totalprice) /* aggregate over all rows of the match */
+
+    min_by(totalprice, 1) /* aggregate over all rows of the match */
+
+    min_by(A.totalprice, 1) /* aggregate over all rows matched to A */
+
+    max_by(1, A.totalprice) /* aggregate over all rows matched to A */
+
+Nesting of aggregate functions
+""""""""""""""""""""""""""""""
+
+Aggregate function arguments must not contain pattern navigation functions.
+Similarly, aggregate functions cannot be nested in pattern navigation
+functions.
+
+Usage of the ``classifier`` and ``match_number`` functions
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+It is allowed to use the ``classifier`` and ``match_number`` functions in
+aggregate function arguments. The following expression returns an array
+containing all matched pattern variables::
+
+    array_agg(CLASSIFIER())
+
+This is particularly useful in combination with the option
+``ONE ROW PER MATCH``. It allows to get all the components of the match while
+keeping the output size reduced.
+
+Row pattern count aggregation
+"""""""""""""""""""""""""""""
+
+Like other aggregate functions in a row pattern recognition context, the
+``count`` function can be applied to all rows of the match, or to rows
+associated with certain row pattern variables::
+
+    count(*), count() /* count all rows of the match */
+
+    count(totalprice) /* count non-null values of the totalprice column
+                         in all rows of the match */
+
+    count(A.totalprice) /* count non-null values of the totalprice column
+                           in all rows matched to A */
+
+The ``count`` function in a row pattern recognition context allows special syntax
+to support the ``count(*)`` behavior over a limited set of rows::
+
+    count(A.*) /* count rows matched to A */
+
+    count(U.*) /* count rows matched to pattern variables from subset U */
+
+.. _running_and_final:
+
 ``RUNNING`` and ``FINAL`` semantics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -634,11 +737,15 @@ rows.
 
 The ``running`` and ``final`` semantics are denoted by the keywords:
 ``RUNNING`` and ``FINAL``, preceding a logical navigation function ``first`` or
-``last``::
+``last``, or an aggregate function::
 
     RUNNING LAST(A.totalprice)
 
     FINAL LAST(A.totalprice)
+
+    RUNNING avg(A.totalprice)
+
+    FINAL count(A.*)
 
 The ``running`` semantics is default in ``MEASURES`` and ``DEFINE`` clauses.
 ``FINAL`` can only be specified in the ``MEASURES`` clause.
@@ -668,6 +775,8 @@ When evaluating row pattern measures for an empty match:
 
 - ``match_number`` function returns the sequential number of the match
 
+- all aggregate functions are evaluated over an empty set of rows
+
 Like every match, an empty match has its starting row. All input values which
 are to be output along with the measures (as explained in
 :ref:`rows_per_match`), are the values from the starting row.
@@ -680,8 +789,3 @@ measures (as explained in :ref:`rows_per_match`), are the values from the
 unmatched row. Using the ``match_number`` function as a measure can help
 differentiate between an empty match and unmatched row.
 
-Limitations
------------
-
-Standard SQL syntax allows you to use aggregate functions inside pattern
-recognition expressions. Trino does not support it.

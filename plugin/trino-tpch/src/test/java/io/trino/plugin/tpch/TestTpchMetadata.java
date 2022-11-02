@@ -19,6 +19,7 @@ import io.trino.plugin.tpch.util.PredicateUtils;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
@@ -130,6 +131,30 @@ public class TestTpchMetadata
     }
 
     @Test
+    public void testGetTableMetadata()
+    {
+        Stream.of("sf0.01", "tiny", "sf1.0", "sf1.000", "sf2.01", "sf3.1", "sf10.0", "sf100.0", "sf30000.0", "sf30000.2").forEach(
+                schemaName -> {
+                    testGetTableMetadata(schemaName, REGION);
+                    testGetTableMetadata(schemaName, NATION);
+                    testGetTableMetadata(schemaName, SUPPLIER);
+                    testGetTableMetadata(schemaName, CUSTOMER);
+                    testGetTableMetadata(schemaName, PART);
+                    testGetTableMetadata(schemaName, PART_SUPPLIER);
+                    testGetTableMetadata(schemaName, ORDERS);
+                    testGetTableMetadata(schemaName, LINE_ITEM);
+                });
+    }
+
+    private void testGetTableMetadata(String schema, TpchTable<?> table)
+    {
+        TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()));
+        ConnectorTableMetadata tableMetadata = tpchMetadata.getTableMetadata(session, tableHandle);
+        assertEquals(tableMetadata.getTableSchema().getTable().getTableName(), table.getTableName());
+        assertEquals(tableMetadata.getTableSchema().getTable().getSchemaName(), schema);
+    }
+
+    @Test
     public void testHiddenSchemas()
     {
         assertTrue(tpchMetadata.schemaExists(session, "sf1"));
@@ -148,7 +173,11 @@ public class TestTpchMetadata
     private void testTableStats(String schema, TpchTable<?> table, Constraint constraint, double expectedRowCount)
     {
         TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()));
-        TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle, constraint);
+        Optional<ConstraintApplicationResult<ConnectorTableHandle>> result = tpchMetadata.applyFilter(session, tableHandle, constraint);
+        if (result.isPresent()) {
+            tableHandle = (TpchTableHandle) result.get().getHandle();
+        }
+        TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle);
 
         double actualRowCountValue = tableStatistics.getRowCount().getValue();
         assertEquals(tableStatistics.getRowCount(), Estimate.of(actualRowCountValue));
@@ -158,7 +187,7 @@ public class TestTpchMetadata
     private void testNoTableStats(String schema, TpchTable<?> table)
     {
         TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()));
-        TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle, alwaysTrue());
+        TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle);
         assertTrue(tableStatistics.getRowCount().isUnknown());
     }
 
@@ -249,7 +278,11 @@ public class TestTpchMetadata
     private void testColumnStats(String schema, TpchTable<?> table, TpchColumn<?> column, Constraint constraint, ColumnStatistics expected)
     {
         TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()));
-        TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle, constraint);
+        Optional<ConstraintApplicationResult<ConnectorTableHandle>> result = tpchMetadata.applyFilter(session, tableHandle, constraint);
+        if (result.isPresent()) {
+            tableHandle = (TpchTableHandle) result.get().getHandle();
+        }
+        TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle);
         ColumnHandle columnHandle = tpchMetadata.getColumnHandles(session, tableHandle).get(column.getSimplifiedColumnName());
 
         ColumnStatistics actual = tableStatistics.getColumnStatistics().get(columnHandle);

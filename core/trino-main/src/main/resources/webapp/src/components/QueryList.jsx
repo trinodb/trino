@@ -88,6 +88,12 @@ export class QueryListItem extends React.Component {
                     <span className="glyphicon glyphicon-pause" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
                     {(query.state === "FINISHED" || query.state === "FAILED") ? 0 : query.queryStats.queuedDrivers}
                     </span>
+                {query.retryPolicy === "TASK" &&
+                        <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Failed tasks">
+                    <span className="glyphicon glyphicon-remove-circle" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                            {query.queryStats.failedTasks}
+                    </span>
+                }
             </div>);
 
         const timingDetails = (

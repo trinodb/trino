@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import io.trino.matching.Captures;
@@ -42,6 +41,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.trino.sql.planner.plan.Patterns.CorrelatedJoin.correlation;
@@ -185,8 +185,7 @@ public class DecorrelateLeftUnnestWithGlobalAggregation
         }
 
         AggregationNode aggregationNode = (AggregationNode) node;
-        return aggregationNode.hasEmptyGroupingSet() &&
-                aggregationNode.getGroupingSetCount() == 1 &&
+        return aggregationNode.hasSingleGlobalAggregation() &&
                 aggregationNode.getStep() == SINGLE;
     }
 
@@ -264,14 +263,10 @@ public class DecorrelateLeftUnnestWithGlobalAggregation
                 .distinct()
                 .collect(toImmutableList()));
 
-        return new AggregationNode(
+        return singleAggregation(
                 aggregationNode.getId(),
                 source,
                 aggregationNode.getAggregations(),
-                groupingSet,
-                ImmutableList.of(),
-                SINGLE,
-                Optional.empty(),
-                Optional.empty());
+                groupingSet);
     }
 }

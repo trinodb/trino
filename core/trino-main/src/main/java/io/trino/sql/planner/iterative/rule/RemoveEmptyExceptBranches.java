@@ -21,8 +21,6 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
-import io.trino.sql.planner.plan.AggregationNode;
-import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ExceptNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -30,9 +28,9 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.ValuesNode;
 
 import java.util.List;
-import java.util.Optional;
 
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isEmpty;
+import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.Patterns.except;
 
@@ -63,19 +61,12 @@ public class RemoveEmptyExceptBranches
             return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
         }
 
-        boolean hasEmptyBranches = node.getSources().stream()
-                .skip(1) // first source is the set we're excluding rows from, so ignore it
-                .anyMatch(source -> isEmpty(source, context.getLookup()));
-
-        if (!hasEmptyBranches) {
-            return Result.empty();
-        }
-
+        boolean hasEmptyBranches = false;
         ImmutableList.Builder<PlanNode> newSourcesBuilder = ImmutableList.builder();
         ImmutableListMultimap.Builder<Symbol, Symbol> outputsToInputsBuilder = ImmutableListMultimap.builder();
-
         for (int i = 0; i < node.getSources().size(); i++) {
             PlanNode source = node.getSources().get(i);
+            // first source is the set we're excluding rows from, so treat it separately
             if (i == 0 || !isEmpty(source, context.getLookup())) {
                 newSourcesBuilder.add(source);
 
@@ -83,6 +74,13 @@ public class RemoveEmptyExceptBranches
                     outputsToInputsBuilder.put(column, node.getSymbolMapping().get(column).get(i));
                 }
             }
+            else {
+                hasEmptyBranches = true;
+            }
+        }
+
+        if (!hasEmptyBranches) {
+            return Result.empty();
         }
 
         List<PlanNode> newSources = newSourcesBuilder.build();
@@ -96,18 +94,14 @@ public class RemoveEmptyExceptBranches
 
             if (node.isDistinct()) {
                 return Result.ofPlanNode(
-                        new AggregationNode(
+                        singleAggregation(
                                 node.getId(),
                                 new ProjectNode(
                                         context.getIdAllocator().getNextId(),
                                         newSources.get(0),
                                         assignments.build()),
                                 ImmutableMap.of(),
-                                singleGroupingSet(node.getOutputSymbols()),
-                                ImmutableList.of(),
-                                Step.SINGLE,
-                                Optional.empty(),
-                                Optional.empty()));
+                                singleGroupingSet(node.getOutputSymbols())));
             }
 
             return Result.ofPlanNode(

@@ -139,17 +139,14 @@ public class TestHiveSchema
                 .add("roles")
                 .add("applicable_roles")
                 .add("enabled_roles")
-                .add("role_authorization_descriptors")
                 .build();
         List<QueryAssert.Row> allInformationSchemaTablesAsRows = allInformationSchemaTables.stream()
                 .map(QueryAssert.Row::row)
                 .collect(toImmutableList());
 
-        // This test is run in various setups and we may or may not have access to hive.information_schema.roles
-        // or hive.information_schema.role_authorization_descriptors tables
+        // This test is run in various setups and we may or may not have access to hive.information_schema.roles table
         List<String> allInformationSchemaTablesExceptRoles = allInformationSchemaTables.stream()
                 .filter(tableName -> !tableName.equals("roles"))
-                .filter(tableName -> !tableName.equals("role_authorization_descriptors"))
                 .collect(toImmutableList());
         List<QueryAssert.Row> allInformationSchemaTablesExceptRolesAsRows = allInformationSchemaTablesExceptRoles.stream()
                 .map(QueryAssert.Row::row)
@@ -205,13 +202,12 @@ public class TestHiveSchema
         // information_schema.columns -- it has a special handling path in metadata, which also depends on query predicates
         assertThat(onTrino().executeQuery("SELECT DISTINCT table_schema FROM information_schema.columns"))
                 .satisfies(containsFirstColumnValue("information_schema"));
-        assertThat(onTrino().executeQuery("SELECT DISTINCT table_name FROM information_schema.columns WHERE table_schema = 'information_schema' AND table_name != 'roles' AND table_name != 'role_authorization_descriptors'"))
+        assertThat(onTrino().executeQuery("SELECT DISTINCT table_name FROM information_schema.columns WHERE table_schema = 'information_schema' AND table_name != 'roles'"))
                 .containsOnly(allInformationSchemaTablesExceptRolesAsRows);
         Assertions.assertThat(onTrino().executeQuery("SELECT table_schema, table_name, column_name FROM information_schema.columns").rows().stream()
                 .filter(row -> row.get(0).equals("information_schema"))
                 .map(row -> (String) row.get(1))
                 .filter(tableName -> !tableName.equals("roles"))
-                .filter(tableName -> !tableName.equals("role_authorization_descriptors"))
                 .distinct())
                 .containsOnly(allInformationSchemaTablesExceptRoles.toArray(new String[0]));
         assertThat(onTrino().executeQuery("SELECT column_name FROM information_schema.columns WHERE table_schema = 'information_schema' AND table_name = 'columns'"))

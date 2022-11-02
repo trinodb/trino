@@ -255,8 +255,19 @@ String functions
        SELECT translate('abcd', 'aac', 'zq'); -- 'zbd'
 
 .. function:: trim(string) -> varchar
+    :noindex:
 
     Removes leading and trailing whitespace from ``string``.
+
+.. function:: trim( [ [ specification ] [ string ] FROM ] source ) -> varchar
+
+    Removes any leading and/or trailing characters as specified up to and
+    including ``string`` from ``source``::
+
+      SELECT trim('!' FROM '!foo!'); -- 'foo'
+      SELECT trim(LEADING FROM '  abcd');  -- 'abcd'
+      SELECT trim(BOTH '$' FROM '$var$'); -- 'var'
+      SELECT trim(TRAILING 'ER' FROM upper('worker')); -- 'WORK'
 
 .. function:: upper(string) -> varchar
 

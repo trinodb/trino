@@ -15,6 +15,7 @@ package io.trino.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.docker.DockerFiles;
+import io.trino.tests.product.launcher.docker.DockerFiles.ResourceProvider;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.HadoopKerberosKms;
@@ -23,37 +24,26 @@ import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
 import javax.inject.Inject;
 
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
-import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_HIVE_PROPERTIES;
-import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_ICEBERG_PROPERTIES;
-import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
 public final class EnvSinglenodeKerberosKmsHdfsNoImpersonation
         extends EnvironmentProvider
 {
-    private final DockerFiles dockerFiles;
+    private final ResourceProvider configDir;
 
     @Inject
     public EnvSinglenodeKerberosKmsHdfsNoImpersonation(DockerFiles dockerFiles, Standard standard, HadoopKerberosKms hadoopKerberosKms)
     {
         super(ImmutableList.of(standard, hadoopKerberosKms));
-        this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
+        configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/singlenode-kerberos-kms-hdfs-no-impersonation");
     }
 
     @Override
     @SuppressWarnings("resource")
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.configureContainer(COORDINATOR, container -> {
-            container
-                    .withCopyFileToContainer(
-                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-kms-hdfs-no-impersonation/hive.properties")),
-                            CONTAINER_PRESTO_HIVE_PROPERTIES)
-                    .withCopyFileToContainer(
-                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-kms-hdfs-no-impersonation/iceberg.properties")),
-                            CONTAINER_PRESTO_ICEBERG_PROPERTIES);
-        });
+        builder.addConnector("hive", forHostPath(configDir.getPath("hive.properties")));
+        builder.addConnector("iceberg", forHostPath(configDir.getPath("iceberg.properties")));
     }
 }

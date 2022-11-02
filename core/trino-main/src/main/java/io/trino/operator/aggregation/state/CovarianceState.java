@@ -33,4 +33,45 @@ public interface CovarianceState
     double getC2();
 
     void setC2(double value);
+
+    default void update(double x, double y)
+    {
+        long n = getCount() + 1;
+        setCount(n);
+        double oldMeanX = getMeanX();
+        setMeanX(oldMeanX + (x - oldMeanX) / n);
+        double oldMeanY = getMeanY();
+        double newMeanY = oldMeanY + (y - oldMeanY) / n;
+        setMeanY(newMeanY);
+        setC2(getC2() + (x - oldMeanX) * (y - newMeanY));
+    }
+
+    default void merge(CovarianceState otherState)
+    {
+        if (otherState.getCount() == 0) {
+            return;
+        }
+
+        long na = getCount();
+        long nb = otherState.getCount();
+        long n = na + nb;
+        setCount(n);
+        double meanX = getMeanX();
+        double meanY = getMeanY();
+        double deltaX = otherState.getMeanX() - meanX;
+        double deltaY = otherState.getMeanY() - meanY;
+        setC2(getC2() + otherState.getC2() + deltaX * deltaY * na * nb / (double) n);
+        setMeanX(meanX + deltaX * nb / (double) n);
+        setMeanY(meanY + deltaY * nb / (double) n);
+    }
+
+    default double getCovarianceSample()
+    {
+        return getC2() / (getCount() - 1);
+    }
+
+    default double getCovariancePopulation()
+    {
+        return getC2() / getCount();
+    }
 }

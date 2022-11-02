@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.elasticsearch;
 
+import static io.trino.plugin.elasticsearch.ElasticsearchServer.ELASTICSEARCH_7_IMAGE;
 import static java.lang.String.format;
 
 public class TestElasticsearch7ConnectorTest
@@ -20,7 +21,7 @@ public class TestElasticsearch7ConnectorTest
 {
     public TestElasticsearch7ConnectorTest()
     {
-        super("elasticsearch:7.0.0");
+        super(ELASTICSEARCH_7_IMAGE, "elasticsearch7");
     }
 
     @Override

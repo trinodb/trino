@@ -20,9 +20,12 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.event.client.EventClient;
+import io.trino.hdfs.TrinoFileSystemCache;
+import io.trino.hdfs.TrinoFileSystemCacheStats;
 import io.trino.plugin.base.CatalogName;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
-import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
+import io.trino.plugin.hive.fs.CachingDirectoryLister;
+import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
+import io.trino.plugin.hive.metastore.thrift.TranslateHiveViews;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
 import io.trino.plugin.hive.orc.OrcPageSourceFactory;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
@@ -43,7 +46,6 @@ import javax.inject.Singleton;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.Function;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -60,12 +62,12 @@ public class HiveModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(DirectoryLister.class).to(CachingDirectoryLister.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(HiveConfig.class);
-        configBinder(binder).bindConfig(MetastoreConfig.class);
+        configBinder(binder).bindConfig(HiveMetastoreConfig.class);
 
         binder.bind(HiveSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(HiveTableProperties.class).in(Scopes.SINGLETON);
+        binder.bind(HiveColumnProperties.class).in(Scopes.SINGLETON);
         binder.bind(HiveAnalyzeProperties.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, HiveMaterializedViewPropertiesProvider.class)
                 .setDefault().toInstance(ImmutableList::of);
@@ -74,6 +76,9 @@ public class HiveModule
 
         binder.bind(CachingDirectoryLister.class).in(Scopes.SINGLETON);
         newExporter(binder).export(CachingDirectoryLister.class).withGeneratedName();
+
+        binder.bind(NamenodeStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(NamenodeStats.class).withGeneratedName();
 
         binder.bind(HiveWriterStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(HiveWriterStats.class).withGeneratedName();
@@ -90,8 +95,6 @@ public class HiveModule
                 .setDefault().to(DefaultHiveMaterializedViewMetadataFactory.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, TransactionalMetadataFactory.class)
                 .setDefault().to(HiveMetadataFactory.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder, HiveTableRedirectionsProvider.class)
-                .setDefault().toInstance(HiveTableRedirectionsProvider.NO_REDIRECTIONS);
         binder.bind(HiveTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorSplitManager.class).to(HiveSplitManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ConnectorSplitManager.class).as(generator -> generator.generatedNameOf(HiveSplitManager.class));
@@ -103,6 +106,10 @@ public class HiveModule
 
         binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(FileFormatDataSourceStats.class).withGeneratedName();
+
+        binder.bind(TrinoFileSystemCacheStats.class).toInstance(TrinoFileSystemCache.INSTANCE.getFileSystemCacheStats());
+        newExporter(binder).export(TrinoFileSystemCacheStats.class)
+                .as(generator -> generator.generatedNameOf(io.trino.plugin.hive.fs.TrinoFileSystemCache.class));
 
         Multibinder<HivePageSourceFactory> pageSourceFactoryBinder = newSetBinder(binder, HivePageSourceFactory.class);
         pageSourceFactoryBinder.addBinding().to(OrcPageSourceFactory.class).in(Scopes.SINGLETON);
@@ -144,10 +151,11 @@ public class HiveModule
                 daemonThreadsNamed("hive-heartbeat-" + catalogName + "-%s"));
     }
 
+    @TranslateHiveViews
     @Singleton
     @Provides
-    public Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> createMetastoreGetter(HiveTransactionManager transactionManager)
+    public boolean translateHiveViews(HiveConfig hiveConfig)
     {
-        return transactionHandle -> transactionManager.get(transactionHandle).getMetastore();
+        return hiveConfig.isTranslateHiveViews();
     }
 }

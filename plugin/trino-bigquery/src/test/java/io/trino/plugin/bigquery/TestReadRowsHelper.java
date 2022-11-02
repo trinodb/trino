@@ -13,11 +13,8 @@
  */
 package io.trino.plugin.bigquery;
 
-import com.google.cloud.bigquery.storage.v1beta1.BigQueryStorageClient;
-import com.google.cloud.bigquery.storage.v1beta1.Storage.ReadRowsRequest;
-import com.google.cloud.bigquery.storage.v1beta1.Storage.ReadRowsResponse;
-import com.google.cloud.bigquery.storage.v1beta1.Storage.Stream;
-import com.google.cloud.bigquery.storage.v1beta1.Storage.StreamPosition;
+import com.google.cloud.bigquery.storage.v1.BigQueryReadClient;
+import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
 import com.google.common.collect.ImmutableList;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -34,8 +31,7 @@ public class TestReadRowsHelper
     @Test
     public void testNoFailures()
     {
-        BigQueryStorageClient client = mock(BigQueryStorageClient.class);
-        ReadRowsRequest.Builder request = newRequest();
+        BigQueryReadClient client = mock(BigQueryReadClient.class);
 
         MockResponsesBatch batch1 = new MockResponsesBatch();
         batch1.addResponse(ReadRowsResponse.newBuilder().setRowCount(10).build());
@@ -43,7 +39,7 @@ public class TestReadRowsHelper
 
         // so we can run multiple tests
         List<ReadRowsResponse> responses = ImmutableList.copyOf(
-                new MockReadRowsHelper(client, request, 3, ImmutableList.of(batch1))
+                new MockReadRowsHelper(client, "test", 3, ImmutableList.of(batch1))
                         .readRows());
 
         assertThat(responses.size()).isEqualTo(2);
@@ -53,8 +49,7 @@ public class TestReadRowsHelper
     @Test
     public void testRetryOfSingleFailure()
     {
-        BigQueryStorageClient client = mock(BigQueryStorageClient.class);
-        ReadRowsRequest.Builder request = newRequest();
+        BigQueryReadClient client = mock(BigQueryReadClient.class);
 
         MockResponsesBatch batch1 = new MockResponsesBatch();
         batch1.addResponse(ReadRowsResponse.newBuilder().setRowCount(10).build());
@@ -64,18 +59,11 @@ public class TestReadRowsHelper
         batch2.addResponse(ReadRowsResponse.newBuilder().setRowCount(11).build());
 
         List<ReadRowsResponse> responses = ImmutableList.copyOf(
-                new MockReadRowsHelper(client, request, 3, ImmutableList.of(batch1, batch2))
+                new MockReadRowsHelper(client, "test", 3, ImmutableList.of(batch1, batch2))
                         .readRows());
 
         assertThat(responses.size()).isEqualTo(2);
         assertThat(responses.stream().mapToLong(ReadRowsResponse::getRowCount).sum()).isEqualTo(21);
-    }
-
-    private static ReadRowsRequest.Builder newRequest()
-    {
-        return ReadRowsRequest.newBuilder().setReadPosition(
-                StreamPosition.newBuilder().setStream(
-                        Stream.newBuilder().setName("test")));
     }
 
     private static final class MockReadRowsHelper
@@ -83,14 +71,14 @@ public class TestReadRowsHelper
     {
         Iterator<MockResponsesBatch> responses;
 
-        MockReadRowsHelper(BigQueryStorageClient client, ReadRowsRequest.Builder request, int maxReadRowsRetries, Iterable<MockResponsesBatch> responses)
+        MockReadRowsHelper(BigQueryReadClient client, String stream, int maxReadRowsRetries, Iterable<MockResponsesBatch> responses)
         {
-            super(client, request, maxReadRowsRetries);
+            super(client, stream, maxReadRowsRetries);
             this.responses = responses.iterator();
         }
 
         @Override
-        protected Iterator<ReadRowsResponse> fetchResponses(ReadRowsRequest.Builder readRowsRequest)
+        protected Iterator<ReadRowsResponse> fetchResponses(long offset)
         {
             return responses.next();
         }

@@ -23,13 +23,13 @@ import io.trino.spi.NodeManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.connector.SchemaTableName;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static io.trino.plugin.base.Versions.checkSpiVersion;
 import static java.util.Objects.requireNonNull;
 
 public class RedisConnectorFactory
@@ -49,16 +49,11 @@ public class RedisConnectorFactory
     }
 
     @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new RedisHandleResolver();
-    }
-
-    @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(config, "config is null");
+        checkSpiVersion(context, this);
 
         Bootstrap app = new Bootstrap(
                 new JsonModule(),

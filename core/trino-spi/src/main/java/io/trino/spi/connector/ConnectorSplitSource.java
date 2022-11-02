@@ -23,7 +23,10 @@ import static java.util.Objects.requireNonNull;
 public interface ConnectorSplitSource
         extends Closeable
 {
-    CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize);
+    default CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     @Override
     void close();

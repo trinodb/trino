@@ -22,74 +22,74 @@ import static java.util.Objects.requireNonNull;
 
 public final class ColumnMapping
 {
-    public static ColumnMapping booleanMapping(Type prestoType, BooleanReadFunction readFunction, BooleanWriteFunction writeFunction)
+    public static ColumnMapping booleanMapping(Type trinoType, BooleanReadFunction readFunction, BooleanWriteFunction writeFunction)
     {
-        return booleanMapping(prestoType, readFunction, writeFunction, FULL_PUSHDOWN);
+        return booleanMapping(trinoType, readFunction, writeFunction, FULL_PUSHDOWN);
     }
 
     public static ColumnMapping booleanMapping(
-            Type prestoType,
+            Type trinoType,
             BooleanReadFunction readFunction,
             BooleanWriteFunction writeFunction,
             PredicatePushdownController predicatePushdownController)
     {
-        return new ColumnMapping(prestoType, readFunction, writeFunction, predicatePushdownController);
+        return new ColumnMapping(trinoType, readFunction, writeFunction, predicatePushdownController);
     }
 
-    public static ColumnMapping longMapping(Type prestoType, LongReadFunction readFunction, LongWriteFunction writeFunction)
+    public static ColumnMapping longMapping(Type trinoType, LongReadFunction readFunction, LongWriteFunction writeFunction)
     {
-        return longMapping(prestoType, readFunction, writeFunction, FULL_PUSHDOWN);
+        return longMapping(trinoType, readFunction, writeFunction, FULL_PUSHDOWN);
     }
 
     public static ColumnMapping longMapping(
-            Type prestoType,
+            Type trinoType,
             LongReadFunction readFunction,
             LongWriteFunction writeFunction,
             PredicatePushdownController predicatePushdownController)
     {
-        return new ColumnMapping(prestoType, readFunction, writeFunction, predicatePushdownController);
+        return new ColumnMapping(trinoType, readFunction, writeFunction, predicatePushdownController);
     }
 
-    public static ColumnMapping doubleMapping(Type prestoType, DoubleReadFunction readFunction, DoubleWriteFunction writeFunction)
+    public static ColumnMapping doubleMapping(Type trinoType, DoubleReadFunction readFunction, DoubleWriteFunction writeFunction)
     {
-        return doubleMapping(prestoType, readFunction, writeFunction, FULL_PUSHDOWN);
+        return doubleMapping(trinoType, readFunction, writeFunction, FULL_PUSHDOWN);
     }
 
     public static ColumnMapping doubleMapping(
-            Type prestoType,
+            Type trinoType,
             DoubleReadFunction readFunction,
             DoubleWriteFunction writeFunction,
             PredicatePushdownController predicatePushdownController)
     {
-        return new ColumnMapping(prestoType, readFunction, writeFunction, predicatePushdownController);
+        return new ColumnMapping(trinoType, readFunction, writeFunction, predicatePushdownController);
     }
 
-    public static ColumnMapping sliceMapping(Type prestoType, SliceReadFunction readFunction, SliceWriteFunction writeFunction)
+    public static ColumnMapping sliceMapping(Type trinoType, SliceReadFunction readFunction, SliceWriteFunction writeFunction)
     {
-        return sliceMapping(prestoType, readFunction, writeFunction, FULL_PUSHDOWN);
+        return sliceMapping(trinoType, readFunction, writeFunction, FULL_PUSHDOWN);
     }
 
     public static ColumnMapping sliceMapping(
-            Type prestoType,
+            Type trinoType,
             SliceReadFunction readFunction,
             SliceWriteFunction writeFunction,
             PredicatePushdownController predicatePushdownController)
     {
-        return new ColumnMapping(prestoType, readFunction, writeFunction, predicatePushdownController);
+        return new ColumnMapping(trinoType, readFunction, writeFunction, predicatePushdownController);
     }
 
-    public static <T> ColumnMapping objectMapping(Type prestoType, ObjectReadFunction readFunction, ObjectWriteFunction writeFunction)
+    public static ColumnMapping objectMapping(Type trinoType, ObjectReadFunction readFunction, ObjectWriteFunction writeFunction)
     {
-        return objectMapping(prestoType, readFunction, writeFunction, FULL_PUSHDOWN);
+        return objectMapping(trinoType, readFunction, writeFunction, FULL_PUSHDOWN);
     }
 
-    public static <T> ColumnMapping objectMapping(
-            Type prestoType,
+    public static ColumnMapping objectMapping(
+            Type trinoType,
             ObjectReadFunction readFunction,
             ObjectWriteFunction writeFunction,
             PredicatePushdownController predicatePushdownController)
     {
-        return new ColumnMapping(prestoType, readFunction, writeFunction, predicatePushdownController);
+        return new ColumnMapping(trinoType, readFunction, writeFunction, predicatePushdownController);
     }
 
     private final Type type;

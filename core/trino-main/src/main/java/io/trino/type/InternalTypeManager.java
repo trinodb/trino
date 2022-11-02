@@ -13,7 +13,8 @@
  */
 package io.trino.type;
 
-import io.trino.metadata.Metadata;
+import io.trino.FeaturesConfig;
+import io.trino.metadata.TypeRegistry;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
@@ -22,42 +23,40 @@ import io.trino.spi.type.TypeSignature;
 
 import javax.inject.Inject;
 
-import static java.util.Objects.requireNonNull;
-
 public final class InternalTypeManager
         implements TypeManager
 {
-    private final Metadata metadata;
-    private final TypeOperators typeOperators;
+    public static final TypeManager TESTING_TYPE_MANAGER = new InternalTypeManager(new TypeRegistry(new TypeOperators(), new FeaturesConfig()));
+
+    private final TypeRegistry typeRegistry;
 
     @Inject
-    public InternalTypeManager(Metadata metadata, TypeOperators typeOperators)
+    public InternalTypeManager(TypeRegistry typeRegistry)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
-        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
+        this.typeRegistry = typeRegistry;
     }
 
     @Override
     public Type getType(TypeSignature signature)
     {
-        return metadata.getType(signature);
+        return typeRegistry.getType(signature);
     }
 
     @Override
     public Type fromSqlType(String type)
     {
-        return metadata.fromSqlType(type);
+        return typeRegistry.fromSqlType(type);
     }
 
     @Override
     public Type getType(TypeId id)
     {
-        return metadata.getType(id);
+        return typeRegistry.getType(id);
     }
 
     @Override
     public TypeOperators getTypeOperators()
     {
-        return typeOperators;
+        return typeRegistry.getTypeOperators();
     }
 }

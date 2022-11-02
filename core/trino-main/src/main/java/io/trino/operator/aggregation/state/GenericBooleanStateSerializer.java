@@ -43,7 +43,7 @@ public class GenericBooleanStateSerializer
             out.appendNull();
         }
         else {
-            serializedType.writeBoolean(out, state.getBoolean());
+            serializedType.writeBoolean(out, state.getValue());
         }
     }
 
@@ -51,6 +51,6 @@ public class GenericBooleanStateSerializer
     public void deserialize(Block block, int index, GenericBooleanState state)
     {
         state.setNull(false);
-        state.setBoolean(serializedType.getBoolean(block, index));
+        state.setValue(serializedType.getBoolean(block, index));
     }
 }

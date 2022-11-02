@@ -2,6 +2,10 @@
 Redshift connector
 ==================
 
+.. raw:: html
+
+  <img src="../_static/img/redshift.png" class="connector-logo">
+
 The Redshift connector allows querying and creating tables in an
 external `Amazon Redshift <https://aws.amazon.com/redshift/>`_ cluster. This can be used to join data between
 different systems like Redshift and Hive, or between two different
@@ -31,6 +35,28 @@ connection properties as appropriate for your setup:
     connection-user=root
     connection-password=secret
 
+.. _redshift-tls:
+
+Connection security
+^^^^^^^^^^^^^^^^^^^
+
+If you have TLS configured with a globally-trusted certificate installed on your
+data source, you can enable TLS between your cluster and the data
+source by appending a parameter to the JDBC connection string set in the
+``connection-url`` catalog configuration property.
+
+For example, on version 2.1 of the Redshift JDBC driver, TLS/SSL is enabled by
+default with the ``SSL`` parameter. You can disable or further configure TLS
+by appending parameters to the ``connection-url`` configuration property:
+
+.. code-block:: properties
+
+  connection-url=jdbc:redshift://example.net:5439/database;SSL=TRUE;
+
+For more information on TLS configuration options, see the `Redshift JDBC driver
+documentation
+<https://docs.aws.amazon.com/redshift/latest/mgmt/jdbc20-configuration-options.html#jdbc20-ssl-option>`_.
+
 Multiple Redshift databases or clusters
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -45,6 +71,11 @@ if you name the property file ``sales.properties``, Trino creates a
 catalog named ``sales`` using the configured connector.
 
 .. include:: jdbc-common-configurations.fragment
+
+.. |default_domain_compaction_threshold| replace:: ``32``
+.. include:: jdbc-domain-compaction-threshold.fragment
+
+.. include:: jdbc-procedures.fragment
 
 .. include:: jdbc-case-insensitive-matching.fragment
 
@@ -96,11 +127,46 @@ statements, the connector supports the following features:
 * :doc:`/sql/insert`
 * :doc:`/sql/delete`
 * :doc:`/sql/truncate`
-* :doc:`/sql/create-table`
-* :doc:`/sql/create-table-as`
-* :doc:`/sql/drop-table`
-* :doc:`/sql/create-schema`
-* :doc:`/sql/drop-schema`
-* :doc:`/sql/comment`
+* :ref:`sql-schema-table-management`
 
 .. include:: sql-delete-limitation.fragment
+
+.. include:: alter-table-limitation.fragment
+
+.. include:: alter-schema-limitation.fragment
+
+Table functions
+---------------
+
+The connector provides specific :doc:`table functions </functions/table>` to
+access Redshift.
+
+.. _redshift-query-function:
+
+``query(varchar) -> table``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``query`` function allows you to query the underlying database directly. It
+requires syntax native to Redshift, because the full query is pushed down and
+processed in Redshift. This can be useful for accessing native features which
+are not implemented in Trino or for improving query performance in situations
+where running a query natively may be faster.
+
+.. include:: polymorphic-table-function-ordering.fragment
+
+For example, select the top 10 nations by population::
+
+    SELECT
+      *
+    FROM
+      TABLE(
+        redshift.system.query(
+          query => 'SELECT
+            TOP 10 *
+          FROM
+            tpch.nation
+          ORDER BY
+            population DESC'
+        )
+      );
+

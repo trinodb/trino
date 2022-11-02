@@ -99,6 +99,7 @@ class TaskList extends React.Component {
 
     render() {
         const tasks = this.props.tasks;
+        const taskRetriesEnabled = this.props.taskRetriesEnabled;
 
         if (tasks === undefined || tasks.length === 0) {
             return (
@@ -163,6 +164,17 @@ class TaskList extends React.Component {
                     <Td column="bufferedBytes" value={task.outputBuffers.totalBufferedBytes}>
                         {formatDataSizeBytes(task.outputBuffers.totalBufferedBytes)}
                     </Td>
+                    <Td column="memory" value={parseDataSize(task.stats.userMemoryReservation)}>
+                        {parseAndFormatDataSize(task.stats.userMemoryReservation)}
+                    </Td>
+                    <Td column="peakMemory" value={parseDataSize(task.stats.peakUserMemoryReservation)}>
+                        {parseAndFormatDataSize(task.stats.peakUserMemoryReservation)}
+                    </Td>
+                    {taskRetriesEnabled &&
+                    <Td column="estimatedMemory" value={parseDataSize(task.estimatedMemory)}>
+                        {parseAndFormatDataSize(task.estimatedMemory)}
+                    </Td>
+                    }
                 </Tr>
             );
         });
@@ -187,6 +199,9 @@ class TaskList extends React.Component {
                     'elapsedTime',
                     'cpuTime',
                     'bufferedBytes',
+                    'memory',
+                    'peakMemory',
+                    'estimatedMemory',
                 ]}
                    defaultSort={{column: 'id', direction: 'asc'}}>
                 <Thead>
@@ -207,7 +222,11 @@ class TaskList extends React.Component {
                 <Th column="bytesSec">Bytes/s</Th>
                 <Th column="elapsedTime">Elapsed</Th>
                 <Th column="cpuTime">CPU Time</Th>
-                <Th column="bufferedBytes">Buffered</Th>
+                <Th column="memory">Mem</Th>
+                <Th column="peakMemory">Peak Mem</Th>
+                {taskRetriesEnabled &&
+                <Th column="estimatedMemory">Est Mem</Th>
+                }
                 </Thead>
                 {renderedTasks}
             </Table>
@@ -249,7 +268,8 @@ class StageSummary extends React.Component {
         super(props);
         this.state = {
             expanded: false,
-            lastRender: null
+            lastRender: null,
+            taskFilter: TASK_FILTER.ALL
         };
     }
 
@@ -335,8 +355,61 @@ class StageSummary extends React.Component {
         }
     }
 
+    renderTaskList(taskRetriesEnabled) {
+        let tasks = this.state.expanded ? this.props.stage.tasks : [];
+        tasks = tasks.filter(task => this.state.taskFilter(task.taskStatus.state), this);
+        return (<TaskList tasks={tasks} taskRetriesEnabled={taskRetriesEnabled}/>);
+    }
+
+    handleTaskFilterClick(filter, event) {
+        this.setState({
+            taskFilter: filter
+        });
+        event.preventDefault();
+    }
+
+    renderTaskFilterListItem(taskFilter, taskFilterText) {
+        return (
+            <li><a href="#" className={this.state.taskFilter === taskFilter ? "selected" : ""} onClick={this.handleTaskFilterClick.bind(this, taskFilter)}>{taskFilterText}</a></li>
+        );
+    }
+
+    renderTaskFilter() {
+        return (<div className="row">
+                            <div className="col-xs-6">
+                                <h3>Tasks</h3>
+                            </div>
+                            <div className="col-xs-6">
+                                <table className="header-inline-links">
+                                    <tbody>
+                                    <tr>
+                                        <td>
+                                            <div className="input-group-btn text-right">
+                                                <button type="button" className="btn btn-default dropdown-toggle pull-right text-right" data-toggle="dropdown" aria-haspopup="true"
+                                                        aria-expanded="false">
+                                                    Show <span className="caret"/>
+                                                </button>
+                                                <ul className="dropdown-menu">
+                                                    {this.renderTaskFilterListItem(TASK_FILTER.ALL, "All")}
+                                                    {this.renderTaskFilterListItem(TASK_FILTER.PLANNED, "Planned")}
+                                                    {this.renderTaskFilterListItem(TASK_FILTER.RUNNING, "Running")}
+                                                    {this.renderTaskFilterListItem(TASK_FILTER.FINISHED, "Finished")}
+                                                    {this.renderTaskFilterListItem(TASK_FILTER.FAILED, "Aborted/Canceled/Failed")}
+                                                </ul>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+        );
+    }
+
     render() {
         const stage = this.props.stage;
+        const taskRetriesEnabled = this.props.taskRetriesEnabled;
+
         if (stage === undefined || !stage.hasOwnProperty('plan')) {
             return (
                 <tr>
@@ -394,6 +467,22 @@ class StageSummary extends React.Component {
                                             {stage.stageStats.totalCpuTime}
                                         </td>
                                     </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            Failed
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {stage.stageStats.failedScheduledTime}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            CPU Failed
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {stage.stageStats.failedCpuTime}
+                                        </td>
+                                    </tr>
                                     </tbody>
                                 </table>
                             </td>
@@ -440,6 +529,14 @@ class StageSummary extends React.Component {
                                             {parseAndFormatDataSize(stage.stageStats.peakUserMemoryReservation)}
                                         </td>
                                     </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            Failed
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {formatDataSizeBytes(stage.stageStats.failedCumulativeUserMemory / 1000)}
+                                        </td>
+                                    </tr>
                                     </tbody>
                                 </table>
                             </td>
@@ -476,6 +573,14 @@ class StageSummary extends React.Component {
                                         </td>
                                         <td className="stage-table-stat-text">
                                             {stage.tasks.filter(task => task.stats.fullyBlocked).length}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            Failed
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {stage.tasks.filter(task => task.taskStatus.state === "FAILED").length}
                                         </td>
                                     </tr>
                                     <tr>
@@ -563,6 +668,16 @@ class StageSummary extends React.Component {
                                 </table>
                             </td>
                         </tr>
+                        <tr style={this.getExpandedStyle()}>
+                            <td colSpan="6">
+                                {this.renderTaskFilter()}
+                            </td>
+                        </tr>
+                        <tr style={this.getExpandedStyle()}>
+                            <td colSpan="6">
+                                {this.renderTaskList(taskRetriesEnabled)}
+                            </td>
+                        </tr>
                         </tbody>
                     </table>
                 </td>
@@ -581,6 +696,7 @@ class StageList extends React.Component {
 
     render() {
         const stages = this.getStages(this.props.outputStage);
+        const taskRetriesEnabled = this.props.taskRetriesEnabled;
 
         if (stages === undefined || stages.length === 0) {
             return (
@@ -592,7 +708,7 @@ class StageList extends React.Component {
             );
         }
 
-        const renderedStages = stages.map(stage => <StageSummary key={stage.stageId} stage={stage}/>);
+        const renderedStages = stages.map(stage => <StageSummary key={stage.stageId} stage={stage} taskRetriesEnabled={taskRetriesEnabled}/>);
 
         return (
             <div className="row">
@@ -801,29 +917,6 @@ export class QueryDetail extends React.Component {
             });
     }
 
-    handleTaskRefreshClick() {
-        if (this.state.taskRefresh) {
-            this.setState({
-                taskRefresh: false,
-                lastSnapshotTasks: this.state.query.outputStage,
-            });
-        }
-        else {
-            this.setState({
-                taskRefresh: true,
-            });
-        }
-    }
-
-    renderTaskRefreshButton() {
-        if (this.state.taskRefresh) {
-            return <button className="btn btn-info live-button" onClick={this.handleTaskRefreshClick.bind(this)}>Auto-Refresh: On</button>
-        }
-        else {
-            return <button className="btn btn-info live-button" onClick={this.handleTaskRefreshClick.bind(this)}>Auto-Refresh: Off</button>
-        }
-    }
-
     handleStageRefreshClick() {
         if (this.state.stageRefresh) {
             this.setState({
@@ -845,27 +938,6 @@ export class QueryDetail extends React.Component {
         else {
             return <button className="btn btn-info live-button" onClick={this.handleStageRefreshClick.bind(this)}>Auto-Refresh: Off</button>
         }
-    }
-
-    renderTaskFilterListItem(taskFilter, taskFilterText) {
-        return (
-            <li><a href="#" className={this.state.taskFilter === taskFilter ? "selected" : ""} onClick={this.handleTaskFilterClick.bind(this, taskFilter)}>{taskFilterText}</a></li>
-        );
-    }
-
-    handleTaskFilterClick(filter, event) {
-        this.setState({
-            taskFilter: filter
-        });
-        event.preventDefault();
-    }
-
-    getTasksFromStage(stage) {
-        if (stage === undefined || !stage.hasOwnProperty('subStages') || !stage.hasOwnProperty('tasks')) {
-            return []
-        }
-
-        return [].concat.apply(stage.tasks, stage.subStages.map(this.getTasksFromStage, this));
     }
 
     componentDidMount() {
@@ -906,54 +978,7 @@ export class QueryDetail extends React.Component {
         new window.ClipboardJS('.copy-button');
     }
 
-    renderTasks() {
-        if (this.state.lastSnapshotTasks === null) {
-            return;
-        }
-
-        const tasks = this.getTasksFromStage(this.state.lastSnapshotTasks).filter(task => this.state.taskFilter(task.taskStatus.state), this);
-
-        return (
-            <div>
-                <div className="row">
-                    <div className="col-xs-9">
-                        <h3>Tasks</h3>
-                    </div>
-                    <div className="col-xs-3">
-                        <table className="header-inline-links">
-                            <tbody>
-                            <tr>
-                                <td>
-                                    <div className="input-group-btn text-right">
-                                        <button type="button" className="btn btn-default dropdown-toggle pull-right text-right" data-toggle="dropdown" aria-haspopup="true"
-                                                aria-expanded="false">
-                                            Show <span className="caret"/>
-                                        </button>
-                                        <ul className="dropdown-menu">
-                                            {this.renderTaskFilterListItem(TASK_FILTER.ALL, "All")}
-                                            {this.renderTaskFilterListItem(TASK_FILTER.PLANNED, "Planned")}
-                                            {this.renderTaskFilterListItem(TASK_FILTER.RUNNING, "Running")}
-                                            {this.renderTaskFilterListItem(TASK_FILTER.FINISHED, "Finished")}
-                                            {this.renderTaskFilterListItem(TASK_FILTER.FAILED, "Aborted/Canceled/Failed")}
-                                        </ul>
-                                    </div>
-                                </td>
-                                <td>&nbsp;&nbsp;{this.renderTaskRefreshButton()}</td>
-                            </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div className="row">
-                    <div className="col-xs-12">
-                        <TaskList key={this.state.query.queryId} tasks={tasks}/>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    renderStages() {
+    renderStages(taskRetriesEnabled) {
         if (this.state.lastSnapshotStage === null) {
             return;
         }
@@ -978,7 +1003,7 @@ export class QueryDetail extends React.Component {
                 </div>
                 <div className="row">
                     <div className="col-xs-12">
-                        <StageList key={this.state.query.queryId} outputStage={this.state.lastSnapshotStage}/>
+                        <StageList key={this.state.query.queryId} outputStage={this.state.lastSnapshotStage} taskRetriesEnabled={taskRetriesEnabled} />
                     </div>
                 </div>
             </div>
@@ -1138,7 +1163,6 @@ export class QueryDetail extends React.Component {
 
     render() {
         const query = this.state.query;
-
         if (query === null || this.state.initialized === false) {
             let label = (<div className="loader">Loading...</div>);
             if (this.state.initialized) {
@@ -1150,6 +1174,8 @@ export class QueryDetail extends React.Component {
                 </div>
             );
         }
+
+        const taskRetriesEnabled = query.retryPolicy == "TASK";
 
         return (
             <div>
@@ -1335,6 +1361,11 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {query.queryStats.totalCpuTime}
                                         </td>
+                                        {taskRetriesEnabled &&
+                                        <td className="info-failed">
+                                            {query.queryStats.failedCpuTime}
+                                        </td>
+                                        }
                                     </tr>
                                     <tr>
                                         <td className="info-title">
@@ -1343,6 +1374,11 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {query.queryStats.totalScheduledTime}
                                         </td>
+                                        {taskRetriesEnabled &&
+                                        <td className="info-failed">
+                                            {query.queryStats.failedScheduledTime}
+                                        </td>
+                                        }
                                     </tr>
                                     <tr>
                                         <td className="info-title">
@@ -1351,6 +1387,11 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {formatCount(query.queryStats.processedInputPositions)}
                                         </td>
+                                        {taskRetriesEnabled &&
+                                        <td className="info-failed">
+                                            {query.queryStats.failedProcessedInputPositions}
+                                        </td>
+                                        }
                                     </tr>
                                     <tr>
                                         <td className="info-title">
@@ -1359,6 +1400,11 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {parseAndFormatDataSize(query.queryStats.processedInputDataSize)}
                                         </td>
+                                        {taskRetriesEnabled &&
+                                        <td className="info-failed">
+                                            {query.queryStats.failedProcessedInputDataSize}
+                                        </td>
+                                        }
                                     </tr>
                                     <tr>
                                         <td className="info-title">
@@ -1367,6 +1413,11 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {formatCount(query.queryStats.physicalInputPositions)}
                                         </td>
+                                        {taskRetriesEnabled &&
+                                        <td className="info-failed">
+                                            {formatCount(query.queryStats.failedPhysicalInputPositions)}
+                                        </td>
+                                        }
                                     </tr>
                                     <tr>
                                         <td className="info-title">
@@ -1375,6 +1426,11 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {parseAndFormatDataSize(query.queryStats.physicalInputDataSize)}
                                         </td>
+                                        {taskRetriesEnabled &&
+                                        <td className="info-failed">
+                                            {parseAndFormatDataSize(query.queryStats.failedPhysicalInputDataSize)}
+                                        </td>
+                                        }
                                     </tr>
                                     <tr>
                                         <td className="info-title">
@@ -1383,6 +1439,11 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {query.queryStats.physicalInputReadTime}
                                         </td>
+                                        {taskRetriesEnabled &&
+                                        <td className="info-failed">
+                                            {query.queryStats.failedPhysicalInputReadTime}
+                                        </td>
+                                        }
                                     </tr>
                                     <tr>
                                         <td className="info-title">
@@ -1391,6 +1452,11 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {formatCount(query.queryStats.internalNetworkInputPositions)}
                                         </td>
+                                        {taskRetriesEnabled &&
+                                        <td className="info-failed">
+                                            {formatCount(query.queryStats.failedInternalNetworkInputPositions)}
+                                        </td>
+                                        }
                                     </tr>
                                     <tr>
                                         <td className="info-title">
@@ -1399,6 +1465,11 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {parseAndFormatDataSize(query.queryStats.internalNetworkInputDataSize)}
                                         </td>
+                                        {taskRetriesEnabled &&
+                                        <td className="info-failed">
+                                            {parseAndFormatDataSize(query.queryStats.failedInternalNetworkInputDataSize)}
+                                        </td>
+                                        }
                                     </tr>
                                     <tr>
                                         <td className="info-title">
@@ -1428,27 +1499,16 @@ export class QueryDetail extends React.Component {
                                     </tr>
                                     <tr>
                                         <td className="info-title">
-                                            Memory Pool
-                                        </td>
-                                        <td className="info-text">
-                                            {query.memoryPool}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
                                             Cumulative User Memory
                                         </td>
                                         <td className="info-text">
-                                            {formatDataSizeBytes(query.queryStats.cumulativeUserMemory / 1000.0) + " seconds"}
+                                            {formatDataSize(query.queryStats.cumulativeUserMemory / 1000.0) + "*seconds"}
                                         </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="info-title">
-                                            Cumulative System Memory
+                                        {taskRetriesEnabled &&
+                                        <td className="info-failed">
+                                            {formatDataSize(query.queryStats.failedCumulativeUserMemory / 1000.0) + "*seconds"}
                                         </td>
-                                        <td className="info-text">
-                                            {formatDataSizeBytes(query.queryStats.cumulativeSystemMemory / 1000.0) + " seconds"}
-                                        </td>
+                                        }
                                     </tr>
                                     <tr>
                                         <td className="info-title">
@@ -1457,6 +1517,11 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {formatCount(query.queryStats.outputPositions)}
                                         </td>
+                                        {taskRetriesEnabled &&
+                                        <td className="info-failed">
+                                            {formatCount(query.queryStats.failedOutputPositions)}
+                                        </td>
+                                        }
                                     </tr>
                                     <tr>
                                         <td className="info-title">
@@ -1465,6 +1530,11 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {parseAndFormatDataSize(query.queryStats.outputDataSize)}
                                         </td>
+                                        {taskRetriesEnabled &&
+                                        <td className="info-failed">
+                                            {parseAndFormatDataSize(query.queryStats.failedOutputDataSize)}
+                                        </td>
+                                        }
                                     </tr>
                                     <tr>
                                         <td className="info-title">
@@ -1489,6 +1559,11 @@ export class QueryDetail extends React.Component {
                                         <td className="info-text">
                                             {parseAndFormatDataSize(query.queryStats.physicalWrittenDataSize)}
                                         </td>
+                                        {taskRetriesEnabled &&
+                                        <td className="info-failed">
+                                            {parseAndFormatDataSize(query.queryStats.failedPhysicalWrittenDataSize)}
+                                        </td>
+                                        }
                                     </tr>
                                     {parseDataSize(query.queryStats.spilledDataSize) > 0 &&
                                     <tr>
@@ -1622,8 +1697,7 @@ export class QueryDetail extends React.Component {
                     </div>
                     {this.renderPreparedQuery()}
                 </div>
-                {this.renderStages()}
-                {this.renderTasks()}
+                {this.renderStages(taskRetriesEnabled)}
             </div>
         );
     }

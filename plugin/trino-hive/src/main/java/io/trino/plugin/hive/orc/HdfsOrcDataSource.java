@@ -14,13 +14,13 @@
 package io.trino.plugin.hive.orc;
 
 import io.airlift.slice.Slice;
+import io.trino.filesystem.TrinoInput;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.orc.AbstractOrcDataSource;
 import io.trino.orc.OrcDataSourceId;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.util.FSDataInputStreamTail;
 import io.trino.spi.TrinoException;
-import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.hdfs.BlockMissingException;
 
 import java.io.IOException;
@@ -34,18 +34,19 @@ import static java.util.Objects.requireNonNull;
 public class HdfsOrcDataSource
         extends AbstractOrcDataSource
 {
-    private final FSDataInputStream inputStream;
+    private final TrinoInput input;
     private final FileFormatDataSourceStats stats;
 
     public HdfsOrcDataSource(
             OrcDataSourceId id,
             long size,
             OrcReaderOptions options,
-            FSDataInputStream inputStream,
+            TrinoInputFile inputFile,
             FileFormatDataSourceStats stats)
+            throws IOException
     {
         super(id, size, options);
-        this.inputStream = requireNonNull(inputStream, "inputStream is null");
+        this.input = requireNonNull(inputFile, "inputFile is null").newInput();
         this.stats = requireNonNull(stats, "stats is null");
     }
 
@@ -53,17 +54,16 @@ public class HdfsOrcDataSource
     public void close()
             throws IOException
     {
-        inputStream.close();
+        input.close();
     }
 
     @Override
-    public Slice readTail(int length)
+    protected Slice readTailInternal(int length)
             throws IOException
     {
         //  Handle potentially imprecise file lengths by reading the footer
         long readStart = System.nanoTime();
-        FSDataInputStreamTail fileTail = FSDataInputStreamTail.readTail(getId().toString(), getEstimatedSize(), inputStream, length);
-        Slice tailSlice = fileTail.getTailSlice();
+        Slice tailSlice = input.readTail(length);
         stats.readDataBytesPerSecond(tailSlice.length(), System.nanoTime() - readStart);
         return tailSlice;
     }
@@ -73,11 +73,11 @@ public class HdfsOrcDataSource
     {
         try {
             long readStart = System.nanoTime();
-            inputStream.readFully(position, buffer, bufferOffset, bufferLength);
+            input.readFully(position, buffer, bufferOffset, bufferLength);
             stats.readDataBytesPerSecond(bufferLength, System.nanoTime() - readStart);
         }
         catch (TrinoException e) {
-            // just in case there is a Presto wrapper or hook
+            // just in case there is a Trino wrapper or hook
             throw e;
         }
         catch (Exception e) {

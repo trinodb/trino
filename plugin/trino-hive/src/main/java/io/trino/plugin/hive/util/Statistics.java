@@ -16,6 +16,7 @@ package io.trino.plugin.hive.util;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HiveBasicStatistics;
+import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.metastore.BooleanStatistics;
 import io.trino.plugin.hive.metastore.DateStatistics;
@@ -27,7 +28,6 @@ import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
-import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -51,18 +51,18 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Sets.intersection;
 import static io.trino.plugin.hive.HiveBasicStatistics.createZeroStatistics;
+import static io.trino.plugin.hive.HiveColumnStatisticType.MAX_VALUE;
+import static io.trino.plugin.hive.HiveColumnStatisticType.MAX_VALUE_SIZE_IN_BYTES;
+import static io.trino.plugin.hive.HiveColumnStatisticType.MIN_VALUE;
+import static io.trino.plugin.hive.HiveColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
+import static io.trino.plugin.hive.HiveColumnStatisticType.NUMBER_OF_NON_NULL_VALUES;
+import static io.trino.plugin.hive.HiveColumnStatisticType.NUMBER_OF_TRUE_VALUES;
+import static io.trino.plugin.hive.HiveColumnStatisticType.TOTAL_SIZE_IN_BYTES;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_COLUMN_STATISTIC_TYPE;
 import static io.trino.plugin.hive.util.HiveWriteUtils.createPartitionValues;
 import static io.trino.plugin.hive.util.Statistics.ReduceOperator.ADD;
 import static io.trino.plugin.hive.util.Statistics.ReduceOperator.MAX;
 import static io.trino.plugin.hive.util.Statistics.ReduceOperator.MIN;
-import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE;
-import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE_SIZE_IN_BYTES;
-import static io.trino.spi.statistics.ColumnStatisticType.MIN_VALUE;
-import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
-import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_NON_NULL_VALUES;
-import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_TRUE_VALUES;
-import static io.trino.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -254,24 +254,24 @@ public final class Statistics
         return first.compareTo(second) <= 0 ? first : second;
     }
 
-    public static PartitionStatistics createEmptyPartitionStatistics(Map<String, Type> columnTypes, Map<String, Set<ColumnStatisticType>> columnStatisticsMetadataTypes)
+    public static PartitionStatistics createEmptyPartitionStatistics(Map<String, Type> columnTypes, Map<String, Set<HiveColumnStatisticType>> columnStatisticsMetadataTypes)
     {
         Map<String, HiveColumnStatistics> columnStatistics = columnStatisticsMetadataTypes.entrySet().stream()
                 .collect(toImmutableMap(Entry::getKey, entry -> createColumnStatisticsForEmptyPartition(columnTypes.get(entry.getKey()), entry.getValue())));
         return new PartitionStatistics(createZeroStatistics(), columnStatistics);
     }
 
-    private static HiveColumnStatistics createColumnStatisticsForEmptyPartition(Type columnType, Set<ColumnStatisticType> columnStatisticTypes)
+    private static HiveColumnStatistics createColumnStatisticsForEmptyPartition(Type columnType, Set<HiveColumnStatisticType> columnStatisticTypes)
     {
         requireNonNull(columnType, "columnType is null");
         HiveColumnStatistics.Builder result = HiveColumnStatistics.builder();
-        for (ColumnStatisticType columnStatisticType : columnStatisticTypes) {
+        for (HiveColumnStatisticType columnStatisticType : columnStatisticTypes) {
             setColumnStatisticsForEmptyPartition(columnType, result, columnStatisticType);
         }
         return result.build();
     }
 
-    private static void setColumnStatisticsForEmptyPartition(Type columnType, HiveColumnStatistics.Builder result, ColumnStatisticType columnStatisticType)
+    private static void setColumnStatisticsForEmptyPartition(Type columnType, HiveColumnStatistics.Builder result, HiveColumnStatisticType columnStatisticType)
     {
         switch (columnStatisticType) {
             case MAX_VALUE_SIZE_IN_BYTES:
@@ -283,8 +283,6 @@ public final class Statistics
             case NUMBER_OF_DISTINCT_VALUES:
                 result.setDistinctValuesCount(0);
                 return;
-            case NUMBER_OF_DISTINCT_VALUES_SUMMARY:
-                break; // unsupported
             case NUMBER_OF_NON_NULL_VALUES:
                 result.setNullsCount(0);
                 return;
@@ -349,12 +347,12 @@ public final class Statistics
                 .collect(toImmutableMap(Entry::getKey, entry -> createHiveColumnStatistics(entry.getValue(), columnTypes.get(entry.getKey()), rowCount)));
     }
 
-    private static Map<String, Map<ColumnStatisticType, Block>> createColumnToComputedStatisticsMap(Map<ColumnStatisticMetadata, Block> computedStatistics)
+    private static Map<String, Map<HiveColumnStatisticType, Block>> createColumnToComputedStatisticsMap(Map<ColumnStatisticMetadata, Block> computedStatistics)
     {
-        Map<String, Map<ColumnStatisticType, Block>> result = new HashMap<>();
+        Map<String, Map<HiveColumnStatisticType, Block>> result = new HashMap<>();
         computedStatistics.forEach((metadata, block) -> {
-            Map<ColumnStatisticType, Block> columnStatistics = result.computeIfAbsent(metadata.getColumnName(), key -> new HashMap<>());
-            columnStatistics.put(metadata.getStatisticType(), block);
+            Map<HiveColumnStatisticType, Block> columnStatistics = result.computeIfAbsent(metadata.getColumnName(), key -> new HashMap<>());
+            columnStatistics.put(HiveColumnStatisticType.from(metadata), block);
         });
         return result.entrySet()
                 .stream()
@@ -363,7 +361,7 @@ public final class Statistics
 
     @VisibleForTesting
     static HiveColumnStatistics createHiveColumnStatistics(
-            Map<ColumnStatisticType, Block> computedStatistics,
+            Map<HiveColumnStatisticType, Block> computedStatistics,
             Type columnType,
             long rowCount)
     {

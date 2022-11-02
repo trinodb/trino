@@ -16,10 +16,8 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.GroupReference;
@@ -45,6 +43,7 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -70,23 +69,24 @@ public class TestEliminateCrossJoins
     @Test
     public void testEliminateCrossJoin()
     {
-        tester().assertThat(new EliminateCrossJoins(tester().getMetadata(), tester().getTypeAnalyzer()))
+        tester().assertThat(new EliminateCrossJoins(tester().getPlannerContext(), tester().getTypeAnalyzer()))
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, "ELIMINATE_CROSS_JOINS")
                 .on(crossJoinAndJoin(INNER))
                 .matches(
-                        join(INNER,
-                                ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("cySymbol"), new Symbol("bySymbol"))),
-                                join(INNER,
-                                        ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("axSymbol"), new Symbol("cxSymbol"))),
-                                        any(),
-                                        any()),
-                                any()));
+                        join(INNER, builder -> builder
+                                .equiCriteria(ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("cySymbol"), new Symbol("bySymbol"))))
+                                .left(
+                                        join(INNER, leftJoinBuilder -> leftJoinBuilder
+                                                .equiCriteria(ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("axSymbol"), new Symbol("cxSymbol"))))
+                                                .left(any())
+                                                .right(any())))
+                                .right(any())));
     }
 
     @Test
     public void testRetainOutgoingGroupReferences()
     {
-        tester().assertThat(new EliminateCrossJoins(tester().getMetadata(), tester().getTypeAnalyzer()))
+        tester().assertThat(new EliminateCrossJoins(tester().getPlannerContext(), tester().getTypeAnalyzer()))
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, "ELIMINATE_CROSS_JOINS")
                 .on(crossJoinAndJoin(INNER))
                 .matches(
@@ -100,7 +100,7 @@ public class TestEliminateCrossJoins
     @Test
     public void testDoNotReorderOuterJoin()
     {
-        tester().assertThat(new EliminateCrossJoins(tester().getMetadata(), tester().getTypeAnalyzer()))
+        tester().assertThat(new EliminateCrossJoins(tester().getPlannerContext(), tester().getTypeAnalyzer()))
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, "ELIMINATE_CROSS_JOINS")
                 .on(crossJoinAndJoin(JoinNode.Type.LEFT))
                 .doesNotFire();
@@ -127,7 +127,7 @@ public class TestEliminateCrossJoins
                         "a", "c",
                         "b", "c");
 
-        JoinGraph joinGraph = JoinGraph.buildFrom(tester().getMetadata(), plan, noLookup(), new PlanNodeIdAllocator(), session, new TypeAnalyzer(new SqlParser(), tester().getMetadata()), TypeProvider.empty());
+        JoinGraph joinGraph = JoinGraph.buildFrom(tester().getPlannerContext(), plan, noLookup(), new PlanNodeIdAllocator(), session, createTestingTypeAnalyzer(tester().getPlannerContext()), TypeProvider.empty());
 
         assertEquals(
                 getJoinOrder(joinGraph),
@@ -159,7 +159,7 @@ public class TestEliminateCrossJoins
 
         PlanNode plan = joinNode(leftPlan, rightPlan);
 
-        JoinGraph joinGraph = JoinGraph.buildFrom(tester().getMetadata(), plan, noLookup(), new PlanNodeIdAllocator(), session, new TypeAnalyzer(new SqlParser(), tester().getMetadata()), TypeProvider.empty());
+        JoinGraph joinGraph = JoinGraph.buildFrom(tester().getPlannerContext(), plan, noLookup(), new PlanNodeIdAllocator(), session, createTestingTypeAnalyzer(tester().getPlannerContext()), TypeProvider.empty());
 
         assertEquals(
                 getJoinOrder(joinGraph),
@@ -181,7 +181,7 @@ public class TestEliminateCrossJoins
                         "b1", "c1",
                         "b2", "c2");
 
-        JoinGraph joinGraph = JoinGraph.buildFrom(tester().getMetadata(), plan, noLookup(), new PlanNodeIdAllocator(), session, new TypeAnalyzer(new SqlParser(), tester().getMetadata()), TypeProvider.empty());
+        JoinGraph joinGraph = JoinGraph.buildFrom(tester().getPlannerContext(), plan, noLookup(), new PlanNodeIdAllocator(), session, createTestingTypeAnalyzer(tester().getPlannerContext()), TypeProvider.empty());
 
         assertEquals(
                 getJoinOrder(joinGraph),
@@ -202,7 +202,7 @@ public class TestEliminateCrossJoins
                         values("c"),
                         "b", "c");
 
-        JoinGraph joinGraph = JoinGraph.buildFrom(tester().getMetadata(), plan, noLookup(), new PlanNodeIdAllocator(), session, new TypeAnalyzer(new SqlParser(), tester().getMetadata()), TypeProvider.empty());
+        JoinGraph joinGraph = JoinGraph.buildFrom(tester().getPlannerContext(), plan, noLookup(), new PlanNodeIdAllocator(), session, createTestingTypeAnalyzer(tester().getPlannerContext()), TypeProvider.empty());
 
         assertEquals(
                 getJoinOrder(joinGraph),
@@ -222,7 +222,7 @@ public class TestEliminateCrossJoins
                         values("c"),
                         "b", "c");
 
-        JoinGraph joinGraph = JoinGraph.buildFrom(tester().getMetadata(), plan, noLookup(), new PlanNodeIdAllocator(), session, new TypeAnalyzer(new SqlParser(), tester().getMetadata()), TypeProvider.empty());
+        JoinGraph joinGraph = JoinGraph.buildFrom(tester().getPlannerContext(), plan, noLookup(), new PlanNodeIdAllocator(), session, createTestingTypeAnalyzer(tester().getPlannerContext()), TypeProvider.empty());
 
         assertEquals(
                 getJoinOrder(joinGraph),
@@ -232,7 +232,7 @@ public class TestEliminateCrossJoins
     @Test
     public void testEliminateCrossJoinWithNonIdentityProjections()
     {
-        tester().assertThat(new EliminateCrossJoins(tester().getMetadata(), tester().getTypeAnalyzer()))
+        tester().assertThat(new EliminateCrossJoins(tester().getPlannerContext(), tester().getTypeAnalyzer()))
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, "ELIMINATE_CROSS_JOINS")
                 .on(p -> {
                     Symbol a1 = p.symbol("a1");
@@ -267,27 +267,29 @@ public class TestEliminateCrossJoins
                 })
                 .matches(
                         node(ProjectNode.class,
-                                join(
-                                        INNER,
-                                        ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("d"), new Symbol("f"))),
-                                        join(
-                                                INNER,
-                                                ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("a2"), new Symbol("c"))),
-                                                join(INNER,
-                                                        ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("a1"), new Symbol("e"))),
-                                                        strictProject(
-                                                                ImmutableMap.of(
-                                                                        "a2", expression("-a1"),
-                                                                        "a1", expression("a1")),
-                                                                PlanMatchPattern.values("a1")),
-                                                        strictProject(
-                                                                ImmutableMap.of(
-                                                                        "e", expression("e")),
-                                                                PlanMatchPattern.values("e"))),
-                                                any()),
-                                        strictProject(
-                                                ImmutableMap.of("f", expression("-b")),
-                                                PlanMatchPattern.values("b")))));
+                                join(INNER, builder -> builder
+                                        .equiCriteria(ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("d"), new Symbol("f"))))
+                                        .left(join(INNER, leftJoinBuilder -> leftJoinBuilder
+                                                .equiCriteria(ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("a2"), new Symbol("c"))))
+                                                .left(
+                                                        join(INNER, leftInnerJoinBuilder -> leftInnerJoinBuilder
+                                                                .equiCriteria(ImmutableList.of(aliases -> new EquiJoinClause(new Symbol("a1"), new Symbol("e"))))
+                                                                .left(
+                                                                        strictProject(
+                                                                                ImmutableMap.of(
+                                                                                        "a2", expression("-a1"),
+                                                                                        "a1", expression("a1")),
+                                                                                PlanMatchPattern.values("a1")))
+                                                                .right(
+                                                                        strictProject(
+                                                                                ImmutableMap.of(
+                                                                                        "e", expression("e")),
+                                                                                PlanMatchPattern.values("e")))))
+                                                .right(any())))
+                                        .right(
+                                                strictProject(
+                                                        ImmutableMap.of("f", expression("-b")),
+                                                        PlanMatchPattern.values("b"))))));
     }
 
     @Test
@@ -309,7 +311,7 @@ public class TestEliminateCrossJoins
                         "a2", "c",
                         "b", "c");
 
-        assertEquals(JoinGraph.buildFrom(tester().getMetadata(), plan, noLookup(), new PlanNodeIdAllocator(), session, new TypeAnalyzer(new SqlParser(), tester().getMetadata()), TypeProvider.empty()).size(), 2);
+        assertEquals(JoinGraph.buildFrom(tester().getPlannerContext(), plan, noLookup(), new PlanNodeIdAllocator(), session, createTestingTypeAnalyzer(tester().getPlannerContext()), TypeProvider.empty()).size(), 2);
     }
 
     private Function<PlanBuilder, PlanNode> crossJoinAndJoin(JoinNode.Type secondJoinType)

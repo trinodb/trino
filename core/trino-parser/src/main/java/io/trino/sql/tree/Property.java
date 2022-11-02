@@ -20,25 +20,46 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
+// TODO: Model DEFAULT as a type of expression to make it easier to do analysis, planning and error reporting in a uniform way
 public class Property
         extends Node
 {
     private final Identifier name;
-    private final Expression value;
+    private final Optional<Expression> value;   // empty iff the value is set to DEFAULT
+
+    /**
+     * Constructs an instance representing a property whose value is set to DEFAULT
+     */
+    public Property(Identifier name)
+    {
+        this(Optional.empty(), name, Optional.empty());
+    }
+
+    /**
+     * Constructs an instance representing a property whose value is set to DEFAULT
+     */
+    public Property(NodeLocation location, Identifier name)
+    {
+        this(Optional.of(requireNonNull(location, "location is null")), name, Optional.empty());
+    }
 
     public Property(Identifier name, Expression value)
     {
-        this(Optional.empty(), name, value);
+        this(Optional.empty(), name, Optional.of(requireNonNull(value, "value is null")));
     }
 
     public Property(NodeLocation location, Identifier name, Expression value)
     {
-        this(Optional.of(location), name, value);
+        this(
+                Optional.of(requireNonNull(location, "location is null")),
+                name,
+                Optional.of(requireNonNull(value, "value is null")));
     }
 
-    private Property(Optional<NodeLocation> location, Identifier name, Expression value)
+    private Property(Optional<NodeLocation> location, Identifier name, Optional<Expression> value)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
@@ -50,9 +71,18 @@ public class Property
         return name;
     }
 
-    public Expression getValue()
+    public boolean isSetToDefault()
     {
-        return value;
+        return !value.isPresent();
+    }
+
+    /**
+     * Returns the non-default value of the property. This method should be called only if the property is not set to DEFAULT.
+     */
+    public Expression getNonDefaultValue()
+    {
+        checkState(!isSetToDefault(), "Cannot get non-default value of property %s since its value is set to DEFAULT", name);
+        return value.get();
     }
 
     @Override
@@ -64,7 +94,7 @@ public class Property
     @Override
     public List<? extends Node> getChildren()
     {
-        return ImmutableList.of(name, value);
+        return isSetToDefault() ? ImmutableList.of(name) : ImmutableList.of(name, getNonDefaultValue());
     }
 
     @Override
@@ -92,7 +122,7 @@ public class Property
     {
         return toStringHelper(this)
                 .add("name", name)
-                .add("value", value)
+                .add("value", isSetToDefault() ? "DEFAULT" : getNonDefaultValue())
                 .toString();
     }
 }

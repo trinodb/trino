@@ -54,7 +54,7 @@ public class TestQueryTracker
         Session defaultSession = testSessionBuilder()
                 .setCatalog("mock")
                 .setSchema("default")
-                .setSystemProperty(QUERY_MAX_PLANNING_TIME, "1s")
+                .setSystemProperty(QUERY_MAX_PLANNING_TIME, "2s")
                 .build();
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner
@@ -78,12 +78,12 @@ public class TestQueryTracker
     }
 
     // Ignore the flaky test as in https://github.com/trinodb/trino/issues/8432
-    @Test(timeOut = 5_000, enabled = false)
+    @Test(timeOut = 10_000, enabled = false)
     public void testInterruptApplyFilter()
             throws InterruptedException
     {
         assertThatThrownBy(() -> getQueryRunner().execute("SELECT * FROM t1 WHERE col = 'abc'"))
-                .hasMessageContaining("Query exceeded the maximum planning time limit of 1.00s");
+                .hasMessageContaining("Query exceeded the maximum planning time limit of 2.00s");
 
         interrupted.await();
     }

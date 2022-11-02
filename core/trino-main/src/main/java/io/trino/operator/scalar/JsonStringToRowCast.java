@@ -13,16 +13,12 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.metadata.FunctionArgumentDefinition;
-import io.trino.metadata.FunctionBinding;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.TypeSignature;
 
-import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.withVariadicBound;
 import static io.trino.operator.scalar.JsonToRowCast.JSON_TO_ROW;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 
@@ -34,25 +30,22 @@ public final class JsonStringToRowCast
 
     private JsonStringToRowCast()
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        JSON_STRING_TO_ROW_NAME,
-                        ImmutableList.of(withVariadicBound("T", "row")),
-                        ImmutableList.of(),
-                        new TypeSignature("T"),
-                        ImmutableList.of(VARCHAR.getTypeSignature()),
-                        false),
-                true,
-                ImmutableList.of(new FunctionArgumentDefinition(false)),
-                true,
-                true,
-                "",
-                SCALAR));
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .name(JSON_STRING_TO_ROW_NAME)
+                        .variadicTypeParameter("T", "row")
+                        .returnType(new TypeSignature("T"))
+                        .argumentType(VARCHAR)
+                        .build())
+                .nullable()
+                .hidden()
+                .noDescription()
+                .build());
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
-        return JSON_TO_ROW.specialize(functionBinding);
+        return JSON_TO_ROW.specialize(boundSignature);
     }
 }

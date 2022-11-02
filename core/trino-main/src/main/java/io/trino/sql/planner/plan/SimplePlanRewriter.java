@@ -13,10 +13,9 @@
  */
 package io.trino.sql.planner.plan;
 
-import java.util.List;
+import com.google.common.collect.ImmutableList;
 
 import static com.google.common.base.Verify.verifyNotNull;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.sql.planner.plan.ChildReplacer.replaceChildren;
 
 public abstract class SimplePlanRewriter<C>
@@ -69,11 +68,9 @@ public abstract class SimplePlanRewriter<C>
          */
         public PlanNode defaultRewrite(PlanNode node, C context)
         {
-            List<PlanNode> children = node.getSources().stream()
-                    .map(child -> rewrite(child, context))
-                    .collect(toImmutableList());
-
-            return replaceChildren(node, children);
+            ImmutableList.Builder<PlanNode> children = ImmutableList.builderWithExpectedSize(node.getSources().size());
+            node.getSources().forEach(source -> children.add(rewrite(source, context)));
+            return replaceChildren(node, children.build());
         }
 
         /**

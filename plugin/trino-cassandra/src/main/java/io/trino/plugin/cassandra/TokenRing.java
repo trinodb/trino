@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.cassandra;
 
+import com.datastax.oss.driver.api.core.metadata.token.Token;
+
 import java.math.BigInteger;
 import java.util.Optional;
 
@@ -26,12 +28,12 @@ public interface TokenRing
      * @param startToken exclusive
      * @param endToken inclusive
      */
-    double getRingFraction(String startToken, String endToken);
+    double getRingFraction(Token startToken, Token endToken);
 
     /**
      * Returns token count in a given range
      */
-    BigInteger getTokenCountInRange(String startToken, String endToken);
+    BigInteger getTokenCountInRange(Token startToken, Token endToken);
 
     static Optional<TokenRing> createForPartitioner(String partitioner)
     {

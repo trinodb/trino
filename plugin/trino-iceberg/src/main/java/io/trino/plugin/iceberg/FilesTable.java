@@ -135,6 +135,7 @@ public class FilesTable
             }
             if (checkNonNull(dataFile.lowerBounds(), pagesBuilder)) {
                 pagesBuilder.appendIntegerVarcharMap(dataFile.lowerBounds().entrySet().stream()
+                        .filter(entry -> idToTypeMapping.containsKey(entry.getKey()))
                         .collect(toImmutableMap(
                                 Map.Entry<Integer, ByteBuffer>::getKey,
                                 entry -> Transforms.identity(idToTypeMapping.get(entry.getKey())).toHumanString(
@@ -142,6 +143,7 @@ public class FilesTable
             }
             if (checkNonNull(dataFile.upperBounds(), pagesBuilder)) {
                 pagesBuilder.appendIntegerVarcharMap(dataFile.upperBounds().entrySet().stream()
+                        .filter(entry -> idToTypeMapping.containsKey(entry.getKey()))
                         .collect(toImmutableMap(
                                 Map.Entry<Integer, ByteBuffer>::getKey,
                                 entry -> Transforms.identity(idToTypeMapping.get(entry.getKey())).toHumanString(
@@ -177,7 +179,7 @@ public class FilesTable
         for (Types.NestedField field : schema.columns()) {
             populateIcebergIdToTypeMapping(field, icebergIdToTypeMapping);
         }
-        return icebergIdToTypeMapping.build();
+        return icebergIdToTypeMapping.buildOrThrow();
     }
 
     private static void populateIcebergIdToTypeMapping(Types.NestedField field, ImmutableMap.Builder<Integer, Type> icebergIdToTypeMapping)

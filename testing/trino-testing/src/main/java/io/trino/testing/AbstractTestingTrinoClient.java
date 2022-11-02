@@ -19,10 +19,8 @@ import io.trino.Session;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.ClientSession;
 import io.trino.client.Column;
-import io.trino.client.QueryError;
 import io.trino.client.QueryStatusInfo;
 import io.trino.client.StatementClient;
-import io.trino.connector.CatalogName;
 import io.trino.metadata.MetadataUtil;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
@@ -36,12 +34,12 @@ import org.intellij.lang.annotations.Language;
 
 import java.io.Closeable;
 import java.net.URI;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -82,11 +80,13 @@ public abstract class AbstractTestingTrinoClient<T>
     protected abstract ResultsSession<T> getResultSession(Session session);
 
     public ResultWithQueryId<T> execute(@Language("SQL") String sql)
+            throws QueryFailedException
     {
         return execute(defaultSession, sql);
     }
 
     public ResultWithQueryId<T> execute(Session session, @Language("SQL") String sql)
+            throws QueryFailedException
     {
         ResultsSession<T> resultsSession = getResultSession(session);
 
@@ -99,10 +99,10 @@ public abstract class AbstractTestingTrinoClient<T>
             }
 
             checkState(client.isFinished());
-            QueryError error = client.finalStatusInfo().getError();
+            QueryStatusInfo results = client.finalStatusInfo();
+            QueryId queryId = new QueryId(results.getId());
 
-            if (error == null) {
-                QueryStatusInfo results = client.finalStatusInfo();
+            if (results.getError() == null) {
                 if (results.getUpdateType() != null) {
                     resultsSession.setUpdateType(results.getUpdateType());
                 }
@@ -111,16 +111,17 @@ public abstract class AbstractTestingTrinoClient<T>
                 }
 
                 resultsSession.setWarnings(results.getWarnings());
+                resultsSession.setStatementStats(results.getStats());
 
                 T result = resultsSession.build(client.getSetSessionProperties(), client.getResetSessionProperties());
-                return new ResultWithQueryId<>(new QueryId(results.getId()), result);
+                return new ResultWithQueryId<>(queryId, result);
             }
 
-            if (error.getFailureInfo() != null) {
-                RuntimeException remoteException = error.getFailureInfo().toException();
-                throw new RuntimeException(Optional.ofNullable(remoteException.getMessage()).orElseGet(remoteException::toString), remoteException);
+            if (results.getError().getFailureInfo() != null) {
+                RuntimeException remoteException = results.getError().getFailureInfo().toException();
+                throw new QueryFailedException(queryId, Optional.ofNullable(remoteException.getMessage()).orElseGet(remoteException::toString), remoteException);
             }
-            throw new RuntimeException("Query failed: " + error.getMessage());
+            throw new QueryFailedException(queryId, "Query failed: " + results.getError().getMessage());
 
             // dump query info to console for debugging (NOTE: not pretty printed)
             // JsonCodec<QueryInfo> queryInfoJsonCodec = createCodecFactory().prettyPrint().jsonCodec(QueryInfo.class);
@@ -132,14 +133,10 @@ public abstract class AbstractTestingTrinoClient<T>
     {
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         properties.putAll(session.getSystemProperties());
-        for (Entry<CatalogName, Map<String, String>> catalogAndConnectorProperties : session.getConnectorProperties().entrySet()) {
+        for (Entry<String, Map<String, String>> catalogAndConnectorProperties : session.getCatalogProperties().entrySet()) {
             for (Entry<String, String> connectorProperties : catalogAndConnectorProperties.getValue().entrySet()) {
-                properties.put(catalogAndConnectorProperties.getKey() + "." + connectorProperties.getKey(), connectorProperties.getValue());
-            }
-        }
-        for (Entry<String, Map<String, String>> connectorProperties : session.getUnprocessedCatalogProperties().entrySet()) {
-            for (Entry<String, String> entry : connectorProperties.getValue().entrySet()) {
-                properties.put(connectorProperties.getKey() + "." + entry.getKey(), entry.getValue());
+                String catalogName = catalogAndConnectorProperties.getKey();
+                properties.put(catalogName + "." + connectorProperties.getKey(), connectorProperties.getValue());
             }
         }
 
@@ -149,27 +146,27 @@ public abstract class AbstractTestingTrinoClient<T>
         estimates.getCpuTime().ifPresent(e -> resourceEstimates.put(CPU_TIME, e.toString()));
         estimates.getPeakMemoryBytes().ifPresent(e -> resourceEstimates.put(PEAK_MEMORY, e.toString()));
 
-        return new ClientSession(
-                server,
-                session.getIdentity().getUser(),
-                Optional.empty(),
-                session.getSource().orElse(null),
-                session.getTraceToken(),
-                session.getClientTags(),
-                session.getClientInfo().orElse(null),
-                session.getCatalog().orElse(null),
-                session.getSchema().orElse(null),
-                session.getPath().toString(),
-                ZoneId.of(session.getTimeZoneKey().getId()),
-                session.getLocale(),
-                resourceEstimates.build(),
-                properties.build(),
-                session.getPreparedStatements(),
-                getRoles(session),
-                session.getIdentity().getExtraCredentials(),
-                session.getTransactionId().map(Object::toString).orElse(null),
-                clientRequestTimeout,
-                true);
+        return ClientSession.builder()
+                .server(server)
+                .principal(Optional.of(session.getIdentity().getUser()))
+                .source(session.getSource().orElse(null))
+                .traceToken(session.getTraceToken())
+                .clientTags(session.getClientTags())
+                .clientInfo(session.getClientInfo().orElse(null))
+                .catalog(session.getCatalog().orElse(null))
+                .schema(session.getSchema().orElse(null))
+                .path(session.getPath().toString())
+                .timeZone(session.getTimeZoneKey().getZoneId())
+                .locale(session.getLocale())
+                .resourceEstimates(resourceEstimates.buildOrThrow())
+                .properties(properties.buildOrThrow())
+                .preparedStatements(session.getPreparedStatements())
+                .roles(getRoles(session))
+                .credentials(session.getIdentity().getExtraCredentials())
+                .transactionId(session.getTransactionId().map(Object::toString).orElse(null))
+                .clientRequestTimeout(clientRequestTimeout)
+                .compressionDisabled(true)
+                .build();
     }
 
     private static Map<String, ClientSelectedRole> getRoles(Session session)
@@ -177,7 +174,7 @@ public abstract class AbstractTestingTrinoClient<T>
         ImmutableMap.Builder<String, ClientSelectedRole> builder = ImmutableMap.builder();
         session.getIdentity().getEnabledRoles().forEach(role -> builder.put("system", toClientSelectedRole(new SelectedRole(ROLE, Optional.of(role)))));
         session.getIdentity().getCatalogRoles().forEach((key, value) -> builder.put(key, toClientSelectedRole(value)));
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     private static ClientSelectedRole toClientSelectedRole(io.trino.spi.security.SelectedRole value)
@@ -187,20 +184,22 @@ public abstract class AbstractTestingTrinoClient<T>
 
     public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)
     {
-        return transaction(trinoServer.getTransactionManager(), trinoServer.getAccessControl())
-                .readOnly()
-                .execute(session, transactionSession -> {
-                    return trinoServer.getMetadata().listTables(transactionSession, new QualifiedTablePrefix(catalog, schema));
-                });
+        return inTransaction(session, transactionSession ->
+                trinoServer.getMetadata().listTables(transactionSession, new QualifiedTablePrefix(catalog, schema)));
     }
 
     public boolean tableExists(Session session, String table)
     {
+        return inTransaction(session, transactionSession ->
+                MetadataUtil.tableExists(trinoServer.getMetadata(), transactionSession, table));
+    }
+
+    private <V> V inTransaction(Session session, Function<Session, V> callback)
+    {
         return transaction(trinoServer.getTransactionManager(), trinoServer.getAccessControl())
                 .readOnly()
-                .execute(session, transactionSession -> {
-                    return MetadataUtil.tableExists(trinoServer.getMetadata(), transactionSession, table);
-                });
+                .singleStatement()
+                .execute(session, callback);
     }
 
     public Session getDefaultSession()
@@ -217,7 +216,14 @@ public abstract class AbstractTestingTrinoClient<T>
     {
         return columns.stream()
                 .map(Column::getType)
-                .map(trinoServer.getMetadata()::fromSqlType)
+                .map(trinoServer.getTypeManager()::fromSqlType)
+                .collect(toImmutableList());
+    }
+
+    protected List<String> getNames(List<Column> columns)
+    {
+        return columns.stream()
+                .map(Column::getName)
                 .collect(toImmutableList());
     }
 }

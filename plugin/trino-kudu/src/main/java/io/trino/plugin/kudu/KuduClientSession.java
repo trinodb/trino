@@ -45,7 +45,6 @@ import org.apache.kudu.Schema;
 import org.apache.kudu.Type;
 import org.apache.kudu.client.AlterTableOptions;
 import org.apache.kudu.client.CreateTableOptions;
-import org.apache.kudu.client.KuduClient;
 import org.apache.kudu.client.KuduException;
 import org.apache.kudu.client.KuduPredicate;
 import org.apache.kudu.client.KuduScanToken;
@@ -54,6 +53,8 @@ import org.apache.kudu.client.KuduSession;
 import org.apache.kudu.client.KuduTable;
 import org.apache.kudu.client.PartialRow;
 import org.apache.kudu.client.PartitionSchema.HashBucketSchema;
+
+import javax.annotation.PreDestroy;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -64,11 +65,15 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
 import static java.util.stream.Collectors.toList;
+import static org.apache.kudu.ColumnSchema.ColumnSchemaBuilder;
+import static org.apache.kudu.ColumnSchema.CompressionAlgorithm;
+import static org.apache.kudu.ColumnSchema.Encoding;
 import static org.apache.kudu.client.KuduPredicate.ComparisonOp.GREATER;
 import static org.apache.kudu.client.KuduPredicate.ComparisonOp.GREATER_EQUAL;
 import static org.apache.kudu.client.KuduPredicate.ComparisonOp.LESS;
@@ -78,10 +83,10 @@ public class KuduClientSession
 {
     private static final Logger log = Logger.get(KuduClientSession.class);
     public static final String DEFAULT_SCHEMA = "default";
-    private final KuduClient client;
+    private final KuduClientWrapper client;
     private final SchemaEmulation schemaEmulation;
 
-    public KuduClientSession(KuduClient client, SchemaEmulation schemaEmulation)
+    public KuduClientSession(KuduClientWrapper client, SchemaEmulation schemaEmulation)
     {
         this.client = client;
         this.schemaEmulation = schemaEmulation;
@@ -150,6 +155,8 @@ public class KuduClientSession
         KuduTable table = tableHandle.getTable(this);
         int primaryKeyColumnCount = table.getSchema().getPrimaryKeyColumnCount();
         KuduScanToken.KuduScanTokenBuilder builder = client.newScanTokenBuilder(table);
+        // TODO: remove when kudu client bug is fixed: https://gerrit.cloudera.org/#/c/18166/
+        builder.includeTabletMetadata(false);
 
         TupleDomain<ColumnHandle> constraint = tableHandle.getConstraint()
                 .intersect(dynamicFilter.getCurrentPredicate().simplify(100));
@@ -160,7 +167,7 @@ public class KuduClientSession
         Optional<List<ColumnHandle>> desiredColumns = tableHandle.getDesiredColumns();
 
         List<Integer> columnIndexes;
-        if (tableHandle.isDeleteHandle()) {
+        if (tableHandle.isRequiresRowId()) {
             if (desiredColumns.isPresent()) {
                 columnIndexes = IntStream
                         .range(0, primaryKeyColumnCount)
@@ -217,7 +224,7 @@ public class KuduClientSession
     public KuduScanner createScanner(KuduSplit kuduSplit)
     {
         try {
-            return KuduScanToken.deserializeIntoScanner(kuduSplit.getSerializedScanToken(), client);
+            return client.deserializeIntoScanner(kuduSplit.getSerializedScanToken());
         }
         catch (IOException e) {
             throw new RuntimeException(e);
@@ -233,9 +240,9 @@ public class KuduClientSession
         catch (KuduException e) {
             log.debug(e, "Error on doOpenTable");
             if (!listSchemaNames().contains(schemaTableName.getSchemaName())) {
-                throw new SchemaNotFoundException(schemaTableName.getSchemaName());
+                throw new SchemaNotFoundException(schemaTableName.getSchemaName(), e);
             }
-            throw new TableNotFoundException(schemaTableName);
+            throw new TableNotFoundException(schemaTableName, e);
         }
     }
 
@@ -311,7 +318,12 @@ public class KuduClientSession
             String rawName = schemaEmulation.toRawName(schemaTableName);
             AlterTableOptions alterOptions = new AlterTableOptions();
             Type type = TypeHelper.toKuduClientType(column.getType());
-            alterOptions.addNullableColumn(column.getName(), type);
+            alterOptions.addColumn(
+                    new ColumnSchemaBuilder(column.getName(), type)
+                            .nullable(true)
+                            .defaultValue(null)
+                            .comment(nullToEmpty(column.getComment())) // Kudu doesn't allow null comment
+                            .build());
             client.alterTable(rawName, alterOptions);
         }
         catch (KuduException e) {
@@ -398,7 +410,7 @@ public class KuduClientSession
         String name = columnMetadata.getName();
         ColumnDesign design = KuduTableProperties.getColumnDesign(columnMetadata.getProperties());
         Type ktype = TypeHelper.toKuduClientType(columnMetadata.getType());
-        ColumnSchema.ColumnSchemaBuilder builder = new ColumnSchema.ColumnSchemaBuilder(name, ktype);
+        ColumnSchemaBuilder builder = new ColumnSchemaBuilder(name, ktype);
         builder.key(design.isPrimaryKey()).nullable(design.isNullable());
         setEncoding(name, builder, design);
         setCompression(name, builder, design);
@@ -406,7 +418,7 @@ public class KuduClientSession
         return builder.build();
     }
 
-    private void setTypeAttributes(ColumnMetadata columnMetadata, ColumnSchema.ColumnSchemaBuilder builder)
+    private void setTypeAttributes(ColumnMetadata columnMetadata, ColumnSchemaBuilder builder)
     {
         if (columnMetadata.getType() instanceof DecimalType) {
             DecimalType type = (DecimalType) columnMetadata.getType();
@@ -417,11 +429,11 @@ public class KuduClientSession
         }
     }
 
-    private void setCompression(String name, ColumnSchema.ColumnSchemaBuilder builder, ColumnDesign design)
+    private void setCompression(String name, ColumnSchemaBuilder builder, ColumnDesign design)
     {
         if (design.getCompression() != null) {
             try {
-                ColumnSchema.CompressionAlgorithm algorithm = KuduTableProperties.lookupCompression(design.getCompression());
+                CompressionAlgorithm algorithm = KuduTableProperties.lookupCompression(design.getCompression());
                 builder.compressionAlgorithm(algorithm);
             }
             catch (IllegalArgumentException e) {
@@ -430,11 +442,11 @@ public class KuduClientSession
         }
     }
 
-    private void setEncoding(String name, ColumnSchema.ColumnSchemaBuilder builder, ColumnDesign design)
+    private void setEncoding(String name, ColumnSchemaBuilder builder, ColumnDesign design)
     {
         if (design.getEncoding() != null) {
             try {
-                ColumnSchema.Encoding encoding = KuduTableProperties.lookupEncoding(design.getEncoding());
+                Encoding encoding = KuduTableProperties.lookupEncoding(design.getEncoding());
                 builder.encoding(encoding);
             }
             catch (IllegalArgumentException e) {
@@ -603,10 +615,17 @@ public class KuduClientSession
     {
         try {
             byte[] serializedScanToken = token.serialize();
-            return new KuduSplit(tableHandle, primaryKeyColumnCount, serializedScanToken, bucketNumber);
+            return new KuduSplit(tableHandle.getSchemaTableName(), primaryKeyColumnCount, serializedScanToken, bucketNumber);
         }
         catch (IOException e) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
         }
+    }
+
+    @PreDestroy
+    public void close()
+            throws KuduException
+    {
+        this.client.close();
     }
 }

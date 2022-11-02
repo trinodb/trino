@@ -17,8 +17,8 @@ import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.hdfs.HdfsContext;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveReadOnlyException;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.HiveType;
@@ -41,7 +41,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -83,6 +83,7 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
 import org.joda.time.DateTimeZone;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -447,12 +448,10 @@ public final class HiveWriteUtils
 
     public static Path getTableDefaultLocation(Database database, HdfsContext context, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName)
     {
-        Optional<String> location = database.getLocation();
-        if (location.isEmpty() || location.get().isEmpty()) {
-            throw new TrinoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not set", schemaName));
-        }
+        String location = database.getLocation()
+                .orElseThrow(() -> new TrinoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not set", schemaName)));
 
-        Path databasePath = new Path(location.get());
+        Path databasePath = new Path(location);
         if (!isS3FileSystem(context, hdfsEnvironment, databasePath)) {
             if (!pathExists(context, hdfsEnvironment, databasePath)) {
                 throw new TrinoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location does not exist: %s", schemaName, databasePath));
@@ -605,6 +604,22 @@ public final class HiveWriteUtils
         }
     }
 
+    public static void checkedDelete(FileSystem fileSystem, Path file, boolean recursive)
+            throws IOException
+    {
+        try {
+            if (!fileSystem.delete(file, recursive)) {
+                if (fileSystem.exists(file)) {
+                    // only throw exception if file still exists
+                    throw new IOException("Failed to delete " + file);
+                }
+            }
+        }
+        catch (FileNotFoundException ignored) {
+            // ok
+        }
+    }
+
     public static boolean isWritableType(HiveType hiveType)
     {
         return isWritableType(hiveType.getTypeInfo());
@@ -747,7 +762,7 @@ public final class HiveWriteUtils
             unscaledValue = BigInteger.valueOf(decimalType.getLong(block, position));
         }
         else {
-            unscaledValue = Decimals.decodeUnscaledValue(decimalType.getSlice(block, position));
+            unscaledValue = ((Int128) decimalType.getObject(block, position)).toBigInteger();
         }
         return HiveDecimal.create(unscaledValue, decimalType.getScale());
     }

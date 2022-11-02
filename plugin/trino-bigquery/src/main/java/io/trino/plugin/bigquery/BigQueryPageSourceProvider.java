@@ -26,9 +26,12 @@ import io.trino.spi.connector.DynamicFilter;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.bigquery.BigQuerySessionProperties.createDisposition;
+import static io.trino.plugin.bigquery.BigQuerySessionProperties.isQueryResultsCacheEnabled;
 import static java.util.Objects.requireNonNull;
 
 public class BigQueryPageSourceProvider
@@ -36,14 +39,16 @@ public class BigQueryPageSourceProvider
 {
     private static final Logger log = Logger.get(BigQueryPageSourceProvider.class);
 
-    private final BigQueryStorageClientFactory bigQueryStorageClientFactory;
+    private final BigQueryClientFactory bigQueryClientFactory;
+    private final BigQueryReadClientFactory bigQueryReadClientFactory;
     private final int maxReadRowsRetries;
 
     @Inject
-    public BigQueryPageSourceProvider(BigQueryStorageClientFactory bigQueryStorageClientFactory, BigQueryConfig config)
+    public BigQueryPageSourceProvider(BigQueryClientFactory bigQueryClientFactory, BigQueryReadClientFactory bigQueryReadClientFactory, BigQueryConfig config)
     {
-        this.bigQueryStorageClientFactory = requireNonNull(bigQueryStorageClientFactory, "bigQueryStorageClientFactory is null");
-        this.maxReadRowsRetries = requireNonNull(config, "config is null").getMaxReadRowsRetries();
+        this.bigQueryClientFactory = requireNonNull(bigQueryClientFactory, "bigQueryClientFactory is null");
+        this.bigQueryReadClientFactory = requireNonNull(bigQueryReadClientFactory, "bigQueryReadClientFactory is null");
+        this.maxReadRowsRetries = config.getMaxReadRowsRetries();
     }
 
     @Override
@@ -71,6 +76,35 @@ public class BigQueryPageSourceProvider
                 .map(BigQueryColumnHandle.class::cast)
                 .collect(toImmutableList());
 
-        return new BigQueryResultPageSource(bigQueryStorageClientFactory, maxReadRowsRetries, bigQuerySplit, bigQueryColumnHandles);
+        return createPageSource(session, (BigQueryTableHandle) table, bigQuerySplit, bigQueryColumnHandles);
+    }
+
+    private ConnectorPageSource createPageSource(
+            ConnectorSession session,
+            BigQueryTableHandle table,
+            BigQuerySplit split,
+            List<BigQueryColumnHandle> columnHandles)
+    {
+        return switch (split.getMode()) {
+            case STORAGE -> createStoragePageSource(session, split, columnHandles);
+            case QUERY -> createQueryPageSource(session, table, columnHandles, split.getFilter());
+        };
+    }
+
+    private ConnectorPageSource createStoragePageSource(ConnectorSession session, BigQuerySplit split, List<BigQueryColumnHandle> columnHandles)
+    {
+        return new BigQueryStoragePageSource(bigQueryReadClientFactory.create(session), maxReadRowsRetries, split, columnHandles);
+    }
+
+    private ConnectorPageSource createQueryPageSource(ConnectorSession session, BigQueryTableHandle table, List<BigQueryColumnHandle> columnHandles, Optional<String> filter)
+    {
+        return new BigQueryQueryPageSource(
+                bigQueryClientFactory.create(session),
+                table,
+                columnHandles.stream().map(BigQueryColumnHandle::getName).collect(toImmutableList()),
+                columnHandles.stream().map(BigQueryColumnHandle::getTrinoType).collect(toImmutableList()),
+                filter,
+                isQueryResultsCacheEnabled(session),
+                createDisposition(session));
     }
 }

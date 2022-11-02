@@ -53,6 +53,8 @@ public final class ScyllaQueryRunner
             connectorProperties.putIfAbsent("cassandra.contact-points", server.getHost());
             connectorProperties.putIfAbsent("cassandra.native-protocol-port", Integer.toString(server.getPort()));
             connectorProperties.putIfAbsent("cassandra.allow-drop-table", "true");
+            connectorProperties.putIfAbsent("cassandra.load-policy.use-dc-aware", "true");
+            connectorProperties.putIfAbsent("cassandra.load-policy.dc-aware.local-dc", "datacenter1");
 
             queryRunner.installPlugin(new CassandraPlugin());
             queryRunner.createCatalog("cassandra", "cassandra", connectorProperties);

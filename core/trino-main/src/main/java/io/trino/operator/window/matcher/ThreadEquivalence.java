@@ -15,7 +15,11 @@ package io.trino.operator.window.matcher;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.window.pattern.LogicalIndexNavigation;
+import io.trino.operator.window.pattern.MatchAggregation;
+import io.trino.operator.window.pattern.MatchAggregationPointer;
+import io.trino.operator.window.pattern.PhysicalValueAccessor;
 import io.trino.operator.window.pattern.PhysicalValuePointer;
+import io.trino.sql.planner.LocalExecutionPlanner.MatchAggregationLabelDependency;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -58,6 +62,15 @@ import static io.trino.operator.window.pattern.PhysicalValuePointer.MATCH_NUMBER
  * <p>
  * NOTE: the navigating operations for `MATCH_NUMBER` calls can be skipped
  * altogether, since the match number is constant in this context.
+ * <p>
+ * 4. for all those labels, get all aggregations which need to be computed
+ * during label evaluation.
+ * <p>
+ * 4a. for aggregations whose arguments do not depend on the actual matched labels,
+ * check if the aggregated positions are the same for both threads.
+ * <p>
+ * 4b. for aggregations whose arguments depend on the actual matched labels,
+ * check if the aggregated positions, and the assigned labels are the same for both threads.
  */
 public class ThreadEquivalence
 {
@@ -71,11 +84,19 @@ public class ThreadEquivalence
     // for every label, the set of navigations for accessing the matched labels based on the defining condition
     private final List<Set<LogicalIndexNavigation>> labelsToCompare;
 
-    public ThreadEquivalence(Program program, List<List<PhysicalValuePointer>> valuePointers)
+    // for every label, the list indexes of all aggregations present in the defining condition
+    // which require only comparing the aggregated positions
+    private final List<List<Integer>> matchAggregationsToComparePositions;
+
+    // for every label, the list of indexes of all aggregations present in the defining condition
+    // which require comparing the aggregated positions and assigned labels
+    private final List<List<Integer>> matchAggregationsToComparePositionsAndLabels;
+
+    public ThreadEquivalence(Program program, List<List<PhysicalValueAccessor>> accessors, List<MatchAggregationLabelDependency> labelDependencies)
     {
         this.reachableLabels = computeReachableLabels(program);
 
-        this.positionsToCompare = getInputValuePointers(valuePointers).stream()
+        this.positionsToCompare = getInputValuePointers(accessors).stream()
                 .map(pointersList -> pointersList.stream()
                         .map(PhysicalValuePointer::getLogicalIndexNavigation)
                         .filter(navigation -> !navigation.getLabels().isEmpty())
@@ -85,16 +106,20 @@ public class ThreadEquivalence
                         .collect(toImmutableSet()))
                 .collect(toImmutableList());
 
-        this.labelsToCompare = getClassifierValuePointers(valuePointers).stream()
+        this.labelsToCompare = getClassifierValuePointers(accessors).stream()
                 .map(pointersList -> pointersList.stream()
                         .map(PhysicalValuePointer::getLogicalIndexNavigation)
                         .map(ThreadEquivalence::allPositionsToCompare)
                         .flatMap(Collection::stream)
                         .collect(toImmutableSet()))
                 .collect(toImmutableList());
+
+        AggregationIndexes aggregationIndexes = classifyAggregations(accessors, labelDependencies);
+        this.matchAggregationsToComparePositions = aggregationIndexes.foundNoClassifierAggregations ? aggregationIndexes.noClassifierAggregations : null;
+        this.matchAggregationsToComparePositionsAndLabels = aggregationIndexes.foundClassifierAggregations ? aggregationIndexes.classifierAggregations : null;
     }
 
-    public boolean equivalent(int firstThread, ArrayView firstLabels, int secondThread, ArrayView secondLabels, int pointer)
+    public boolean equivalent(int firstThread, ArrayView firstLabels, MatchAggregation[] firstAggregations, int secondThread, ArrayView secondLabels, MatchAggregation[] secondAggregations, int pointer)
     {
         checkArgument(firstLabels.length() == secondLabels.length(), "matched labels for compared threads differ in length");
         checkArgument(pointer >= 0 && pointer < reachableLabels.size(), "instruction pointer out of program bounds");
@@ -127,6 +152,47 @@ public class ThreadEquivalence
             }
             if (firstPosition != -1 && firstLabels.get(firstPosition) != secondLabels.get(secondPosition)) {
                 return false;
+            }
+        }
+
+        // compare sets of all aggregated positions for aggregations which do not depend on `CLASSIFIER`
+        if (matchAggregationsToComparePositions != null) {
+            Set<Integer> aggregationsToComparePositions = new HashSet<>();
+            for (int label : reachableLabels.get(pointer)) {
+                aggregationsToComparePositions.addAll(matchAggregationsToComparePositions.get(label));
+            }
+            for (int aggregationIndex : aggregationsToComparePositions) {
+                ArrayView firstPositions = firstAggregations[aggregationIndex].getAllPositions(firstLabels);
+                ArrayView secondPositions = secondAggregations[aggregationIndex].getAllPositions(secondLabels);
+                if (firstPositions.length() != secondPositions.length()) {
+                    return false;
+                }
+                for (int i = 0; i < firstPositions.length(); i++) {
+                    if (firstPositions.get(i) != secondPositions.get(i)) {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        // compare sets of all aggregated positions, and sets of matched labels on all aggregated positions for aggregations which depend on `CLASSIFIER`
+        if (matchAggregationsToComparePositionsAndLabels != null) {
+            Set<Integer> aggregationsToComparePositionsAndLabels = new HashSet<>();
+            for (int label : reachableLabels.get(pointer)) {
+                aggregationsToComparePositionsAndLabels.addAll(matchAggregationsToComparePositionsAndLabels.get(label));
+            }
+            for (int aggregationIndex : aggregationsToComparePositionsAndLabels) {
+                ArrayView firstPositions = firstAggregations[aggregationIndex].getAllPositions(firstLabels);
+                ArrayView secondPositions = secondAggregations[aggregationIndex].getAllPositions(secondLabels);
+                if (firstPositions.length() != secondPositions.length()) {
+                    return false;
+                }
+                for (int i = 0; i < firstPositions.length(); i++) {
+                    int position = firstPositions.get(i);
+                    if (position != secondPositions.get(i) || firstLabels.get(position) != secondLabels.get(position)) {
+                        return false;
+                    }
+                }
             }
         }
 
@@ -185,22 +251,62 @@ public class ThreadEquivalence
         return reachableLabels;
     }
 
-    private static List<List<PhysicalValuePointer>> getInputValuePointers(List<List<PhysicalValuePointer>> valuePointers)
+    private static List<List<PhysicalValuePointer>> getInputValuePointers(List<List<PhysicalValueAccessor>> valuePointers)
     {
         return valuePointers.stream()
                 .map(pointerList -> pointerList.stream()
+                        .filter(pointer -> pointer instanceof PhysicalValuePointer)
+                        .map(PhysicalValuePointer.class::cast)
                         .filter(pointer -> pointer.getSourceChannel() != CLASSIFIER && pointer.getSourceChannel() != MATCH_NUMBER)
                         .collect(toImmutableList()))
                 .collect(toImmutableList());
     }
 
-    private static List<List<PhysicalValuePointer>> getClassifierValuePointers(List<List<PhysicalValuePointer>> valuePointers)
+    private static List<List<PhysicalValuePointer>> getClassifierValuePointers(List<List<PhysicalValueAccessor>> valuePointers)
     {
         return valuePointers.stream()
                 .map(pointerList -> pointerList.stream()
+                        .filter(pointer -> pointer instanceof PhysicalValuePointer)
+                        .map(PhysicalValuePointer.class::cast)
                         .filter(pointer -> pointer.getSourceChannel() == CLASSIFIER)
                         .collect(toImmutableList()))
                 .collect(toImmutableList());
+    }
+
+    // for every label, iterate over aggregations in the label's defining condition, and divide them into sublists:
+    // - aggregations which do not depend on `CLASSIFIER`, that is, either do not use `CLASSIFIER` in any of their arguments,
+    // or apply to only one label, in which case the result of `CLASSIFIER` is always the same.
+    // - aggregations which depend on `CLASSIFIER`, that is, use `CLASSIFIER` in some of their arguments,
+    // and apply to more than one label (incl. the universal pattern variable), in which case the result of `CLASSIFIER`
+    // depends on the actual matched label.
+    private static AggregationIndexes classifyAggregations(List<List<PhysicalValueAccessor>> valuePointers, List<MatchAggregationLabelDependency> labelDependencies)
+    {
+        ImmutableList.Builder<List<Integer>> noClassifierAggregations = ImmutableList.builder();
+        boolean foundNoClassifierAggregations = false;
+        ImmutableList.Builder<List<Integer>> classifierAggregations = ImmutableList.builder();
+        boolean foundClassifierAggregations = false;
+
+        for (List<PhysicalValueAccessor> pointerList : valuePointers) {
+            ImmutableList.Builder<Integer> noClassifierAggregationIndexes = ImmutableList.builder();
+            ImmutableList.Builder<Integer> classifierAggregationIndexes = ImmutableList.builder();
+            for (PhysicalValueAccessor pointer : pointerList) {
+                if (pointer instanceof MatchAggregationPointer) {
+                    int aggregationIndex = ((MatchAggregationPointer) pointer).getIndex();
+                    MatchAggregationLabelDependency labelDependency = labelDependencies.get(aggregationIndex);
+                    if (!labelDependency.isClassifierInvolved() || labelDependency.getLabels().size() == 1) {
+                        foundNoClassifierAggregations = true;
+                        noClassifierAggregationIndexes.add(aggregationIndex);
+                    }
+                    else {
+                        foundClassifierAggregations = true;
+                        classifierAggregationIndexes.add(aggregationIndex);
+                    }
+                }
+            }
+            noClassifierAggregations.add(noClassifierAggregationIndexes.build());
+            classifierAggregations.add(classifierAggregationIndexes.build());
+        }
+        return new AggregationIndexes(foundNoClassifierAggregations, noClassifierAggregations.build(), foundClassifierAggregations, classifierAggregations.build());
     }
 
     /**
@@ -234,5 +340,21 @@ public class ThreadEquivalence
         }
 
         return ImmutableList.of(navigation);
+    }
+
+    private static class AggregationIndexes
+    {
+        final boolean foundNoClassifierAggregations;
+        final List<List<Integer>> noClassifierAggregations;
+        final boolean foundClassifierAggregations;
+        final List<List<Integer>> classifierAggregations;
+
+        public AggregationIndexes(boolean foundNoClassifierAggregations, List<List<Integer>> noClassifierAggregations, boolean foundClassifierAggregations, List<List<Integer>> classifierAggregations)
+        {
+            this.foundNoClassifierAggregations = foundNoClassifierAggregations;
+            this.noClassifierAggregations = noClassifierAggregations;
+            this.foundClassifierAggregations = foundClassifierAggregations;
+            this.classifierAggregations = classifierAggregations;
+        }
     }
 }

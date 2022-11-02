@@ -27,4 +27,30 @@ public interface DoubleWriteFunction
 
     void set(PreparedStatement statement, int index, double value)
             throws SQLException;
+
+    static DoubleWriteFunction of(int nullJdbcType, DoubleWriteFunctionImplementation implementation)
+    {
+        return new DoubleWriteFunction() {
+            @Override
+            public void set(PreparedStatement statement, int index, double value)
+                    throws SQLException
+            {
+                implementation.set(statement, index, value);
+            }
+
+            @Override
+            public void setNull(PreparedStatement statement, int index)
+                    throws SQLException
+            {
+                statement.setNull(index, nullJdbcType);
+            }
+        };
+    }
+
+    @FunctionalInterface
+    interface DoubleWriteFunctionImplementation
+    {
+        void set(PreparedStatement statement, int index, double value)
+                throws SQLException;
+    }
 }

@@ -16,7 +16,6 @@ package io.trino.plugin.druid;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.io.Closer;
 import com.google.common.io.MoreFiles;
-import com.google.common.io.Resources;
 import io.trino.testing.assertions.Assert;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -31,7 +30,6 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.Charset;
 import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -42,7 +40,6 @@ import java.sql.Statement;
 import java.util.Map;
 
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static com.google.common.io.Resources.getResource;
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
 import static org.testcontainers.utility.MountableFile.forClasspathResource;
@@ -58,6 +55,7 @@ public class TestingDruidServer
     private final GenericContainer<?> middleManager;
     private final GenericContainer<?> zookeeper;
     private final OkHttpClient httpClient;
+    private final Network network;
 
     private static final int DRUID_COORDINATOR_PORT = 8081;
     private static final int DRUID_BROKER_PORT = 8082;
@@ -85,7 +83,7 @@ public class TestingDruidServer
             f.setReadable(true, false);
             f.setExecutable(true, false);
             this.httpClient = new OkHttpClient();
-            Network network = Network.newNetwork();
+            network = Network.newNetwork();
             this.zookeeper = new GenericContainer<>("zookeeper")
                     .withNetwork(network)
                     .withNetworkAliases("zookeeper")
@@ -193,6 +191,7 @@ public class TestingDruidServer
             closer.register(middleManager::stop);
             closer.register(coordinator::stop);
             closer.register(zookeeper::stop);
+            closer.register(network::close);
         }
         catch (FileSystemException e) {
             // Unfortunately, on CI environment, the user running file deletion runs into
@@ -232,12 +231,11 @@ public class TestingDruidServer
         return format("jdbc:avatica:remote:url=http://localhost:%s/druid/v2/sql/avatica/", port);
     }
 
-    void ingestData(String datasource, String indexTaskFile, String dataFilePath)
+    void ingestData(String datasource, String indexTask, String dataFilePath)
             throws IOException, InterruptedException
     {
         middleManager.withCopyFileToContainer(forHostPath(dataFilePath),
                 getMiddleManagerContainerPathForDataFile(dataFilePath));
-        String indexTask = Resources.toString(getResource(indexTaskFile), Charset.defaultCharset());
 
         Request.Builder requestBuilder = new Request.Builder();
         requestBuilder.addHeader("content-type", "application/json;charset=utf-8")

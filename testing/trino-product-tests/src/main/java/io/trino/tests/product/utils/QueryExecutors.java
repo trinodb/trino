@@ -13,39 +13,44 @@
  */
 package io.trino.tests.product.utils;
 
+import io.airlift.log.Logger;
 import io.trino.tempto.query.QueryExecutionException;
 import io.trino.tempto.query.QueryExecutor;
 import io.trino.tempto.query.QueryResult;
 import net.jodah.failsafe.Failsafe;
+import net.jodah.failsafe.RetryPolicy;
 
 import java.sql.Connection;
+import java.time.temporal.ChronoUnit;
 
 import static io.trino.tempto.context.ThreadLocalTestContextHolder.testContext;
-import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_RETRY_POLICY;
+import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_RETRY_POLICY;
 
 public final class QueryExecutors
 {
-    @Deprecated
-    public static QueryExecutor onPresto()
-    {
-        return onTrino();
-    }
+    private static final Logger log = Logger.get(QueryExecutors.class);
 
     public static QueryExecutor onTrino()
     {
-        return connectToPresto("presto");
+        return connectToTrino("presto");
     }
 
     public static QueryExecutor onCompatibilityTestServer()
     {
-        return connectToPresto("compatibility-test-server");
+        return connectToTrino("compatibility-test-server");
     }
 
+    @Deprecated
     public static QueryExecutor connectToPresto(String prestoConfig)
+    {
+        return connectToTrino(prestoConfig);
+    }
+
+    public static QueryExecutor connectToTrino(String trinoConfig)
     {
         return new QueryExecutor()
         {
-            private final QueryExecutor delegate = testContext().getDependency(QueryExecutor.class, prestoConfig);
+            private final QueryExecutor delegate = testContext().getDependency(QueryExecutor.class, trinoConfig);
 
             @Override
             public QueryResult executeQuery(String sql, QueryParam... params)
@@ -86,7 +91,68 @@ public final class QueryExecutors
 
     public static QueryExecutor onSpark()
     {
-        return testContext().getDependency(QueryExecutor.class, "spark");
+        return new QueryExecutor() {
+            private final QueryExecutor delegate = testContext().getDependency(QueryExecutor.class, "spark");
+
+            @Override
+            public QueryResult executeQuery(String sql, QueryParam... params)
+                    throws QueryExecutionException
+            {
+                return Failsafe.with(ERROR_COMMITTING_WRITE_TO_HIVE_RETRY_POLICY)
+                        .get(() -> delegate.executeQuery(sql, params));
+            }
+
+            @Override
+            public Connection getConnection()
+            {
+                return delegate.getConnection();
+            }
+
+            @Override
+            public void close()
+            {
+                delegate.close();
+            }
+        };
+    }
+
+    public static QueryExecutor onDelta()
+    {
+        // Databricks clusters sometimes return HTTP 502 while starting, possibly when the gateway is up,
+        // but Spark is still initializing. It's also possible an OOM on Spark will restart it, and the gateway may
+        // return 502 then as well. Handling this with a query retry allows us to use the cluster's autostart feature safely,
+        // while keeping costs to a minimum.
+
+        RetryPolicy<QueryResult> databricksRetryPolicy = new RetryPolicy<QueryResult>()
+                .handleIf(throwable -> throwable.getMessage().contains("HTTP Response code: 502"))
+                .withBackoff(1, 10, ChronoUnit.SECONDS)
+                .withMaxRetries(60)
+                .onRetry(event -> log.warn(event.getLastFailure(), "Query failed on attempt %d, will retry.", event.getAttemptCount()));
+
+        return new QueryExecutor()
+        {
+            private final QueryExecutor delegate = testContext().getDependency(QueryExecutor.class, "delta");
+
+            @Override
+            public QueryResult executeQuery(String sql, QueryParam... params)
+                    throws QueryExecutionException
+            {
+                return Failsafe.with(databricksRetryPolicy)
+                        .get(() -> delegate.executeQuery(sql, params));
+            }
+
+            @Override
+            public Connection getConnection()
+            {
+                return delegate.getConnection();
+            }
+
+            @Override
+            public void close()
+            {
+                delegate.close();
+            }
+        };
     }
 
     private QueryExecutors() {}

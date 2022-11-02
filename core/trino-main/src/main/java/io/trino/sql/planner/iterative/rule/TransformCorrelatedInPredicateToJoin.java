@@ -64,6 +64,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ExpressionUtils.and;
 import static io.trino.sql.ExpressionUtils.or;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.Patterns.Apply.correlation;
 import static io.trino.sql.planner.plan.Patterns.applyNode;
@@ -216,18 +217,14 @@ public class TransformCorrelatedInPredicateToJoin
         Symbol countMatchesSymbol = symbolAllocator.newSymbol("countMatches", BIGINT);
         Symbol countNullMatchesSymbol = symbolAllocator.newSymbol("countNullMatches", BIGINT);
 
-        AggregationNode aggregation = new AggregationNode(
+        AggregationNode aggregation = singleAggregation(
                 idAllocator.getNextId(),
                 preProjection,
                 ImmutableMap.<Symbol, AggregationNode.Aggregation>builder()
                         .put(countMatchesSymbol, countWithFilter(session, matchConditionSymbol))
                         .put(countNullMatchesSymbol, countWithFilter(session, nullMatchConditionSymbol))
-                        .build(),
-                singleGroupingSet(probeSide.getOutputSymbols()),
-                ImmutableList.of(),
-                AggregationNode.Step.SINGLE,
-                Optional.empty(),
-                Optional.empty());
+                        .buildOrThrow(),
+                singleGroupingSet(probeSide.getOutputSymbols()));
 
         // TODO since we care only about "some count > 0", we could have specialized node instead of leftOuterJoin that does the job without materializing join results
         SearchedCaseExpression inPredicateEquivalent = new SearchedCaseExpression(
@@ -373,9 +370,7 @@ public class TransformCorrelatedInPredicateToJoin
             if (isCorrelatedRecursively(node)) {
                 return Optional.empty();
             }
-            else {
-                return Optional.of(new Decorrelated(ImmutableList.of(), reference));
-            }
+            return Optional.of(new Decorrelated(ImmutableList.of(), reference));
         }
 
         private boolean isCorrelatedRecursively(PlanNode node)

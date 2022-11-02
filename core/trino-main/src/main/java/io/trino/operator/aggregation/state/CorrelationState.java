@@ -23,4 +23,39 @@ public interface CorrelationState
     double getM2Y();
 
     void setM2Y(double value);
+
+    @Override
+    default void update(double x, double y)
+    {
+        double oldMeanX = getMeanX();
+        double oldMeanY = getMeanY();
+        CovarianceState.super.update(x, y);
+        setM2X(getM2X() + (x - oldMeanX) * (x - getMeanX()));
+        setM2Y(getM2Y() + (y - oldMeanY) * (y - getMeanY()));
+    }
+
+    default void merge(CorrelationState otherState)
+    {
+        if (otherState.getCount() == 0) {
+            return;
+        }
+
+        long na = getCount();
+        long nb = otherState.getCount();
+        setM2X(getM2X() + otherState.getM2X() + na * nb * Math.pow(getMeanX() - otherState.getMeanX(), 2) / (double) (na + nb));
+        setM2Y(getM2Y() + otherState.getM2Y() + na * nb * Math.pow(getMeanY() - otherState.getMeanY(), 2) / (double) (na + nb));
+        CovarianceState.super.merge(otherState);
+    }
+
+    default double getCorrelation()
+    {
+        // This is defined as covariance(x, y) / (stdev(x) * stdev(y))
+        double covariance = getC2();
+        double stdevX = Math.sqrt(getM2X());
+        double stdevY = Math.sqrt(getM2Y());
+
+        // stdevX and stdevY deliberately not checked for zero because the result can be Infinity or NaN even
+        // if they are both not zero
+        return covariance / stdevX / stdevY;
+    }
 }

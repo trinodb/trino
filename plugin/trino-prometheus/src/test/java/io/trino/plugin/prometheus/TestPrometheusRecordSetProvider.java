@@ -20,42 +20,36 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.DoubleType;
-import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeOperators;
-import io.trino.type.InternalTypeManager;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.net.URI;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.plugin.prometheus.MetadataUtil.METRIC_CODEC;
 import static io.trino.plugin.prometheus.MetadataUtil.varcharMapType;
 import static io.trino.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
 import static io.trino.plugin.prometheus.PrometheusRecordCursor.getMapFromBlock;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.time.Instant.ofEpochMilli;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
 public class TestPrometheusRecordSetProvider
 {
-    private static final TypeManager TYPE_MANAGER = new InternalTypeManager(createTestMetadataManager(), new TypeOperators());
-
     private PrometheusHttpServer prometheusHttpServer;
-    private URI dataUri;
+    private String dataUri;
     private PrometheusClient client;
 
     @BeforeClass
     public void setUp()
     {
         prometheusHttpServer = new PrometheusHttpServer();
-        dataUri = prometheusHttpServer.resolve("/prometheus-data/up_matrix_response.json");
-        client = new PrometheusClient(new PrometheusConnectorConfig(), METRIC_CODEC, TYPE_MANAGER);
+        dataUri = prometheusHttpServer.resolve("/prometheus-data/up_matrix_response.json").toString();
+        client = new PrometheusClient(new PrometheusConnectorConfig(), METRIC_CODEC, TESTING_TYPE_MANAGER);
     }
 
     @AfterClass(alwaysRun = true)
@@ -98,7 +92,7 @@ public class TestPrometheusRecordSetProvider
                 .put(ofEpochMilli(1565963014044L), ImmutableMap.of("instance",
                         "localhost:9090", "__name__", "up",
                         "job", "prometheus"))
-                .build();
+                .buildOrThrow();
         assertEquals(actual, expected);
     }
 }

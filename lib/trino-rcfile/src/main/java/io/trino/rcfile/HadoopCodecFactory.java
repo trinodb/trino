@@ -14,10 +14,11 @@
 package io.trino.rcfile;
 
 import org.apache.hadoop.conf.Configurable;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.compress.CompressionCodec;
 
 import java.lang.reflect.Constructor;
+
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 
 public class HadoopCodecFactory
         implements RcFileCodecFactory
@@ -54,7 +55,7 @@ public class HadoopCodecFactory
                 // Hadoop is crazy... you have to give codecs an empty configuration or they throw NPEs
                 // but you need to make sure the configuration doesn't "load" defaults or it spends
                 // forever loading XML with no useful information
-                ((Configurable) codec).setConf(new Configuration(false));
+                ((Configurable) codec).setConf(newEmptyConfiguration());
             }
             return codec;
         }

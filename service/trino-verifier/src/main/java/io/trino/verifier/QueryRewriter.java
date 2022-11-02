@@ -110,7 +110,7 @@ public class QueryRewriter
             if (statement instanceof CreateTableAsSelect) {
                 return rewriteCreateTableAsSelect(connection, query, (CreateTableAsSelect) statement);
             }
-            else if (statement instanceof Insert) {
+            if (statement instanceof Insert) {
                 return rewriteInsertQuery(connection, query, (Insert) statement);
             }
         }
@@ -178,7 +178,7 @@ public class QueryRewriter
             throws SQLException
     {
         ResultSet columns = connection.getMetaData().getColumns(catalog, escapeLikeExpression(connection, schema), escapeLikeExpression(connection, table), null);
-        ImmutableList.Builder<Column> columnBuilder = new ImmutableList.Builder<>();
+        ImmutableList.Builder<Column> columnBuilder = ImmutableList.builder();
         while (columns.next()) {
             String name = columns.getString("COLUMN_NAME");
             int type = columns.getInt("DATA_TYPE");

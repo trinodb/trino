@@ -4,6 +4,8 @@ set -euo pipefail -x
 
 . "${BASH_SOURCE%/*}/common.sh"
 
+abort_if_not_gib_impacted
+
 export ALLUXIO_BASE_IMAGE="alluxio/alluxio"
 export ALLUXIO_IMAGE_TAG="2.1.2"
 
@@ -34,14 +36,10 @@ function main () {
     retry check_hadoop
     retry check_alluxio & # data can be generated while we wait for alluxio to start
 
-    # obtain Hive version
-    TESTS_HIVE_VERSION_MAJOR=$(get_hive_major_version)
-
     # generate test data
     exec_in_hadoop_master_container sudo -Eu hdfs hdfs dfs -mkdir /alluxio
     exec_in_hadoop_master_container sudo -Eu hdfs hdfs dfs -chmod 777 /alluxio
     exec_in_hadoop_master_container sudo -Eu hive beeline -u jdbc:hive2://localhost:10000/default -n hive -f /docker/sql/create-test.sql
-    exec_in_hadoop_master_container sudo -Eu hive beeline -u jdbc:hive2://localhost:10000/default -n hive -f "/docker/sql/create-test-hive-${TESTS_HIVE_VERSION_MAJOR}.sql"
 
     # Alluxio currently doesn't support views
     exec_in_hadoop_master_container sudo -Eu hive beeline -u jdbc:hive2://localhost:10000/default -n hive -e 'DROP VIEW trino_test_view;'
@@ -56,11 +54,9 @@ function main () {
     # run product tests
     pushd ${PROJECT_ROOT}
     set +e
-    ./mvnw -B -pl :trino-hive-hadoop2 test -P test-hive-hadoop2-alluxio \
-           -Dhive.hadoop2.alluxio.host=localhost \
-           -Dhive.hadoop2.alluxio.port=19998 \
-           -Dhive.hadoop2.hiveVersionMajor="${TESTS_HIVE_VERSION_MAJOR}" \
-           -Dhive.hadoop2.timeZone=Asia/Kathmandu \
+    ./mvnw ${MAVEN_TEST:--B} -pl :trino-hive-hadoop2 test -P test-hive-hadoop2-alluxio \
+           -Dtest.alluxio.host=localhost \
+           -Dtest.alluxio.port=19998 \
            -DHADOOP_USER_NAME=hive
     EXIT_CODE=$?
     set -e

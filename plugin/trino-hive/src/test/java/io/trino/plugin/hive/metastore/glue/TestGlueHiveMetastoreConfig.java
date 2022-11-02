@@ -30,8 +30,11 @@ public class TestGlueHiveMetastoreConfig
         assertRecordedDefaults(recordDefaults(GlueHiveMetastoreConfig.class)
                 .setGlueRegion(null)
                 .setGlueEndpointUrl(null)
+                .setGlueStsRegion(null)
+                .setGlueStsEndpointUrl(null)
+                .setGlueProxyApiId(null)
                 .setPinGlueClientToCurrentRegion(false)
-                .setMaxGlueConnections(5)
+                .setMaxGlueConnections(30)
                 .setMaxGlueErrorRetries(10)
                 .setDefaultWarehouseDir(null)
                 .setIamRole(null)
@@ -50,9 +53,12 @@ public class TestGlueHiveMetastoreConfig
     @Test
     public void testExplicitPropertyMapping()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore.glue.region", "us-east-1")
                 .put("hive.metastore.glue.endpoint-url", "http://foo.bar")
+                .put("hive.metastore.glue.sts.region", "us-east-3")
+                .put("hive.metastore.glue.sts.endpoint", "http://sts.foo.bar")
+                .put("hive.metastore.glue.proxy-api-id", "abc123")
                 .put("hive.metastore.glue.pin-client-to-current-region", "true")
                 .put("hive.metastore.glue.max-connections", "10")
                 .put("hive.metastore.glue.max-error-retries", "20")
@@ -68,11 +74,14 @@ public class TestGlueHiveMetastoreConfig
                 .put("hive.metastore.glue.assume-canonical-partition-keys", "true")
                 .put("hive.metastore.glue.read-statistics-threads", "42")
                 .put("hive.metastore.glue.write-statistics-threads", "43")
-                .build();
+                .buildOrThrow();
 
         GlueHiveMetastoreConfig expected = new GlueHiveMetastoreConfig()
                 .setGlueRegion("us-east-1")
                 .setGlueEndpointUrl("http://foo.bar")
+                .setGlueStsRegion("us-east-3")
+                .setGlueStsEndpointUrl("http://sts.foo.bar")
+                .setGlueProxyApiId("abc123")
                 .setPinGlueClientToCurrentRegion(true)
                 .setMaxGlueConnections(10)
                 .setMaxGlueErrorRetries(20)

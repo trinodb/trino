@@ -34,8 +34,6 @@ public interface ColumnWriter
 
     long getRetainedBytes();
 
-    void reset();
-
     class BufferData
     {
         private final ColumnMetaData metaData;

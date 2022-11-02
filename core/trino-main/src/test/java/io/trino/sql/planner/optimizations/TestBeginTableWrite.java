@@ -15,11 +15,14 @@ package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.cost.CachingTableStatsProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AbstractMockMetadata;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TableMetadata;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.BigintType;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -31,6 +34,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.function.Function;
 
+import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.sql.planner.TypeProvider.empty;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -131,14 +135,16 @@ public class TestBeginTableWrite
     private void applyOptimization(Function<PlanBuilder, PlanNode> planProvider)
     {
         Metadata metadata = new MockMetadata();
-        new BeginTableWrite(metadata)
+        Session session = testSessionBuilder().build();
+        new BeginTableWrite(metadata, createTestingFunctionManager())
                 .optimize(
-                        planProvider.apply(new PlanBuilder(new PlanNodeIdAllocator(), metadata, testSessionBuilder().build())),
-                        testSessionBuilder().build(),
+                        planProvider.apply(new PlanBuilder(new PlanNodeIdAllocator(), metadata, session)),
+                        session,
                         empty(),
                         new SymbolAllocator(),
                         new PlanNodeIdAllocator(),
-                        WarningCollector.NOOP);
+                        WarningCollector.NOOP,
+                        new CachingTableStatsProvider(metadata, session));
     }
 
     private static class MockMetadata
@@ -154,6 +160,14 @@ public class TestBeginTableWrite
         public TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns)
         {
             return tableHandle;
+        }
+
+        @Override
+        public TableMetadata getTableMetadata(Session session, TableHandle tableHandle)
+        {
+            return new TableMetadata(
+                    tableHandle.getCatalogHandle().getCatalogName(),
+                    new ConnectorTableMetadata(new SchemaTableName("sch", "tab"), ImmutableList.of()));
         }
     }
 }

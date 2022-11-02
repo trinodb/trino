@@ -31,7 +31,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -55,7 +55,7 @@ public class TestRow
         r1.addField(12345678L, INTEGER);
         r1.addField(new Field(12345678L, BIGINT));
         r1.addField(new Field(12345L, SMALLINT));
-        r1.addField(new GregorianCalendar(1970, 0, 1, 12, 30, 0).getTime().getTime(), TIME);
+        r1.addField(new GregorianCalendar(1970, 0, 1, 12, 30, 0).getTime().getTime(), TIME_MILLIS);
         r1.addField(new Field(Timestamp.valueOf(LocalDateTime.of(1999, 1, 1, 12, 30, 0)).getTime(), TIMESTAMP_MILLIS));
         r1.addField((long) 123, TINYINT);
         r1.addField(new Field(Slices.wrappedBuffer("O'Leary".getBytes(UTF_8)), VARBINARY));

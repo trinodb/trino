@@ -19,14 +19,11 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.client.ClientCapabilities;
-import io.trino.connector.CatalogName;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.informationschema.InformationSchemaColumnHandle;
 import io.trino.connector.informationschema.InformationSchemaMetadata;
 import io.trino.connector.informationschema.InformationSchemaTableHandle;
-import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -38,23 +35,20 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.sql.analyzer.FeaturesConfig;
-import io.trino.testing.TestingConnectorContext;
+import io.trino.testing.LocalQueryRunner;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
-import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Arrays.stream;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -66,8 +60,9 @@ public class TestInformationSchemaMetadata
 
     public TestInformationSchemaMetadata()
     {
-        MockConnectorFactory.Builder builder = MockConnectorFactory.builder();
-        MockConnectorFactory mockConnectorFactory = builder.withListSchemaNames(connectorSession -> ImmutableList.of("test_schema"))
+        LocalQueryRunner queryRunner = LocalQueryRunner.create(TEST_SESSION);
+        MockConnectorFactory mockConnectorFactory = MockConnectorFactory.builder()
+                .withListSchemaNames(connectorSession -> ImmutableList.of("test_schema"))
                 .withListTables((connectorSession, schemaNameOrNull) ->
                         ImmutableList.of(
                                 new SchemaTableName("test_schema", "test_view"),
@@ -77,29 +72,17 @@ public class TestInformationSchemaMetadata
                             "select 1",
                             Optional.of("test_catalog"),
                             Optional.of("test_schema"),
-                            ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId())),
+                            ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId(), Optional.of("test column comment"))),
                             Optional.of("comment"),
                             Optional.empty(),
                             true);
                     SchemaTableName viewName = new SchemaTableName("test_schema", "test_view");
                     return ImmutableMap.of(viewName, definition);
-                }).build();
-        Connector testConnector = mockConnectorFactory.create("test", ImmutableMap.of(), new TestingConnectorContext());
-        CatalogManager catalogManager = new CatalogManager();
-        String catalogName = "test_catalog";
-        CatalogName catalog = new CatalogName("test_catalog");
-        catalogManager.registerCatalog(new Catalog(
-                catalogName,
-                catalog,
-                "test",
-                testConnector,
-                SecurityManagement.CONNECTOR,
-                createInformationSchemaCatalogName(catalog),
-                testConnector,
-                createSystemTablesCatalogName(catalog),
-                testConnector));
-        transactionManager = createTestTransactionManager(catalogManager);
-        metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
+                })
+                .build();
+        queryRunner.createCatalog("test_catalog", mockConnectorFactory, ImmutableMap.of());
+        transactionManager = queryRunner.getTransactionManager();
+        metadata = queryRunner.getMetadata();
     }
 
     /**
@@ -110,10 +93,10 @@ public class TestInformationSchemaMetadata
     {
         TransactionId transactionId = transactionManager.beginTransaction(false);
 
-        ImmutableMap.Builder<ColumnHandle, Domain> domains = new ImmutableMap.Builder<>();
+        ImmutableMap.Builder<ColumnHandle, Domain> domains = ImmutableMap.builder();
         domains.put(new InformationSchemaColumnHandle("table_schema"), Domain.singleValue(VARCHAR, Slices.utf8Slice("test_schema")));
         domains.put(new InformationSchemaColumnHandle("table_name"), Domain.singleValue(VARCHAR, Slices.utf8Slice("test_view")));
-        Constraint constraint = new Constraint(TupleDomain.withColumnDomains(domains.build()));
+        Constraint constraint = new Constraint(TupleDomain.withColumnDomains(domains.buildOrThrow()));
 
         ConnectorSession session = createNewSession(transactionId);
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata);
@@ -130,7 +113,7 @@ public class TestInformationSchemaMetadata
     public void testInformationSchemaPredicatePushdownWithConstraintPredicate()
     {
         TransactionId transactionId = transactionManager.beginTransaction(false);
-        Constraint constraint = new Constraint(TupleDomain.all(), Optional.of(TestInformationSchemaMetadata::testConstraint), Optional.empty());
+        Constraint constraint = new Constraint(TupleDomain.all(), TestInformationSchemaMetadata::testConstraint, testConstraintColumns());
 
         ConnectorSession session = createNewSession(transactionId);
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata);
@@ -150,9 +133,9 @@ public class TestInformationSchemaMetadata
         TransactionId transactionId = transactionManager.beginTransaction(false);
 
         // predicate without schema predicates should cause schemas to be enumerated when table predicates are present
-        ImmutableMap.Builder<ColumnHandle, Domain> domains = new ImmutableMap.Builder<>();
+        ImmutableMap.Builder<ColumnHandle, Domain> domains = ImmutableMap.builder();
         domains.put(new InformationSchemaColumnHandle("table_name"), Domain.singleValue(VARCHAR, Slices.utf8Slice("test_view")));
-        Constraint constraint = new Constraint(TupleDomain.withColumnDomains(domains.build()));
+        Constraint constraint = new Constraint(TupleDomain.withColumnDomains(domains.buildOrThrow()));
 
         ConnectorSession session = createNewSession(transactionId);
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata);
@@ -162,7 +145,10 @@ public class TestInformationSchemaMetadata
                 .map(ConstraintApplicationResult::getHandle)
                 .map(InformationSchemaTableHandle.class::cast)
                 .orElseThrow(AssertionError::new);
-        assertEquals(tableHandle.getPrefixes(), ImmutableSet.of(new QualifiedTablePrefix("test_catalog", "test_schema", "test_view")));
+        // filter blindly applies filter to all visible schemas, so information_schema must be included
+        assertEquals(tableHandle.getPrefixes(), ImmutableSet.of(
+                new QualifiedTablePrefix("test_catalog", "test_schema", "test_view"),
+                new QualifiedTablePrefix("test_catalog", "information_schema", "test_view")));
     }
 
     @Test
@@ -171,9 +157,9 @@ public class TestInformationSchemaMetadata
         TransactionId transactionId = transactionManager.beginTransaction(false);
 
         // predicate without table name predicates should not cause table level prefixes to be evaluated
-        ImmutableMap.Builder<ColumnHandle, Domain> domains = new ImmutableMap.Builder<>();
+        ImmutableMap.Builder<ColumnHandle, Domain> domains = ImmutableMap.builder();
         domains.put(new InformationSchemaColumnHandle("table_schema"), Domain.singleValue(VARCHAR, Slices.utf8Slice("test_schema")));
-        Constraint constraint = new Constraint(TupleDomain.withColumnDomains(domains.build()));
+        Constraint constraint = new Constraint(TupleDomain.withColumnDomains(domains.buildOrThrow()));
 
         ConnectorSession session = createNewSession(transactionId);
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata);
@@ -192,7 +178,7 @@ public class TestInformationSchemaMetadata
         TransactionId transactionId = transactionManager.beginTransaction(false);
 
         // predicate on non columns enumerating table should not cause tables to be enumerated
-        Constraint constraint = new Constraint(TupleDomain.all(), Optional.of(TestInformationSchemaMetadata::testConstraint), Optional.empty());
+        Constraint constraint = new Constraint(TupleDomain.all(), TestInformationSchemaMetadata::testConstraint, testConstraintColumns());
         ConnectorSession session = createNewSession(transactionId);
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata);
         InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle)
@@ -233,7 +219,7 @@ public class TestInformationSchemaMetadata
 
         // Empty schema name
         InformationSchemaTableHandle filtered = metadata.applyFilter(session, tableHandle, new Constraint(TupleDomain.withColumnDomains(
-                ImmutableMap.of(tableSchemaColumn, Domain.singleValue(VARCHAR, Slices.utf8Slice(""))))))
+                        ImmutableMap.of(tableSchemaColumn, Domain.singleValue(VARCHAR, Slices.utf8Slice(""))))))
                 .map(ConstraintApplicationResult::getHandle)
                 .map(InformationSchemaTableHandle.class::cast)
                 .orElseThrow(AssertionError::new);
@@ -243,21 +229,30 @@ public class TestInformationSchemaMetadata
 
         // Empty table name
         filtered = metadata.applyFilter(session, tableHandle, new Constraint(TupleDomain.withColumnDomains(
-                ImmutableMap.of(tableNameColumn, Domain.singleValue(VARCHAR, Slices.utf8Slice(""))))))
+                        ImmutableMap.of(tableNameColumn, Domain.singleValue(VARCHAR, Slices.utf8Slice(""))))))
                 .map(ConstraintApplicationResult::getHandle)
                 .map(InformationSchemaTableHandle.class::cast)
                 .orElseThrow(AssertionError::new);
 
         // "" table name is valid schema name, but is (currently) valid for QualifiedTablePrefix
-        assertEquals(filtered.getPrefixes(), ImmutableSet.of(new QualifiedTablePrefix("test_catalog", "test_schema", "")));
+        // filter blindly applies filter to all visible schemas, so information_schema must be included
+        assertEquals(filtered.getPrefixes(), ImmutableSet.of(
+                new QualifiedTablePrefix("test_catalog", "test_schema", ""),
+                new QualifiedTablePrefix("test_catalog", "information_schema", "")));
     }
 
+    /**
+     * @see #testConstraintColumns()
+     */
     private static boolean testConstraint(Map<ColumnHandle, NullableValue> bindings)
     {
         // test_schema has a table named "another_table" and we filter that out in this predicate
+
+        // Note: the columns inspected here must be in sync with testConstraintColumns()
         NullableValue catalog = bindings.get(new InformationSchemaColumnHandle("table_catalog"));
         NullableValue schema = bindings.get(new InformationSchemaColumnHandle("table_schema"));
         NullableValue table = bindings.get(new InformationSchemaColumnHandle("table_name"));
+
         boolean isValid = true;
         if (catalog != null) {
             isValid = ((Slice) catalog.getValue()).toStringUtf8().equals("test_catalog");
@@ -269,6 +264,17 @@ public class TestInformationSchemaMetadata
             isValid &= ((Slice) table.getValue()).toStringUtf8().equals("test_view");
         }
         return isValid;
+    }
+
+    /**
+     * Returns set of columns inspected by {@link #testConstraint(Map)}.
+     */
+    private static Set<ColumnHandle> testConstraintColumns()
+    {
+        return Set.of(
+                new InformationSchemaColumnHandle("table_catalog"),
+                new InformationSchemaColumnHandle("table_schema"),
+                new InformationSchemaColumnHandle("table_name"));
     }
 
     private static ConnectorSession createNewSession(TransactionId transactionId)

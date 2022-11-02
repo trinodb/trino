@@ -56,6 +56,7 @@ public class ServerInfoResource
     private final String environment;
     private final boolean coordinator;
     private final GracefulShutdownHandler shutdownHandler;
+    private final StartupStatus startupStatus;
     private final DecommissionHandler decommissionHandler;
     private final long startTime = System.nanoTime();
     private final AtomicBoolean startupComplete = new AtomicBoolean();
@@ -64,12 +65,14 @@ public class ServerInfoResource
     @Inject
     public ServerInfoResource(NodeVersion nodeVersion, NodeInfo nodeInfo,
             ServerConfig serverConfig, GracefulShutdownHandler shutdownHandler,
+            StartupStatus startupStatus,
             DecommissionHandler decommissionHandler)
     {
         this.version = requireNonNull(nodeVersion, "nodeVersion is null");
-        this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
-        this.coordinator = requireNonNull(serverConfig, "serverConfig is null").isCoordinator();
+        this.environment = nodeInfo.getEnvironment();
+        this.coordinator = serverConfig.isCoordinator();
         this.shutdownHandler = requireNonNull(shutdownHandler, "shutdownHandler is null");
+        this.startupStatus = requireNonNull(startupStatus, "startupStatus is null");
         this.decommissionHandler = requireNonNull(decommissionHandler, "decommissionHandler is null");
     }
 
@@ -78,7 +81,7 @@ public class ServerInfoResource
     @Produces(APPLICATION_JSON)
     public ServerInfo getInfo()
     {
-        boolean starting = !startupComplete.get();
+        boolean starting = !startupStatus.isStartupComplete();
         return new ServerInfo(version, environment, coordinator, starting, Optional.of(nanosSince(startTime)));
     }
 

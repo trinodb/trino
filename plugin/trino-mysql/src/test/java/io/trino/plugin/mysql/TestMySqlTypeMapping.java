@@ -17,33 +17,25 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
-import io.trino.spi.type.BigintType;
-import io.trino.spi.type.DoubleType;
-import io.trino.spi.type.IntegerType;
-import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TimeZoneKey;
-import io.trino.spi.type.VarcharType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
-import io.trino.testing.datatype.DataType;
-import io.trino.testing.datatype.DataTypeTest;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
+import org.intellij.lang.annotations.Language;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.Objects;
-import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -55,62 +47,57 @@ import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_ROUND
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.CharType.createCharType;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
-import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.testing.datatype.DataType.bigintDataType;
-import static io.trino.testing.datatype.DataType.charDataType;
-import static io.trino.testing.datatype.DataType.dataType;
-import static io.trino.testing.datatype.DataType.dateDataType;
-import static io.trino.testing.datatype.DataType.decimalDataType;
-import static io.trino.testing.datatype.DataType.doubleDataType;
-import static io.trino.testing.datatype.DataType.formatStringLiteral;
-import static io.trino.testing.datatype.DataType.integerDataType;
-import static io.trino.testing.datatype.DataType.realDataType;
-import static io.trino.testing.datatype.DataType.smallintDataType;
-import static io.trino.testing.datatype.DataType.stringDataType;
-import static io.trino.testing.datatype.DataType.tinyintDataType;
-import static io.trino.testing.datatype.DataType.varcharDataType;
 import static io.trino.type.JsonType.JSON;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Arrays.asList;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestMySqlTypeMapping
         extends AbstractTestQueryFramework
 {
-    private static final String CHARACTER_SET_UTF8 = "CHARACTER SET utf8";
+    private TestingMySqlServer mySqlServer;
 
-    private TestingMySqlServer mysqlServer;
+    private final ZoneId jvmZone = ZoneId.systemDefault();
+    // no DST in 1970, but has DST in later years (e.g. 2018)
+    private final ZoneId vilnius = ZoneId.of("Europe/Vilnius");
+
+    @BeforeClass
+    public void setUp()
+    {
+        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
+        verify(jvmZone.getRules().getValidOffsets(dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay()).isEmpty());
+
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
+        verify(vilnius.getRules().getValidOffsets(dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay()).isEmpty());
+        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
+        verify(vilnius.getRules().getValidOffsets(dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1)).size() == 2);
+    }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        mysqlServer = closeAfterClass(new TestingMySqlServer());
-        return createMySqlQueryRunner(mysqlServer, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
-    }
-
-    @Test
-    public void testBasicTypes()
-    {
-        DataTypeTest.create()
-                .addRoundTrip(bigintDataType(), 123_456_789_012L)
-                .addRoundTrip(integerDataType(), 1_234_567_890)
-                .addRoundTrip(smallintDataType(), (short) 32_456)
-                .addRoundTrip(tinyintDataType(), (byte) 125)
-                .addRoundTrip(doubleDataType(), 123.45d)
-                .addRoundTrip(realDataType(), 123.45f)
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_basic_types"));
+        mySqlServer = closeAfterClass(new TestingMySqlServer());
+        return createMySqlQueryRunner(mySqlServer, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
     }
 
     @Test
@@ -131,122 +118,218 @@ public class TestMySqlTypeMapping
                 .addRoundTrip("boolean", "false", TINYINT, "TINYINT '0'")
                 .addRoundTrip("boolean", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
                 .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_boolean"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("tpch.test_boolean"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_boolean"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("boolean", "1", TINYINT, "TINYINT '1'")
+                .addRoundTrip("boolean", "0", TINYINT, "TINYINT '0'")
+                .addRoundTrip("boolean", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_boolean"));
+    }
+
+    @Test
+    public void testTinyint()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("tinyint", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
+                .addRoundTrip("tinyint", "-128", TINYINT, "TINYINT '-128'") // min value in MySQL and Trino
+                .addRoundTrip("tinyint", "5", TINYINT, "TINYINT '5'")
+                .addRoundTrip("tinyint", "127", TINYINT, "TINYINT '127'") // max value in MySQL and Trino
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_tinyint"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_tinyint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_tinyint"));
+    }
+
+    @Test
+    public void testUnsupportedTinyint()
+    {
+        try (TestTable table = new TestTable(mySqlServer::execute, "tpch.test_unsupported_tinyint", "(data tinyint)")) {
+            assertMySqlQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES (-129)", // min - 1
+                    "Data truncation: Out of range value for column 'data' at row 1");
+            assertMySqlQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES (128)", // max + 1
+                    "Data truncation: Out of range value for column 'data' at row 1");
+        }
+    }
+
+    @Test
+    public void testSmallint()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("smallint", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
+                .addRoundTrip("smallint", "-32768", SMALLINT, "SMALLINT '-32768'") // min value in MySQL and Trino
+                .addRoundTrip("smallint", "32456", SMALLINT, "SMALLINT '32456'")
+                .addRoundTrip("smallint", "32767", SMALLINT, "SMALLINT '32767'") // max value in MySQL and Trino
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_smallint"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_smallint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_smallint"));
+    }
+
+    @Test
+    public void testUnsupportedSmallint()
+    {
+        try (TestTable table = new TestTable(mySqlServer::execute, "tpch.test_unsupported_smallint", "(data smallint)")) {
+            assertMySqlQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES (-32769)", // min - 1
+                    "Data truncation: Out of range value for column 'data' at row 1");
+            assertMySqlQueryFails(
+                    format("INSERT INTO %s VALUES (32768)", table.getName()), // max + 1
+                    "Data truncation: Out of range value for column 'data' at row 1");
+        }
+    }
+
+    @Test
+    public void testInteger()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("integer", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
+                .addRoundTrip("integer", "-2147483648", INTEGER, "-2147483648") // min value in MySQL and Trino
+                .addRoundTrip("integer", "1234567890", INTEGER, "1234567890")
+                .addRoundTrip("integer", "2147483647", INTEGER, "2147483647") // max value in MySQL and Trino
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_int"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_int"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_int"));
+    }
+
+    @Test
+    public void testUnsupportedInteger()
+    {
+        try (TestTable table = new TestTable(mySqlServer::execute, "tpch.test_unsupported_integer", "(data integer)")) {
+            assertMySqlQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES (-2147483649)", // min - 1
+                    "Data truncation: Out of range value for column 'data' at row 1");
+            assertMySqlQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES (2147483648)", // max + 1
+                    "Data truncation: Out of range value for column 'data' at row 1");
+        }
+    }
+
+    @Test
+    public void testBigint()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("bigint", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
+                .addRoundTrip("bigint", "-9223372036854775808", BIGINT, "-9223372036854775808") // min value in MySQL and Trino
+                .addRoundTrip("bigint", "123456789012", BIGINT, "123456789012")
+                .addRoundTrip("bigint", "9223372036854775807", BIGINT, "9223372036854775807") // max value in MySQL and Trino
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_bigint"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_bigint"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_bigint"));
+    }
+
+    @Test
+    public void testUnsupportedBigint()
+    {
+        try (TestTable table = new TestTable(mySqlServer::execute, "tpch.test_unsupported_bigint", "(data bigint)")) {
+            assertMySqlQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES (-9223372036854775809)", // min - 1
+                    "Data truncation: Out of range value for column 'data' at row 1");
+            assertMySqlQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES (9223372036854775808)", // max + 1
+                    "Data truncation: Out of range value for column 'data' at row 1");
+        }
     }
 
     @Test
     public void testTrinoCreatedParameterizedVarchar()
     {
-        DataTypeTest.create()
-                .addRoundTrip(stringDataType("varchar(10)", createVarcharType(255)), "text_a")
-                .addRoundTrip(stringDataType("varchar(255)", createVarcharType(255)), "text_b")
-                .addRoundTrip(stringDataType("varchar(256)", createVarcharType(65535)), "text_c")
-                .addRoundTrip(stringDataType("varchar(65535)", createVarcharType(65535)), "text_d")
-                .addRoundTrip(stringDataType("varchar(65536)", createVarcharType(16777215)), "text_e")
-                .addRoundTrip(stringDataType("varchar(16777215)", createVarcharType(16777215)), "text_f")
-                .addRoundTrip(stringDataType("varchar(16777216)", createUnboundedVarcharType()), "text_g")
-                .addRoundTrip(stringDataType("varchar(" + VarcharType.MAX_LENGTH + ")", createUnboundedVarcharType()), "text_h")
-                .addRoundTrip(stringDataType("varchar", createUnboundedVarcharType()), "unbounded")
-                .execute(getQueryRunner(), trinoCreateAsSelect("trino__test_parameterized_varchar"));
+        SqlDataTypeTest.create()
+                .addRoundTrip("varchar(10)", "'text_a'", createVarcharType(255), "CAST('text_a' AS varchar(255))")
+                .addRoundTrip("varchar(255)", "'text_b'", createVarcharType(255), "CAST('text_b' AS varchar(255))")
+                .addRoundTrip("varchar(256)", "'text_c'", createVarcharType(65535), "CAST('text_c' AS varchar(65535))")
+                .addRoundTrip("varchar(65535)", "'text_d'", createVarcharType(65535), "CAST('text_d' AS varchar(65535))")
+                .addRoundTrip("varchar(65536)", "'text_e'", createVarcharType(16777215), "CAST('text_e' AS varchar(16777215))")
+                .addRoundTrip("varchar(16777215)", "'text_f'", createVarcharType(16777215), "CAST('text_f' AS varchar(16777215))")
+                .addRoundTrip("varchar(16777216)", "'text_g'", createUnboundedVarcharType(), "CAST('text_g' AS varchar)")
+                .addRoundTrip("varchar(2147483646)", "'text_h'", createUnboundedVarcharType(), "CAST('text_h' AS varchar)")
+                .addRoundTrip("varchar", "'unbounded'", createUnboundedVarcharType(), "CAST('unbounded' AS varchar)")
+                .addRoundTrip("varchar(10)", "NULL", createVarcharType(255), "CAST(NULL AS varchar(255))")
+                .addRoundTrip("varchar", "NULL", createUnboundedVarcharType(), "CAST(NULL AS varchar)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_parameterized_varchar"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("trino_test_parameterized_varchar"));
     }
 
     @Test
     public void testMySqlCreatedParameterizedVarchar()
     {
-        DataTypeTest.create()
-                .addRoundTrip(stringDataType("tinytext", createVarcharType(255)), "a")
-                .addRoundTrip(stringDataType("text", createVarcharType(65535)), "b")
-                .addRoundTrip(stringDataType("mediumtext", createVarcharType(16777215)), "c")
-                .addRoundTrip(stringDataType("longtext", createUnboundedVarcharType()), "d")
-                .addRoundTrip(varcharDataType(32), "e")
-                .addRoundTrip(varcharDataType(15000), "f")
+        SqlDataTypeTest.create()
+                .addRoundTrip("tinytext", "'a'", createVarcharType(255), "CAST('a' AS varchar(255))")
+                .addRoundTrip("text", "'b'", createVarcharType(65535), "CAST('b' AS varchar(65535))")
+                .addRoundTrip("mediumtext", "'c'", createVarcharType(16777215), "CAST('c' AS varchar(16777215))")
+                .addRoundTrip("longtext", "'d'", createUnboundedVarcharType(), "CAST('d' AS varchar)")
+                .addRoundTrip("varchar(32)", "'e'", createVarcharType(32), "CAST('e' AS varchar(32))")
+                .addRoundTrip("varchar(15000)", "'f'", createVarcharType(15000), "CAST('f' AS varchar(15000))")
                 .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_parameterized_varchar"));
     }
 
     @Test
     public void testMySqlCreatedParameterizedVarcharUnicode()
     {
-        String sampleUnicodeText = "\u653b\u6bbb\u6a5f\u52d5\u968a";
-        DataTypeTest.create()
-                .addRoundTrip(stringDataType("tinytext " + CHARACTER_SET_UTF8, createVarcharType(255)), sampleUnicodeText)
-                .addRoundTrip(stringDataType("text " + CHARACTER_SET_UTF8, createVarcharType(65535)), sampleUnicodeText)
-                .addRoundTrip(stringDataType("mediumtext " + CHARACTER_SET_UTF8, createVarcharType(16777215)), sampleUnicodeText)
-                .addRoundTrip(stringDataType("longtext " + CHARACTER_SET_UTF8, createUnboundedVarcharType()), sampleUnicodeText)
-                .addRoundTrip(varcharDataType(sampleUnicodeText.length(), CHARACTER_SET_UTF8), sampleUnicodeText)
-                .addRoundTrip(varcharDataType(32, CHARACTER_SET_UTF8), sampleUnicodeText)
-                .addRoundTrip(varcharDataType(20000, CHARACTER_SET_UTF8), sampleUnicodeText)
+        SqlDataTypeTest.create()
+                .addRoundTrip("tinytext CHARACTER SET utf8", "'攻殻機動隊'", createVarcharType(255), "CAST('攻殻機動隊' AS varchar(255))")
+                .addRoundTrip("text CHARACTER SET utf8", "'攻殻機動隊'", createVarcharType(65535), "CAST('攻殻機動隊' AS varchar(65535))")
+                .addRoundTrip("mediumtext CHARACTER SET utf8", "'攻殻機動隊'", createVarcharType(16777215), "CAST('攻殻機動隊' AS varchar(16777215))")
+                .addRoundTrip("longtext CHARACTER SET utf8", "'攻殻機動隊'", createUnboundedVarcharType(), "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("varchar(5) CHARACTER SET utf8", "'攻殻機動隊'", createVarcharType(5), "CAST('攻殻機動隊' AS varchar(5))")
+                .addRoundTrip("varchar(32) CHARACTER SET utf8", "'攻殻機動隊'", createVarcharType(32), "CAST('攻殻機動隊' AS varchar(32))")
+                .addRoundTrip("varchar(20000) CHARACTER SET utf8", "'攻殻機動隊'", createVarcharType(20000), "CAST('攻殻機動隊' AS varchar(20000))")
                 .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_parameterized_varchar_unicode"));
     }
 
     @Test
-    public void testTrinoCreatedParameterizedChar()
+    public void testParameterizedChar()
     {
-        mysqlCharTypeTest()
-                .execute(getQueryRunner(), trinoCreateAsSelect("mysql_test_parameterized_char"));
-    }
-
-    @Test
-    public void testMySqlCreatedParameterizedChar()
-    {
-        mysqlCharTypeTest()
+        SqlDataTypeTest.create()
+                .addRoundTrip("char", "''", createCharType(1), "CAST('' AS char(1))")
+                .addRoundTrip("char", "'a'", createCharType(1), "CAST('a' AS char(1))")
+                .addRoundTrip("char(1)", "''", createCharType(1), "CAST('' AS char(1))")
+                .addRoundTrip("char(1)", "'a'", createCharType(1), "CAST('a' AS char(1))")
+                .addRoundTrip("char(8)", "'abc'", createCharType(8), "CAST('abc' AS char(8))")
+                .addRoundTrip("char(8)", "'12345678'", createCharType(8), "CAST('12345678' AS char(8))")
+                .addRoundTrip("char(255)", format("'%s'", "a".repeat(255)), createCharType(255), format("CAST('%s' AS char(255))", "a".repeat(255)))
+                .addRoundTrip("char", "NULL", createCharType(1), "CAST(NULL AS char(1))")
+                .addRoundTrip("char(255)", "NULL", createCharType(255), "CAST(NULL AS char(255))")
+                .execute(getQueryRunner(), trinoCreateAsSelect("mysql_test_parameterized_char"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("mysql_test_parameterized_char"))
                 .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_parameterized_char"));
-    }
-
-    private DataTypeTest mysqlCharTypeTest()
-    {
-        return DataTypeTest.create()
-                .addRoundTrip(charDataType("char", 1), "")
-                .addRoundTrip(charDataType("char", 1), "a")
-                .addRoundTrip(charDataType(1), "")
-                .addRoundTrip(charDataType(1), "a")
-                .addRoundTrip(charDataType(8), "abc")
-                .addRoundTrip(charDataType(8), "12345678")
-                .addRoundTrip(charDataType(255), "a".repeat(255));
     }
 
     @Test
     public void testMySqlCreatedParameterizedCharUnicode()
     {
-        DataTypeTest.create()
-                .addRoundTrip(charDataType(1, CHARACTER_SET_UTF8), "\u653b")
-                .addRoundTrip(charDataType(5, CHARACTER_SET_UTF8), "\u653b\u6bbb")
-                .addRoundTrip(charDataType(5, CHARACTER_SET_UTF8), "\u653b\u6bbb\u6a5f\u52d5\u968a")
+        SqlDataTypeTest.create()
+                .addRoundTrip("char(1) CHARACTER SET utf8", "'攻'", createCharType(1), "CAST('攻' AS char(1))")
+                .addRoundTrip("char(5) CHARACTER SET utf8", "'攻殻'", createCharType(5), "CAST('攻殻' AS char(5))")
+                .addRoundTrip("char(5) CHARACTER SET utf8", "'攻殻機動隊'", createCharType(5), "CAST('攻殻機動隊' AS char(5))")
                 .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_parameterized_varchar"));
     }
 
     @Test
-    public void testMysqlCreatedDecimal()
+    public void testDecimal()
     {
-        decimalTests()
-                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_decimal"));
-    }
-
-    @Test
-    public void testTrinoCreatedDecimal()
-    {
-        decimalTests()
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"));
-    }
-
-    private DataTypeTest decimalTests()
-    {
-        return DataTypeTest.create()
-                .addRoundTrip(decimalDataType(3, 0), new BigDecimal("193"))
-                .addRoundTrip(decimalDataType(3, 0), new BigDecimal("19"))
-                .addRoundTrip(decimalDataType(3, 0), new BigDecimal("-193"))
-                .addRoundTrip(decimalDataType(3, 1), new BigDecimal("10.0"))
-                .addRoundTrip(decimalDataType(3, 1), new BigDecimal("10.1"))
-                .addRoundTrip(decimalDataType(3, 1), new BigDecimal("-10.1"))
-                .addRoundTrip(decimalDataType(4, 2), new BigDecimal("2"))
-                .addRoundTrip(decimalDataType(4, 2), new BigDecimal("2.3"))
-                .addRoundTrip(decimalDataType(24, 2), new BigDecimal("2"))
-                .addRoundTrip(decimalDataType(24, 2), new BigDecimal("2.3"))
-                .addRoundTrip(decimalDataType(24, 2), new BigDecimal("123456789.3"))
-                .addRoundTrip(decimalDataType(24, 4), new BigDecimal("12345678901234567890.31"))
-                .addRoundTrip(decimalDataType(30, 5), new BigDecimal("3141592653589793238462643.38327"))
-                .addRoundTrip(decimalDataType(30, 5), new BigDecimal("-3141592653589793238462643.38327"))
-                .addRoundTrip(decimalDataType(38, 0), new BigDecimal("27182818284590452353602874713526624977"))
-                .addRoundTrip(decimalDataType(38, 0), new BigDecimal("-27182818284590452353602874713526624977"));
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(3, 0)", "CAST('193' AS decimal(3, 0))", createDecimalType(3, 0), "CAST('193' AS decimal(3, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST('19' AS decimal(3, 0))", createDecimalType(3, 0), "CAST('19' AS decimal(3, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST('-193' AS decimal(3, 0))", createDecimalType(3, 0), "CAST('-193' AS decimal(3, 0))")
+                .addRoundTrip("decimal(3, 1)", "CAST('10.0' AS decimal(3, 1))", createDecimalType(3, 1), "CAST('10.0' AS decimal(3, 1))")
+                .addRoundTrip("decimal(3, 1)", "CAST('10.1' AS decimal(3, 1))", createDecimalType(3, 1), "CAST('10.1' AS decimal(3, 1))")
+                .addRoundTrip("decimal(3, 1)", "CAST('-10.1' AS decimal(3, 1))", createDecimalType(3, 1), "CAST('-10.1' AS decimal(3, 1))")
+                .addRoundTrip("decimal(4, 2)", "CAST('2' AS decimal(4, 2))", createDecimalType(4, 2), "CAST('2' AS decimal(4, 2))")
+                .addRoundTrip("decimal(4, 2)", "CAST('2.3' AS decimal(4, 2))", createDecimalType(4, 2), "CAST('2.3' AS decimal(4, 2))")
+                .addRoundTrip("decimal(24, 2)", "CAST('2' AS decimal(24, 2))", createDecimalType(24, 2), "CAST('2' AS decimal(24, 2))")
+                .addRoundTrip("decimal(24, 2)", "CAST('2.3' AS decimal(24, 2))", createDecimalType(24, 2), "CAST('2.3' AS decimal(24, 2))")
+                .addRoundTrip("decimal(24, 2)", "CAST('123456789.3' AS decimal(24, 2))", createDecimalType(24, 2), "CAST('123456789.3' AS decimal(24, 2))")
+                .addRoundTrip("decimal(24, 4)", "CAST('12345678901234567890.31' AS decimal(24, 4))", createDecimalType(24, 4), "CAST('12345678901234567890.31' AS decimal(24, 4))")
+                .addRoundTrip("decimal(30, 5)", "CAST('3141592653589793238462643.38327' AS decimal(30, 5))", createDecimalType(30, 5), "CAST('3141592653589793238462643.38327' AS decimal(30, 5))")
+                .addRoundTrip("decimal(30, 5)", "CAST('-3141592653589793238462643.38327' AS decimal(30, 5))", createDecimalType(30, 5), "CAST('-3141592653589793238462643.38327' AS decimal(30, 5))")
+                .addRoundTrip("decimal(38, 0)", "CAST('27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('27182818284590452353602874713526624977' AS decimal(38, 0))")
+                .addRoundTrip("decimal(38, 0)", "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST(NULL AS decimal(3, 0))", createDecimalType(3, 0), "CAST(NULL AS decimal(3, 0))")
+                .addRoundTrip("decimal(38, 0)", "CAST(NULL AS decimal(38, 0))", createDecimalType(38, 0), "CAST(NULL AS decimal(38, 0))")
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_decimal"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_decimal"));
     }
 
     @Test
@@ -259,7 +342,7 @@ public class TestMySqlTypeMapping
     public void testDecimalExceedingPrecisionMaxWithExceedingIntegerValues()
     {
         try (TestTable testTable = new TestTable(
-                mysqlServer::execute,
+                mySqlServer::execute,
                 "tpch.test_exceeding_max_decimal",
                 "(d_col decimal(65,25))",
                 asList("1234567890123456789012345678901234567890.123456789", "-1234567890123456789012345678901234567890.123456789"))) {
@@ -290,7 +373,7 @@ public class TestMySqlTypeMapping
     public void testDecimalExceedingPrecisionMaxWithNonExceedingIntegerValues()
     {
         try (TestTable testTable = new TestTable(
-                mysqlServer::execute,
+                mySqlServer::execute,
                 "tpch.test_exceeding_max_decimal",
                 "(d_col decimal(60,20))",
                 asList("123456789012345678901234567890.123456789012345", "-123456789012345678901234567890.123456789012345"))) {
@@ -345,7 +428,7 @@ public class TestMySqlTypeMapping
     public void testDecimalExceedingPrecisionMaxWithSupportedValues(int typePrecision, int typeScale)
     {
         try (TestTable testTable = new TestTable(
-                mysqlServer::execute,
+                mySqlServer::execute,
                 "tpch.test_exceeding_max_decimal",
                 format("(d_col decimal(%d,%d))", typePrecision, typeScale),
                 asList("12.01", "-12.01", "123", "-123", "1.12345678", "-1.12345678"))) {
@@ -466,41 +549,31 @@ public class TestMySqlTypeMapping
                 .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_binary"));
     }
 
-    @Test
-    public void testDate()
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testDate(ZoneId sessionZone)
     {
-        // Note: there is identical test for PostgreSQL
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
 
-        ZoneId jvmZone = ZoneId.systemDefault();
-        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
-        verify(jvmZone.getRules().getValidOffsets(dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay()).isEmpty());
-
-        ZoneId someZone = ZoneId.of("Europe/Vilnius");
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
-        verify(someZone.getRules().getValidOffsets(dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay()).isEmpty());
-        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
-        verify(someZone.getRules().getValidOffsets(dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1)).size() == 2);
-
-        DataTypeTest testCases = DataTypeTest.create()
-                .addRoundTrip(dateDataType(), LocalDate.of(1952, 4, 3)) // before epoch
-                .addRoundTrip(dateDataType(), LocalDate.of(1970, 1, 1))
-                .addRoundTrip(dateDataType(), LocalDate.of(1970, 2, 3))
-                .addRoundTrip(dateDataType(), LocalDate.of(2017, 7, 1)) // summer on northern hemisphere (possible DST)
-                .addRoundTrip(dateDataType(), LocalDate.of(2017, 1, 1)) // winter on northern hemisphere (possible DST on southern hemisphere)
-                .addRoundTrip(dateDataType(), dateOfLocalTimeChangeForwardAtMidnightInJvmZone)
-                .addRoundTrip(dateDataType(), dateOfLocalTimeChangeForwardAtMidnightInSomeZone)
-                .addRoundTrip(dateDataType(), dateOfLocalTimeChangeBackwardAtMidnightInSomeZone);
-
-        for (String timeZoneId : ImmutableList.of(UTC_KEY.getId(), jvmZone.getId(), someZone.getId())) {
-            Session session = Session.builder(getSession())
-                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
-                    .build();
-            testCases.execute(getQueryRunner(), session, mysqlCreateAndInsert("tpch.test_date"));
-            testCases.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
-            testCases.execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_date"));
-            testCases.execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
-        }
+        SqlDataTypeTest.create()
+                .addRoundTrip("date", "DATE '0001-01-01'", DATE, "DATE '0001-01-01'")
+                .addRoundTrip("date", "DATE '1582-10-04'", DATE, "DATE '1582-10-04'") // before julian->gregorian switch
+                .addRoundTrip("date", "DATE '1582-10-05'", DATE, "DATE '1582-10-05'") // begin julian->gregorian switch
+                .addRoundTrip("date", "DATE '1582-10-14'", DATE, "DATE '1582-10-14'") // end julian->gregorian switch
+                .addRoundTrip("date", "DATE '1952-04-03'", DATE, "DATE '1952-04-03'") // before epoch
+                .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
+                .addRoundTrip("date", "DATE '1970-02-03'", DATE, "DATE '1970-02-03'")
+                .addRoundTrip("date", "DATE '2017-07-01'", DATE, "DATE '2017-07-01'") // summer on northern hemisphere (possible DST)
+                .addRoundTrip("date", "DATE '2017-01-01'", DATE, "DATE '2017-01-01'") // winter on northern hemisphere (possible DST on southern hemisphere)
+                .addRoundTrip("date", "DATE '1983-04-01'", DATE, "DATE '1983-04-01'")
+                .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'")
+                .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
+                .execute(getQueryRunner(), session, mysqlCreateAndInsert("tpch.test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
     }
 
     @Test(dataProvider = "sessionZonesDataProvider")
@@ -523,6 +596,8 @@ public class TestMySqlTypeMapping
                 .addRoundTrip("TIME(4)", "TIME '23:59:59.9999'", createTimeType(4), "TIME '23:59:59.9999'")
                 .addRoundTrip("TIME(5)", "TIME '23:59:59.99999'", createTimeType(5), "TIME '23:59:59.99999'")
                 .addRoundTrip("TIME(6)", "TIME '23:59:59.999999'", createTimeType(6), "TIME '23:59:59.999999'")
+
+                .addRoundTrip("TIME", "NULL", createTimeType(0), "CAST(NULL AS TIME(0))")
                 .execute(getQueryRunner(), session, mysqlCreateAndInsert("tpch.test_time"));
     }
 
@@ -603,9 +678,19 @@ public class TestMySqlTypeMapping
                 .addRoundTrip("TIME '23:59:59.99999999999'", "TIME '00:00:00.000000'")
                 .addRoundTrip("TIME '23:59:59.999999999999'", "TIME '00:00:00.000000'")
 
-                .execute(getQueryRunner(), session, trinoCreateAsSelect("tpch.test_time"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "tpch.test_time"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert(getSession(), "tpch.test_time"));
+                // null
+                .addRoundTrip("TIME", "NULL", createTimeType(3), "CAST(NULL AS TIME(3))")
+                .addRoundTrip("TIME(1)", "NULL", createTimeType(1), "CAST(NULL AS TIME(1))")
+                .addRoundTrip("TIME(2)", "NULL", createTimeType(2), "CAST(NULL AS TIME(2))")
+                .addRoundTrip("TIME(3)", "NULL", createTimeType(3), "CAST(NULL AS TIME(3))")
+                .addRoundTrip("TIME(4)", "NULL", createTimeType(4), "CAST(NULL AS TIME(4))")
+                .addRoundTrip("TIME(5)", "NULL", createTimeType(5), "CAST(NULL AS TIME(5))")
+                .addRoundTrip("TIME(6)", "NULL", createTimeType(6), "CAST(NULL AS TIME(6))")
+
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_time"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_time"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_time"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_time"));
     }
 
     /**
@@ -660,6 +745,15 @@ public class TestMySqlTypeMapping
                 .addRoundTrip("datetime(6)", "TIMESTAMP '1969-12-31 23:59:59.999995'", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.999995'")
                 .addRoundTrip("datetime(6)", "TIMESTAMP '1969-12-31 23:59:59.999949'", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.999949'")
                 .addRoundTrip("datetime(6)", "TIMESTAMP '1969-12-31 23:59:59.999994'", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.999994'")
+
+                // null
+                .addRoundTrip("datetime(0)", "NULL", createTimestampType(0), "CAST(NULL AS TIMESTAMP(0))")
+                .addRoundTrip("datetime(1)", "NULL", createTimestampType(1), "CAST(NULL AS TIMESTAMP(1))")
+                .addRoundTrip("datetime(2)", "NULL", createTimestampType(2), "CAST(NULL AS TIMESTAMP(2))")
+                .addRoundTrip("datetime(3)", "NULL", createTimestampType(3), "CAST(NULL AS TIMESTAMP(3))")
+                .addRoundTrip("datetime(4)", "NULL", createTimestampType(4), "CAST(NULL AS TIMESTAMP(4))")
+                .addRoundTrip("datetime(5)", "NULL", createTimestampType(5), "CAST(NULL AS TIMESTAMP(5))")
+                .addRoundTrip("datetime(6)", "NULL", createTimestampType(6), "CAST(NULL AS TIMESTAMP(6))")
 
                 .execute(getQueryRunner(), session, mysqlCreateAndInsert("tpch.test_datetime"));
     }
@@ -746,9 +840,20 @@ public class TestMySqlTypeMapping
                 // time gap in Kathmandu
                 .addRoundTrip("timestamp(3)", "TIMESTAMP '1986-01-01 00:13:07.123'", createTimestampType(3), "TIMESTAMP '1986-01-01 00:13:07.123'")
 
+                // null
+                .addRoundTrip("timestamp", "NULL", createTimestampType(3), "CAST(NULL AS TIMESTAMP(3))")
+                .addRoundTrip("timestamp(0)", "NULL", createTimestampType(0), "CAST(NULL AS TIMESTAMP(0))")
+                .addRoundTrip("timestamp(1)", "NULL", createTimestampType(1), "CAST(NULL AS TIMESTAMP(1))")
+                .addRoundTrip("timestamp(2)", "NULL", createTimestampType(2), "CAST(NULL AS TIMESTAMP(2))")
+                .addRoundTrip("timestamp(3)", "NULL", createTimestampType(3), "CAST(NULL AS TIMESTAMP(3))")
+                .addRoundTrip("timestamp(4)", "NULL", createTimestampType(4), "CAST(NULL AS TIMESTAMP(4))")
+                .addRoundTrip("timestamp(5)", "NULL", createTimestampType(5), "CAST(NULL AS TIMESTAMP(5))")
+                .addRoundTrip("timestamp(6)", "NULL", createTimestampType(6), "CAST(NULL AS TIMESTAMP(6))")
+
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"))
-                .execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_timestamp"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp"));
     }
 
     /**
@@ -806,9 +911,9 @@ public class TestMySqlTypeMapping
                 .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.9999994'", "TIMESTAMP '1969-12-31 23:59:59.999999'")
 
                 // CTAS with Trino, where the coercion is done by the connector
-                .execute(getQueryRunner(), trinoCreateAsSelect(getSession(), "test_timestamp_coercion"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_timestamp_coercion"))
                 // INSERT with Trino, where the coercion is done by the engine
-                .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_timestamp_coercion"));
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_timestamp_coercion"));
     }
 
     @DataProvider
@@ -821,32 +926,38 @@ public class TestMySqlTypeMapping
                 {ZoneId.of("Europe/Vilnius")},
                 // minutes offset change since 1970-01-01, no DST
                 {ZoneId.of("Asia/Kathmandu")},
-                {ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
+                {TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId()},
         };
     }
 
     @Test
     public void testJson()
     {
-        jsonTestCases(jsonDataType(value -> "JSON " + formatStringLiteral(value)))
+        SqlDataTypeTest.create()
+                .addRoundTrip("json", "JSON '{}'", JSON, "JSON '{}'")
+                .addRoundTrip("json", "NULL", JSON, "CAST(NULL AS JSON)")
+                .addRoundTrip("json", "JSON 'null'", JSON, "JSON 'null'")
+                .addRoundTrip("json", "JSON '123.4'", JSON, "JSON '123.4'")
+                .addRoundTrip("json", "JSON '\"abc\"'", JSON, "JSON '\"abc\"'")
+                .addRoundTrip("json", "JSON '\"text with '' apostrophes\"'", JSON, "JSON '\"text with '' apostrophes\"'")
+                .addRoundTrip("json", "JSON '\"\"'", JSON, "JSON '\"\"'")
+                .addRoundTrip("json", "JSON '{\"a\":1,\"b\":2}'", JSON, "JSON '{\"a\":1,\"b\":2}'")
+                .addRoundTrip("json", "JSON '{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}'", JSON, "JSON '{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}'")
+                .addRoundTrip("json", "JSON '[]'", JSON, "JSON '[]'")
                 .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_json"));
-        jsonTestCases(jsonDataType(value -> format("CAST(%s AS JSON)", formatStringLiteral(value))))
-                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_json"));
-    }
 
-    private DataTypeTest jsonTestCases(DataType<String> jsonDataType)
-    {
-        return DataTypeTest.create()
-                .addRoundTrip(jsonDataType, "{}")
-                .addRoundTrip(jsonDataType, null)
-                .addRoundTrip(jsonDataType, "null")
-                .addRoundTrip(jsonDataType, "123.4")
-                .addRoundTrip(jsonDataType, "\"abc\"")
-                .addRoundTrip(jsonDataType, "\"text with ' apostrophes\"")
-                .addRoundTrip(jsonDataType, "\"\"")
-                .addRoundTrip(jsonDataType, "{\"a\":1,\"b\":2}")
-                .addRoundTrip(jsonDataType, "{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}")
-                .addRoundTrip(jsonDataType, "[]");
+        SqlDataTypeTest.create()
+                .addRoundTrip("json", "CAST('{}' AS JSON)", JSON, "JSON '{}'")
+                .addRoundTrip("json", "NULL", JSON, "CAST(NULL AS JSON)")
+                .addRoundTrip("json", "CAST('null' AS JSON)", JSON, "JSON 'null'")
+                .addRoundTrip("json", "CAST('123.4' AS JSON)", JSON, "JSON '123.4'")
+                .addRoundTrip("json", "CAST('\"abc\"' AS JSON)", JSON, "JSON '\"abc\"'")
+                .addRoundTrip("json", "CAST('\"text with '' apostrophes\"' AS JSON)", JSON, "JSON '\"text with '' apostrophes\"'")
+                .addRoundTrip("json", "CAST('\"\"' AS JSON)", JSON, "JSON '\"\"'")
+                .addRoundTrip("json", "CAST('{\"a\":1,\"b\":2}' AS JSON)", JSON, "JSON '{\"a\":1,\"b\":2}'")
+                .addRoundTrip("json", "CAST('{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}' AS JSON)", JSON, "JSON '{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}'")
+                .addRoundTrip("json", "CAST('[]' AS JSON)", JSON, "JSON '[]'")
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_json"));
     }
 
     @Test
@@ -858,7 +969,8 @@ public class TestMySqlTypeMapping
                 .addRoundTrip("real", "10.3e0", REAL, "REAL '10.3e0'")
                 .addRoundTrip("real", "NULL", REAL, "CAST(NULL AS REAL)")
                 // .addRoundTrip("real", "3.1415927", REAL, "REAL '3.1415927'") // Overeagerly rounded by mysql to 3.14159
-                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_float"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_float"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("trino_test_float"));
 
         SqlDataTypeTest.create()
                 .addRoundTrip("float", "3.14", REAL, "REAL '3.14'")
@@ -871,42 +983,58 @@ public class TestMySqlTypeMapping
     @Test
     public void testDouble()
     {
-        doublePrecisionFloatingPointTests(doubleDataType())
-                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_double"));
-        doublePrecisionFloatingPointTests(mysqlDoubleDataType())
+        // we are not testing Nan/-Infinity/+Infinity as those are not supported by MySQL
+        SqlDataTypeTest.create()
+                .addRoundTrip("double", "1.0E100", DOUBLE, "1.0E100")
+                .addRoundTrip("double", "1.23456E12", DOUBLE, "1.23456E12")
+                .addRoundTrip("double", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_double"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("trino_test_double"))
                 .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_double"));
     }
 
     @Test
     public void testUnsignedTypes()
     {
-        DataType<Short> mysqlUnsignedTinyInt = DataType.dataType("TINYINT UNSIGNED", SmallintType.SMALLINT, Objects::toString);
-        DataType<Integer> mysqlUnsignedSmallInt = DataType.dataType("SMALLINT UNSIGNED", IntegerType.INTEGER, Objects::toString);
-        DataType<Long> mysqlUnsignedInt = DataType.dataType("INT UNSIGNED", BigintType.BIGINT, Objects::toString);
-        DataType<Long> mysqlUnsignedInteger = DataType.dataType("INTEGER UNSIGNED", BigintType.BIGINT, Objects::toString);
-        DataType<BigDecimal> mysqlUnsignedBigint = DataType.dataType("BIGINT UNSIGNED", createDecimalType(20), Objects::toString);
-
-        DataTypeTest.create()
-                .addRoundTrip(mysqlUnsignedTinyInt, (short) 255)
-                .addRoundTrip(mysqlUnsignedSmallInt, 65_535)
-                .addRoundTrip(mysqlUnsignedInt, 4_294_967_295L)
-                .addRoundTrip(mysqlUnsignedInteger, 4_294_967_295L)
-                .addRoundTrip(mysqlUnsignedBigint, new BigDecimal("18446744073709551615"))
+        SqlDataTypeTest.create()
+                .addRoundTrip("TINYINT UNSIGNED", "255", SMALLINT, "SMALLINT '255'")
+                .addRoundTrip("SMALLINT UNSIGNED", "65535", INTEGER, "65535")
+                .addRoundTrip("INT UNSIGNED", "4294967295", BIGINT, "4294967295")
+                .addRoundTrip("INTEGER UNSIGNED", "4294967295", BIGINT, "4294967295")
+                .addRoundTrip("BIGINT UNSIGNED", "18446744073709551615", createDecimalType(20, 0), "DECIMAL '18446744073709551615'")
                 .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_unsigned"));
     }
 
-    private static DataTypeTest doublePrecisionFloatingPointTests(DataType<Double> doubleType)
+    @Test
+    public void testEnum()
     {
-        // we are not testing Nan/-Infinity/+Infinity as those are not supported by MySQL
-        return DataTypeTest.create()
-                .addRoundTrip(doubleType, 1.0e100d)
-                .addRoundTrip(doubleType, 123.456E10)
-                .addRoundTrip(doubleType, null);
+        SqlExecutor jdbcSqlExecutor = mySqlServer::execute;
+        // Define enum values in an order different from lexicographical
+        jdbcSqlExecutor.execute("CREATE TABLE tpch.test_enum(id int, enum_column ENUM ('b','a','C'))");
+        assertUpdate("INSERT INTO tpch.test_enum(id, enum_column) values (1,'a'),(2,'b'),(3, NULL)", 3);
+        try {
+            assertQuery(
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_enum'",
+                    "VALUES ('id','integer'),('enum_column','varchar(1)')");
+            assertQuery("SELECT * FROM test_enum", "VALUES (1,'a'),(2,'b'),(3,NULL)");
+            assertQuery("SELECT * FROM test_enum WHERE enum_column = 'a'", "VALUES (1, 'a')");
+            assertQuery("SELECT * FROM test_enum WHERE enum_column != 'a'", "VALUES (2, 'b')");
+            assertQuery("SELECT * FROM test_enum WHERE enum_column <= 'a'", "VALUES (1, 'a')");
+            assertQuery("SELECT * FROM test_enum WHERE enum_column <= 'b'", "VALUES (1, 'a'), (2, 'b')");
+            assertQuery("SELECT * FROM test_enum WHERE enum_column <= 'c'", "VALUES (1, 'a'), (2, 'b')");
+            assertQueryReturnsEmptyResult("SELECT * FROM test_enum WHERE enum_column <= 'C'");
+            assertQuery("SELECT * FROM test_enum WHERE enum_column IS NOT NULL", "VALUES (1, 'a'), (2, 'b')");
+            assertQuery("SELECT * FROM test_enum WHERE enum_column IS NULL", "VALUES (3, NULL)");
+            assertQuery("SELECT id FROM test_enum ORDER BY enum_column LIMIT 1", "VALUES (1)");
+        }
+        finally {
+            jdbcSqlExecutor.execute("DROP TABLE tpch.test_enum");
+        }
     }
 
     private void testUnsupportedDataType(String databaseDataType)
     {
-        SqlExecutor jdbcSqlExecutor = mysqlServer::execute;
+        SqlExecutor jdbcSqlExecutor = mySqlServer::execute;
         jdbcSqlExecutor.execute(format("CREATE TABLE tpch.test_unsupported_data_type(supported_column varchar(5), unsupported_column %s)", databaseDataType));
         try {
             assertQuery(
@@ -928,6 +1056,11 @@ public class TestMySqlTypeMapping
         return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
+    private DataSetup trinoCreateAndInsert(String tableNamePrefix)
+    {
+        return trinoCreateAndInsert(getSession(), tableNamePrefix);
+    }
+
     private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
@@ -935,19 +1068,13 @@ public class TestMySqlTypeMapping
 
     private DataSetup mysqlCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(mysqlServer::execute, tableNamePrefix);
+        return new CreateAndInsertDataSetup(mySqlServer::execute, tableNamePrefix);
     }
 
-    private static DataType<String> jsonDataType(Function<String, String> toLiteral)
+    private void assertMySqlQueryFails(@Language("SQL") String sql, String expectedMessage)
     {
-        return dataType(
-                "json",
-                JSON,
-                toLiteral);
-    }
-
-    private static DataType<Double> mysqlDoubleDataType()
-    {
-        return dataType("double precision", DoubleType.DOUBLE, Object::toString);
+        assertThatThrownBy(() -> mySqlServer.execute(sql))
+                .getCause()
+                .hasMessageContaining(expectedMessage);
     }
 }

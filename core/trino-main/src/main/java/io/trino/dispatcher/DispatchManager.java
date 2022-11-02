@@ -36,7 +36,6 @@ import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.SelectionContext;
 import io.trino.spi.resourcegroups.SelectionCriteria;
-import io.trino.transaction.TransactionManager;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
@@ -54,7 +53,6 @@ import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
 import static io.trino.util.StatementUtils.getQueryType;
-import static io.trino.util.StatementUtils.isTransactionControlStatement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -65,7 +63,6 @@ public class DispatchManager
     private final ResourceGroupManager<?> resourceGroupManager;
     private final DispatchQueryFactory dispatchQueryFactory;
     private final FailedDispatchQueryFactory failedDispatchQueryFactory;
-    private final TransactionManager transactionManager;
     private final AccessControl accessControl;
     private final SessionSupplier sessionSupplier;
     private final SessionPropertyDefaults sessionPropertyDefaults;
@@ -86,7 +83,6 @@ public class DispatchManager
             ResourceGroupManager<?> resourceGroupManager,
             DispatchQueryFactory dispatchQueryFactory,
             FailedDispatchQueryFactory failedDispatchQueryFactory,
-            TransactionManager transactionManager,
             AccessControl accessControl,
             SessionSupplier sessionSupplier,
             SessionPropertyDefaults sessionPropertyDefaults,
@@ -99,16 +95,14 @@ public class DispatchManager
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
         this.dispatchQueryFactory = requireNonNull(dispatchQueryFactory, "dispatchQueryFactory is null");
         this.failedDispatchQueryFactory = requireNonNull(failedDispatchQueryFactory, "failedDispatchQueryFactory is null");
-        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
         this.sessionPropertyManager = sessionPropertyManager;
 
-        requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.maxQueryLength = queryManagerConfig.getMaxQueryLength();
 
-        this.dispatchExecutor = requireNonNull(dispatchExecutor, "dispatchExecutor is null").getExecutor();
+        this.dispatchExecutor = dispatchExecutor.getExecutor();
 
         this.queryTracker = new QueryTracker<>(queryManagerConfig, dispatchExecutor.getScheduledExecutor());
     }
@@ -198,11 +192,9 @@ public class DispatchManager
             // apply system default session properties (does not override user set properties)
             session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, queryType, selectionContext.getResourceGroupId());
 
-            // mark existing transaction as active
-            transactionManager.activateTransaction(session, isTransactionControlStatement(preparedQuery.getStatement()), accessControl);
-
             DispatchQuery dispatchQuery = dispatchQueryFactory.createDispatchQuery(
                     session,
+                    sessionContext.getTransactionId(),
                     query,
                     preparedQuery,
                     slug,

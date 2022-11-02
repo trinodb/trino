@@ -13,16 +13,18 @@
  */
 package io.trino.plugin.iceberg.catalog.hms;
 
-import io.trino.plugin.hive.authentication.HiveIdentity;
-import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.airlift.log.Logger;
+import io.trino.plugin.hive.metastore.AcidTransactionOwner;
+import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
-import io.trino.plugin.iceberg.catalog.AbstractMetastoreTableOperations;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.TableNotFoundException;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.exceptions.CommitFailedException;
+import org.apache.iceberg.exceptions.CommitStateUnknownException;
 import org.apache.iceberg.io.FileIO;
 
 import javax.annotation.concurrent.NotThreadSafe;
@@ -30,20 +32,23 @@ import javax.annotation.concurrent.NotThreadSafe;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiTable;
+import static io.trino.plugin.iceberg.IcebergUtil.fixBrokenMetadataLocation;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
+import static org.apache.iceberg.BaseMetastoreTableOperations.PREVIOUS_METADATA_LOCATION_PROP;
 
 @NotThreadSafe
 public class HiveMetastoreTableOperations
         extends AbstractMetastoreTableOperations
 {
+    private static final Logger log = Logger.get(HiveMetastoreTableOperations.class);
     private final ThriftMetastore thriftMetastore;
 
     public HiveMetastoreTableOperations(
             FileIO fileIo,
-            HiveMetastore metastore,
+            CachingHiveMetastore metastore,
             ThriftMetastore thriftMetastore,
             ConnectorSession session,
             String database,
@@ -59,49 +64,52 @@ public class HiveMetastoreTableOperations
     protected void commitToExistingTable(TableMetadata base, TableMetadata metadata)
     {
         String newMetadataLocation = writeNewMetadata(metadata, version + 1);
-        HiveIdentity identity = new HiveIdentity(session);
 
         long lockId = thriftMetastore.acquireTableExclusiveLock(
-                identity,
+                new AcidTransactionOwner(session.getUser()),
                 session.getQueryId(),
                 database,
                 tableName);
         try {
-            Table table;
-            try {
-                Table currentTable = fromMetastoreApiTable(thriftMetastore.getTable(identity, database, tableName)
-                        .orElseThrow(() -> new TableNotFoundException(getSchemaTableName())));
+            Table currentTable = fromMetastoreApiTable(thriftMetastore.getTable(database, tableName)
+                    .orElseThrow(() -> new TableNotFoundException(getSchemaTableName())));
 
-                checkState(currentMetadataLocation != null, "No current metadata location for existing table");
-                String metadataLocation = currentTable.getParameters().get(METADATA_LOCATION);
-                if (!currentMetadataLocation.equals(metadataLocation)) {
-                    throw new CommitFailedException("Metadata location [%s] is not same as table metadata location [%s] for %s",
-                            currentMetadataLocation, metadataLocation, getSchemaTableName());
-                }
+            checkState(currentMetadataLocation != null, "No current metadata location for existing table");
+            String metadataLocation = fixBrokenMetadataLocation(currentTable.getParameters().get(METADATA_LOCATION_PROP));
+            if (!currentMetadataLocation.equals(metadataLocation)) {
+                throw new CommitFailedException("Metadata location [%s] is not same as table metadata location [%s] for %s",
+                        currentMetadataLocation, metadataLocation, getSchemaTableName());
+            }
 
-                table = Table.builder(currentTable)
-                        .setDataColumns(toHiveColumns(metadata.schema().columns()))
-                        .withStorage(storage -> storage.setLocation(metadata.location()))
-                        .setParameter(METADATA_LOCATION, newMetadataLocation)
-                        .setParameter(PREVIOUS_METADATA_LOCATION, currentMetadataLocation)
-                        .build();
-            }
-            catch (RuntimeException e) {
-                try {
-                    io().deleteFile(newMetadataLocation);
-                }
-                catch (RuntimeException ex) {
-                    e.addSuppressed(ex);
-                }
-                throw e;
-            }
+            Table table = Table.builder(currentTable)
+                    .setDataColumns(toHiveColumns(metadata.schema().columns()))
+                    .withStorage(storage -> storage.setLocation(metadata.location()))
+                    .setParameter(METADATA_LOCATION_PROP, newMetadataLocation)
+                    .setParameter(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation)
+                    .build();
 
             // todo privileges should not be replaced for an alter
-            PrincipalPrivileges privileges = owner.isEmpty() && table.getOwner().isPresent() ? NO_PRIVILEGES : buildInitialPrivilegeSet(table.getOwner().get());
-            metastore.replaceTable(identity, database, tableName, table, privileges);
+            PrincipalPrivileges privileges = table.getOwner().map(MetastoreUtil::buildInitialPrivilegeSet).orElse(NO_PRIVILEGES);
+            try {
+                metastore.replaceTable(database, tableName, table, privileges);
+            }
+            catch (RuntimeException e) {
+                // Cannot determine whether the `replaceTable` operation was successful,
+                // regardless of the exception thrown (e.g. : timeout exception) or it actually failed
+                throw new CommitStateUnknownException(e);
+            }
         }
         finally {
-            thriftMetastore.releaseTableLock(identity, lockId);
+            try {
+                thriftMetastore.releaseTableLock(lockId);
+            }
+            catch (RuntimeException e) {
+                // Release lock step has failed. Not throwing this exception, after commit has already succeeded.
+                // So, that underlying iceberg API will not do the metadata cleanup, otherwise table will be in unusable state.
+                // If configured and supported, the unreleased lock will be automatically released by the metastore after not hearing a heartbeat for a while,
+                // or otherwise it might need to be manually deleted from the metastore backend storage.
+                log.error(e, "Failed to release lock %s when committing to table %s", lockId, tableName);
+            }
         }
 
         shouldRefresh = true;

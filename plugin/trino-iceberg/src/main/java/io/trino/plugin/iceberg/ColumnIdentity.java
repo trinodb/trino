@@ -14,11 +14,14 @@
 package io.trino.plugin.iceberg;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.types.Types;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -36,7 +39,9 @@ public class ColumnIdentity
     private final int id;
     private final String name;
     private final TypeCategory typeCategory;
-    private final List<ColumnIdentity> children;
+    // Underlying ImmutableMap is used to maintain the column ordering
+    private final Map<Integer, ColumnIdentity> children;
+    private final Map<Integer, Integer> childFieldIdToIndex;
 
     @JsonCreator
     public ColumnIdentity(
@@ -48,10 +53,19 @@ public class ColumnIdentity
         this.id = id;
         this.name = requireNonNull(name, "name is null");
         this.typeCategory = requireNonNull(typeCategory, "typeCategory is null");
-        this.children = ImmutableList.copyOf(requireNonNull(children, "children is null"));
+        requireNonNull(children, "children is null");
         checkArgument(
                 children.isEmpty() == (typeCategory == PRIMITIVE),
                 "Children should be empty if and only if column type is primitive");
+        ImmutableMap.Builder<Integer, ColumnIdentity> childrenBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<Integer, Integer> childFieldIdToIndex = ImmutableMap.builder();
+        for (int i = 0; i < children.size(); i++) {
+            ColumnIdentity child = children.get(i);
+            childrenBuilder.put(child.getId(), child);
+            childFieldIdToIndex.put(child.getId(), i);
+        }
+        this.children = childrenBuilder.buildOrThrow();
+        this.childFieldIdToIndex = childFieldIdToIndex.buildOrThrow();
     }
 
     @JsonProperty
@@ -75,7 +89,21 @@ public class ColumnIdentity
     @JsonProperty
     public List<ColumnIdentity> getChildren()
     {
-        return children;
+        return ImmutableList.copyOf(children.values());
+    }
+
+    @JsonIgnore
+    public ColumnIdentity getChildByFieldId(int fieldId)
+    {
+        checkArgument(children.containsKey(fieldId), "ColumnIdentity %s does not contain child with field id %s", this, fieldId);
+        return children.get(fieldId);
+    }
+
+    @JsonIgnore
+    public int getChildIndexByFieldId(int fieldId)
+    {
+        checkArgument(childFieldIdToIndex.containsKey(fieldId), "ColumnIdentity %s does not contain child with field id %s", this, fieldId);
+        return childFieldIdToIndex.get(fieldId);
     }
 
     @Override

@@ -14,7 +14,6 @@
 
 package io.trino.plugin.tpcds.statistics;
 
-import io.airlift.slice.Slice;
 import io.trino.plugin.tpcds.TpcdsColumnHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.statistics.ColumnStatistics;
@@ -24,6 +23,7 @@ import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -35,8 +35,6 @@ import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.isLongDecimal;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.lang.Double.parseDouble;
@@ -99,15 +97,11 @@ public class TpcdsTableStatisticsFactory
         if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(DATE)) {
             return ((Number) value).doubleValue();
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
-            if (isShortDecimal(decimalType)) {
+        if (type instanceof DecimalType decimalType) {
+            if (decimalType.isShort()) {
                 return parseDouble(Decimals.toString(((Number) value).longValue(), decimalType.getScale()));
             }
-            if (isLongDecimal(decimalType)) {
-                return parseDouble(Decimals.toString((Slice) value, decimalType.getScale()));
-            }
-            throw new IllegalArgumentException("Unexpected decimal type: " + decimalType);
+            return parseDouble(Decimals.toString((Int128) value, decimalType.getScale()));
         }
         if (type.equals(DOUBLE)) {
             return ((Number) value).doubleValue();

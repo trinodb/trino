@@ -37,7 +37,7 @@ import java.util.function.Consumer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
-import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static java.lang.String.format;
 import static java.util.Comparator.comparing;
@@ -64,7 +64,7 @@ public class ClusterSizeMonitor
     {
         this(
                 nodeManager,
-                requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null").isIncludeCoordinator());
+                nodeSchedulerConfig.isIncludeCoordinator());
     }
 
     public ClusterSizeMonitor(
@@ -73,7 +73,7 @@ public class ClusterSizeMonitor
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.includeCoordinator = includeCoordinator;
-        this.executor = newSingleThreadScheduledExecutor(threadsNamed("node-monitor-%s"));
+        this.executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("node-monitor-%s"));
     }
 
     @PostConstruct
@@ -87,6 +87,7 @@ public class ClusterSizeMonitor
     public void stop()
     {
         nodeManager.removeNodeChangeListener(listener);
+        executor.shutdown();
     }
 
     /**
@@ -142,7 +143,7 @@ public class ClusterSizeMonitor
             currentCount = Sets.difference(allNodes.getActiveNodes(), allNodes.getActiveCoordinators()).size();
         }
 
-        ImmutableList.Builder<SettableFuture<Void>> listenersBuilder = new ImmutableList.Builder<>();
+        ImmutableList.Builder<SettableFuture<Void>> listenersBuilder = ImmutableList.builder();
         while (!futuresQueue.isEmpty()) {
             MinNodesFuture minNodesFuture = futuresQueue.peek();
             if (minNodesFuture == null || minNodesFuture.getExecutionMinCount() > currentCount) {

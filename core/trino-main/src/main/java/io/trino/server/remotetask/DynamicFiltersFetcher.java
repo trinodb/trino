@@ -29,7 +29,6 @@ import javax.annotation.concurrent.GuardedBy;
 import java.net.URI;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
@@ -45,7 +44,6 @@ import static io.trino.server.InternalHeaders.TRINO_MAX_WAIT;
 import static java.util.Objects.requireNonNull;
 
 class DynamicFiltersFetcher
-        implements SimpleHttpResponseCallback<VersionedDynamicFilterDomains>
 {
     private final TaskId taskId;
     private final URI taskUri;
@@ -57,7 +55,6 @@ class DynamicFiltersFetcher
     private final RequestErrorTracker errorTracker;
     private final RemoteTaskStats stats;
     private final DynamicFilterService dynamicFilterService;
-    private final AtomicLong currentRequestStartNanos = new AtomicLong();
 
     @GuardedBy("this")
     private long dynamicFiltersVersion = INITIAL_DYNAMIC_FILTERS_VERSION;
@@ -106,16 +103,7 @@ class DynamicFiltersFetcher
         fetchDynamicFiltersIfNecessary();
     }
 
-    public synchronized void stop()
-    {
-        running = false;
-        if (future != null) {
-            future.cancel(true);
-            future = null;
-        }
-    }
-
-    public synchronized void updateDynamicFiltersVersion(long newDynamicFiltersVersion)
+    public synchronized void updateDynamicFiltersVersionAndFetchIfNecessary(long newDynamicFiltersVersion)
     {
         if (dynamicFiltersVersion >= newDynamicFiltersVersion) {
             return;
@@ -158,52 +146,57 @@ class DynamicFiltersFetcher
 
         errorTracker.startRequest();
         future = httpClient.executeAsync(request, createFullJsonResponseHandler(dynamicFilterDomainsCodec));
-        currentRequestStartNanos.set(System.nanoTime());
-        addCallback(future, new SimpleHttpResponseHandler<>(this, request.getUri(), stats), executor);
+        addCallback(future, new SimpleHttpResponseHandler<>(new DynamicFiltersResponseCallback(), request.getUri(), stats), executor);
     }
 
-    @Override
-    public void success(VersionedDynamicFilterDomains newDynamicFilterDomains)
+    private class DynamicFiltersResponseCallback
+            implements SimpleHttpResponseCallback<VersionedDynamicFilterDomains>
     {
-        try (SetThreadName ignored = new SetThreadName("DynamicFiltersFetcher-%s", taskId)) {
-            updateStats(currentRequestStartNanos.get());
-            try {
-                updateDynamicFilterDomains(newDynamicFilterDomains);
-                errorTracker.requestSucceeded();
-            }
-            finally {
-                fetchDynamicFiltersIfNecessary();
+        private final long requestStartNanos = System.nanoTime();
+
+        @Override
+        public void success(VersionedDynamicFilterDomains newDynamicFilterDomains)
+        {
+            try (SetThreadName ignored = new SetThreadName("DynamicFiltersFetcher-%s", taskId)) {
+                updateStats(requestStartNanos);
+                try {
+                    updateDynamicFilterDomains(newDynamicFilterDomains);
+                    errorTracker.requestSucceeded();
+                }
+                finally {
+                    fetchDynamicFiltersIfNecessary();
+                }
             }
         }
-    }
 
-    @Override
-    public void failed(Throwable cause)
-    {
-        try (SetThreadName ignored = new SetThreadName("DynamicFiltersFetcher-%s", taskId)) {
-            updateStats(currentRequestStartNanos.get());
-            try {
-                errorTracker.requestFailed(cause);
-            }
-            catch (Error e) {
-                onFail.accept(e);
-                throw e;
-            }
-            catch (RuntimeException e) {
-                onFail.accept(e);
-            }
-            finally {
-                fetchDynamicFiltersIfNecessary();
+        @Override
+        public void failed(Throwable cause)
+        {
+            try (SetThreadName ignored = new SetThreadName("DynamicFiltersFetcher-%s", taskId)) {
+                updateStats(requestStartNanos);
+                try {
+                    errorTracker.requestFailed(cause);
+                }
+                catch (Error e) {
+                    onFail.accept(e);
+                    throw e;
+                }
+                catch (RuntimeException e) {
+                    onFail.accept(e);
+                }
+                finally {
+                    fetchDynamicFiltersIfNecessary();
+                }
             }
         }
-    }
 
-    @Override
-    public void fatal(Throwable cause)
-    {
-        try (SetThreadName ignored = new SetThreadName("DynamicFiltersFetcher-%s", taskId)) {
-            updateStats(currentRequestStartNanos.get());
-            onFail.accept(cause);
+        @Override
+        public void fatal(Throwable cause)
+        {
+            try (SetThreadName ignored = new SetThreadName("DynamicFiltersFetcher-%s", taskId)) {
+                updateStats(requestStartNanos);
+                onFail.accept(cause);
+            }
         }
     }
 
@@ -216,7 +209,9 @@ class DynamicFiltersFetcher
             }
 
             localDynamicFiltersVersion = newDynamicFilterDomains.getVersion();
-            updateDynamicFiltersVersion(localDynamicFiltersVersion);
+            if (dynamicFiltersVersion < localDynamicFiltersVersion) {
+                dynamicFiltersVersion = localDynamicFiltersVersion;
+            }
         }
 
         // Subsequent DF versions can be narrowing down only. Therefore order in which they are intersected

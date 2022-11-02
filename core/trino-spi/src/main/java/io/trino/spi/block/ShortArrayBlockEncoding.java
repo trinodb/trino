@@ -111,7 +111,7 @@ public class ShortArrayBlockEncoding
         if (block instanceof ShortArrayBlock) {
             return ((ShortArrayBlock) block).getValuesSlice();
         }
-        else if (block instanceof ShortArrayBlockBuilder) {
+        if (block instanceof ShortArrayBlockBuilder) {
             return ((ShortArrayBlockBuilder) block).getValuesSlice();
         }
 

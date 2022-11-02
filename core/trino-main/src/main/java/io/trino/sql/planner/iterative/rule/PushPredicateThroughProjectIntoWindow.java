@@ -18,13 +18,12 @@ import io.trino.Session;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.metadata.Metadata;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
-import io.trino.spi.type.TypeOperators;
 import io.trino.sql.ExpressionUtils;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
@@ -43,7 +42,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.isOptimizeTopNRanking;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.predicate.Range.range;
-import static io.trino.sql.planner.DomainTranslator.fromPredicate;
 import static io.trino.sql.planner.iterative.rule.Util.toTopNRankingType;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static io.trino.sql.planner.plan.Patterns.project;
@@ -80,14 +78,12 @@ public class PushPredicateThroughProjectIntoWindow
     private static final Capture<ProjectNode> PROJECT = newCapture();
     private static final Capture<WindowNode> WINDOW = newCapture();
 
+    private final PlannerContext plannerContext;
     private final Pattern<FilterNode> pattern;
-    private final Metadata metadata;
-    private final TypeOperators typeOperators;
 
-    public PushPredicateThroughProjectIntoWindow(Metadata metadata, TypeOperators typeOperators)
+    public PushPredicateThroughProjectIntoWindow(PlannerContext plannerContext)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
-        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.pattern = filter()
                 .with(source().matching(project()
                         .matching(ProjectNode::isIdentity)
@@ -120,7 +116,11 @@ public class PushPredicateThroughProjectIntoWindow
             return Result.empty();
         }
 
-        DomainTranslator.ExtractionResult extractionResult = fromPredicate(metadata, typeOperators, context.getSession(), filter.getPredicate(), context.getSymbolAllocator().getTypes());
+        DomainTranslator.ExtractionResult extractionResult = DomainTranslator.getExtractionResult(
+                plannerContext,
+                context.getSession(),
+                filter.getPredicate(),
+                context.getSymbolAllocator().getTypes());
         TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
         OptionalInt upperBound = extractUpperBound(tupleDomain, rankingSymbol);
         if (upperBound.isEmpty()) {
@@ -145,9 +145,9 @@ public class PushPredicateThroughProjectIntoWindow
         // Remove the ranking domain because it is absorbed into the node
         TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(rankingSymbol));
         Expression newPredicate = ExpressionUtils.combineConjuncts(
-                metadata,
+                plannerContext.getMetadata(),
                 extractionResult.getRemainingExpression(),
-                new DomainTranslator(context.getSession(), metadata).toPredicate(newTupleDomain));
+                new DomainTranslator(plannerContext).toPredicate(context.getSession(), newTupleDomain));
         if (newPredicate.equals(TRUE_LITERAL)) {
             return Result.ofPlanNode(project);
         }

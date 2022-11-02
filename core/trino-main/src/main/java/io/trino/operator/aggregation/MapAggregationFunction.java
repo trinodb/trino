@@ -13,144 +13,56 @@
  */
 package io.trino.operator.aggregation;
 
-import com.google.common.collect.ImmutableList;
-import io.airlift.bytecode.DynamicClassLoader;
-import io.trino.metadata.AggregationFunctionMetadata;
-import io.trino.metadata.FunctionArgumentDefinition;
-import io.trino.metadata.FunctionBinding;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.Signature;
-import io.trino.metadata.SqlAggregationFunction;
-import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import io.trino.operator.aggregation.state.KeyValuePairStateSerializer;
 import io.trino.operator.aggregation.state.KeyValuePairsState;
-import io.trino.operator.aggregation.state.KeyValuePairsStateFactory;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.type.MapType;
+import io.trino.spi.function.AggregationFunction;
+import io.trino.spi.function.AggregationState;
+import io.trino.spi.function.BlockIndex;
+import io.trino.spi.function.BlockPosition;
+import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Convention;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.InputFunction;
+import io.trino.spi.function.OperatorDependency;
+import io.trino.spi.function.OperatorType;
+import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
-import io.trino.type.BlockTypeOperators;
 import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.util.List;
-import java.util.Optional;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.metadata.Signature.comparableTypeParameter;
-import static io.trino.metadata.Signature.typeVariable;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
-import static io.trino.spi.type.TypeSignature.mapType;
-import static io.trino.util.Reflection.methodHandle;
-import static java.util.Objects.requireNonNull;
-
-public class MapAggregationFunction
-        extends SqlAggregationFunction
+@AggregationFunction(value = "map_agg", isOrderSensitive = true)
+@Description("Aggregates all the rows (key/value pairs) into a single map")
+public final class MapAggregationFunction
 {
-    public static final String NAME = "map_agg";
-    private static final MethodHandle INPUT_FUNCTION = methodHandle(
-            MapAggregationFunction.class,
-            "input",
-            Type.class,
-            BlockPositionEqual.class,
-            BlockPositionHashCode.class,
-            Type.class,
-            KeyValuePairsState.class,
-            Block.class,
-            Block.class,
-            int.class);
-    private static final MethodHandle COMBINE_FUNCTION = methodHandle(MapAggregationFunction.class, "combine", KeyValuePairsState.class, KeyValuePairsState.class);
-    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(MapAggregationFunction.class, "output", KeyValuePairsState.class, BlockBuilder.class);
+    private MapAggregationFunction() {}
 
-    private final BlockTypeOperators blockTypeOperators;
-
-    public MapAggregationFunction(BlockTypeOperators blockTypeOperators)
-    {
-        super(
-                new FunctionMetadata(
-                        new Signature(
-                                NAME,
-                                ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
-                                ImmutableList.of(),
-                                mapType(new TypeSignature("K"), new TypeSignature("V")),
-                                ImmutableList.of(new TypeSignature("K"), new TypeSignature("V")),
-                                false),
-                        true,
-                        ImmutableList.of(
-                                new FunctionArgumentDefinition(false),
-                                new FunctionArgumentDefinition(true)),
-                        false,
-                        true,
-                        "Aggregates all the rows (key/value pairs) into a single map",
-                        AGGREGATE),
-                new AggregationFunctionMetadata(
-                        true,
-                        mapType(new TypeSignature("K"), new TypeSignature("V"))));
-        this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
-    }
-
-    @Override
-    public InternalAggregationFunction specialize(FunctionBinding functionBinding)
-    {
-        Type keyType = functionBinding.getTypeVariable("K");
-        BlockPositionEqual keyEqual = blockTypeOperators.getEqualOperator(keyType);
-        BlockPositionHashCode keyHashCode = blockTypeOperators.getHashCodeOperator(keyType);
-
-        Type valueType = functionBinding.getTypeVariable("V");
-        MapType outputType = (MapType) functionBinding.getBoundSignature().getReturnType();
-        return generateAggregation(keyType, keyEqual, keyHashCode, valueType, outputType);
-    }
-
-    private static InternalAggregationFunction generateAggregation(Type keyType, BlockPositionEqual keyEqual, BlockPositionHashCode keyHashCode, Type valueType, MapType outputType)
-    {
-        DynamicClassLoader classLoader = new DynamicClassLoader(MapAggregationFunction.class.getClassLoader());
-        List<Type> inputTypes = ImmutableList.of(keyType, valueType);
-        KeyValuePairStateSerializer stateSerializer = new KeyValuePairStateSerializer(outputType, keyEqual, keyHashCode);
-        Type intermediateType = stateSerializer.getSerializedType();
-
-        AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(NAME, outputType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
-                createInputParameterMetadata(keyType, valueType),
-                MethodHandles.insertArguments(INPUT_FUNCTION, 0, keyType, keyEqual, keyHashCode, valueType),
-                Optional.empty(),
-                COMBINE_FUNCTION,
-                OUTPUT_FUNCTION,
-                ImmutableList.of(new AccumulatorStateDescriptor(
-                        KeyValuePairsState.class,
-                        stateSerializer,
-                        new KeyValuePairsStateFactory(keyType, valueType))),
-                outputType);
-
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), outputType, factory);
-    }
-
-    private static List<ParameterMetadata> createInputParameterMetadata(Type keyType, Type valueType)
-    {
-        return ImmutableList.of(new ParameterMetadata(STATE),
-                new ParameterMetadata(BLOCK_INPUT_CHANNEL, keyType),
-                new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, valueType),
-                new ParameterMetadata(BLOCK_INDEX));
-    }
-
+    @InputFunction
+    @TypeParameter("K")
+    @TypeParameter("V")
     public static void input(
-            Type keyType,
-            BlockPositionEqual keyEqual,
-            BlockPositionHashCode keyHashCode,
-            Type valueType,
-            KeyValuePairsState state,
-            Block key,
-            Block value,
-            int position)
+            @TypeParameter("K") Type keyType,
+            @OperatorDependency(
+                    operator = OperatorType.EQUAL,
+                    argumentTypes = {"K", "K"},
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = NULLABLE_RETURN))
+                    BlockPositionEqual keyEqual,
+            @OperatorDependency(
+                    operator = OperatorType.HASH_CODE,
+                    argumentTypes = "K",
+                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL))
+                    BlockPositionHashCode keyHashCode,
+            @TypeParameter("V") Type valueType,
+            @AggregationState({"K", "V"}) KeyValuePairsState state,
+            @BlockPosition @SqlType("K") Block key,
+            @NullablePosition @BlockPosition @SqlType("V") Block value,
+            @BlockIndex int position)
     {
         KeyValuePairs pairs = state.get();
         if (pairs == null) {
@@ -163,7 +75,10 @@ public class MapAggregationFunction
         state.addMemoryUsage(pairs.estimatedInMemorySize() - startSize);
     }
 
-    public static void combine(KeyValuePairsState state, KeyValuePairsState otherState)
+    @CombineFunction
+    public static void combine(
+            @AggregationState({"K", "V"}) KeyValuePairsState state,
+            @AggregationState({"K", "V"}) KeyValuePairsState otherState)
     {
         if (state.get() != null && otherState.get() != null) {
             Block keys = otherState.get().getKeys();
@@ -180,7 +95,8 @@ public class MapAggregationFunction
         }
     }
 
-    public static void output(KeyValuePairsState state, BlockBuilder out)
+    @OutputFunction("map(K, V)")
+    public static void output(@AggregationState({"K", "V"}) KeyValuePairsState state, BlockBuilder out)
     {
         KeyValuePairs pairs = state.get();
         if (pairs == null) {

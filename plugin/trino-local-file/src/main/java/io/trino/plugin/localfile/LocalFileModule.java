@@ -31,7 +31,6 @@ public class LocalFileModule
         binder.bind(LocalFileMetadata.class).in(Scopes.SINGLETON);
         binder.bind(LocalFileSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(LocalFileRecordSetProvider.class).in(Scopes.SINGLETON);
-        binder.bind(LocalFileHandleResolver.class).in(Scopes.SINGLETON);
 
         binder.bind(LocalFileTables.class).in(Scopes.SINGLETON);
     }

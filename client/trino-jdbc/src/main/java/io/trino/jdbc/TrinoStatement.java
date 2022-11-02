@@ -43,7 +43,6 @@ public class TrinoStatement
     private final AtomicLong maxRows = new AtomicLong();
     private final AtomicInteger queryTimeoutSeconds = new AtomicInteger();
     private final AtomicInteger fetchSize = new AtomicInteger();
-    private final AtomicBoolean escapeProcessing = new AtomicBoolean(true);
     private final AtomicBoolean closeOnCompletion = new AtomicBoolean();
     private final AtomicReference<TrinoConnection> connection;
     private final Consumer<TrinoStatement> onClose;
@@ -161,7 +160,8 @@ public class TrinoStatement
             throws SQLException
     {
         checkOpen();
-        escapeProcessing.set(enable);
+        // Escape processing is not implemented. JDBC mandates that escapes processing is enabled by default,
+        // so throwing here doesn't make sense.
     }
 
     @Override
@@ -227,7 +227,7 @@ public class TrinoStatement
         if (queryTimeoutSeconds.get() > 0) {
             sessionProperties.put("query_max_run_time", queryTimeoutSeconds.get() + "s");
         }
-        return sessionProperties.build();
+        return sessionProperties.buildOrThrow();
     }
 
     @Override
@@ -284,7 +284,7 @@ public class TrinoStatement
             throw new SQLException(e.getMessage(), e);
         }
         catch (RuntimeException e) {
-            throw new SQLException("Error executing query", e);
+            throw new SQLException("Error executing query: " + e.getMessage(), e);
         }
         finally {
             executingClient.set(null);
@@ -635,6 +635,11 @@ public class TrinoStatement
             throw new SQLException("Connection is closed");
         }
         return connection;
+    }
+
+    protected final Optional<TrinoConnection> optionalConnection()
+    {
+        return Optional.ofNullable(connection.get());
     }
 
     private void closeResultSet()

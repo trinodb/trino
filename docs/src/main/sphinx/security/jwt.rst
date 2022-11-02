@@ -37,6 +37,9 @@ in a workflow like the following:
     between users and the Trino coordinator, where their new system submits
     queries on behalf of users.
 
+Using :doc:`TLS <tls>` and :doc:`a configured shared secret
+</security/internal-communication>` is required for JWT authentication.
+
 Using JWT authentication
 ------------------------
 
@@ -130,7 +133,7 @@ either:
 Using JWTs with clients
 -----------------------
 
-When using the Trino :doc:`CLI </installation/cli>`, specify a JWT as described
+When using the Trino :doc:`CLI </client/cli>`, specify a JWT as described
 in :ref:`cli-jwt-auth`.
 
 When using the Trino JDBC driver, specify a JWT with the ``accessToken``

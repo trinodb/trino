@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import io.trino.orc.metadata.CompressionKind;
+import org.apache.avro.file.DataFileConstants;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.GzipCodec;
 import org.apache.hadoop.io.compress.Lz4Codec;
@@ -27,21 +28,30 @@ import static java.util.Objects.requireNonNull;
 
 public enum HiveCompressionCodec
 {
-    NONE(null, CompressionKind.NONE, CompressionCodecName.UNCOMPRESSED),
-    SNAPPY(SnappyCodec.class, CompressionKind.SNAPPY, CompressionCodecName.SNAPPY),
-    LZ4(Lz4Codec.class, CompressionKind.LZ4, CompressionCodecName.LZ4),
-    ZSTD(ZStandardCodec.class, CompressionKind.ZSTD, CompressionCodecName.ZSTD),
-    GZIP(GzipCodec.class, CompressionKind.ZLIB, CompressionCodecName.GZIP);
+    NONE(null, CompressionKind.NONE, CompressionCodecName.UNCOMPRESSED, DataFileConstants.NULL_CODEC),
+    SNAPPY(SnappyCodec.class, CompressionKind.SNAPPY, CompressionCodecName.SNAPPY, DataFileConstants.SNAPPY_CODEC),
+    LZ4(Lz4Codec.class, CompressionKind.LZ4, CompressionCodecName.LZ4, null),
+    ZSTD(ZStandardCodec.class, CompressionKind.ZSTD, CompressionCodecName.ZSTD, DataFileConstants.ZSTANDARD_CODEC),
+    // Using DEFLATE for GZIP for Avro for now so Avro files can be written in default configuration
+    // TODO(https://github.com/trinodb/trino/issues/12580) change GZIP to be unsupported for Avro when we change Trino default compression to be storage format aware
+    GZIP(GzipCodec.class, CompressionKind.ZLIB, CompressionCodecName.GZIP, DataFileConstants.DEFLATE_CODEC);
 
     private final Optional<Class<? extends CompressionCodec>> codec;
     private final CompressionKind orcCompressionKind;
     private final CompressionCodecName parquetCompressionCodec;
 
-    HiveCompressionCodec(Class<? extends CompressionCodec> codec, CompressionKind orcCompressionKind, CompressionCodecName parquetCompressionCodec)
+    private final Optional<String> avroCompressionCodec;
+
+    HiveCompressionCodec(
+            Class<? extends CompressionCodec> codec,
+            CompressionKind orcCompressionKind,
+            CompressionCodecName parquetCompressionCodec,
+            String avroCompressionCodec)
     {
         this.codec = Optional.ofNullable(codec);
         this.orcCompressionKind = requireNonNull(orcCompressionKind, "orcCompressionKind is null");
         this.parquetCompressionCodec = requireNonNull(parquetCompressionCodec, "parquetCompressionCodec is null");
+        this.avroCompressionCodec = Optional.ofNullable(avroCompressionCodec);
     }
 
     public Optional<Class<? extends CompressionCodec>> getCodec()
@@ -57,5 +67,10 @@ public enum HiveCompressionCodec
     public CompressionCodecName getParquetCompressionCodec()
     {
         return parquetCompressionCodec;
+    }
+
+    public Optional<String> getAvroCompressionCodec()
+    {
+        return avroCompressionCodec;
     }
 }

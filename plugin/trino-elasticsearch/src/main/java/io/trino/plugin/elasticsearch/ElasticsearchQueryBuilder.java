@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.elasticsearch;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -24,14 +25,14 @@ import org.elasticsearch.index.query.MatchAllQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryStringQueryBuilder;
 import org.elasticsearch.index.query.RangeQueryBuilder;
+import org.elasticsearch.index.query.RegexpQueryBuilder;
 import org.elasticsearch.index.query.TermQueryBuilder;
 
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -54,7 +55,7 @@ public final class ElasticsearchQueryBuilder
 {
     private ElasticsearchQueryBuilder() {}
 
-    public static QueryBuilder buildSearchQuery(TupleDomain<ElasticsearchColumnHandle> constraint, Optional<String> query)
+    public static QueryBuilder buildSearchQuery(TupleDomain<ElasticsearchColumnHandle> constraint, Optional<String> query, Map<String, String> regexes)
     {
         BoolQueryBuilder queryBuilder = new BoolQueryBuilder();
         if (constraint.getDomains().isPresent()) {
@@ -64,10 +65,13 @@ public final class ElasticsearchQueryBuilder
 
                 checkArgument(!domain.isNone(), "Unexpected NONE domain for %s", column.getName());
                 if (!domain.isAll()) {
-                    queryBuilder.filter(new BoolQueryBuilder().must(buildPredicate(column.getName(), domain, column.getType())));
+                    addPredicateToQueryBuilder(queryBuilder, column.getName(), domain, column.getType());
                 }
             }
         }
+
+        regexes.forEach((name, value) -> queryBuilder.filter(new BoolQueryBuilder().must(((new RegexpQueryBuilder(name, value))))));
+
         query.map(QueryStringQueryBuilder::new)
                 .ifPresent(queryBuilder::must);
 
@@ -77,64 +81,68 @@ public final class ElasticsearchQueryBuilder
         return new MatchAllQueryBuilder();
     }
 
-    private static QueryBuilder buildPredicate(String columnName, Domain domain, Type type)
+    private static void addPredicateToQueryBuilder(BoolQueryBuilder queryBuilder, String columnName, Domain domain, Type type)
     {
         checkArgument(domain.getType().isOrderable(), "Domain type must be orderable");
-        BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
 
         if (domain.getValues().isNone()) {
-            boolQueryBuilder.mustNot(new ExistsQueryBuilder(columnName));
-            return boolQueryBuilder;
+            queryBuilder.mustNot(new ExistsQueryBuilder(columnName));
+            return;
         }
 
         if (domain.getValues().isAll()) {
-            boolQueryBuilder.must(new ExistsQueryBuilder(columnName));
-            return boolQueryBuilder;
+            queryBuilder.filter(new ExistsQueryBuilder(columnName));
+            return;
         }
 
-        return buildTermQuery(boolQueryBuilder, columnName, domain, type);
+        List<QueryBuilder> shouldClauses = getShouldClauses(columnName, domain, type);
+        if (shouldClauses.size() == 1) {
+            queryBuilder.filter(getOnlyElement(shouldClauses));
+            return;
+        }
+        if (shouldClauses.size() > 1) {
+            BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
+            shouldClauses.forEach(boolQueryBuilder::should);
+            queryBuilder.filter(boolQueryBuilder);
+            return;
+        }
     }
 
-    private static QueryBuilder buildTermQuery(BoolQueryBuilder queryBuilder, String columnName, Domain domain, Type type)
+    private static List<QueryBuilder> getShouldClauses(String columnName, Domain domain, Type type)
     {
+        ImmutableList.Builder<QueryBuilder> shouldClauses = ImmutableList.builder();
         for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
-            BoolQueryBuilder rangeQueryBuilder = new BoolQueryBuilder();
-            Set<Object> valuesToInclude = new HashSet<>();
             checkState(!range.isAll(), "Invalid range for column: %s", columnName);
             if (range.isSingleValue()) {
-                valuesToInclude.add(range.getSingleValue());
+                shouldClauses.add(new TermQueryBuilder(columnName, getValue(type, range.getSingleValue())));
             }
             else {
+                RangeQueryBuilder rangeQueryBuilder = new RangeQueryBuilder(columnName);
                 if (!range.isLowUnbounded()) {
                     Object lowBound = getValue(type, range.getLowBoundedValue());
                     if (range.isLowInclusive()) {
-                        rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).gte(lowBound));
+                        rangeQueryBuilder.gte(lowBound);
                     }
                     else {
-                        rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).gt(lowBound));
+                        rangeQueryBuilder.gt(lowBound);
                     }
                 }
                 if (!range.isHighUnbounded()) {
                     Object highBound = getValue(type, range.getHighBoundedValue());
                     if (range.isHighInclusive()) {
-                        rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).lte(highBound));
+                        rangeQueryBuilder.lte(highBound);
                     }
                     else {
-                        rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).lt(highBound));
+                        rangeQueryBuilder.lt(highBound);
                     }
                 }
+                shouldClauses.add(rangeQueryBuilder);
             }
-
-            if (valuesToInclude.size() == 1) {
-                rangeQueryBuilder.filter(new TermQueryBuilder(columnName, getValue(type, getOnlyElement(valuesToInclude))));
-            }
-            queryBuilder.should(rangeQueryBuilder);
         }
-
         if (domain.isNullAllowed()) {
-            queryBuilder.should(new BoolQueryBuilder().mustNot(new ExistsQueryBuilder(columnName)));
+            shouldClauses.add(new BoolQueryBuilder().mustNot(new ExistsQueryBuilder(columnName)));
         }
-        return queryBuilder;
+        return shouldClauses.build();
     }
 
     private static Object getValue(Type type, Object value)

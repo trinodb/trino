@@ -16,7 +16,6 @@ package io.trino.operator.scalar.timestamp;
 import io.airlift.slice.Slice;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.Description;
-import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -45,7 +44,7 @@ public class DateFormat
 
     @LiteralParameters({"x", "p"})
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice format(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p)") LongTimestamp timestamp, @SqlType("varchar(x)") Slice formatString)
+    public static Slice format(ConnectorSession session, @SqlType("timestamp(p)") LongTimestamp timestamp, @SqlType("varchar(x)") Slice formatString)
     {
         // Currently, date formatting only supports up to millis, so anything in the microsecond fraction is irrelevant
         return format(session, timestamp.getEpochMicros(), formatString);

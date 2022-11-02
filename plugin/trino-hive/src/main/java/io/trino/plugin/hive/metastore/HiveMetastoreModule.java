@@ -14,11 +14,13 @@
 package io.trino.plugin.hive.metastore;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Module;
+import com.google.inject.Provides;
+import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.plugin.hive.metastore.alluxio.AlluxioMetastoreModule;
-import io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreModule;
-import io.trino.plugin.hive.metastore.cache.ForCachingHiveMetastore;
+import io.trino.plugin.hive.AllowHiveTableRename;
+import io.trino.plugin.hive.HideDeltaLakeTables;
 import io.trino.plugin.hive.metastore.file.FileMetastoreModule;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreModule;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreModule;
@@ -41,15 +43,20 @@ public class HiveMetastoreModule
     protected void setup(Binder binder)
     {
         if (metastore.isPresent()) {
-            binder.bind(HiveMetastore.class).annotatedWith(ForCachingHiveMetastore.class).toInstance(metastore.get());
-            install(new CachingHiveMetastoreModule());
+            binder.bind(HiveMetastoreFactory.class).annotatedWith(RawHiveMetastoreFactory.class).toInstance(HiveMetastoreFactory.ofInstance(metastore.get()));
+            binder.bind(Key.get(boolean.class, AllowHiveTableRename.class)).toInstance(true);
         }
         else {
             bindMetastoreModule("thrift", new ThriftMetastoreModule());
             bindMetastoreModule("file", new FileMetastoreModule());
             bindMetastoreModule("glue", new GlueMetastoreModule());
-            bindMetastoreModule("alluxio", new AlluxioMetastoreModule());
+            // Load Alluxio metastore support through reflection. This makes Alluxio effectively an optional dependency
+            // and allows deploying Trino without the Alluxio jar. Can be useful if the integration is unused and is flagged
+            // by a security scanner.
+            bindMetastoreModule("alluxio-deprecated", deferredModule("io.trino.plugin.hive.metastore.alluxio.AlluxioMetastoreModule"));
         }
+
+        install(new DecoratedHiveMetastoreModule());
     }
 
     private void bindMetastoreModule(String name, Module module)
@@ -58,5 +65,33 @@ public class HiveMetastoreModule
                 MetastoreTypeConfig.class,
                 metastore -> name.equalsIgnoreCase(metastore.getMetastoreType()),
                 module));
+    }
+
+    private static Module deferredModule(String moduleClassName)
+    {
+        return new AbstractConfigurationAwareModule()
+        {
+            @Override
+            protected void setup(Binder binder)
+            {
+                try {
+                    install(Class.forName(moduleClassName)
+                            .asSubclass(Module.class)
+                            .getConstructor()
+                            .newInstance());
+                }
+                catch (ReflectiveOperationException e) {
+                    throw new RuntimeException("Problem loading module class: " + moduleClassName, e);
+                }
+            }
+        };
+    }
+
+    @HideDeltaLakeTables
+    @Singleton
+    @Provides
+    public boolean hideDeltaLakeTables(HiveMetastoreConfig hiveMetastoreConfig)
+    {
+        return hiveMetastoreConfig.isHideDeltaLakeTables();
     }
 }

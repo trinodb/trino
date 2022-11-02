@@ -17,12 +17,14 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -41,6 +43,8 @@ import static java.util.Objects.requireNonNull;
  */
 public final class Domain
 {
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(Domain.class).instanceSize());
+
     public static final int DEFAULT_COMPACTION_THRESHOLD = 32;
 
     private final ValueSet values;
@@ -143,9 +147,7 @@ public final class Domain
         if (nullAllowed) {
             return values.isNone();
         }
-        else {
-            return values.isSingleValue();
-        }
+        return values.isSingleValue();
     }
 
     public boolean isOnlyNull()
@@ -170,9 +172,7 @@ public final class Domain
         if (nullAllowed) {
             return null;
         }
-        else {
-            return values.getSingleValue();
-        }
+        return values.getSingleValue();
     }
 
     public boolean includesNullableValue(Object value)
@@ -341,6 +341,11 @@ public final class Domain
             return "[NULL]";
         }
         return "[ " + (nullAllowed ? "NULL, " : "") + values.toString(session, limit) + " ]";
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + values.getRetainedSizeInBytes();
     }
 
     public static class DiscreteSet

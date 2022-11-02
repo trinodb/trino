@@ -35,11 +35,10 @@ import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.CR
 import static io.trino.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.trino.tempto.fulfillment.table.TableRequirements.mutableTable;
-import static io.trino.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static io.trino.tempto.query.QueryExecutor.param;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.JDBC;
 import static io.trino.tests.product.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.sql.JDBCType.BIGINT;
@@ -93,11 +92,11 @@ public class TestPreparedStatements
         String selectSql = "SELECT c_int FROM " + TABLE_NAME + " WHERE c_int = ?";
         final int testValue = 2147483647;
 
-        assertThat(query(selectSql, param(INTEGER, testValue))).containsOnly(row(testValue));
+        assertThat(onTrino().executeQuery(selectSql, param(INTEGER, testValue))).containsOnly(row(testValue));
 
-        assertThat(query(selectSql, param(INTEGER, null))).hasNoRows();
+        assertThat(onTrino().executeQuery(selectSql, param(INTEGER, null))).hasNoRows();
 
-        assertThat(query(selectSql, param(INTEGER, 2))).hasNoRows();
+        assertThat(onTrino().executeQuery(selectSql, param(INTEGER, 2))).hasNoRows();
     }
 
     @Test(groups = JDBC)
@@ -129,7 +128,7 @@ public class TestPreparedStatements
         String insertSqlWithTable = format(INSERT_SQL, tableNameInDatabase);
         String selectSqlWithTable = format(SELECT_STAR_SQL, tableNameInDatabase);
 
-        defaultQueryExecutor().executeQuery(
+        onTrino().executeQuery(
                 insertSqlWithTable,
                 param(TINYINT, null),
                 param(SMALLINT, null),
@@ -147,7 +146,7 @@ public class TestPreparedStatements
                 param(BOOLEAN, null),
                 param(VARBINARY, new byte[] {0, 1, 2, 3, 0, 42, -7}));
 
-        QueryResult result = defaultQueryExecutor().executeQuery(selectSqlWithTable);
+        QueryResult result = onTrino().executeQuery(selectSqlWithTable);
         assertColumnTypes(result);
         assertThat(result).containsOnly(
                 row(null, null, null, null, null, null, null, null, null, null, null, null, null, null,
@@ -162,7 +161,7 @@ public class TestPreparedStatements
         String insertSqlWithTable = format(INSERT_SQL, tableNameInDatabase);
         String selectSqlWithTable = format(SELECT_STAR_SQL, tableNameInDatabase);
 
-        query(
+        onTrino().executeQuery(
                 insertSqlWithTable,
                 param(TINYINT, 127),
                 param(SMALLINT, 32767),
@@ -180,7 +179,7 @@ public class TestPreparedStatements
                 param(BOOLEAN, Boolean.TRUE),
                 param(VARBINARY, new byte[] {0, 1, 2, 3, 0, 42, -7}));
 
-        query(
+        onTrino().executeQuery(
                 insertSqlWithTable,
                 param(TINYINT, 1),
                 param(SMALLINT, 2),
@@ -198,7 +197,7 @@ public class TestPreparedStatements
                 param(BOOLEAN, Boolean.FALSE),
                 param(VARBINARY, new byte[] {0, 1, 2, 3, 0, 42, -7}));
 
-        query(
+        onTrino().executeQuery(
                 insertSqlWithTable,
                 param(TINYINT, null),
                 param(SMALLINT, null),
@@ -216,7 +215,7 @@ public class TestPreparedStatements
                 param(BOOLEAN, null),
                 param(VARBINARY, null));
 
-        QueryResult result = query(selectSqlWithTable);
+        QueryResult result = onTrino().executeQuery(selectSqlWithTable);
         assertColumnTypes(result);
         assertThat(result).containsOnly(
                 row(
@@ -317,7 +316,7 @@ public class TestPreparedStatements
                     "null, " +
                     "null");
 
-            QueryResult result = query(selectSqlWithTable);
+            QueryResult result = onTrino().executeQuery(selectSqlWithTable);
             assertColumnTypes(result);
             assertThat(result).containsOnly(
                     row(
@@ -385,7 +384,7 @@ public class TestPreparedStatements
                     "null, " +
                     "X'00010203002AF9'");
 
-            QueryResult result = query(selectSqlWithTable);
+            QueryResult result = onTrino().executeQuery(selectSqlWithTable);
             assertColumnTypes(result);
             assertThat(result).containsOnly(
                     row(null, null, null, null, null, null, null, null, null, null, null, null, null, null,
@@ -415,6 +414,6 @@ public class TestPreparedStatements
 
     private Connection connection()
     {
-        return defaultQueryExecutor().getConnection();
+        return onTrino().getConnection();
     }
 }

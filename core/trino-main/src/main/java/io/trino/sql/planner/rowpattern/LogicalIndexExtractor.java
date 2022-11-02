@@ -17,6 +17,11 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.Session;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.type.Type;
+import io.trino.sql.analyzer.ExpressionAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
@@ -38,11 +43,13 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.isPatternRecognitionFunction;
+import static io.trino.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ProcessingMode.Mode.FINAL;
 import static java.lang.Math.toIntExact;
@@ -60,17 +67,22 @@ import static java.util.Objects.requireNonNull;
  * Value accessors are ordered the same way as the corresponding symbols so that they can be used to provide actual values to the compiled expression.
  * Each time the compiled expression will be executed, a single-row input will be prepared with the use of the value accessors,
  * following the symbols layout.
+ * <p>
+ * Aggregate functions in pattern recognition expressions are handled in special way. Similarly to column references, CLASSIFIER() and MATCH_NUMBER()
+ * calls, they are replaced with a single symbol in the resulting expression, backed with a ValuePointer. The ValuePointer is an instance of the
+ * AggregationValuePointer class. It captures the aggregate function, the descriptor of the aggregated set of rows, and a list of arguments.
+ * The expressions in the arguments list are rewritten so that they do not contain any pattern-recognition-specific elements.
  */
 public class LogicalIndexExtractor
 {
-    public static ExpressionAndValuePointers rewrite(Expression expression, Map<IrLabel, Set<IrLabel>> subsets, SymbolAllocator symbolAllocator)
+    public static ExpressionAndValuePointers rewrite(Expression expression, Map<IrLabel, Set<IrLabel>> subsets, SymbolAllocator symbolAllocator, Session session, Metadata metadata)
     {
         ImmutableList.Builder<Symbol> layout = ImmutableList.builder();
         ImmutableList.Builder<ValuePointer> valuePointers = ImmutableList.builder();
         ImmutableSet.Builder<Symbol> classifierSymbols = ImmutableSet.builder();
         ImmutableSet.Builder<Symbol> matchNumberSymbols = ImmutableSet.builder();
 
-        Visitor visitor = new Visitor(subsets, layout, valuePointers, classifierSymbols, matchNumberSymbols, symbolAllocator);
+        Visitor visitor = new Visitor(subsets, layout, valuePointers, classifierSymbols, matchNumberSymbols, symbolAllocator, session, metadata);
         Expression rewritten = ExpressionTreeRewriter.rewriteWith(visitor, expression, LogicalIndexContext.DEFAULT);
 
         return new ExpressionAndValuePointers(rewritten, layout.build(), valuePointers.build(), classifierSymbols.build(), matchNumberSymbols.build());
@@ -87,6 +99,8 @@ public class LogicalIndexExtractor
         private final ImmutableSet.Builder<Symbol> classifierSymbols;
         private final ImmutableSet.Builder<Symbol> matchNumberSymbols;
         private final SymbolAllocator symbolAllocator;
+        private final Session session;
+        private final Metadata metadata;
 
         public Visitor(
                 Map<IrLabel, Set<IrLabel>> subsets,
@@ -94,7 +108,8 @@ public class LogicalIndexExtractor
                 ImmutableList.Builder<ValuePointer> valuePointers,
                 ImmutableSet.Builder<Symbol> classifierSymbols,
                 ImmutableSet.Builder<Symbol> matchNumberSymbols,
-                SymbolAllocator symbolAllocator)
+                SymbolAllocator symbolAllocator,
+                Session session, Metadata metadata)
         {
             this.subsets = requireNonNull(subsets, "subsets is null");
             this.layout = requireNonNull(layout, "layout is null");
@@ -102,6 +117,8 @@ public class LogicalIndexExtractor
             this.classifierSymbols = requireNonNull(classifierSymbols, "classifierSymbols is null");
             this.matchNumberSymbols = requireNonNull(matchNumberSymbols, "matchNumberSymbols is null");
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
+            this.session = requireNonNull(session, "session is null");
+            this.metadata = requireNonNull(metadata, "metadata is null");
         }
 
         @Override
@@ -113,13 +130,14 @@ public class LogicalIndexExtractor
         @Override
         public Expression rewriteLabelDereference(LabelDereference node, LogicalIndexContext context, ExpressionTreeRewriter<LogicalIndexContext> treeRewriter)
         {
-            Symbol reallocated = symbolAllocator.newSymbol(Symbol.from(node.getReference()));
+            Symbol referenced = Symbol.from(node.getReference().orElseThrow());
+            Symbol reallocated = symbolAllocator.newSymbol(referenced);
             layout.add(reallocated);
             Set<IrLabel> labels = subsets.get(irLabel(node.getLabel()));
             if (labels == null) {
                 labels = ImmutableSet.of(irLabel(node.getLabel()));
             }
-            valuePointers.add(new ValuePointer(context.withLabels(labels).toLogicalIndexPointer(), Symbol.from(node.getReference())));
+            valuePointers.add(new ScalarValuePointer(context.withLabels(labels).toLogicalIndexPointer(), referenced));
             return reallocated.toSymbolReference();
         }
 
@@ -130,7 +148,7 @@ public class LogicalIndexExtractor
             // it is encoded as empty label set
             Symbol reallocated = symbolAllocator.newSymbol(Symbol.from(node));
             layout.add(reallocated);
-            valuePointers.add(new ValuePointer(context.withLabels(ImmutableSet.of()).toLogicalIndexPointer(), Symbol.from(node)));
+            valuePointers.add(new ScalarValuePointer(context.withLabels(ImmutableSet.of()).toLogicalIndexPointer(), Symbol.from(node)));
             return reallocated.toSymbolReference();
         }
 
@@ -140,21 +158,83 @@ public class LogicalIndexExtractor
             if (isPatternRecognitionFunction(node)) {
                 QualifiedName name = node.getName();
                 String functionName = name.getSuffix().toUpperCase(ENGLISH);
-                switch (functionName) {
-                    case "FIRST":
-                    case "LAST":
-                    case "PREV":
-                    case "NEXT":
-                        return rewritePatternNavigationFunction(node, context, treeRewriter);
-                    case "CLASSIFIER":
-                        return rewriteClassifierFunction(node, context);
-                    case "MATCH_NUMBER":
-                        return rewriteMatchNumberFunction();
-                }
-                throw new UnsupportedOperationException("unsupported pattern recognition function type: " + node.getName());
+                return switch (functionName) {
+                    case "FIRST", "LAST", "PREV", "NEXT" -> rewritePatternNavigationFunction(node, context, treeRewriter);
+                    case "CLASSIFIER" -> rewriteClassifierFunction(node, context);
+                    case "MATCH_NUMBER" -> rewriteMatchNumberFunction();
+                    default -> throw new UnsupportedOperationException("unsupported pattern recognition function type: " + node.getName());
+                };
+            }
+
+            if (metadata.isAggregationFunction(session, QualifiedName.of(extractFunctionName(node.getName())))) {
+                ResolvedFunction resolvedFunction = metadata.decodeFunction(node.getName());
+                Type type = resolvedFunction.getSignature().getReturnType();
+
+                Symbol aggregationSymbol = symbolAllocator.newSymbol(node, type);
+                layout.add(aggregationSymbol);
+
+                Symbol classifierSymbol = symbolAllocator.newSymbol("classifier", VARCHAR);
+                Symbol matchNumberSymbol = symbolAllocator.newSymbol("match_number", BIGINT);
+                List<Expression> rewrittenArguments = AggregateArgumentsRewriter.rewrite(node.getArguments(), classifierSymbol, matchNumberSymbol);
+
+                AggregationValuePointer descriptor = new AggregationValuePointer(
+                        resolvedFunction,
+                        new AggregatedSetDescriptor(
+                                extractLabels(node),
+                                node.getProcessingMode().isEmpty() || node.getProcessingMode().get().getMode() != FINAL),
+                        rewrittenArguments,
+                        classifierSymbol,
+                        matchNumberSymbol);
+
+                valuePointers.add(descriptor);
+
+                return aggregationSymbol.toSymbolReference();
             }
 
             return super.rewriteFunctionCall(node, context, treeRewriter);
+        }
+
+        /**
+         * Extract labels to identify rows to which the aggregation should be applied.
+         * It is assumed that all arguments of the aggregation apply consistently to the same set of labels.
+         *
+         * @param node a `FunctionCall` for the aggregate function
+         * @return set of `IrLabel`s corresponding to primary row pattern variables or empty set for the universal row pattern variable
+         */
+        private Set<IrLabel> extractLabels(FunctionCall node)
+        {
+            if (node.getArguments().isEmpty()) {
+                return ImmutableSet.of();
+            }
+
+            List<LabelDereference> labeledDereferences = extractExpressions(node.getArguments(), LabelDereference.class);
+            if (!labeledDereferences.isEmpty()) {
+                IrLabel label = irLabel(labeledDereferences.get(0).getLabel());
+                Set<IrLabel> labels = subsets.get(label);
+                if (labels == null) {
+                    labels = ImmutableSet.of(label);
+                }
+                return labels;
+            }
+
+            Optional<FunctionCall> classifierCall = extractExpressions(node.getArguments(), FunctionCall.class).stream()
+                    .filter(ExpressionAnalyzer::isPatternRecognitionFunction)
+                    .filter(function -> function.getName().getSuffix().toUpperCase(ENGLISH).equals("CLASSIFIER"))
+                    .findFirst();
+
+            if (classifierCall.isPresent()) {
+                FunctionCall classifier = classifierCall.get();
+                if (!classifier.getArguments().isEmpty()) {
+                    IrLabel label = irLabel(((Identifier) getOnlyElement(classifier.getArguments())).getCanonicalValue());
+                    Set<IrLabel> labels = subsets.get(label);
+                    if (labels == null) {
+                        labels = ImmutableSet.of(label);
+                    }
+                    return labels;
+                }
+            }
+
+            return ImmutableSet.of();
         }
 
         private Expression rewritePatternNavigationFunction(FunctionCall node, LogicalIndexContext context, ExpressionTreeRewriter<LogicalIndexContext> treeRewriter)
@@ -166,19 +246,19 @@ public class LogicalIndexExtractor
             if (node.getArguments().size() > 1) {
                 offset = OptionalInt.of(toIntExact(((LongLiteral) node.getArguments().get(1)).getValue()));
             }
-            switch (functionName) {
-                case "PREV":
-                    return treeRewriter.rewrite(argument, context.withPhysicalOffset(-offset.orElse(1)));
-                case "NEXT":
-                    return treeRewriter.rewrite(argument, context.withPhysicalOffset(offset.orElse(1)));
-                case "FIRST":
-                    boolean running = processingMode.isEmpty() || processingMode.get().getMode() != FINAL;
-                    return treeRewriter.rewrite(argument, context.withLogicalOffset(running, false, offset.orElse(0)));
-                case "LAST":
-                    running = processingMode.isEmpty() || processingMode.get().getMode() != FINAL;
-                    return treeRewriter.rewrite(argument, context.withLogicalOffset(running, true, offset.orElse(0)));
-            }
-            throw new UnsupportedOperationException("unsupported pattern navigation function type: " + node.getName());
+            return switch (functionName) {
+                case "PREV" -> treeRewriter.rewrite(argument, context.withPhysicalOffset(-offset.orElse(1)));
+                case "NEXT" -> treeRewriter.rewrite(argument, context.withPhysicalOffset(offset.orElse(1)));
+                case "FIRST" -> treeRewriter.rewrite(argument, context.withLogicalOffset(
+                        processingMode.isEmpty() || processingMode.get().getMode() != FINAL,
+                        false,
+                        offset.orElse(0)));
+                case "LAST" -> treeRewriter.rewrite(argument, context.withLogicalOffset(
+                        processingMode.isEmpty() || processingMode.get().getMode() != FINAL,
+                        true,
+                        offset.orElse(0)));
+                default -> throw new UnsupportedOperationException("unsupported pattern navigation function type: " + node.getName());
+            };
         }
 
         private Expression rewriteClassifierFunction(FunctionCall node, LogicalIndexContext context)
@@ -196,7 +276,7 @@ public class LogicalIndexExtractor
             }
 
             // pass the new symbol as input symbol. It will be used to identify classifier function.
-            valuePointers.add(new ValuePointer(context.withLabels(labels).toLogicalIndexPointer(), classifierSymbol));
+            valuePointers.add(new ScalarValuePointer(context.withLabels(labels).toLogicalIndexPointer(), classifierSymbol));
             classifierSymbols.add(classifierSymbol);
             return classifierSymbol.toSymbolReference();
         }
@@ -207,7 +287,7 @@ public class LogicalIndexExtractor
             layout.add(matchNumberSymbol);
             // pass default LogicalIndexPointer. It will not be accessed. match_number() is constant in the context of a match.
             // pass the new symbol as input symbol. It will be used to identify match number function.
-            valuePointers.add(new ValuePointer(LogicalIndexContext.DEFAULT.toLogicalIndexPointer(), matchNumberSymbol));
+            valuePointers.add(new ScalarValuePointer(LogicalIndexContext.DEFAULT.toLogicalIndexPointer(), matchNumberSymbol));
             matchNumberSymbols.add(matchNumberSymbol);
             return matchNumberSymbol.toSymbolReference();
         }
@@ -274,6 +354,7 @@ public class LogicalIndexExtractor
             this.expression = requireNonNull(expression, "expression is null");
             this.layout = requireNonNull(layout, "layout is null");
             this.valuePointers = requireNonNull(valuePointers, "valuePointers is null");
+            checkArgument(layout.size() == valuePointers.size(), "layout and valuePointers sizes don't match");
             this.classifierSymbols = requireNonNull(classifierSymbols, "classifierSymbols is null");
             this.matchNumberSymbols = requireNonNull(matchNumberSymbols, "matchNumberSymbols is null");
         }
@@ -310,10 +391,25 @@ public class LogicalIndexExtractor
 
         public List<Symbol> getInputSymbols()
         {
-            return valuePointers.stream()
-                    .map(ValuePointer::getInputSymbol)
-                    .filter(symbol -> !classifierSymbols.contains(symbol) && !matchNumberSymbols.contains(symbol))
-                    .collect(toImmutableList());
+            ImmutableList.Builder<Symbol> inputSymbols = ImmutableList.builder();
+
+            for (ValuePointer valuePointer : valuePointers) {
+                if (valuePointer instanceof ScalarValuePointer) {
+                    ScalarValuePointer pointer = (ScalarValuePointer) valuePointer;
+                    Symbol symbol = pointer.getInputSymbol();
+                    if (!classifierSymbols.contains(symbol) && !matchNumberSymbols.contains(symbol)) {
+                        inputSymbols.add(symbol);
+                    }
+                }
+                else if (valuePointer instanceof AggregationValuePointer) {
+                    inputSymbols.addAll(((AggregationValuePointer) valuePointer).getInputSymbols());
+                }
+                else {
+                    throw new UnsupportedOperationException("unexpected ValuePointer type: " + valuePointer.getClass().getSimpleName());
+                }
+            }
+
+            return inputSymbols.build();
         }
 
         @Override
@@ -337,51 +433,6 @@ public class LogicalIndexExtractor
         public int hashCode()
         {
             return Objects.hash(expression, layout, valuePointers, classifierSymbols, matchNumberSymbols);
-        }
-    }
-
-    public static class ValuePointer
-    {
-        private final LogicalIndexPointer logicalIndexPointer;
-        private final Symbol inputSymbol;
-
-        @JsonCreator
-        public ValuePointer(LogicalIndexPointer logicalIndexPointer, Symbol inputSymbol)
-        {
-            this.logicalIndexPointer = requireNonNull(logicalIndexPointer, "logicalIndexPointer is null");
-            this.inputSymbol = requireNonNull(inputSymbol, "inputSymbol is null");
-        }
-
-        @JsonProperty
-        public LogicalIndexPointer getLogicalIndexPointer()
-        {
-            return logicalIndexPointer;
-        }
-
-        @JsonProperty
-        public Symbol getInputSymbol()
-        {
-            return inputSymbol;
-        }
-
-        @Override
-        public boolean equals(Object obj)
-        {
-            if (this == obj) {
-                return true;
-            }
-            if ((obj == null) || (getClass() != obj.getClass())) {
-                return false;
-            }
-            ValuePointer o = (ValuePointer) obj;
-            return Objects.equals(logicalIndexPointer, o.logicalIndexPointer) &&
-                    Objects.equals(inputSymbol, o.inputSymbol);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(logicalIndexPointer, inputSymbol);
         }
     }
 }

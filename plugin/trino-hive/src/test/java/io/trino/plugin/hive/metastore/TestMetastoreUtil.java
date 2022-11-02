@@ -181,7 +181,7 @@ public class TestMetastoreUtil
                 .put(bucketColumnHandle(), Domain.create(ValueSet.of(INTEGER, 123L), false))
                 .put(dsColumn, dsDomain)
                 .put(typeColumn, typeDomain)
-                .build());
+                .buildOrThrow());
 
         TupleDomain<String> filter = computePartitionKeyFilter(partitionKeys, tupleDomain);
         assertThat(filter.getDomains())
@@ -189,7 +189,7 @@ public class TestMetastoreUtil
                 .contains(ImmutableMap.<String, Domain>builder()
                         .put("ds", dsDomain)
                         .put("type", typeDomain)
-                        .build());
+                        .buildOrThrow());
     }
 
     private static HiveColumnHandle partitionColumn(String name)

@@ -15,10 +15,7 @@ package io.trino.cost;
 
 import io.trino.Session;
 import io.trino.matching.Pattern;
-import io.trino.metadata.Metadata;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.Constraint;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.FixedWidthType;
@@ -42,12 +39,9 @@ public class TableScanStatsRule
 {
     private static final Pattern<TableScanNode> PATTERN = tableScan();
 
-    private final Metadata metadata;
-
-    public TableScanStatsRule(Metadata metadata, StatsNormalizer normalizer)
+    public TableScanStatsRule(StatsNormalizer normalizer)
     {
         super(normalizer); // Use stats normalization since connector can return inconsistent stats values
-        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     @Override
@@ -57,16 +51,13 @@ public class TableScanStatsRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(TableScanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(TableScanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
     {
         if (isStatisticsPrecalculationForPushdownEnabled(session) && node.getStatistics().isPresent()) {
             return node.getStatistics();
         }
 
-        // TODO Construct predicate like AddExchanges's LayoutConstraintEvaluator
-        Constraint constraint = new Constraint(TupleDomain.all());
-
-        TableStatistics tableStatistics = metadata.getTableStatistics(session, node.getTable(), constraint);
+        TableStatistics tableStatistics = tableStatsProvider.getTableStatistics(node.getTable());
 
         Map<Symbol, SymbolStatsEstimate> outputSymbolStats = new HashMap<>();
 

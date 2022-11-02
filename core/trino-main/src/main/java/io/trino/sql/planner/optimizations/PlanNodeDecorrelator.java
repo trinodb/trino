@@ -21,10 +21,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
-import io.trino.metadata.Metadata;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
 import io.trino.sql.ExpressionUtils;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -63,6 +64,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.optimizations.SymbolMapper.symbolMapper;
+import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
@@ -71,17 +73,17 @@ import static java.util.Objects.requireNonNull;
 
 public class PlanNodeDecorrelator
 {
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
     private final SymbolAllocator symbolAllocator;
     private final Lookup lookup;
     private final TypeCoercion typeCoercion;
 
-    public PlanNodeDecorrelator(Metadata metadata, SymbolAllocator symbolAllocator, Lookup lookup)
+    public PlanNodeDecorrelator(PlannerContext plannerContext, SymbolAllocator symbolAllocator, Lookup lookup)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         this.lookup = requireNonNull(lookup, "lookup is null");
-        this.typeCoercion = new TypeCoercion(metadata::getType);
+        this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
     }
 
     public Optional<DecorrelatedNode> decorrelateFilters(PlanNode node, List<Symbol> correlation)
@@ -90,7 +92,7 @@ public class PlanNodeDecorrelator
             return Optional.of(new DecorrelatedNode(ImmutableList.of(), node));
         }
 
-        Optional<DecorrelationResult> decorrelationResultOptional = node.accept(new DecorrelatingVisitor(metadata, correlation), null);
+        Optional<DecorrelationResult> decorrelationResultOptional = node.accept(new DecorrelatingVisitor(plannerContext.getTypeManager(), correlation), null);
         return decorrelationResultOptional.flatMap(decorrelationResult -> decorrelatedNode(
                 decorrelationResult.correlatedPredicates,
                 decorrelationResult.node,
@@ -100,12 +102,12 @@ public class PlanNodeDecorrelator
     private class DecorrelatingVisitor
             extends PlanVisitor<Optional<DecorrelationResult>, Void>
     {
-        private final Metadata metadata;
+        private final TypeManager typeManager;
         private final List<Symbol> correlation;
 
-        DecorrelatingVisitor(Metadata metadata, List<Symbol> correlation)
+        DecorrelatingVisitor(TypeManager typeManager, List<Symbol> correlation)
         {
-            this.metadata = metadata;
+            this.typeManager = requireNonNull(typeManager, "typeManager is null");
             this.correlation = requireNonNull(correlation, "correlation is null");
         }
 
@@ -160,7 +162,7 @@ public class PlanNodeDecorrelator
             FilterNode newFilterNode = new FilterNode(
                     node.getId(),
                     childDecorrelationResult.node,
-                    ExpressionUtils.combineConjuncts(metadata, uncorrelatedPredicates));
+                    ExpressionUtils.combineConjuncts(plannerContext.getMetadata(), uncorrelatedPredicates));
 
             Set<Symbol> symbolsToPropagate = Sets.difference(SymbolsExtractor.extractUnique(correlatedPredicates), ImmutableSet.copyOf(correlation));
             return Optional.of(new DecorrelationResult(
@@ -228,15 +230,11 @@ public class PlanNodeDecorrelator
             }
 
             // rewrite Limit to aggregation on constant symbols
-            AggregationNode aggregationNode = new AggregationNode(
+            AggregationNode aggregationNode = singleAggregation(
                     nodeId,
                     decorrelatedChildNode,
                     ImmutableMap.of(),
-                    singleGroupingSet(decorrelatedChildNode.getOutputSymbols()),
-                    ImmutableList.of(),
-                    AggregationNode.Step.SINGLE,
-                    Optional.empty(),
-                    Optional.empty());
+                    singleGroupingSet(decorrelatedChildNode.getOutputSymbols()));
 
             return Optional.of(new DecorrelationResult(
                     aggregationNode,
@@ -390,7 +388,7 @@ public class PlanNodeDecorrelator
             if (nonConstantOrderBy.build().isEmpty()) {
                 return Optional.empty();
             }
-            return Optional.of(new OrderingScheme(nonConstantOrderBy.build(), nonConstantOrderings.build()));
+            return Optional.of(new OrderingScheme(nonConstantOrderBy.build(), nonConstantOrderings.buildOrThrow()));
         }
 
         @Override
@@ -438,18 +436,14 @@ public class PlanNodeDecorrelator
                 return Optional.empty();
             }
 
-            AggregationNode newAggregation = new AggregationNode(
-                    decorrelatedAggregation.getId(),
-                    decorrelatedAggregation.getSource(),
-                    decorrelatedAggregation.getAggregations(),
-                    AggregationNode.singleGroupingSet(ImmutableList.<Symbol>builder()
-                            .addAll(node.getGroupingKeys())
-                            .addAll(symbolsToAdd)
-                            .build()),
-                    ImmutableList.of(),
-                    decorrelatedAggregation.getStep(),
-                    decorrelatedAggregation.getHashSymbol(),
-                    decorrelatedAggregation.getGroupIdSymbol());
+            AggregationNode newAggregation = AggregationNode.builderFrom(decorrelatedAggregation)
+                    .setGroupingSets(
+                            AggregationNode.singleGroupingSet(ImmutableList.<Symbol>builder()
+                                    .addAll(node.getGroupingKeys())
+                                    .addAll(symbolsToAdd)
+                                    .build()))
+                    .setPreGroupedSymbols(ImmutableList.of())
+                    .build();
 
             return Optional.of(new DecorrelationResult(
                     newAggregation,
@@ -545,7 +539,7 @@ public class PlanNodeDecorrelator
         // checks whether the expression is a deterministic combination of correlation symbols
         private boolean isConstant(Expression expression)
         {
-            return isDeterministic(expression, metadata) &&
+            return isDeterministic(expression, plannerContext.getMetadata()) &&
                     ImmutableSet.copyOf(correlation).containsAll(SymbolsExtractor.extractUnique(expression));
         }
 
@@ -562,7 +556,7 @@ public class PlanNodeDecorrelator
             Symbol sourceSymbol = Symbol.from(cast.getExpression());
 
             Type sourceType = symbolAllocator.getTypes().get(sourceSymbol);
-            Type targetType = metadata.getType(toTypeSignature(((Cast) expression).getType()));
+            Type targetType = typeManager.getType(toTypeSignature(((Cast) expression).getType()));
 
             return typeCoercion.isInjectiveCoercion(sourceType, targetType);
         }

@@ -135,11 +135,9 @@ public final class ValueStreams
         if (encoding == DIRECT_V2 || encoding == DICTIONARY_V2) {
             return new LongInputStreamV2(inputStream, signed, false);
         }
-        else if (encoding == DIRECT || encoding == DICTIONARY) {
+        if (encoding == DIRECT || encoding == DICTIONARY) {
             return new LongInputStreamV1(inputStream, signed);
         }
-        else {
-            throw new IllegalArgumentException("Unsupported encoding for long stream: " + encoding);
-        }
+        throw new IllegalArgumentException("Unsupported encoding for long stream: " + encoding);
     }
 }

@@ -91,7 +91,7 @@ public class TestJdbcConnection
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", server.getBaseDataDir().resolve("hive").toAbsolutePath().toString())
                 .put("hive.security", "sql-standard")
-                .build());
+                .buildOrThrow());
         server.installPlugin(new BlackHolePlugin());
         server.createCatalog("blackhole", "blackhole", ImmutableMap.of());
 
@@ -350,7 +350,7 @@ public class TestJdbcConnection
                     .put("test.token.foo", "bar")
                     .put("test.token.abc", "xyz")
                     .put("colon", "-::-")
-                    .build();
+                    .buildOrThrow();
             TrinoConnection trinoConnection = connection.unwrap(TrinoConnection.class);
             assertEquals(trinoConnection.getExtraCredentials(), expectedCredentials);
             assertEquals(listExtraCredentials(connection), expectedCredentials);
@@ -419,88 +419,23 @@ public class TestJdbcConnection
     public void testSessionProperties()
             throws SQLException
     {
-        try (Connection connection = createConnection("roles=hive:admin&sessionProperties=hive.temporary_staging_directory_path:/tmp;execution_policy:phased")) {
+        try (Connection connection = createConnection("roles=hive:admin&sessionProperties=hive.temporary_staging_directory_path:/tmp;execution_policy:legacy-phased")) {
             TrinoConnection trinoConnection = connection.unwrap(TrinoConnection.class);
             assertThat(trinoConnection.getSessionProperties())
                     .extractingByKeys("hive.temporary_staging_directory_path", "execution_policy")
-                    .containsExactly("/tmp", "phased");
+                    .containsExactly("/tmp", "legacy-phased");
             assertThat(listSession(connection)).containsAll(ImmutableSet.of(
-                    "execution_policy|phased|all-at-once",
+                    "execution_policy|legacy-phased|phased",
                     "hive.temporary_staging_directory_path|/tmp|/tmp/presto-${USER}"));
         }
     }
 
-    @Test(timeOut = 60_000)
-    public void testCancellationOnStatementClose()
-            throws Exception
-    {
-        String sql = "SELECT * FROM blackhole.default.devzero -- test cancellation " + randomUUID();
-        try (Connection connection = createConnection()) {
-            Statement statement = connection.createStatement();
-            statement.execute(sql);
-            ResultSet resultSet = statement.getResultSet();
-
-            // read some data
-            assertThat(resultSet.next()).isTrue();
-            assertThat(resultSet.next()).isTrue();
-            assertThat(resultSet.next()).isTrue();
-
-            // Make sure that query is still running
-            assertThat(listQueryStatuses(sql))
-                    .containsExactly("RUNNING")
-                    .hasSize(1);
-
-            // Closing statement should cancel queries and invalidate the result set
-            statement.close();
-
-            // verify that the query was cancelled
-            assertThatThrownBy(resultSet::next)
-                    .isInstanceOf(SQLException.class)
-                    .hasMessage("ResultSet is closed");
-            assertThat(listQueryErrorCodes(sql))
-                    .containsExactly("USER_CANCELED")
-                    .hasSize(1);
-        }
-    }
-
-    @Test(timeOut = 60_000)
-    public void testConcurrentCancellationOnStatementClose()
-            throws Exception
-    {
-        String sql = "SELECT * FROM blackhole.default.delay -- test cancellation " + randomUUID();
-        Future<?> future;
-        try (Connection connection = createConnection()) {
-            Statement statement = connection.createStatement();
-            future = executor.submit(() -> {
-                try (ResultSet resultSet = statement.executeQuery(sql)) {
-                    //noinspection StatementWithEmptyBody
-                    while (resultSet.next()) {
-                        // consume results
-                    }
-                }
-                return null;
-            });
-
-            // Wait for the queries to be started
-            assertEventually(() -> {
-                assertThatFutureIsBlocked(future);
-                assertThat(listQueryStatuses(sql))
-                        .contains("RUNNING")
-                        .hasSize(1);
-            });
-
-            // Closing statement should cancel queries
-            statement.close();
-
-            // verify that the query was cancelled
-            assertThatThrownBy(future::get).isNotNull();
-            assertThat(listQueryErrorCodes(sql))
-                    .allMatch(errorCode -> "TRANSACTION_ALREADY_ABORTED".equals(errorCode) || "USER_CANCELED".equals(errorCode))
-                    .hasSize(1);
-        }
-    }
-
-    @Test(timeOut = 60_000, dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    /**
+     * @see TestJdbcStatement#testCancellationOnStatementClose()
+     * @see TestJdbcStatement#testConcurrentCancellationOnStatementClose()
+     */
+    // TODO https://github.com/trinodb/trino/issues/10096 - enable test once concurrent jdbc statements are supported
+    @Test(timeOut = 60_000, dataProviderClass = DataProviders.class, dataProvider = "trueFalse", enabled = false)
     public void testConcurrentCancellationOnConnectionClose(boolean autoCommit)
             throws Exception
     {
@@ -590,7 +525,7 @@ public class TestJdbcConnection
                 builder.put(rs.getString("name"), rs.getString("value"));
             }
         }
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     private static Set<String> listCurrentRoles(Connection connection)
@@ -685,7 +620,7 @@ public class TestJdbcConnection
         }
     }
 
-    private static void assertThatFutureIsBlocked(Future<?> future)
+    static void assertThatFutureIsBlocked(Future<?> future)
     {
         if (!future.isDone()) {
             return;

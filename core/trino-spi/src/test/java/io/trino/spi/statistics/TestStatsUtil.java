@@ -52,7 +52,7 @@ public class TestStatsUtil
         assertToStatsRepresentation(DOUBLE, 0.1d, 0.1);
         assertToStatsRepresentation(REAL, (long) floatToIntBits(0.2f), 0.2f);
         assertToStatsRepresentation(createDecimalType(5, 2), 12345L, 123.45);
-        assertToStatsRepresentation(createDecimalType(25, 5), Decimals.encodeScaledValue(new BigDecimal("12345678901234567890.12345")), 12345678901234567890.12345);
+        assertToStatsRepresentation(createDecimalType(25, 5), Decimals.valueOf(new BigDecimal("12345678901234567890.12345")), 12345678901234567890.12345);
         assertToStatsRepresentation(DATE, 1L, 1);
         assertToStatsRepresentation(createTimestampType(0), 3_000_000L, 3_000_000.);
         assertToStatsRepresentation(createTimestampType(3), 3_000L, 3_000.);

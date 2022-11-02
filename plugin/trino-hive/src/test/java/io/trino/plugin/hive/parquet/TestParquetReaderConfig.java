@@ -41,13 +41,13 @@ public class TestParquetReaderConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("parquet.ignore-statistics", "true")
                 .put("parquet.max-read-block-size", "66kB")
                 .put("parquet.max-buffer-size", "1431kB")
                 .put("parquet.max-merge-distance", "342kB")
                 .put("parquet.use-column-index", "false")
-                .build();
+                .buildOrThrow();
 
         ParquetReaderConfig expected = new ParquetReaderConfig()
                 .setIgnoreStatistics(true)

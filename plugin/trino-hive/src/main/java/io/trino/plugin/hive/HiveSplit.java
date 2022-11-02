@@ -21,6 +21,7 @@ import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Objects;
@@ -30,12 +31,17 @@ import java.util.Properties;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class HiveSplit
         implements ConnectorSplit
 {
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(HiveSplit.class).instanceSize());
+
     private final String path;
     private final long start;
     private final long length;
@@ -47,7 +53,8 @@ public class HiveSplit
     private final String database;
     private final String table;
     private final String partitionName;
-    private final OptionalInt bucketNumber;
+    private final OptionalInt readBucketNumber;
+    private final OptionalInt tableBucketNumber;
     private final int statementId;
     private final boolean forceLocalScheduling;
     private final TableToPartitionMapping tableToPartitionMapping;
@@ -71,7 +78,8 @@ public class HiveSplit
             @JsonProperty("schema") Properties schema,
             @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys,
             @JsonProperty("addresses") List<HostAddress> addresses,
-            @JsonProperty("bucketNumber") OptionalInt bucketNumber,
+            @JsonProperty("readBucketNumber") OptionalInt readBucketNumber,
+            @JsonProperty("tableBucketNumber") OptionalInt tableBucketNumber,
             @JsonProperty("statementId") int statementId,
             @JsonProperty("forceLocalScheduling") boolean forceLocalScheduling,
             @JsonProperty("tableToPartitionMapping") TableToPartitionMapping tableToPartitionMapping,
@@ -92,7 +100,8 @@ public class HiveSplit
         requireNonNull(schema, "schema is null");
         requireNonNull(partitionKeys, "partitionKeys is null");
         requireNonNull(addresses, "addresses is null");
-        requireNonNull(bucketNumber, "bucketNumber is null");
+        requireNonNull(readBucketNumber, "readBucketNumber is null");
+        requireNonNull(tableBucketNumber, "tableBucketNumber is null");
         requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
         requireNonNull(bucketValidation, "bucketValidation is null");
@@ -109,7 +118,8 @@ public class HiveSplit
         this.schema = schema;
         this.partitionKeys = ImmutableList.copyOf(partitionKeys);
         this.addresses = ImmutableList.copyOf(addresses);
-        this.bucketNumber = bucketNumber;
+        this.readBucketNumber = readBucketNumber;
+        this.tableBucketNumber = tableBucketNumber;
         this.statementId = statementId;
         this.forceLocalScheduling = forceLocalScheduling;
         this.tableToPartitionMapping = tableToPartitionMapping;
@@ -189,9 +199,15 @@ public class HiveSplit
     }
 
     @JsonProperty
-    public OptionalInt getBucketNumber()
+    public OptionalInt getReadBucketNumber()
     {
-        return bucketNumber;
+        return readBucketNumber;
+    }
+
+    @JsonProperty
+    public OptionalInt getTableBucketNumber()
+    {
+        return tableBucketNumber;
     }
 
     @JsonProperty
@@ -256,6 +272,26 @@ public class HiveSplit
     }
 
     @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(path)
+                + estimatedSizeOf(schema, key -> estimatedSizeOf((String) key), value -> estimatedSizeOf((String) value))
+                + estimatedSizeOf(partitionKeys, HivePartitionKey::getEstimatedSizeInBytes)
+                + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes)
+                + estimatedSizeOf(database)
+                + estimatedSizeOf(table)
+                + estimatedSizeOf(partitionName)
+                + sizeOf(readBucketNumber)
+                + sizeOf(tableBucketNumber)
+                + tableToPartitionMapping.getEstimatedSizeInBytes()
+                + sizeOf(bucketConversion, BucketConversion::getRetainedSizeInBytes)
+                + sizeOf(bucketValidation, BucketValidation::getRetainedSizeInBytes)
+                + sizeOf(acidInfo, AcidInfo::getRetainedSizeInBytes)
+                + splitWeight.getRetainedSizeInBytes();
+    }
+
+    @Override
     public Object getInfo()
     {
         return ImmutableMap.builder()
@@ -271,7 +307,7 @@ public class HiveSplit
                 .put("deserializerClassName", getDeserializerClassName(schema))
                 .put("s3SelectPushdownEnabled", s3SelectPushdownEnabled)
                 .put("splitNumber", splitNumber)
-                .build();
+                .buildOrThrow();
     }
 
     @Override
@@ -287,11 +323,13 @@ public class HiveSplit
 
     public static class BucketConversion
     {
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(BucketConversion.class).instanceSize());
+
         private final BucketingVersion bucketingVersion;
         private final int tableBucketCount;
         private final int partitionBucketCount;
         private final List<HiveColumnHandle> bucketColumnNames;
-        // bucketNumber is needed, but can be found in bucketNumber field of HiveSplit.
+        // tableBucketNumber is needed, but can be found in tableBucketNumber field of HiveSplit.
 
         @JsonCreator
         public BucketConversion(
@@ -350,10 +388,18 @@ public class HiveSplit
         {
             return Objects.hash(tableBucketCount, partitionBucketCount, bucketColumnNames);
         }
+
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE
+                    + estimatedSizeOf(bucketColumnNames, HiveColumnHandle::getRetainedSizeInBytes);
+        }
     }
 
     public static class BucketValidation
     {
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(BucketValidation.class).instanceSize());
+
         private final BucketingVersion bucketingVersion;
         private final int bucketCount;
         private final List<HiveColumnHandle> bucketColumns;
@@ -385,6 +431,12 @@ public class HiveSplit
         public List<HiveColumnHandle> getBucketColumns()
         {
             return bucketColumns;
+        }
+
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE
+                    + estimatedSizeOf(bucketColumns, HiveColumnHandle::getRetainedSizeInBytes);
         }
     }
 }

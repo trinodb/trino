@@ -26,13 +26,22 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
+import io.trino.spi.connector.Constraint;
+import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.Ranges;
+import io.trino.spi.predicate.SortedRangeSet;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.ValueSet;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -41,9 +50,9 @@ import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-import static io.trino.plugin.redis.RedisHandleResolver.convertColumnHandle;
-import static io.trino.plugin.redis.RedisHandleResolver.convertTableHandle;
+import static io.trino.plugin.redis.RedisSplit.toRedisDataType;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * Manages the Redis connector specific metadata information. The Connector provides an additional set of columns
@@ -64,12 +73,14 @@ public class RedisMetadata
             RedisConnectorConfig redisConnectorConfig,
             Supplier<Map<SchemaTableName, RedisTableDescription>> redisTableDescriptionSupplier)
     {
-        requireNonNull(redisConnectorConfig, "redisConnectorConfig is null");
         hideInternalColumns = redisConnectorConfig.isHideInternalColumns();
 
         log.debug("Loading redis table definitions from %s", redisConnectorConfig.getTableDescriptionDir().getAbsolutePath());
 
-        this.redisTableDescriptionSupplier = Suppliers.memoize(redisTableDescriptionSupplier::get)::get;
+        this.redisTableDescriptionSupplier = Suppliers.memoizeWithExpiration(
+                redisTableDescriptionSupplier::get,
+                redisConnectorConfig.getTableDescriptionCacheDuration().toMillis(),
+                MILLISECONDS);
     }
 
     @Override
@@ -102,7 +113,8 @@ public class RedisMetadata
                 schemaTableName.getTableName(),
                 getDataFormat(table.getKey()),
                 getDataFormat(table.getValue()),
-                keyName);
+                keyName,
+                TupleDomain.all());
     }
 
     private static String getDataFormat(RedisTableFieldGroup fieldGroup)
@@ -113,7 +125,7 @@ public class RedisMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        SchemaTableName schemaTableName = convertTableHandle(tableHandle).toSchemaTableName();
+        SchemaTableName schemaTableName = ((RedisTableHandle) tableHandle).toSchemaTableName();
         ConnectorTableMetadata tableMetadata = getTableMetadata(schemaTableName);
         if (tableMetadata == null) {
             throw new TableNotFoundException(schemaTableName);
@@ -137,7 +149,7 @@ public class RedisMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        RedisTableHandle redisTableHandle = convertTableHandle(tableHandle);
+        RedisTableHandle redisTableHandle = ((RedisTableHandle) tableHandle);
 
         RedisTableDescription redisTableDescription = getDefinedTables().get(redisTableHandle.toSchemaTableName());
         if (redisTableDescription == null) {
@@ -174,7 +186,63 @@ public class RedisMetadata
             index++;
         }
 
-        return columnHandles.build();
+        return columnHandles.buildOrThrow();
+    }
+
+    @Override
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
+    {
+        RedisTableHandle handle = (RedisTableHandle) table;
+        TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
+        TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
+        TupleDomain<ColumnHandle> remainingFilter;
+        if (newDomain.isNone()) {
+            remainingFilter = TupleDomain.all();
+        }
+        else {
+            Map<ColumnHandle, Domain> domains = newDomain.getDomains().orElseThrow();
+
+            Map<ColumnHandle, Domain> supported = new HashMap<>();
+            Map<ColumnHandle, Domain> unsupported = new HashMap<>();
+
+            // Currently, only Redis key of string type supports pushdown.
+            // Key pushdown is not supported when multiple key fields are defined in the table definition file.
+            if (toRedisDataType(handle.getKeyDataFormat()) != RedisDataType.STRING) {
+                unsupported = domains;
+            }
+            else if (getUserDefinedKeySize(session, handle) > 1) {
+                unsupported = domains;
+            }
+            else {
+                for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
+                    RedisColumnHandle columnHandle = (RedisColumnHandle) entry.getKey();
+                    Domain domain = entry.getValue();
+                    if (isColumnSupportsPushdown(columnHandle, domain)) {
+                        supported.put(columnHandle, domain);
+                    }
+                    else {
+                        unsupported.put(columnHandle, domain);
+                    }
+                }
+            }
+
+            newDomain = TupleDomain.withColumnDomains(supported);
+            remainingFilter = TupleDomain.withColumnDomains(unsupported);
+        }
+
+        if (oldDomain.equals(newDomain)) {
+            return Optional.empty();
+        }
+
+        handle = new RedisTableHandle(
+                handle.getSchemaName(),
+                handle.getTableName(),
+                handle.getKeyDataFormat(),
+                handle.getValueDataFormat(),
+                handle.getKeyName(),
+                newDomain);
+
+        return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, false));
     }
 
     @Override
@@ -199,20 +267,13 @@ public class RedisMetadata
                 columns.put(tableName, tableMetadata.getColumns());
             }
         }
-        return columns.build();
+        return columns.buildOrThrow();
     }
 
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        convertTableHandle(tableHandle);
-        return convertColumnHandle(columnHandle).getColumnMetadata();
-    }
-
-    @Override
-    public boolean usesLegacyTableLayouts()
-    {
-        return false;
+        return ((RedisColumnHandle) columnHandle).getColumnMetadata();
     }
 
     @Override
@@ -257,5 +318,28 @@ public class RedisMetadata
                 }
             }
         }
+    }
+
+    private boolean isColumnSupportsPushdown(RedisColumnHandle columnHandle, Domain domain)
+    {
+        if (columnHandle.isKeyDecoder()) {
+            if (domain.isSingleValue()) {
+                return true;
+            }
+            ValueSet valueSet = domain.getValues();
+            if (valueSet instanceof SortedRangeSet) {
+                Ranges ranges = ((SortedRangeSet) valueSet).getRanges();
+                List<Range> rangeList = ranges.getOrderedRanges();
+                return rangeList.stream().allMatch(Range::isSingleValue);
+            }
+        }
+        return false;
+    }
+
+    private long getUserDefinedKeySize(ConnectorSession session, RedisTableHandle handle)
+    {
+        return getColumnHandles(session, handle).values().stream()
+                .filter(column -> ((RedisColumnHandle) column).isKeyDecoder())
+                .count();
     }
 }

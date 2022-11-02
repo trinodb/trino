@@ -13,10 +13,13 @@
  */
 package io.trino.sql.query;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestAggregationOverJoin
 {
     @Test
@@ -24,15 +27,16 @@ public class TestAggregationOverJoin
     {
         // https://github.com/prestodb/presto/issues/10592
         try (QueryAssertions assertions = new QueryAssertions()) {
-            assertThat(assertions.query(
-                    "WITH " +
-                            "    t (a, b) AS (VALUES (1, 'a'), (1, 'b')), " +
-                            "    u (a) AS (VALUES 1) " +
-                            "SELECT DISTINCT v.a " +
-                            "FROM ( " +
-                            "    SELECT DISTINCT a, b " +
-                            "    FROM t) v " +
-                            "LEFT JOIN u on v.a = u.a"))
+            assertThat(assertions.query("""
+                    WITH
+                        t (a, b) AS (VALUES (1, 'a'), (1, 'b')),
+                        u (a) AS (VALUES 1)
+                    SELECT DISTINCT v.a
+                    FROM (
+                        SELECT DISTINCT a, b
+                        FROM t) v
+                    LEFT JOIN u on v.a = u.a
+                    """))
                     .matches("VALUES 1");
         }
     }

@@ -16,6 +16,7 @@ package io.trino.sql.rewrite;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.cost.CachingStatsProvider;
+import io.trino.cost.CachingTableStatsProvider;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.SymbolStatsEstimate;
@@ -23,8 +24,6 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.operator.scalar.timestamp.TimestampToVarcharCast;
 import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToVarcharCast;
-import io.trino.security.AccessControl;
-import io.trino.spi.security.GroupProvider;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.IntegerType;
@@ -35,8 +34,9 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.sql.QueryUtil;
+import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.analyzer.QueryExplainer;
-import io.trino.sql.parser.SqlParser;
+import io.trino.sql.analyzer.QueryExplainerFactory;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.OutputNode;
@@ -59,12 +59,12 @@ import io.trino.sql.tree.Table;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.Values;
 
+import javax.inject.Inject;
+
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -89,21 +89,28 @@ public class ShowStatsRewrite
     private static final Expression NULL_DOUBLE = new Cast(new NullLiteral(), toSqlType(DOUBLE));
     private static final Expression NULL_VARCHAR = new Cast(new NullLiteral(), toSqlType(VARCHAR));
 
+    private final Metadata metadata;
+    private final QueryExplainerFactory queryExplainerFactory;
+    private final StatsCalculator statsCalculator;
+
+    @Inject
+    public ShowStatsRewrite(Metadata metadata, QueryExplainerFactory queryExplainerFactory, StatsCalculator statsCalculator)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.queryExplainerFactory = requireNonNull(queryExplainerFactory, "queryExplainerFactory is null");
+        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
+    }
+
     @Override
     public Statement rewrite(
+            AnalyzerFactory analyzerFactory,
             Session session,
-            Metadata metadata,
-            SqlParser parser,
-            Optional<QueryExplainer> queryExplainer,
             Statement node,
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
-            GroupProvider groupProvider,
-            AccessControl accessControl,
-            WarningCollector warningCollector,
-            StatsCalculator statsCalculator)
+            WarningCollector warningCollector)
     {
-        return (Statement) new Visitor(session, parameters, queryExplainer, warningCollector, statsCalculator).process(node, null);
+        return (Statement) new Visitor(session, parameters, metadata, queryExplainerFactory.createQueryExplainer(analyzerFactory), warningCollector, statsCalculator).process(node, null);
     }
 
     private static class Visitor
@@ -111,14 +118,16 @@ public class ShowStatsRewrite
     {
         private final Session session;
         private final List<Expression> parameters;
-        private final Optional<QueryExplainer> queryExplainer;
+        private final Metadata metadata;
+        private final QueryExplainer queryExplainer;
         private final WarningCollector warningCollector;
         private final StatsCalculator statsCalculator;
 
-        private Visitor(Session session, List<Expression> parameters, Optional<QueryExplainer> queryExplainer, WarningCollector warningCollector, StatsCalculator statsCalculator)
+        private Visitor(Session session, List<Expression> parameters, Metadata metadata, QueryExplainer queryExplainer, WarningCollector warningCollector, StatsCalculator statsCalculator)
         {
             this.session = requireNonNull(session, "session is null");
             this.parameters = requireNonNull(parameters, "parameters is null");
+            this.metadata = requireNonNull(metadata, "metadata is null");
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
@@ -127,11 +136,9 @@ public class ShowStatsRewrite
         @Override
         protected Node visitShowStats(ShowStats node, Void context)
         {
-            checkState(queryExplainer.isPresent(), "Query explainer must be provided for SHOW STATS SELECT");
-
             Query query = getRelation(node);
-            Plan plan = queryExplainer.get().getLogicalPlan(session, query, parameters, warningCollector);
-            CachingStatsProvider cachingStatsProvider = new CachingStatsProvider(statsCalculator, session, plan.getTypes());
+            Plan plan = queryExplainer.getLogicalPlan(session, query, parameters, warningCollector);
+            CachingStatsProvider cachingStatsProvider = new CachingStatsProvider(statsCalculator, session, plan.getTypes(), new CachingTableStatsProvider(metadata, session));
             PlanNodeStatsEstimate stats = cachingStatsProvider.getStats(plan.getRoot());
             return rewriteShowStats(plan, stats);
         }

@@ -13,7 +13,7 @@
  */
 package io.trino.parquet.reader;
 
-import io.trino.parquet.RichColumnDescriptor;
+import io.trino.parquet.PrimitiveField;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.LongTimestamp;
@@ -21,6 +21,7 @@ import io.trino.spi.type.Timestamps;
 import io.trino.spi.type.Type;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
@@ -33,42 +34,32 @@ import static java.lang.String.format;
 public class Int64TimestampNanosColumnReader
         extends PrimitiveColumnReader
 {
-    public Int64TimestampNanosColumnReader(RichColumnDescriptor descriptor)
+    public Int64TimestampNanosColumnReader(PrimitiveField field)
     {
-        super(descriptor);
+        super(field);
     }
 
     @Override
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            long epochNanos = valuesReader.readLong();
-            // TODO: specialize the class at creation time
-            if (type == TIMESTAMP_MILLIS) {
-                type.writeLong(blockBuilder, Timestamps.round(epochNanos, 6) / NANOSECONDS_PER_MICROSECOND);
-            }
-            else if (type == TIMESTAMP_MICROS) {
-                type.writeLong(blockBuilder, Timestamps.round(epochNanos, 3) / NANOSECONDS_PER_MICROSECOND);
-            }
-            else if (type == TIMESTAMP_NANOS) {
-                type.writeObject(blockBuilder, new LongTimestamp(
-                        floorDiv(epochNanos, NANOSECONDS_PER_MICROSECOND),
-                        floorMod(epochNanos, NANOSECONDS_PER_MICROSECOND) * PICOSECONDS_PER_NANOSECOND));
-            }
-            else {
-                throw new TrinoException(NOT_SUPPORTED, format("Unsupported Trino column type (%s) for Parquet column (%s)", type, columnDescriptor));
-            }
+        long epochNanos = valuesReader.readLong();
+        // TODO: specialize the class at creation time
+        if (type == TIMESTAMP_MILLIS) {
+            type.writeLong(blockBuilder, Timestamps.round(epochNanos, 6) / NANOSECONDS_PER_MICROSECOND);
         }
-        else if (isValueNull()) {
-            blockBuilder.appendNull();
+        else if (type == TIMESTAMP_MICROS) {
+            type.writeLong(blockBuilder, Timestamps.round(epochNanos, 3) / NANOSECONDS_PER_MICROSECOND);
         }
-    }
-
-    @Override
-    protected void skipValue()
-    {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readLong();
+        else if (type == TIMESTAMP_NANOS) {
+            type.writeObject(blockBuilder, new LongTimestamp(
+                    floorDiv(epochNanos, NANOSECONDS_PER_MICROSECOND),
+                    floorMod(epochNanos, NANOSECONDS_PER_MICROSECOND) * PICOSECONDS_PER_NANOSECOND));
+        }
+        else if (type == BIGINT) {
+            type.writeLong(blockBuilder, epochNanos);
+        }
+        else {
+            throw new TrinoException(NOT_SUPPORTED, format("Unsupported Trino column type (%s) for Parquet column (%s)", type, field.getDescriptor()));
         }
     }
 }

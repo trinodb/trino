@@ -32,17 +32,17 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.file.Path;
 import java.util.BitSet;
 import java.util.List;
 
-import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.plugin.raptor.legacy.storage.OrcTestingUtil.createReader;
 import static io.trino.plugin.raptor.legacy.storage.OrcTestingUtil.fileOrcDataSource;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -54,6 +54,8 @@ import static io.trino.testing.StructuralTestUtil.arrayBlockOf;
 import static io.trino.testing.StructuralTestUtil.arrayBlocksEqual;
 import static io.trino.testing.StructuralTestUtil.mapBlockOf;
 import static io.trino.testing.StructuralTestUtil.mapBlocksEqual;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.readAllBytes;
 import static java.util.UUID.randomUUID;
 import static org.testng.Assert.assertEquals;
@@ -66,19 +68,20 @@ public class TestOrcFileRewriter
 {
     private static final JsonCodec<OrcFileMetadata> METADATA_CODEC = jsonCodec(OrcFileMetadata.class);
 
-    private File temporary;
+    private Path temporary;
 
     @BeforeClass
     public void setup()
+            throws IOException
     {
-        temporary = createTempDir();
+        temporary = createTempDirectory(null);
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
             throws Exception
     {
-        deleteRecursively(temporary.toPath(), ALLOW_INSECURE);
+        deleteRecursively(temporary, ALLOW_INSECURE);
     }
 
     @Test
@@ -87,7 +90,7 @@ public class TestOrcFileRewriter
     {
         ArrayType arrayType = new ArrayType(BIGINT);
         ArrayType arrayOfArrayType = new ArrayType(arrayType);
-        Type mapType = createTestMetadataManager().getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+        Type mapType = TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                 TypeSignatureParameter.typeParameter(createVarcharType(5).getTypeSignature()),
                 TypeSignatureParameter.typeParameter(BOOLEAN.getTypeSignature())));
         List<Long> columnIds = ImmutableList.of(3L, 7L, 9L, 10L, 11L, 12L);
@@ -95,8 +98,8 @@ public class TestOrcFileRewriter
 
         List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(20), arrayType, mapType, arrayOfArrayType, decimalType);
 
-        File file = new File(temporary, randomUUID().toString());
-        try (OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file)) {
+        File file = temporary.resolve(randomUUID().toString()).toFile();
+        try (OrcFileWriter writer = new OrcFileWriter(TESTING_TYPE_MANAGER, columnIds, columnTypes, file)) {
             List<Page> pages = rowPagesBuilder(columnTypes)
                     .row(123L, "hello", arrayBlockOf(BIGINT, 1, 2), mapBlockOf(createVarcharType(5), BOOLEAN, "k1", true), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5)), new BigDecimal("2.3"))
                     .row(777L, "sky", arrayBlockOf(BIGINT, 3, 4), mapBlockOf(createVarcharType(5), BOOLEAN, "k2", false), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 6)), new BigDecimal("2.3"))
@@ -182,7 +185,7 @@ public class TestOrcFileRewriter
                     .put(10L, mapType.getTypeId())
                     .put(11L, arrayOfArrayType.getTypeId())
                     .put(12L, decimalType.getTypeId())
-                    .build()));
+                    .buildOrThrow()));
         }
 
         BitSet rowsToDelete = new BitSet(5);
@@ -190,10 +193,10 @@ public class TestOrcFileRewriter
         rowsToDelete.set(3);
         rowsToDelete.set(4);
 
-        File newFile = new File(temporary, randomUUID().toString());
-        OrcFileInfo info = OrcFileRewriter.rewrite(file, newFile, rowsToDelete);
+        File newFile = temporary.resolve(randomUUID().toString()).toFile();
+        OrcFileInfo info = OrcFileRewriter.rewrite(TESTING_TYPE_MANAGER, file, newFile, rowsToDelete);
         assertEquals(info.getRowCount(), 2);
-        assertEquals(info.getUncompressedSize(), 94);
+        assertEquals(info.getUncompressedSize(), 182);
 
         try (OrcDataSource dataSource = fileOrcDataSource(newFile)) {
             OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
@@ -255,84 +258,7 @@ public class TestOrcFileRewriter
                     .put(10L, mapType.getTypeId())
                     .put(11L, arrayOfArrayType.getTypeId())
                     .put(12L, decimalType.getTypeId())
-                    .build()));
-        }
-    }
-
-    @Test
-    public void testRewriteWithoutMetadata()
-            throws Exception
-    {
-        List<Long> columnIds = ImmutableList.of(3L, 7L);
-        List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(20));
-
-        File file = new File(temporary, randomUUID().toString());
-        try (OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file, false)) {
-            List<Page> pages = rowPagesBuilder(columnTypes)
-                    .row(123L, "hello")
-                    .row(777L, "sky")
-                    .build();
-            writer.appendPages(pages);
-        }
-
-        try (OrcDataSource dataSource = fileOrcDataSource(file)) {
-            OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
-
-            assertEquals(reader.getReaderRowCount(), 2);
-            assertEquals(reader.getFileRowCount(), 2);
-            assertEquals(reader.getSplitLength(), file.length());
-
-            Page page = reader.nextPage();
-            assertEquals(page.getPositionCount(), 2);
-
-            Block column0 = page.getBlock(0);
-            assertEquals(column0.getPositionCount(), 2);
-            for (int i = 0; i < 2; i++) {
-                assertEquals(column0.isNull(i), false);
-            }
-            assertEquals(BIGINT.getLong(column0, 0), 123L);
-            assertEquals(BIGINT.getLong(column0, 1), 777L);
-
-            Block column1 = page.getBlock(1);
-            assertEquals(column1.getPositionCount(), 2);
-            for (int i = 0; i < 2; i++) {
-                assertEquals(column1.isNull(i), false);
-            }
-            assertEquals(createVarcharType(20).getSlice(column1, 0), utf8Slice("hello"));
-            assertEquals(createVarcharType(20).getSlice(column1, 1), utf8Slice("sky"));
-
-            assertFalse(reader.getUserMetadata().containsKey(OrcFileMetadata.KEY));
-        }
-
-        BitSet rowsToDelete = new BitSet(5);
-        rowsToDelete.set(1);
-
-        File newFile = new File(temporary, randomUUID().toString());
-        OrcFileInfo info = OrcFileRewriter.rewrite(file, newFile, rowsToDelete);
-        assertEquals(info.getRowCount(), 1);
-        assertEquals(info.getUncompressedSize(), 13);
-
-        try (OrcDataSource dataSource = fileOrcDataSource(newFile)) {
-            OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
-
-            assertEquals(reader.getReaderRowCount(), 1);
-            assertEquals(reader.getFileRowCount(), 1);
-            assertEquals(reader.getSplitLength(), newFile.length());
-
-            Page page = reader.nextPage();
-            assertEquals(page.getPositionCount(), 1);
-
-            Block column0 = page.getBlock(0);
-            assertEquals(column0.getPositionCount(), 1);
-            assertEquals(column0.isNull(0), false);
-            assertEquals(BIGINT.getLong(column0, 0), 123L);
-
-            Block column1 = page.getBlock(1);
-            assertEquals(column1.getPositionCount(), 1);
-            assertEquals(column1.isNull(0), false);
-            assertEquals(createVarcharType(20).getSlice(column1, 0), utf8Slice("hello"));
-
-            assertFalse(reader.getUserMetadata().containsKey(OrcFileMetadata.KEY));
+                    .buildOrThrow()));
         }
     }
 
@@ -343,8 +269,8 @@ public class TestOrcFileRewriter
         List<Long> columnIds = ImmutableList.of(3L);
         List<Type> columnTypes = ImmutableList.of(BIGINT);
 
-        File file = new File(temporary, randomUUID().toString());
-        try (OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file)) {
+        File file = temporary.resolve(randomUUID().toString()).toFile();
+        try (OrcFileWriter writer = new OrcFileWriter(TESTING_TYPE_MANAGER, columnIds, columnTypes, file)) {
             writer.appendPages(rowPagesBuilder(columnTypes).row(123L).row(456L).build());
         }
 
@@ -352,8 +278,8 @@ public class TestOrcFileRewriter
         rowsToDelete.set(0);
         rowsToDelete.set(1);
 
-        File newFile = new File(temporary, randomUUID().toString());
-        OrcFileInfo info = OrcFileRewriter.rewrite(file, newFile, rowsToDelete);
+        File newFile = temporary.resolve(randomUUID().toString()).toFile();
+        OrcFileInfo info = OrcFileRewriter.rewrite(TESTING_TYPE_MANAGER, file, newFile, rowsToDelete);
         assertEquals(info.getRowCount(), 0);
         assertEquals(info.getUncompressedSize(), 0);
 
@@ -367,17 +293,17 @@ public class TestOrcFileRewriter
         List<Long> columnIds = ImmutableList.of(3L);
         List<Type> columnTypes = ImmutableList.of(BIGINT);
 
-        File file = new File(temporary, randomUUID().toString());
-        try (OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file)) {
+        File file = temporary.resolve(randomUUID().toString()).toFile();
+        try (OrcFileWriter writer = new OrcFileWriter(TESTING_TYPE_MANAGER, columnIds, columnTypes, file)) {
             writer.appendPages(rowPagesBuilder(columnTypes).row(123L).row(456L).build());
         }
 
         BitSet rowsToDelete = new BitSet();
 
-        File newFile = new File(temporary, randomUUID().toString());
-        OrcFileInfo info = OrcFileRewriter.rewrite(file, newFile, rowsToDelete);
+        File newFile = temporary.resolve(randomUUID().toString()).toFile();
+        OrcFileInfo info = OrcFileRewriter.rewrite(TESTING_TYPE_MANAGER, file, newFile, rowsToDelete);
         assertEquals(info.getRowCount(), 2);
-        assertEquals(info.getUncompressedSize(), 16);
+        assertEquals(info.getUncompressedSize(), 18);
 
         assertEquals(readAllBytes(newFile.toPath()), readAllBytes(file.toPath()));
     }
@@ -389,8 +315,8 @@ public class TestOrcFileRewriter
         List<Long> columnIds = ImmutableList.of(1L, 2L, 3L, 4L, 5L);
         List<Type> columnTypes = ImmutableList.of(BOOLEAN, BIGINT, DOUBLE, createVarcharType(10), VARBINARY);
 
-        File file = new File(temporary, randomUUID().toString());
-        try (OrcFileWriter writer = new OrcFileWriter(columnIds, columnTypes, file)) {
+        File file = temporary.resolve(randomUUID().toString()).toFile();
+        try (OrcFileWriter writer = new OrcFileWriter(TESTING_TYPE_MANAGER, columnIds, columnTypes, file)) {
             List<Page> pages = rowPagesBuilder(columnTypes)
                     .row(true, 123L, 98.7, "hello", utf8Slice("abc"))
                     .row(false, 456L, 65.4, "world", utf8Slice("xyz"))
@@ -399,9 +325,9 @@ public class TestOrcFileRewriter
             writer.appendPages(pages);
         }
 
-        File newFile = new File(temporary, randomUUID().toString());
-        OrcFileInfo info = OrcFileRewriter.rewrite(file, newFile, new BitSet());
+        File newFile = temporary.resolve(randomUUID().toString()).toFile();
+        OrcFileInfo info = OrcFileRewriter.rewrite(TESTING_TYPE_MANAGER, file, newFile, new BitSet());
         assertEquals(info.getRowCount(), 3);
-        assertEquals(info.getUncompressedSize(), 55);
+        assertEquals(info.getUncompressedSize(), 106);
     }
 }

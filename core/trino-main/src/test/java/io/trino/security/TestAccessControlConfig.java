@@ -39,9 +39,9 @@ public class TestAccessControlConfig
         Path config1 = Files.createTempFile(null, null);
         Path config2 = Files.createTempFile(null, null);
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("access-control.config-files", config1.toString() + "," + config2.toString())
-                .build();
+                .buildOrThrow();
 
         AccessControlConfig expected = new AccessControlConfig()
                 .setAccessControlFiles(ImmutableList.of(config1.toFile(), config2.toFile()));

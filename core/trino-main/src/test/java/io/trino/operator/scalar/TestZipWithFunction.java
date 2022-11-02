@@ -17,7 +17,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -27,94 +31,137 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.StructuralTestUtil.mapType;
 import static java.util.Arrays.asList;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestZipWithFunction
-        extends AbstractTestFunctions
 {
-    @Test
-    public void testRetainedSizeBounded()
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
     {
-        assertCachedInstanceHasBoundedRetainedSize("zip_with(ARRAY [25, 26, 27], ARRAY [1, 2, 3], (x, y) -> x + y)");
+        assertions = new QueryAssertions();
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
     }
 
     @Test
     public void testSameLength()
     {
-        assertFunction("zip_with(ARRAY[], ARRAY[], (x, y) -> (y, x))",
-                new ArrayType(RowType.anonymous(ImmutableList.of(UNKNOWN, UNKNOWN))),
-                ImmutableList.of());
+        assertThat(assertions.expression("zip_with(a, b, (x, y) -> (y, x))")
+                .binding("a", "ARRAY[]")
+                .binding("b", "ARRAY[]"))
+                .hasType(new ArrayType(RowType.anonymous(ImmutableList.of(UNKNOWN, UNKNOWN))))
+                .isEqualTo(ImmutableList.of());
 
-        assertFunction("zip_with(ARRAY[1, 2], ARRAY['a', 'b'], (x, y) -> (y, x))",
-                new ArrayType(RowType.anonymous(ImmutableList.of(createVarcharType(1), INTEGER))),
-                ImmutableList.of(ImmutableList.of("a", 1), ImmutableList.of("b", 2)));
+        assertThat(assertions.expression("zip_with(a, b, (x, y) -> (y, x))")
+                .binding("a", "ARRAY[1, 2]")
+                .binding("b", "ARRAY['a', 'b']"))
+                .hasType(new ArrayType(RowType.anonymous(ImmutableList.of(createVarcharType(1), INTEGER))))
+                .isEqualTo(ImmutableList.of(ImmutableList.of("a", 1), ImmutableList.of("b", 2)));
 
-        assertFunction("zip_with(ARRAY[1, 2], ARRAY[VARCHAR 'a', VARCHAR 'b'], (x, y) -> (y, x))",
-                new ArrayType(RowType.anonymous(ImmutableList.of(VARCHAR, INTEGER))),
-                ImmutableList.of(ImmutableList.of("a", 1), ImmutableList.of("b", 2)));
+        assertThat(assertions.expression("zip_with(a, b, (x, y) -> (y, x))")
+                .binding("a", "ARRAY[1, 2]")
+                .binding("b", "ARRAY[VARCHAR 'a', VARCHAR 'b']"))
+                .hasType(new ArrayType(RowType.anonymous(ImmutableList.of(VARCHAR, INTEGER))))
+                .isEqualTo(ImmutableList.of(ImmutableList.of("a", 1), ImmutableList.of("b", 2)));
 
-        assertFunction("zip_with(ARRAY[1, 1], ARRAY[1, 2], (x, y) -> x + y)",
-                new ArrayType(INTEGER),
-                ImmutableList.of(2, 3));
+        assertThat(assertions.expression("zip_with(a, b, (x, y) -> x + y)")
+                .binding("a", "ARRAY[1, 1]")
+                .binding("b", "ARRAY[1, 2]"))
+                .hasType(new ArrayType(INTEGER))
+                .isEqualTo(ImmutableList.of(2, 3));
 
-        assertFunction("zip_with(CAST(ARRAY[3, 5] AS ARRAY(BIGINT)), CAST(ARRAY[1, 2] AS ARRAY(BIGINT)), (x, y) -> x * y)",
-                new ArrayType(BIGINT),
-                ImmutableList.of(3L, 10L));
+        assertThat(assertions.expression("zip_with(a, b, (x, y) -> x * y)")
+                .binding("a", "CAST(ARRAY[3, 5] AS ARRAY(BIGINT))")
+                .binding("b", "CAST(ARRAY[1, 2] AS ARRAY(BIGINT))"))
+                .hasType(new ArrayType(BIGINT))
+                .isEqualTo(ImmutableList.of(3L, 10L));
 
-        assertFunction("zip_with(ARRAY[true, false], ARRAY[false, true], (x, y) -> x OR y)",
-                new ArrayType(BOOLEAN),
-                ImmutableList.of(true, true));
+        assertThat(assertions.expression("zip_with(a, b, (x, y) -> x OR y)")
+                .binding("a", "ARRAY[true, false]")
+                .binding("b", "ARRAY[false, true]"))
+                .hasType(new ArrayType(BOOLEAN))
+                .isEqualTo(ImmutableList.of(true, true));
 
-        assertFunction("zip_with(ARRAY['a', 'b'], ARRAY['c', 'd'], (x, y) -> concat(x, y))",
-                new ArrayType(VARCHAR),
-                ImmutableList.of("ac", "bd"));
+        assertThat(assertions.expression("zip_with(a, b, (x, y) -> concat(x, y))")
+                .binding("a", "ARRAY['a', 'b']")
+                .binding("b", "ARRAY['c', 'd']"))
+                .hasType(new ArrayType(VARCHAR))
+                .isEqualTo(ImmutableList.of("ac", "bd"));
 
-        assertFunction("zip_with(ARRAY[MAP(ARRAY[CAST ('a' AS VARCHAR)], ARRAY[1]), MAP(ARRAY[VARCHAR 'b'], ARRAY[2])], ARRAY[MAP(ARRAY['c'], ARRAY[3]), MAP()], (x, y) -> map_concat(x, y))",
-                new ArrayType(mapType(VARCHAR, INTEGER)),
-                ImmutableList.of(ImmutableMap.of("a", 1, "c", 3), ImmutableMap.of("b", 2)));
+        assertThat(assertions.expression("zip_with(a, b, (x, y) -> map_concat(x, y))")
+                .binding("a", "ARRAY[MAP(ARRAY[CAST ('a' AS VARCHAR)], ARRAY[1]), MAP(ARRAY[VARCHAR 'b'], ARRAY[2])]")
+                .binding("b", "ARRAY[MAP(ARRAY['c'], ARRAY[3]), MAP()]"))
+                .hasType(new ArrayType(mapType(VARCHAR, INTEGER)))
+                .isEqualTo(ImmutableList.of(ImmutableMap.of("a", 1, "c", 3), ImmutableMap.of("b", 2)));
     }
 
     @Test
     public void testDifferentLength()
     {
-        assertFunction(
-                "zip_with(ARRAY[1], ARRAY['a', 'bc'], (x, y) -> (y, x))",
-                new ArrayType(RowType.anonymous(ImmutableList.of(createVarcharType(2), INTEGER))),
-                ImmutableList.of(ImmutableList.of("a", 1), asList("bc", null)));
-        assertFunction(
-                "zip_with(ARRAY[NULL, 2], ARRAY['a'], (x, y) -> (y, x))",
-                new ArrayType(RowType.anonymous(ImmutableList.of(createVarcharType(1), INTEGER))),
-                ImmutableList.of(asList("a", null), asList(null, 2)));
-        assertFunction(
-                "zip_with(ARRAY[NULL, NULL], ARRAY[NULL, 2, 1], (x, y) -> x + y)",
-                new ArrayType(INTEGER),
-                asList(null, null, null));
+        assertThat(assertions.expression("zip_with(a, b, (x, y) -> (y, x))")
+                .binding("a", "ARRAY[1]")
+                .binding("b", "ARRAY['a', 'bc']"))
+                .hasType(new ArrayType(RowType.anonymous(ImmutableList.of(createVarcharType(2), INTEGER))))
+                .isEqualTo(ImmutableList.of(ImmutableList.of("a", 1), asList("bc", null)));
+
+        assertThat(assertions.expression("zip_with(a, b, (x, y) -> (y, x))")
+                .binding("a", "ARRAY[NULL, 2]")
+                .binding("b", "ARRAY['a']"))
+                .hasType(new ArrayType(RowType.anonymous(ImmutableList.of(createVarcharType(1), INTEGER))))
+                .isEqualTo(ImmutableList.of(asList("a", null), asList(null, 2)));
+
+        assertThat(assertions.expression("zip_with(a, b, (x, y) -> x + y)")
+                .binding("a", "ARRAY[NULL, NULL]")
+                .binding("b", "ARRAY[NULL, 2, 1]"))
+                .hasType(new ArrayType(INTEGER))
+                .isEqualTo(asList(null, null, null));
     }
 
     @Test
     public void testWithNull()
     {
-        assertFunction("zip_with(CAST(NULL AS ARRAY(UNKNOWN)), ARRAY[], (x, y) -> (y, x))",
-                new ArrayType(RowType.anonymous(ImmutableList.of(UNKNOWN, UNKNOWN))),
-                null);
+        assertThat(assertions.expression("zip_with(a, b, (x, y) -> (y, x))")
+                .binding("a", "CAST(NULL AS ARRAY(UNKNOWN))")
+                .binding("b", "ARRAY[]"))
+                .isNull(new ArrayType(RowType.anonymous(ImmutableList.of(UNKNOWN, UNKNOWN))));
 
-        assertFunction("zip_with(ARRAY[NULL], ARRAY[NULL], (x, y) -> (y, x))",
-                new ArrayType(RowType.anonymous(ImmutableList.of(UNKNOWN, UNKNOWN))),
-                ImmutableList.of(asList(null, null)));
+        assertThat(assertions.expression("zip_with(a, b, (x, y) -> (y, x))")
+                .binding("a", "ARRAY[NULL]")
+                .binding("b", "ARRAY[NULL]"))
+                .hasType(new ArrayType(RowType.anonymous(ImmutableList.of(UNKNOWN, UNKNOWN))))
+                .isEqualTo(ImmutableList.of(asList(null, null)));
 
-        assertFunction("zip_with(ARRAY[NULL], ARRAY[NULL], (x, y) -> x IS NULL AND y IS NULL)",
-                new ArrayType(BOOLEAN),
-                ImmutableList.of(true));
+        assertThat(assertions.expression("zip_with(a, b, (x, y) -> x IS NULL AND y IS NULL)")
+                .binding("a", "ARRAY[NULL]")
+                .binding("b", "ARRAY[NULL]"))
+                .hasType(new ArrayType(BOOLEAN))
+                .isEqualTo(ImmutableList.of(true));
 
-        assertFunction("zip_with(ARRAY['a', NULL], ARRAY[NULL, 1], (x, y) -> x IS NULL OR y IS NULL)",
-                new ArrayType(BOOLEAN),
-                ImmutableList.of(true, true));
+        assertThat(assertions.expression("zip_with(a, b, (x, y) -> x IS NULL OR y IS NULL)")
+                .binding("a", "ARRAY['a', NULL]")
+                .binding("b", "ARRAY[NULL, 1]"))
+                .hasType(new ArrayType(BOOLEAN))
+                .isEqualTo(ImmutableList.of(true, true));
 
-        assertFunction("zip_with(ARRAY[1, NULL], ARRAY[3, 4], (x, y) -> x + y)",
-                new ArrayType(INTEGER),
-                asList(4, null));
+        assertThat(assertions.expression("zip_with(a, b, (x, y) -> x + y)")
+                .binding("a", "ARRAY[1, NULL]")
+                .binding("b", "ARRAY[3, 4]"))
+                .hasType(new ArrayType(INTEGER))
+                .isEqualTo(asList(4, null));
 
-        assertFunction("zip_with(ARRAY['a', 'b'], ARRAY[1, 3], (x, y) -> NULL)",
-                new ArrayType(UNKNOWN),
-                asList(null, null));
+        assertThat(assertions.expression("zip_with(a, b, (x, y) -> NULL)")
+                .binding("a", "ARRAY['a', 'b']")
+                .binding("b", "ARRAY[1, 3]"))
+                .hasType(new ArrayType(UNKNOWN))
+                .isEqualTo(asList(null, null));
     }
 }

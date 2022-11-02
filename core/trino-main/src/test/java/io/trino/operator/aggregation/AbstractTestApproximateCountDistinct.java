@@ -154,9 +154,9 @@ public abstract class AbstractTestApproximateCountDistinct
         return (long) result;
     }
 
-    private InternalAggregationFunction getAggregationFunction()
+    private TestingAggregationFunction getAggregationFunction()
     {
-        return FUNCTION_RESOLUTION.getAggregateFunctionImplementation(QualifiedName.of("approx_distinct"), fromTypes(getValueType(), DOUBLE));
+        return FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("approx_distinct"), fromTypes(getValueType(), DOUBLE));
     }
 
     private Page createPage(List<?> values, double maxStandardError)
@@ -164,11 +164,9 @@ public abstract class AbstractTestApproximateCountDistinct
         if (values.isEmpty()) {
             return new Page(0);
         }
-        else {
-            return new Page(values.size(),
-                    createBlock(getValueType(), values),
-                    createBlock(DOUBLE, ImmutableList.copyOf(Collections.nCopies(values.size(), maxStandardError))));
-        }
+        return new Page(values.size(),
+                createBlock(getValueType(), values),
+                createBlock(DOUBLE, ImmutableList.copyOf(Collections.nCopies(values.size(), maxStandardError))));
     }
 
     /**

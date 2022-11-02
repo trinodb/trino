@@ -13,9 +13,9 @@
  */
 package io.trino.type;
 
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import io.trino.collect.cache.NonKeyEvictableCache;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.function.InvocationConvention;
@@ -29,11 +29,12 @@ import javax.inject.Inject;
 import java.lang.invoke.MethodHandle;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -54,7 +55,7 @@ public final class BlockTypeOperators
     private static final InvocationConvention ORDERING_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
     private static final InvocationConvention LESS_THAN_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
 
-    private final Cache<GeneratedBlockOperatorKey<?>, GeneratedBlockOperator<?>> generatedBlockOperatorCache;
+    private final NonKeyEvictableCache<GeneratedBlockOperatorKey<?>, GeneratedBlockOperator<?>> generatedBlockOperatorCache;
     private final TypeOperators typeOperators;
 
     public BlockTypeOperators()
@@ -66,10 +67,10 @@ public final class BlockTypeOperators
     public BlockTypeOperators(TypeOperators typeOperators)
     {
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
-        this.generatedBlockOperatorCache = CacheBuilder.newBuilder()
-                .maximumSize(10_000)
-                .expireAfterWrite(2, TimeUnit.HOURS)
-                .build();
+        this.generatedBlockOperatorCache = buildNonEvictableCacheWithWeakInvalidateAll(
+                CacheBuilder.newBuilder()
+                        .maximumSize(10_000)
+                        .expireAfterWrite(2, TimeUnit.HOURS));
     }
 
     public BlockPositionEqual getEqualOperator(Type type)
@@ -174,12 +175,13 @@ public final class BlockTypeOperators
     {
         try {
             @SuppressWarnings("unchecked")
-            GeneratedBlockOperator<T> generatedBlockOperator = (GeneratedBlockOperator<T>) generatedBlockOperatorCache.get(
+            GeneratedBlockOperator<T> generatedBlockOperator = (GeneratedBlockOperator<T>) uncheckedCacheGet(
+                    generatedBlockOperatorCache,
                     new GeneratedBlockOperatorKey<>(type, operatorInterface, additionalKey),
                     () -> new GeneratedBlockOperator<>(type, operatorInterface, methodHandleSupplier.get()));
             return generatedBlockOperator.get();
         }
-        catch (ExecutionException | UncheckedExecutionException e) {
+        catch (UncheckedExecutionException e) {
             throwIfUnchecked(e.getCause());
             throw new RuntimeException(e.getCause());
         }
@@ -284,6 +286,8 @@ public final class BlockTypeOperators
     @Managed
     public void cacheReset()
     {
+        // Note: this may not invalidate ongoing loads (https://github.com/trinodb/trino/issues/10512, https://github.com/google/guava/issues/1881)
+        // This is acceptable, since this operation is invoked manually, and not relied upon for correctness.
         generatedBlockOperatorCache.invalidateAll();
     }
 }

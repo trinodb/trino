@@ -48,7 +48,7 @@ public class RawRowDecoder
     }
 
     @Override
-    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data, Map<String, String> dataMap)
+    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data)
     {
         return Optional.of(columnDecoders.entrySet().stream()
                 .collect(toImmutableMap(

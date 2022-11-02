@@ -17,7 +17,9 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeOperators;
+import io.trino.sql.planner.DynamicFilterSourceConsumer;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingTaskContext;
@@ -93,7 +95,22 @@ public class BenchmarkDynamicFilterSourceOperator
             operatorFactory = new DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory(
                     1,
                     new PlanNodeId("joinNodeId"),
-                    (tupleDomain -> {}),
+                    new DynamicFilterSourceConsumer() {
+                        @Override
+                        public void addPartition(TupleDomain<DynamicFilterId> tupleDomain) {}
+
+                        @Override
+                        public void setPartitionCount(int partitionCount)
+                        {
+                            throw new UnsupportedOperationException();
+                        }
+
+                        @Override
+                        public boolean isDomainCollectionComplete()
+                        {
+                            return false;
+                        }
+                    },
                     ImmutableList.of(new DynamicFilterSourceOperator.Channel(new DynamicFilterId("0"), BIGINT, 0)),
                     maxDistinctValuesCount,
                     DataSize.ofBytes(Long.MAX_VALUE),
