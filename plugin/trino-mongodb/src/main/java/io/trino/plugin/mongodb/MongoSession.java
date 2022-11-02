@@ -409,6 +409,15 @@ public class MongoSession
         return MongoIndex.parse(collection.listIndexes());
     }
 
+    public long deleteDocuments(SchemaTableName schemaTableName, TupleDomain<ColumnHandle> constraint)
+    {
+        Document filter = buildQuery(constraint);
+        log.debug("Delete documents: collection: %s, filter: %s", schemaTableName, filter);
+
+        DeleteResult result = getCollection(schemaTableName).deleteMany(filter);
+        return result.getDeletedCount();
+    }
+
     public MongoCursor<Document> execute(MongoTableHandle tableHandle, List<MongoColumnHandle> columns)
     {
         Document output = new Document();
