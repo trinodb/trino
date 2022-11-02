@@ -89,7 +89,6 @@ import javax.annotation.concurrent.Immutable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -112,6 +111,7 @@ import static io.trino.sql.analyzer.QueryType.EXPLAIN;
 import static java.lang.Boolean.FALSE;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
@@ -212,6 +212,7 @@ public class Analysis
 
     private final Multiset<RowFilterScopeEntry> rowFilterScopes = HashMultiset.create();
     private final Map<NodeRef<Table>, List<Expression>> rowFilters = new LinkedHashMap<>();
+    private final Map<NodeRef<Table>, List<Expression>> checkConstraints = new LinkedHashMap<>();
 
     private final Multiset<ColumnMaskScopeEntry> columnMaskScopes = HashMultiset.create();
     private final Map<NodeRef<Table>, Map<String, Expression>> columnMasks = new LinkedHashMap<>();
@@ -1071,9 +1072,20 @@ public class Analysis
                 .add(filter);
     }
 
+    public void addCheckConstraints(Table table, Expression constraint)
+    {
+        checkConstraints.computeIfAbsent(NodeRef.of(table), node -> new ArrayList<>())
+                .add(constraint);
+    }
+
     public List<Expression> getRowFilters(Table node)
     {
         return rowFilters.getOrDefault(NodeRef.of(node), ImmutableList.of());
+    }
+
+    public List<Expression> getCheckConstraints(Table node)
+    {
+        return unmodifiableList(checkConstraints.getOrDefault(NodeRef.of(node), ImmutableList.of()));
     }
 
     public boolean hasColumnMask(QualifiedObjectName table, String column, String identity)
@@ -1571,22 +1583,22 @@ public class Analysis
 
         public List<InPredicate> getInPredicatesSubqueries()
         {
-            return Collections.unmodifiableList(inPredicatesSubqueries);
+            return unmodifiableList(inPredicatesSubqueries);
         }
 
         public List<SubqueryExpression> getSubqueries()
         {
-            return Collections.unmodifiableList(subqueries);
+            return unmodifiableList(subqueries);
         }
 
         public List<ExistsPredicate> getExistsSubqueries()
         {
-            return Collections.unmodifiableList(existsSubqueries);
+            return unmodifiableList(existsSubqueries);
         }
 
         public List<QuantifiedComparisonExpression> getQuantifiedComparisonSubqueries()
         {
-            return Collections.unmodifiableList(quantifiedComparisonSubqueries);
+            return unmodifiableList(quantifiedComparisonSubqueries);
         }
     }
 
