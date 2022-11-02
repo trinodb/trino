@@ -347,7 +347,11 @@ public class PlanFragmenter
         @Override
         public PlanNode visitValues(ValuesNode node, RewriteContext<FragmentProperties> context)
         {
-            context.get().setSingleNodeDistribution();
+            // An empty values node is compatible with any distribution, so
+            // don't attempt to overwrite one's already been chosen
+            if (node.getRowCount() != 0 || !context.get().hasDistribution()) {
+                context.get().setSingleNodeDistribution();
+            }
             return context.defaultRewrite(node, context.get());
         }
 
@@ -433,6 +437,11 @@ public class PlanFragmenter
         public List<SubPlan> getChildren()
         {
             return children;
+        }
+
+        public boolean hasDistribution()
+        {
+            return partitioningHandle.isPresent();
         }
 
         public FragmentProperties setSingleNodeDistribution()
