@@ -207,6 +207,8 @@ public class TableWriterNode
         public abstract String toString();
 
         public abstract boolean supportsReportingWrittenBytes(Metadata metadata, Session session);
+
+        public abstract boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session);
     }
 
     // only used during planning -- will not be serialized
@@ -239,6 +241,12 @@ public class TableWriterNode
             return metadata.supportsReportingWrittenBytes(session, fullTableName, tableMetadata.getProperties());
         }
 
+        @Override
+        public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
+        {
+            return layout.map(tableLayout -> tableLayout.getLayout().isMultipleWritersPerPartitionSupported()).orElse(true);
+        }
+
         public Optional<TableLayout> getLayout()
         {
             return layout;
@@ -262,16 +270,19 @@ public class TableWriterNode
         private final OutputTableHandle handle;
         private final SchemaTableName schemaTableName;
         private final boolean reportingWrittenBytesSupported;
+        private final boolean multipleWritersPerPartitionSupported;
 
         @JsonCreator
         public CreateTarget(
                 @JsonProperty("handle") OutputTableHandle handle,
                 @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
-                @JsonProperty("reportingWrittenBytesSupported") boolean reportingWrittenBytesSupported)
+                @JsonProperty("reportingWrittenBytesSupported") boolean reportingWrittenBytesSupported,
+                @JsonProperty("multipleWritersPerPartitionSupported") boolean multipleWritersPerPartitionSupported)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
             this.reportingWrittenBytesSupported = reportingWrittenBytesSupported;
+            this.multipleWritersPerPartitionSupported = multipleWritersPerPartitionSupported;
         }
 
         @JsonProperty
@@ -292,6 +303,12 @@ public class TableWriterNode
             return reportingWrittenBytesSupported;
         }
 
+        @JsonProperty
+        public boolean isMultipleWritersPerPartitionSupported()
+        {
+            return multipleWritersPerPartitionSupported;
+        }
+
         @Override
         public String toString()
         {
@@ -302,6 +319,12 @@ public class TableWriterNode
         public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
         {
             return reportingWrittenBytesSupported;
+        }
+
+        @Override
+        public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
+        {
+            return multipleWritersPerPartitionSupported;
         }
     }
 
@@ -339,6 +362,14 @@ public class TableWriterNode
         {
             return metadata.supportsReportingWrittenBytes(session, handle);
         }
+
+        @Override
+        public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
+        {
+            return metadata.getInsertLayout(session, handle)
+                    .map(layout -> layout.getLayout().isMultipleWritersPerPartitionSupported())
+                    .orElse(true);
+        }
     }
 
     public static class InsertTarget
@@ -347,16 +378,19 @@ public class TableWriterNode
         private final InsertTableHandle handle;
         private final SchemaTableName schemaTableName;
         private final boolean reportingWrittenBytesSupported;
+        private final boolean multipleWritersPerPartitionSupported;
 
         @JsonCreator
         public InsertTarget(
                 @JsonProperty("handle") InsertTableHandle handle,
                 @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
-                @JsonProperty("reportingWrittenBytesSupported") boolean reportingWrittenBytesSupported)
+                @JsonProperty("reportingWrittenBytesSupported") boolean reportingWrittenBytesSupported,
+                @JsonProperty("multipleWritersPerPartitionSupported") boolean multipleWritersPerPartitionSupported)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
             this.reportingWrittenBytesSupported = reportingWrittenBytesSupported;
+            this.multipleWritersPerPartitionSupported = multipleWritersPerPartitionSupported;
         }
 
         @JsonProperty
@@ -377,6 +411,12 @@ public class TableWriterNode
             return reportingWrittenBytesSupported;
         }
 
+        @JsonProperty
+        public boolean isMultipleWritersPerPartitionSupported()
+        {
+            return multipleWritersPerPartitionSupported;
+        }
+
         @Override
         public String toString()
         {
@@ -387,6 +427,12 @@ public class TableWriterNode
         public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
         {
             return reportingWrittenBytesSupported;
+        }
+
+        @Override
+        public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
+        {
+            return multipleWritersPerPartitionSupported;
         }
     }
 
@@ -429,6 +475,14 @@ public class TableWriterNode
         public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
         {
             return metadata.supportsReportingWrittenBytes(session, storageTableHandle);
+        }
+
+        @Override
+        public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
+        {
+            return metadata.getInsertLayout(session, storageTableHandle)
+                    .map(layout -> layout.getLayout().isMultipleWritersPerPartitionSupported())
+                    .orElse(true);
         }
     }
 
@@ -488,6 +542,14 @@ public class TableWriterNode
         {
             return metadata.supportsReportingWrittenBytes(session, tableHandle);
         }
+
+        @Override
+        public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
+        {
+            return metadata.getInsertLayout(session, tableHandle)
+                    .map(layout -> layout.getLayout().isMultipleWritersPerPartitionSupported())
+                    .orElse(true);
+        }
     }
 
     public static class DeleteTarget
@@ -531,6 +593,12 @@ public class TableWriterNode
 
         @Override
         public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
         {
             throw new UnsupportedOperationException();
         }
@@ -599,6 +667,12 @@ public class TableWriterNode
         {
             throw new UnsupportedOperationException();
         }
+
+        @Override
+        public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
+        {
+            throw new UnsupportedOperationException();
+        }
     }
 
     public static class TableExecuteTarget
@@ -662,6 +736,14 @@ public class TableWriterNode
         {
             return sourceHandle.map(tableHandle -> metadata.supportsReportingWrittenBytes(session, tableHandle)).orElse(reportingWrittenBytesSupported);
         }
+
+        @Override
+        public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
+        {
+            return metadata.getLayoutForTableExecute(session, executeHandle)
+                    .map(layout -> layout.getLayout().isMultipleWritersPerPartitionSupported())
+                    .orElse(true);
+        }
     }
 
     public static class MergeTarget
@@ -717,6 +799,12 @@ public class TableWriterNode
 
         @Override
         public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
+        {
+            return false;
+        }
+
+        @Override
+        public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
         {
             return false;
         }

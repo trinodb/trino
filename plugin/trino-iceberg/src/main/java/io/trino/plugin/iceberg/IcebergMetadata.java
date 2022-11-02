@@ -746,7 +746,7 @@ public class IcebergMetadata
             return Optional.of(new ConnectorTableLayout(partitioningColumnNames));
         }
         IcebergPartitioningHandle partitioningHandle = new IcebergPartitioningHandle(toPartitionFields(partitionSpec), partitioningColumns);
-        return Optional.of(new ConnectorTableLayout(partitioningHandle, partitioningColumnNames));
+        return Optional.of(new ConnectorTableLayout(partitioningHandle, partitioningColumnNames, true));
     }
 
     @Override

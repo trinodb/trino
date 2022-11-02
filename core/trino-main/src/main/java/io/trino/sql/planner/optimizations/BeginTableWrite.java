@@ -288,11 +288,19 @@ public class BeginTableWrite
             // TODO: we shouldn't need to store the schemaTableName in the handles, but there isn't a good way to pass this around with the current architecture
             if (target instanceof CreateReference) {
                 CreateReference create = (CreateReference) target;
-                return new CreateTarget(metadata.beginCreateTable(session, create.getCatalog(), create.getTableMetadata(), create.getLayout()), create.getTableMetadata().getTable(), target.supportsReportingWrittenBytes(metadata, session));
+                return new CreateTarget(
+                        metadata.beginCreateTable(session, create.getCatalog(), create.getTableMetadata(), create.getLayout()),
+                        create.getTableMetadata().getTable(),
+                        target.supportsReportingWrittenBytes(metadata, session),
+                        target.supportsMultipleWritersPerPartition(metadata, session));
             }
             if (target instanceof InsertReference) {
                 InsertReference insert = (InsertReference) target;
-                return new InsertTarget(metadata.beginInsert(session, insert.getHandle(), insert.getColumns()), metadata.getTableMetadata(session, insert.getHandle()).getTable(), target.supportsReportingWrittenBytes(metadata, session));
+                return new InsertTarget(
+                        metadata.beginInsert(session, insert.getHandle(), insert.getColumns()),
+                        metadata.getTableMetadata(session, insert.getHandle()).getTable(),
+                        target.supportsReportingWrittenBytes(metadata, session),
+                        target.supportsMultipleWritersPerPartition(metadata, session));
             }
             if (target instanceof DeleteTarget) {
                 DeleteTarget delete = (DeleteTarget) target;
