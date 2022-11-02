@@ -42,13 +42,12 @@ public class ShortDecimalColumnReader
         extends PrimitiveColumnReader
 {
     private final DecimalType parquetDecimalType;
-    private final int typeLength;
 
     ShortDecimalColumnReader(PrimitiveField field, DecimalType parquetDecimalType)
     {
         super(field);
         this.parquetDecimalType = requireNonNull(parquetDecimalType, "parquetDecimalType is null");
-        typeLength = field.getDescriptor().getPrimitiveType().getTypeLength();
+        int typeLength = field.getDescriptor().getPrimitiveType().getTypeLength();
         checkArgument(typeLength <= 16, "Type length %s should be <= 16 for short decimal column %s", typeLength, field.getDescriptor());
     }
 
@@ -70,12 +69,12 @@ public class ShortDecimalColumnReader
         }
         else {
             byte[] bytes = valuesReader.readBytes().getBytes();
-            if (typeLength <= Long.BYTES) {
+            if (bytes.length <= Long.BYTES) {
                 value = getShortDecimalValue(bytes);
             }
             else {
                 int startOffset = bytes.length - Long.BYTES;
-                checkBytesFitInShortDecimal(bytes, startOffset, trinoType, typeLength);
+                checkBytesFitInShortDecimal(bytes, startOffset, trinoType, field.getDescriptor());
                 value = getShortDecimalValue(bytes, startOffset, Long.BYTES);
             }
         }

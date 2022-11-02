@@ -34,7 +34,6 @@ import org.apache.parquet.schema.MessageType;
 
 import javax.annotation.Nullable;
 
-import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -289,17 +288,17 @@ public final class ParquetTypeUtils
         return value;
     }
 
-    public static void checkBytesFitInShortDecimal(byte[] bytes, int endOffset, Type trinoType, int typeLength)
+    public static void checkBytesFitInShortDecimal(byte[] bytes, int endOffset, Type trinoType, ColumnDescriptor descriptor)
     {
         // Equivalent to expectedValue = bytes[endOffset] < 0 ? -1 : 0
         byte expectedValue = (byte) (bytes[endOffset] >> 7);
         for (int i = 0; i < endOffset; i++) {
             if (bytes[i] != expectedValue) {
                 throw new TrinoException(NOT_SUPPORTED, format(
-                        "Could not read fixed_len_byte_array(%d) value %s into %s",
-                        typeLength,
-                        new BigDecimal(new BigInteger(bytes), ((DecimalType) trinoType).getScale()),
-                        trinoType));
+                        "Could not read unscaled value %s into %s from column %s",
+                        new BigInteger(bytes),
+                        trinoType,
+                        descriptor));
             }
         }
     }
