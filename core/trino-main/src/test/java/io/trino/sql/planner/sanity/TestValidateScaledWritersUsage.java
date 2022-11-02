@@ -103,7 +103,7 @@ public class TestValidateScaledWritersUsage
         PlanNode root = planBuilder.output(
                 outputBuilder -> outputBuilder
                         .source(planBuilder.tableWithExchangeCreate(
-                                planBuilder.createTarget(catalogSupportingScaledWriters, schemaTableName, true),
+                                planBuilder.createTarget(catalogSupportingScaledWriters, schemaTableName, true, true),
                                 tableWriterSource,
                                 symbol,
                                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))));
@@ -125,7 +125,7 @@ public class TestValidateScaledWritersUsage
         PlanNode root = planBuilder.output(
                 outputBuilder -> outputBuilder
                         .source(planBuilder.tableWithExchangeCreate(
-                                planBuilder.createTarget(catalogNotSupportingScaledWriters, schemaTableName, false),
+                                planBuilder.createTarget(catalogNotSupportingScaledWriters, schemaTableName, false, true),
                                 tableWriterSource,
                                 symbol,
                                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))));
@@ -155,7 +155,7 @@ public class TestValidateScaledWritersUsage
         PlanNode root = planBuilder.output(
                 outputBuilder -> outputBuilder
                         .source(planBuilder.tableWithExchangeCreate(
-                                planBuilder.createTarget(catalogNotSupportingScaledWriters, schemaTableName, false),
+                                planBuilder.createTarget(catalogNotSupportingScaledWriters, schemaTableName, false, true),
                                 tableWriterSource,
                                 symbol,
                                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))));
@@ -185,7 +185,7 @@ public class TestValidateScaledWritersUsage
         PlanNode root = planBuilder.output(
                 outputBuilder -> outputBuilder
                         .source(planBuilder.tableWithExchangeCreate(
-                                planBuilder.createTarget(catalogSupportingScaledWriters, schemaTableName, true),
+                                planBuilder.createTarget(catalogSupportingScaledWriters, schemaTableName, true, true),
                                 tableWriterSource,
                                 symbol,
                                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))));
@@ -207,7 +207,7 @@ public class TestValidateScaledWritersUsage
         PlanNode root = planBuilder.output(
                 outputBuilder -> outputBuilder
                         .source(planBuilder.tableWithExchangeCreate(
-                                planBuilder.createTarget(catalogNotSupportingScaledWriters, schemaTableName, false),
+                                planBuilder.createTarget(catalogNotSupportingScaledWriters, schemaTableName, false, true),
                                 tableWriterSource,
                                 symbol,
                                 new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))));
@@ -226,7 +226,7 @@ public class TestValidateScaledWritersUsage
                                 ImmutableList.of("column_a"),
                                 Optional.empty(),
                                 Optional.empty(),
-                                planBuilder.createTarget(catalogSupportingScaledWriters, schemaTableName, true),
+                                planBuilder.createTarget(catalogSupportingScaledWriters, schemaTableName, true, true),
                                 planBuilder.exchange(innerExchange ->
                                         innerExchange
                                                 .partitioningScheme(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))
@@ -236,7 +236,7 @@ public class TestValidateScaledWritersUsage
         PlanNode root = planBuilder.output(
                 outputBuilder -> outputBuilder
                         .source(planBuilder.tableWithExchangeCreate(
-                                planBuilder.createTarget(catalogNotSupportingScaledWriters, schemaTableName, false),
+                                planBuilder.createTarget(catalogNotSupportingScaledWriters, schemaTableName, false, true),
                                 tableWriterSource,
                                 symbol,
                                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))));
