@@ -253,7 +253,7 @@ public class HivePageSink
     {
         List<Closeable> rollbackActions = Streams.concat(
                         writers.stream()
-                                // writers can contain nulls if an exception is thrown when doAppend expends the writer list
+                                // writers can contain nulls if an exception is thrown when doAppend expands the writer list
                                 .filter(Objects::nonNull)
                                 .map(writer -> writer::rollback),
                         closedWriterRollbackActions.stream())
