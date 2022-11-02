@@ -14,8 +14,6 @@
 package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.orc.NameBasedFieldMapper;
@@ -31,7 +29,6 @@ import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
-import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
 
@@ -75,20 +72,16 @@ public class OrcDeleteDeltaPageSource
     private boolean closed;
 
     public static Optional<ConnectorPageSource> createOrcDeleteDeltaPageSource(
-            String path,
-            long fileSize,
+            TrinoInputFile inputFile,
             OrcReaderOptions options,
-            ConnectorIdentity identity,
-            FileFormatDataSourceStats stats,
-            TrinoFileSystemFactory fileSystemFactory)
+            FileFormatDataSourceStats stats)
     {
         OrcDataSource orcDataSource;
+        String path = inputFile.location();
         try {
-            TrinoFileSystem fileSystem = fileSystemFactory.create(identity);
-            TrinoInputFile inputFile = fileSystem.newInputFile(path);
             orcDataSource = new HdfsOrcDataSource(
-                    new OrcDataSourceId(path),
-                    fileSize,
+                    new OrcDataSourceId(inputFile.location()),
+                    inputFile.length(),
                     options,
                     inputFile,
                     stats);
@@ -104,7 +97,7 @@ public class OrcDeleteDeltaPageSource
         try {
             Optional<OrcReader> orcReader = createOrcReader(orcDataSource, options);
             if (orcReader.isPresent()) {
-                return Optional.of(new OrcDeleteDeltaPageSource(path, fileSize, orcReader.get(), orcDataSource, stats));
+                return Optional.of(new OrcDeleteDeltaPageSource(path, inputFile.length(), orcReader.get(), orcDataSource, stats));
             }
             return Optional.empty();
         }
