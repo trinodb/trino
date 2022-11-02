@@ -297,6 +297,12 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-exchange-filesystem</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-main</artifactId>
             <scope>test</scope>
 
@@ -430,6 +436,7 @@
                                 <exclude>**/TestBigQueryMetadata.java</exclude>
                                 <exclude>**/TestBigQueryInstanceCleaner.java</exclude>
                                 <exclude>**/TestBigQueryCaseInsensitiveMapping.java</exclude>
+                                <exclude>**/TestBigQuery*FailureRecoveryTest.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -455,6 +462,7 @@
                                 <include>**/TestBigQueryTypeMapping.java</include>
                                 <include>**/TestBigQueryMetadata.java</include>
                                 <include>**/TestBigQueryInstanceCleaner.java</include>
+                                <include>**/TestBigQuery*FailureRecoveryTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>
