@@ -109,7 +109,8 @@ public class TestResetSessionTask
                 executor,
                 metadata,
                 WarningCollector.NOOP,
-                Optional.empty());
+                Optional.empty(),
+                true);
 
         getFutureValue(new ResetSessionTask(metadata, sessionPropertyManager).execute(
                 new ResetSession(QualifiedName.of(CATALOG_NAME, "baz")),

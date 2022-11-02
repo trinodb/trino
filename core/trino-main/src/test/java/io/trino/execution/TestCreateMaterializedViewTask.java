@@ -281,7 +281,8 @@ public class TestCreateMaterializedViewTask
                 directExecutor(),
                 metadata,
                 WarningCollector.NOOP,
-                Optional.empty());
+                Optional.empty(),
+                true);
     }
 
     private static class MockMetadata

@@ -104,7 +104,7 @@ public class TaskOutputOperator
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
         this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
-        this.serde = serdeFactory.createPagesSerde();
+        this.serde = serdeFactory.createPagesSerde(operatorContext.getSession().getExchangeEncryptionKey());
     }
 
     @Override

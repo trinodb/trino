@@ -27,6 +27,7 @@ import java.security.NoSuchAlgorithmException;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static java.util.Objects.requireNonNull;
 
 @VisibleForTesting
 public final class AesSpillCipher
@@ -44,7 +45,13 @@ public final class AesSpillCipher
     @VisibleForTesting
     public AesSpillCipher()
     {
-        this.key = generateNewSecretKey();
+        this(generateNewSecretKey());
+    }
+
+    @VisibleForTesting
+    public AesSpillCipher(SecretKey key)
+    {
+        this.key = requireNonNull(key, "key is null");
         this.encryptSizer = createEncryptCipher(key);
         this.ivBytes = encryptSizer.getIV().length;
     }

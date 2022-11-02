@@ -63,7 +63,8 @@ public class TestFeaturesConfig
                 .setIncrementalHashArrayLoadFactorEnabled(true)
                 .setHideInaccessibleColumns(false)
                 .setAllowSetViewAuthorization(false)
-                .setForceSpillingJoin(false));
+                .setForceSpillingJoin(false)
+                .setFaultTolerantExecutionExchangeEncryptionEnabled(true));
     }
 
     @Test
@@ -98,6 +99,7 @@ public class TestFeaturesConfig
                 .put("hide-inaccessible-columns", "true")
                 .put("legacy.allow-set-view-authorization", "true")
                 .put("force-spilling-join-operator", "true")
+                .put("fault-tolerant-execution.exchange-encryption-enabled", "false")
                 .buildOrThrow();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -128,7 +130,8 @@ public class TestFeaturesConfig
                 .setIncrementalHashArrayLoadFactorEnabled(false)
                 .setHideInaccessibleColumns(true)
                 .setAllowSetViewAuthorization(true)
-                .setForceSpillingJoin(true);
+                .setForceSpillingJoin(true)
+                .setFaultTolerantExecutionExchangeEncryptionEnabled(false);
         assertFullMapping(properties, expected);
     }
 }

@@ -101,7 +101,7 @@ public class MergeOperator
                     operatorContext,
                     sourceId,
                     directExchangeClientSupplier,
-                    serdeFactory.createPagesSerde(),
+                    serdeFactory.createPagesSerde(driverContext.getSession().getExchangeEncryptionKey()),
                     orderingCompiler.compilePageWithPositionComparator(types, sortChannels, sortOrder),
                     outputChannels,
                     outputTypes);

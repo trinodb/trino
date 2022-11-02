@@ -172,7 +172,8 @@ public class TestCallTask
                 executor,
                 metadata,
                 WarningCollector.NOOP,
-                Optional.empty());
+                Optional.empty(),
+                true);
     }
 
     public static void testingMethod()

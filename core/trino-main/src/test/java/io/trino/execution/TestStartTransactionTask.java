@@ -255,7 +255,8 @@ public class TestStartTransactionTask
                 executor,
                 metadata,
                 WarningCollector.NOOP,
-                Optional.empty());
+                Optional.empty(),
+                true);
     }
 
     private static SessionBuilder sessionBuilder()
