@@ -446,6 +446,7 @@ public class DeltaLakeMetadata
         List<ColumnMetadata> columns = getColumns(tableHandle.getMetadataEntry()).stream()
                 .map(column -> getColumnMetadata(column, columnComments.get(column.getName()), columnsNullability.getOrDefault(column.getName(), true)))
                 .collect(toImmutableList());
+        List<String> checkConstraints = getCheckConstraints(tableHandle.getMetadataEntry()).values().stream().collect(toImmutableList());
 
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.<String, Object>builder()
                 .put(LOCATION_PROPERTY, location)
@@ -458,7 +459,8 @@ public class DeltaLakeMetadata
                 tableHandle.getSchemaTableName(),
                 columns,
                 properties.buildOrThrow(),
-                Optional.ofNullable(tableHandle.getMetadataEntry().getDescription()));
+                Optional.ofNullable(tableHandle.getMetadataEntry().getDescription()),
+                checkConstraints);
     }
 
     @Override
@@ -1262,9 +1264,6 @@ public class DeltaLakeMetadata
         Map<String, String> columnInvariants = getColumnInvariants(table.getMetadataEntry());
         if (!columnInvariants.isEmpty()) {
             throw new TrinoException(NOT_SUPPORTED, "Inserts are not supported for tables with delta invariants");
-        }
-        if (!getCheckConstraints(table.getMetadataEntry()).isEmpty()) {
-            throw new TrinoException(NOT_SUPPORTED, "Writing to tables with CHECK constraints is not supported");
         }
         checkUnsupportedGeneratedColumns(table.getMetadataEntry());
         checkSupportedWriterVersion(session, table.getSchemaTableName());

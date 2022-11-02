@@ -29,6 +29,7 @@ import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_73;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_91;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_104_RUNTIME_VERSION;
@@ -318,7 +319,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
     public void testCheckConstraintsCompatibility()
     {
-        // CHECK constraint is not supported by Trino
+        // CHECK constraint is supported only in INSERT statement by Trino
         String tableName = "test_check_constraint_not_supported_" + randomTableSuffix();
 
         onDelta().executeQuery("CREATE TABLE default." + tableName +
@@ -332,13 +333,47 @@ public class TestDeltaLakeDatabricksInsertCompatibility
 
             assertThat(onTrino().executeQuery("SELECT id, a_number FROM " + tableName))
                     .containsOnly(row(1, 1));
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (2, 2)");
+            assertThat(onTrino().executeQuery("SELECT id, a_number FROM " + tableName))
+                    .containsOnly(row(1, 1), row(2, 2));
 
-            assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (2, 2)"))
-                    .hasMessageContaining("Writing to tables with CHECK constraints is not supported");
+            assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (100, 100)"))
+                    .hasMessageContaining("Cannot insert row that does not match to a check constraint");
             assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a_number = 1"))
                     .hasMessageContaining("Writing to tables with CHECK constraints is not supported");
             assertQueryFailure(() -> onTrino().executeQuery("UPDATE delta.default." + tableName + " SET a_number = 10 WHERE id = 1"))
                     .hasMessageContaining("Writing to tables with CHECK constraints is not supported");
+            assertQueryFailure(() -> onTrino().executeQuery("MERGE INTO delta.default." + tableName + " t USING delta.default." + tableName + " s " +
+                    "ON (t.id = s.id) WHEN MATCHED THEN UPDATE SET a_number = 42"))
+                    .hasMessageContaining("Writing to tables with CHECK constraints is not supported");
+
+            assertThat(onTrino().executeQuery("SELECT id, a_number FROM " + tableName))
+                    .containsOnly(row(1, 1), row(2, 2));
+        }
+        finally {
+            onDelta().executeQuery("DROP TABLE default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
+    public void testUnsupportedCheckConstraintExpression()
+    {
+        String tableName = "test_unsupported_check_constraint_expression_" + randomTableSuffix();
+
+        onDelta().executeQuery("CREATE TABLE default." + tableName +
+                "(id INT,  a_number INT) " +
+                "USING DELTA " +
+                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'");
+        // Use unsupported try_add function in CHECK constraint
+        onDelta().executeQuery("ALTER TABLE default." + tableName + " ADD CONSTRAINT id_constraint CHECK (try_add(id, 1) < 100)");
+
+        try {
+            onDelta().executeQuery("INSERT INTO default." + tableName + " (id, a_number) VALUES (1, 1)");
+            assertThat(onTrino().executeQuery("SELECT id, a_number FROM " + tableName))
+                    .containsOnly(row(1, 1));
+
+            assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (2, 2)"))
+                    .hasMessageContaining("Function 'try_add' not registered");
 
             assertThat(onTrino().executeQuery("SELECT id, a_number FROM " + tableName))
                     .containsOnly(row(1, 1));
@@ -440,31 +475,6 @@ public class TestDeltaLakeDatabricksInsertCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_OSS, DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
-    public void testWritesToTableWithCheckConstraintFails()
-    {
-        String tableName = "test_writes_into_table_with_check_constraint_" + randomTableSuffix();
-        try {
-            onDelta().executeQuery("CREATE TABLE default." + tableName + " (a INT, b INT) " +
-                    "USING DELTA " +
-                    "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'");
-            onDelta().executeQuery("ALTER TABLE default." + tableName + " ADD CONSTRAINT aIsPositive CHECK (a > 0)");
-
-            assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (1, 2)"))
-                    .hasMessageContaining("Writing to tables with CHECK constraints is not supported");
-            assertQueryFailure(() -> onTrino().executeQuery("UPDATE delta.default." + tableName + " SET a = 3 WHERE b = 3"))
-                    .hasMessageContaining("Writing to tables with CHECK constraints is not supported");
-            assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a = 3"))
-                    .hasMessageContaining("Writing to tables with CHECK constraints is not supported");
-            assertQueryFailure(() -> onTrino().executeQuery("MERGE INTO delta.default." + tableName + " t USING delta.default." + tableName + " s " +
-                    "ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET b = 42"))
-                    .hasMessageContaining("Writing to tables with CHECK constraints is not supported");
-        }
-        finally {
-            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
-        }
-    }
-
-    @Test(groups = {DELTA_LAKE_OSS, DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
     public void testMetadataOperationsRetainCheckConstraints()
     {
         String tableName = "test_metadata_operations_retain_check_constraints_" + randomTableSuffix();
@@ -477,9 +487,6 @@ public class TestDeltaLakeDatabricksInsertCompatibility
             onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN c INT");
             onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".c IS 'example column comment'");
             onTrino().executeQuery("COMMENT ON TABLE delta.default." + tableName + " IS 'example table comment'");
-
-            assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (1, 2, 3)"))
-                    .hasMessageContaining("Writing to tables with CHECK constraints is not supported");
         }
         finally {
             onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
