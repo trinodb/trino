@@ -648,7 +648,7 @@ public class TestFileBasedAccessControl
     {
         try {
             File configFile = new File(getResource(fileName).toURI());
-            return FileBasedAccessControlFactory.create(new CatalogName("test_catalog"), configFile);
+            return new FileBasedAccessControlFactory(new CatalogName("test_catalog"), configFile).create();
         }
         catch (URISyntaxException e) {
             throw new RuntimeException(e);

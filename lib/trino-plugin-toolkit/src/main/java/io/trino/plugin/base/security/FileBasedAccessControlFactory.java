@@ -17,20 +17,27 @@ package io.trino.plugin.base.security;
 import io.trino.plugin.base.CatalogName;
 
 import java.io.File;
-import java.util.function.Supplier;
 
 import static io.trino.plugin.base.util.JsonUtils.parseJson;
 
 public final class FileBasedAccessControlFactory
 {
-    private FileBasedAccessControlFactory()
+    private final CatalogName catalogName;
+    private final File configFile;
+
+    public FileBasedAccessControlFactory(CatalogName catalogName, File configFile)
     {
+        this.catalogName = catalogName;
+        this.configFile = configFile;
     }
 
-    public static JsonAccessControl create(CatalogName catalogName, File configFile)
+    private AccessControlRules fileBasedRulesProvider()
     {
-        Supplier<AccessControlRules> fileBasedRulesProvider = () ->
-                parseJson(configFile.toPath(), AccessControlRules.class);
-        return new JsonAccessControl(catalogName, fileBasedRulesProvider);
+        return parseJson(configFile.toPath(), AccessControlRules.class);
+    }
+
+    public JsonAccessControl create()
+    {
+        return new JsonAccessControl(catalogName, this::fileBasedRulesProvider);
     }
 }
