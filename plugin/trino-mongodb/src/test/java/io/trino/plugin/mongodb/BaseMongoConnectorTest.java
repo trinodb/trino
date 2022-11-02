@@ -75,6 +75,9 @@ public abstract class BaseMongoConnectorTest
             case SUPPORTS_NOT_NULL_CONSTRAINT:
                 return false;
 
+            case SUPPORTS_DELETE:
+                return true;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
@@ -237,6 +240,41 @@ public abstract class BaseMongoConnectorTest
         assertEquals(row.getField(8), "{\"name\":\"alice\"}");
         assertUpdate("DROP TABLE test_insert_types_table");
         assertFalse(getQueryRunner().tableExists(getSession(), "test_insert_types_table"));
+    }
+
+    @Override
+    public void testDeleteWithComplexPredicate()
+    {
+        assertThatThrownBy(super::testDeleteWithComplexPredicate)
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
+    }
+
+    @Override
+    public void testDeleteWithLike()
+    {
+        assertThatThrownBy(super::testDeleteWithLike)
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
+    }
+
+    @Override
+    public void testDeleteWithSemiJoin()
+    {
+        assertThatThrownBy(super::testDeleteWithSemiJoin)
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
+    }
+
+    @Override
+    public void testDeleteWithSubquery()
+    {
+        assertThatThrownBy(super::testDeleteWithSubquery)
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
+    }
+
+    @Override
+    public void testExplainAnalyzeWithDeleteWithSubquery()
+    {
+        assertThatThrownBy(super::testExplainAnalyzeWithDeleteWithSubquery)
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
     }
 
     @Test(dataProvider = "predicatePushdownProvider")
