@@ -20,7 +20,6 @@ import io.airlift.slice.Slice;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.hdfs.HdfsEnvironment;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.orc.NameBasedFieldMapper;
 import io.trino.orc.OrcColumn;
@@ -123,7 +122,6 @@ public class OrcPageSourceFactory
 {
     private static final Pattern DEFAULT_HIVE_COLUMN_NAME_PATTERN = Pattern.compile("_col\\d+");
     private final OrcReaderOptions orcReaderOptions;
-    private final HdfsEnvironment hdfsEnvironment;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final FileFormatDataSourceStats stats;
     private final DateTimeZone legacyTimeZone;
@@ -132,14 +130,12 @@ public class OrcPageSourceFactory
     @Inject
     public OrcPageSourceFactory(
             OrcReaderConfig config,
-            HdfsEnvironment hdfsEnvironment,
             TrinoFileSystemFactory fileSystemFactory,
             FileFormatDataSourceStats stats,
             HiveConfig hiveConfig)
     {
         this(
                 config.toOrcReaderOptions(),
-                hdfsEnvironment,
                 fileSystemFactory,
                 stats,
                 hiveConfig.getOrcLegacyDateTimeZone(),
@@ -148,24 +144,21 @@ public class OrcPageSourceFactory
 
     public OrcPageSourceFactory(
             OrcReaderOptions orcReaderOptions,
-            HdfsEnvironment hdfsEnvironment,
             TrinoFileSystemFactory fileSystemFactory,
             FileFormatDataSourceStats stats,
             DateTimeZone legacyTimeZone)
     {
-        this(orcReaderOptions, hdfsEnvironment, fileSystemFactory, stats, legacyTimeZone, 0);
+        this(orcReaderOptions, fileSystemFactory, stats, legacyTimeZone, 0);
     }
 
     public OrcPageSourceFactory(
             OrcReaderOptions orcReaderOptions,
-            HdfsEnvironment hdfsEnvironment,
             TrinoFileSystemFactory fileSystemFactory,
             FileFormatDataSourceStats stats,
             DateTimeZone legacyTimeZone,
             int domainCompactionThreshold)
     {
         this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.legacyTimeZone = legacyTimeZone;
         this.domainCompactionThreshold = domainCompactionThreshold;
@@ -202,9 +195,7 @@ public class OrcPageSourceFactory
         }
 
         ConnectorPageSource orcPageSource = createOrcPageSource(
-                hdfsEnvironment,
                 session.getIdentity(),
-                configuration,
                 path,
                 start,
                 length,
@@ -234,9 +225,7 @@ public class OrcPageSourceFactory
     }
 
     private ConnectorPageSource createOrcPageSource(
-            HdfsEnvironment hdfsEnvironment,
             ConnectorIdentity identity,
-            Configuration configuration,
             Path path,
             long start,
             long length,
@@ -408,10 +397,9 @@ public class OrcPageSourceFactory
             Optional<OrcDeletedRows> deletedRows = acidInfo.map(info ->
                     new OrcDeletedRows(
                             path.getName(),
-                            new OrcDeleteDeltaPageSourceFactory(options, identity, fileSystemFactory, stats),
+                            new OrcDeleteDeltaPageSourceFactory(options, stats),
                             identity,
-                            configuration,
-                            hdfsEnvironment,
+                            fileSystemFactory,
                             info,
                             bucketNumber,
                             memoryUsage));
