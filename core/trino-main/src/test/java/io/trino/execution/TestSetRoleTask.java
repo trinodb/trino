@@ -160,7 +160,8 @@ public class TestSetRoleTask
                 executor,
                 metadata,
                 WarningCollector.NOOP,
-                Optional.empty());
+                Optional.empty(),
+                true);
         new SetRoleTask(metadata, accessControl).execute(setRole, stateMachine, ImmutableList.of(), WarningCollector.NOOP);
         return stateMachine;
     }

@@ -105,7 +105,7 @@ public class TestPagePartitioner
     private static final int PARTITION_COUNT = 2;
 
     private static final PagesSerdeFactory PAGES_SERDE_FACTORY = new PagesSerdeFactory(new TestingBlockEncodingSerde(), false);
-    private static final PagesSerde PAGES_SERDE = PAGES_SERDE_FACTORY.createPagesSerde();
+    private static final PagesSerde PAGES_SERDE = PAGES_SERDE_FACTORY.createPagesSerde(Optional.empty());
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
@@ -616,7 +616,8 @@ public class TestPagePartitioner
                     types,
                     PARTITION_MAX_MEMORY,
                     operatorContext,
-                    POSITIONS_APPENDER_FACTORY);
+                    POSITIONS_APPENDER_FACTORY,
+                    Optional.empty());
         }
 
         private DriverContext buildDriverContext()

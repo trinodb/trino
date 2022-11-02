@@ -129,7 +129,7 @@ public class BenchmarkPagesSerde
         private PagesSerde createPagesSerde()
         {
             PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new TestingBlockEncodingSerde(), compressed);
-            return encrypted ? serdeFactory.createPagesSerdeForSpill(Optional.of(new AesSpillCipher())) : serdeFactory.createPagesSerde();
+            return encrypted ? serdeFactory.createPagesSerdeForSpill(Optional.of(new AesSpillCipher())) : serdeFactory.createPagesSerde(Optional.empty());
         }
 
         private Slice[] createSerializedPages()

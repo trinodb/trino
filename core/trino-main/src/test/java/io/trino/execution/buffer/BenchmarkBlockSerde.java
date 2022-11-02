@@ -48,6 +48,7 @@ import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -207,7 +208,7 @@ public class BenchmarkBlockSerde
 
         public void setup(Type type, Function<Random, ?> valueGenerator)
         {
-            PagesSerde pagesSerde = new PagesSerdeFactory(new TestingBlockEncodingSerde(), false).createPagesSerde();
+            PagesSerde pagesSerde = new PagesSerdeFactory(new TestingBlockEncodingSerde(), false).createPagesSerde(Optional.empty());
             PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(type));
             BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
             ImmutableList.Builder<Page> pagesBuilder = ImmutableList.builder();
@@ -392,7 +393,7 @@ public class BenchmarkBlockSerde
         @Setup
         public void setup()
         {
-            PagesSerde pagesSerde = new PagesSerdeFactory(new TestingBlockEncodingSerde(), false).createPagesSerde();
+            PagesSerde pagesSerde = new PagesSerdeFactory(new TestingBlockEncodingSerde(), false).createPagesSerde(Optional.empty());
 
             List<Page> pages = ImmutableList.copyOf(getTablePages("lineitem", 0.1, DecimalTypeMapping.DOUBLE));
             DynamicSliceOutput sliceOutput = new DynamicSliceOutput(0);

@@ -534,7 +534,8 @@ public class TestQueryStateMachine
                 ticker,
                 metadata,
                 WarningCollector.NOOP,
-                QUERY_TYPE);
+                QUERY_TYPE,
+                true);
         stateMachine.setInputs(INPUTS);
         stateMachine.setOutput(OUTPUT);
         stateMachine.setColumns(OUTPUT_FIELD_NAMES, OUTPUT_FIELD_TYPES);

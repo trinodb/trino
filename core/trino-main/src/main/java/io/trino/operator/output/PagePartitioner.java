@@ -85,7 +85,8 @@ public class PagePartitioner
             List<Type> sourceTypes,
             DataSize maxMemory,
             OperatorContext operatorContext,
-            PositionsAppenderFactory positionsAppenderFactory)
+            PositionsAppenderFactory positionsAppenderFactory,
+            Optional<Slice> exchangeEncryptionKey)
     {
         this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
         this.partitionChannels = Ints.toArray(requireNonNull(partitionChannels, "partitionChannels is null"));
@@ -103,7 +104,7 @@ public class PagePartitioner
         this.nullChannel = nullChannel.orElse(-1);
         this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
         this.sourceTypes = sourceTypes.toArray(new Type[0]);
-        this.serde = serdeFactory.createPagesSerde();
+        this.serde = serdeFactory.createPagesSerde(exchangeEncryptionKey);
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
 
         //  Ensure partition channels align with constant arguments provided

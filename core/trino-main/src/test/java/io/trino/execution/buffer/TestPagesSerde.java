@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 
 import static io.trino.execution.buffer.PagesSerdeUtil.readPages;
 import static io.trino.execution.buffer.PagesSerdeUtil.writePages;
@@ -39,7 +40,7 @@ public class TestPagesSerde
     @Test
     public void testRoundTrip()
     {
-        PagesSerde serde = new TestingPagesSerdeFactory().createPagesSerde();
+        PagesSerde serde = new TestingPagesSerdeFactory().createPagesSerde(Optional.empty());
         BlockBuilder expectedBlockBuilder = VARCHAR.createBlockBuilder(null, 5);
         VARCHAR.writeString(expectedBlockBuilder, "alice");
         VARCHAR.writeString(expectedBlockBuilder, "bob");
@@ -111,7 +112,7 @@ public class TestPagesSerde
     @Test
     public void testClosedContext()
     {
-        PagesSerde serde = new TestingPagesSerdeFactory().createPagesSerde();
+        PagesSerde serde = new TestingPagesSerdeFactory().createPagesSerde(Optional.empty());
         PagesSerde.PagesSerdeContext context = serde.newContext();
         context.close();
 
@@ -122,7 +123,7 @@ public class TestPagesSerde
 
     private static int serializedSize(List<? extends Type> types, Page expectedPage)
     {
-        PagesSerde serde = new TestingPagesSerdeFactory().createPagesSerde();
+        PagesSerde serde = new TestingPagesSerdeFactory().createPagesSerde(Optional.empty());
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         writePages(serde, sliceOutput, expectedPage);
         Slice slice = sliceOutput.slice();
