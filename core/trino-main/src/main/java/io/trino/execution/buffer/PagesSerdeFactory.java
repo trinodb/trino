@@ -15,11 +15,16 @@ package io.trino.execution.buffer;
 
 import io.airlift.compress.lz4.Lz4Compressor;
 import io.airlift.compress.lz4.Lz4Decompressor;
+import io.airlift.slice.Slice;
 import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spiller.AesSpillCipher;
 import io.trino.spiller.SpillCipher;
+
+import javax.crypto.spec.SecretKeySpec;
 
 import java.util.Optional;
 
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class PagesSerdeFactory
@@ -33,9 +38,12 @@ public class PagesSerdeFactory
         this.compressionEnabled = compressionEnabled;
     }
 
-    public PagesSerde createPagesSerde()
+    public PagesSerde createPagesSerde(Optional<Slice> encryptionKey)
     {
-        return createPagesSerdeInternal(Optional.empty());
+        return createPagesSerdeInternal(encryptionKey.map(key -> {
+            verify(key.hasByteArray(), "key is expected to be based on a byte array");
+            return new AesSpillCipher(new SecretKeySpec(key.byteArray(), key.byteArrayOffset(), key.length(), "AES"));
+        }));
     }
 
     public PagesSerde createPagesSerdeForSpill(Optional<SpillCipher> spillCipher)

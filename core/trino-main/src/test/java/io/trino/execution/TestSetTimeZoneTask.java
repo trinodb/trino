@@ -251,7 +251,8 @@ public class TestSetTimeZoneTask
                 executor,
                 localQueryRunner.getMetadata(),
                 WarningCollector.NOOP,
-                Optional.empty());
+                Optional.empty(),
+                true);
     }
 
     private void executeSetTimeZone(SetTimeZone setTimeZone, QueryStateMachine stateMachine)

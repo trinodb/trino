@@ -105,6 +105,8 @@ public class FeaturesConfig
     private boolean hideInaccessibleColumns;
     private boolean forceSpillingJoin;
 
+    private boolean faultTolerantExecutionExchangeEncryptionEnabled = true;
+
     public enum DataIntegrityVerification
     {
         NONE,
@@ -480,6 +482,18 @@ public class FeaturesConfig
     public FeaturesConfig setForceSpillingJoin(boolean forceSpillingJoin)
     {
         this.forceSpillingJoin = forceSpillingJoin;
+        return this;
+    }
+
+    public boolean isFaultTolerantExecutionExchangeEncryptionEnabled()
+    {
+        return faultTolerantExecutionExchangeEncryptionEnabled;
+    }
+
+    @Config("fault-tolerant-execution.exchange-encryption-enabled")
+    public FeaturesConfig setFaultTolerantExecutionExchangeEncryptionEnabled(boolean faultTolerantExecutionExchangeEncryptionEnabled)
+    {
+        this.faultTolerantExecutionExchangeEncryptionEnabled = faultTolerantExecutionExchangeEncryptionEnabled;
         return this;
     }
 

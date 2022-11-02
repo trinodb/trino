@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
+import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.exchange.ExchangeInput;
@@ -56,8 +57,10 @@ import org.joda.time.DateTime;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
+import javax.crypto.KeyGenerator;
 
 import java.net.URI;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -92,7 +95,9 @@ import static io.trino.execution.QueryState.STARTING;
 import static io.trino.execution.QueryState.TERMINAL_QUERY_STATES;
 import static io.trino.execution.QueryState.WAITING_FOR_RESOURCES;
 import static io.trino.execution.StageInfo.getAllStages;
+import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.USER_CANCELED;
 import static io.trino.util.Failures.toFailure;
@@ -216,7 +221,8 @@ public class QueryStateMachine
             Executor executor,
             Metadata metadata,
             WarningCollector warningCollector,
-            Optional<QueryType> queryType)
+            Optional<QueryType> queryType,
+            boolean faultTolerantExecutionExchangeEncryptionEnabled)
     {
         return beginWithTicker(
                 existingTransactionId,
@@ -232,7 +238,8 @@ public class QueryStateMachine
                 Ticker.systemTicker(),
                 metadata,
                 warningCollector,
-                queryType);
+                queryType,
+                faultTolerantExecutionExchangeEncryptionEnabled);
     }
 
     static QueryStateMachine beginWithTicker(
@@ -249,7 +256,8 @@ public class QueryStateMachine
             Ticker ticker,
             Metadata metadata,
             WarningCollector warningCollector,
-            Optional<QueryType> queryType)
+            Optional<QueryType> queryType,
+            boolean faultTolerantExecutionExchangeEncryptionEnabled)
     {
         // if there is an existing transaction, activate it
         existingTransactionId.ifPresent(transactionId -> {
@@ -268,6 +276,18 @@ public class QueryStateMachine
             TransactionId transactionId = existingTransactionId
                     .orElseGet(() -> transactionManager.beginTransaction(true));
             session = session.beginTransactionId(transactionId, transactionManager, accessControl);
+        }
+
+        if (getRetryPolicy(session) == TASK && faultTolerantExecutionExchangeEncryptionEnabled) {
+            // encryption is mandatory for fault tolerant execution as it relies on an external storage to store intermediate data generated during an exchange
+            try {
+                KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
+                keyGenerator.init(256);
+                session = session.withExchangeEncryption(Slices.wrappedBuffer(keyGenerator.generateKey().getEncoded()));
+            }
+            catch (NoSuchAlgorithmException e) {
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to generate new secret key: " + e.getMessage(), e);
+            }
         }
 
         QueryStateMachine queryStateMachine = new QueryStateMachine(

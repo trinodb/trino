@@ -134,7 +134,8 @@ public class TestCommitTask
                 executor,
                 metadata,
                 WarningCollector.NOOP,
-                Optional.empty());
+                Optional.empty(),
+                true);
     }
 
     private static SessionBuilder sessionBuilder()

@@ -94,7 +94,8 @@ public class TestDeallocateTask
                 executor,
                 metadata,
                 WarningCollector.NOOP,
-                Optional.empty());
+                Optional.empty(),
+                true);
         Deallocate deallocate = new Deallocate(new Identifier(statementName));
         new DeallocateTask().execute(deallocate, stateMachine, emptyList(), WarningCollector.NOOP);
         return stateMachine.getDeallocatedPreparedStatements();

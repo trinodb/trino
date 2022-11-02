@@ -34,6 +34,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -78,7 +79,7 @@ public class TestBinaryFileSpiller
         singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(blockEncodingSerde, spillerStats, featuresConfig, nodeSpillConfig);
         factory = new GenericSpillerFactory(singleStreamSpillerFactory);
         PagesSerdeFactory pagesSerdeFactory = new PagesSerdeFactory(blockEncodingSerde, nodeSpillConfig.isSpillCompressionEnabled());
-        pagesSerde = pagesSerdeFactory.createPagesSerde();
+        pagesSerde = pagesSerdeFactory.createPagesSerde(Optional.empty());
         memoryContext = newSimpleAggregatedMemoryContext();
     }
 

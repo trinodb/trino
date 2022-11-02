@@ -313,7 +313,7 @@ public class TestSpoolingExchangeOutputBuffer
         blockBuilder.writeBytes(valueSlice, 0, valueSlice.length());
         blockBuilder.closeEntry();
         Page page = pageBuilder.build();
-        PagesSerde pagesSerde = new PagesSerdeFactory(new TestingBlockEncodingSerde(), false).createPagesSerde();
+        PagesSerde pagesSerde = new PagesSerdeFactory(new TestingBlockEncodingSerde(), false).createPagesSerde(Optional.empty());
         return pagesSerde.serialize(pagesSerde.newContext(), page);
     }
 

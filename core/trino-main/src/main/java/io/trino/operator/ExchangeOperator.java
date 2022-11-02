@@ -112,7 +112,7 @@ public class ExchangeOperator
                     operatorContext,
                     sourceId,
                     exchangeDataSource,
-                    serdeFactory.createPagesSerde(),
+                    serdeFactory.createPagesSerde(driverContext.getSession().getExchangeEncryptionKey()),
                     noMoreSplitsTracker,
                     operatorInstanceId);
             noMoreSplitsTracker.operatorAdded(operatorInstanceId);
