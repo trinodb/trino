@@ -2471,6 +2471,34 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    public void testUnpartitionedInsertWithMultipleFiles()
+    {
+        String tableName = "test_unpartitioned_insert_with_multiple_files";
+        try {
+            @Language("SQL") String createTargetTable = "" +
+                    "CREATE TABLE " + tableName + " " +
+                    "WITH (format = 'ORC') " +
+                    "AS " +
+                    "SELECT * " +
+                    "FROM tpch.sf1.orders";
+            assertUpdate(singleWriterWithTinyTargetFileSize(), createTargetTable, "SELECT 1500000");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    private Session singleWriterWithTinyTargetFileSize()
+    {
+        return Session.builder(getSession())
+                .setSystemProperty("task_writer_count", "1")
+                .setSystemProperty("task_scale_writers_enabled", "false")
+                .setSystemProperty("query_max_memory_per_node", "100MB")
+                .setCatalogSessionProperty(catalog, "target_max_file_size", "1B")
+                .build();
+    }
+
+    @Test
     public void testInsertIntoPartitionedBucketedTableFromBucketedTable()
     {
         testInsertIntoPartitionedBucketedTableFromBucketedTable(HiveStorageFormat.RCBINARY);
