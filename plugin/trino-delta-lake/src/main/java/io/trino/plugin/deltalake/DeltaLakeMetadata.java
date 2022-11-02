@@ -1710,7 +1710,7 @@ public class DeltaLakeMetadata
             partitioningColumns.add(columnsByName.get(columnName));
         }
         DeltaLakePartitioningHandle partitioningHandle = new DeltaLakePartitioningHandle(partitioningColumns.build());
-        return Optional.of(new ConnectorTableLayout(partitioningHandle, partitionColumnNames));
+        return Optional.of(new ConnectorTableLayout(partitioningHandle, partitionColumnNames, true));
     }
 
     @Override

@@ -3291,6 +3291,10 @@ public class HiveMetadata
                 .map(Column::getName)
                 .forEach(partitioningColumns::add);
 
+        // For transactional bucketed tables we don't want to split output files therefore we need to have single writer
+        // per partition.
+        boolean multipleWritersPerPartitionSupported = !isTransactionalTable(table.getParameters());
+
         HivePartitioningHandle partitioningHandle = new HivePartitioningHandle(
                 hiveBucketHandle.get().getBucketingVersion(),
                 hiveBucketHandle.get().getTableBucketCount(),
@@ -3299,7 +3303,7 @@ public class HiveMetadata
                         .collect(toImmutableList()),
                 OptionalInt.of(hiveBucketHandle.get().getTableBucketCount()),
                 !partitionColumns.isEmpty() && isParallelPartitionedBucketedWrites(session));
-        return Optional.of(new ConnectorTableLayout(partitioningHandle, partitioningColumns.build()));
+        return Optional.of(new ConnectorTableLayout(partitioningHandle, partitioningColumns.build(), multipleWritersPerPartitionSupported));
     }
 
     @Override
@@ -3323,6 +3327,10 @@ public class HiveMetadata
             throw new TrinoException(NOT_SUPPORTED, "Writing to bucketed sorted Hive tables is disabled");
         }
 
+        // For transactional bucketed tables we don't want to split output files therefore we need to have single writer
+        // per partition.
+        boolean multipleWritersPerPartitionSupported = !isTransactional(tableMetadata.getProperties()).orElse(false);
+
         List<String> bucketedBy = bucketProperty.get().getBucketedBy();
         Map<String, HiveType> hiveTypeMap = tableMetadata.getColumns().stream()
                 .collect(toMap(ColumnMetadata::getName, column -> toHiveType(column.getType())));
@@ -3338,7 +3346,8 @@ public class HiveMetadata
                 ImmutableList.<String>builder()
                         .addAll(bucketedBy)
                         .addAll(partitionedBy)
-                        .build()));
+                        .build(),
+                multipleWritersPerPartitionSupported));
     }
 
     @Override

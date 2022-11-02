@@ -759,7 +759,7 @@ public class PlanBuilder
                 schemaTableName);
     }
 
-    public CreateTarget createTarget(CatalogHandle catalogHandle, SchemaTableName schemaTableName, boolean reportingWrittenBytesSupported)
+    public CreateTarget createTarget(CatalogHandle catalogHandle, SchemaTableName schemaTableName, boolean reportingWrittenBytesSupported, boolean multipleWritersPerPartitionSupported)
     {
         OutputTableHandle tableHandle = new OutputTableHandle(
                 catalogHandle,
@@ -769,7 +769,8 @@ public class PlanBuilder
         return new CreateTarget(
                 tableHandle,
                 schemaTableName,
-                reportingWrittenBytesSupported);
+                reportingWrittenBytesSupported,
+                multipleWritersPerPartitionSupported);
     }
 
     public TableFinishNode tableUpdate(SchemaTableName schemaTableName, PlanNode updateSource, Symbol updateRowId, List<Symbol> columnsToBeUpdated)
