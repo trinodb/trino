@@ -356,7 +356,11 @@ public class TestParquetDecimalScaling
 
         if (overflows(new BigDecimal(writeValue).unscaledValue(), schemaPrecision)) {
             @Language("SQL") String query = format("SELECT * FROM tpch.%s", tableName);
-            @Language("RegExp") String expectedMessage = format("Could not read fixed_len_byte_array\\(%d\\) value %s into decimal\\(%d,%d\\)", byteArrayLength, writeValue, schemaPrecision, schemaScale);
+            @Language("RegExp") String expectedMessage = format(
+                    "Could not read unscaled value %s into decimal\\(%d,%d\\) from column .*",
+                    new BigDecimal(writeValue).unscaledValue(),
+                    schemaPrecision,
+                    schemaScale);
 
             assertQueryFails(optimizedParquetReaderEnabled(false), query, expectedMessage);
             assertQueryFails(optimizedParquetReaderEnabled(true), query, expectedMessage);
