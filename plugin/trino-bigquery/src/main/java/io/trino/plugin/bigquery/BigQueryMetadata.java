@@ -17,6 +17,7 @@ import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.DatasetInfo;
 import com.google.cloud.bigquery.Field;
+import com.google.cloud.bigquery.InsertAllRequest;
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.QueryParameterValue;
 import com.google.cloud.bigquery.Schema;
@@ -30,6 +31,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
+import com.google.common.io.Closer;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.plugin.bigquery.BigQueryClient.RemoteDatabaseObject;
@@ -67,17 +69,21 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.ptf.ConnectorTableFunctionHandle;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
+import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
 import javax.inject.Inject;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.cloud.bigquery.TableDefinition.Type.EXTERNAL;
@@ -85,8 +91,10 @@ import static com.google.cloud.bigquery.TableDefinition.Type.MATERIALIZED_VIEW;
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_LISTING_DATASET_ERROR;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_UNSUPPORTED_OPERATION;
 import static io.trino.plugin.bigquery.BigQueryPseudoColumn.PARTITION_DATE;
@@ -96,7 +104,6 @@ import static io.trino.plugin.bigquery.BigQueryTableHandle.getPartitionType;
 import static io.trino.plugin.bigquery.BigQueryType.toField;
 import static io.trino.plugin.bigquery.BigQueryUtil.isWildcardTable;
 import static io.trino.plugin.bigquery.BigQueryUtil.quote;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -106,6 +113,7 @@ public class BigQueryMetadata
         implements ConnectorMetadata
 {
     private static final Logger log = Logger.get(BigQueryMetadata.class);
+    static final Type TRINO_PAGE_SINK_ID_COLUMN_TYPE = BigintType.BIGINT;
 
     static final int DEFAULT_NUMERIC_TYPE_PRECISION = 38;
     static final int DEFAULT_NUMERIC_TYPE_SCALE = 9;
@@ -147,6 +155,11 @@ public class BigQueryMetadata
                 .filter(dataset -> !dataset.isAmbiguous())
                 .map(RemoteDatabaseObject::getOnlyRemoteName)
                 .collect(toImmutableList());
+    }
+
+    private String quoted(RemoteTableName table)
+    {
+        return format("%s.%s.%s", quote(table.getProjectId()), quote(table.getDatasetName()), quote(table.getTableName()));
     }
 
     @Override
@@ -400,7 +413,7 @@ public class BigQueryMetadata
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         try {
-            createTable(session, tableMetadata);
+            createTable(session, tableMetadata, Optional.empty());
         }
         catch (BigQueryException e) {
             if (ignoreExisting && e.getCode() == 409) {
@@ -413,13 +426,18 @@ public class BigQueryMetadata
     @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
     {
-        if (retryMode != RetryMode.NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
-        }
-        return createTable(session, tableMetadata);
+        ColumnMetadata pageSinkIdColumn = getPageSinkIdColumn(tableMetadata.getColumns().stream()
+                .map(ColumnMetadata::getName)
+                .collect(toImmutableList()));
+        return createTable(session, tableMetadata, Optional.of(pageSinkIdColumn));
     }
 
-    private BigQueryOutputTableHandle createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    private String generateTemporaryTableName()
+    {
+        return "tmp_trino_" + UUID.randomUUID().toString().replace("-", "");
+    }
+
+    private BigQueryOutputTableHandle createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ColumnMetadata> pageSinkIdColumn)
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
         String schemaName = schemaTableName.getSchemaName();
@@ -431,10 +449,13 @@ public class BigQueryMetadata
 
         int columnSize = tableMetadata.getColumns().size();
         ImmutableList.Builder<Field> fields = ImmutableList.builderWithExpectedSize(columnSize);
+        // Note: this list is only actually used when pageSinkIdColumn isPresent
+        ImmutableList.Builder<Field> tempFields = ImmutableList.builderWithExpectedSize(columnSize + 1);
         ImmutableList.Builder<String> columnsNames = ImmutableList.builderWithExpectedSize(columnSize);
         ImmutableList.Builder<Type> columnsTypes = ImmutableList.builderWithExpectedSize(columnSize);
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             fields.add(toField(column.getName(), column.getType(), column.getComment()));
+            tempFields.add(toField(column.getName(), column.getType(), column.getComment()));
             columnsNames.add(column.getName());
             columnsTypes.add(column.getType());
         }
@@ -443,31 +464,63 @@ public class BigQueryMetadata
         String projectId = client.getProjectId();
         String remoteSchemaName = getRemoteSchemaName(client, projectId, schemaName);
 
+        TableId tableId = createTable(client, projectId, remoteSchemaName, tableName, fields.build(), tableMetadata.getComment());
+
+        Optional<String> temporaryTableName = pageSinkIdColumn.map(column -> {
+            tempFields.add(toField(column.getName(), column.getType(), column.getComment()));
+            String tempTableName = generateTemporaryTableName();
+            createTable(client, projectId, remoteSchemaName, tempTableName, tempFields.build(), tableMetadata.getComment());
+            return tempTableName;
+        });
+
+        return new BigQueryOutputTableHandle(
+                new RemoteTableName(tableId),
+                columnsNames.build(),
+                columnsTypes.build(),
+                temporaryTableName,
+                pageSinkIdColumn.map(ColumnMetadata::getName));
+    }
+
+    private TableId createTable(BigQueryClient client, String projectId, String remoteSchemaName, String tableName, ImmutableList<Field> fields, Optional<String> tableComment)
+    {
         TableId tableId = TableId.of(projectId, remoteSchemaName, tableName);
-        TableDefinition tableDefinition = StandardTableDefinition.of(Schema.of(fields.build()));
+        TableDefinition tableDefinition = StandardTableDefinition.of(Schema.of(fields));
         TableInfo.Builder tableInfo = TableInfo.newBuilder(tableId, tableDefinition);
-        tableMetadata.getComment().ifPresent(tableInfo::setDescription);
+        tableComment.ifPresent(tableInfo::setDescription);
 
         client.createTable(tableInfo.build());
 
-        return new BigQueryOutputTableHandle(new RemoteTableName(tableId), columnsNames.build(), columnsTypes.build());
+        return tableId;
     }
 
     @Override
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        return Optional.empty();
+        BigQueryOutputTableHandle handle = (BigQueryOutputTableHandle) tableHandle;
+        checkState(handle.getTemporaryTableName().isPresent(), "Unexpected use of finishCreateTable without a temporaryTableName present");
+        return finishInsert(session, handle.getRemoteTableName(), handle.getTemporaryRemoteTableName().get(), handle.getPageSinkIdColumnName().get(), handle.getColumnNames(), fragments);
     }
 
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        BigQueryClient client = bigQueryClientFactory.create(session);
         BigQueryTableHandle bigQueryTable = (BigQueryTableHandle) tableHandle;
-        if (isWildcardTable(TableDefinition.Type.valueOf(bigQueryTable.asPlainTable().getType()), bigQueryTable.asPlainTable().getRemoteTableName().getTableName())) {
+        dropTable(session, bigQueryTable.asPlainTable());
+    }
+
+    private void dropTable(ConnectorSession session, BigQueryNamedRelationHandle handle)
+    {
+        if (isWildcardTable(TableDefinition.Type.valueOf(handle.getType()), handle.getRemoteTableName().getTableName())) {
             throw new TrinoException(BIGQUERY_UNSUPPORTED_OPERATION, "This connector does not support dropping wildcard tables");
         }
-        TableId tableId = bigQueryTable.asPlainTable().getRemoteTableName().toTableId();
+        dropTable(session, handle.getRemoteTableName().toTableId());
+    }
+
+    // This is a last resort method - use one of the ones above if you have that type.
+    // Only use this if you are certain the TableId does not refer to a wildcard table.
+    private void dropTable(ConnectorSession session, TableId tableId)
+    {
+        BigQueryClient client = bigQueryClientFactory.create(session);
         client.dropTable(tableId);
     }
 
@@ -489,27 +542,99 @@ public class BigQueryMetadata
     @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns, RetryMode retryMode)
     {
-        if (retryMode != RetryMode.NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
-        }
         BigQueryTableHandle table = (BigQueryTableHandle) tableHandle;
         if (isWildcardTable(TableDefinition.Type.valueOf(table.asPlainTable().getType()), table.asPlainTable().getRemoteTableName().getTableName())) {
             throw new TrinoException(BIGQUERY_UNSUPPORTED_OPERATION, "This connector does not support inserting into wildcard tables");
         }
         ImmutableList.Builder<String> columnNames = ImmutableList.builderWithExpectedSize(columns.size());
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builderWithExpectedSize(columns.size());
+        ImmutableList.Builder<Field> tempFields = ImmutableList.builderWithExpectedSize(columns.size() + 1);
+
         for (ColumnHandle columnHandle : columns) {
             BigQueryColumnHandle column = (BigQueryColumnHandle) columnHandle;
+            tempFields.add(toField(column.getName(), column.getTrinoType(), column.getColumnMetadata().getComment()));
             columnNames.add(column.getName());
             columnTypes.add(column.getTrinoType());
         }
-        return new BigQueryInsertTableHandle(table.asPlainTable().getRemoteTableName(), columnNames.build(), columnTypes.build());
+        ColumnMetadata pageSinkIdColumn = getPageSinkIdColumn(columnNames.build());
+        tempFields.add(toField(pageSinkIdColumn.getName(), pageSinkIdColumn.getType(), pageSinkIdColumn.getComment()));
+
+        BigQueryClient client = bigQueryClientFactory.create(session);
+        String projectId = ((BigQueryNamedRelationHandle) table.getRelationHandle()).getRemoteTableName().getProjectId();
+        String schemaName = ((BigQueryNamedRelationHandle) table.getRelationHandle()).getSchemaTableName().getSchemaName();
+
+        if (!schemaExists(session, schemaName)) {
+            throw new SchemaNotFoundException(schemaName);
+        }
+        String remoteSchemaName = getRemoteSchemaName(client, projectId, schemaName);
+
+        String temporaryTableName = generateTemporaryTableName();
+        createTable(client, projectId, remoteSchemaName, temporaryTableName, tempFields.build(), Optional.empty());
+
+        return new BigQueryInsertTableHandle(
+                table.asPlainTable().getRemoteTableName(),
+                columnNames.build(),
+                columnTypes.build(),
+                temporaryTableName,
+                pageSinkIdColumn.getName());
+    }
+
+    private Optional<ConnectorOutputMetadata> finishInsert(
+            ConnectorSession session,
+            RemoteTableName targetTable,
+            RemoteTableName tempTable,
+            String pageSinkIdColumnName,
+            List<String> columnNames,
+            Collection<Slice> fragments)
+    {
+        Closer closer = Closer.create();
+        closer.register(() -> dropTable(session, tempTable.toTableId()));
+
+        try {
+            BigQueryClient client = bigQueryClientFactory.create(session);
+
+            RemoteTableName pageSinkTable = new RemoteTableName(
+                    targetTable.getProjectId(),
+                    targetTable.getDatasetName(),
+                    generateTemporaryTableName());
+            createTable(client, pageSinkTable.getProjectId(), pageSinkTable.getDatasetName(), pageSinkTable.getTableName(), ImmutableList.of(toField(pageSinkIdColumnName, TRINO_PAGE_SINK_ID_COLUMN_TYPE, null)), Optional.empty());
+            closer.register(() -> dropTable(session, pageSinkTable.toTableId()));
+
+            InsertAllRequest.Builder batch = InsertAllRequest.newBuilder(pageSinkTable.toTableId());
+            fragments.forEach(slice -> batch.addRow(ImmutableMap.of(pageSinkIdColumnName, slice.getLong(0))));
+            client.insert(batch.build());
+
+            String columns = columnNames.stream().map(BigQueryUtil::quote).collect(Collectors.joining(", "));
+
+            String insertSql = format("INSERT INTO %s (%s) SELECT %s FROM %s temp_table " +
+                            "WHERE EXISTS (SELECT 1 FROM %s page_sink_table WHERE page_sink_table.%s = temp_table.%s)",
+                    quoted(targetTable),
+                    columns,
+                    columns,
+                    quoted(tempTable),
+                    quoted(pageSinkTable),
+                    quote(pageSinkIdColumnName),
+                    quote(pageSinkIdColumnName));
+
+            client.executeUpdate(QueryJobConfiguration.newBuilder(insertSql).build());
+        }
+        finally {
+            try {
+                closer.close();
+            }
+            catch (IOException e) {
+                throw new TrinoException(BIGQUERY_FAILED_TO_EXECUTE_QUERY, e);
+            }
+        }
+
+        return Optional.empty();
     }
 
     @Override
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        return Optional.empty();
+        BigQueryInsertTableHandle handle = (BigQueryInsertTableHandle) insertHandle;
+        return finishInsert(session, handle.getRemoteTableName(), handle.getTemporaryRemoteTableName(), handle.getPageSinkIdColumnName(), handle.getColumnNames(), fragments);
     }
 
     @Override
@@ -680,5 +805,19 @@ public class BigQueryMetadata
                 return cursor.apply(constraint);
             }
         };
+    }
+
+    private static ColumnMetadata getPageSinkIdColumn(List<String> otherColumnNames)
+    {
+        // While it's unlikely this column name will collide with client table columns,
+        // guarantee it will not by appending a deterministic suffix to it.
+        String baseColumnName = "trino_page_sink_id";
+        String columnName = baseColumnName;
+        int suffix = 1;
+        while (otherColumnNames.contains(columnName)) {
+            columnName = baseColumnName + "_" + suffix;
+            suffix++;
+        }
+        return new ColumnMetadata(columnName, TRINO_PAGE_SINK_ID_COLUMN_TYPE);
     }
 }
