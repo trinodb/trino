@@ -27,6 +27,7 @@ import java.util.Set;
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.http.BaseHttpServiceException.UNKNOWN_CODE;
 import static com.google.common.base.Throwables.getCausalChain;
+import static java.lang.String.format;
 
 public final class BigQueryUtil
 {
@@ -81,5 +82,10 @@ public final class BigQueryUtil
     public static String quote(String name)
     {
         return QUOTE + name.replace(QUOTE, ESCAPED_QUOTE) + QUOTE;
+    }
+
+    public static String quoted(RemoteTableName table)
+    {
+        return format("%s.%s.%s", quote(table.getProjectId()), quote(table.getDatasetName()), quote(table.getTableName()));
     }
 }
