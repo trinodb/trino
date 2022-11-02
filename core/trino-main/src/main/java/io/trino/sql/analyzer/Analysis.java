@@ -211,6 +211,7 @@ public class Analysis
 
     private final Multiset<RowFilterScopeEntry> rowFilterScopes = HashMultiset.create();
     private final Map<NodeRef<Table>, List<Expression>> rowFilters = new LinkedHashMap<>();
+    private final Map<NodeRef<Table>, List<Expression>> checkConstraints = new LinkedHashMap<>();
 
     private final Multiset<ColumnMaskScopeEntry> columnMaskScopes = HashMultiset.create();
     private final Map<NodeRef<Table>, Map<String, List<Expression>>> columnMasks = new LinkedHashMap<>();
@@ -1070,9 +1071,20 @@ public class Analysis
                 .add(filter);
     }
 
+    public void addCheckConstraints(Table table, Expression filter)
+    {
+        checkConstraints.computeIfAbsent(NodeRef.of(table), node -> new ArrayList<>())
+                .add(filter);
+    }
+
     public List<Expression> getRowFilters(Table node)
     {
         return rowFilters.getOrDefault(NodeRef.of(node), ImmutableList.of());
+    }
+
+    public List<Expression> getCheckConstraints(Table node)
+    {
+        return checkConstraints.getOrDefault(NodeRef.of(node), ImmutableList.of());
     }
 
     public boolean hasColumnMask(QualifiedObjectName table, String column, String identity)

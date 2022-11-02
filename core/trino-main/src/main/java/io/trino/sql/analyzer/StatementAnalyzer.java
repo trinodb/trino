@@ -535,6 +535,7 @@ class StatementAnalyzer
             List<ColumnSchema> columns = tableSchema.getColumns().stream()
                     .filter(column -> !column.isHidden())
                     .collect(toImmutableList());
+            List<String> checkConstraints = tableSchema.getTableSchema().getCheckConstraints();
 
             for (ColumnSchema column : columns) {
                 if (!accessControl.getColumnMasks(session.toSecurityContext(), targetTable, column.getName(), column.getType()).isEmpty()) {
@@ -544,7 +545,7 @@ class StatementAnalyzer
 
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTableHandle.get());
             List<Field> tableFields = analyzeTableOutputFields(insert.getTable(), targetTable, tableSchema, columnHandles);
-            analyzeFiltersAndMasks(insert.getTable(), targetTable, targetTableHandle, tableFields, session.getIdentity().getUser());
+            analyzeFiltersAndMasks(insert.getTable(), targetTable, targetTableHandle, new RelationType(tableFields), session.getIdentity().getUser(), checkConstraints);
 
             List<String> tableColumns = columns.stream()
                     .map(ColumnSchema::getName)
@@ -791,7 +792,7 @@ class StatementAnalyzer
 
             analysis.setUpdateType("DELETE");
             analysis.setUpdateTarget(tableName, Optional.of(table), Optional.empty());
-            analyzeFiltersAndMasks(table, tableName, Optional.of(handle), analysis.getScope(table).getRelationType(), session.getIdentity().getUser());
+            analyzeFiltersAndMasks(table, tableName, Optional.of(handle), analysis.getScope(table).getRelationType(), session.getIdentity().getUser(), ImmutableList.of());
 
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
@@ -2145,10 +2146,10 @@ class StatementAnalyzer
 
         private void analyzeFiltersAndMasks(Table table, QualifiedObjectName name, Optional<TableHandle> tableHandle, List<Field> fields, String authorization)
         {
-            analyzeFiltersAndMasks(table, name, tableHandle, new RelationType(fields), authorization);
+            analyzeFiltersAndMasks(table, name, tableHandle, new RelationType(fields), authorization, ImmutableList.of());
         }
 
-        private void analyzeFiltersAndMasks(Table table, QualifiedObjectName name, Optional<TableHandle> tableHandle, RelationType relationType, String authorization)
+        private void analyzeFiltersAndMasks(Table table, QualifiedObjectName name, Optional<TableHandle> tableHandle, RelationType relationType, String authorization, List<String> checkConstraints)
         {
             Scope accessControlScope = Scope.builder()
                     .withRelationType(RelationId.anonymous(), relationType)
@@ -2165,8 +2166,15 @@ class StatementAnalyzer
                 }
             }
 
-            accessControl.getRowFilters(session.toSecurityContext(), name)
-                    .forEach(filter -> analyzeRowFilter(session.getIdentity().getUser(), table, name, accessControlScope, filter));
+            for (ViewExpression filter : accessControl.getRowFilters(session.toSecurityContext(), name)) {
+                Expression expression = analyzeRowFilter(session.getIdentity().getUser(), table, name, accessControlScope, filter);
+                analysis.addRowFilter(table, expression);
+            }
+            for (String checkConstraint : checkConstraints) {
+                ViewExpression filter = new ViewExpression(session.getIdentity().getUser(), Optional.of(name.getCatalogName()), Optional.of(name.getSchemaName()), checkConstraint);
+                Expression expression = analyzeRowFilter(session.getIdentity().getUser(), table, name, accessControlScope, filter);
+                analysis.addCheckConstraints(table, expression);
+            }
 
             analysis.registerTable(table, tableHandle, name, authorization, accessControlScope);
         }
@@ -4491,7 +4499,7 @@ class StatementAnalyzer
                     correlationSupport);
         }
 
-        private void analyzeRowFilter(String currentIdentity, Table table, QualifiedObjectName name, Scope scope, ViewExpression filter)
+        private Expression analyzeRowFilter(String currentIdentity, Table table, QualifiedObjectName name, Scope scope, ViewExpression filter)
         {
             if (analysis.hasRowFilter(name, currentIdentity)) {
                 throw new TrinoException(INVALID_ROW_FILTER, extractLocation(table), format("Row filter for '%s' is recursive", name), null);
@@ -4542,7 +4550,7 @@ class StatementAnalyzer
                 analysis.addCoercion(expression, BOOLEAN, coercion.isTypeOnlyCoercion(actualType, BOOLEAN));
             }
 
-            analysis.addRowFilter(table, expression);
+            return expression;
         }
 
         private void analyzeColumnMask(String currentIdentity, Table table, QualifiedObjectName tableName, Field field, Scope scope, ViewExpression mask)

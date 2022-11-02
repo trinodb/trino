@@ -267,7 +267,11 @@ class RelationPlanner
     public RelationPlan addRowFilters(Table node, RelationPlan plan, Function<Expression, Expression> predicateTransformation, Function<Table, Scope> accessControlScope)
     {
         List<Expression> filters = analysis.getRowFilters(node);
+        return addRowFilters(filters, node, plan, predicateTransformation, accessControlScope);
+    }
 
+    public RelationPlan addRowFilters(List<Expression> filters, Table node, RelationPlan plan, Function<Expression, Expression> predicateTransformation, Function<Table, Scope> accessControlScope)
+    {
         if (filters.isEmpty()) {
             return plan;
         }

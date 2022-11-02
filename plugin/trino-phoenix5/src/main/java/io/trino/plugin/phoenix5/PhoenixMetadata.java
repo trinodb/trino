@@ -118,7 +118,8 @@ public class PhoenixMetadata
                 getSchemaTableName(handle),
                 getColumnMetadata(session, handle).stream()
                         .map(ColumnMetadata::getColumnSchema)
-                        .collect(toImmutableList()));
+                        .collect(toImmutableList()),
+                ImmutableList.of());
     }
 
     @Override

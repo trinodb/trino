@@ -486,18 +486,8 @@ public class LogicalPlanner
 
         plan = new RelationPlan(projectNode, scope, projectNode.getOutputSymbols(), Optional.empty());
 
-        plan = planner.addRowFilters(
-                table,
-                plan,
-                failIfPredicateIsNotMet(metadata, session, PERMISSION_DENIED, AccessDeniedException.PREFIX + "Cannot insert row that does not match to a row filter"),
-                node -> {
-                    Scope accessControlScope = analysis.getAccessControlScope(table);
-                    // hidden fields are not accessible in insert
-                    return Scope.builder()
-                            .like(accessControlScope)
-                            .withRelationType(accessControlScope.getRelationId(), accessControlScope.getRelationType().withOnlyVisibleFields())
-                            .build();
-                });
+        plan = addRowFilters(analysis, planner, table, plan, failIfPredicateIsNotMet(metadata, session, PERMISSION_DENIED, AccessDeniedException.PREFIX + "Cannot insert row that does not match to a row filter"), analysis.getRowFilters(table));
+        plan = addRowFilters(analysis, planner, table, plan, failIfCheckConstraintIsNotMet(metadata, session), analysis.getCheckConstraints(table));
 
         List<String> insertedTableColumnNames = insertedColumns.stream()
                 .map(ColumnMetadata::getName)
@@ -530,6 +520,23 @@ public class LogicalPlanner
                 statisticsMetadata);
     }
 
+    private RelationPlan addRowFilters(Analysis analysis, RelationPlanner planner, Table table, RelationPlan plan, Function<Expression, Expression> predicateTransformation, List<Expression> filters)
+    {
+        return planner.addRowFilters(
+                filters,
+                table,
+                plan,
+                predicateTransformation,
+                node -> {
+                    Scope accessControlScope = analysis.getAccessControlScope(table);
+                    // hidden fields are not accessible in insert
+                    return Scope.builder()
+                            .like(accessControlScope)
+                            .withRelationType(accessControlScope.getRelationId(), accessControlScope.getRelationType().withOnlyVisibleFields())
+                            .build();
+                });
+    }
+
     private Expression createNullNotAllowedFailExpression(String columnName, Type type)
     {
         return new Cast(failFunction(metadata, session, CONSTRAINT_VIOLATION, format(
@@ -541,6 +548,11 @@ public class LogicalPlanner
     {
         FunctionCall fail = failFunction(metadata, session, errorCode, errorMessage);
         return predicate -> new IfExpression(predicate, TRUE_LITERAL, new Cast(fail, toSqlType(BOOLEAN)));
+    }
+
+    private static Function<Expression, Expression> failIfCheckConstraintIsNotMet(Metadata metadata, Session session)
+    {
+        return predicate -> new IfExpression(predicate, TRUE_LITERAL, new Cast(failFunction(metadata, session, CONSTRAINT_VIOLATION, "Cannot insert row that does not match to a check constraint: " + predicate), toSqlType(BOOLEAN)));
     }
 
     public static FunctionCall failFunction(Metadata metadata, Session session, ErrorCodeSupplier errorCode, String errorMessage)
