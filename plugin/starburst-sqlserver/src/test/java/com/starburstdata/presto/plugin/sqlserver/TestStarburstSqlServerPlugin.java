@@ -26,9 +26,9 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.starburstdata.presto.license.TestingLicenseManager.NOOP_LICENSE_MANAGER;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerConfig.SQLSERVER_OVERRIDE_CATALOG_ENABLED;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerConfig.SQLSERVER_OVERRIDE_CATALOG_NAME;
+import static com.starburstdata.presto.testing.FileUtils.createTempFileForTesting;
 import static com.starburstdata.presto.testing.SystemPropertiesLock.lockSystemProperties;
 import static io.airlift.testing.Closeables.closeAll;
-import static java.nio.file.Files.createTempFile;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestStarburstSqlServerPlugin
@@ -92,13 +92,12 @@ public class TestStarburstSqlServerPlugin
 
     @Test
     public void testKerberosWithUserName()
-            throws Exception
     {
         Plugin plugin = new StarburstSqlServerPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
 
-        Path keytab = createTempFile(null, null);
-        Path config = createTempFile(null, null);
+        Path keytab = createTempFileForTesting();
+        Path config = createTempFileForTesting();
 
         assertThatThrownBy(() -> factory.create(
                 "test",
