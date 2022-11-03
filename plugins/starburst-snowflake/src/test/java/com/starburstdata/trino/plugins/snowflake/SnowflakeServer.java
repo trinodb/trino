@@ -37,8 +37,7 @@ public class SnowflakeServer
     public static final String JDBC_URL = requireNonNull(System.getProperty("snowflake.test.server.url"), "snowflake.test.server.url is not set");
     public static final String USER = requireNonNull(System.getProperty("snowflake.test.server.user"), "snowflake.test.server.user is not set");
     public static final String PASSWORD = requireNonNull(System.getProperty("snowflake.test.server.password"), "snowflake.test.server.password is not set");
-
-    public static final String TEST_WAREHOUSE = "TEST_WH";
+    public static final String TEST_WAREHOUSE = requireNonNull(System.getProperty("snowflake.test.warehouse"), "snowflake.test.warehouse is not set");
     public static final String TEST_DATABASE = "TEST_DB";
 
     void init()
