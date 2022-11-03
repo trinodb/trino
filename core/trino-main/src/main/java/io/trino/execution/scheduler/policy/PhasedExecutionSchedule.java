@@ -241,7 +241,7 @@ public class PhasedExecutionSchedule
             return;
         }
 
-        if (fragmentDependency.outDegreeOf(stage.getFragment().getId()) > 0) {
+        if (activeStages.add(stage) && fragmentDependency.outDegreeOf(stage.getFragment().getId()) > 0) {
             // if there are any dependent stages then reschedule when stage is completed
             stage.addStateChangeListener(state -> {
                 if (isStageCompleted(stage)) {
@@ -249,7 +249,6 @@ public class PhasedExecutionSchedule
                 }
             });
         }
-        activeStages.add(stage);
     }
 
     private void notifyReschedule()
