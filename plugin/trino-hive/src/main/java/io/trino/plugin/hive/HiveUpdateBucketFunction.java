@@ -17,7 +17,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.BucketFunction;
 
-import static io.trino.plugin.hive.HiveUpdatablePageSource.BUCKET_CHANNEL;
+import static io.trino.plugin.hive.HivePageSource.BUCKET_CHANNEL;
 import static io.trino.spi.type.IntegerType.INTEGER;
 
 public class HiveUpdateBucketFunction

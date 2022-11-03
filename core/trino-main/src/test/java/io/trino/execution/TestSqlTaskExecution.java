@@ -49,7 +49,6 @@ import io.trino.spi.Page;
 import io.trino.spi.QueryId;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.connector.ConnectorSplit;
-import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.spiller.SpillSpaceTracker;
 import io.trino.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -57,7 +56,6 @@ import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -405,18 +403,17 @@ public class TestSqlTaskExecution
             }
 
             @Override
-            public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
+            public void addSplit(Split split)
             {
                 requireNonNull(split, "split is null");
                 checkState(this.split == null, "Table scan split already set");
 
                 if (finished) {
-                    return Optional::empty;
+                    return;
                 }
 
                 this.split = (TestingSplit) split.getConnectorSplit();
                 blocked.set(null);
-                return Optional::empty;
             }
 
             @Override

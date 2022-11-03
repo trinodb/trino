@@ -379,27 +379,9 @@ public class HiveTableHandle
     }
 
     @JsonIgnore
-    public boolean isAcidDelete()
-    {
-        return transaction.isDelete();
-    }
-
-    @JsonIgnore
-    public boolean isAcidUpdate()
-    {
-        return transaction.isUpdate();
-    }
-
-    @JsonIgnore
     public boolean isAcidMerge()
     {
         return transaction.isMerge();
-    }
-
-    @JsonIgnore
-    public Optional<HiveUpdateProcessor> getUpdateProcessor()
-    {
-        return transaction.getUpdateProcessor();
     }
 
     @JsonIgnore

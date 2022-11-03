@@ -30,7 +30,6 @@ import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.HiveTableHandle;
 import io.trino.plugin.hive.HiveType;
-import io.trino.plugin.hive.HiveUpdateProcessor;
 import io.trino.plugin.hive.LocationHandle.WriteMode;
 import io.trino.plugin.hive.PartitionNotFoundException;
 import io.trino.plugin.hive.PartitionStatistics;
@@ -1316,15 +1315,15 @@ public class SemiTransactionalHiveMetastore
 
     public AcidTransaction beginInsert(ConnectorSession session, Table table)
     {
-        return beginOperation(session, table, AcidOperation.INSERT, DataOperationType.INSERT, Optional.empty());
+        return beginOperation(session, table, AcidOperation.INSERT, DataOperationType.INSERT);
     }
 
     public AcidTransaction beginMerge(ConnectorSession session, Table table)
     {
-        return beginOperation(session, table, AcidOperation.MERGE, DataOperationType.UPDATE, Optional.empty());
+        return beginOperation(session, table, AcidOperation.MERGE, DataOperationType.UPDATE);
     }
 
-    private AcidTransaction beginOperation(ConnectorSession session, Table table, AcidOperation operation, DataOperationType hiveOperation, Optional<HiveUpdateProcessor> updateProcessor)
+    private AcidTransaction beginOperation(ConnectorSession session, Table table, AcidOperation operation, DataOperationType hiveOperation)
     {
         String queryId = session.getQueryId();
 
@@ -1343,7 +1342,7 @@ public class SemiTransactionalHiveMetastore
                         hiveOperation,
                         !table.getPartitionColumns().isEmpty());
                 long writeId = allocateWriteId(table.getDatabaseName(), table.getTableName(), transactionId);
-                return new AcidTransaction(operation, transactionId, writeId, updateProcessor);
+                return new AcidTransaction(operation, transactionId, writeId);
             });
             hiveTransactionSupplier = Optional.of(() -> hiveTransaction);
             currentHiveTransaction = Optional.of(hiveTransaction);

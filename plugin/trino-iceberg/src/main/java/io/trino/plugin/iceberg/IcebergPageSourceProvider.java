@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.graph.Traverser;
-import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
@@ -43,7 +42,6 @@ import io.trino.parquet.predicate.TupleDomainParquetPredicate;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
 import io.trino.parquet.reader.ParquetReaderColumn;
-import io.trino.plugin.base.classloader.ClassLoaderSafeUpdatablePageSource;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.ReaderPageSource;
@@ -57,10 +55,8 @@ import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
 import io.trino.plugin.iceberg.IcebergParquetColumnIOConverter.FieldContext;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.delete.DeleteFilter;
-import io.trino.plugin.iceberg.delete.IcebergPositionDeletePageSink;
 import io.trino.plugin.iceberg.delete.PositionDeleteFilter;
 import io.trino.plugin.iceberg.delete.RowPredicate;
-import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -92,7 +88,6 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.avro.AvroSchemaUtil;
 import org.apache.iceberg.io.InputFile;
-import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.mapping.MappedField;
 import org.apache.iceberg.mapping.MappedFields;
 import org.apache.iceberg.mapping.NameMapping;
@@ -165,7 +160,6 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFrom
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
-import static io.trino.plugin.iceberg.IcebergUtil.getLocationProvider;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
 import static io.trino.plugin.iceberg.TypeConverter.ICEBERG_BINARY_TYPE;
@@ -206,10 +200,6 @@ public class IcebergPageSourceProvider
     private final OrcReaderOptions orcReaderOptions;
     private final ParquetReaderOptions parquetReaderOptions;
     private final TypeManager typeManager;
-    private final JsonCodec<CommitTaskData> jsonCodec;
-    private final IcebergFileWriterFactory fileWriterFactory;
-    private final PageIndexerFactory pageIndexerFactory;
-    private final int maxOpenPartitions;
 
     @Inject
     public IcebergPageSourceProvider(
@@ -217,21 +207,13 @@ public class IcebergPageSourceProvider
             FileFormatDataSourceStats fileFormatDataSourceStats,
             OrcReaderConfig orcReaderConfig,
             ParquetReaderConfig parquetReaderConfig,
-            TypeManager typeManager,
-            JsonCodec<CommitTaskData> jsonCodec,
-            IcebergFileWriterFactory fileWriterFactory,
-            PageIndexerFactory pageIndexerFactory,
-            IcebergConfig icebergConfig)
+            TypeManager typeManager)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         this.orcReaderOptions = orcReaderConfig.toOrcReaderOptions();
         this.parquetReaderOptions = parquetReaderConfig.toParquetReaderOptions();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
-        this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
-        this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
-        this.maxOpenPartitions = icebergConfig.getMaxPartitionsPerWriter();
     }
 
     @Override
@@ -351,50 +333,12 @@ public class IcebergPageSourceProvider
                     .reduce(RowPredicate::and);
         });
 
-        Optional<PartitionData> partition = partitionSpec.isUnpartitioned() ? Optional.empty() : Optional.of(partitionData);
-        LocationProvider locationProvider = getLocationProvider(table.getSchemaTableName(), table.getTableLocation(), table.getStorageProperties());
-        Supplier<IcebergPositionDeletePageSink> positionDeleteSink = () -> new IcebergPositionDeletePageSink(
-                split.getPath(),
-                partitionSpec,
-                partition,
-                locationProvider,
-                fileWriterFactory,
-                fileSystem,
-                jsonCodec,
-                session,
-                split.getFileFormat(),
-                table.getStorageProperties(),
-                split.getFileRecordCount());
-
-        Supplier<IcebergPageSink> updatedRowPageSinkSupplier = () -> new IcebergPageSink(
-                tableSchema,
-                PartitionSpecParser.fromJson(
-                        tableSchema,
-                        table.getPartitionSpecJson()
-                                .orElseThrow(() -> new VerifyException("Partition spec missing in the table handle"))),
-                locationProvider,
-                fileWriterFactory,
-                pageIndexerFactory,
-                fileSystem,
-                tableSchema.columns().stream().map(column -> getColumnHandle(column, typeManager)).collect(toImmutableList()),
-                jsonCodec,
-                session,
-                split.getFileFormat(),
-                table.getStorageProperties(),
-                maxOpenPartitions);
-
-        return new ClassLoaderSafeUpdatablePageSource(
-                new IcebergPageSource(
-                        tableSchema,
-                        icebergColumns,
-                        requiredColumns,
-                        dataPageSource.get(),
-                        projectionsAdapter,
-                        deletePredicate,
-                        positionDeleteSink,
-                        updatedRowPageSinkSupplier,
-                        table.getUpdatedColumns()),
-                getClass().getClassLoader());
+        return new IcebergPageSource(
+                icebergColumns,
+                requiredColumns,
+                dataPageSource.get(),
+                projectionsAdapter,
+                deletePredicate);
     }
 
     private Set<IcebergColumnHandle> requiredColumnsForDeletes(Schema schema, List<DeleteFile> deletes)
