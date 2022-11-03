@@ -1299,7 +1299,7 @@ public class TestHiveTransactionalTable
     @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
     public void testAcidUpdateSelectedValues()
     {
-        withTemporaryTable("acid_update_simple", true, true, NONE, tableName -> {
+        withTemporaryTable("acid_update_simple_selected", true, true, NONE, tableName -> {
             onTrino().executeQuery(format("CREATE TABLE %s (col1 TINYINT, col2 VARCHAR, col3 BIGINT, col4 BOOLEAN, col5 INT) WITH (transactional = true)", tableName));
             log.info("About to insert");
             onTrino().executeQuery(format("INSERT INTO %s (col1, col2, col3, col4, col5) VALUES (7, 'ONE', 1000, true, 101), (13, 'TWO', 2000, false, 202)", tableName));
@@ -1806,7 +1806,7 @@ public class TestHiveTransactionalTable
         if (transactional) {
             ensureTransactionalHive();
         }
-        try (TemporaryHiveTable table = TemporaryHiveTable.temporaryHiveTable(tableName(rootName, isPartitioned, bucketingType))) {
+        try (TemporaryHiveTable table = TemporaryHiveTable.temporaryHiveTable(tableName(rootName, isPartitioned, bucketingType) + randomTableSuffix())) {
             testRunner.accept(table.getName());
         }
     }
