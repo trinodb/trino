@@ -11,6 +11,7 @@ package com.starburstdata.trino.plugins.snowflake.distributed;
 
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
+import io.trino.spi.NodeManager;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
@@ -49,6 +50,7 @@ public class SnowflakeDistributedConnectorFactory
                     binder -> {
                         binder.bind(ClassLoader.class).toInstance(SnowflakeDistributedConnectorFactory.class.getClassLoader());
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
+                        binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                     });
 
             Injector injector = app

@@ -14,6 +14,7 @@ import io.trino.plugin.sqlserver.BaseSqlServerConnectorTest;
 import io.trino.plugin.sqlserver.DataCompression;
 import io.trino.testing.DataProviders;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
@@ -54,6 +55,18 @@ public class TestSynapseConnectorTest
                 // Synapse tests are slow. Cache metadata to speed them up. Synapse without caching is exercised by TestSynapseConnectorSmokeTest.
                 Map.of("metadata.cache-ttl", "60m"),
                 REQUIRED_TPCH_TABLES);
+    }
+
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            // Overriden because Synapse disables connector expression pushdown due to correctness issues with varchar pushdown because of default case-insensitive collation
+            case SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN:
+                return false;
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
     }
 
     @Override
@@ -297,6 +310,13 @@ public class TestSynapseConnectorTest
         assertExplainAnalyze("EXPLAIN ANALYZE DELETE FROM " + tableName + " WHERE TRUE");
         assertQuery("SELECT COUNT(*) from " + tableName, "SELECT 0");
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Override
+    public void testDeleteWithLike()
+    {
+        assertThatThrownBy(super::testDeleteWithLike)
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
     }
 
     @Override

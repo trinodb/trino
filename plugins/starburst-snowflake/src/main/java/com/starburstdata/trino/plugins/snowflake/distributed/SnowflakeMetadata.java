@@ -12,9 +12,9 @@ package com.starburstdata.trino.plugins.snowflake.distributed;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.jdbc.DefaultJdbcMetadata;
 import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.JdbcQueryEventListener;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.PreparedQuery;
-import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -24,26 +24,17 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.RetryMode;
 
 import java.util.Optional;
+import java.util.Set;
 
 import static com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeClient.checkColumnsForInvalidCharacters;
 import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
 
 class SnowflakeMetadata
         extends DefaultJdbcMetadata
 {
-    private final SnowflakeConnectionManager connectionManager;
-
-    SnowflakeMetadata(SnowflakeConnectionManager connectionManager, JdbcClient jdbcClient)
+    SnowflakeMetadata(JdbcClient jdbcClient, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
     {
-        super(jdbcClient, true);
-        this.connectionManager = requireNonNull(connectionManager, "connectionManager is null");
-    }
-
-    @Override
-    public void cleanupQuery(ConnectorSession session)
-    {
-        connectionManager.closeConnections(QueryId.valueOf(session.getQueryId()));
+        super(jdbcClient, true, jdbcQueryEventListeners);
     }
 
     @Override

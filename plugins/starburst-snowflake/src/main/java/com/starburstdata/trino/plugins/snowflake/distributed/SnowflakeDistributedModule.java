@@ -28,6 +28,7 @@ import io.trino.plugin.jdbc.JdbcDynamicFilteringSplitManager;
 import io.trino.plugin.jdbc.JdbcMetadataFactory;
 import io.trino.plugin.jdbc.JdbcModule;
 import io.trino.plugin.jdbc.JdbcPageSinkProvider;
+import io.trino.plugin.jdbc.JdbcQueryEventListener;
 import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
@@ -76,6 +77,10 @@ public class SnowflakeDistributedModule
         //       replace them if necessary.
         newOptionalBinder(binder, JdbcMetadataFactory.class).setBinding().to(SnowflakeMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(SnowflakeConnectionManager.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, JdbcQueryEventListener.class)
+                .addBinding()
+                .to(Key.get(SnowflakeConnectionManager.class))
+                .in(Scopes.SINGLETON);
         newOptionalBinder(binder, Key.get(ConnectorSplitManager.class, ForJdbcDynamicFiltering.class)).setBinding().to(SnowflakeSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorSplitManager.class).annotatedWith(ForClassLoaderSafe.class).to(JdbcDynamicFilteringSplitManager.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, ConnectorSplitManager.class).setBinding().to(ClassLoaderSafeConnectorSplitManager.class).in(Scopes.SINGLETON);

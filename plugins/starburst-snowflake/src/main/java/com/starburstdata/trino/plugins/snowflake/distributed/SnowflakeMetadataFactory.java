@@ -9,12 +9,14 @@
  */
 package com.starburstdata.trino.plugins.snowflake.distributed;
 
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.CachingJdbcClient;
 import io.trino.plugin.jdbc.IdentityCacheMapping;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcMetadataFactory;
+import io.trino.plugin.jdbc.JdbcQueryEventListener;
 import io.trino.plugin.jdbc.JdbcTransactionHandle;
 import io.trino.plugin.jdbc.SingletonIdentityCacheMapping;
 
@@ -28,25 +30,25 @@ import static java.util.Objects.requireNonNull;
 public class SnowflakeMetadataFactory
         implements JdbcMetadataFactory
 {
-    private final SnowflakeConnectionManager connectionManager;
     private final JdbcClient jdbcClient;
+    private final Set<JdbcQueryEventListener> jdbcQueryEventListeners;
 
     @Inject
     public SnowflakeMetadataFactory(
-            SnowflakeConnectionManager connectionManager,
             JdbcClient jdbcClient,
             IdentityCacheMapping identityMapping,
-            BaseJdbcConfig cachingConfig)
+            BaseJdbcConfig cachingConfig,
+            Set<JdbcQueryEventListener> jdbcQueryEventListeners)
     {
-        this.connectionManager = requireNonNull(connectionManager, "connectionManager is null");
         this.jdbcClient = new CachingJdbcClient(requireNonNull(jdbcClient, "jdbcClient is null"), Set.of(), identityMapping, cachingConfig);
+        this.jdbcQueryEventListeners = ImmutableSet.copyOf(requireNonNull(jdbcQueryEventListeners, "jdbcQueryEventListeners is null"));
     }
 
     @Override
     public SnowflakeMetadata create(JdbcTransactionHandle handle)
     {
         return new SnowflakeMetadata(
-                connectionManager,
-                new CachingJdbcClient(jdbcClient, Set.of(), new SingletonIdentityCacheMapping(), new Duration(1, TimeUnit.DAYS), true, Integer.MAX_VALUE));
+                new CachingJdbcClient(jdbcClient, Set.of(), new SingletonIdentityCacheMapping(), new Duration(1, TimeUnit.DAYS), true, Integer.MAX_VALUE),
+                jdbcQueryEventListeners);
     }
 }

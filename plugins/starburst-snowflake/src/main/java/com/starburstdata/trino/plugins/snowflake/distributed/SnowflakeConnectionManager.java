@@ -12,6 +12,7 @@ package com.starburstdata.trino.plugins.snowflake.distributed;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.JdbcQueryEventListener;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -32,6 +33,7 @@ import static java.util.Objects.requireNonNull;
  */
 @ThreadSafe
 public class SnowflakeConnectionManager
+        implements JdbcQueryEventListener
 {
     private final ConnectionFactory connectionFactory;
     private final Multimap<QueryId, Connection> connections = ArrayListMultimap.create();
@@ -65,5 +67,14 @@ public class SnowflakeConnectionManager
         catch (SQLException exception) {
             throw new TrinoException(JDBC_ERROR, exception);
         }
+    }
+
+    @Override
+    public void beginQuery(ConnectorSession session) {}
+
+    @Override
+    public void cleanupQuery(ConnectorSession session)
+    {
+        closeConnections(QueryId.valueOf(session.getQueryId()));
     }
 }
