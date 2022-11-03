@@ -58,7 +58,14 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: ${{ matrix.java-version }}
-          cache: 'maven'
+      - name: Cache local Maven repo
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
       - name: Configure Problem Matchers
         run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Download all Trino dependencies to make sure cache is complete
@@ -96,7 +103,14 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 17
-          cache: 'maven'
+      - name: Cache local Maven repo
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
       - name: Fetch base ref to find merge-base for GIB
         run: .github/bin/git-fetch-base-ref.sh
       - name: Check Commits
@@ -138,7 +152,14 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 17
-          cache: 'maven'
+      - name: Cache local Maven repo
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
       - name: Configure Problem Matchers
         run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Package
@@ -181,7 +202,14 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 17
-          cache: 'maven'
+      - name: Cache local Maven repo
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
       - name: Configure Problem Matchers
         run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Install
@@ -243,7 +271,14 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 17
-          cache: 'maven'
+      - name: Cache local Maven repo
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
       - name: Configure Problem Matchers
         run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Install Hive Module
@@ -367,7 +402,14 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 17
-          cache: 'maven'
+      - name: Cache local Maven repo
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
       - name: Configure Problem Matchers
         run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Install
@@ -517,7 +559,14 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 17
-          cache: 'maven'
+      - name: Cache local Maven repo
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
       - name: Configure Problem Matchers
         run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Cleanup node
@@ -656,7 +705,14 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 17
-          cache: 'maven'
+      - name: Cache local Maven repo
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
