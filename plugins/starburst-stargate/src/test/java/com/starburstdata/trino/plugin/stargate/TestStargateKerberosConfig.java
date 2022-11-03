@@ -16,10 +16,10 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Map;
 
+import static com.starburstdata.presto.testing.FileUtils.createTempFileForTesting;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static java.nio.file.Files.createTempFile;
 
 public class TestStargateKerberosConfig
 {
@@ -39,8 +39,8 @@ public class TestStargateKerberosConfig
     public void testExplicitPropertyMappings()
             throws IOException
     {
-        Path keytab = createTempFile(null, null);
-        Path config = createTempFile(null, null);
+        Path keytab = createTempFileForTesting();
+        Path config = createTempFileForTesting();
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("kerberos.client.principal", "principal")
