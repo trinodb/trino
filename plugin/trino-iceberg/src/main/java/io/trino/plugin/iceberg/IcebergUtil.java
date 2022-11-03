@@ -52,6 +52,7 @@ import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SnapshotUpdate;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
@@ -100,12 +101,16 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_FPP;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getOrcBloomFilterColumns;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getOrcBloomFilterFpp;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
+import static io.trino.plugin.iceberg.IcebergTableProperties.getSortOrder;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
+import static io.trino.plugin.iceberg.SortFieldUtils.parseSortFields;
+import static io.trino.plugin.iceberg.SortFieldUtils.toSortFields;
 import static io.trino.plugin.iceberg.TrinoMetricsReporter.TRINO_METRICS_REPORTER;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
@@ -202,6 +207,13 @@ public final class IcebergUtil
         properties.put(FILE_FORMAT_PROPERTY, getFileFormat(icebergTable));
         if (!icebergTable.spec().fields().isEmpty()) {
             properties.put(PARTITIONING_PROPERTY, toPartitionFields(icebergTable.spec()));
+        }
+
+        SortOrder sortOrder = icebergTable.sortOrder();
+        // TODO: Support sort column transforms (https://github.com/trinodb/trino/issues/15088)
+        if (sortOrder.isSorted() && sortOrder.fields().stream().allMatch(sortField -> sortField.transform().isIdentity())) {
+            List<String> sortColumnNames = toSortFields(sortOrder);
+            properties.put(SORTED_BY_PROPERTY, sortColumnNames);
         }
 
         if (!icebergTable.location().isEmpty()) {
@@ -572,6 +584,7 @@ public final class IcebergUtil
         SchemaTableName schemaTableName = tableMetadata.getTable();
         Schema schema = schemaFromMetadata(tableMetadata.getColumns());
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
+        SortOrder sortOrder = parseSortFields(schema, getSortOrder(tableMetadata.getProperties()));
         String targetPath = getTableLocation(tableMetadata.getProperties())
                 .orElseGet(() -> catalog.defaultTableLocation(session, schemaTableName));
 
@@ -593,7 +606,7 @@ public final class IcebergUtil
             propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
         }
 
-        return catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, targetPath, propertiesBuilder.buildOrThrow());
+        return catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, targetPath, propertiesBuilder.buildOrThrow());
     }
 
     public static long getSnapshotIdAsOfTime(Table table, long epochMillis)

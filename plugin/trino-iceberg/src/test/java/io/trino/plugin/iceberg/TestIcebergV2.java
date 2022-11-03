@@ -36,6 +36,7 @@ import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.SortField;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
@@ -61,6 +62,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
@@ -346,7 +348,7 @@ public class TestIcebergV2
         assertTrue(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("ORC"));
         assertTrue(table.spec().isUnpartitioned());
 
-        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 2, partitioning = ARRAY['regionkey'], format = 'PARQUET'");
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 2, partitioning = ARRAY['regionkey'], format = 'PARQUET', sorted_by = ARRAY['comment']");
         table = loadTable(tableName);
         assertEquals(table.operations().current().formatVersion(), 2);
         assertTrue(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("PARQUET"));
@@ -355,6 +357,10 @@ public class TestIcebergV2
         assertThat(partitionFields).hasSize(1);
         assertEquals(partitionFields.get(0).name(), "regionkey");
         assertTrue(partitionFields.get(0).transform().isIdentity());
+        assertTrue(table.sortOrder().isSorted());
+        List<SortField> sortFields = table.sortOrder().fields();
+        assertEquals(sortFields.size(), 1);
+        assertEquals(getOnlyElement(sortFields).sourceId(), table.schema().findField("comment").fieldId());
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
     }
 
@@ -362,7 +368,8 @@ public class TestIcebergV2
     public void testUnsettingAllTableProperties()
     {
         String tableName = "test_unsetting_all_table_properties_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 1, format = 'PARQUET', partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
+        assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 1, format = 'PARQUET', partitioning = ARRAY['regionkey'], sorted_by = ARRAY['comment']) " +
+                "AS SELECT * FROM tpch.tiny.nation", 25);
         BaseTable table = loadTable(tableName);
         assertEquals(table.operations().current().formatVersion(), 1);
         assertTrue(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("PARQUET"));
@@ -372,11 +379,12 @@ public class TestIcebergV2
         assertEquals(partitionFields.get(0).name(), "regionkey");
         assertTrue(partitionFields.get(0).transform().isIdentity());
 
-        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format_version = DEFAULT, format = DEFAULT, partitioning = DEFAULT");
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format_version = DEFAULT, format = DEFAULT, partitioning = DEFAULT, sorted_by = DEFAULT");
         table = loadTable(tableName);
         assertEquals(table.operations().current().formatVersion(), 2);
         assertTrue(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("ORC"));
         assertTrue(table.spec().isUnpartitioned());
+        assertTrue(table.sortOrder().isUnsorted());
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
     }
 
