@@ -44,6 +44,7 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.awscore.endpoint.DefaultServiceEndpointBuilder;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.core.retry.RetryPolicy;
@@ -471,10 +472,12 @@ public class S3FileSystemExchangeStorage
                 .httpClientBuilder(NettyNioAsyncHttpClient.builder()
                         .maxConcurrency(maxConcurrency)
                         .maxPendingConnectionAcquires(maxPendingConnectionAcquires)
-                        .connectionAcquisitionTimeout(java.time.Duration.ofMillis(connectionAcquisitionTimeout.toMillis())));
+                        .connectionAcquisitionTimeout(java.time.Duration.ofMillis(connectionAcquisitionTimeout.toMillis())))
+                .endpointOverride(endpoint.map(URI::create).orElseGet(() -> new DefaultServiceEndpointBuilder("s3", "http")
+                        .withRegion(region.orElseThrow(() -> new IllegalArgumentException("region is expected to be set")))
+                        .getServiceEndpoint()));
 
         region.ifPresent(clientBuilder::region);
-        endpoint.ifPresent(s3Endpoint -> clientBuilder.endpointOverride(URI.create(s3Endpoint)));
 
         return clientBuilder.build();
     }
