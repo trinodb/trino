@@ -417,7 +417,12 @@ public final class VarbinaryFunctions
     public static long crc32(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         CRC32 crc32 = new CRC32();
-        crc32.update(slice.toByteBuffer());
+        if (slice.hasByteArray()) {
+            crc32.update(slice.byteArray(), slice.byteArrayOffset(), slice.length());
+        }
+        else {
+            crc32.update(slice.toByteBuffer());
+        }
         return crc32.getValue();
     }
 
