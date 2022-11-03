@@ -28,7 +28,6 @@ import io.trino.operator.WorkProcessorAssertion.Transform;
 import io.trino.plugin.base.metrics.DurationTiming;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.Page;
-import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.LocalExecutionPlanner.OperatorFactoryWithTypes;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -40,7 +39,6 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.Supplier;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
@@ -383,12 +381,6 @@ public class TestWorkProcessorPipelineSourceOperator
         {
             this.pages = pages;
             this.memoryTrackingContext = memoryTrackingContext;
-        }
-
-        @Override
-        public Supplier<Optional<UpdatablePageSource>> getUpdatablePageSourceSupplier()
-        {
-            return Optional::empty;
         }
 
         @Override

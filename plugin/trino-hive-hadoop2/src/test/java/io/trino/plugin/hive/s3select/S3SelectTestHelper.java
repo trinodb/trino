@@ -63,7 +63,6 @@ import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.LongStream;
@@ -188,8 +187,7 @@ public class S3SelectTestHelper
                 this.hiveConfig,
                 getDefaultHivePageSourceFactories(hdfsEnvironment, this.hiveConfig),
                 getDefaultHiveRecordCursorProviders(this.hiveConfig, hdfsEnvironment),
-                new GenericHiveRecordCursorProvider(hdfsEnvironment, this.hiveConfig),
-                Optional.empty());
+                new GenericHiveRecordCursorProvider(hdfsEnvironment, this.hiveConfig));
     }
 
     public S3SelectTestHelper(String host,

@@ -24,19 +24,15 @@ public enum AcidOperation
 {
     NONE,
     CREATE_TABLE,
-    DELETE,
     INSERT,
-    UPDATE,
     MERGE,
     /**/;
 
     private static final Map<AcidOperation, DataOperationType> DATA_OPERATION_TYPES = ImmutableMap.of(
-            DELETE, DataOperationType.DELETE,
             INSERT, DataOperationType.INSERT,
             MERGE, DataOperationType.UPDATE);
 
     private static final Map<AcidOperation, OrcOperation> ORC_OPERATIONS = ImmutableMap.of(
-            DELETE, OrcOperation.DELETE,
             INSERT, OrcOperation.INSERT);
 
     public Optional<DataOperationType> getMetastoreOperationType()

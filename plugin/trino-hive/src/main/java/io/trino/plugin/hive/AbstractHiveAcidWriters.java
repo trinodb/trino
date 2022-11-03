@@ -39,10 +39,10 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.hdfs.ConfigurationUtils.toJobConf;
 import static io.trino.orc.OrcWriter.OrcOperation.DELETE;
 import static io.trino.orc.OrcWriter.OrcOperation.INSERT;
+import static io.trino.plugin.hive.HivePageSource.BUCKET_CHANNEL;
+import static io.trino.plugin.hive.HivePageSource.ORIGINAL_TRANSACTION_CHANNEL;
+import static io.trino.plugin.hive.HivePageSource.ROW_ID_CHANNEL;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
-import static io.trino.plugin.hive.HiveUpdatablePageSource.BUCKET_CHANNEL;
-import static io.trino.plugin.hive.HiveUpdatablePageSource.ORIGINAL_TRANSACTION_CHANNEL;
-import static io.trino.plugin.hive.HiveUpdatablePageSource.ROW_ID_CHANNEL;
 import static io.trino.plugin.hive.acid.AcidSchema.ACID_COLUMN_NAMES;
 import static io.trino.plugin.hive.acid.AcidSchema.createAcidSchema;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
@@ -57,8 +57,8 @@ import static org.apache.hadoop.hive.ql.io.AcidUtils.deltaSubdir;
 
 public abstract class AbstractHiveAcidWriters
 {
-    public static final Block DELETE_OPERATION_BLOCK = nativeValueToBlock(INTEGER, Long.valueOf(DELETE.getOperationNumber()));
-    public static final Block INSERT_OPERATION_BLOCK = nativeValueToBlock(INTEGER, Long.valueOf(INSERT.getOperationNumber()));
+    protected static final Block DELETE_OPERATION_BLOCK = nativeValueToBlock(INTEGER, Long.valueOf(DELETE.getOperationNumber()));
+    protected static final Block INSERT_OPERATION_BLOCK = nativeValueToBlock(INTEGER, Long.valueOf(INSERT.getOperationNumber()));
 
     // The bucketPath looks like .../delta_nnnnnnn_mmmmmmm_ssss/bucket_bbbbb(_aaaa)?
     public static final Pattern BUCKET_PATH_MATCHER = Pattern.compile("(?s)(?<rootDir>.*)/(?<dirStart>delta_[\\d]+_[\\d]+)_(?<statementId>[\\d]+)/(?<filenameBase>bucket_(?<bucketNumber>[\\d]+))(?<attemptId>_[\\d]+)?$");

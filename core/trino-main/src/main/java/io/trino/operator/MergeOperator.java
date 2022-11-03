@@ -22,7 +22,6 @@ import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.connector.SortOrder;
-import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.type.Type;
 import io.trino.split.RemoteSplit;
@@ -34,8 +33,6 @@ import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -155,7 +152,7 @@ public class MergeOperator
     }
 
     @Override
-    public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
+    public void addSplit(Split split)
     {
         requireNonNull(split, "split is null");
         checkArgument(split.getConnectorSplit() instanceof RemoteSplit, "split is not a remote split");
@@ -180,8 +177,6 @@ public class MergeOperator
                     operatorContext.recordNetworkInput(serializedPage.length(), page.getPositionCount());
                     return page;
                 }));
-
-        return Optional::empty;
     }
 
     @Override

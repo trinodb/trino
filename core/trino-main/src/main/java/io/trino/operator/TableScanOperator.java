@@ -28,7 +28,6 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
-import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.split.EmptySplit;
 import io.trino.split.PageSourceProvider;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -38,9 +37,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -189,13 +186,13 @@ public class TableScanOperator
     }
 
     @Override
-    public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
+    public void addSplit(Split split)
     {
         requireNonNull(split, "split is null");
         checkState(this.split == null, "Table scan split already set");
 
         if (finished) {
-            return Optional::empty;
+            return;
         }
 
         this.split = split;
@@ -210,13 +207,6 @@ public class TableScanOperator
         if (split.getConnectorSplit() instanceof EmptySplit) {
             source = new EmptyPageSource();
         }
-
-        return () -> {
-            if (source instanceof UpdatablePageSource) {
-                return Optional.of((UpdatablePageSource) source);
-            }
-            return Optional.empty();
-        };
     }
 
     @Override

@@ -98,6 +98,13 @@ import static java.util.Objects.requireNonNull;
 public class HivePageSource
         implements ConnectorPageSource
 {
+    // The channel numbers of the child blocks in the RowBlock passed to deleteRows()
+    public static final int ORIGINAL_TRANSACTION_CHANNEL = 0;
+    public static final int BUCKET_CHANNEL = 1;
+    public static final int ROW_ID_CHANNEL = 2;
+    // Used for UPDATE operations
+    public static final int ROW_CHANNEL = 3;
+    public static final int ACID_ROW_STRUCT_COLUMN_ID = 6;
     private final List<ColumnMapping> columnMappings;
     private final Optional<BucketAdapter> bucketAdapter;
     private final Optional<BucketValidator> bucketValidator;

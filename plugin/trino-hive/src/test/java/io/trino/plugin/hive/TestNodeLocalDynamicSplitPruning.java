@@ -161,8 +161,7 @@ public class TestNodeLocalDynamicSplitPruning
                 hiveConfig,
                 getDefaultHivePageSourceFactories(HDFS_ENVIRONMENT, hiveConfig),
                 getDefaultHiveRecordCursorProviders(hiveConfig, HDFS_ENVIRONMENT),
-                new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT, hiveConfig),
-                Optional.empty());
+                new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT, hiveConfig));
 
         return provider.createPageSource(
                 transaction,

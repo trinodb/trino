@@ -623,8 +623,6 @@ public interface ConnectorMetadata
 
     /**
      * Get the column handle that will generate row IDs for the delete operation.
-     * These IDs will be passed to the {@code deleteRows()} method of the
-     * {@link io.trino.spi.connector.UpdatablePageSource} that created them.
      */
     @Deprecated // The Trino engine no longer supports this API
     default ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
@@ -634,8 +632,6 @@ public interface ConnectorMetadata
 
     /**
      * Get the column handle that will generate row IDs for the update operation.
-     * These IDs will be passed to the {@code updateRows() method of the
-     * {@link io.trino.spi.connector.UpdatablePageSource} that created them.
      */
     @Deprecated // The Trino engine no longer supports this API
     default ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
@@ -661,8 +657,6 @@ public interface ConnectorMetadata
 
     /**
      * Finish delete query
-     *
-     * @param fragments all fragments returned by {@link io.trino.spi.connector.UpdatablePageSource#finish()}
      */
     @Deprecated // The Trino engine no longer supports this API
     default void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
@@ -696,8 +690,6 @@ public interface ConnectorMetadata
 
     /**
      * Finish an update query
-     *
-     * @param fragments all fragments returned by {@link io.trino.spi.connector.UpdatablePageSource#finish()}
      */
     @Deprecated // The Trino engine no longer supports this API
     default void finishUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
@@ -746,7 +738,7 @@ public interface ConnectorMetadata
      * Finish a merge query
      * @param session The session
      * @param tableHandle A ConnectorMergeTableHandle for the table that is the target of the merge
-     * @param fragments All fragments returned by {@link UpdatablePageSource#finish()}
+     * @param fragments All fragments returned by the merge plan
      * @param computedStatistics Statistics for the table, meaningful only to the connector that produced them.
      */
     default void finishMerge(ConnectorSession session, ConnectorMergeTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
