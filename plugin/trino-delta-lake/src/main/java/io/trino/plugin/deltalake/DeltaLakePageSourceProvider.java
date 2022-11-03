@@ -16,11 +16,8 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.JsonCodec;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.hdfs.HdfsContext;
-import io.trino.hdfs.HdfsEnvironment;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.reader.MetadataReader;
@@ -58,7 +55,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -80,35 +76,26 @@ public class DeltaLakePageSourceProvider
         implements ConnectorPageSourceProvider
 {
     private final TrinoFileSystemFactory fileSystemFactory;
-    private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
     private final ParquetReaderOptions parquetReaderOptions;
     private final int domainCompactionThreshold;
     private final DateTimeZone parquetDateTimeZone;
-    private final ExecutorService executorService;
     private final TypeManager typeManager;
-    private final JsonCodec<DeltaLakeUpdateResult> updateResultJsonCodec;
 
     @Inject
     public DeltaLakePageSourceProvider(
             TrinoFileSystemFactory fileSystemFactory,
-            HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats fileFormatDataSourceStats,
             ParquetReaderConfig parquetReaderConfig,
             DeltaLakeConfig deltaLakeConfig,
-            ExecutorService executorService,
-            TypeManager typeManager,
-            JsonCodec<DeltaLakeUpdateResult> updateResultJsonCodec)
+            TypeManager typeManager)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         this.parquetReaderOptions = parquetReaderConfig.toParquetReaderOptions().withBloomFilter(false);
         this.domainCompactionThreshold = deltaLakeConfig.getDomainCompactionThreshold();
         this.parquetDateTimeZone = deltaLakeConfig.getParquetDateTimeZone();
-        this.executorService = requireNonNull(executorService, "executorService is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.updateResultJsonCodec = requireNonNull(updateResultJsonCodec, "deleteResultJsonCodec is null");
     }
 
     @Override
@@ -177,29 +164,7 @@ public class DeltaLakePageSourceProvider
                     () -> missingColumnNames.add(column.getName()));
         }
 
-        HdfsContext hdfsContext = new HdfsContext(session);
         TupleDomain<HiveColumnHandle> parquetPredicate = getParquetTupleDomain(filteredSplitPredicate.simplify(domainCompactionThreshold), columnMappingMode, parquetFieldIdToName);
-
-        if (table.getWriteType().isPresent()) {
-            return new DeltaLakeUpdatablePageSource(
-                    table,
-                    deltaLakeColumns,
-                    partitionKeys,
-                    split.getPath(),
-                    split.getFileSize(),
-                    split.getFileModifiedTime(),
-                    session,
-                    executorService,
-                    fileSystemFactory,
-                    hdfsEnvironment,
-                    hdfsContext,
-                    parquetDateTimeZone,
-                    parquetReaderOptions,
-                    parquetPredicate,
-                    typeManager,
-                    updateResultJsonCodec,
-                    domainCompactionThreshold);
-        }
 
         ReaderPageSource pageSource = ParquetPageSourceFactory.createPageSource(
                 inputFile,

@@ -116,7 +116,6 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
-import static org.apache.hadoop.hive.ql.io.AcidUtils.deleteDeltaSubdir;
 import static org.apache.hadoop.hive.ql.io.AcidUtils.deltaSubdir;
 import static org.apache.hadoop.hive.ql.io.AcidUtils.isFullAcidTable;
 import static org.apache.hadoop.hive.ql.io.AcidUtils.isInsertOnlyTable;
@@ -718,8 +717,6 @@ public class HiveWriterFactory
             case INSERT:
             case CREATE_TABLE:
                 return deltaSubdir(writeId, writeId, 0);
-            case DELETE:
-                return deleteDeltaSubdir(writeId, writeId, 0);
             case MERGE:
                 return deltaSubdir(writeId, writeId, 0);
             default:

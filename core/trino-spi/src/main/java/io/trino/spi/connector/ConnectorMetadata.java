@@ -674,7 +674,7 @@ public interface ConnectorMetadata
      * Finish a merge query
      * @param session The session
      * @param tableHandle A ConnectorMergeTableHandle for the table that is the target of the merge
-     * @param fragments All fragments returned by {@link UpdatablePageSource#finish()}
+     * @param fragments All fragments returned by the merge plan
      * @param computedStatistics Statistics for the table, meaningful only to the connector that produced them.
      */
     default void finishMerge(ConnectorSession session, ConnectorMergeTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
