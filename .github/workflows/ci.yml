@@ -77,9 +77,13 @@ jobs:
           platforms: arm64,ppc64le
       - name: Test Docker Image
         run: core/docker/build.sh
+      - name: Clean local Maven repo
+        # Avoid creating a cache entry except when pushing to the default branch
+        if: steps.cache.outputs.cache-hit != 'true' || !(github.event_name == 'push' && github.ref_type == 'branch' && github.ref_name == github.event.repository.default_branch)
+        run: rm -rf ~/.m2/repository
       - name: Remove Trino from local Maven repo to avoid caching it
         # Avoid caching artifacts built in this job, cache should only include dependencies
-        if: steps.cache.outputs.cache-hit != 'true'
+        if: steps.cache.outputs.cache-hit != 'true' && github.event_name == 'push' && github.ref_type == 'branch' && github.ref_name == github.event.repository.default_branch
         run: rm -rf ~/.m2/repository/io/trino/trino-*
 
   check-commits:
