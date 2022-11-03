@@ -16,18 +16,15 @@ package io.trino.plugin.exchange.filesystem;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.SizeOf;
 import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
-import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -39,19 +36,16 @@ public class FileSystemExchangeSourceHandle
     private final ExchangeId exchangeId;
     private final int partitionId;
     private final List<SourceFile> files;
-    private final Optional<byte[]> secretKey;
 
     @JsonCreator
     public FileSystemExchangeSourceHandle(
             @JsonProperty("exchangeId") ExchangeId exchangeId,
             @JsonProperty("partitionId") int partitionId,
-            @JsonProperty("files") List<SourceFile> files,
-            @JsonProperty("secretKey") Optional<byte[]> secretKey)
+            @JsonProperty("files") List<SourceFile> files)
     {
         this.exchangeId = requireNonNull(exchangeId, "exchangeId is null");
         this.partitionId = partitionId;
         this.files = ImmutableList.copyOf(requireNonNull(files, "files is null"));
-        this.secretKey = requireNonNull(secretKey, "secretKey is null");
     }
 
     @JsonProperty
@@ -79,20 +73,13 @@ public class FileSystemExchangeSourceHandle
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE
-                + estimatedSizeOf(files, SourceFile::getRetainedSizeInBytes)
-                + sizeOf(secretKey, SizeOf::sizeOf);
+                + estimatedSizeOf(files, SourceFile::getRetainedSizeInBytes);
     }
 
     @JsonProperty
     public List<SourceFile> getFiles()
     {
         return files;
-    }
-
-    @JsonProperty
-    public Optional<byte[]> getSecretKey()
-    {
-        return secretKey;
     }
 
     @Override
@@ -102,7 +89,6 @@ public class FileSystemExchangeSourceHandle
                 .add("exchangeId", exchangeId)
                 .add("partitionId", partitionId)
                 .add("files", files)
-                .add("secretKey", secretKey.map(value -> "[REDACTED]"))
                 .toString();
     }
 

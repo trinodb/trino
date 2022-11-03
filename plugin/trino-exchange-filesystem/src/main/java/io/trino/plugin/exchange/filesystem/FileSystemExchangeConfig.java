@@ -16,6 +16,7 @@ package io.trino.plugin.exchange.filesystem;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 
@@ -30,10 +31,10 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeManager.PATH_SEPARATOR;
 
+@DefunctConfig("exchange.encryption-enabled")
 public class FileSystemExchangeConfig
 {
     private List<URI> baseDirectories = ImmutableList.of();
-    private boolean exchangeEncryptionEnabled = true;
     // For S3, we make read requests aligned with part boundaries. Incomplete slice at the end of the buffer is
     // possible and will be copied to the beginning of the new buffer, and we need to make room for that.
     // Therefore, it's recommended to set `maxPageStorageSize` to be slightly larger than a multiple of part size.
@@ -70,18 +71,6 @@ public class FileSystemExchangeConfig
             }
             this.baseDirectories = builder.build();
         }
-        return this;
-    }
-
-    public boolean isExchangeEncryptionEnabled()
-    {
-        return exchangeEncryptionEnabled;
-    }
-
-    @Config("exchange.encryption-enabled")
-    public FileSystemExchangeConfig setExchangeEncryptionEnabled(boolean exchangeEncryptionEnabled)
-    {
-        this.exchangeEncryptionEnabled = exchangeEncryptionEnabled;
         return this;
     }
 
