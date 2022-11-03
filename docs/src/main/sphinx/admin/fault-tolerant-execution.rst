@@ -362,10 +362,6 @@ the property may be configured for:
        store spooling data. Only supports S3 and local filesystems.
      -
      - Any
-   * - ``exchange.encryption-enabled``
-     - Enable encrypting of spooling data.
-     - ``true``
-     - Any
    * - ``exchange.sink-buffer-pool-min-size``
      - The minimum buffer pool size for an exchange sink. The larger the buffer
        pool size, the larger the write parallelism and memory usage.
