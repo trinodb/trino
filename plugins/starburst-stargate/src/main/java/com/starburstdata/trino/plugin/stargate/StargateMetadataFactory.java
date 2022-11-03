@@ -9,24 +9,33 @@
  */
 package com.starburstdata.trino.plugin.stargate;
 
+import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.jdbc.DefaultJdbcMetadataFactory;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcMetadata;
+import io.trino.plugin.jdbc.JdbcQueryEventListener;
 
 import javax.inject.Inject;
+
+import java.util.Set;
+
+import static java.util.Objects.requireNonNull;
 
 public class StargateMetadataFactory
         extends DefaultJdbcMetadataFactory
 {
+    private final Set<JdbcQueryEventListener> jdbcQueryEventListeners;
+
     @Inject
-    public StargateMetadataFactory(JdbcClient jdbcClient)
+    public StargateMetadataFactory(JdbcClient jdbcClient, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
     {
-        super(jdbcClient);
+        super(jdbcClient, jdbcQueryEventListeners);
+        this.jdbcQueryEventListeners = ImmutableSet.copyOf(requireNonNull(jdbcQueryEventListeners, "jdbcQueryEventListeners is null"));
     }
 
     @Override
     protected JdbcMetadata create(JdbcClient transactionCachingJdbcClient)
     {
-        return new StargateMetadata(transactionCachingJdbcClient);
+        return new StargateMetadata(transactionCachingJdbcClient, jdbcQueryEventListeners);
     }
 }

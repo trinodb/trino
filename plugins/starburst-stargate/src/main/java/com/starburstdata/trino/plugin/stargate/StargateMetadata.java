@@ -11,13 +11,16 @@ package com.starburstdata.trino.plugin.stargate;
 
 import io.trino.plugin.jdbc.DefaultJdbcMetadata;
 import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.JdbcQueryEventListener;
+
+import java.util.Set;
 
 public class StargateMetadata
         extends DefaultJdbcMetadata
 {
-    public StargateMetadata(JdbcClient jdbcClient)
+    public StargateMetadata(JdbcClient jdbcClient, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
     {
         // Disable precalculate statistics for pushdown because remote cluster is very good at estimates, should not be inferior to ours.
-        super(jdbcClient, false);
+        super(jdbcClient, false, jdbcQueryEventListeners);
     }
 }
