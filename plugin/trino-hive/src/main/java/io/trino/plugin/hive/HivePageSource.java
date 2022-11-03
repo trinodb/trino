@@ -98,6 +98,10 @@ import static java.util.Objects.requireNonNull;
 public class HivePageSource
         implements ConnectorPageSource
 {
+    public static final int ORIGINAL_TRANSACTION_CHANNEL = 0;
+    public static final int BUCKET_CHANNEL = 1;
+    public static final int ROW_ID_CHANNEL = 2;
+
     private final List<ColumnMapping> columnMappings;
     private final Optional<BucketAdapter> bucketAdapter;
     private final Optional<BucketValidator> bucketValidator;

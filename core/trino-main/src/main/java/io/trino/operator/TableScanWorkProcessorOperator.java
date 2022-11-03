@@ -31,7 +31,6 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
-import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.spi.metrics.Metrics;
 import io.trino.split.EmptySplit;
 import io.trino.split.PageSourceProvider;
@@ -41,9 +40,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
@@ -80,12 +77,6 @@ public class TableScanWorkProcessorOperator
     public WorkProcessor<Page> getOutputPages()
     {
         return pages;
-    }
-
-    @Override
-    public Supplier<Optional<UpdatablePageSource>> getUpdatablePageSourceSupplier()
-    {
-        return splitToPages.getUpdatablePageSourceSupplier();
     }
 
     @Override
@@ -196,16 +187,6 @@ public class TableScanWorkProcessorOperator
                                 return page;
                             })
                             .blocking(() -> memoryContext.setBytes(source.getMemoryUsage())));
-        }
-
-        Supplier<Optional<UpdatablePageSource>> getUpdatablePageSourceSupplier()
-        {
-            return () -> {
-                if (source instanceof UpdatablePageSource) {
-                    return Optional.of((UpdatablePageSource) source);
-                }
-                return Optional.empty();
-            };
         }
 
         DataSize getPhysicalInputDataSize()

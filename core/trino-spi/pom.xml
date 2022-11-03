@@ -271,6 +271,10 @@
                                     <code>java.method.removed</code>
                                     <old>method io.trino.spi.connector.ColumnHandle io.trino.spi.connector.ConnectorMetadata::getUpdateRowIdColumnHandle(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, java.util.List&lt;io.trino.spi.connector.ColumnHandle&gt;)</old>
                                 </item>
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>interface io.trino.spi.connector.UpdatablePageSource</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

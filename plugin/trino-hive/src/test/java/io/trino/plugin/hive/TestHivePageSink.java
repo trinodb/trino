@@ -272,8 +272,7 @@ public class TestHivePageSink
                 config,
                 getDefaultHivePageSourceFactories(HDFS_ENVIRONMENT, config),
                 getDefaultHiveRecordCursorProviders(config, HDFS_ENVIRONMENT),
-                new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT, config),
-                Optional.empty());
+                new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT, config));
         return provider.createPageSource(transaction, getHiveSession(config), split, table, ImmutableList.copyOf(getColumnHandles()), DynamicFilter.EMPTY);
     }
 

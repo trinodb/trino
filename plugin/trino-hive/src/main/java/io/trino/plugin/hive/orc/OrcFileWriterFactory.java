@@ -153,11 +153,6 @@ public class OrcFileWriterFactory
         int[] fileInputColumnIndexes = fileColumnNames.stream()
                 .mapToInt(inputColumnNames::indexOf)
                 .toArray();
-        if (transaction.isAcidDeleteOperation(writerKind)) {
-            // For delete, set the "row" column to -1
-            fileInputColumnIndexes[fileInputColumnIndexes.length - 1] = -1;
-        }
-
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             String stringPath = path.toString();
