@@ -13,10 +13,9 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.util.Map;
 
+import static com.starburstdata.presto.testing.FileUtils.createTempFileForTesting;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
@@ -36,11 +35,9 @@ public class TestSalesforceOAuthConfig
 
     @Test
     public void testExplicitPropertyMappings()
-            throws IOException
     {
         // PKCS12 file must exist
-        File file = Files.createTempFile("cert", ".p12").toFile();
-        file.deleteOnExit();
+        File file = createTempFileForTesting("cert", ".p12").toFile();
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("salesforce.oauth.pkcs12-certificate-subject", "pkcs12-certificate-subject")
