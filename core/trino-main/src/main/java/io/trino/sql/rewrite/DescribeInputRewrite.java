@@ -148,7 +148,7 @@ public final class DescribeInputRewrite
             }
 
             return row(
-                    new LongLiteral(Integer.toString(parameter.getPosition())),
+                    new LongLiteral(Integer.toString(parameter.getId())),
                     new StringLiteral(getDisplayLabel(type, isOmitDateTimeTypePrecision(session))));
         }
 
