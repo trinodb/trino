@@ -42,8 +42,8 @@ import io.trino.sql.tree.Statement;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.sql.ParameterUtils.bindParameters;
 import static io.trino.sql.analyzer.QueryType.EXPLAIN;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.planprinter.IoPlanPrinter.textIoPlan;

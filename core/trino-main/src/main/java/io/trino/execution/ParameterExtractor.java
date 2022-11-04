@@ -13,12 +13,21 @@
  */
 package io.trino.execution;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.sql.tree.DefaultTraversalVisitor;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.NodeLocation;
+import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Statement;
 
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public final class ParameterExtractor
 {
@@ -34,6 +43,23 @@ public final class ParameterExtractor
         ParameterExtractingVisitor parameterExtractingVisitor = new ParameterExtractingVisitor();
         parameterExtractingVisitor.process(statement, null);
         return parameterExtractingVisitor.getParameters();
+    }
+
+    public static Map<NodeRef<Parameter>, Expression> bindParameters(Statement statement, List<Expression> values)
+    {
+        List<Parameter> parametersList = getParameters(statement).stream()
+                .sorted(Comparator.comparing(
+                        parameter -> parameter.getLocation().get(),
+                        Comparator.comparing(NodeLocation::getLineNumber)
+                                .thenComparing(NodeLocation::getColumnNumber)))
+                .collect(toImmutableList());
+
+        ImmutableMap.Builder<NodeRef<Parameter>, Expression> builder = ImmutableMap.builder();
+        Iterator<Expression> iterator = values.iterator();
+        for (Parameter parameter : parametersList) {
+            builder.put(NodeRef.of(parameter), iterator.next());
+        }
+        return builder.buildOrThrow();
     }
 
     private static class ParameterExtractingVisitor
