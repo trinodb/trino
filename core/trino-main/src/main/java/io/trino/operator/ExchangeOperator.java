@@ -29,6 +29,7 @@ import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.spi.exchange.ExchangeId;
 import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.util.Ciphers;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 
@@ -112,7 +113,7 @@ public class ExchangeOperator
                     operatorContext,
                     sourceId,
                     exchangeDataSource,
-                    serdeFactory.createPagesSerde(driverContext.getSession().getExchangeEncryptionKey()),
+                    serdeFactory.createPagesSerde(driverContext.getSession().getExchangeEncryptionKey().map(Ciphers::deserializeAesEncryptionKey)),
                     noMoreSplitsTracker,
                     operatorInstanceId);
             noMoreSplitsTracker.operatorAdded(operatorInstanceId);

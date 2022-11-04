@@ -90,12 +90,10 @@ public final class PagesSerdeUtil
     public static long writePages(PagesSerde serde, SliceOutput sliceOutput, Iterator<Page> pages)
     {
         long size = 0;
-        try (PagesSerde.PagesSerdeContext context = serde.newContext()) {
-            while (pages.hasNext()) {
-                Page page = pages.next();
-                sliceOutput.writeBytes(serde.serialize(context, page));
-                size += page.getSizeInBytes();
-            }
+        while (pages.hasNext()) {
+            Page page = pages.next();
+            sliceOutput.writeBytes(serde.serialize(page));
+            size += page.getSizeInBytes();
         }
         return size;
     }
@@ -109,7 +107,6 @@ public final class PagesSerdeUtil
             extends AbstractIterator<Page>
     {
         private final PagesSerde serde;
-        private final PagesSerde.PagesSerdeContext context;
         private final InputStream inputStream;
         private final byte[] headerBuffer = new byte[SERIALIZED_PAGE_HEADER_SIZE];
         private final Slice headerSlice = Slices.wrappedBuffer(headerBuffer);
@@ -118,7 +115,6 @@ public final class PagesSerdeUtil
         {
             this.serde = requireNonNull(serde, "serde is null");
             this.inputStream = requireNonNull(inputStream, "inputStream is null");
-            this.context = serde.newContext();
         }
 
         @Override
@@ -127,14 +123,13 @@ public final class PagesSerdeUtil
             try {
                 int read = ByteStreams.read(inputStream, headerBuffer, 0, headerBuffer.length);
                 if (read <= 0) {
-                    context.close(); // Release context buffers
                     return endOfData();
                 }
                 if (read != headerBuffer.length) {
                     throw new EOFException();
                 }
 
-                return serde.deserialize(context, readSerializedPage(headerSlice, inputStream));
+                return serde.deserialize(readSerializedPage(headerSlice, inputStream));
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);

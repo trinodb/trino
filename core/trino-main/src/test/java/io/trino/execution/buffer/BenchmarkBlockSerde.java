@@ -18,7 +18,6 @@ import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
-import io.trino.execution.buffer.PagesSerde.PagesSerdeContext;
 import io.trino.plugin.tpch.DecimalTypeMapping;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -194,9 +193,8 @@ public class BenchmarkBlockSerde
 
     private static List<Slice> serializePages(BenchmarkData data)
     {
-        PagesSerdeContext context = new PagesSerdeContext();
         return data.getPages().stream()
-                .map(page -> data.getPagesSerde().serialize(context, page))
+                .map(page -> data.getPagesSerde().serialize(page))
                 .collect(toImmutableList());
     }
 
