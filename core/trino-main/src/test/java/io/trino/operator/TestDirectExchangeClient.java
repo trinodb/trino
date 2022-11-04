@@ -803,7 +803,7 @@ public class TestDirectExchangeClient
 
         assertThatThrownBy(() -> getNextPage(exchangeClient))
                 .isInstanceOf(TrinoException.class)
-                .hasMessageMatching("Checksum verification failure on localhost when reading from http://localhost:8080/0: Data corruption, read checksum: 0xdd450d930a94ddde, calculated checksum: 0x9bdc9de3ce57c972");
+                .hasMessageMatching("Checksum verification failure on localhost when reading from http://localhost:8080/0: Data corruption, read checksum: 0x3f7c49fcdc6f98ea, calculated checksum: 0xcb4f99c2d19a4b04");
 
         exchangeClient.close();
     }
@@ -950,7 +950,7 @@ public class TestDirectExchangeClient
 
     private static Slice createSerializedPage(int size)
     {
-        return PAGES_SERDE.serialize(PAGES_SERDE.newContext(), createPage(size));
+        return PAGES_SERDE.serialize(createPage(size));
     }
 
     private static Slice getNextPage(DirectExchangeClient exchangeClient)

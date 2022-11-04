@@ -78,9 +78,7 @@ public class TestingExchangeHttpClientHandler
             headers.put(TRINO_PAGE_NEXT_TOKEN, String.valueOf(pageToken + 1));
             headers.put(TRINO_BUFFER_COMPLETE, String.valueOf(false));
             Slice serializedPage;
-            try (PagesSerde.PagesSerdeContext context = PAGES_SERDE.newContext()) {
-                serializedPage = PAGES_SERDE.serialize(context, page);
-            }
+            serializedPage = PAGES_SERDE.serialize(page);
             DynamicSliceOutput output = new DynamicSliceOutput(256);
             output.writeInt(SERIALIZED_PAGES_MAGIC);
             output.writeLong(calculateChecksum(ImmutableList.of(serializedPage)));
