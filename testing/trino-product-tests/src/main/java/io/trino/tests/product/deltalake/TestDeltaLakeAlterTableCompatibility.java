@@ -13,6 +13,7 @@
  */
 package io.trino.tests.product.deltalake;
 
+import io.trino.testng.services.Flaky;
 import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
@@ -28,6 +29,8 @@ import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_91;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_91_RUNTIME_VERSION;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumnCommentOnDelta;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumnCommentOnTrino;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
@@ -43,6 +46,7 @@ public class TestDeltaLakeAlterTableCompatibility
         extends BaseTestDeltaLakeS3Storage
 {
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testAddColumnWithCommentOnTrino()
     {
         String tableName = "test_dl_add_column_with_comment_" + randomTableSuffix();
@@ -64,6 +68,7 @@ public class TestDeltaLakeAlterTableCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testAddColumnUnsupportedWriterVersion()
     {
         String tableName = "test_dl_add_column_unsupported_writer_" + randomTableSuffix();
@@ -87,6 +92,7 @@ public class TestDeltaLakeAlterTableCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testRenameColumn()
     {
         String tableName = "test_dl_rename_column_" + randomTableSuffix();
@@ -119,6 +125,7 @@ public class TestDeltaLakeAlterTableCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testRenamePartitionedColumn()
     {
         String tableName = "test_dl_rename_partitioned_column_" + randomTableSuffix();
@@ -152,6 +159,7 @@ public class TestDeltaLakeAlterTableCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCommentOnTable()
     {
         String tableName = "test_dl_comment_table_" + randomTableSuffix();
@@ -175,6 +183,7 @@ public class TestDeltaLakeAlterTableCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCommentOnTableUnsupportedWriterVersion()
     {
         String tableName = "test_dl_comment_table_unsupported_writer_" + randomTableSuffix();
@@ -198,6 +207,7 @@ public class TestDeltaLakeAlterTableCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCommentOnColumn()
     {
         String tableName = "test_dl_comment_column_" + randomTableSuffix();
@@ -219,6 +229,7 @@ public class TestDeltaLakeAlterTableCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCommentOnColumnUnsupportedWriterVersion()
     {
         String tableName = "test_dl_comment_column_unsupported_writer_" + randomTableSuffix();
@@ -242,6 +253,7 @@ public class TestDeltaLakeAlterTableCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTrinoAlterTablePreservesTableMetadata()
     {
         String tableName = "test_trino_alter_table_preserves_table_metadata_" + randomTableSuffix();
@@ -268,6 +280,7 @@ public class TestDeltaLakeAlterTableCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTrinoAlterTablePreservesChangeDataFeed()
     {
         String tableName = "test_trino_alter_table_preserves_cdf_" + randomTableSuffix();
@@ -295,6 +308,7 @@ public class TestDeltaLakeAlterTableCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTrinoPreservesReaderAndWriterVersions()
     {
         // Databricks 7.3 doesn't support 'delta.minReaderVersion' and 'delta.minWriterVersion' table properties
@@ -329,6 +343,7 @@ public class TestDeltaLakeAlterTableCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTrinoAlterTablePreservesGeneratedColumn()
     {
         // Databricks 7.3 doesn't support generated columns

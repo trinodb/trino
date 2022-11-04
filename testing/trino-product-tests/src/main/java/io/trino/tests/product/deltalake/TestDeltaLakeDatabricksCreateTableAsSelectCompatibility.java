@@ -24,6 +24,7 @@ import io.airlift.log.Logger;
 import io.trino.tempto.BeforeTestWithContext;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.query.QueryResult;
+import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -38,6 +39,8 @@ import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertLastEntryIsCheckpointed;
 import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertTransactionLogVersion;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -62,6 +65,7 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testPrestoTypesWithDatabricks()
     {
         String tableName = "test_dl_ctas_" + randomTableSuffix();
@@ -91,6 +95,7 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testPrestoTimestampsWithDatabricks()
     {
         String tableName = "test_dl_ctas_timestamps_" + randomTableSuffix();
@@ -117,6 +122,7 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testPrestoCacheInvalidatedOnCreateTable()
             throws URISyntaxException, IOException
     {
@@ -166,6 +172,7 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCreateFromTrinoWithDefaultPartitionValues()
     {
         String tableName = "test_create_partitioned_table_default_as_" + randomTableSuffix();
@@ -195,6 +202,7 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testReplaceTableWithSchemaChange()
     {
         String tableName = "test_replace_table_with_schema_change_" + randomTableSuffix();
@@ -219,6 +227,7 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testReplaceTableWithSchemaChangeOnCheckpoint()
     {
         String tableName = "test_replace_table_with_schema_change_" + randomTableSuffix();

@@ -15,12 +15,15 @@ package io.trino.tests.product.deltalake;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.tempto.assertions.QueryAssert;
+import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -30,6 +33,7 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
         extends BaseTestDeltaLakeS3Storage
 {
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDatabricksCanReadFromCtasTableCreatedByTrinoWithSpecialCharactersInPartitioningColumn()
     {
         testDatabricksCanReadFromCtasTableCreatedByTrinoWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(1);
@@ -80,6 +84,7 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTrinoCanReadFromCtasTableCreatedByDatabricksWithSpecialCharactersInPartitioningColumn()
     {
         testTrinoCanReadFromCtasTableCreatedByDatabricksWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(1);
@@ -133,6 +138,7 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDatabricksCanReadTableCreatedByTrinoWithSpecialCharactersInPartitioningColumn()
     {
         testDatabricksCanReadTableCreatedByTrinoWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(1);
@@ -185,6 +191,7 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTrinoCanReadTableCreatedByDatabricksWithSpecialCharactersInPartitioningColumn()
     {
         testTrinoCanReadTableCreatedByDatabricksWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(1);
@@ -240,6 +247,7 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDatabricksCanReadFromTableUpdatedByTrino()
     {
         testDatabricksCanReadFromTableUpdatedByTrinoWithCpIntervalSet(1);
@@ -292,6 +300,7 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTrinoCanReadFromTableUpdatedByDatabricks()
     {
         testTrinoCanReadFromTableUpdatedByDatabricksWithCpIntervalSet(1);
@@ -347,6 +356,7 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTrinoCanReadFromTablePartitionChangedByDatabricks()
     {
         String tableName = "test_dl_create_table_partition_changed_by_databricks_" + randomTableSuffix();

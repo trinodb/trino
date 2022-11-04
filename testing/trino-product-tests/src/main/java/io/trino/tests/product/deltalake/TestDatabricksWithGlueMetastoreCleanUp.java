@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.query.QueryResult;
+import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import java.time.Instant;
@@ -32,6 +33,8 @@ import java.util.stream.Collectors;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.lang.System.currentTimeMillis;
@@ -47,6 +50,7 @@ public class TestDatabricksWithGlueMetastoreCleanUp
     private static final long MAX_JOB_TIME_MILLIS = MINUTES.toMillis(5);
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCleanUpOldTablesUsingDelta()
     {
         AWSGlueAsync glueClient = AWSGlueAsyncClientBuilder.standard().build();
