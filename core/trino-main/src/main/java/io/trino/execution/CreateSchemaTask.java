@@ -42,7 +42,7 @@ import static io.trino.metadata.MetadataUtil.createPrincipal;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.SCHEMA_ALREADY_EXISTS;
-import static io.trino.sql.ParameterUtils.parameterExtractor;
+import static io.trino.sql.ParameterUtils.bindParameters;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Objects.requireNonNull;
 
@@ -109,7 +109,7 @@ public class CreateSchemaTask
                 session,
                 plannerContext,
                 accessControl,
-                parameterExtractor(statement, parameters),
+                bindParameters(statement, parameters),
                 true);
 
         TrinoPrincipal principal = getCreatePrincipal(statement, session, plannerContext.getMetadata(), catalogName);

@@ -32,7 +32,7 @@ public class ParameterUtils
 {
     private ParameterUtils() {}
 
-    public static Map<NodeRef<Parameter>, Expression> parameterExtractor(Statement statement, List<Expression> parameters)
+    public static Map<NodeRef<Parameter>, Expression> bindParameters(Statement statement, List<Expression> values)
     {
         List<Parameter> parametersList = getParameters(statement).stream()
                 .sorted(Comparator.comparing(
@@ -42,7 +42,7 @@ public class ParameterUtils
                 .collect(toImmutableList());
 
         ImmutableMap.Builder<NodeRef<Parameter>, Expression> builder = ImmutableMap.builder();
-        Iterator<Expression> iterator = parameters.iterator();
+        Iterator<Expression> iterator = values.iterator();
         for (Parameter parameter : parametersList) {
             builder.put(NodeRef.of(parameter), iterator.next());
         }

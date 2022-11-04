@@ -237,7 +237,7 @@ import static io.trino.connector.CatalogServiceProviderModule.createTablePropert
 import static io.trino.connector.CatalogStore.NO_STORED_CATALOGS;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
-import static io.trino.sql.ParameterUtils.parameterExtractor;
+import static io.trino.sql.ParameterUtils.bindParameters;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
@@ -1081,7 +1081,7 @@ public class LocalQueryRunner
         Analyzer analyzer = analyzerFactory.createAnalyzer(
                 session,
                 preparedQuery.getParameters(),
-                parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()),
+                bindParameters(preparedQuery.getStatement(), preparedQuery.getParameters()),
                 warningCollector);
 
         LogicalPlanner logicalPlanner = new LogicalPlanner(
