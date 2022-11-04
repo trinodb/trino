@@ -19,6 +19,7 @@ import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
 import static io.airlift.slice.SliceUtf8.codePointToUtf8;
@@ -26,6 +27,7 @@ import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.Character.MAX_CODE_POINT;
+import static java.lang.Character.MIN_CODE_POINT;
 import static java.lang.Character.MIN_SUPPLEMENTARY_CODE_POINT;
 import static java.lang.Character.isSupplementaryCodePoint;
 import static org.testng.Assert.assertEquals;
@@ -85,5 +87,13 @@ public class TestCharType
                 assertEquals(objectValue.codePointAt(i), ' ');
             }
         }
+    }
+
+    @Override
+    public void testRange()
+    {
+        Type.Range range = type.getRange().orElseThrow();
+        assertEquals(range.getMin(), Slices.utf8Slice(Character.toString(MIN_CODE_POINT).repeat(((CharType) type).getLength())));
+        assertEquals(range.getMax(), Slices.utf8Slice(Character.toString(MAX_CODE_POINT).repeat(((CharType) type).getLength())));
     }
 }

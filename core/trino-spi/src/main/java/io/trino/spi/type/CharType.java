@@ -14,6 +14,7 @@
 package io.trino.spi.type;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 import io.trino.spi.TrinoException;
@@ -26,6 +27,7 @@ import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.ScalarOperator;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -36,6 +38,8 @@ import static io.trino.spi.type.Chars.compareChars;
 import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.Slices.sliceRepresentation;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
+import static java.lang.Character.MAX_CODE_POINT;
+import static java.lang.Character.MIN_CODE_POINT;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Collections.singletonList;
@@ -48,6 +52,7 @@ public final class CharType
     public static final int MAX_LENGTH = 65_536;
 
     private final int length;
+    private volatile Optional<Range> range;
 
     public static CharType createCharType(long length)
     {
@@ -89,6 +94,41 @@ public final class CharType
     public TypeOperatorDeclaration getTypeOperatorDeclaration(TypeOperators typeOperators)
     {
         return TYPE_OPERATOR_DECLARATION;
+    }
+
+    @Override
+    public Optional<Range> getRange()
+    {
+        Optional<Range> range = this.range;
+        @SuppressWarnings("OptionalAssignedToNull")
+        boolean cachedRangePresent = range != null;
+        if (!cachedRangePresent) {
+            if (length > 100) {
+                // The max/min values may be materialized in the plan, so we don't want them to be too large.
+                // Range comparison against large values are usually nonsensical, too, so no need to support them
+                // beyond a certain size. They specific choice above is arbitrary and can be adjusted if needed.
+                range = Optional.empty();
+            }
+            else {
+                int minCodePointSize = SliceUtf8.lengthOfCodePoint(MIN_CODE_POINT);
+                int maxCodePointSize = SliceUtf8.lengthOfCodePoint(MAX_CODE_POINT);
+
+                Slice min = Slices.allocate(minCodePointSize * length);
+                Slice max = Slices.allocate(maxCodePointSize * length);
+                int position = 0;
+                for (int i = 0; i < length; i++) {
+                    position += SliceUtf8.setCodePointAt(MIN_CODE_POINT, min, position);
+                }
+                position = 0;
+                for (int i = 0; i < length; i++) {
+                    position += SliceUtf8.setCodePointAt(MAX_CODE_POINT, max, position);
+                }
+
+                range = Optional.of(new Range(min, max));
+            }
+            this.range = range;
+        }
+        return range;
     }
 
     @Override
