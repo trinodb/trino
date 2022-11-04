@@ -97,11 +97,11 @@ public class TestTypedHeap
         heap.addAll(blockBuilder);
 
         BlockBuilder resultBlockBuilder = BIGINT.createBlockBuilder(null, OUTPUT_SIZE);
-        heap.popAll(resultBlockBuilder);
+        heap.writeAll(resultBlockBuilder);
 
         Block resultBlock = resultBlockBuilder.build();
         assertEquals(resultBlock.getPositionCount(), OUTPUT_SIZE);
-        for (int i = 0; i < OUTPUT_SIZE; i++) {
+        for (int i = OUTPUT_SIZE - 1; i >= 0; i--) {
             assertEquals(BIGINT.getLong(resultBlock, i), outputIterator.nextInt());
         }
     }

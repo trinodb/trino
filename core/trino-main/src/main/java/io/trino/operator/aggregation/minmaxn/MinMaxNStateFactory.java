@@ -115,7 +115,7 @@ public final class MinMaxNStateFactory
         }
 
         @Override
-        public final void popAll(BlockBuilder out)
+        public final void writeAll(BlockBuilder out)
         {
             TypedHeap typedHeap = getTypedHeap();
             if (typedHeap == null || typedHeap.isEmpty()) {
@@ -125,9 +125,7 @@ public final class MinMaxNStateFactory
 
             BlockBuilder arrayBlockBuilder = out.beginBlockEntry();
 
-            size -= typedHeap.getEstimatedSize();
-            typedHeap.popAllReverse(arrayBlockBuilder);
-            size += typedHeap.getEstimatedSize();
+            typedHeap.writeAll(arrayBlockBuilder);
 
             out.closeEntry();
         }
@@ -234,7 +232,7 @@ public final class MinMaxNStateFactory
         }
 
         @Override
-        public final void popAll(BlockBuilder out)
+        public final void writeAll(BlockBuilder out)
         {
             if (typedHeap == null || typedHeap.isEmpty()) {
                 out.appendNull();
@@ -242,7 +240,7 @@ public final class MinMaxNStateFactory
             }
 
             BlockBuilder arrayBlockBuilder = out.beginBlockEntry();
-            typedHeap.popAllReverse(arrayBlockBuilder);
+            typedHeap.writeAll(arrayBlockBuilder);
             out.closeEntry();
         }
 
