@@ -38,6 +38,7 @@ import static io.trino.spi.type.Slices.sliceRepresentation;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.MIN_CODE_POINT;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Collections.singletonList;
@@ -52,12 +53,24 @@ public final class CharType
     private final int length;
     private volatile Optional<Range> range;
 
+    /**
+     * @deprecated Use {@link #createCharType(int)} instead.
+     */
+    @Deprecated
     public static CharType createCharType(long length)
+    {
+        if (length < 0 || length > MAX_LENGTH) {
+            throw new IllegalArgumentException(format("CHAR length must be in range [0, %s], got %s", MAX_LENGTH, length));
+        }
+        return createCharType(toIntExact(length));
+    }
+
+    public static CharType createCharType(int length)
     {
         return new CharType(length);
     }
 
-    private CharType(long length)
+    private CharType(int length)
     {
         super(
                 new TypeSignature(
@@ -68,7 +81,7 @@ public final class CharType
         if (length < 0 || length > MAX_LENGTH) {
             throw new IllegalArgumentException(format("CHAR length must be in range [0, %s], got %s", MAX_LENGTH, length));
         }
-        this.length = (int) length;
+        this.length = length;
     }
 
     public int getLength()
