@@ -52,6 +52,7 @@ import io.trino.plugin.hive.orc.OrcPageSource;
 import io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetPageSource;
+import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
 import io.trino.plugin.iceberg.IcebergParquetColumnIOConverter.FieldContext;
@@ -927,7 +928,7 @@ public class IcebergPageSourceProvider
         }
     }
 
-    private static ReaderPageSourceWithRowPositions createParquetPageSource(
+private static ReaderPageSourceWithRowPositions createParquetPageSource(
             TrinoInputFile inputFile,
             long start,
             long length,
@@ -978,12 +979,16 @@ public class IcebergPageSourceProvider
             Optional<Long> endRowPosition = Optional.empty();
             ImmutableList.Builder<Long> blockStarts = ImmutableList.builder();
             List<BlockMetaData> blocks = new ArrayList<>();
+            ImmutableList.Builder<Optional<ColumnIndexStore>> columnIndexes = ImmutableList.builder();
+
             for (BlockMetaData block : parquetMetadata.getBlocks()) {
                 long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
+                Optional<ColumnIndexStore> columnIndex = ParquetPageSourceFactory.getColumnIndexStore(dataSource, block, descriptorsByPath, parquetTupleDomain, options);
                 if (start <= firstDataPage && firstDataPage < start + length &&
                         predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, Optional.empty(), UTC)) {
                     blocks.add(block);
                     blockStarts.add(nextStart);
+                    columnIndexes.add(columnIndex);
                     if (startRowPosition.isEmpty()) {
                         startRowPosition = Optional.of(nextStart);
                     }
@@ -1067,7 +1072,10 @@ public class IcebergPageSourceProvider
                     UTC,
                     memoryContext,
                     options,
-                    exception -> handleException(dataSourceId, exception));
+                    exception -> handleException(dataSourceId, exception),
+                    Optional.of(parquetPredicate),
+                    columnIndexes.build(),
+                    Optional.empty());
             return new ReaderPageSourceWithRowPositions(
                     new ReaderPageSource(
                             constantPopulatingPageSourceBuilder.build(new ParquetPageSource(parquetReader, parquetReaderColumns)),
