@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.query.QueryResult;
+import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import java.sql.Timestamp;
@@ -26,6 +27,8 @@ import java.util.Set;
 
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -43,6 +46,7 @@ public class TestDeltaLakeDatabricksCompatibilityCleanUp
     private static final Set<String> SCHEMAS_TO_SKIP = ImmutableSet.of("information_schema", "tpch", "tcpds", "sf1", "sf10", "sf100", "sf1000", "tpcds_sf1", "tpcds_sf10", "tpcds_sf100", "tpcds_sf1000", "tpcds_sf300");
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCleanUpOldTablesUsingDelta()
     {
         long startTime = currentTimeMillis();
