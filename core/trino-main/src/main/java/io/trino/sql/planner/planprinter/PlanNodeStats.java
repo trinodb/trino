@@ -41,6 +41,7 @@ public class PlanNodeStats
     private final Duration planNodeBlockedTime;
     private final long planNodeInputPositions;
     private final DataSize planNodeInputDataSize;
+    private final DataSize planNodePhysicalInputDataSize;
     private final long planNodeOutputPositions;
     private final DataSize planNodeOutputDataSize;
     private final DataSize planNodeSpilledDataSize;
@@ -54,6 +55,7 @@ public class PlanNodeStats
             Duration planNodeBlockedTime,
             long planNodeInputPositions,
             DataSize planNodeInputDataSize,
+            DataSize planNodePhysicalInputDataSize,
             long planNodeOutputPositions,
             DataSize planNodeOutputDataSize,
             DataSize planNodeSpilledDataSize,
@@ -65,6 +67,7 @@ public class PlanNodeStats
         this.planNodeCpuTime = requireNonNull(planNodeCpuTime, "planNodeCpuTime is null");
         this.planNodeBlockedTime = requireNonNull(planNodeBlockedTime, "planNodeBlockedTime is null");
         this.planNodeInputPositions = planNodeInputPositions;
+        this.planNodePhysicalInputDataSize = planNodePhysicalInputDataSize;
         this.planNodeInputDataSize = planNodeInputDataSize;
         this.planNodeOutputPositions = planNodeOutputPositions;
         this.planNodeOutputDataSize = planNodeOutputDataSize;
@@ -113,6 +116,11 @@ public class PlanNodeStats
     public DataSize getPlanNodeInputDataSize()
     {
         return planNodeInputDataSize;
+    }
+
+    public DataSize getPlanNodePhysicalInputDataSize()
+    {
+        return planNodePhysicalInputDataSize;
     }
 
     public long getPlanNodeOutputPositions()
@@ -172,6 +180,7 @@ public class PlanNodeStats
                 new Duration(planNodeCpuTime.toMillis() + other.getPlanNodeCpuTime().toMillis(), MILLISECONDS),
                 new Duration(planNodeBlockedTime.toMillis() + other.getPlanNodeBlockedTime().toMillis(), MILLISECONDS),
                 planNodeInputPositions, planNodeInputDataSize,
+                succinctBytes(this.planNodePhysicalInputDataSize.toBytes() + other.planNodePhysicalInputDataSize.toBytes()),
                 planNodeOutputPositions, planNodeOutputDataSize,
                 succinctBytes(this.planNodeSpilledDataSize.toBytes() + other.planNodeSpilledDataSize.toBytes()),
                 operatorStats);

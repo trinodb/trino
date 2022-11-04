@@ -49,6 +49,7 @@ public class HashCollisionPlanNodeStats
                 planNodeBlockedTime,
                 planNodeInputPositions,
                 planNodeInputDataSize,
+                DataSize.ofBytes(0L),
                 planNodeOutputPositions,
                 planNodeOutputDataSize,
                 planNodeSpilledDataSize,
