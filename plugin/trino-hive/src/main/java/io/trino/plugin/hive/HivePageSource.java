@@ -147,6 +147,11 @@ public class HivePageSource
                 List<Integer> dereferenceIndices = column.getHiveColumnProjectionInfo()
                         .map(HiveColumnProjectionInfo::getDereferenceIndices)
                         .orElse(ImmutableList.of());
+                // todo: use dereferenceIndices:
+                // 1. columnMapping.getHiveColumnHandle().getBaseColumn().getHiveType()
+                // 2. index via dereferenceIndices: get c1(int)
+                // 3. use c1 and look up in columnMapping.getBaseTypeCoercionFrom() via name
+                // 4. depends on get / not get: get toType.
                 HiveType fromType = columnMapping.getBaseTypeCoercionFrom().get().getHiveTypeForDereferences(dereferenceIndices).get();
                 HiveType toType = columnMapping.getHiveColumnHandle().getHiveType();
                 coercers.add(createCoercer(typeManager, fromType, toType));
