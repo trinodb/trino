@@ -58,6 +58,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -559,6 +560,12 @@ public class PipelinedStageExecution
         return stateMachine.getFailureCause();
     }
 
+    @Override
+    public String toString()
+    {
+        return stateMachine.toString();
+    }
+
     private static Split createExchangeSplit(RemoteTask sourceTask, RemoteTask destinationTask)
     {
         // Fetch the results from the buffer assigned to the task based on id
@@ -656,6 +663,15 @@ public class PipelinedStageExecution
         public void addStateChangeListener(StateChangeListener<State> stateChangeListener)
         {
             state.addStateChangeListener(stateChangeListener);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("stageId", stageId)
+                    .add("state", state)
+                    .toString();
         }
     }
 }
