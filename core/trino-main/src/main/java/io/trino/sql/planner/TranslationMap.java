@@ -404,7 +404,7 @@ class TranslationMap
                     return coerceIfNecessary(node, mapped.get());
                 }
 
-                checkState(analysis.getParameters().size() > node.getPosition(), "Too few parameter values");
+                checkState(analysis.getParameters().size() > node.getId(), "Too few parameter values");
                 return coerceIfNecessary(node, treeRewriter.rewrite(analysis.getParameters().get(NodeRef.of(node)), null));
             }
 
