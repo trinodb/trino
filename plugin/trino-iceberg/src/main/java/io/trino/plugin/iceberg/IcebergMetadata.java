@@ -1341,17 +1341,26 @@ public class IcebergMetadata
     private void scanAndDeleteInvalidFiles(Table table, ConnectorSession session, SchemaTableName schemaTableName, long expireTimestamp, Set<String> validFiles, String subfolder)
     {
         try {
+            List<String> filesToDelete = new ArrayList<>();
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             FileIterator allFiles = fileSystem.listFiles(table.location() + "/" + subfolder);
             while (allFiles.hasNext()) {
                 FileEntry entry = allFiles.next();
                 if (entry.lastModified() < expireTimestamp && !validFiles.contains(fileName(entry.path()))) {
-                    log.debug("Deleting %s file while removing orphan files %s", entry.path(), schemaTableName.getTableName());
-                    fileSystem.deleteFile(entry.path());
+                    filesToDelete.add(entry.path());
+                    if (filesToDelete.size() >= DELETE_BATCH_SIZE) {
+                        log.debug("Deleting files while removing orphan files for table %s [%s]", schemaTableName, filesToDelete);
+                        fileSystem.deleteFiles(filesToDelete);
+                        filesToDelete.clear();
+                    }
                 }
                 else {
                     log.debug("%s file retained while removing orphan files %s", entry.path(), schemaTableName.getTableName());
                 }
+            }
+            if (!filesToDelete.isEmpty()) {
+                log.debug("Deleting files while removing orphan files for table %s %s", schemaTableName, filesToDelete);
+                fileSystem.deleteFiles(filesToDelete);
             }
         }
         catch (IOException e) {
