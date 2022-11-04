@@ -276,6 +276,7 @@ public class DeltaLakeMetadata
             .add(TOTAL_SIZE_IN_BYTES)
             .add(NUMBER_OF_DISTINCT_VALUES_SUMMARY)
             .build();
+    private static final String ENABLE_NON_CONCURRENT_WRITES_CONFIGURATION_KEY = "delta.enable-non-concurrent-writes";
 
     private final DeltaLakeMetastore metastore;
     private final TrinoFileSystemFactory fileSystemFactory;
@@ -1257,7 +1258,10 @@ public class DeltaLakeMetadata
         DeltaLakeTableHandle table = (DeltaLakeTableHandle) tableHandle;
         if (!allowWrite(session, table)) {
             String fileSystem = new Path(table.getLocation()).toUri().getScheme();
-            throw new TrinoException(NOT_SUPPORTED, format("Inserts are not supported on the %s filesystem", fileSystem));
+            throw new TrinoException(
+                    NOT_SUPPORTED,
+                    format("Inserts are not enabled on the %1$s filesystem in order to avoid eventual data corruption which may be caused by concurrent data modifications on the table. " +
+                            "Writes to the %1$s filesystem can be however enabled with the '%2$s' configuration property.", fileSystem, ENABLE_NON_CONCURRENT_WRITES_CONFIGURATION_KEY));
         }
         Map<String, String> columnInvariants = getColumnInvariants(table.getMetadataEntry());
         if (!columnInvariants.isEmpty()) {
@@ -1395,7 +1399,10 @@ public class DeltaLakeMetadata
         }
         if (!allowWrite(session, handle)) {
             String fileSystem = new Path(handle.getLocation()).toUri().getScheme();
-            throw new TrinoException(NOT_SUPPORTED, format("Deletes are not supported on the %s filesystem", fileSystem));
+            throw new TrinoException(
+                    NOT_SUPPORTED,
+                    format("Deletes are not enabled on the %1$s filesystem in order to avoid eventual data corruption which may be caused by concurrent data modifications on the table. " +
+                            "Writes to the %1$s filesystem can be however enabled with the '%2$s' configuration property.", fileSystem, ENABLE_NON_CONCURRENT_WRITES_CONFIGURATION_KEY));
         }
         if (!getCheckConstraints(handle.getMetadataEntry()).isEmpty()) {
             throw new TrinoException(NOT_SUPPORTED, "Writing to tables with CHECK constraints is not supported");
@@ -1457,7 +1464,10 @@ public class DeltaLakeMetadata
         }
         if (!allowWrite(session, handle)) {
             String fileSystem = new Path(handle.getLocation()).toUri().getScheme();
-            throw new TrinoException(NOT_SUPPORTED, format("Updates are not supported on the %s filesystem", fileSystem));
+            throw new TrinoException(
+                    NOT_SUPPORTED,
+                    format("Updates are not enabled on the %1$s filesystem in order to avoid eventual data corruption which may be caused by concurrent data modifications on the table. " +
+                            "Writes to the %1$s filesystem can be however enabled with the '%2$s' configuration property.", fileSystem, ENABLE_NON_CONCURRENT_WRITES_CONFIGURATION_KEY));
         }
 
         Map<String, String> columnInvariants = getColumnInvariants(handle.getMetadataEntry());
@@ -1533,7 +1543,10 @@ public class DeltaLakeMetadata
         }
         if (!allowWrite(session, handle)) {
             String fileSystem = new Path(handle.getLocation()).toUri().getScheme();
-            throw new TrinoException(NOT_SUPPORTED, format("Updates are not supported on the %s filesystem", fileSystem));
+            throw new TrinoException(
+                    NOT_SUPPORTED,
+                    format("Updates are not enabled on the %1$s filesystem in order to avoid eventual data corruption which may be caused by concurrent data modifications on the table. " +
+                            "Writes to the %1$s filesystem can be however enabled with the '%2$s' configuration property.", fileSystem, ENABLE_NON_CONCURRENT_WRITES_CONFIGURATION_KEY));
         }
         if (!getColumnInvariants(handle.getMetadataEntry()).isEmpty()) {
             throw new TrinoException(NOT_SUPPORTED, "Updates are not supported for tables with delta invariants");
@@ -1737,7 +1750,10 @@ public class DeltaLakeMetadata
 
         if (!allowWrite(session, table)) {
             String fileSystem = new Path(table.getLocation()).toUri().getScheme();
-            throw new TrinoException(NOT_SUPPORTED, format("Optimize is not supported on the %s filesystem", fileSystem));
+            throw new TrinoException(
+                    NOT_SUPPORTED,
+                    format("Optimize is not enabled on the %1$s filesystem in order to avoid eventual data corruption which may be caused by concurrent data modifications on the table. " +
+                            "Writes to the %1$s filesystem can be however enabled with the '%2$s' configuration property.", fileSystem, ENABLE_NON_CONCURRENT_WRITES_CONFIGURATION_KEY));
         }
         checkSupportedWriterVersion(session, table.getSchemaTableName());
 
