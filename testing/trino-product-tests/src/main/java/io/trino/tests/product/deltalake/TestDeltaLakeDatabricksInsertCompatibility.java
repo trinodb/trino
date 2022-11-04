@@ -16,6 +16,7 @@ package io.trino.tests.product.deltalake;
 import com.google.common.collect.ImmutableList;
 import io.trino.tempto.BeforeTestWithContext;
 import io.trino.tempto.assertions.QueryAssert.Row;
+import io.trino.testng.services.Flaky;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -32,6 +33,8 @@ import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_73;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_104_RUNTIME_VERSION;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
 import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
@@ -51,6 +54,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testInsertCompatibility()
     {
         String tableName = "test_dl_insert_" + randomTableSuffix();
@@ -86,6 +90,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testPartitionedInsertCompatibility()
     {
         String tableName = "test_dl_partitioned_insert_" + randomTableSuffix();
@@ -123,6 +128,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTrinoPartitionedDifferentOrderInsertCompatibility()
     {
         String tableName = "test_dl_trino_partitioned_different_order_insert_" + randomTableSuffix();
@@ -149,6 +155,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDeltaPartitionedDifferentOrderInsertCompatibility()
     {
         String tableName = "test_dl_delta_partitioned_different_order_insert_" + randomTableSuffix();
@@ -175,6 +182,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testInsertNonLowercaseColumnsCompatibility()
     {
         String tableName = "test_dl_insert_nonlowercase_columns_" + randomTableSuffix();
@@ -212,6 +220,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testInsertNestedNonLowercaseColumnsCompatibility()
     {
         String tableName = "test_dl_insert_nested_nonlowercase_columns_" + randomTableSuffix();
@@ -251,6 +260,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testPartitionedInsertNonLowercaseColumnsCompatibility()
     {
         String tableName = "test_dl_partitioned_insert_nonlowercase_columns" + randomTableSuffix();
@@ -289,6 +299,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDeleteCompatibility()
     {
         String tableName = "test_delete_compatibility_" + randomTableSuffix();
@@ -316,6 +327,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCheckConstraintsCompatibility()
     {
         // CHECK constraint is not supported by Trino
@@ -353,6 +365,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
      * but it's not verified that compression actually takes place.
      */
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS}, dataProvider = "compressionCodecs")
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCompression(String compressionCodec)
     {
         testCompression(false, compressionCodec);
@@ -363,6 +376,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
      * and reads succeed, but it's not verified that compression actually takes place.
      */
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS}, dataProvider = "compressionCodecs")
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCompressionWithOptimizedWriter(String compressionCodec)
     {
         testCompression(true, compressionCodec);
@@ -413,6 +427,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void verifyCompressionCodecsDataProvider()
     {
         assertThat(onTrino().executeQuery("SHOW SESSION LIKE 'delta.compression_codec'"))
@@ -440,6 +455,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_OSS, DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testWritesToTableWithCheckConstraintFails()
     {
         String tableName = "test_writes_into_table_with_check_constraint_" + randomTableSuffix();
@@ -465,6 +481,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_OSS, DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testMetadataOperationsRetainCheckConstraints()
     {
         String tableName = "test_metadata_operations_retain_check_constraints_" + randomTableSuffix();
@@ -487,6 +504,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testWritesToTableWithGeneratedColumnFails()
     {
         String tableName = "test_writes_into_table_with_generated_column_" + randomTableSuffix();
@@ -517,6 +535,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testWritesToTableWithCDFFails()
     {
         String tableName = "test_writes_into_table_with_CDF_" + randomTableSuffix();

@@ -16,6 +16,7 @@ package io.trino.tests.product.deltalake;
 import com.google.common.collect.ImmutableList;
 import io.trino.tempto.BeforeTestWithContext;
 import io.trino.tempto.assertions.QueryAssert;
+import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -25,6 +26,8 @@ import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_104_RUNTIME_VERSION;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumnCommentOnDelta;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumnCommentOnTrino;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
@@ -48,6 +51,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDatabricksCanReadInitialCreateTable()
     {
         String tableName = "test_dl_create_table_compat_" + randomTableSuffix();
@@ -87,6 +91,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDatabricksCanReadInitialCreatePartitionedTable()
     {
         String tableName = "test_dl_create_table_compat_" + randomTableSuffix();
@@ -129,6 +134,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDatabricksCanReadInitialCreateTableAs()
     {
         String tableName = "test_dl_create_table_as_compat_" + randomTableSuffix();
@@ -173,6 +179,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDatabricksCanReadInitialCreatePartitionedTableAs()
     {
         String tableName = "test_dl_create_table_compat_" + randomTableSuffix();
@@ -235,6 +242,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCreateTableWithTableComment()
     {
         String tableName = "test_dl_create_table_comment_" + randomTableSuffix();
@@ -257,6 +265,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCreateTableWithColumnCommentOnTrino()
     {
         String tableName = "test_dl_create_column_comment_" + randomTableSuffix();
@@ -282,6 +291,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCreateTableWithColumnCommentOnDelta()
     {
         String tableName = "test_dl_create_column_comment_" + randomTableSuffix();

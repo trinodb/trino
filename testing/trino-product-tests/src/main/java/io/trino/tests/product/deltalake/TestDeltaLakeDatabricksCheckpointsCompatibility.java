@@ -21,6 +21,7 @@ import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.trino.tempto.BeforeTestWithContext;
 import io.trino.tempto.assertions.QueryAssert;
+import io.trino.testng.services.Flaky;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -39,6 +40,8 @@ import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertLa
 import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertTransactionLogVersion;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_104_RUNTIME_VERSION;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_91_RUNTIME_VERSION;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
 import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
@@ -66,6 +69,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDatabricksCanReadTrinoCheckpoint()
     {
         String tableName = "test_dl_checkpoints_compat_" + randomTableSuffix();
@@ -126,6 +130,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTrinoUsesCheckpointInterval()
     {
         String tableName = "test_dl_checkpoints_compat_" + randomTableSuffix();
@@ -185,6 +190,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDatabricksUsesCheckpointInterval()
     {
         String tableName = "test_dl_checkpoints_compat_" + randomTableSuffix();
@@ -256,6 +262,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTrinoCheckpointMinMaxStatisticsForRowType()
     {
         String tableName = "test_dl_checkpoints_row_compat_min_max_trino_" + randomTableSuffix();
@@ -263,6 +270,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDatabricksCheckpointMinMaxStatisticsForRowType()
     {
         String tableName = "test_dl_checkpoints_row_compat_min_max_databricks_" + randomTableSuffix();
@@ -321,6 +329,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTrinoCheckpointNullStatisticsForRowType()
     {
         String tableName = "test_dl_checkpoints_row_compat_trino_" + randomTableSuffix();
@@ -328,6 +337,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDatabricksCheckpointNullStatisticsForRowType()
     {
         String tableName = "test_dl_checkpoints_row_compat_databricks_" + randomTableSuffix();
@@ -384,6 +394,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTrinoWriteStatsAsJsonDisabled()
     {
         String tableName = "test_dl_checkpoints_write_stats_as_json_disabled_trino_" + randomTableSuffix();
@@ -391,6 +402,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDatabricksWriteStatsAsJsonDisabled()
     {
         String tableName = "test_dl_checkpoints_write_stats_as_json_disabled_databricks_" + randomTableSuffix();
@@ -425,6 +437,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTrinoWriteStatsAsStructDisabled()
     {
         String tableName = "test_dl_checkpoints_write_stats_as_struct_disabled_trino_" + randomTableSuffix();
@@ -432,6 +445,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDatabricksWriteStatsAsStructDisabled()
     {
         String tableName = "test_dl_checkpoints_write_stats_as_struct_disabled_databricks_" + randomTableSuffix();
@@ -467,6 +481,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS}, dataProvider = "testTrinoCheckpointWriteStatsAsJson")
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTrinoWriteStatsAsJsonEnabled(String type, String inputValue, Double nullsFraction, Object statsValue)
     {
         String tableName = "test_dl_checkpoints_write_stats_as_json_enabled_trino_" + randomTableSuffix();
@@ -474,6 +489,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS}, dataProvider = "testDeltaCheckpointWriteStatsAsJson")
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDatabricksWriteStatsAsJsonEnabled(String type, String inputValue, Double nullsFraction, Object statsValue)
     {
         String tableName = "test_dl_checkpoints_write_stats_as_json_enabled_databricks_" + randomTableSuffix();
@@ -569,6 +585,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTrinoWriteStatsAsStructEnabled()
     {
         String tableName = "test_dl_checkpoints_write_stats_as_struct_enabled_trino_" + randomTableSuffix();
@@ -576,6 +593,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDatabricksWriteStatsAsStructEnabled()
     {
         String tableName = "test_dl_checkpoints_write_stats_as_struct_enabled_databricks_" + randomTableSuffix();

@@ -14,6 +14,7 @@
 package io.trino.tests.product.deltalake.util;
 
 import io.trino.tempto.query.QueryResult;
+import org.intellij.lang.annotations.Language;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
@@ -24,6 +25,11 @@ public final class DeltaLakeTestUtils
 {
     public static final String DATABRICKS_104_RUNTIME_VERSION = "10.4";
     public static final String DATABRICKS_91_RUNTIME_VERSION = "9.1";
+
+    public static final String DATABRICKS_COMMUNICATION_FAILURE_ISSUE = "https://github.com/trinodb/trino/issues/14391";
+    @Language("RegExp")
+    public static final String DATABRICKS_COMMUNICATION_FAILURE_MATCH =
+            "\\Q[Databricks][DatabricksJDBCDriver](500593) Communication link failure. Failed to connect to server. Reason: HTTP retry after response received with no Retry-After header, error: HTTP Response code: 503, Error message: Unknown.";
 
     private DeltaLakeTestUtils() {}
 
