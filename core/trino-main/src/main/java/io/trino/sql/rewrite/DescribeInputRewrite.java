@@ -41,7 +41,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.isOmitDateTimeTypePrecision;
-import static io.trino.execution.ParameterExtractor.getParameters;
+import static io.trino.execution.ParameterExtractor.extractParameters;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.QueryUtil.aliased;
 import static io.trino.sql.QueryUtil.ascending;
@@ -116,7 +116,7 @@ public final class DescribeInputRewrite
             Analysis analysis = analyzer.analyze(statement, DESCRIBE);
 
             // get all parameters in query
-            List<Parameter> parameters = getParameters(statement);
+            List<Parameter> parameters = extractParameters(statement);
 
             // return the positions and types of all parameters
             Row[] rows = parameters.stream().map(parameter -> createDescribeInputRow(session, parameter, analysis)).toArray(Row[]::new);
