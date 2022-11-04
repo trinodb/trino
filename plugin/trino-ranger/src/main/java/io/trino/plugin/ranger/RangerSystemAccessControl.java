@@ -600,29 +600,29 @@ public class RangerSystemAccessControl
     @Override
     public List<ViewExpression> getRowFilters(SystemSecurityContext context, CatalogSchemaTableName tableName)
     {
-        List<ViewExpression> viewExpression;
+        List<ViewExpression> viewExpressions;
         try {
             activatePluginClassLoader();
-            viewExpression = systemAccessControlImpl.getRowFilters(context, tableName);
+            viewExpressions = systemAccessControlImpl.getRowFilters(context, tableName);
         }
         finally {
             deactivatePluginClassLoader();
         }
-        return viewExpression;
+        return viewExpressions;
     }
 
     @Override
     public List<ViewExpression> getColumnMasks(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
     {
-        List<ViewExpression> viewExpression;
+        List<ViewExpression> viewExpressions;
         try {
             activatePluginClassLoader();
-            viewExpression = systemAccessControlImpl.getColumnMasks(context, tableName, columnName, type);
+            viewExpressions = systemAccessControlImpl.getColumnMasks(context, tableName, columnName, type);
         }
         finally {
             deactivatePluginClassLoader();
         }
-        return viewExpression;
+        return viewExpressions;
     }
 
     @Override

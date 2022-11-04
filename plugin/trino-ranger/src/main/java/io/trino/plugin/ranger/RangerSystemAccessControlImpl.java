@@ -232,7 +232,7 @@ public class RangerSystemAccessControlImpl
                     filter);
         }
 
-        return List.of(viewExpression);
+        return viewExpression == null ? Collections.emptyList() : List.of(viewExpression);
     }
 
     @Override
@@ -283,7 +283,7 @@ public class RangerSystemAccessControlImpl
             }
         }
 
-        return List.of(viewExpression);
+        return viewExpression == null ? Collections.emptyList() : List.of(viewExpression);
     }
 
     @Override
