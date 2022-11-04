@@ -411,7 +411,7 @@ public class HiveSplitManager
             HiveType tableType = tableColumns.get(i).getType();
             HiveType partitionType = partitionColumns.get(i).getType();
             if (!tableType.equals(partitionType)) {
-                if (!canCoerce(typeManager, partitionType, tableType)) {
+                if (!canCoerce(typeManager, partitionType, tableType, false)) {
                     throw tablePartitionColumnMismatchException(tableName, partName, tableColumns.get(i).getName(), tableType, partitionColumns.get(i).getName(), partitionType);
                 }
                 columnCoercions.put(i, partitionType.getHiveTypeName());
@@ -457,7 +457,7 @@ public class HiveSplitManager
             Column partitionColumn = partitionColumns.get(partitionColumnIndex);
             HiveType partitionType = partitionColumn.getType();
             if (!tableType.equals(partitionType)) {
-                if (!canCoerce(typeManager, partitionType, tableType)) {
+                if (!canCoerce(typeManager, partitionType, tableType, true)) {
                     throw tablePartitionColumnMismatchException(tableName, partName, tableColumn.getName(), tableType, partitionColumn.getName(), partitionType);
                 }
                 columnCoercions.put(partitionColumnIndex, partitionType.getHiveTypeName());

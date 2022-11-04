@@ -46,12 +46,12 @@ public final class HiveCoercionPolicy
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
-    public static boolean canCoerce(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType)
+    public static boolean canCoerce(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, boolean nestedStructNameBasedMapping)
     {
-        return new HiveCoercionPolicy(typeManager).canCoerce(fromHiveType, toHiveType);
+        return new HiveCoercionPolicy(typeManager).canCoerce(fromHiveType, toHiveType, nestedStructNameBasedMapping);
     }
 
-    private boolean canCoerce(HiveType fromHiveType, HiveType toHiveType)
+    private boolean canCoerce(HiveType fromHiveType, HiveType toHiveType, boolean nestedStructNameBasedMapping)
     {
         Type fromType = typeManager.getType(fromHiveType.getTypeSignature());
         Type toType = typeManager.getType(toHiveType.getTypeSignature());
@@ -84,13 +84,13 @@ public final class HiveCoercionPolicy
             return toType instanceof DecimalType || toHiveType.equals(HIVE_FLOAT) || toHiveType.equals(HIVE_DOUBLE);
         }
 
-        return canCoerceForList(fromHiveType, toHiveType)
-                || canCoerceForMap(fromHiveType, toHiveType)
-                || canCoerceForStruct(fromHiveType, toHiveType)
-                || canCoerceForUnionType(fromHiveType, toHiveType);
+        return canCoerceForList(fromHiveType, toHiveType, nestedStructNameBasedMapping)
+                || canCoerceForMap(fromHiveType, toHiveType, nestedStructNameBasedMapping)
+                || canCoerceForStruct(fromHiveType, toHiveType, nestedStructNameBasedMapping)
+                || canCoerceForUnionType(fromHiveType, toHiveType, nestedStructNameBasedMapping);
     }
 
-    private boolean canCoerceForUnionType(HiveType fromHiveType, HiveType toHiveType)
+    private boolean canCoerceForUnionType(HiveType fromHiveType, HiveType toHiveType, boolean nestedStructNameBasedMapping)
     {
         if (fromHiveType.getCategory() != Category.UNION || toHiveType.getCategory() != Category.UNION) {
             return false;
@@ -99,10 +99,10 @@ public final class HiveCoercionPolicy
         // Delegate to the struct coercion logic, since Trino sees union types as structs.
         HiveType fromHiveTypeStruct = HiveType.toHiveType(fromHiveType.getType(typeManager));
         HiveType toHiveTypeStruct = HiveType.toHiveType(toHiveType.getType(typeManager));
-        return canCoerceForStruct(fromHiveTypeStruct, toHiveTypeStruct);
+        return canCoerceForStruct(fromHiveTypeStruct, toHiveTypeStruct, nestedStructNameBasedMapping);
     }
 
-    private boolean canCoerceForMap(HiveType fromHiveType, HiveType toHiveType)
+    private boolean canCoerceForMap(HiveType fromHiveType, HiveType toHiveType, boolean nestedStructNameBasedMapping)
     {
         if (fromHiveType.getCategory() != Category.MAP || toHiveType.getCategory() != Category.MAP) {
             return false;
@@ -111,25 +111,33 @@ public final class HiveCoercionPolicy
         HiveType fromValueType = HiveType.valueOf(((MapTypeInfo) fromHiveType.getTypeInfo()).getMapValueTypeInfo().getTypeName());
         HiveType toKeyType = HiveType.valueOf(((MapTypeInfo) toHiveType.getTypeInfo()).getMapKeyTypeInfo().getTypeName());
         HiveType toValueType = HiveType.valueOf(((MapTypeInfo) toHiveType.getTypeInfo()).getMapValueTypeInfo().getTypeName());
-        return (fromKeyType.equals(toKeyType) || canCoerce(fromKeyType, toKeyType)) &&
-                (fromValueType.equals(toValueType) || canCoerce(fromValueType, toValueType));
+        return (fromKeyType.equals(toKeyType) || canCoerce(fromKeyType, toKeyType, nestedStructNameBasedMapping)) &&
+                (fromValueType.equals(toValueType) || canCoerce(fromValueType, toValueType, nestedStructNameBasedMapping));
     }
 
-    private boolean canCoerceForList(HiveType fromHiveType, HiveType toHiveType)
+    private boolean canCoerceForList(HiveType fromHiveType, HiveType toHiveType, boolean nestedStructNameBasedMapping)
     {
         if (fromHiveType.getCategory() != Category.LIST || toHiveType.getCategory() != Category.LIST) {
             return false;
         }
         HiveType fromElementType = HiveType.valueOf(((ListTypeInfo) fromHiveType.getTypeInfo()).getListElementTypeInfo().getTypeName());
         HiveType toElementType = HiveType.valueOf(((ListTypeInfo) toHiveType.getTypeInfo()).getListElementTypeInfo().getTypeName());
-        return fromElementType.equals(toElementType) || canCoerce(fromElementType, toElementType);
+        return fromElementType.equals(toElementType) || canCoerce(fromElementType, toElementType, nestedStructNameBasedMapping);
     }
 
-    private boolean canCoerceForStruct(HiveType fromHiveType, HiveType toHiveType)
+    private boolean canCoerceForStruct(HiveType fromHiveType, HiveType toHiveType, boolean nestedStructNameBasedMapping)
     {
         if (fromHiveType.getCategory() != Category.STRUCT || toHiveType.getCategory() != Category.STRUCT) {
             return false;
         }
+
+        return nestedStructNameBasedMapping ?
+                canCoerceForStructNameBasedMapping(fromHiveType, toHiveType)
+                : canCoerceForStructOrdinalBasedMapping(fromHiveType, toHiveType);
+    }
+
+    private boolean canCoerceForStructNameBasedMapping(HiveType fromHiveType, HiveType toHiveType)
+    {
         List<String> fromFieldNames = ((StructTypeInfo) fromHiveType.getTypeInfo()).getAllStructFieldNames();
         List<String> toFieldNames = ((StructTypeInfo) toHiveType.getTypeInfo()).getAllStructFieldNames();
         List<HiveType> fromFieldTypes = extractStructFieldTypes(fromHiveType);
@@ -152,10 +160,15 @@ public final class HiveCoercionPolicy
                 continue;
             }
 
-            if (!fromFieldTypes.get(fromHiveTypeNameIndex).equals(toFieldTypes.get(i)) && !canCoerce(fromFieldTypes.get(fromHiveTypeNameIndex), toFieldTypes.get(i))) {
+            if (!fromFieldTypes.get(fromHiveTypeNameIndex).equals(toFieldTypes.get(i)) && !canCoerce(fromFieldTypes.get(fromHiveTypeNameIndex), toFieldTypes.get(i), true)) {
                 return false;
             }
         }
         return true;
+    }
+
+    private boolean canCoerceForStructOrdinalBasedMapping(HiveType fromHiveType, HiveType toHiveType)
+    {
+        return false;
     }
 }
