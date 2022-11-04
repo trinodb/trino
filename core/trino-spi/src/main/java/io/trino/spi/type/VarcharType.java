@@ -48,6 +48,14 @@ public final class VarcharType
     public static final int MAX_LENGTH = Integer.MAX_VALUE - 1;
     public static final VarcharType VARCHAR = new VarcharType(UNBOUNDED_LENGTH);
 
+    private static final VarcharType[] CACHED_INSTANCES = new VarcharType[128];
+
+    static {
+        for (int i = 0; i < CACHED_INSTANCES.length; i++) {
+            CACHED_INSTANCES[i] = new VarcharType(i);
+        }
+    }
+
     public static VarcharType createUnboundedVarcharType()
     {
         return VARCHAR;
@@ -58,6 +66,9 @@ public final class VarcharType
         if (length > MAX_LENGTH || length < 0) {
             // Use createUnboundedVarcharType for unbounded VARCHAR.
             throw new IllegalArgumentException("Invalid VARCHAR length " + length);
+        }
+        if (length < CACHED_INSTANCES.length) {
+            return CACHED_INSTANCES[length];
         }
         return new VarcharType(length);
     }
