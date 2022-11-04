@@ -36,7 +36,7 @@ import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
-import static io.trino.sql.ParameterUtils.parameterExtractor;
+import static io.trino.sql.ParameterUtils.bindParameters;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.tree.SetProperties.Type.MATERIALIZED_VIEW;
 import static io.trino.sql.tree.SetProperties.Type.TABLE;
@@ -85,7 +85,7 @@ public class SetPropertiesTask
                     session,
                     plannerContext,
                     accessControl,
-                    parameterExtractor(statement, parameters),
+                    bindParameters(statement, parameters),
                     false);
             setTableProperties(statement, objectName, session, properties);
         }
@@ -97,7 +97,7 @@ public class SetPropertiesTask
                     session,
                     plannerContext,
                     accessControl,
-                    parameterExtractor(statement, parameters),
+                    bindParameters(statement, parameters),
                     false);
             setMaterializedViewProperties(statement, objectName, session, properties);
         }
