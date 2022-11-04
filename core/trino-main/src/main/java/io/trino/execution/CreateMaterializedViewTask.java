@@ -41,7 +41,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
-import static io.trino.sql.ParameterUtils.parameterExtractor;
+import static io.trino.sql.ParameterUtils.bindParameters;
 import static io.trino.sql.SqlFormatterUtil.getFormattedSql;
 import static java.util.Objects.requireNonNull;
 
@@ -84,7 +84,7 @@ public class CreateMaterializedViewTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
-        Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(statement, parameters);
+        Map<NodeRef<Parameter>, Expression> parameterLookup = bindParameters(statement, parameters);
 
         String sql = getFormattedSql(statement.getQuery(), sqlParser);
 

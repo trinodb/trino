@@ -37,7 +37,7 @@ import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.metadata.SessionPropertyManager.evaluatePropertyValue;
 import static io.trino.metadata.SessionPropertyManager.serializeSessionProperty;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
-import static io.trino.sql.ParameterUtils.parameterExtractor;
+import static io.trino.sql.ParameterUtils.bindParameters;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -95,7 +95,7 @@ public class SetSessionTask
         Object objectValue;
 
         try {
-            objectValue = evaluatePropertyValue(statement.getValue(), type, session, plannerContext, accessControl, parameterExtractor(statement, parameters));
+            objectValue = evaluatePropertyValue(statement.getValue(), type, session, plannerContext, accessControl, bindParameters(statement, parameters));
         }
         catch (TrinoException e) {
             throw new TrinoException(

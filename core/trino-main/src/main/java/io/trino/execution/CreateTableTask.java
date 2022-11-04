@@ -73,7 +73,7 @@ import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
-import static io.trino.sql.ParameterUtils.parameterExtractor;
+import static io.trino.sql.ParameterUtils.bindParameters;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.EXCLUDING;
@@ -124,7 +124,7 @@ public class CreateTableTask
     {
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
 
-        Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(statement, parameters);
+        Map<NodeRef<Parameter>, Expression> parameterLookup = bindParameters(statement, parameters);
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
         Optional<TableHandle> tableHandle;
         try {
