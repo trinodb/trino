@@ -16,49 +16,151 @@ package io.trino.execution.buffer;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.trino.metadata.BlockEncodingManager;
+import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.spi.Page;
-import io.trino.spi.block.Block;
+import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.type.Type;
+import io.trino.tpch.LineItem;
+import io.trino.tpch.LineItemGenerator;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.execution.buffer.PagesSerdeUtil.readPages;
 import static io.trino.execution.buffer.PagesSerdeUtil.writePages;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static io.trino.util.Ciphers.createRandomAesEncryptionKey;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
 public class TestPagesSerde
 {
+    private BlockEncodingSerde blockEncodingSerde;
+
+    @BeforeClass
+    public void setup()
+    {
+        blockEncodingSerde = new InternalBlockEncodingSerde(new BlockEncodingManager(), TESTING_TYPE_MANAGER);
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void teardown()
+    {
+        blockEncodingSerde = null;
+    }
+
     @Test
     public void testRoundTrip()
     {
-        PagesSerde serde = new TestingPagesSerdeFactory().createPagesSerde(Optional.empty());
-        BlockBuilder expectedBlockBuilder = VARCHAR.createBlockBuilder(null, 5);
-        VARCHAR.writeString(expectedBlockBuilder, "alice");
-        VARCHAR.writeString(expectedBlockBuilder, "bob");
-        VARCHAR.writeString(expectedBlockBuilder, "charlie");
-        VARCHAR.writeString(expectedBlockBuilder, "dave");
-        Block expectedBlock = expectedBlockBuilder.build();
+        // empty pages
+        testRoundTrip(ImmutableList.of(), 0);
+        testRoundTrip(ImmutableList.of(BIGINT), 0);
+        // tiny pages
+        testRoundTrip(ImmutableList.of(BIGINT), 1);
+        testRoundTrip(ImmutableList.of(VARCHAR), 1);
+        testRoundTrip(ImmutableList.of(VARCHAR, DOUBLE), 1);
+        testRoundTrip(ImmutableList.of(BIGINT), 30);
+        testRoundTrip(ImmutableList.of(VARCHAR), 20);
+        testRoundTrip(ImmutableList.of(VARCHAR, DOUBLE), 15);
+        // small pages
+        testRoundTrip(ImmutableList.of(BIGINT), 300);
+        testRoundTrip(ImmutableList.of(VARCHAR), 200);
+        testRoundTrip(ImmutableList.of(VARCHAR, DOUBLE), 150);
+        testRoundTrip(ImmutableList.of(BIGINT, VARCHAR, DOUBLE), 300);
+        testRoundTrip(ImmutableList.of(VARCHAR, VARCHAR, DOUBLE), 200);
+        testRoundTrip(ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR), 150);
+        // medium pages
+        testRoundTrip(ImmutableList.of(BIGINT, VARCHAR, DOUBLE), 3000);
+        testRoundTrip(ImmutableList.of(VARCHAR, VARCHAR, DOUBLE), 2000);
+        testRoundTrip(ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR), 1500);
+        testRoundTrip(ImmutableList.of(BIGINT, VARCHAR, DOUBLE), 12000);
+        testRoundTrip(ImmutableList.of(VARCHAR, VARCHAR, DOUBLE), 9000);
+        testRoundTrip(ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT), 8000);
+        // jumbo pages
+        testRoundTrip(ImmutableList.of(BIGINT, VARCHAR, DOUBLE), 30000);
+        testRoundTrip(ImmutableList.of(VARCHAR, VARCHAR, DOUBLE), 20000);
+        testRoundTrip(ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR), 15000);
+        testRoundTrip(ImmutableList.of(BIGINT, VARCHAR, DOUBLE), 120000);
+        testRoundTrip(ImmutableList.of(VARCHAR, VARCHAR, DOUBLE), 90000);
+        testRoundTrip(ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT), 80000);
+    }
 
-        Page expectedPage = new Page(expectedBlock, expectedBlock, expectedBlock);
+    private void testRoundTrip(List<Type> types, int rowCount)
+    {
+        LineItemGenerator lineItemGenerator = new LineItemGenerator(1, 1, 1);
+        Iterator<LineItem> iterator = lineItemGenerator.iterator();
+        int pageCount = 3;
+        List<Page> pages = IntStream.range(0, pageCount)
+                .mapToObj(i -> generatePage(types, rowCount, iterator))
+                .collect(toImmutableList());
+        testRoundTrip(types, pages);
+    }
 
-        DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        writePages(serde, sliceOutput, expectedPage, expectedPage, expectedPage);
+    private void testRoundTrip(List<Type> types, List<Page> pages)
+    {
+        // small blocks (to test corner cases)
+        testRoundTrip(types, pages, 107);
+        testRoundTrip(types, pages, 1009);
+        // large blocks (to test real world scenario)
+        testRoundTrip(types, pages, 64 * 1024);
+        testRoundTrip(types, pages, 128 * 1024);
+    }
 
-        List<Type> types = ImmutableList.of(VARCHAR, VARCHAR, VARCHAR);
-        Iterator<Page> pageIterator = readPages(serde, sliceOutput.slice().getInput());
-        assertPageEquals(types, pageIterator.next(), expectedPage);
-        assertPageEquals(types, pageIterator.next(), expectedPage);
-        assertPageEquals(types, pageIterator.next(), expectedPage);
-        assertFalse(pageIterator.hasNext());
+    private void testRoundTrip(List<Type> types, List<Page> pages, int blockSizeInBytes)
+    {
+        // without compression, encryption
+        testRoundTrip(types, pages, new PagesSerde(blockEncodingSerde, false, Optional.empty(), blockSizeInBytes));
+        // with compression, without encryption
+        testRoundTrip(types, pages, new PagesSerde(blockEncodingSerde, true, Optional.empty(), blockSizeInBytes));
+        // without compression, with encryption
+        testRoundTrip(types, pages, new PagesSerde(blockEncodingSerde, false, Optional.of(createRandomAesEncryptionKey()), blockSizeInBytes));
+        // with compression, encryption
+        testRoundTrip(types, pages, new PagesSerde(blockEncodingSerde, true, Optional.of(createRandomAesEncryptionKey()), blockSizeInBytes));
+    }
+
+    private void testRoundTrip(List<Type> types, List<Page> pages, PagesSerde serde)
+    {
+        for (Page page : pages) {
+            Slice serialized = serde.serialize(page);
+            Page deserialized = serde.deserialize(serialized);
+            assertPageEquals(types, deserialized, page);
+        }
+    }
+
+    private static Page generatePage(List<Type> types, int rowCount, Iterator<LineItem> iterator)
+    {
+        PageBuilder pageBuilder = new PageBuilder(types);
+        for (int row = 0; row < rowCount; row++) {
+            pageBuilder.declarePosition();
+            LineItem lineItem = iterator.next();
+            for (int column = 0; column < types.size(); column++) {
+                Type type = types.get(column);
+                if (BIGINT.equals(type)) {
+                    BIGINT.writeLong(pageBuilder.getBlockBuilder(column), lineItem.getOrderKey());
+                }
+                else if (VARCHAR.equals(type)) {
+                    VARCHAR.writeString(pageBuilder.getBlockBuilder(column), lineItem.getComment());
+                }
+                else if (DOUBLE.equals(type)) {
+                    DOUBLE.writeDouble(pageBuilder.getBlockBuilder(column), lineItem.getExtendedPrice());
+                }
+            }
+        }
+
+        return pageBuilder.build();
     }
 
     @Test
@@ -109,21 +211,9 @@ public class TestPagesSerde
         assertEquals(secondValueSize, 4 + 3); // length + "bob" (null shared with first entry)
     }
 
-    @Test
-    public void testClosedContext()
+    private int serializedSize(List<? extends Type> types, Page expectedPage)
     {
-        PagesSerde serde = new TestingPagesSerdeFactory().createPagesSerde(Optional.empty());
-        PagesSerde.PagesSerdeContext context = serde.newContext();
-        context.close();
-
-        assertThatThrownBy(() -> serde.serialize(context, new Page(1)))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("PagesSerdeContext is already closed");
-    }
-
-    private static int serializedSize(List<? extends Type> types, Page expectedPage)
-    {
-        PagesSerde serde = new TestingPagesSerdeFactory().createPagesSerde(Optional.empty());
+        PagesSerde serde = new PagesSerdeFactory(blockEncodingSerde, false).createPagesSerde(Optional.empty());
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         writePages(serde, sliceOutput, expectedPage);
         Slice slice = sliceOutput.slice();

@@ -46,6 +46,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.FeaturesConfig.SPILLER_SPILL_PATH;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
 import static io.trino.spi.StandardErrorCode.OUT_OF_SPILL_SPACE;
+import static io.trino.util.Ciphers.createRandomAesEncryptionKey;
 import static java.lang.String.format;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createTempFile;
@@ -164,11 +165,7 @@ public class FileSingleStreamSpillerFactory
     @Override
     public SingleStreamSpiller create(List<Type> types, SpillContext spillContext, LocalMemoryContext memoryContext)
     {
-        Optional<SpillCipher> spillCipher = Optional.empty();
-        if (spillEncryptionEnabled) {
-            spillCipher = Optional.of(new AesSpillCipher());
-        }
-        PagesSerde serde = serdeFactory.createPagesSerdeForSpill(spillCipher);
+        PagesSerde serde = serdeFactory.createPagesSerde(spillEncryptionEnabled ? Optional.of(createRandomAesEncryptionKey()) : Optional.empty());
         return new FileSingleStreamSpiller(
                 serde,
                 executor,
@@ -176,7 +173,6 @@ public class FileSingleStreamSpillerFactory
                 spillerStats,
                 spillContext,
                 memoryContext,
-                spillCipher,
                 spillPathHealthCache::invalidateAll);
     }
 

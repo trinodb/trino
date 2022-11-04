@@ -52,6 +52,7 @@ import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.security.SelectedRole;
 import io.trino.spi.type.Type;
 import io.trino.transaction.TransactionId;
+import io.trino.util.Ciphers;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -231,7 +232,8 @@ class Query
         this.resultsProcessorExecutor = resultsProcessorExecutor;
         this.timeoutExecutor = timeoutExecutor;
         this.supportsParametricDateTime = session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
-        serde = new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session)).createPagesSerde(session.getExchangeEncryptionKey());
+        serde = new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session))
+                .createPagesSerde(session.getExchangeEncryptionKey().map(Ciphers::deserializeAesEncryptionKey));
     }
 
     public void cancel()
@@ -559,7 +561,7 @@ class Query
                 .withExceptionConsumer(this::handleSerializationException)
                 .withColumnsAndTypes(columns, types);
 
-        try (PagesSerde.PagesSerdeContext context = serde.newContext()) {
+        try {
             long bytes = 0;
             while (bytes < targetResultBytes) {
                 Slice serializedPage = exchangeDataSource.pollPage();
@@ -567,7 +569,7 @@ class Query
                     break;
                 }
 
-                Page page = serde.deserialize(context, serializedPage);
+                Page page = serde.deserialize(serializedPage);
                 bytes += page.getLogicalSizeInBytes();
                 resultBuilder.addPage(page);
             }

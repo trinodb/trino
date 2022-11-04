@@ -23,7 +23,6 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
-import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.exchange.ExchangeInput;
@@ -57,10 +56,8 @@ import org.joda.time.DateTime;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
-import javax.crypto.KeyGenerator;
 
 import java.net.URI;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -97,9 +94,10 @@ import static io.trino.execution.QueryState.WAITING_FOR_RESOURCES;
 import static io.trino.execution.StageInfo.getAllStages;
 import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
-import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.USER_CANCELED;
+import static io.trino.util.Ciphers.createRandomAesEncryptionKey;
+import static io.trino.util.Ciphers.serializeAesEncryptionKey;
 import static io.trino.util.Failures.toFailure;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -280,14 +278,7 @@ public class QueryStateMachine
 
         if (getRetryPolicy(session) == TASK && faultTolerantExecutionExchangeEncryptionEnabled) {
             // encryption is mandatory for fault tolerant execution as it relies on an external storage to store intermediate data generated during an exchange
-            try {
-                KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
-                keyGenerator.init(256);
-                session = session.withExchangeEncryption(Slices.wrappedBuffer(keyGenerator.generateKey().getEncoded()));
-            }
-            catch (NoSuchAlgorithmException e) {
-                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to generate new secret key: " + e.getMessage(), e);
-            }
+            session = session.withExchangeEncryption(serializeAesEncryptionKey(createRandomAesEncryptionKey()));
         }
 
         QueryStateMachine queryStateMachine = new QueryStateMachine(

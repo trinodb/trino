@@ -71,10 +71,8 @@ public final class BufferTestUtils
     {
         checkArgument(!pages.isEmpty(), "pages is empty");
         ImmutableList.Builder<Slice> builder = ImmutableList.builderWithExpectedSize(pages.size());
-        try (PagesSerde.PagesSerdeContext context = PAGES_SERDE.newContext()) {
-            for (Page p : pages) {
-                builder.add(PAGES_SERDE.serialize(context, p));
-            }
+        for (Page p : pages) {
+            builder.add(PAGES_SERDE.serialize(p));
         }
         return new BufferResult(
                 bufferId,
@@ -91,9 +89,7 @@ public final class BufferTestUtils
 
     static Slice serializePage(Page page)
     {
-        try (PagesSerde.PagesSerdeContext context = PAGES_SERDE.newContext()) {
-            return PAGES_SERDE.serialize(context, page);
-        }
+        return PAGES_SERDE.serialize(page);
     }
 
     static DataSize sizeOfPages(int count)

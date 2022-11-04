@@ -28,6 +28,7 @@ import io.trino.spi.type.Type;
 import io.trino.split.RemoteSplit;
 import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.util.Ciphers;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -101,7 +102,7 @@ public class MergeOperator
                     operatorContext,
                     sourceId,
                     directExchangeClientSupplier,
-                    serdeFactory.createPagesSerde(driverContext.getSession().getExchangeEncryptionKey()),
+                    serdeFactory.createPagesSerde(driverContext.getSession().getExchangeEncryptionKey().map(Ciphers::deserializeAesEncryptionKey)),
                     orderingCompiler.compilePageWithPositionComparator(types, sortChannels, sortOrder),
                     outputChannels,
                     outputTypes);

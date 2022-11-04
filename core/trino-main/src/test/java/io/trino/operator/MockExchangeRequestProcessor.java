@@ -188,9 +188,7 @@ public class MockExchangeRequestProcessor
         public synchronized void addPage(Page page)
         {
             checkState(completed.get() != Boolean.TRUE, "Location %s is complete", location);
-            try (PagesSerde.PagesSerdeContext context = PAGES_SERDE.newContext()) {
-                serializedPages.add(PAGES_SERDE.serialize(context, page));
-            }
+            serializedPages.add(PAGES_SERDE.serialize(page));
         }
 
         public void setFailed(RuntimeException t)
