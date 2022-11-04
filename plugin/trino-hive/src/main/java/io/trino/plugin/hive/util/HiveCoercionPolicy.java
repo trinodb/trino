@@ -25,7 +25,6 @@ import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 import static io.trino.plugin.hive.HiveType.HIVE_BYTE;
@@ -35,7 +34,6 @@ import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.HiveType.HIVE_SHORT;
 import static io.trino.plugin.hive.util.HiveUtil.extractStructFieldTypes;
-import static java.lang.Math.min;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 

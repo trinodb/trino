@@ -112,6 +112,7 @@ public class TestHiveCoercion
                         "CREATE TABLE %NAME%(" +
                         // all nested primitive/varchar coercions and adding/removing nested fields are covered across row_to_row, list_to_list, and map_to_map
                         "    row_to_row                 STRUCT<keep: STRING, ti2si: TINYINT, si2int: SMALLINT, int2bi: INT, bi2vc: BIGINT, lower2uppercase: BIGINT>, " +
+                        "    row_to_row_nested_reordered          STRUCT<a:INT, nested:STRUCT<x: INT, y: INT>, b:INT>, " +
                         "    list_to_list               ARRAY<STRUCT<ti2int: TINYINT, si2bi: SMALLINT, bi2vc: BIGINT, remove: STRING>>, " +
                         "    map_to_map                 MAP<TINYINT, STRUCT<ti2bi: TINYINT, int2bi: INT, float2double: " + floatType + ">>, " +
                         "    tinyint_to_smallint        TINYINT," +
@@ -342,6 +343,7 @@ public class TestHiveCoercion
                 "INSERT INTO %1$s VALUES " +
                         "(" +
                         "  CAST(ROW ('as is', -1, 100, 2323, 12345, 2) AS ROW(keep VARCHAR, ti2si TINYINT, si2int SMALLINT, int2bi INTEGER, bi2vc BIGINT, lower2uppercase BIGINT)), " +
+                        "  CAST(ROW (1, row(2, 3), 4) AS ROW(a INTEGER, ROW(x INTEGER, y INTEGER), b INTEGER)), " +
                         "  ARRAY [CAST(ROW (2, -101, 12345, 'removed') AS ROW (ti2int TINYINT, si2bi SMALLINT, bi2vc BIGINT, remove VARCHAR))], " +
                         "  MAP (ARRAY [TINYINT '2'], ARRAY [CAST(ROW (-3, 2323, REAL '0.5') AS ROW (ti2bi TINYINT, int2bi INTEGER, float2double %2$s))]), " +
                         "  TINYINT '-1', " +
@@ -370,6 +372,7 @@ public class TestHiveCoercion
                         "  1), " +
                         "(" +
                         "  CAST(ROW (NULL, 1, -100, -2323, -12345, 2) AS ROW(keep VARCHAR, ti2si TINYINT, si2int SMALLINT, int2bi INTEGER, bi2vc BIGINT, lower2uppercase BIGINT)), " +
+                        "  CAST(ROW (-1, row(-2, -3), -4) AS ROW(a INTEGER, ROW(x INTEGER, y INTEGER), b INTEGER)), " +
                         "  ARRAY [CAST(ROW (-2, 101, -12345, NULL) AS ROW (ti2int TINYINT, si2bi SMALLINT, bi2vc BIGINT, remove VARCHAR))], " +
                         "  MAP (ARRAY [TINYINT '-2'], ARRAY [CAST(ROW (null, -2323, REAL '-1.5') AS ROW (ti2bi TINYINT, int2bi INTEGER, float2double %2$s))]), " +
                         "  TINYINT '1', " +
@@ -709,6 +712,7 @@ public class TestHiveCoercion
         assertThat(onTrino().executeQuery("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
                 // The field lower2uppercase in the row is recorded in upper case in hive, but Trino converts it to lower case
                 row("row_to_row", "row(keep varchar, ti2si smallint, si2int integer, int2bi bigint, bi2vc varchar, lower2uppercase bigint)"),
+                row("row_to_row_nested_reordered", "row(a bigint, c integer, nested row(y integer, x integer))"),
                 row("list_to_list", "array(row(ti2int integer, si2bi bigint, bi2vc varchar))"),
                 row("map_to_map", "map(integer, row(ti2bi bigint, int2bi bigint, float2double double, add tinyint))"),
                 row("tinyint_to_smallint", "smallint"),
@@ -791,6 +795,7 @@ public class TestHiveCoercion
         String floatType = tableName.toLowerCase(ENGLISH).contains("parquet") ? "double" : "float";
 
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN row_to_row row_to_row struct<keep:string, ti2si:smallint, si2int:int, int2bi:bigint, bi2vc:string, LOWER2UPPERCASE:bigint>", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN row_to_row_nested_reordered row_to_row_nested_reordered struct<a:BIGINT, c:int, nested:STRUCT<y: INT, x: INT>>", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN list_to_list list_to_list array<struct<ti2int:int, si2bi:bigint, bi2vc:string>>", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN map_to_map map_to_map map<int,struct<ti2bi:bigint, int2bi:bigint, float2double:double, add:tinyint>>", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN tinyint_to_smallint tinyint_to_smallint smallint", tableName));
