@@ -35,10 +35,10 @@ public final class ParameterExtractor
 
     public static int getParameterCount(Statement statement)
     {
-        return getParameters(statement).size();
+        return extractParameters(statement).size();
     }
 
-    public static List<Parameter> getParameters(Statement statement)
+    public static List<Parameter> extractParameters(Statement statement)
     {
         ParameterExtractingVisitor parameterExtractingVisitor = new ParameterExtractingVisitor();
         parameterExtractingVisitor.process(statement, null);
@@ -47,7 +47,7 @@ public final class ParameterExtractor
 
     public static Map<NodeRef<Parameter>, Expression> bindParameters(Statement statement, List<Expression> values)
     {
-        List<Parameter> parametersList = getParameters(statement).stream()
+        List<Parameter> parametersList = extractParameters(statement).stream()
                 .sorted(Comparator.comparing(
                         parameter -> parameter.getLocation().get(),
                         Comparator.comparing(NodeLocation::getLineNumber)
