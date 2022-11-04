@@ -49,6 +49,13 @@ public final class CharType
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(CharType.class, lookup(), Slice.class);
 
     public static final int MAX_LENGTH = 65_536;
+    private static final CharType[] CACHED_INSTANCES = new CharType[128];
+
+    static {
+        for (int i = 0; i < CACHED_INSTANCES.length; i++) {
+            CACHED_INSTANCES[i] = new CharType(i);
+        }
+    }
 
     private final int length;
     private volatile Optional<Range> range;
@@ -67,6 +74,9 @@ public final class CharType
 
     public static CharType createCharType(int length)
     {
+        if (0 <= length && length < CACHED_INSTANCES.length) {
+            return CACHED_INSTANCES[length];
+        }
         return new CharType(length);
     }
 
