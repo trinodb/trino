@@ -235,9 +235,9 @@ import static io.trino.connector.CatalogServiceProviderModule.createTableProcedu
 import static io.trino.connector.CatalogServiceProviderModule.createTableProceduresProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createTablePropertyManager;
 import static io.trino.connector.CatalogStore.NO_STORED_CATALOGS;
+import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
-import static io.trino.sql.ParameterUtils.bindParameters;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
