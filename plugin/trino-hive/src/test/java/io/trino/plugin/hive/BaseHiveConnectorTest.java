@@ -8312,6 +8312,14 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    public void testExplainAnalyzePhysicalInputSize()
+    {
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE SELECT * FROM nation a",
+                "Physical Input: .*B");
+    }
+
+    @Test
     public void testExplainAnalyzePhysicalReadWallTime()
     {
         assertExplainAnalyze(
