@@ -865,12 +865,23 @@ public class IcebergMetadata
             log.info("Found %s files to delete and %s to retain in location %s for query %s", filesToDelete.size(), fileNamesToKeep.size(), location, queryId);
             ImmutableList.Builder<String> deletedFilesBuilder = ImmutableList.builder();
             Iterator<String> filesToDeleteIterator = filesToDelete.iterator();
+            List<String> deleteBatch = new ArrayList<>();
             while (filesToDeleteIterator.hasNext()) {
                 String fileName = filesToDeleteIterator.next();
-                log.debug("Deleting failed attempt file %s/%s for query %s", location, fileName, queryId);
-                fileSystem.deleteFile(location + "/" + fileName);
                 deletedFilesBuilder.add(fileName);
                 filesToDeleteIterator.remove();
+
+                deleteBatch.add(location + "/" + fileName);
+                if (deleteBatch.size() >= DELETE_BATCH_SIZE) {
+                    log.debug("Deleting failed attempt files %s for query %s", deleteBatch, queryId);
+                    fileSystem.deleteFiles(deleteBatch);
+                    deleteBatch.clear();
+                }
+            }
+
+            if (!deleteBatch.isEmpty()) {
+                log.debug("Deleting failed attempt files %s for query %s", deleteBatch, queryId);
+                fileSystem.deleteFiles(deleteBatch);
             }
 
             List<String> deletedFiles = deletedFilesBuilder.build();
