@@ -1899,11 +1899,10 @@ public class IcebergMetadata
         if (!fullyDeletedFiles.isEmpty()) {
             try {
                 TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-                for (List<CommitTaskData> commitTasksToCleanUp : fullyDeletedFiles.values()) {
-                    for (CommitTaskData commitTaskData : commitTasksToCleanUp) {
-                        fileSystem.deleteFile(commitTaskData.getPath());
-                    }
-                }
+                fileSystem.deleteFiles(fullyDeletedFiles.values().stream()
+                        .flatMap(Collection::stream)
+                        .map(CommitTaskData::getPath)
+                        .collect(toImmutableSet()));
             }
             catch (IOException e) {
                 log.warn(e, "Failed to clean up uncommitted position delete files");
