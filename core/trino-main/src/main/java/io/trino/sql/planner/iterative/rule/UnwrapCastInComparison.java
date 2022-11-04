@@ -22,6 +22,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
@@ -423,6 +424,19 @@ public class UnwrapCastInComparison
             }
 
             if (target instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
+                if (source instanceof DateType) {
+                    // Cast from TIMESTAMP WITH TIME ZONE to DATE and back to TIMESTAMP WITH TIME ZONE does not round trip, unless the value's zone is equal to session zone
+                    if (!getTimeZone(timestampWithTimeZoneType, value).equals(session.getTimeZoneKey())) {
+                        return false;
+                    }
+
+                    // Cast from DATE to TIMESTAMP WITH TIME ZONE is not monotonic when there is a forward DST change in the session zone
+                    if (!isTimestampToTimestampWithTimeZoneInjectiveAt(session.getTimeZoneKey().getZoneId(), getInstantWithTruncation(timestampWithTimeZoneType, value))) {
+                        return false;
+                    }
+
+                    return true;
+                }
                 if (source instanceof TimestampType) {
                     // Cast from TIMESTAMP WITH TIME ZONE to TIMESTAMP and back to TIMESTAMP WITH TIME ZONE does not round trip, unless the value's zone is equal to session zone
                     if (!getTimeZone(timestampWithTimeZoneType, value).equals(session.getTimeZoneKey())) {
@@ -438,7 +452,6 @@ public class UnwrapCastInComparison
                 }
                 // CAST from TIMESTAMP WITH TIME ZONE to d and back to TIMESTAMP WITH TIME ZONE does not round trip for most types d
                 // TODO add test coverage
-                // TODO (https://github.com/trinodb/trino/issues/5798) handle DATE -> TIMESTAMP WITH TIME ZONE
                 return false;
             }
 
