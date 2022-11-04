@@ -1088,6 +1088,18 @@ public class PlanPrinter
             NodeRepresentation nodeOutput;
             nodeOutput = addNode(node, "TableScan", ImmutableMap.of("table", anonymizer.anonymize(table, tableInfo)));
             printTableScanInfo(nodeOutput, node, tableInfo);
+            PlanNodeStats nodeStats = stats.map(s -> s.get(node.getId())).orElse(null);
+            if (nodeStats != null) {
+                String inputDetail = "Input: %s (%s)";
+                if (nodeStats.getPlanNodePhysicalInputDataSize().toBytes() > 0) {
+                    inputDetail += ", Physical Input: %s";
+                }
+                nodeOutput.appendDetails(
+                        inputDetail,
+                        formatPositions(nodeStats.getPlanNodeInputPositions()),
+                        nodeStats.getPlanNodeInputDataSize().toString(),
+                        nodeStats.getPlanNodePhysicalInputDataSize().toString());
+            }
             return null;
         }
 
@@ -1205,11 +1217,16 @@ public class PlanPrinter
                 if (nodeStats != null) {
                     // Add to 'details' rather than 'statistics', since these stats are node-specific
                     double filtered = 100.0d * (nodeStats.getPlanNodeInputPositions() - nodeStats.getPlanNodeOutputPositions()) / nodeStats.getPlanNodeInputPositions();
+                    String inputDetail = "Input: %s (%s), Filtered: %s%%";
+                    if (nodeStats.getPlanNodePhysicalInputDataSize().toBytes() > 0) {
+                        inputDetail += ", Physical Input: %s";
+                    }
                     nodeOutput.appendDetails(
-                            "Input: %s (%s), Filtered: %s%%",
+                            inputDetail,
                             formatPositions(nodeStats.getPlanNodeInputPositions()),
                             nodeStats.getPlanNodeInputDataSize().toString(),
-                            formatDouble(filtered));
+                            formatDouble(filtered),
+                            nodeStats.getPlanNodePhysicalInputDataSize().toString());
                 }
                 List<DynamicFilterDomainStats> collectedDomainStats = dynamicFilters.stream()
                         .map(DynamicFilters.Descriptor::getId)
