@@ -42,17 +42,17 @@ public final class ParameterExtractor
     {
         ParameterExtractingVisitor parameterExtractingVisitor = new ParameterExtractingVisitor();
         parameterExtractingVisitor.process(statement, null);
-        return parameterExtractingVisitor.getParameters();
-    }
-
-    public static Map<NodeRef<Parameter>, Expression> bindParameters(Statement statement, List<Expression> values)
-    {
-        List<Parameter> parametersList = extractParameters(statement).stream()
+        return parameterExtractingVisitor.getParameters().stream()
                 .sorted(Comparator.comparing(
                         parameter -> parameter.getLocation().get(),
                         Comparator.comparing(NodeLocation::getLineNumber)
                                 .thenComparing(NodeLocation::getColumnNumber)))
                 .collect(toImmutableList());
+    }
+
+    public static Map<NodeRef<Parameter>, Expression> bindParameters(Statement statement, List<Expression> values)
+    {
+        List<Parameter> parametersList = extractParameters(statement);
 
         ImmutableMap.Builder<NodeRef<Parameter>, Expression> builder = ImmutableMap.builder();
         Iterator<Expression> iterator = values.iterator();
