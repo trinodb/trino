@@ -414,7 +414,7 @@ class Query
             return Optional.empty();
         }
 
-        // is the a repeated request for the last results?
+        // is this a repeated request for the last results?
         if (token == lastToken) {
             // tell query manager we are still interested in the query
             queryManager.recordHeartbeat(queryId);
