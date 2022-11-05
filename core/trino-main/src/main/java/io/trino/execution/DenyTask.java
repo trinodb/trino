@@ -22,18 +22,21 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.connector.EntityKindAndName;
+import io.trino.spi.connector.EntityPrivilege;
 import io.trino.spi.security.Privilege;
 import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.GrantOnType;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static io.trino.execution.PrivilegeUtilities.fetchEntityKindPrivileges;
 import static io.trino.execution.PrivilegeUtilities.parseStatementPrivileges;
 import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
+import static io.trino.metadata.MetadataUtil.createEntityKindAndName;
 import static io.trino.metadata.MetadataUtil.createPrincipal;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -64,18 +67,22 @@ public class DenyTask
     @Override
     public ListenableFuture<Void> execute(Deny statement, QueryStateMachine stateMachine, List<Expression> parameters, WarningCollector warningCollector)
     {
-        if (statement.getType().filter(GrantOnType.SCHEMA::equals).isPresent()) {
+        String entityKind = statement.getGrantObject().getEntityKind().orElse("TABLE");
+        if (entityKind.equalsIgnoreCase("TABLE")) {
+            executeDenyOnTable(stateMachine.getSession(), statement, metadata, accessControl);
+        }
+        else if (entityKind.equalsIgnoreCase("SCHEMA")) {
             executeDenyOnSchema(stateMachine.getSession(), statement, metadata, accessControl);
         }
         else {
-            executeDenyOnTable(stateMachine.getSession(), statement, metadata, accessControl);
+            executeDenyOnEntity(stateMachine.getSession(), statement, metadata, entityKind, accessControl);
         }
         return immediateVoidFuture();
     }
 
     private static void executeDenyOnSchema(Session session, Deny statement, Metadata metadata, AccessControl accessControl)
     {
-        CatalogSchemaName schemaName = createCatalogSchemaName(session, statement, Optional.of(statement.getName()));
+        CatalogSchemaName schemaName = createCatalogSchemaName(session, statement, Optional.of(statement.getGrantObject().getName()));
 
         if (!metadata.schemaExists(session, schemaName)) {
             throw semanticException(SCHEMA_NOT_FOUND, statement, "Schema '%s' does not exist", schemaName);
@@ -91,7 +98,7 @@ public class DenyTask
 
     private static void executeDenyOnTable(Session session, Deny statement, Metadata metadata, AccessControl accessControl)
     {
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getGrantObject().getName());
         RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, tableName);
         if (redirection.tableHandle().isEmpty()) {
             throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
@@ -107,5 +114,17 @@ public class DenyTask
         }
 
         metadata.denyTablePrivileges(session, tableName, privileges, createPrincipal(statement.getGrantee()));
+    }
+
+    private static void executeDenyOnEntity(Session session, Deny statement, Metadata metadata, String entityKind, AccessControl accessControl)
+    {
+        EntityKindAndName entity = createEntityKindAndName(entityKind, statement.getGrantObject().getName());
+        Set<EntityPrivilege> privileges = fetchEntityKindPrivileges(entityKind, metadata, statement.getPrivileges());
+
+        for (EntityPrivilege privilege : privileges) {
+            accessControl.checkCanDenyEntityPrivilege(session.toSecurityContext(), privilege, entity, createPrincipal(statement.getGrantee()));
+        }
+
+        metadata.denyEntityPrivileges(session, entity, privileges, createPrincipal(statement.getGrantee()));
     }
 }

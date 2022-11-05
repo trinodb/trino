@@ -22,6 +22,8 @@ import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.EntityKindAndName;
+import io.trino.spi.connector.EntityPrivilege;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Identity;
@@ -551,6 +553,33 @@ public class TracingAccessControl
         Span span = startSpan("checkCanRevokeTablePrivilege");
         try (var ignored = scopedSpan(span)) {
             delegate.checkCanRevokeTablePrivilege(context, privilege, tableName, revokee, grantOption);
+        }
+    }
+
+    @Override
+    public void checkCanGrantEntityPrivilege(SecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal grantee, boolean grantOption)
+    {
+        Span span = startSpan("checkCanGrantEntityPrivilege");
+        try (var ignored = scopedSpan(span)) {
+            delegate.checkCanGrantEntityPrivilege(context, privilege, entity, grantee, grantOption);
+        }
+    }
+
+    @Override
+    public void checkCanDenyEntityPrivilege(SecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal grantee)
+    {
+        Span span = startSpan("checkCanDenyEntityPrivilege");
+        try (var ignored = scopedSpan(span)) {
+            delegate.checkCanDenyEntityPrivilege(context, privilege, entity, grantee);
+        }
+    }
+
+    @Override
+    public void checkCanRevokeEntityPrivilege(SecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal revokee, boolean grantOption)
+    {
+        Span span = startSpan("checkCanRevokeEntityPrivilege");
+        try (var ignored = scopedSpan(span)) {
+            delegate.checkCanRevokeEntityPrivilege(context, privilege, entity, revokee, grantOption);
         }
     }
 

@@ -14,6 +14,7 @@
 package io.trino.spi.security;
 
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.EntityKindAndName;
 import io.trino.spi.function.FunctionKind;
 
 import java.security.Principal;
@@ -588,6 +589,46 @@ public class AccessDeniedException
     public static void denyRevokeTablePrivilege(String privilege, String tableName, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot revoke privilege %s on table %s%s", privilege, tableName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyGrantEntityPrivilege(String privilege, EntityKindAndName entity)
+    {
+        denyGrantEntityPrivilege(privilege, entity, null);
+    }
+
+    public static void denyGrantEntityPrivilege(String privilege, EntityKindAndName entity, String extraInfo)
+    {
+        entityPrivilegeException("grant", privilege, entity, extraInfo);
+    }
+
+    public static void denyDenyEntityPrivilege(String privilege, EntityKindAndName entity)
+    {
+        denyDenyEntityPrivilege(privilege, entity, null);
+    }
+
+    public static void denyDenyEntityPrivilege(String privilege, EntityKindAndName entity, String extraInfo)
+    {
+        entityPrivilegeException("deny", privilege, entity, extraInfo);
+    }
+
+    public static void denyRevokeEntityPrivilege(String privilege, EntityKindAndName entity)
+    {
+        denyRevokeEntityPrivilege(privilege, entity, null);
+    }
+
+    public static void denyRevokeEntityPrivilege(String privilege, EntityKindAndName entity, String extraInfo)
+    {
+        entityPrivilegeException("revoke", privilege, entity, extraInfo);
+    }
+
+    private static void entityPrivilegeException(String operation, String privilege, EntityKindAndName entity, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot %s privilege %s on %s %s%s",
+                operation,
+                privilege,
+                entity.entityKind().toLowerCase(Locale.ROOT),
+                entity.name(),
+                formatExtraInfo(extraInfo)));
     }
 
     public static void denyShowRoles()
