@@ -13,15 +13,33 @@
  */
 package io.trino.plugin.hudi;
 
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import org.apache.hudi.common.model.HoodieTableType;
 
-public abstract class BaseHudiMinioConnectorTest
-        extends BaseHudiConnectorTest
+public enum HudiTableType
 {
-    protected HiveMinioDataLake hiveMinioDataLake;
+    COPY_ON_WRITE("cow", HoodieTableType.COPY_ON_WRITE),
+    MERGE_ON_READ("mor", HoodieTableType.MERGE_ON_READ);
+    private final String name;
+    private final HoodieTableType value;
 
-    public BaseHudiMinioConnectorTest(HudiTableType tableType)
+    private HudiTableType(String name, HoodieTableType value)
     {
-        super(tableType);
+        this.name = name;
+        this.value = value;
+    }
+
+    public String getName()
+    {
+        return name;
+    }
+
+    public HoodieTableType getHoodieTableType()
+    {
+        return value;
+    }
+
+    public String getSuffix()
+    {
+        return "_" + name;
     }
 }

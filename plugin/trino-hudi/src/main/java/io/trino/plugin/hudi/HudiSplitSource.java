@@ -47,6 +47,7 @@ import static io.trino.plugin.hudi.HudiSessionProperties.getMinimumAssignedSplit
 import static io.trino.plugin.hudi.HudiSessionProperties.getStandardSplitWeightSize;
 import static io.trino.plugin.hudi.HudiSessionProperties.isHudiMetadataEnabled;
 import static io.trino.plugin.hudi.HudiSessionProperties.isSizeBasedSplitWeightsEnabled;
+import static io.trino.plugin.hudi.HudiUtil.buildTableMetaClient;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.stream.Collectors.toList;
 
@@ -126,13 +127,6 @@ public class HudiSplitSource
     public boolean isFinished()
     {
         return queue.isFinished();
-    }
-
-    private static HoodieTableMetaClient buildTableMetaClient(Configuration configuration, String basePath)
-    {
-        HoodieTableMetaClient client = HoodieTableMetaClient.builder().setConf(configuration).setBasePath(basePath).build();
-        client.getTableConfig().setValue("hoodie.bootstrap.index.enable", "false");
-        return client;
     }
 
     private static HudiSplitWeightProvider createSplitWeightProvider(ConnectorSession session)

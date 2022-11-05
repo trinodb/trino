@@ -25,6 +25,7 @@ import io.trino.filesystem.hdfs.HdfsFileSystemModule;
 import io.trino.hdfs.HdfsModule;
 import io.trino.hdfs.authentication.HdfsAuthenticationModule;
 import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
@@ -35,11 +36,13 @@ import io.trino.plugin.hive.gcs.HiveGcsModule;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreModule;
 import io.trino.plugin.hive.s3.HiveS3Module;
+import io.trino.plugin.hudi.security.HudiSecurityModule;
 import io.trino.spi.NodeManager;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
+import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.type.TypeManager;
@@ -65,6 +68,7 @@ public class InternalHudiConnectorFactory
                     new EventModule(),
                     new MBeanModule(),
                     new JsonModule(),
+                    new HudiSecurityModule(),
                     new HudiModule(),
                     new HiveMetastoreModule(metastore),
                     new HdfsModule(),
@@ -90,6 +94,7 @@ public class InternalHudiConnectorFactory
             ConnectorSplitManager splitManager = injector.getInstance(ConnectorSplitManager.class);
             ConnectorPageSourceProvider connectorPageSource = injector.getInstance(ConnectorPageSourceProvider.class);
             ConnectorNodePartitioningProvider connectorDistributionProvider = injector.getInstance(ConnectorNodePartitioningProvider.class);
+            ConnectorPageSinkProvider connectorPageSinkProvider = injector.getInstance(ConnectorPageSinkProvider.class);
             Set<SessionPropertiesProvider> sessionPropertiesProviders = injector.getInstance(Key.get(new TypeLiteral<Set<SessionPropertiesProvider>>() {}));
             HudiTableProperties hudiTableProperties = injector.getInstance(HudiTableProperties.class);
 
@@ -99,6 +104,7 @@ public class InternalHudiConnectorFactory
                     new ClassLoaderSafeConnectorSplitManager(splitManager, classLoader),
                     new ClassLoaderSafeConnectorPageSourceProvider(connectorPageSource, classLoader),
                     new ClassLoaderSafeNodePartitioningProvider(connectorDistributionProvider, classLoader),
+                    new ClassLoaderSafeConnectorPageSinkProvider(connectorPageSinkProvider, classLoader),
                     ImmutableSet.of(),
                     sessionPropertiesProviders,
                     hudiTableProperties.getTableProperties());

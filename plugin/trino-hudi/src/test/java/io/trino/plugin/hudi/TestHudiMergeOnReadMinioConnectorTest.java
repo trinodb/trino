@@ -20,11 +20,15 @@ import io.trino.testing.QueryRunner;
 
 import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static org.apache.hudi.common.model.HoodieTableType.MERGE_ON_READ;
 
 public class TestHudiMergeOnReadMinioConnectorTest
         extends BaseHudiMinioConnectorTest
 {
+    public TestHudiMergeOnReadMinioConnectorTest()
+    {
+        super(HudiTableType.MERGE_ON_READ);
+    }
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
@@ -37,7 +41,7 @@ public class TestHudiMergeOnReadMinioConnectorTest
         return S3HudiQueryRunner.create(
                 ImmutableMap.of(),
                 ImmutableMap.of("hudi.columns-to-hide", columnsToHide()),
-                new TpchHudiTablesInitializer(MERGE_ON_READ, REQUIRED_TPCH_TABLES),
+                new TpchHudiTablesInitializer(HudiTableType.MERGE_ON_READ.getHoodieTableType(), REQUIRED_TPCH_TABLES),
                 hiveMinioDataLake);
     }
 }

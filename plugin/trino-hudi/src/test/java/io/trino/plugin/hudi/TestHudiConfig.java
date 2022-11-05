@@ -23,6 +23,8 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.plugin.hudi.security.HudiSecurityModule.READ_ONLY;
+import static io.trino.plugin.hudi.security.HudiSecurityModule.SYSTEM;
 
 public class TestHudiConfig
 {
@@ -39,7 +41,9 @@ public class TestHudiConfig
                 .setStandardSplitWeightSize(DataSize.of(128, MEGABYTE))
                 .setMinimumAssignedSplitWeight(0.05)
                 .setMaxSplitsPerSecond(Integer.MAX_VALUE)
-                .setMaxOutstandingSplits(1000));
+                .setMaxOutstandingSplits(1000)
+                .setHudiStorageFormat(HudiStorageFormat.HOODIE_PARQUET)
+                .setSecuritySystem(SYSTEM));
     }
 
     @Test
@@ -56,6 +60,8 @@ public class TestHudiConfig
                 .put("hudi.minimum-assigned-split-weight", "0.1")
                 .put("hudi.max-splits-per-second", "100")
                 .put("hudi.max-outstanding-splits", "100")
+                .put("hudi.security", "read-only")
+                .put("hudi.storage-format", "PARQUET")
                 .buildOrThrow();
 
         HudiConfig expected = new HudiConfig()
@@ -68,7 +74,9 @@ public class TestHudiConfig
                 .setStandardSplitWeightSize(DataSize.of(64, MEGABYTE))
                 .setMinimumAssignedSplitWeight(0.1)
                 .setMaxSplitsPerSecond(100)
-                .setMaxOutstandingSplits(100);
+                .setMaxOutstandingSplits(100)
+                .setSecuritySystem(READ_ONLY)
+                .setHudiStorageFormat(HudiStorageFormat.PARQUET);
 
         assertFullMapping(properties, expected);
     }

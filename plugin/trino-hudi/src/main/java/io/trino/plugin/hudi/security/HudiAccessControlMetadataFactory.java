@@ -11,17 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hudi;
+package io.trino.plugin.hudi.security;
 
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.security.AccessControlMetadata;
 
-public abstract class BaseHudiMinioConnectorTest
-        extends BaseHudiConnectorTest
+public interface HudiAccessControlMetadataFactory
 {
-    protected HiveMinioDataLake hiveMinioDataLake;
-
-    public BaseHudiMinioConnectorTest(HudiTableType tableType)
+    HudiAccessControlMetadataFactory SYSTEM = metastore -> new AccessControlMetadata()
     {
-        super(tableType);
-    }
+        @Override
+        public boolean isUsingSystemSecurity()
+        {
+            return true;
+        }
+    };
+
+    HudiAccessControlMetadataFactory DEFAULT = metastore -> new AccessControlMetadata() {};
+
+    AccessControlMetadata create(HiveMetastore metastore);
 }

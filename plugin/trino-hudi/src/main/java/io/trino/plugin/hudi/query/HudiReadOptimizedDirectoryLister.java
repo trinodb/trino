@@ -69,7 +69,8 @@ public class HudiReadOptimizedDirectoryLister
         this.hiveMetastore = hiveMetastore;
         this.hiveTable = hiveTable;
         this.partitionColumnHandles = partitionColumnHandles;
-        this.fileSystemView = FileSystemViewManager.createInMemoryFileSystemView(engineContext, metaClient, metadataConfig);
+        this.fileSystemView = FileSystemViewManager.createInMemoryFileSystemViewWithTimeline(engineContext, metaClient, metadataConfig,
+                metaClient.getActiveTimeline().getWriteTimeline());
         this.partitionKeysFilter = MetastoreUtil.computePartitionKeyFilter(partitionColumnHandles, tableHandle.getPartitionPredicates());
         this.partitionColumns = hiveTable.getPartitionColumns();
     }

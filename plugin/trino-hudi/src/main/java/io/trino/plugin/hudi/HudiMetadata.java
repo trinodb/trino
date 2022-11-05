@@ -16,30 +16,39 @@ package io.trino.plugin.hudi;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
+import io.airlift.slice.Slice;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.metastore.Column;
+import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.security.AccessControlMetadata;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorOutputMetadata;
+import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.RetryMode;
+import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hudi.common.model.HoodieTableType;
+import org.apache.hudi.common.table.HoodieTableMetaClient;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -56,12 +65,24 @@ import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
 import static io.trino.plugin.hive.util.HiveUtil.columnMetadataGetter;
 import static io.trino.plugin.hive.util.HiveUtil.hiveColumnHandles;
 import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
+import static io.trino.plugin.hudi.HudiErrorCode.HUDI_DATABASE_LOCATION_ERROR;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_UNKNOWN_TABLE_TYPE;
+import static io.trino.plugin.hudi.HudiErrorCode.HUDI_UNSUPPORTED_FILE_FORMAT;
 import static io.trino.plugin.hudi.HudiSessionProperties.getColumnsToHide;
 import static io.trino.plugin.hudi.HudiTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.hudi.HudiTableProperties.PARTITIONED_BY_PROPERTY;
+import static io.trino.plugin.hudi.HudiTableProperties.getHudiStorageFormat;
+import static io.trino.plugin.hudi.HudiTableProperties.getHudiTableType;
+import static io.trino.plugin.hudi.HudiTableProperties.getPartitionedBy;
+import static io.trino.plugin.hudi.HudiTableProperties.getPreCombineField;
+import static io.trino.plugin.hudi.HudiTableProperties.getRecordKeyFields;
+import static io.trino.plugin.hudi.HudiTableProperties.getTableLocation;
+import static io.trino.plugin.hudi.HudiUtil.buildTableMetaClient;
+import static io.trino.plugin.hudi.HudiUtil.wrappedTableType;
+import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static java.lang.String.format;
+import static java.lang.String.join;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -78,12 +99,14 @@ public class HudiMetadata
     private final HiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
+    private final AccessControlMetadata accessControlMetadata;
 
-    public HudiMetadata(HiveMetastore metastore, HdfsEnvironment hdfsEnvironment, TypeManager typeManager)
+    public HudiMetadata(HiveMetastore metastore, HdfsEnvironment hdfsEnvironment, TypeManager typeManager, AccessControlMetadata accessControlMetadata)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.accessControlMetadata = requireNonNull(accessControlMetadata, "accessControlMetadata is null");
     }
 
     @Override
@@ -107,11 +130,17 @@ public class HudiMetadata
         if (!isHudiTable(session, table.get())) {
             throw new TrinoException(HUDI_UNKNOWN_TABLE_TYPE, format("Not a Hudi table: %s", tableName));
         }
+
+        Optional<HudiTableType> hudiTableType = getTableType(session, table);
+        if (hudiTableType.isEmpty()) {
+            throw new TrinoException(HUDI_UNKNOWN_TABLE_TYPE, format("Not a Hudi table: %s", tableName));
+        }
+
         return new HudiTableHandle(
                 tableName.getSchemaName(),
                 tableName.getTableName(),
                 table.get().getStorage().getLocation(),
-                HoodieTableType.COPY_ON_WRITE,
+                hudiTableType.get(),
                 TupleDomain.all(),
                 TupleDomain.all());
     }
@@ -208,6 +237,17 @@ public class HudiMetadata
         return true;
     }
 
+    public Optional<HudiTableType> getTableType(ConnectorSession session, Optional<Table> table)
+    {
+        if (table.isPresent()) {
+            String basePath = table.get().getStorage().getLocation();
+            Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(basePath));
+            HoodieTableMetaClient metaClient = buildTableMetaClient(configuration, basePath);
+            return Optional.of(wrappedTableType(metaClient.getTableType()));
+        }
+        return Optional.empty();
+    }
+
     private Optional<TableColumnsMetadata> getTableColumnMetadata(ConnectorSession session, SchemaTableName table)
     {
         try {
@@ -254,5 +294,81 @@ public class HudiMetadata
                 .filter(name -> !isHiveSystemSchema(name))
                 .map(Collections::singletonList)
                 .orElseGet(() -> listSchemaNames(session));
+    }
+
+    @Override
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
+    {
+        Optional<ConnectorTableLayout> layout = getNewTableLayout(session, tableMetadata);
+        finishCreateTable(session, beginCreateTable(session, tableMetadata, layout, NO_RETRIES), ImmutableList.of(), ImmutableList.of());
+    }
+
+    @Override
+    public HudiOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
+    {
+        HudiTableType tableType = getHudiTableType(tableMetadata.getProperties());
+        String basePath = getTableLocation(tableMetadata.getProperties())
+                .orElseGet(() -> defaultTableLocation(tableMetadata.getTable()));
+
+        Optional<String> preCombineField = getPreCombineField(tableMetadata.getProperties());
+        Optional<List<String>> partitions = getPartitionedBy(tableMetadata.getProperties());
+        Optional<List<String>> recordKeys = getRecordKeyFields(tableMetadata.getProperties());
+        HudiStorageFormat storageFormat = getHudiStorageFormat(tableMetadata.getProperties());
+        if (!HudiStorageFormat.HOODIE_PARQUET.equals(storageFormat) && !HudiStorageFormat.PARQUET.equals(storageFormat)) {
+            throw new TrinoException(HUDI_UNSUPPORTED_FILE_FORMAT, format("File format %s not supported", storageFormat));
+        }
+
+        Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(basePath));
+        HudiWriterOperations writerOperations = new HudiWriterOperations(metastore, configuration, accessControlMetadata);
+        return writerOperations.createTable(session, tableMetadata, basePath, tableType, recordKeys, preCombineField, partitions, storageFormat);
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
+    {
+        return tableHandle;
+    }
+
+    @Override
+    public void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
+    {
+        HudiTableHandle handle = (HudiTableHandle) tableHandle;
+        SchemaTableName tableName = handle.getSchemaTableName();
+
+        Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(tableName));
+        String basePath = table.getStorage().getLocation();
+        Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(basePath));
+
+        HudiWriterOperations writerOperator = new HudiWriterOperations(metastore, configuration, accessControlMetadata);
+        writerOperator.deleteTable(handle, fragments);
+    }
+
+    @Override
+    public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        HudiTableHandle handle = (HudiTableHandle) tableHandle;
+
+        Optional<Table> table = metastore.getTable(handle.getSchemaName(), handle.getTableName());
+        if (table.isEmpty()) {
+            throw new TableNotFoundException(handle.getSchemaTableName());
+        }
+
+        metastore.dropTable(handle.getSchemaName(), handle.getTableName(), false);
+    }
+
+    public String defaultTableLocation(SchemaTableName schemaTableName)
+    {
+        Database database = metastore.getDatabase(schemaTableName.getSchemaName())
+                .orElseThrow(() -> new SchemaNotFoundException(schemaTableName.getSchemaName()));
+        String location = database.getLocation().orElseThrow(() ->
+                new TrinoException(HUDI_DATABASE_LOCATION_ERROR, format("Database '%s' location is not set", schemaTableName.getSchemaName())));
+        return join("/", location, schemaTableName.getTableName());
     }
 }

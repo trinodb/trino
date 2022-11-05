@@ -30,6 +30,7 @@ import java.util.List;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.plugin.hudi.security.HudiSecurityModule.SYSTEM;
 import static java.util.Locale.ENGLISH;
 
 public class HudiConfig
@@ -46,6 +47,8 @@ public class HudiConfig
     private double minimumAssignedSplitWeight = 0.05;
     private int maxSplitsPerSecond = Integer.MAX_VALUE;
     private int maxOutstandingSplits = 1000;
+    private HudiStorageFormat hudiStorageFormat = HudiStorageFormat.HOODIE_PARQUET.HOODIE_PARQUET;
+    private String securitySystem = SYSTEM;
 
     public List<String> getColumnsToHide()
     {
@@ -190,5 +193,30 @@ public class HudiConfig
     {
         this.maxOutstandingSplits = maxOutstandingSplits;
         return this;
+    }
+
+    public HudiStorageFormat getHudiStorageFormat()
+    {
+        return hudiStorageFormat;
+    }
+
+    @Config("hudi.storage-format")
+    public HudiConfig setHudiStorageFormat(HudiStorageFormat hudiStorageFormat)
+    {
+        this.hudiStorageFormat = hudiStorageFormat;
+        return this;
+    }
+
+    @Config("hudi.security")
+    public HudiConfig setSecuritySystem(String securitySystem)
+    {
+        this.securitySystem = securitySystem;
+        return this;
+    }
+
+    @NotNull
+    public String getSecuritySystem()
+    {
+        return securitySystem;
     }
 }

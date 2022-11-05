@@ -21,12 +21,25 @@ import org.testng.annotations.Test;
 import java.util.ArrayList;
 import java.util.List;
 
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static java.util.Objects.requireNonNull;
 import static org.apache.hudi.common.model.HoodieRecord.HOODIE_META_COLUMNS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public abstract class BaseHudiConnectorTest
         extends BaseConnectorTest
 {
+    public static final String SCHEMA_NAME = "tests";
+
+    private final HudiTableType tableType;
+
+    public BaseHudiConnectorTest(HudiTableType tableType)
+    {
+        this.tableType = requireNonNull(tableType, "table type is null");
+    }
+
     @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
@@ -85,6 +98,44 @@ public abstract class BaseHudiConnectorTest
     {
         assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain("sys");
         assertQueryFails("SHOW TABLES IN hudi.sys", ".*Schema 'sys' does not exist");
+    }
+
+    @Test
+    @Override
+    public void testCreateTable()
+    {
+        String tableName = "test_create_" + randomTableSuffix();
+        String roTableName = tableName + "_ro";
+        String rtTableName = tableName + "_rt";
+
+        if (tableType == HudiTableType.COPY_ON_WRITE) {
+            assertUpdate("CREATE TABLE " + tableName + " (a bigint, b double, c varchar(50)) WITH (type='" + tableType.getName() + "')");
+            assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+            assertTableColumnNames(tableName, "a", "b", "c");
+            assertUpdate("DROP TABLE " + tableName);
+            assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        }
+        else if (tableType == HudiTableType.MERGE_ON_READ) {
+            assertUpdate("CREATE TABLE " + roTableName + " (a bigint, b double, c varchar(50)) WITH (type='" + tableType.getName() + "')");
+            assertUpdate("CREATE TABLE " + rtTableName + " (a bigint, b double, c varchar(50)) WITH (type='" + tableType.getName() + "')");
+            assertTrue(getQueryRunner().tableExists(getSession(), roTableName));
+            assertTableColumnNames(roTableName, "a", "b", "c");
+            assertUpdate("DROP TABLE " + roTableName);
+            assertFalse(getQueryRunner().tableExists(getSession(), roTableName));
+            assertTrue(getQueryRunner().tableExists(getSession(), rtTableName));
+            assertTableColumnNames(rtTableName, "a", "b", "c");
+            assertUpdate("DROP TABLE " + rtTableName);
+            assertFalse(getQueryRunner().tableExists(getSession(), rtTableName));
+        }
+
+        assertQueryFails("CREATE TABLE " + tableName + " (a bad_type)", ".* Unknown type 'bad_type' for column 'a'");
+        if (tableType == HudiTableType.COPY_ON_WRITE) {
+            assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        }
+        else if (tableType == HudiTableType.MERGE_ON_READ) {
+            assertFalse(getQueryRunner().tableExists(getSession(), roTableName));
+            assertFalse(getQueryRunner().tableExists(getSession(), rtTableName));
+        }
     }
 
     protected static String columnsToHide()

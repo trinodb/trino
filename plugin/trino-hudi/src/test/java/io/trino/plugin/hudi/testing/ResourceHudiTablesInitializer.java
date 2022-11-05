@@ -16,7 +16,6 @@ package io.trino.plugin.hudi.testing;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.metastore.Column;
@@ -51,6 +50,7 @@ import static io.trino.plugin.hive.HiveType.HIVE_DOUBLE;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
+import static io.trino.plugin.hudi.HudiStorageFormat.HOODIE_PARQUET;
 import static org.apache.hudi.common.model.HoodieTableType.COPY_ON_WRITE;
 import static org.apache.hudi.common.model.HoodieTableType.MERGE_ON_READ;
 
@@ -94,7 +94,7 @@ public class ResourceHudiTablesInitializer
             List<Column> partitionColumns,
             Map<String, String> partitions)
     {
-        StorageFormat storageFormat = StorageFormat.fromHiveStorageFormat(HiveStorageFormat.PARQUET);
+        StorageFormat storageFormat = StorageFormat.create(HOODIE_PARQUET.getSerde(), HOODIE_PARQUET.getInputFormat(), HOODIE_PARQUET.getOutputFormat());
 
         Table table = Table.builder()
                 .setDatabaseName(schemaName)

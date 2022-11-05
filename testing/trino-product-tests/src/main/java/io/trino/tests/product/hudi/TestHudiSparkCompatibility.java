@@ -28,6 +28,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.HUDI;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onHudi;
+import static io.trino.tests.product.utils.QueryExecutors.onSpark;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -74,26 +75,25 @@ public class TestHudiSparkCompatibility
                             bucketName,
                             tableName));
             String lastCommitTimeSync = (String) onHudi().executeQuery("show TBLPROPERTIES " + tableName + " ('last_commit_time_sync')").project(2).getOnlyValue();
-            Assertions.assertThat((String) onHudi().executeQuery("SHOW CREATE TABLE default." + tableName).getOnlyValue())
-                    .isEqualTo(format("""
-                                    CREATE TABLE `default`.`%s` (
-                                      `_hoodie_commit_time` STRING,
-                                      `_hoodie_commit_seqno` STRING,
-                                      `_hoodie_record_key` STRING,
-                                      `_hoodie_partition_path` STRING,
-                                      `_hoodie_file_name` STRING,
-                                      `id` BIGINT,
-                                      `name` STRING,
-                                      `price` INT,
-                                      `ts` BIGINT)
-                                    USING hudi
-                                    LOCATION 's3://%s/%s'
-                                    TBLPROPERTIES (
-                                      'primaryKey' = 'id',
-                                      'last_commit_time_sync' = '%s',
-                                      'type' = 'cow',
-                                      'preCombineField' = 'ts')
-                                    """,
+            Assertions.assertThat(onHudi().executeQuery("SHOW CREATE TABLE default." + tableName).getOnlyValue())
+                    .isEqualTo(format(
+                            "CREATE TABLE default.%s (\n" +
+                                    "  _hoodie_commit_time STRING,\n" +
+                                    "  _hoodie_commit_seqno STRING,\n" +
+                                    "  _hoodie_record_key STRING,\n" +
+                                    "  _hoodie_partition_path STRING,\n" +
+                                    "  _hoodie_file_name STRING,\n" +
+                                    "  id BIGINT,\n" +
+                                    "  name STRING,\n" +
+                                    "  price INT,\n" +
+                                    "  ts BIGINT)\n" +
+                                    "USING hudi\n" +
+                                    "LOCATION 's3://%s/%s'\n" +
+                                    "TBLPROPERTIES (\n" +
+                                    "  'last_commit_time_sync' = '%s',\n" +
+                                    "  'preCombineField' = 'ts',\n" +
+                                    "  'primaryKey' = 'id',\n" +
+                                    "  'type' = 'cow')\n",
                             tableName,
                             bucketName,
                             tableName,
@@ -335,5 +335,79 @@ public class TestHudiSparkCompatibility
 
         onHudi().executeQuery("INSERT INTO default." + tableName + " PARTITION (dt, hh) SELECT 1 AS id, 'a1' AS name, 1000 AS ts, '2021-12-09' AS dt, '10' AS hh");
         onHudi().executeQuery("INSERT INTO default." + tableName + " PARTITION (dt = '2021-12-09', hh='11') SELECT 2, 'a2', 1000");
+    }
+
+    @Test(groups = {HUDI, PROFILE_SPECIFIC_TESTS})
+    public void testCopyOnWriteTableCreateNonPartitionedTable()
+    {
+        String tableName = "test_trino_cow_create_nonpartitioned_table" + randomNameSuffix();
+
+        onTrino().executeQuery(format(
+                """
+                        CREATE TABLE hudi.default.%s (
+                          id bigint,
+                          name varchar,
+                          price int,
+                          ts bigint)
+                        WITH (
+                          record_key_fields = ARRAY['id'],
+                          type = '%s',
+                          pre_combine_field = 'ts',
+                          location ='s3://%s/%s')""",
+                tableName,
+                COW_TABLE_TYPE,
+                bucketName,
+                tableName));
+
+        onHudi().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 'a1', 20, 1000), (2, 'a2', 40, 2000)");
+        try {
+            assertThat(onSpark().executeQuery("SELECT id, name FROM default." + tableName))
+                    .containsOnly(ImmutableList.of(
+                            row(1, "a1"),
+                            row(2, "a2")));
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE hudi.default." + tableName);
+        }
+    }
+
+    @Test(groups = {HUDI, PROFILE_SPECIFIC_TESTS})
+    public void testCopyOnWriteTableCreatePartitionedTable()
+    {
+        String tableName = "test_trino_cow_create_partitioned_table" + randomNameSuffix();
+
+        onTrino().executeQuery(format(
+                """
+                        CREATE TABLE hudi.default.%s (
+                          id bigint,
+                          name varchar,
+                          ts bigint,
+                          dt varchar,
+                          hh varchar)
+                        WITH (
+                          record_key_fields = ARRAY['id'],
+                          type = '%s',
+                          pre_combine_field = 'ts',
+                          partitioned_by = ARRAY['dt', 'hh'],
+                          location ='s3://%s/%s')""",
+                tableName,
+                COW_TABLE_TYPE,
+                bucketName,
+                tableName));
+
+        onHudi().executeQuery("INSERT INTO default." + tableName + " PARTITION (dt, hh) SELECT 1 AS id, 'a1' AS name, 1000 AS ts, '2021-12-09' AS dt, '10' AS hh");
+        onHudi().executeQuery("INSERT INTO default." + tableName + " PARTITION (dt = '2021-12-09', hh='11') SELECT 2, 'a2', 1000");
+
+        List<QueryAssert.Row> expectedRows = ImmutableList.of(
+                row(1, "a1", 1000, "2021-12-09", "10"),
+                row(2, "a2", 1000, "2021-12-09", "11"));
+
+        try {
+            assertThat(onSpark().executeQuery("SELECT id, name, ts, dt, hh FROM default." + tableName))
+                    .containsOnly(expectedRows);
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE hudi.default." + tableName);
+        }
     }
 }

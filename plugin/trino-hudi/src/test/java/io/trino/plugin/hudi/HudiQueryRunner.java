@@ -32,12 +32,11 @@ import java.util.Optional;
 
 import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.hudi.BaseHudiConnectorTest.SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class HudiQueryRunner
 {
-    private static final String SCHEMA_NAME = "tests";
-
     private HudiQueryRunner() {}
 
     public static DistributedQueryRunner createHudiQueryRunner(

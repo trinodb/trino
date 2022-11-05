@@ -78,6 +78,7 @@ public final class S3HudiQueryRunner
                 .setDatabaseName(TPCH_SCHEMA)
                 .setOwnerName(Optional.of("public"))
                 .setOwnerType(Optional.of(PrincipalType.ROLE))
+                .setLocation(Optional.of(basePath))
                 .build();
         try {
             metastore.createDatabase(database);
