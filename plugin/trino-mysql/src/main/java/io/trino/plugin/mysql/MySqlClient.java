@@ -34,6 +34,7 @@ import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
@@ -134,9 +135,9 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.timeColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timeReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timeWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timestampReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
@@ -444,17 +445,70 @@ public class MySqlClient
 
             case Types.TIME:
                 TimeType timeType = createTimeType(getTimePrecision(typeHandle.getRequiredColumnSize()));
-                return Optional.of(timeColumnMapping(timeType));
+                requireNonNull(timeType, "timeType is null");
+                checkArgument(timeType.getPrecision() <= 9, "Unsupported type precision: %s", timeType);
+                return Optional.of(ColumnMapping.longMapping(
+                        timeType,
+                        mySqlTimeReadFunction(timeType),
+                        timeWriteFunction(timeType.getPrecision())));
 
             case Types.TIMESTAMP:
                 TimestampType timestampType = createTimestampType(getTimestampPrecision(typeHandle.getRequiredColumnSize()));
-                return Optional.of(timestampColumnMapping(timestampType));
+                checkArgument(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
+                return Optional.of(ColumnMapping.longMapping(
+                        timestampType,
+                        mySqlTimestampReadFunction(timestampType),
+                        timestampWriteFunction(timestampType)));
         }
 
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
             return mapToUnboundedVarchar(typeHandle);
         }
         return Optional.empty();
+    }
+
+    private static LongReadFunction mySqlTimestampReadFunction(TimestampType timestampType)
+    {
+        return new LongReadFunction()
+        {
+            @Override
+            public boolean isNull(ResultSet resultSet, int columnIndex)
+                    throws SQLException
+            {
+                // super calls ResultSet#getObject(), which for TIMESTAMP type returns java.sql.Timestamp, for which the conversion can fail if the value isn't a valid instant in server's time zone.
+                resultSet.getObject(columnIndex, String.class);
+                return resultSet.wasNull();
+            }
+
+            @Override
+            public long readLong(ResultSet resultSet, int columnIndex)
+                    throws SQLException
+            {
+                return timestampReadFunction(timestampType).readLong(resultSet, columnIndex);
+            }
+        };
+    }
+
+    private static LongReadFunction mySqlTimeReadFunction(TimeType timeType)
+    {
+        return new LongReadFunction()
+        {
+            @Override
+            public boolean isNull(ResultSet resultSet, int columnIndex)
+                    throws SQLException
+            {
+                // super calls ResultSet#getObject(), which for TIME type returns java.sql.Time, for which the conversion can fail if the value isn't a valid instant in server's time zone.
+                resultSet.getObject(columnIndex, String.class);
+                return resultSet.wasNull();
+            }
+
+            @Override
+            public long readLong(ResultSet resultSet, int columnIndex)
+                    throws SQLException
+            {
+                return timeReadFunction(timeType).readLong(resultSet, columnIndex);
+            }
+        };
     }
 
     private static int getTimestampPrecision(int timestampColumnSize)

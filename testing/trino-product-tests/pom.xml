@@ -238,6 +238,12 @@
         </dependency>
 
         <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-jdbc</artifactId>
             <version>350</version>
@@ -251,12 +257,6 @@
             It is required by SchemaRegistryClient. The actual dependencies
             are excluded from SchemaRegistryClient as it conflicts with Trino's dependency
             -->
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>mysql</groupId>
-            <artifactId>mysql-connector-java</artifactId>
             <scope>runtime</scope>
         </dependency>
 

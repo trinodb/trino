@@ -73,6 +73,11 @@ public class MySqlClientModule
         connectionProperties.setProperty("characterEncoding", "utf8");
         connectionProperties.setProperty("tinyInt1isBit", "false");
         connectionProperties.setProperty("rewriteBatchedStatements", "true");
+
+        // See "Solution 2a" at https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-time-instants.html - these properties are required to preserve point-in-time when operating with MySQL TIMESTAMP types
+        connectionProperties.setProperty("preserveInstants", "true");
+        connectionProperties.setProperty("connectionTimeZone", "SERVER");
+
         if (mySqlConfig.isAutoReconnect()) {
             connectionProperties.setProperty("autoReconnect", String.valueOf(mySqlConfig.isAutoReconnect()));
             connectionProperties.setProperty("maxReconnects", String.valueOf(mySqlConfig.getMaxReconnects()));
