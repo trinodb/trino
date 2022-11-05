@@ -69,7 +69,7 @@ public class RaptorConnectorFactory
                 new CatalogNameModule(catalogName),
                 new JsonModule(),
                 new MBeanModule(),
-                new ConnectorObjectNameGeneratorModule(catalogName, "io.trino.plugin.raptor.legacy", "trino.plugin.raptor.legacy"),
+                new ConnectorObjectNameGeneratorModule("io.trino.plugin.raptor.legacy", "trino.plugin.raptor.legacy"),
                 new MBeanServerModule(),
                 binder -> {
                     binder.bind(NodeManager.class).toInstance(context.getNodeManager());

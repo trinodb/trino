@@ -103,7 +103,7 @@ public final class InternalHiveConnectorFactory
                     new CatalogNameModule(catalogName),
                     new EventModule(),
                     new MBeanModule(),
-                    new ConnectorObjectNameGeneratorModule(catalogName, "io.trino.plugin.hive", "trino.plugin.hive"),
+                    new ConnectorObjectNameGeneratorModule("io.trino.plugin.hive", "trino.plugin.hive"),
                     new JsonModule(),
                     new TypeDeserializerModule(context.getTypeManager()),
                     new HiveModule(),

@@ -51,7 +51,7 @@ public class ElasticsearchConnectorFactory
         Bootstrap app = new Bootstrap(
                 new MBeanModule(),
                 new MBeanServerModule(),
-                new ConnectorObjectNameGeneratorModule(catalogName, "io.trino.plugin.elasticsearch", "trino.plugin.elasticsearch"),
+                new ConnectorObjectNameGeneratorModule("io.trino.plugin.elasticsearch", "trino.plugin.elasticsearch"),
                 new JsonModule(),
                 new TypeDeserializerModule(context.getTypeManager()),
                 new ElasticsearchConnectorModule(),

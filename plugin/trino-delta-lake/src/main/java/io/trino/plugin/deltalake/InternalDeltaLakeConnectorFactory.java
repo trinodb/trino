@@ -79,7 +79,7 @@ public final class InternalDeltaLakeConnectorFactory
             Bootstrap app = new Bootstrap(
                     new EventModule(),
                     new MBeanModule(),
-                    new ConnectorObjectNameGeneratorModule(catalogName, "io.trino.plugin.deltalake", "trino.plugin.deltalake"),
+                    new ConnectorObjectNameGeneratorModule("io.trino.plugin.deltalake", "trino.plugin.deltalake"),
                     new JsonModule(),
                     new MBeanServerModule(),
                     new HdfsModule(),

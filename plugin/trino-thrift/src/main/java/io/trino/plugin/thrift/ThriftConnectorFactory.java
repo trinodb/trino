@@ -56,7 +56,7 @@ public class ThriftConnectorFactory
         Bootstrap app = new Bootstrap(
                 new MBeanModule(),
                 new MBeanServerModule(),
-                new ConnectorObjectNameGeneratorModule(catalogName, "io.trino.plugin.thrift", "trino.plugin.thrift"),
+                new ConnectorObjectNameGeneratorModule("io.trino.plugin.thrift", "trino.plugin.thrift"),
                 new DriftNettyClientModule(),
                 binder -> {
                     binder.bind(TypeManager.class).toInstance(context.getTypeManager());
