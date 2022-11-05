@@ -21,6 +21,7 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.EntityKindAndName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
@@ -151,6 +152,11 @@ public final class MetadataUtil
                 semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set"));
 
         return new QualifiedObjectName(catalogName, schemaName, objectName);
+    }
+
+    public static EntityKindAndName createEntityKindAndName(String entityKind, QualifiedName name)
+    {
+        return new EntityKindAndName(entityKind, name.getParts());
     }
 
     public static TrinoPrincipal createPrincipal(Session session, GrantorSpecification specification)

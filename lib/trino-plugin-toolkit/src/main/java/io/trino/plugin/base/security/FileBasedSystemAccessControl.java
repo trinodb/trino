@@ -23,6 +23,8 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.EntityKindAndName;
+import io.trino.spi.connector.EntityPrivilege;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.function.SchemaFunctionName;
@@ -872,6 +874,24 @@ public class FileBasedSystemAccessControl
         if (!checkTablePermission(context, table, OWNERSHIP)) {
             denyRevokeTablePrivilege(privilege.name(), table.toString());
         }
+    }
+
+    @Override
+    public void checkCanGrantEntityPrivilege(SystemSecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal grantee, boolean grantOption)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void checkCanDenyEntityPrivilege(SystemSecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal grantee)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void checkCanRevokeEntityPrivilege(SystemSecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal revokee, boolean grantOption)
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override

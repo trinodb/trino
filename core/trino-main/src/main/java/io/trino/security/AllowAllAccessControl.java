@@ -16,6 +16,8 @@ package io.trino.security;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.EntityKindAndName;
+import io.trino.spi.connector.EntityPrivilege;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Identity;
@@ -320,6 +322,21 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanRevokeTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, TrinoPrincipal revokee, boolean grantOption)
+    {
+    }
+
+    @Override
+    public void checkCanGrantEntityPrivilege(SecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal grantee, boolean grantOption)
+    {
+    }
+
+    @Override
+    public void checkCanDenyEntityPrivilege(SecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal grantee)
+    {
+    }
+
+    @Override
+    public void checkCanRevokeEntityPrivilege(SecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal revokee, boolean grantOption)
     {
     }
 

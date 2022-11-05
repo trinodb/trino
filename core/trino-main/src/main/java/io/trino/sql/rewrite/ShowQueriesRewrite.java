@@ -71,6 +71,7 @@ import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Explain;
 import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.GrantObject;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.LongLiteral;
@@ -313,7 +314,8 @@ public final class ShowQueriesRewrite
             String catalogName = session.getCatalog().orElse(null);
             Optional<Expression> predicate = Optional.empty();
 
-            Optional<QualifiedName> tableName = showGrants.getTableName();
+            // TODO: Should this handle any entityKind?
+            Optional<QualifiedName> tableName = showGrants.getGrantObject().map(GrantObject::getName);
             if (tableName.isPresent()) {
                 QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, showGrants, tableName.get());
                 if (!metadata.isView(session, qualifiedTableName)) {

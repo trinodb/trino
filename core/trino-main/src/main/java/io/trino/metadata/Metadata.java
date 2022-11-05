@@ -30,6 +30,8 @@ import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.EntityKindAndName;
+import io.trino.spi.connector.EntityPrivilege;
 import io.trino.spi.connector.JoinApplicationResult;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
@@ -668,7 +670,7 @@ public interface Metadata
     void denyTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee);
 
     /**
-     * Revokes the specified privilege on the specified table from the specified user
+     * Revokes the specified privilege on the specified table from the specified user.
      */
     void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption);
 
@@ -676,6 +678,42 @@ public interface Metadata
      * Gets the privileges for the specified table available to the given grantee considering the selected session role
      */
     List<GrantInfo> listTablePrivileges(Session session, QualifiedTablePrefix prefix);
+
+    /**
+     * Gets all the EntityPrivileges associated with an entityKind.  Defines ALL PRIVILEGES
+     * for the entityKind
+     */
+    default Set<EntityPrivilege> getAllEntityKindPrivileges(String entityKind)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Grants the specified privileges to the specified user on the specified grantee.
+     * If the set of privileges is empty, it is interpreted as all privileges for the entityKind.
+     */
+    default void grantEntityPrivileges(Session session, EntityKindAndName entity, Set<EntityPrivilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Deny the specified privileges to the specified principal on the specified entity.
+     * If the set of privileges is empty, it is interpreted as all privileges for the entityKind.
+     */
+    default void denyEntityPrivileges(Session session, EntityKindAndName entity, Set<EntityPrivilege> privileges, TrinoPrincipal grantee)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Revokes the specified privilege on the specified entity from the specified grantee.
+     * If the set of privileges is empty, it is interpreted as all privileges for the entityKind.
+     */
+    default void revokeEntityPrivileges(Session session, EntityKindAndName entity, Set<EntityPrivilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     //
     // Functions
