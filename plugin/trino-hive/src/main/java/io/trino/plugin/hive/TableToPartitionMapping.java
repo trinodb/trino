@@ -32,12 +32,12 @@ public class TableToPartitionMapping
 {
     public static TableToPartitionMapping empty()
     {
-        return new TableToPartitionMapping(Optional.empty(), ImmutableMap.of());
+        return new TableToPartitionMapping(Optional.empty(), ImmutableMap.of(), false);
     }
 
     public static TableToPartitionMapping mapColumnsByIndex(Map<Integer, HiveTypeName> columnCoercions)
     {
-        return new TableToPartitionMapping(Optional.empty(), columnCoercions);
+        return new TableToPartitionMapping(Optional.empty(), columnCoercions, false);
     }
 
     // Overhead of ImmutableMap is not accounted because of its complexity.
@@ -48,10 +48,13 @@ public class TableToPartitionMapping
     private final Optional<Map<Integer, Integer>> tableToPartitionColumns;
     private final Map<Integer, HiveTypeName> partitionColumnCoercions;
 
+    private final boolean nestedStructNameBasedMapping;
+
     @JsonCreator
     public TableToPartitionMapping(
             @JsonProperty("tableToPartitionColumns") Optional<Map<Integer, Integer>> tableToPartitionColumns,
-            @JsonProperty("partitionColumnCoercions") Map<Integer, HiveTypeName> partitionColumnCoercions)
+            @JsonProperty("partitionColumnCoercions") Map<Integer, HiveTypeName> partitionColumnCoercions,
+            @JsonProperty("nestedStructNameBasedMapping") boolean nestedStructNameBasedMapping)
     {
         if (tableToPartitionColumns.map(TableToPartitionMapping::isIdentityMapping).orElse(true)) {
             this.tableToPartitionColumns = Optional.empty();
@@ -60,6 +63,7 @@ public class TableToPartitionMapping
             this.tableToPartitionColumns = tableToPartitionColumns.map(ImmutableMap::copyOf);
         }
         this.partitionColumnCoercions = ImmutableMap.copyOf(requireNonNull(partitionColumnCoercions, "partitionColumnCoercions is null"));
+        this.nestedStructNameBasedMapping = nestedStructNameBasedMapping;
     }
 
     @VisibleForTesting
@@ -77,6 +81,11 @@ public class TableToPartitionMapping
     public Map<Integer, HiveTypeName> getPartitionColumnCoercions()
     {
         return partitionColumnCoercions;
+    }
+
+    @JsonProperty
+    public boolean getNestedStructNameBasedMapping(){
+        return nestedStructNameBasedMapping;
     }
 
     @JsonProperty
@@ -117,6 +126,7 @@ public class TableToPartitionMapping
         return toStringHelper(this)
                 .add("columnCoercions", partitionColumnCoercions)
                 .add("tableToPartitionColumns", tableToPartitionColumns)
+                .add("nestedStructNameBasedMapping", nestedStructNameBasedMapping)
                 .toString();
     }
 }

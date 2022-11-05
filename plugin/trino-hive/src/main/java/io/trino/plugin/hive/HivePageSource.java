@@ -154,7 +154,7 @@ public class HivePageSource
                 // 4. depends on get / not get: get toType.
                 HiveType fromType = columnMapping.getBaseTypeCoercionFrom().get().getHiveTypeForDereferences(dereferenceIndices).get();
                 HiveType toType = columnMapping.getHiveColumnHandle().getHiveType();
-                coercers.add(createCoercer(typeManager, fromType, toType));
+                coercers.add(createCoercer(typeManager, fromType, toType, columnMapping.isNestedStructNameBasedMapping()));
             }
             else {
                 coercers.add(Optional.empty());
@@ -298,7 +298,7 @@ public class HivePageSource
         return delegate;
     }
 
-    private static Optional<Function<Block, Block>> createCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType)
+    private static Optional<Function<Block, Block>> createCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, boolean nestedStructNameBasedMapping)
     {
         if (fromHiveType.equals(toHiveType)) {
             return Optional.empty();
@@ -357,18 +357,19 @@ public class HivePageSource
             return Optional.of(createRealToDecimalCoercer((DecimalType) toType));
         }
         if (isArrayType(fromType) && isArrayType(toType)) {
-            return Optional.of(new ListCoercer(typeManager, fromHiveType, toHiveType));
+            return Optional.of(new ListCoercer(typeManager, fromHiveType, toHiveType, nestedStructNameBasedMapping));
         }
         if (isMapType(fromType) && isMapType(toType)) {
-            return Optional.of(new MapCoercer(typeManager, fromHiveType, toHiveType));
+            return Optional.of(new MapCoercer(typeManager, fromHiveType, toHiveType, nestedStructNameBasedMapping));
         }
         if (isRowType(fromType) && isRowType(toType)) {
             if (fromHiveType.getCategory() == ObjectInspector.Category.UNION || toHiveType.getCategory() == ObjectInspector.Category.UNION) {
                 HiveType fromHiveTypeStruct = HiveType.toHiveType(fromType);
                 HiveType toHiveTypeStruct = HiveType.toHiveType(toType);
-                return Optional.of(new StructCoercer(typeManager, fromHiveTypeStruct, toHiveTypeStruct));
+                return Optional.of(new NameBasedStructCoercer(typeManager, fromHiveTypeStruct, toHiveTypeStruct));
             }
-            return Optional.of(new StructCoercer(typeManager, fromHiveType, toHiveType));
+            // todo: two kinds of struct coercer implementation:
+            return Optional.of(new NameBasedStructCoercer(typeManager, fromHiveType, toHiveType));
         }
 
         throw new TrinoException(NOT_SUPPORTED, format("Unsupported coercion from %s to %s", fromHiveType, toHiveType));
@@ -389,14 +390,14 @@ public class HivePageSource
     {
         private final Optional<Function<Block, Block>> elementCoercer;
 
-        public ListCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType)
+        public ListCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, boolean nestedStructNameBasedMapping)
         {
             requireNonNull(typeManager, "typeManager is null");
             requireNonNull(fromHiveType, "fromHiveType is null");
             requireNonNull(toHiveType, "toHiveType is null");
             HiveType fromElementHiveType = HiveType.valueOf(((ListTypeInfo) fromHiveType.getTypeInfo()).getListElementTypeInfo().getTypeName());
             HiveType toElementHiveType = HiveType.valueOf(((ListTypeInfo) toHiveType.getTypeInfo()).getListElementTypeInfo().getTypeName());
-            this.elementCoercer = createCoercer(typeManager, fromElementHiveType, toElementHiveType);
+            this.elementCoercer = createCoercer(typeManager, fromElementHiveType, toElementHiveType, nestedStructNameBasedMapping);
         }
 
         @Override
@@ -424,7 +425,7 @@ public class HivePageSource
         private final Optional<Function<Block, Block>> keyCoercer;
         private final Optional<Function<Block, Block>> valueCoercer;
 
-        public MapCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType)
+        public MapCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, boolean nestedStructNameBasedMapping)
         {
             requireNonNull(typeManager, "typeManager is null");
             requireNonNull(fromHiveType, "fromHiveType is null");
@@ -433,8 +434,8 @@ public class HivePageSource
             HiveType fromValueHiveType = HiveType.valueOf(((MapTypeInfo) fromHiveType.getTypeInfo()).getMapValueTypeInfo().getTypeName());
             HiveType toKeyHiveType = HiveType.valueOf(((MapTypeInfo) toHiveType.getTypeInfo()).getMapKeyTypeInfo().getTypeName());
             HiveType toValueHiveType = HiveType.valueOf(((MapTypeInfo) toHiveType.getTypeInfo()).getMapValueTypeInfo().getTypeName());
-            this.keyCoercer = createCoercer(typeManager, fromKeyHiveType, toKeyHiveType);
-            this.valueCoercer = createCoercer(typeManager, fromValueHiveType, toValueHiveType);
+            this.keyCoercer = createCoercer(typeManager, fromKeyHiveType, toKeyHiveType, nestedStructNameBasedMapping);
+            this.valueCoercer = createCoercer(typeManager, fromValueHiveType, toValueHiveType, nestedStructNameBasedMapping);
         }
 
         @Override
@@ -453,12 +454,12 @@ public class HivePageSource
         }
     }
 
-    private static class StructCoercer
+    private static class NameBasedStructCoercer
             implements Function<Block, Block>
     {
         private List<FieldConverter> fieldConverters;
 
-        public StructCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType)
+        public NameBasedStructCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType)
         {
             requireNonNull(typeManager, "typeManager is null");
             requireNonNull(fromHiveType, "fromHiveType is null");
@@ -485,7 +486,7 @@ public class HivePageSource
                             toFieldTypes.get(i).getType(typeManager).createBlockBuilder(null, 1).appendNull().build(), Optional.empty()));
                 }
                 else {
-                    fieldConverterBuilder.add(new FieldConverter(createCoercer(typeManager, fromFieldTypes.get(fromHiveTypeNameIndex), toFieldTypes.get(i)),
+                    fieldConverterBuilder.add(new FieldConverter(createCoercer(typeManager, fromFieldTypes.get(fromHiveTypeNameIndex), toFieldTypes.get(i), true),
                             null, Optional.of(fromHiveTypeNameIndex)));
                 }
             }

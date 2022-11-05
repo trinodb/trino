@@ -496,6 +496,7 @@ public class HiveCoercionRecordCursor
         private final BridgingRecordCursor bridgingRecordCursor;
         private final PageBuilder pageBuilder;
 
+        // todo: change
         public StructCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, BridgingRecordCursor bridgingRecordCursor)
         {
             requireNonNull(typeManager, "typeManager is null");
