@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.EntityKindAndName;
+import io.trino.spi.connector.EntityPrivilege;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.AccessDeniedException;
@@ -434,6 +436,27 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanRevokeTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, TrinoPrincipal revokee, boolean grantOption);
+
+    /**
+     * Check if identity is allowed to grant the specified privilege to the grantee on the specified entity.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanGrantEntityPrivilege(SecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal grantee, boolean grantOption);
+
+    /**
+     * Check if identity is allowed to deny the specified privilege to the grantee on the specified entity.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanDenyEntityPrivilege(SecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal grantee);
+
+    /**
+     * Check if identity is allowed to revoke the specified privilege on the specified entity from the revokee.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanRevokeEntityPrivilege(SecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal revokee, boolean grantOption);
 
     /**
      * Check if identity is allowed to set the specified system property.

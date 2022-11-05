@@ -58,6 +58,8 @@ import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.EntityKindAndName;
+import io.trino.spi.connector.EntityPrivilege;
 import io.trino.spi.connector.JoinApplicationResult;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
@@ -110,6 +112,7 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.UnaryOperator;
+import java.util.stream.Collectors;
 
 import static io.trino.tracing.ScopedSpan.scopedSpan;
 import static java.util.Objects.requireNonNull;
@@ -1204,6 +1207,39 @@ public class TracingMetadata
     }
 
     @Override
+    public Set<EntityPrivilege> getAllEntityKindPrivileges(String entityKind)
+    {
+        return delegate.getAllEntityKindPrivileges(entityKind);
+    }
+
+    @Override
+    public void grantEntityPrivileges(Session session, EntityKindAndName entity, Set<EntityPrivilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+    {
+        Span span = startSpan("grantEntityPrivileges", entity, privileges, grantee, grantOption);
+        try (var ignored = scopedSpan(span)) {
+            delegate.grantEntityPrivileges(session, entity, privileges, grantee, grantOption);
+        }
+    }
+
+    @Override
+    public void denyEntityPrivileges(Session session, EntityKindAndName entity, Set<EntityPrivilege> privileges, TrinoPrincipal grantee)
+    {
+        Span span = startSpan("denyEntityPrivileges", entity, privileges, grantee, false);
+        try (var ignored = scopedSpan(span)) {
+            delegate.denyEntityPrivileges(session, entity, privileges, grantee);
+        }
+    }
+
+    @Override
+    public void revokeEntityPrivileges(Session session, EntityKindAndName entity, Set<EntityPrivilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+    {
+        Span span = startSpan("revokeEntityPrivileges", entity, privileges, grantee, grantOption);
+        try (var ignored = scopedSpan(span)) {
+            delegate.revokeEntityPrivileges(session, entity, privileges, grantee, grantOption);
+        }
+    }
+
+    @Override
     public Collection<FunctionMetadata> listGlobalFunctions(Session session)
     {
         Span span = startSpan("listGlobalFunctions");
@@ -1583,5 +1619,30 @@ public class TracingMetadata
                 .setAttribute(TrinoAttributes.CATALOG, table.getCatalogName())
                 .setAttribute(TrinoAttributes.SCHEMA, table.getSchemaName())
                 .setAttribute(TrinoAttributes.FUNCTION, table.getFunctionName());
+    }
+
+    private Span startSpan(String methodName, EntityKindAndName entity, Set<EntityPrivilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+    {
+        Span span = startSpan(methodName);
+        if (span.isRecording()) {
+            String grant = String.format("%s-%s-%s-%s-%s%s",
+                    entity.entityKind(),
+                    entity.name(),
+                    grantee.getType(),
+                    grantee.getName(),
+                    privileges.stream().map(EntityPrivilege::name).collect(Collectors.joining("-")),
+                    grantOption ? "-grantOption" : "");
+            span.setAttribute(TrinoAttributes.PRIVILEGE_GRANT, grant);
+        }
+        return span;
+    }
+
+    private Span startSpan(String methodName, EntityKindAndName entity)
+    {
+        Span span = startSpan(methodName);
+        if (span.isRecording()) {
+            span.setAttribute(TrinoAttributes.ENTITY, String.format("%s-%s", entity.entityKind(), entity.name()));
+        }
+        return span;
     }
 }

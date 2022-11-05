@@ -41,6 +41,8 @@ import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
+import io.trino.spi.connector.EntityKindAndName;
+import io.trino.spi.connector.EntityPrivilege;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.SchemaFunctionName;
@@ -1012,6 +1014,36 @@ public class AccessControlManager
         systemAuthorizationCheck(control -> control.checkCanRevokeTablePrivilege(securityContext.toSystemSecurityContext(), privilege, tableName.asCatalogSchemaTableName(), revokee, grantOption));
 
         catalogAuthorizationCheck(tableName.getCatalogName(), securityContext, (control, context) -> control.checkCanRevokeTablePrivilege(context, privilege, tableName.asSchemaTableName(), revokee, grantOption));
+    }
+
+    @Override
+    public void checkCanGrantEntityPrivilege(SecurityContext securityContext, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal grantee, boolean grantOption)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(entity, "entity is null");
+        requireNonNull(privilege, "privilege is null");
+
+        systemAuthorizationCheck(control -> control.checkCanGrantEntityPrivilege(securityContext.toSystemSecurityContext(), privilege, entity, grantee, grantOption));
+    }
+
+    @Override
+    public void checkCanDenyEntityPrivilege(SecurityContext securityContext, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal grantee)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(entity, "entity is null");
+        requireNonNull(privilege, "privilege is null");
+
+        systemAuthorizationCheck(control -> control.checkCanDenyEntityPrivilege(securityContext.toSystemSecurityContext(), privilege, entity, grantee));
+    }
+
+    @Override
+    public void checkCanRevokeEntityPrivilege(SecurityContext securityContext, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal revokee, boolean grantOption)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(entity, "entity is null");
+        requireNonNull(privilege, "privilege is null");
+
+        systemAuthorizationCheck(control -> control.checkCanRevokeEntityPrivilege(securityContext.toSystemSecurityContext(), privilege, entity, revokee, grantOption));
     }
 
     @Override

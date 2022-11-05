@@ -69,6 +69,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FetchFirst;
 import io.trino.sql.tree.FunctionSpecification;
 import io.trino.sql.tree.Grant;
+import io.trino.sql.tree.GrantObject;
 import io.trino.sql.tree.GrantRoles;
 import io.trino.sql.tree.GrantorSpecification;
 import io.trino.sql.tree.Identifier;
@@ -2148,15 +2149,16 @@ public final class SqlFormatter
         {
             builder.append("GRANT ");
 
-            builder.append(node.getPrivileges()
-                    .map(privileges -> join(", ", privileges))
-                    .orElse("ALL PRIVILEGES"));
-
-            builder.append(" ON ");
-            node.getType().ifPresent(type -> builder
-                    .append(type.name())
-                    .append(' '));
-            builder.append(formatName(node.getName()))
+            if (node.getPrivileges().isEmpty()) {
+                builder.append("ALL PRIVILEGES");
+            }
+            else {
+                builder.append(node.getPrivileges()
+                        .map(privileges -> join(", ", privileges))
+                        .orElseThrow());
+            }
+            builder.append(" ON ")
+                    .append(formatGrantScope(node.getGrantObject()))
                     .append(" TO ")
                     .append(formatPrincipal(node.getGrantee()));
             if (node.isWithGrantOption()) {
@@ -2178,12 +2180,8 @@ public final class SqlFormatter
                 builder.append("ALL PRIVILEGES");
             }
 
-            builder.append(" ON ");
-            if (node.getType().isPresent()) {
-                builder.append(node.getType().get().name());
-                builder.append(" ");
-            }
-            builder.append(formatName(node.getName()))
+            builder.append(" ON ")
+                    .append(formatGrantScope(node.getGrantObject()))
                     .append(" TO ")
                     .append(formatPrincipal(node.getGrantee()));
 
@@ -2199,15 +2197,17 @@ public final class SqlFormatter
                 builder.append("GRANT OPTION FOR ");
             }
 
-            builder.append(node.getPrivileges()
-                    .map(privileges -> join(", ", privileges))
-                    .orElse("ALL PRIVILEGES"));
+            if (node.getPrivileges().isEmpty()) {
+                builder.append("ALL PRIVILEGES");
+            }
+            else {
+                builder.append(node.getPrivileges()
+                        .map(privileges -> join(", ", privileges))
+                        .orElseThrow());
+            }
 
-            builder.append(" ON ");
-            node.getType().ifPresent(type -> builder
-                    .append(type.name())
-                    .append(' '));
-            builder.append(formatName(node.getName()))
+            builder.append(" ON ")
+                    .append(formatGrantScope(node.getGrantObject()))
                     .append(" FROM ")
                     .append(formatPrincipal(node.getGrantee()));
 
@@ -2219,13 +2219,8 @@ public final class SqlFormatter
         {
             builder.append("SHOW GRANTS ");
 
-            node.getTableName().ifPresent(tableName -> {
-                builder.append("ON ");
-                if (node.getTable()) {
-                    builder.append("TABLE ");
-                }
-                builder.append(formatName(tableName));
-            });
+            node.getGrantObject().ifPresent(scope -> builder.append("ON ")
+                    .append(formatGrantScope(scope)));
 
             return null;
         }
@@ -2633,5 +2628,12 @@ public final class SqlFormatter
                     .append(formattedColumns)
                     .append(')');
         }
+    }
+
+    private static String formatGrantScope(GrantObject grantObject)
+    {
+        return String.format("%s%s",
+                grantObject.getEntityKind().isPresent() ? grantObject.getEntityKind().get() + " " : "",
+                formatName(grantObject.getName()));
     }
 }

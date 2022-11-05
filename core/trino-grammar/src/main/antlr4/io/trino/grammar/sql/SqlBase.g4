@@ -122,34 +122,34 @@ statement
         (IN catalog=identifier)?                                       #createRole
     | DROP ROLE name=identifier (IN catalog=identifier)?               #dropRole
     | GRANT
-        roles
+        privilegeOrRole (',' privilegeOrRole)*
         TO principal (',' principal)*
         (WITH ADMIN OPTION)?
         (GRANTED BY grantor)?
         (IN catalog=identifier)?                                       #grantRoles
+    | GRANT
+        ((privilegeOrRole (',' privilegeOrRole)*) | ALL PRIVILEGES)
+        ON grantObject
+        TO principal
+        (WITH GRANT OPTION)?                                           #grantPrivileges
     | REVOKE
         (ADMIN OPTION FOR)?
-        roles
+        privilegeOrRole (',' privilegeOrRole)*
         FROM principal (',' principal)*
         (GRANTED BY grantor)?
         (IN catalog=identifier)?                                       #revokeRoles
-    | SET ROLE (ALL | NONE | role=identifier)
-        (IN catalog=identifier)?                                       #setRole
-    | GRANT
-        (privilege (',' privilege)* | ALL PRIVILEGES)
-        ON (SCHEMA | TABLE)? qualifiedName
-        TO grantee=principal
-        (WITH GRANT OPTION)?                                           #grant
-    | DENY
-        (privilege (',' privilege)* | ALL PRIVILEGES)
-        ON (SCHEMA | TABLE)? qualifiedName
-        TO grantee=principal                                           #deny
     | REVOKE
         (GRANT OPTION FOR)?
+        ((privilegeOrRole (',' privilegeOrRole)*) | ALL PRIVILEGES)
+        ON grantObject
+        FROM grantee=principal                                         #revokePrivileges
+    | DENY
         (privilege (',' privilege)* | ALL PRIVILEGES)
-        ON (SCHEMA | TABLE)? qualifiedName
-        FROM grantee=principal                                         #revoke
-    | SHOW GRANTS (ON TABLE? qualifiedName)?                           #showGrants
+        ON grantObject
+        TO grantee=principal                                           #deny
+    | SET ROLE (ALL | NONE | role=identifier)
+        (IN catalog=identifier)?                                       #setRole
+    | SHOW GRANTS (ON grantObject)?                                    #showGrants
     | EXPLAIN ('(' explainOption (',' explainOption)* ')')? statement  #explain
     | EXPLAIN ANALYZE VERBOSE? statement                               #explainAnalyze
     | SHOW CREATE TABLE qualifiedName                                  #showCreateTable
@@ -918,7 +918,15 @@ sqlStatementList
     ;
 
 privilege
-    : CREATE | SELECT | DELETE | INSERT | UPDATE
+    : CREATE | SELECT | DELETE | INSERT | UPDATE | identifier
+    ;
+
+entityKind
+    : TABLE | SCHEMA | identifier
+    ;
+
+grantObject
+    : entityKind? qualifiedName
     ;
 
 qualifiedName
@@ -948,6 +956,10 @@ principal
 
 roles
     : identifier (',' identifier)*
+    ;
+
+privilegeOrRole
+    : CREATE | SELECT | DELETE | INSERT | UPDATE | identifier
     ;
 
 identifier

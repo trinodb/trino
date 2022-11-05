@@ -20,41 +20,36 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.util.Objects.requireNonNull;
 
 public class ShowGrants
         extends Statement
 {
-    private final boolean table;
-    private final Optional<QualifiedName> tableName;
+    private final Optional<GrantObject> grantObject;
 
-    public ShowGrants(boolean table, Optional<QualifiedName> tableName)
+    public ShowGrants(Optional<GrantObject> grantObject)
     {
-        this(Optional.empty(), table, tableName);
+        this(Optional.empty(), grantObject);
     }
 
-    public ShowGrants(NodeLocation location, boolean table, Optional<QualifiedName> tableName)
+    public ShowGrants(NodeLocation location, Optional<GrantObject> grantObject)
     {
-        this(Optional.of(location), table, tableName);
+        this(Optional.of(location), grantObject);
     }
 
-    public ShowGrants(Optional<NodeLocation> location, boolean table, Optional<QualifiedName> tableName)
+    public ShowGrants(Optional<NodeLocation> location, Optional<GrantObject> grantObject)
     {
         super(location);
-        requireNonNull(tableName, "tableName is null");
-
-        this.table = table;
-        this.tableName = tableName;
+        this.grantObject = grantObject == null ? Optional.empty() : grantObject;
     }
 
-    public boolean getTable()
+    public Optional<String> getEntityKind()
     {
-        return table;
+        return grantObject.flatMap(scope -> scope.getEntityKind());
     }
 
-    public Optional<QualifiedName> getTableName()
+    public Optional<GrantObject> getGrantObject()
     {
-        return tableName;
+        return grantObject;
     }
 
     @Override
@@ -72,7 +67,7 @@ public class ShowGrants
     @Override
     public int hashCode()
     {
-        return Objects.hash(table, tableName);
+        return grantObject.hashCode();
     }
 
     @Override
@@ -85,16 +80,14 @@ public class ShowGrants
             return false;
         }
         ShowGrants o = (ShowGrants) obj;
-        return Objects.equals(table, o.table) &&
-                Objects.equals(tableName, o.tableName);
+        return Objects.equals(grantObject, o.grantObject);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("table", table)
-                .add("tableName", tableName)
+                .add("grantScope", grantObject)
                 .toString();
     }
 }

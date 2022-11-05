@@ -62,4 +62,6 @@ public final class TrinoAttributes
     public static final AttributeKey<String> EVENT_STATE = stringKey("state");
 
     public static final AttributeKey<String> FAILURE_MESSAGE = stringKey("failure");
+    public static final AttributeKey<String> PRIVILEGE_GRANT = stringKey("grant");
+    public static final AttributeKey<String> ENTITY = stringKey("entity");
 }

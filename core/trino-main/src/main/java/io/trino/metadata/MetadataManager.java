@@ -61,6 +61,8 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.EntityKindAndName;
+import io.trino.spi.connector.EntityPrivilege;
 import io.trino.spi.connector.JoinApplicationResult;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
@@ -2400,6 +2402,31 @@ public final class MetadataManager
             }
         }
         return ImmutableList.copyOf(grantInfos.build());
+    }
+
+    @Override
+    public Set<EntityPrivilege> getAllEntityKindPrivileges(String entityKind)
+    {
+        requireNonNull(entityKind, "entityKind is null");
+        return systemSecurityMetadata.getAllEntityKindPrivileges(entityKind);
+    }
+
+    @Override
+    public void grantEntityPrivileges(Session session, EntityKindAndName entity, Set<EntityPrivilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+    {
+        systemSecurityMetadata.grantEntityPrivileges(session, entity, privileges, grantee, grantOption);
+    }
+
+    @Override
+    public void denyEntityPrivileges(Session session, EntityKindAndName entity, Set<EntityPrivilege> privileges, TrinoPrincipal grantee)
+    {
+        systemSecurityMetadata.denyEntityPrivileges(session, entity, privileges, grantee);
+    }
+
+    @Override
+    public void revokeEntityPrivileges(Session session, EntityKindAndName entity, Set<EntityPrivilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+    {
+        systemSecurityMetadata.revokeEntityPrivileges(session, entity, privileges, grantee, grantOption);
     }
 
     //
