@@ -100,8 +100,8 @@ public class JdbcModule
                 .to(Key.get(ConnectionFactory.class, StatsCollecting.class))
                 .in(Scopes.SINGLETON);
         install(conditionalModule(
-                BaseJdbcConfig.class,
-                BaseJdbcConfig::isReuseConnection,
+                QueryConfig.class,
+                QueryConfig::isReuseConnection,
                 new ReusableConnectionFactoryModule(),
                 innerBinder -> innerBinder.bind(ConnectionFactory.class).to(LazyConnectionFactory.class).in(Scopes.SINGLETON)));
 
