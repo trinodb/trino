@@ -44,7 +44,6 @@ public class BaseJdbcConfig
     private boolean cacheMissing;
     public static final long DEFAULT_METADATA_CACHE_SIZE = 10000;
     private long cacheMaximumSize = DEFAULT_METADATA_CACHE_SIZE;
-    private boolean reuseConnection = true;
 
     @NotNull
     // Some drivers match case insensitive in Driver.acceptURL
@@ -112,19 +111,6 @@ public class BaseJdbcConfig
     public BaseJdbcConfig setCacheMaximumSize(long cacheMaximumSize)
     {
         this.cacheMaximumSize = cacheMaximumSize;
-        return this;
-    }
-
-    public boolean isReuseConnection()
-    {
-        return reuseConnection;
-    }
-
-    @Config("query.reuse-connection")
-    @ConfigDescription("Enables reusing JDBC connection for metadata queries to data source within a single Trino query")
-    public BaseJdbcConfig setReuseConnection(boolean reuseConnection)
-    {
-        this.reuseConnection = reuseConnection;
         return this;
     }
 
