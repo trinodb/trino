@@ -41,8 +41,7 @@ public class TestBaseJdbcConfig
                 .setJdbcTypesMappedToVarchar("")
                 .setMetadataCacheTtl(ZERO)
                 .setCacheMissing(false)
-                .setCacheMaximumSize(10000)
-                .setReuseConnection(true));
+                .setCacheMaximumSize(10000));
     }
 
     @Test
@@ -54,7 +53,6 @@ public class TestBaseJdbcConfig
                 .put("metadata.cache-ttl", "1s")
                 .put("metadata.cache-missing", "true")
                 .put("metadata.cache-maximum-size", "5000")
-                .put("query.reuse-connection", "false")
                 .buildOrThrow();
 
         BaseJdbcConfig expected = new BaseJdbcConfig()
@@ -62,8 +60,7 @@ public class TestBaseJdbcConfig
                 .setJdbcTypesMappedToVarchar("mytype, struct_type1")
                 .setMetadataCacheTtl(new Duration(1, SECONDS))
                 .setCacheMissing(true)
-                .setCacheMaximumSize(5000)
-                .setReuseConnection(false);
+                .setCacheMaximumSize(5000);
 
         assertFullMapping(properties, expected);
 
