@@ -238,53 +238,60 @@ public class UnwrapCastInComparison
             Optional<Type.Range> sourceRange = sourceType.getRange();
             if (sourceRange.isPresent()) {
                 Object max = sourceRange.get().getMax();
-                Object maxInTargetType = coerce(max, sourceToTarget);
-
-                // NaN values of `right` are excluded at this point. Otherwise, NaN would be recognized as
-                // greater than source type upper bound, and incorrect expression might be derived.
-                int upperBoundComparison = compare(targetType, right, maxInTargetType);
-                if (upperBoundComparison > 0) {
-                    // larger than maximum representable value
-                    return switch (operator) {
-                        case EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> falseIfNotNull(cast.getExpression());
-                        case NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL -> trueIfNotNull(cast.getExpression());
-                        case IS_DISTINCT_FROM -> TRUE_LITERAL;
-                    };
+                Object maxInTargetType = null;
+                try {
+                    maxInTargetType = coerce(max, sourceToTarget);
                 }
-
-                if (upperBoundComparison == 0) {
-                    // equal to max representable value
-                    return switch (operator) {
-                        case GREATER_THAN -> falseIfNotNull(cast.getExpression());
-                        case GREATER_THAN_OR_EQUAL -> new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(session, max, sourceType));
-                        case LESS_THAN_OR_EQUAL -> trueIfNotNull(cast.getExpression());
-                        case LESS_THAN -> new ComparisonExpression(NOT_EQUAL, cast.getExpression(), literalEncoder.toExpression(session, max, sourceType));
-                        case EQUAL, NOT_EQUAL, IS_DISTINCT_FROM -> new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(session, max, sourceType));
-                    };
+                catch (RuntimeException e) {
+                    // Coercion may fail e.g. for out of range values, it's not guaranteed to be "saturated"
                 }
+                if (maxInTargetType != null) {
+                    // NaN values of `right` are excluded at this point. Otherwise, NaN would be recognized as
+                    // greater than source type upper bound, and incorrect expression might be derived.
+                    int upperBoundComparison = compare(targetType, right, maxInTargetType);
+                    if (upperBoundComparison > 0) {
+                        // larger than maximum representable value
+                        return switch (operator) {
+                            case EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> falseIfNotNull(cast.getExpression());
+                            case NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL -> trueIfNotNull(cast.getExpression());
+                            case IS_DISTINCT_FROM -> TRUE_LITERAL;
+                        };
+                    }
 
-                Object min = sourceRange.get().getMin();
-                Object minInTargetType = coerce(min, sourceToTarget);
+                    if (upperBoundComparison == 0) {
+                        // equal to max representable value
+                        return switch (operator) {
+                            case GREATER_THAN -> falseIfNotNull(cast.getExpression());
+                            case GREATER_THAN_OR_EQUAL -> new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(session, max, sourceType));
+                            case LESS_THAN_OR_EQUAL -> trueIfNotNull(cast.getExpression());
+                            case LESS_THAN -> new ComparisonExpression(NOT_EQUAL, cast.getExpression(), literalEncoder.toExpression(session, max, sourceType));
+                            case EQUAL, NOT_EQUAL, IS_DISTINCT_FROM -> new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(session, max, sourceType));
+                        };
+                    }
 
-                int lowerBoundComparison = compare(targetType, right, minInTargetType);
-                if (lowerBoundComparison < 0) {
-                    // smaller than minimum representable value
-                    return switch (operator) {
-                        case NOT_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> trueIfNotNull(cast.getExpression());
-                        case EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL -> falseIfNotNull(cast.getExpression());
-                        case IS_DISTINCT_FROM -> TRUE_LITERAL;
-                    };
-                }
+                    Object min = sourceRange.get().getMin();
+                    Object minInTargetType = coerce(min, sourceToTarget);
 
-                if (lowerBoundComparison == 0) {
-                    // equal to min representable value
-                    return switch (operator) {
-                        case LESS_THAN -> falseIfNotNull(cast.getExpression());
-                        case LESS_THAN_OR_EQUAL -> new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(session, min, sourceType));
-                        case GREATER_THAN_OR_EQUAL -> trueIfNotNull(cast.getExpression());
-                        case GREATER_THAN -> new ComparisonExpression(NOT_EQUAL, cast.getExpression(), literalEncoder.toExpression(session, min, sourceType));
-                        case EQUAL, NOT_EQUAL, IS_DISTINCT_FROM -> new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(session, min, sourceType));
-                    };
+                    int lowerBoundComparison = compare(targetType, right, minInTargetType);
+                    if (lowerBoundComparison < 0) {
+                        // smaller than minimum representable value
+                        return switch (operator) {
+                            case NOT_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> trueIfNotNull(cast.getExpression());
+                            case EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL -> falseIfNotNull(cast.getExpression());
+                            case IS_DISTINCT_FROM -> TRUE_LITERAL;
+                        };
+                    }
+
+                    if (lowerBoundComparison == 0) {
+                        // equal to min representable value
+                        return switch (operator) {
+                            case LESS_THAN -> falseIfNotNull(cast.getExpression());
+                            case LESS_THAN_OR_EQUAL -> new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(session, min, sourceType));
+                            case GREATER_THAN_OR_EQUAL -> trueIfNotNull(cast.getExpression());
+                            case GREATER_THAN -> new ComparisonExpression(NOT_EQUAL, cast.getExpression(), literalEncoder.toExpression(session, min, sourceType));
+                            case EQUAL, NOT_EQUAL, IS_DISTINCT_FROM -> new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(session, min, sourceType));
+                        };
+                    }
                 }
             }
 
