@@ -1125,15 +1125,10 @@ public abstract class BaseJdbcConnectorTest
                 .setSystemProperty("optimize_hash_generation", "false")
                 .build();
 
-        PlanMatchPattern partitionedJoinOverTableScans = node(JoinNode.class,
-                exchange(ExchangeNode.Scope.REMOTE, ExchangeNode.Type.REPARTITION,
-                        node(TableScanNode.class)),
-                exchange(ExchangeNode.Scope.LOCAL,
-                        exchange(ExchangeNode.Scope.REMOTE, ExchangeNode.Type.REPARTITION,
-                                node(TableScanNode.class))));
-
         assertThat(query(noJoinPushdown, "SELECT r.name, n.name FROM nation n JOIN region r ON n.regionkey = r.regionkey"))
-                .isNotFullyPushedDown(partitionedJoinOverTableScans);
+                .isNotFullyPushedDown(node(JoinNode.class,
+                        anyTree(node(TableScanNode.class)),
+                        anyTree(node(TableScanNode.class))));
     }
 
     /**
