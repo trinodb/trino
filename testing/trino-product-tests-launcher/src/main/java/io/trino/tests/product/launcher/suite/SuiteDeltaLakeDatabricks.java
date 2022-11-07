@@ -30,8 +30,6 @@ public abstract class SuiteDeltaLakeDatabricks
                 // AWS Glue does not support table renames
                 "io.trino.tests.product.deltalake.TestHiveAndDeltaLakeRedirect.testDeltaToHiveAlterTable",
                 "io.trino.tests.product.deltalake.TestHiveAndDeltaLakeRedirect.testHiveToDeltaAlterTable",
-                // TODO https://github.com/trinodb/trino/issues/13017
-                "io.trino.tests.product.deltalake.TestDeltaLakeDropTableCompatibility.testCreateManagedTableInDeltaDropTableInTrino"
         };
     }
 }

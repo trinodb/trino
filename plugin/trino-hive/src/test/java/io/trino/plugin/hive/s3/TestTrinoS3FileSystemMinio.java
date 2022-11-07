@@ -108,8 +108,7 @@ public class TestTrinoS3FileSystemMinio
 
             assertThat(listPaths(s3, testBucketName, "", true)).isEmpty();
 
-            assertThatThrownBy(() -> fs.delete(new Path(testBucketPath), false))
-                    .hasMessage("Directory %s is not empty".formatted(testBucketPath));
+            fs.delete(new Path(testBucketPath), false);
 
             assertThat(listPaths(s3, testBucketName, "", true)).isEmpty();
         }
@@ -164,8 +163,7 @@ public class TestTrinoS3FileSystemMinio
 
             assertTrue(fs.delete(new Path(testBucketPath + Path.SEPARATOR), true));
 
-            // TODO the entire bucket content should have been deleted
-            assertThat(listPaths(s3, testBucketName, "", true)).containsOnly("directory2/");
+            assertThat(listPaths(s3, testBucketName, "", true)).isEmpty();
         }
     }
 

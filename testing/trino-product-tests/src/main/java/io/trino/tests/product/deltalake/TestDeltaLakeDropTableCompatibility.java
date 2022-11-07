@@ -63,6 +63,7 @@ public class TestDeltaLakeDropTableCompatibility
                 {TRINO, DELTA, true},
                 {TRINO, DELTA, false},
                 {DELTA, TRINO, true},
+                {DELTA, TRINO, false},
                 {DELTA, DELTA, true},
                 {DELTA, DELTA, false},
         };
@@ -73,14 +74,6 @@ public class TestDeltaLakeDropTableCompatibility
     public void testDropTable(Engine creator, Engine dropper, boolean explicitLocation)
     {
         testDropTableAccuracy(creator, dropper, explicitLocation);
-    }
-
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testCreateManagedTableInDeltaDropTableInTrino()
-    {
-        //TODO Integrate this method into `engineConfigurations()` data provider method after dealing with https://github.com/trinodb/trino/issues/13017
-        testDropTableAccuracy(DELTA, TRINO, false);
     }
 
     private void testDropTableAccuracy(Engine creator, Engine dropper, boolean explicitLocation)

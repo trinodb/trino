@@ -124,6 +124,7 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -142,6 +143,7 @@ import static com.amazonaws.services.s3.model.StorageClass.DeepArchive;
 import static com.amazonaws.services.s3.model.StorageClass.Glacier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -238,6 +240,7 @@ public class TrinoS3FileSystem
     private static final MediaType DIRECTORY_MEDIA_TYPE = MediaType.create("application", "x-directory");
     private static final String S3_DEFAULT_ROLE_SESSION_NAME = "trino-session";
     public static final int DELETE_BATCH_SIZE = 1000;
+    private static final int DELETE_OBJECTS_BATCH_SIZE = 1000;
 
     private URI uri;
     private Path workingDirectory;
@@ -606,25 +609,81 @@ public class TrinoS3FileSystem
     public boolean delete(Path path, boolean recursive)
             throws IOException
     {
-        try {
-            if (!directory(path)) {
-                return deleteObject(keyFromPath(path));
+        String key = keyFromPath(path);
+        if (recursive) {
+            DeletePrefixResult deletePrefixResult;
+            try {
+                deletePrefixResult = deletePrefix(path);
+            }
+            catch (AmazonClientException e) {
+                throw new IOException("Failed to delete paths with the prefix path " + path, e);
+            }
+            if (deletePrefixResult == DeletePrefixResult.NO_KEYS_FOUND) {
+                // If the provided key is not a "directory" prefix, attempt to delete the object with the specified key
+                deleteObject(key);
+            }
+            else if (deletePrefixResult == DeletePrefixResult.DELETE_KEYS_FAILURE) {
+                return false;
+            }
+            deleteObject(key + DIRECTORY_SUFFIX);
+        }
+        else {
+            Iterator<ListObjectsV2Result> listingsIterator = listObjects(path, OptionalInt.of(2), true);
+            Iterator<String> objectKeysIterator = Iterators.concat(Iterators.transform(listingsIterator, TrinoS3FileSystem::keysFromRecursiveListing));
+            if (objectKeysIterator.hasNext()) {
+                String childKey = objectKeysIterator.next();
+                if (!Objects.equals(childKey, key + PATH_SEPARATOR) || objectKeysIterator.hasNext()) {
+                    throw new IOException("Directory " + path + " is not empty");
+                }
+                deleteObject(childKey);
+            }
+            else {
+                // Avoid deleting the bucket in case that the provided path points to the bucket root
+                if (!key.isEmpty()) {
+                    deleteObject(key);
+                }
+            }
+            deleteObject(key + DIRECTORY_SUFFIX);
+        }
+        return true;
+    }
+
+    private DeletePrefixResult deletePrefix(Path prefix)
+    {
+        String bucketName = getBucketName(uri);
+        Iterator<ListObjectsV2Result> listings = listObjects(prefix, OptionalInt.empty(), true);
+        Iterator<String> objectKeys = Iterators.concat(Iterators.transform(listings, TrinoS3FileSystem::keysFromRecursiveListing));
+        Iterator<List<String>> objectKeysBatches = Iterators.partition(objectKeys, DELETE_OBJECTS_BATCH_SIZE);
+        if (!objectKeysBatches.hasNext()) {
+            return DeletePrefixResult.NO_KEYS_FOUND;
+        }
+
+        boolean allKeysDeleted = true;
+        while (objectKeysBatches.hasNext()) {
+            String[] objectKeysBatch = objectKeysBatches.next().toArray(String[]::new);
+            try {
+                s3.deleteObjects(new DeleteObjectsRequest(bucketName)
+                        .withKeys(objectKeysBatch)
+                        .withRequesterPays(requesterPaysEnabled)
+                        .withQuiet(true));
+            }
+            catch (AmazonS3Exception e) {
+                log.debug(e, "Failed to delete objects from the bucket %s under the prefix '%s'", bucketName, prefix);
+                allKeysDeleted = false;
             }
         }
-        catch (FileNotFoundException e) {
-            return false;
-        }
 
-        if (!recursive) {
-            throw new IOException("Directory " + path + " is not empty");
-        }
+        return allKeysDeleted ? DeletePrefixResult.ALL_KEYS_DELETED : DeletePrefixResult.DELETE_KEYS_FAILURE;
+    }
 
-        for (FileStatus file : listStatus(path)) {
-            delete(file.getPath(), true);
-        }
-        deleteObject(keyFromPath(path) + DIRECTORY_SUFFIX);
+    @VisibleForTesting
+    static Iterator<String> keysFromRecursiveListing(ListObjectsV2Result listing)
+    {
+        checkState(
+                listing.getCommonPrefixes() == null || listing.getCommonPrefixes().isEmpty(),
+                "No common prefixes should be present when listing without a path delimiter");
 
-        return true;
+        return Iterators.transform(listing.getObjectSummaries().iterator(), S3ObjectSummary::getKey);
     }
 
     private boolean directory(Path path)
@@ -1905,5 +1964,12 @@ public class TrinoS3FileSystem
         @SuppressWarnings("deprecation")
         byte[] md5 = md5().hashBytes(data, offset, length).asBytes();
         return Base64.getEncoder().encodeToString(md5);
+    }
+
+    private enum DeletePrefixResult
+    {
+        NO_KEYS_FOUND,
+        ALL_KEYS_DELETED,
+        DELETE_KEYS_FAILURE
     }
 }
