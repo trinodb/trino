@@ -77,6 +77,7 @@ public class TestSqlServerConnectorTest
 
         // there should be enough rows in source table to minimal logging be enabled. `nation` table is too small.
         assertQuerySucceeds(session, format("CREATE TABLE %s as SELECT * FROM tpch.tiny.customer", table));
+        assertQuery("SELECT * FROM " + table, "SELECT * FROM customer");
 
         // check whether minimal logging was applied.
         // Unlike fully logged operations, which use the transaction log to keep track of every row change,
@@ -107,6 +108,7 @@ public class TestSqlServerConnectorTest
 
         // there should be enough rows in source table to minimal logging be enabled. `nation` table is too small.
         assertQuerySucceeds(session, format("INSERT INTO %s SELECT * FROM tpch.tiny.customer", table));
+        assertQuery("SELECT * FROM " + table, "SELECT * FROM customer");
 
         // check whether minimal logging was applied.
         // Unlike fully logged operations, which use the transaction log to keep track of every row change,
