@@ -1865,11 +1865,6 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testTargetMaxFileSize()
     {
-        testTargetMaxFileSize(3);
-    }
-
-    protected void testTargetMaxFileSize(int expectedTableWriters)
-    {
         // We use TEXTFILE in this test because is has a very consistent and predictable size
         @Language("SQL") String createTableSql = "CREATE TABLE test_max_file_size WITH (format = 'TEXTFILE') AS SELECT * FROM tpch.sf1.lineitem LIMIT 1000000";
         @Language("SQL") String selectFileInfo = "SELECT distinct \"$path\", \"$file_size\" FROM test_max_file_size";
@@ -1878,11 +1873,12 @@ public abstract class BaseHiveConnectorTest
         Session session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
                 .setSystemProperty("scale_writers", "false")
+                .setSystemProperty("redistribute_writes", "false")
                 // task scale writers should be disabled since we want to write with a single task writer
                 .setSystemProperty("task_scale_writers_enabled", "false")
                 .build();
         assertUpdate(session, createTableSql, 1000000);
-        assertThat(computeActual(selectFileInfo).getRowCount()).isEqualTo(expectedTableWriters);
+        assertThat(computeActual(selectFileInfo).getRowCount()).isEqualTo(1);
         assertUpdate("DROP TABLE test_max_file_size");
 
         // Write table with small limit and verify we get multiple files per node near the expected size
@@ -1897,7 +1893,7 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate(session, createTableSql, 1000000);
         MaterializedResult result = computeActual(selectFileInfo);
-        assertThat(result.getRowCount()).isGreaterThan(expectedTableWriters);
+        assertThat(result.getRowCount()).isGreaterThan(1);
         for (MaterializedRow row : result) {
             // allow up to a larger delta due to the very small max size and the relatively large writer chunk size
             assertThat((Long) row.getField(1)).isLessThan(maxSize.toBytes() * 3);
@@ -1908,11 +1904,6 @@ public abstract class BaseHiveConnectorTest
 
     @Test
     public void testTargetMaxFileSizePartitioned()
-    {
-        testTargetMaxFileSizePartitioned(3);
-    }
-
-    protected void testTargetMaxFileSizePartitioned(int expectedTableWriters)
     {
         // We use TEXTFILE in this test because is has a very consistent and predictable size
         @Language("SQL") String createTableSql = "" +
@@ -1928,9 +1919,10 @@ public abstract class BaseHiveConnectorTest
                 // task scale writers should be disabled since we want to write a single file
                 .setSystemProperty("task_scale_writers_enabled", "false")
                 .setSystemProperty("scale_writers", "false")
+                .setSystemProperty("redistribute_writes", "false")
                 .build();
         assertUpdate(session, createTableSql, 1000000);
-        assertThat(computeActual(selectFileInfo).getRowCount()).isEqualTo(expectedTableWriters * 3);
+        assertThat(computeActual(selectFileInfo).getRowCount()).isEqualTo(3);
         assertUpdate("DROP TABLE test_max_file_size_partitioned");
 
         // Write table with small limit and verify we get multiple files per node near the expected size
@@ -1946,7 +1938,7 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate(session, createTableSql, 1000000);
         MaterializedResult result = computeActual(selectFileInfo);
-        assertThat(result.getRowCount()).isGreaterThan(expectedTableWriters * 3);
+        assertThat(result.getRowCount()).isGreaterThan(3);
         for (MaterializedRow row : result) {
             // allow up to a larger delta due to the very small max size and the relatively large writer chunk size
             assertThat((Long) row.getField(1)).isLessThan(maxSize.toBytes() * 3);

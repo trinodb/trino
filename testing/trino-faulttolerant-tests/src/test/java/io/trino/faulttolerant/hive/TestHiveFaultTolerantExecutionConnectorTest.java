@@ -71,18 +71,6 @@ public class TestHiveFaultTolerantExecutionConnectorTest
     }
 
     @Override
-    public void testTargetMaxFileSize()
-    {
-        testTargetMaxFileSize(9);
-    }
-
-    @Override
-    public void testTargetMaxFileSizePartitioned()
-    {
-        testTargetMaxFileSizePartitioned(9);
-    }
-
-    @Override
     public void testOptimize()
     {
         assertThatThrownBy(super::testOptimize)
