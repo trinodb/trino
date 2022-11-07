@@ -9,8 +9,11 @@
  */
 package com.starburstdata.presto.plugin.sqlserver;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.microsoft.sqlserver.jdbc.SQLServerException;
 import com.starburstdata.presto.license.LicenseManager;
+import io.airlift.log.Logger;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcSplit;
@@ -26,6 +29,8 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.predicate.TupleDomain;
+import net.jodah.failsafe.Failsafe;
+import net.jodah.failsafe.RetryPolicy;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.JdbiException;
@@ -51,6 +56,7 @@ import static java.util.stream.IntStream.rangeClosed;
 public class SqlServerSplitManager
         implements ConnectorSplitManager
 {
+    private static final Logger log = Logger.get(SqlServerSplitManager.class);
     private final ConnectionFactory connectionFactory;
 
     @Inject
@@ -92,7 +98,7 @@ public class SqlServerSplitManager
             return ImmutableList.of(new JdbcSplit(Optional.empty(), dynamicFilter));
         }
 
-        return listPartitionsAndBuildSplits(session, tableHandle, connectionsCount, dynamicFilter);
+        return listPartitionsAndBuildSplitsWithRetries(session, tableHandle, connectionsCount, dynamicFilter);
     }
 
     private List<JdbcSplit> listPartitionsAndBuildSplits(ConnectorSession session, JdbcTableHandle tableHandle, int maxSplits, TupleDomain<JdbcColumnHandle> dynamicFilter)
@@ -137,6 +143,26 @@ public class SqlServerSplitManager
         catch (JdbiException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
+    }
+
+    private List<JdbcSplit> listPartitionsAndBuildSplitsWithRetries(ConnectorSession session, JdbcTableHandle tableHandle, int maxSplits, TupleDomain<JdbcColumnHandle> dynamicFilter)
+    {
+        // DDL operations can take out locks against system tables causing the `getTableDataCompression` query to deadlock
+        final int maxAttemptCount = 3;
+        RetryPolicy<List<JdbcSplit>> retryPolicy = new RetryPolicy<List<JdbcSplit>>()
+                .withMaxAttempts(maxAttemptCount)
+                .handleIf(throwable ->
+                {
+                    final int deadlockErrorCode = 1205;
+                    Throwable rootCause = Throwables.getRootCause(throwable);
+                    return rootCause instanceof SQLServerException &&
+                            ((SQLServerException) rootCause).getSQLServerError().getErrorNumber() == deadlockErrorCode;
+                })
+                .onFailedAttempt(event -> log.warn(event.getLastFailure(), "Attempt %d of %d: error when listing partitions and creating splits for '%s'", event.getAttemptCount(), maxAttemptCount, tableHandle));
+
+        return Failsafe
+                .with(retryPolicy)
+                .get(() -> listPartitionsAndBuildSplits(session, tableHandle, maxSplits, dynamicFilter));
     }
 
     private static class PartitionSplitBuilder
