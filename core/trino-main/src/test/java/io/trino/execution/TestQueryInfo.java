@@ -122,6 +122,7 @@ public class TestQueryInfo
                 true,
                 Optional.of(new ResourceGroupId("groupId")),
                 Optional.of(QueryType.SELECT),
-                RetryPolicy.TASK);
+                RetryPolicy.TASK,
+                false);
     }
 }

@@ -199,6 +199,7 @@ public class TestQueryStateInfo
                 false,
                 Optional.empty(),
                 Optional.of(QueryType.SELECT),
-                RetryPolicy.NONE);
+                RetryPolicy.NONE,
+                false);
     }
 }

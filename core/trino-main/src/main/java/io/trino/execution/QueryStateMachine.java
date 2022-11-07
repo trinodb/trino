@@ -478,7 +478,8 @@ public class QueryStateMachine
                 finalInfo,
                 Optional.of(resourceGroup),
                 queryType,
-                getRetryPolicy(session));
+                getRetryPolicy(session),
+                false);
     }
 
     private QueryStats getQueryStats(Optional<StageInfo> rootStage, List<StageInfo> allStages)
@@ -1157,7 +1158,7 @@ public class QueryStateMachine
     public void pruneQueryInfo()
     {
         Optional<QueryInfo> finalInfo = finalQueryInfo.get();
-        if (finalInfo.isEmpty() || finalInfo.get().getOutputStage().isEmpty()) {
+        if (finalInfo.isEmpty() || finalInfo.get().getOutputStage().isEmpty() || finalInfo.get().isPruned()) {
             return;
         }
 
@@ -1205,7 +1206,8 @@ public class QueryStateMachine
                 queryInfo.isFinalQueryInfo(),
                 queryInfo.getResourceGroupId(),
                 queryInfo.getQueryType(),
-                queryInfo.getRetryPolicy());
+                queryInfo.getRetryPolicy(),
+                true);
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
     }
 
