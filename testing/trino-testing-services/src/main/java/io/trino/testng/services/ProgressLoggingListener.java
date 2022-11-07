@@ -140,7 +140,7 @@ public class ProgressLoggingListener
         if (parameters == null || parameters.length == 0) {
             return "";
         }
-        return format(" [%s]", Joiner.on(", ").join(parameters));
+        return format(" [%s]", Joiner.on(", ").useForNull("null").join(parameters));
     }
 
     private static String formatDuration(ITestResult testCase)

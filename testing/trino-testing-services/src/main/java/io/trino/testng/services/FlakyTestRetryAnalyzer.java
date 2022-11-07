@@ -14,6 +14,7 @@
 package io.trino.testng.services;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import io.airlift.log.Logger;
 import org.testng.IRetryAnalyzer;
 import org.testng.ITestNGMethod;
@@ -26,10 +27,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Throwables.getStackTraceAsString;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 
 public class FlakyTestRetryAnalyzer
@@ -114,7 +113,7 @@ public class FlakyTestRetryAnalyzer
                     "%s::%s(%s)",
                     actualTestClass,
                     method.getMethodName(),
-                    String.join(",", Stream.of(parameters).map(Object::toString).collect(toImmutableList())));
+                    Joiner.on(",").useForNull("null").join(parameters));
         }
         return format("%s::%s", actualTestClass, method.getMethodName());
     }
