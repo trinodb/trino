@@ -866,7 +866,7 @@ jobs:
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
           GCP_STORAGE_BUCKET: trino-ci-test-us-east
         run: |
-          testing/bin/ptl suite run \
+          exec testing/trino-product-tests-launcher/target/trino-product-tests-launcher-*-executable.jar suite run \
             --suite ${{ matrix.suite }} \
             --config config-${{ matrix.config }} \
             ${PTL_OPTS:-} \
