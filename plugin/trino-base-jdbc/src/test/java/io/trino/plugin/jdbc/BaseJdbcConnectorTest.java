@@ -1090,28 +1090,92 @@ public abstract class BaseJdbcConnectorTest
     public void testArithmeticPredicatePushdown()
     {
         if (!hasBehavior(SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN)) {
-            assertThat(query("SELECT shippriority FROM orders WHERE shippriority % 4 = 0")).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey + 1 = 7"))
+                    .isNotFullyPushedDown(FilterNode.class);
             return;
         }
-        assertThat(query("SELECT shippriority FROM orders WHERE shippriority % 4 = 0")).isFullyPushedDown();
+        // negate
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE -(nationkey) = -7"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE -(nationkey) = 0"))
+                .isFullyPushedDown();
 
-        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % nationkey = 2"))
-                .isFullyPushedDown()
-                .matches("VALUES (BIGINT '3', CAST('CANADA' AS varchar(25)), BIGINT '1')");
+        // additive identity
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey + 0 = nationkey"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey - 0 = nationkey"))
+                .isFullyPushedDown();
+        // additive inverse
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey + (-nationkey) = 0"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey - nationkey = 0"))
+                .isFullyPushedDown();
 
-        // some databases calculate remainder instead of modulus when one of the values is negative
-        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % -nationkey = 2"))
-                .isFullyPushedDown()
-                .matches("VALUES (BIGINT '3', CAST('CANADA' AS varchar(25)), BIGINT '1')");
+        // addition and subtraction of constant
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey + 1 = 7"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey - 1 = 7"))
+                .isFullyPushedDown();
 
-        assertThatThrownBy(() -> query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % 0 = 2"))
+        // addition and subtraction of columns
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey + regionkey = 26"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey - regionkey = 23"))
+                .isFullyPushedDown();
+        // addition and subtraction of columns ANDed with another predicate
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE regionkey = 0 AND nationkey + regionkey = 14"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE regionkey = 0 AND nationkey - regionkey = 16"))
+                .isFullyPushedDown();
+
+        // multiplication/division/modulo by zero
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey * 0 != 0"))
+                .isFullyPushedDown();
+        assertThatThrownBy(() -> query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey / 0 = 0"))
                 .satisfies(this::verifyDivisionByZeroFailure);
-
+        assertThatThrownBy(() -> query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey % 0 = 0"))
+                .satisfies(this::verifyDivisionByZeroFailure);
         // Expression that evaluates to 0 for some rows on RHS of modulus
+        assertThatThrownBy(() -> query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) / (regionkey - 1) = 2"))
+                .satisfies(this::verifyDivisionByZeroFailure);
         assertThatThrownBy(() -> query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % (regionkey - 1) = 2"))
                 .satisfies(this::verifyDivisionByZeroFailure);
 
-        // TODO add coverage for other arithmetic pushdowns https://github.com/trinodb/trino/issues/14808
+        // multiplicative/divisive identity
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey * 1 = nationkey"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey / 1 = nationkey"))
+                .isFullyPushedDown();
+        // multiplicative/divisive inverse
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND nationkey / nationkey = 1"))
+                .isFullyPushedDown();
+
+        // multiplication/division/modulus with a constant
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey * 2 = 40"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey / 2 = 12"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey % 20 = 7"))
+                .isFullyPushedDown();
+
+        // multiplication/division/modulus of columns
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey * regionkey = 40"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT orderkey, custkey FROM orders WHERE orderkey / custkey = 243"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT orderkey, custkey FROM orders WHERE orderkey % custkey = 1470"))
+                .isFullyPushedDown();
+        // multiplication/division/modulus of columns ANDed with another predicate
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE regionkey = 2 AND nationkey * regionkey = 16"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT orderkey, custkey FROM orders WHERE custkey = 223 AND orderkey / custkey = 243"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT orderkey, custkey FROM orders WHERE custkey = 1483 AND orderkey % custkey = 1470"))
+                .isFullyPushedDown();
+
+        // some databases calculate remainder instead of modulus when one of the values is negative
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % -nationkey = 2"))
+                .isFullyPushedDown();
     }
 
     protected void verifyDivisionByZeroFailure(Throwable e)
