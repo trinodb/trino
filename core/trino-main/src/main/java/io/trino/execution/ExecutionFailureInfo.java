@@ -147,7 +147,7 @@ public class ExecutionFailureInfo
         for (ExecutionFailureInfo suppressed : executionFailureInfo.getSuppressed()) {
             failure.addSuppressed(toException(suppressed));
         }
-        ImmutableList.Builder<StackTraceElement> stackTraceBuilder = ImmutableList.builder();
+        ImmutableList.Builder<StackTraceElement> stackTraceBuilder = ImmutableList.builderWithExpectedSize(executionFailureInfo.getStack().size());
         for (String stack : executionFailureInfo.getStack()) {
             stackTraceBuilder.add(toStackTraceElement(stack));
         }

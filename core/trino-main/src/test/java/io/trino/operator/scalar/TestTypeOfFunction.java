@@ -13,49 +13,100 @@
  */
 package io.trino.operator.scalar;
 
-import io.trino.spi.type.VarcharType;
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
+import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+
+@TestInstance(PER_CLASS)
 public class TestTypeOfFunction
-        extends AbstractTestFunctions
 {
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
+    {
+        assertions = new QueryAssertions();
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
+    }
+
     @Test
     public void testSimpleType()
     {
-        assertFunction("typeof(CAST(1 AS BIGINT))", VarcharType.VARCHAR, "bigint");
-        assertFunction("typeof(CAST(1 AS INTEGER))", VarcharType.VARCHAR, "integer");
-        assertFunction("typeof(CAST(1 AS VARCHAR))", VarcharType.VARCHAR, "varchar");
-        assertFunction("typeof(CAST(1 AS DOUBLE))", VarcharType.VARCHAR, "double");
-        assertFunction("typeof(123)", VarcharType.VARCHAR, "integer");
-        assertFunction("typeof('cat')", VarcharType.VARCHAR, "varchar(3)");
-        assertFunction("typeof(NULL)", VarcharType.VARCHAR, "unknown");
+        assertThat(assertions.function("typeof", "CAST(1 AS BIGINT)"))
+                .isEqualTo("bigint");
+        assertThat(assertions.function("typeof", "CAST(1 AS INTEGER)"))
+                .isEqualTo("integer");
+        assertThat(assertions.function("typeof", "CAST(1 AS VARCHAR)"))
+                .isEqualTo("varchar");
+        assertThat(assertions.function("typeof", "CAST(1 AS DOUBLE)"))
+                .isEqualTo("double");
+        assertThat(assertions.function("typeof", "123"))
+                .isEqualTo("integer");
+        assertThat(assertions.function("typeof", "'cat'"))
+                .isEqualTo("varchar(3)");
+        assertThat(assertions.function("typeof", "NULL"))
+                .isEqualTo("unknown");
     }
 
     @Test
     public void testParametricType()
     {
-        assertFunction("typeof(CAST(NULL AS VARCHAR(10)))", VarcharType.VARCHAR, "varchar(10)");
-        assertFunction("typeof(CAST(NULL AS DECIMAL(5,1)))", VarcharType.VARCHAR, "decimal(5,1)");
-        assertFunction("typeof(CAST(NULL AS DECIMAL(1)))", VarcharType.VARCHAR, "decimal(1,0)");
-        assertFunction("typeof(CAST(NULL AS DECIMAL))", VarcharType.VARCHAR, "decimal(38,0)");
-        assertFunction("typeof(CAST(NULL AS ARRAY(INTEGER)))", VarcharType.VARCHAR, "array(integer)");
-        assertFunction("typeof(CAST(NULL AS ARRAY(DECIMAL(5,1))))", VarcharType.VARCHAR, "array(decimal(5,1))");
+        assertThat(assertions.function("typeof", "CAST(NULL AS VARCHAR(10))"))
+                .isEqualTo("varchar(10)");
+        assertThat(assertions.function("typeof", "CAST(NULL AS DECIMAL(5,1))"))
+                .isEqualTo("decimal(5,1)");
+        assertThat(assertions.function("typeof", "CAST(NULL AS DECIMAL(1))"))
+                .isEqualTo("decimal(1,0)");
+        assertThat(assertions.function("typeof", "CAST(NULL AS DECIMAL)"))
+                .isEqualTo("decimal(38,0)");
+        assertThat(assertions.function("typeof", "CAST(NULL AS ARRAY(INTEGER))"))
+                .isEqualTo("array(integer)");
+        assertThat(assertions.function("typeof", "CAST(NULL AS ARRAY(DECIMAL(5,1)))"))
+                .isEqualTo("array(decimal(5,1))");
     }
 
     @Test
     public void testNestedType()
     {
-        assertFunction("typeof(CAST(NULL AS ARRAY(ARRAY(ARRAY(INTEGER)))))", VarcharType.VARCHAR, "array(array(array(integer)))");
-        assertFunction("typeof(CAST(NULL AS ARRAY(ARRAY(ARRAY(DECIMAL(5,1))))))", VarcharType.VARCHAR, "array(array(array(decimal(5,1))))");
+        assertThat(assertions.function("typeof", "CAST(NULL AS ARRAY(ARRAY(ARRAY(INTEGER))))"))
+                .isEqualTo("array(array(array(integer)))");
+        assertThat(assertions.function("typeof", "CAST(NULL AS ARRAY(ARRAY(ARRAY(DECIMAL(5,1)))))"))
+                .isEqualTo("array(array(array(decimal(5,1))))");
     }
 
     @Test
     public void testComplex()
     {
-        assertFunction("typeof(CONCAT('ala','ma','kota'))", VarcharType.VARCHAR, "varchar");
-        assertFunction("typeof(CONCAT(CONCAT('ala','ma','kota'), 'baz'))", VarcharType.VARCHAR, "varchar");
-        assertFunction("typeof(ARRAY [CAST(1 AS INTEGER),CAST(2 AS INTEGER),CAST(3 AS INTEGER)])", VarcharType.VARCHAR, "array(integer)");
-        assertFunction("typeof(sin(2))", VarcharType.VARCHAR, "double");
-        assertFunction("typeof(2+sin(2)+2.3)", VarcharType.VARCHAR, "double");
+        assertThat(assertions.function("typeof", "CONCAT('ala','ma','kota')"))
+                .isEqualTo("varchar");
+        assertThat(assertions.function("typeof", "CONCAT(CONCAT('ala','ma','kota'), 'baz')"))
+                .isEqualTo("varchar");
+        assertThat(assertions.function("typeof", "ARRAY [CAST(1 AS INTEGER),CAST(2 AS INTEGER),CAST(3 AS INTEGER)]"))
+                .isEqualTo("array(integer)");
+        assertThat(assertions.function("typeof", "sin(2)"))
+                .isEqualTo("double");
+        assertThat(assertions.function("typeof", "2+sin(2)+2.3"))
+                .isEqualTo("double");
+    }
+
+    @Test
+    public void testLambda()
+    {
+        assertTrinoExceptionThrownBy(() -> assertions.expression("typeof(x -> x)").evaluate())
+                .hasErrorCode(FUNCTION_NOT_FOUND)
+                .hasMessage("line 1:12: Unexpected parameters (<function>) for function typeof. Expected: typeof(t) T");
     }
 }

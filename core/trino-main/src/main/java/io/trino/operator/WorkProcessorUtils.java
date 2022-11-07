@@ -28,6 +28,7 @@ import java.util.PriorityQueue;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -110,7 +111,7 @@ public final class WorkProcessorUtils
     static <T> WorkProcessor<T> mergeSorted(Iterable<WorkProcessor<T>> processorIterable, Comparator<T> comparator)
     {
         requireNonNull(comparator, "comparator is null");
-        Iterator<WorkProcessor<T>> processorIterator = requireNonNull(processorIterable, "processorIterable is null").iterator();
+        Iterator<WorkProcessor<T>> processorIterator = processorIterable.iterator();
         checkArgument(processorIterator.hasNext(), "There must be at least one base processor");
         PriorityQueue<ElementAndProcessor<T>> queue = new PriorityQueue<>(2, comparing(ElementAndProcessor::getElement, comparator));
 
@@ -180,6 +181,24 @@ public final class WorkProcessorUtils
 
             return getNextState(processor);
         }
+    }
+
+    static <T> WorkProcessor<T> blocking(WorkProcessor<T> processor, Supplier<ListenableFuture<Void>> futureSupplier)
+    {
+        requireNonNull(processor, "processor is null");
+        requireNonNull(futureSupplier, "futureSupplier is null");
+        return processor.transform(element -> {
+            if (element == null) {
+                return TransformationState.finished();
+            }
+
+            ListenableFuture<Void> future = futureSupplier.get();
+            if (!future.isDone()) {
+                return TransformationState.blocked(future);
+            }
+
+            return TransformationState.ofResult(element);
+        });
     }
 
     static <T> WorkProcessor<T> processEntryMonitor(WorkProcessor<T> processor, Runnable monitor)

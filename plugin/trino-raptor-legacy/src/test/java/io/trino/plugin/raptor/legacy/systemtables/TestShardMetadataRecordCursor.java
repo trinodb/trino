@@ -133,7 +133,7 @@ public class TestShardMetadataRecordCursor
                         .put(1, Domain.create(ValueSet.ofRanges(lessThanOrEqual(createVarcharType(10), table)), true))
                         .put(8, Domain.create(ValueSet.ofRanges(lessThanOrEqual(BIGINT, date1.getMillis()), greaterThan(BIGINT, date2.getMillis())), true))
                         .put(9, Domain.create(ValueSet.ofRanges(lessThanOrEqual(BIGINT, date1.getMillis()), greaterThan(BIGINT, date2.getMillis())), true))
-                        .build());
+                        .buildOrThrow());
 
         List<MaterializedRow> actual;
         try (RecordCursor cursor = new ShardMetadataSystemTable(dbi).cursor(null, SESSION, tupleDomain)) {
@@ -163,9 +163,7 @@ public class TestShardMetadataRecordCursor
                 .build());
 
         TupleDomain<Integer> tupleDomain = TupleDomain.withColumnDomains(
-                ImmutableMap.<Integer, Domain>builder()
-                        .put(1, Domain.singleValue(createVarcharType(10), utf8Slice("orders")))
-                        .build());
+                ImmutableMap.of(1, Domain.singleValue(createVarcharType(10), utf8Slice("orders"))));
 
         MetadataDao metadataDao = dummyHandle.attach(MetadataDao.class);
         Set<Long> actual = ImmutableSet.copyOf(ShardMetadataRecordCursor.getTableIds(dbi, tupleDomain));
@@ -189,9 +187,7 @@ public class TestShardMetadataRecordCursor
                 .build());
 
         TupleDomain<Integer> tupleDomain = TupleDomain.withColumnDomains(
-                ImmutableMap.<Integer, Domain>builder()
-                        .put(0, Domain.singleValue(createVarcharType(10), utf8Slice("test")))
-                        .build());
+                ImmutableMap.of(0, Domain.singleValue(createVarcharType(10), utf8Slice("test"))));
 
         MetadataDao metadataDao = dummyHandle.attach(MetadataDao.class);
         Set<Long> actual = ImmutableSet.copyOf(ShardMetadataRecordCursor.getTableIds(dbi, tupleDomain));

@@ -74,7 +74,7 @@ public final class RaptorTableHandle
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
 
         this.constraint = requireNonNull(constraint, "constraint is null");
-        this.bucketAssignments = requireNonNull(bucketAssignments, "bucketAssignments is null").map(ImmutableList::copyOf);
+        this.bucketAssignments = bucketAssignments.map(ImmutableList::copyOf);
         this.delete = delete;
     }
 

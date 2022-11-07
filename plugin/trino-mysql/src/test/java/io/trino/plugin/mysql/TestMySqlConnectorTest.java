@@ -15,61 +15,36 @@ package io.trino.plugin.mysql;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.sql.SqlExecutor;
 import org.testng.annotations.Test;
 
 import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
-import static java.util.stream.Collectors.joining;
-import static java.util.stream.IntStream.range;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMySqlConnectorTest
         extends BaseMySqlConnectorTest
 {
-    private TestingMySqlServer mysqlServer;
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        mysqlServer = closeAfterClass(new TestingMySqlServer(false));
-        return createMySqlQueryRunner(mysqlServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        mySqlServer = closeAfterClass(new TestingMySqlServer(false));
+        return createMySqlQueryRunner(mySqlServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+    }
+
+    @Test
+    @Override
+    public void testDateYearOfEraPredicate()
+    {
+        // MySQL throws an exception instead of an empty result when the value is out of range
+        assertQuery("SELECT orderdate FROM orders WHERE orderdate = DATE '1997-09-14'", "VALUES DATE '1997-09-14'");
+        assertQueryFails(
+                "SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'",
+                "Incorrect DATE value: '-1996-09-14'");
     }
 
     @Override
-    protected SqlExecutor onRemoteDatabase()
+    protected void verifyColumnNameLengthFailurePermissible(Throwable e)
     {
-        return mysqlServer::execute;
-    }
-
-    /**
-     * This test helps to tune TupleDomain simplification threshold.
-     */
-    @Test
-    public void testNativeLargeIn()
-    {
-        // Using IN list of size 140_000 as bigger list causes error:
-        // "com.mysql.jdbc.PacketTooBigException: Packet for query is too large (XXX > 1048576).
-        //  You can change this value on the server by setting the max_allowed_packet' variable."
-        mysqlServer.execute("SELECT count(*) FROM tpch.orders WHERE " + getLongInClause(0, 140_000));
-    }
-
-    /**
-     * This test helps to tune TupleDomain simplification threshold.
-     */
-    @Test
-    public void testNativeMultipleInClauses()
-    {
-        String longInClauses = range(0, 14)
-                .mapToObj(value -> getLongInClause(value * 10_000, 10_000))
-                .collect(joining(" OR "));
-        mysqlServer.execute("SELECT count(*) FROM tpch.orders WHERE " + longInClauses);
-    }
-
-    private String getLongInClause(int start, int length)
-    {
-        String longValues = range(start, start + length)
-                .mapToObj(Integer::toString)
-                .collect(joining(", "));
-        return "orderkey IN (" + longValues + ")";
+        assertThat(e).hasMessageMatching("(Incorrect column name '.*'|Identifier name '.*' is too long)");
     }
 }

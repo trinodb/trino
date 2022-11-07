@@ -23,7 +23,10 @@ import io.trino.sql.tree.RenameView;
 import org.testng.annotations.Test;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -57,11 +60,11 @@ public class TestRenameViewTask
     public void testRenameViewOnTable()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(testSession, CATALOG_NAME, someTable(tableName), false);
+        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), false);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameView(asQualifiedName(tableName), qualifiedName("existing_table_new"))))
                 .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessage("View '%s' does not exist, but a table with that name exists. Did you mean ALTER TABLE %s RENAME ...?", tableName, tableName);
+                .hasMessage("View '%s' does not exist, but a table with that name exists. Did you mean ALTER TABLE %s RENAME TO ...?", tableName, tableName);
     }
 
     @Test
@@ -72,7 +75,44 @@ public class TestRenameViewTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameView(viewName, qualifiedName("existing_materialized_view_new"))))
                 .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessage("View '%s' does not exist, but a materialized view with that name exists. Did you mean ALTER MATERIALIZED VIEW catalog.schema.existing_materialized_view RENAME ...?", viewName);
+                .hasMessage("View '%s' does not exist, but a materialized view with that name exists. Did you mean ALTER MATERIALIZED VIEW test-catalog.schema.existing_materialized_view RENAME TO ...?", viewName);
+    }
+
+    @Test
+    public void testRenameViewTargetTableExists()
+    {
+        QualifiedName viewName = qualifiedName("existing_view");
+        metadata.createView(testSession, QualifiedObjectName.valueOf(viewName.toString()), someView(), false);
+        QualifiedObjectName tableName = qualifiedObjectName("existing_table");
+        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), false);
+
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameView(viewName, asQualifiedName(tableName))))
+                .hasErrorCode(TABLE_ALREADY_EXISTS)
+                .hasMessage("Target view '%s' does not exist, but a table with that name exists.", tableName);
+    }
+
+    @Test
+    public void testRenameViewTargetMaterializedViewExists()
+    {
+        QualifiedName viewName = qualifiedName("existing_view");
+        metadata.createView(testSession, QualifiedObjectName.valueOf(viewName.toString()), someView(), false);
+        QualifiedObjectName materializedViewName = qualifiedObjectName("existing_materialized_view");
+        metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(), false, false);
+
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameView(viewName, asQualifiedName(materializedViewName))))
+                .hasErrorCode(GENERIC_USER_ERROR)
+                .hasMessage("Target view '%s' does not exist, but a materialized view with that name exists.", materializedViewName);
+    }
+
+    @Test
+    public void testRenameViewTargetViewExists()
+    {
+        QualifiedName viewName = qualifiedName("existing_view");
+        metadata.createView(testSession, QualifiedObjectName.valueOf(viewName.toString()), someView(), false);
+
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameView(viewName, viewName)))
+                .hasErrorCode(GENERIC_USER_ERROR)
+                .hasMessage("Target view '%s' already exists", viewName);
     }
 
     private ListenableFuture<Void> executeRenameView(QualifiedName source, QualifiedName target)

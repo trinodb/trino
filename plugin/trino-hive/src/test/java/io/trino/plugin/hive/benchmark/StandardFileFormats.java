@@ -15,6 +15,8 @@ package io.trino.plugin.hive.benchmark;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.OutputStreamSliceOutput;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcWriter;
 import io.trino.orc.OrcWriterOptions;
@@ -25,7 +27,6 @@ import io.trino.parquet.writer.ParquetSchemaConverter;
 import io.trino.parquet.writer.ParquetWriter;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
@@ -47,6 +48,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
+import org.joda.time.DateTimeZone;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -55,6 +57,9 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.orc.OrcWriteValidation.OrcWriteValidationMode.BOTH;
+import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_INT96_TIMESTAMP_ENCODING;
+import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.createGenericHiveRecordCursorProvider;
 import static io.trino.plugin.hive.benchmark.AbstractFileFormat.createSchema;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
@@ -139,7 +144,7 @@ public final class StandardFileFormats
         @Override
         public Optional<HivePageSourceFactory> getHivePageSourceFactory(HdfsEnvironment hdfsEnvironment)
         {
-            return Optional.of(new OrcPageSourceFactory(new OrcReaderOptions(), hdfsEnvironment, new FileFormatDataSourceStats(), UTC));
+            return Optional.of(new OrcPageSourceFactory(new OrcReaderOptions(), hdfsEnvironment, HDFS_FILE_SYSTEM_FACTORY, new FileFormatDataSourceStats(), UTC));
         }
 
         @Override
@@ -170,7 +175,11 @@ public final class StandardFileFormats
         @Override
         public Optional<HivePageSourceFactory> getHivePageSourceFactory(HdfsEnvironment hdfsEnvironment)
         {
-            return Optional.of(new ParquetPageSourceFactory(hdfsEnvironment, new FileFormatDataSourceStats(), new ParquetReaderConfig(), new HiveConfig().setParquetTimeZone("UTC")));
+            return Optional.of(new ParquetPageSourceFactory(
+                    new HdfsFileSystemFactory(hdfsEnvironment),
+                    new FileFormatDataSourceStats(),
+                    new ParquetReaderConfig(),
+                    new HiveConfig()));
         }
 
         @Override
@@ -298,7 +307,11 @@ public final class StandardFileFormats
         public PrestoParquetFormatWriter(File targetFile, List<String> columnNames, List<Type> types, HiveCompressionCodec compressionCodec)
                 throws IOException
         {
-            ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(types, columnNames);
+            ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(
+                    types,
+                    columnNames,
+                    HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING,
+                    HIVE_PARQUET_USE_INT96_TIMESTAMP_ENCODING);
 
             writer = new ParquetWriter(
                     new FileOutputStream(targetFile),
@@ -306,7 +319,9 @@ public final class StandardFileFormats
                     schemaConverter.getPrimitiveTypes(),
                     ParquetWriterOptions.builder().build(),
                     compressionCodec.getParquetCompressionCodec(),
-                    "test-version");
+                    "test-version",
+                    Optional.of(DateTimeZone.getDefault()),
+                    Optional.empty());
         }
 
         @Override
@@ -414,7 +429,7 @@ public final class StandardFileFormats
                     columnNames,
                     fromHiveStorageFormat(format),
                     createSchema(format, columnNames, columnTypes),
-                    format.getEstimatedWriterSystemMemoryUsage(),
+                    format.getEstimatedWriterMemoryUsage(),
                     config,
                     TESTING_TYPE_MANAGER,
                     UTC,

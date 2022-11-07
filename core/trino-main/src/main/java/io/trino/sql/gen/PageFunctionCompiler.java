@@ -16,7 +16,6 @@ package io.trino.sql.gen;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -32,7 +31,8 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.jmx.CacheStatsMBean;
-import io.trino.metadata.Metadata;
+import io.trino.collect.cache.NonEvictableLoadingCache;
+import io.trino.metadata.FunctionManager;
 import io.trino.operator.Work;
 import io.trino.operator.project.ConstantPageProjection;
 import io.trino.operator.project.GeneratedPageProjection;
@@ -87,6 +87,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newArray;
 import static io.airlift.bytecode.expression.BytecodeExpressions.not;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.operator.project.PageFieldsToInputParametersRewriter.rewritePageFieldsToInputParameters;
 import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
 import static io.trino.sql.gen.BytecodeUtils.generateWrite;
@@ -100,29 +101,30 @@ import static java.util.Objects.requireNonNull;
 
 public class PageFunctionCompiler
 {
-    private final Metadata metadata;
+    private final FunctionManager functionManager;
 
-    private final LoadingCache<RowExpression, Supplier<PageProjection>> projectionCache;
-    private final LoadingCache<RowExpression, Supplier<PageFilter>> filterCache;
+    private final NonEvictableLoadingCache<RowExpression, Supplier<PageProjection>> projectionCache;
+    private final NonEvictableLoadingCache<RowExpression, Supplier<PageFilter>> filterCache;
 
     private final CacheStatsMBean projectionCacheStats;
     private final CacheStatsMBean filterCacheStats;
 
     @Inject
-    public PageFunctionCompiler(Metadata metadata, CompilerConfig config)
+    public PageFunctionCompiler(FunctionManager functionManager, CompilerConfig config)
     {
-        this(metadata, requireNonNull(config, "config is null").getExpressionCacheSize());
+        this(functionManager, config.getExpressionCacheSize());
     }
 
-    public PageFunctionCompiler(Metadata metadata, int expressionCacheSize)
+    public PageFunctionCompiler(FunctionManager functionManager, int expressionCacheSize)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
 
         if (expressionCacheSize > 0) {
-            projectionCache = CacheBuilder.newBuilder()
-                    .recordStats()
-                    .maximumSize(expressionCacheSize)
-                    .build(CacheLoader.from(projection -> compileProjectionInternal(projection, Optional.empty())));
+            projectionCache = buildNonEvictableCache(
+                    CacheBuilder.newBuilder()
+                            .recordStats()
+                            .maximumSize(expressionCacheSize),
+                    CacheLoader.from(projection -> compileProjectionInternal(projection, Optional.empty())));
             projectionCacheStats = new CacheStatsMBean(projectionCache);
         }
         else {
@@ -131,10 +133,11 @@ public class PageFunctionCompiler
         }
 
         if (expressionCacheSize > 0) {
-            filterCache = CacheBuilder.newBuilder()
-                    .recordStats()
-                    .maximumSize(expressionCacheSize)
-                    .build(CacheLoader.from(filter -> compileFilterInternal(filter, Optional.empty())));
+            filterCache = buildNonEvictableCache(
+                    CacheBuilder.newBuilder()
+                            .recordStats()
+                            .maximumSize(expressionCacheSize),
+                    CacheLoader.from(filter -> compileFilterInternal(filter, Optional.empty())));
             filterCacheStats = new CacheStatsMBean(filterCache);
         }
         else {
@@ -171,14 +174,12 @@ public class PageFunctionCompiler
     {
         requireNonNull(projection, "projection is null");
 
-        if (projection instanceof InputReferenceExpression) {
-            InputReferenceExpression input = (InputReferenceExpression) projection;
+        if (projection instanceof InputReferenceExpression input) {
             InputPageProjection projectionFunction = new InputPageProjection(input.getField(), input.getType());
             return () -> projectionFunction;
         }
 
-        if (projection instanceof ConstantExpression) {
-            ConstantExpression constant = (ConstantExpression) projection;
+        if (projection instanceof ConstantExpression constant) {
             ConstantPageProjection projectionFunction = new ConstantPageProjection(constant.getValue(), constant.getType());
             return () -> projectionFunction;
         }
@@ -352,7 +353,7 @@ public class PageFunctionCompiler
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(callSiteBinder),
-                metadata,
+                functionManager,
                 compiledLambdaMap);
 
         body.append(thisVariable.getField(blockBuilder))
@@ -530,7 +531,7 @@ public class PageFunctionCompiler
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(callSiteBinder),
-                metadata,
+                functionManager,
                 compiledLambdaMap);
 
         Variable result = scope.declareVariable(boolean.class, "result");
@@ -556,15 +557,15 @@ public class PageFunctionCompiler
                     lambdaExpression,
                     "lambda_" + counter,
                     containerClassDefinition,
-                    compiledLambdaMap.build(),
+                    compiledLambdaMap.buildOrThrow(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    metadata);
+                    functionManager);
             compiledLambdaMap.put(lambdaExpression, compiledLambda);
             counter++;
         }
 
-        return compiledLambdaMap.build();
+        return compiledLambdaMap.buildOrThrow();
     }
 
     private static void generateConstructor(
@@ -608,15 +609,6 @@ public class PageFunctionCompiler
     private static List<Integer> getInputChannels(RowExpression expression)
     {
         return getInputChannels(ImmutableList.of(expression));
-    }
-
-    private static List<Parameter> toBlockParameters(List<Integer> inputChannels)
-    {
-        ImmutableList.Builder<Parameter> parameters = ImmutableList.builder();
-        for (int channel : inputChannels) {
-            parameters.add(arg("block_" + channel, Block.class));
-        }
-        return parameters.build();
     }
 
     private static RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler(CallSiteBinder callSiteBinder)

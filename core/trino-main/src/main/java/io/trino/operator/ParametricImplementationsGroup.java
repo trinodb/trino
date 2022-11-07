@@ -15,8 +15,8 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.metadata.FunctionNullability;
-import io.trino.metadata.Signature;
+import io.trino.spi.function.FunctionNullability;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
@@ -28,7 +28,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.operator.ParametricFunctionHelpers.signatureWithName;
 import static io.trino.operator.annotations.FunctionsParserHelper.validateSignaturesCompatibility;
 import static java.util.Objects.requireNonNull;
 
@@ -126,7 +125,7 @@ public class ParametricImplementationsGroup<T extends ParametricImplementation>
                 genericImplementations.stream()
                         .map(implementation -> withAlias(alias, implementation))
                         .collect(toImmutableList()),
-                signatureWithName(alias, signature));
+                signature.withName(alias));
     }
 
     @SuppressWarnings("unchecked")
@@ -150,7 +149,7 @@ public class ParametricImplementationsGroup<T extends ParametricImplementation>
 
         public ParametricImplementationsGroup<T> build()
         {
-            Map<Signature, T> exactImplementations = this.exactImplementations.build();
+            Map<Signature, T> exactImplementations = this.exactImplementations.buildOrThrow();
             List<T> specializedImplementations = this.specializedImplementations.build();
             List<T> genericImplementations = this.genericImplementations.build();
             return new ParametricImplementationsGroup<>(

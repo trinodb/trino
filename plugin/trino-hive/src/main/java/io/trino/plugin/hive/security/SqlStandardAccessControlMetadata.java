@@ -16,7 +16,6 @@ package io.trino.plugin.hive.security;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.HiveViewNotSupportedException;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
@@ -25,20 +24,17 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.security.GrantInfo;
-import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.PrivilegeInfo;
 import io.trino.spi.security.RoleGrant;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.hive.security.SqlStandardAccessControl.ADMIN_ROLE_NAME;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
-import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -49,7 +45,6 @@ public class SqlStandardAccessControlMetadata
         implements AccessControlMetadata
 {
     private static final Set<String> RESERVED_ROLES = ImmutableSet.of("all", "default", "none");
-    private static final String PUBLIC_ROLE_NAME = "public";
 
     private final SqlStandardAccessControlMetadataMetastore metastore;
 
@@ -87,57 +82,6 @@ public class SqlStandardAccessControlMetadata
     }
 
     @Override
-    public Set<RoleGrant> listAllRoleGrants(ConnectorSession session, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit)
-    {
-        Set<String> actualRoles = roles.orElseGet(() -> metastore.listRoles());
-
-        // choose more efficient path
-        if (grantees.isPresent() && actualRoles.size() > grantees.get().size() * 2) {
-            // 2x because we check two grantee types (ROLE or USER)
-            return getRoleGrantsByGrantees(grantees.get(), limit);
-        }
-        return getRoleGrantsByRoles(actualRoles, limit);
-    }
-
-    private Set<RoleGrant> getRoleGrantsByGrantees(Set<String> grantees, OptionalLong limit)
-    {
-        ImmutableSet.Builder<RoleGrant> roleGrants = ImmutableSet.builder();
-        int count = 0;
-        for (String grantee : grantees) {
-            for (PrincipalType type : new PrincipalType[] {USER, ROLE}) {
-                if (limit.isPresent() && count >= limit.getAsLong()) {
-                    return roleGrants.build();
-                }
-                for (RoleGrant grant : metastore.listRoleGrants(new HivePrincipal(type, grantee))) {
-                    // Filter out the "public" role since it is not explicitly granted in Hive.
-                    if (PUBLIC_ROLE_NAME.equals(grant.getRoleName())) {
-                        continue;
-                    }
-                    count++;
-                    roleGrants.add(grant);
-                }
-            }
-        }
-        return roleGrants.build();
-    }
-
-    private Set<RoleGrant> getRoleGrantsByRoles(Set<String> roles, OptionalLong limit)
-    {
-        ImmutableSet.Builder<RoleGrant> roleGrants = ImmutableSet.builder();
-        int count = 0;
-        for (String role : roles) {
-            if (limit.isPresent() && count >= limit.getAsLong()) {
-                break;
-            }
-            for (RoleGrant grant : metastore.listGrantedPrincipals(role)) {
-                count++;
-                roleGrants.add(grant);
-            }
-        }
-        return roleGrants.build();
-    }
-
-    @Override
     public Set<RoleGrant> listRoleGrants(ConnectorSession session, HivePrincipal principal)
     {
         return ImmutableSet.copyOf(metastore.listRoleGrants(principal));
@@ -170,6 +114,12 @@ public class SqlStandardAccessControlMetadata
     }
 
     @Override
+    public Optional<HivePrincipal> getSchemaOwner(ConnectorSession session, String schemaName)
+    {
+        return metastore.getDatabaseOwner(schemaName);
+    }
+
+    @Override
     public void grantTablePrivileges(ConnectorSession session, SchemaTableName schemaTableName, Set<Privilege> privileges, HivePrincipal grantee, boolean grantOption)
     {
         String schemaName = schemaTableName.getSchemaName();
@@ -183,7 +133,6 @@ public class SqlStandardAccessControlMetadata
                 .collect(toImmutableSet());
 
         metastore.grantTablePrivileges(
-                new HiveIdentity(session),
                 schemaName,
                 tableName,
                 grantee,
@@ -208,7 +157,6 @@ public class SqlStandardAccessControlMetadata
                 .collect(toImmutableSet());
 
         metastore.revokeTablePrivileges(
-                new HiveIdentity(session),
                 schemaName,
                 tableName,
                 grantee,
@@ -228,7 +176,7 @@ public class SqlStandardAccessControlMetadata
         ImmutableList.Builder<GrantInfo> result = ImmutableList.builder();
         for (SchemaTableName tableName : tableNames) {
             try {
-                result.addAll(buildGrants(session, principals, isAdminRoleSet, tableName));
+                result.addAll(buildGrants(principals, isAdminRoleSet, tableName));
             }
             catch (TableNotFoundException e) {
                 // table disappeared during listing operation
@@ -240,22 +188,22 @@ public class SqlStandardAccessControlMetadata
         return result.build();
     }
 
-    private List<GrantInfo> buildGrants(ConnectorSession session, Set<HivePrincipal> principals, boolean isAdminRoleSet, SchemaTableName tableName)
+    private List<GrantInfo> buildGrants(Set<HivePrincipal> principals, boolean isAdminRoleSet, SchemaTableName tableName)
     {
         if (isAdminRoleSet) {
-            return buildGrants(session, tableName, Optional.empty());
+            return buildGrants(tableName, Optional.empty());
         }
         ImmutableList.Builder<GrantInfo> result = ImmutableList.builder();
         for (HivePrincipal grantee : principals) {
-            result.addAll(buildGrants(session, tableName, Optional.of(grantee)));
+            result.addAll(buildGrants(tableName, Optional.of(grantee)));
         }
         return result.build();
     }
 
-    private List<GrantInfo> buildGrants(ConnectorSession session, SchemaTableName tableName, Optional<HivePrincipal> principal)
+    private List<GrantInfo> buildGrants(SchemaTableName tableName, Optional<HivePrincipal> principal)
     {
         ImmutableList.Builder<GrantInfo> result = ImmutableList.builder();
-        Set<HivePrivilegeInfo> hivePrivileges = metastore.listTablePrivileges(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName(), principal);
+        Set<HivePrivilegeInfo> hivePrivileges = metastore.listTablePrivileges(tableName.getSchemaName(), tableName.getTableName(), principal);
         for (HivePrivilegeInfo hivePrivilege : hivePrivileges) {
             Set<PrivilegeInfo> prestoPrivileges = hivePrivilege.toPrivilegeInfo();
             for (PrivilegeInfo prestoPrivilege : prestoPrivileges) {

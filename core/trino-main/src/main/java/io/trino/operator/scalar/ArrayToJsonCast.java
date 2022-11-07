@@ -18,10 +18,11 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.SqlOperator;
+import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.block.Block;
-import io.trino.spi.function.OperatorType;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.TypeSignature;
 import io.trino.util.JsonUtil.JsonGeneratorWriter;
@@ -29,11 +30,11 @@ import io.trino.util.JsonUtil.JsonGeneratorWriter;
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 
-import static io.trino.metadata.Signature.castableToTypeParameter;
 import static io.trino.operator.scalar.JsonOperators.JSON_FACTORY;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.Failures.checkCondition;
@@ -42,35 +43,33 @@ import static io.trino.util.JsonUtil.createJsonGenerator;
 import static io.trino.util.Reflection.methodHandle;
 
 public class ArrayToJsonCast
-        extends SqlOperator
+        extends SqlScalarFunction
 {
-    public static final ArrayToJsonCast ARRAY_TO_JSON = new ArrayToJsonCast(false);
-    public static final ArrayToJsonCast LEGACY_ARRAY_TO_JSON = new ArrayToJsonCast(true);
+    public static final ArrayToJsonCast ARRAY_TO_JSON = new ArrayToJsonCast();
 
     private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayToJsonCast.class, "toJson", JsonGeneratorWriter.class, Block.class);
 
-    private final boolean legacyRowToJson;
-
-    private ArrayToJsonCast(boolean legacyRowToJson)
+    private ArrayToJsonCast()
     {
-        super(OperatorType.CAST,
-                ImmutableList.of(castableToTypeParameter("T", JSON.getTypeSignature())),
-                ImmutableList.of(),
-                JSON.getTypeSignature(),
-                ImmutableList.of(arrayType(new TypeSignature("T"))),
-                false);
-        this.legacyRowToJson = legacyRowToJson;
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .operatorType(CAST)
+                        .castableToTypeParameter("T", JSON.getTypeSignature())
+                        .returnType(JSON)
+                        .argumentType(arrayType(new TypeSignature("T")))
+                        .build())
+                .build());
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         ArrayType arrayType = (ArrayType) boundSignature.getArgumentTypes().get(0);
         checkCondition(canCastToJson(arrayType), INVALID_CAST_ARGUMENT, "Cannot cast %s to JSON", arrayType);
 
-        JsonGeneratorWriter writer = JsonGeneratorWriter.createJsonGeneratorWriter(arrayType.getElementType(), legacyRowToJson);
+        JsonGeneratorWriter writer = JsonGeneratorWriter.createJsonGeneratorWriter(arrayType.getElementType());
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(writer);
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),

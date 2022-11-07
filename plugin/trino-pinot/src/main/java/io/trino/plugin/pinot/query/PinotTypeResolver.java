@@ -15,19 +15,12 @@ package io.trino.plugin.pinot.query;
 
 import io.trino.plugin.pinot.PinotColumnHandle;
 import io.trino.plugin.pinot.PinotException;
+import io.trino.plugin.pinot.PinotTypeConverter;
 import io.trino.plugin.pinot.client.PinotClient;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.BigintType;
-import io.trino.spi.type.BooleanType;
-import io.trino.spi.type.DoubleType;
-import io.trino.spi.type.IntegerType;
-import io.trino.spi.type.RealType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.VarbinaryType;
-import io.trino.spi.type.VarcharType;
 import org.apache.pinot.common.request.context.ExpressionContext;
 import org.apache.pinot.core.operator.transform.TransformResultMetadata;
 import org.apache.pinot.core.operator.transform.function.LiteralTransformFunction;
@@ -42,18 +35,19 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_INVALID_PQL_GENERATED;
-import static io.trino.plugin.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class PinotTypeResolver
 {
+    private final PinotTypeConverter typeConverter;
     private final Map<String, DataSource> datasourceMap;
 
-    public PinotTypeResolver(PinotClient pinotClient, String pinotTableName)
+    public PinotTypeResolver(PinotClient pinotClient, PinotTypeConverter typeConverter, String pinotTableName)
     {
         requireNonNull(pinotClient, "pinotClient is null");
+        this.typeConverter = requireNonNull(typeConverter, "typeConverter is null");
         this.datasourceMap = getDataSourceMap(pinotClient, pinotTableName);
     }
 
@@ -71,7 +65,7 @@ public class PinotTypeResolver
         }
     }
 
-    public TransformResultMetadata resolveExpressionType(ExpressionContext expression, SchemaTableName schemaTableName, Map<String, ColumnHandle> columnHandles)
+    public Type resolveExpressionType(ExpressionContext expression, SchemaTableName schemaTableName, Map<String, ColumnHandle> columnHandles)
     {
         switch (expression.getType()) {
             case IDENTIFIER:
@@ -79,52 +73,14 @@ public class PinotTypeResolver
                 if (columnHandle == null) {
                     throw new ColumnNotFoundException(schemaTableName, expression.getIdentifier());
                 }
-                return fromTrinoType(columnHandle.getDataType());
+                return columnHandle.getDataType();
             case FUNCTION:
-                return TransformFunctionFactory.get(expression, datasourceMap).getResultMetadata();
+                return typeConverter.toTrinoType(TransformFunctionFactory.get(expression, datasourceMap).getResultMetadata());
             case LITERAL:
-                FieldSpec.DataType literalDataType = LiteralTransformFunction.inferLiteralDataType(new LiteralTransformFunction(expression.getLiteral()));
-                return new TransformResultMetadata(literalDataType, true, false);
+                FieldSpec.DataType literalDataType = new LiteralTransformFunction(expression.getLiteral()).getResultMetadata().getDataType();
+                return typeConverter.toTrinoType(new TransformResultMetadata(literalDataType, true, false));
             default:
                 throw new PinotException(PINOT_INVALID_PQL_GENERATED, Optional.empty(), format("Unsupported expression: '%s'", expression));
         }
-    }
-
-    public static TransformResultMetadata fromTrinoType(Type type)
-    {
-        if (type instanceof ArrayType) {
-            ArrayType arrayType = (ArrayType) type;
-            Type elementType = arrayType.getElementType();
-            return new TransformResultMetadata(fromPrimitiveTrinoType(elementType), false, false);
-        }
-        else {
-            return new TransformResultMetadata(fromPrimitiveTrinoType(type), true, false);
-        }
-    }
-
-    private static FieldSpec.DataType fromPrimitiveTrinoType(Type type)
-    {
-        if (type instanceof VarcharType) {
-            return FieldSpec.DataType.STRING;
-        }
-        if (type instanceof BigintType) {
-            return FieldSpec.DataType.LONG;
-        }
-        if (type instanceof IntegerType) {
-            return FieldSpec.DataType.INT;
-        }
-        if (type instanceof DoubleType) {
-            return FieldSpec.DataType.DOUBLE;
-        }
-        if (type instanceof RealType) {
-            return FieldSpec.DataType.FLOAT;
-        }
-        if (type instanceof BooleanType) {
-            return FieldSpec.DataType.BOOLEAN;
-        }
-        if (type instanceof VarbinaryType) {
-            return FieldSpec.DataType.BYTES;
-        }
-        throw new PinotException(PINOT_UNSUPPORTED_COLUMN_TYPE, Optional.empty(), "Unsupported column data type: " + type);
     }
 }

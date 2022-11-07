@@ -162,7 +162,7 @@ abstract class SimulationTask
         @Override
         public void schedule(TaskExecutor taskExecutor, int numSplits)
         {
-            ImmutableList.Builder<SimulationSplit> splits = ImmutableList.builder();
+            ImmutableList.Builder<SimulationSplit> splits = ImmutableList.builderWithExpectedSize(numSplits);
             for (int i = 0; i < numSplits; i++) {
                 splits.add(splitSpecification.instantiate(this));
             }

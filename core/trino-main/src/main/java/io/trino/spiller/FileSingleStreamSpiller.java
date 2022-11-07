@@ -20,7 +20,6 @@ import com.google.common.io.Closer;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -88,9 +87,7 @@ public class FileSingleStreamSpiller
         this.spillerStats = requireNonNull(spillerStats, "spillerStats is null");
         this.localSpillContext = spillContext.newLocalSpillContext();
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
-        if (requireNonNull(spillCipher, "spillCipher is null").isPresent()) {
-            closer.register(spillCipher.get()::close);
-        }
+        spillCipher.ifPresent(cipher -> closer.register(cipher::close));
         // HACK!
         // The writePages() method is called in a separate thread pool and it's possible that
         // these spiller thread can run concurrently with the close() method.
@@ -168,7 +165,7 @@ public class FileSingleStreamSpiller
 
         try {
             InputStream input = closer.register(targetFile.newInputStream());
-            Iterator<Page> pages = PagesSerdeUtil.readPages(serde, new InputStreamSliceInput(input, BUFFER_SIZE));
+            Iterator<Page> pages = PagesSerdeUtil.readPages(serde, input);
             return closeWhenExhausted(pages, input);
         }
         catch (IOException e) {

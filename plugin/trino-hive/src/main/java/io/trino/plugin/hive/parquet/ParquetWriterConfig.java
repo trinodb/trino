@@ -20,6 +20,9 @@ import io.airlift.units.DataSize;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import org.apache.parquet.hadoop.ParquetWriter;
 
+import javax.validation.constraints.DecimalMax;
+import javax.validation.constraints.DecimalMin;
+
 public class ParquetWriterConfig
 {
     private boolean parquetOptimizedWriterEnabled;
@@ -27,6 +30,7 @@ public class ParquetWriterConfig
     private DataSize blockSize = DataSize.ofBytes(ParquetWriter.DEFAULT_BLOCK_SIZE);
     private DataSize pageSize = DataSize.ofBytes(ParquetWriter.DEFAULT_PAGE_SIZE);
     private int batchSize = ParquetWriterOptions.DEFAULT_BATCH_SIZE;
+    private double validationPercentage = 5;
 
     public DataSize getBlockSize()
     {
@@ -59,22 +63,13 @@ public class ParquetWriterConfig
         return parquetOptimizedWriterEnabled;
     }
 
-    @Config("parquet.experimental-optimized-writer.enabled")
-    @LegacyConfig("hive.parquet.optimized-writer.enabled")
-    @ConfigDescription("Experimental: Enable optimized Parquet writer")
+    @Config("parquet.optimized-writer.enabled")
+    @LegacyConfig({"hive.parquet.optimized-writer.enabled", "parquet.experimental-optimized-writer.enabled"})
+    @ConfigDescription("Enable optimized Parquet writer")
     public ParquetWriterConfig setParquetOptimizedWriterEnabled(boolean parquetOptimizedWriterEnabled)
     {
         this.parquetOptimizedWriterEnabled = parquetOptimizedWriterEnabled;
         return this;
-    }
-
-    public ParquetWriterOptions toParquetWriterOptions()
-    {
-        return ParquetWriterOptions.builder()
-                .setMaxBlockSize(getBlockSize())
-                .setMaxPageSize(getPageSize())
-                .setBatchSize(getBatchSize())
-                .build();
     }
 
     @Config("parquet.writer.batch-size")
@@ -88,5 +83,20 @@ public class ParquetWriterConfig
     public int getBatchSize()
     {
         return batchSize;
+    }
+
+    @DecimalMin("0.0")
+    @DecimalMax("100.0")
+    public double getValidationPercentage()
+    {
+        return validationPercentage;
+    }
+
+    @Config("parquet.optimized-writer.validation-percentage")
+    @ConfigDescription("Percentage of parquet files to validate after write by re-reading the whole file")
+    public ParquetWriterConfig setValidationPercentage(double validationPercentage)
+    {
+        this.validationPercentage = validationPercentage;
+        return this;
     }
 }

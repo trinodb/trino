@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.kafka;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.BigintType;
@@ -21,9 +20,23 @@ import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.HEADERS_FIELD;
+import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.KEY_CORRUPT_FIELD;
+import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.KEY_LENGTH_FIELD;
+import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.MESSAGE_CORRUPT_FIELD;
+import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.MESSAGE_FIELD;
+import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.MESSAGE_LENGTH_FIELD;
+import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.OFFSET_TIMESTAMP_FIELD;
+import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.PARTITION_ID_FIELD;
+import static io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId.PARTITION_OFFSET_FIELD;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.TypeSignature.mapType;
@@ -31,70 +44,81 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 public class KafkaInternalFieldManager
 {
-    /**
-     * <tt>_partition_id</tt> - Kafka partition id.
-     */
-    public static final String PARTITION_ID_FIELD = "_partition_id";
+    public enum InternalFieldId
+    {
+        /**
+         * Kafka partition id.
+         */
+        PARTITION_ID_FIELD,
 
-    /**
-     * <tt>_partition_offset</tt> - The current offset of the message in the partition.
-     */
-    public static final String PARTITION_OFFSET_FIELD = "_partition_offset";
+        /**
+         * The current offset of the message in the partition.
+         */
+        PARTITION_OFFSET_FIELD,
 
-    /**
-     * <tt>_message_corrupt</tt> - True if the row converter could not read the a message. May be null if the row converter does not set a value (e.g. the dummy row converter does not).
-     */
-    public static final String MESSAGE_CORRUPT_FIELD = "_message_corrupt";
+        /**
+         * Field is true if the row converter could not read a message. May be null if the row converter does not set a value (e.g. the dummy row converter does not).
+         */
+        MESSAGE_CORRUPT_FIELD,
 
-    /**
-     * <tt>_message</tt> - Represents the full topic as a text column. Format is UTF-8 which may be wrong for some topics. TODO: make charset configurable.
-     */
-    public static final String MESSAGE_FIELD = "_message";
+        /**
+         * Represents the full topic as a text column. Format is UTF-8 which may be wrong for some topics. TODO: make charset configurable.
+         */
+        MESSAGE_FIELD,
 
-    /**
-     * <tt>_message_length</tt> - length in bytes of the message.
-     */
-    public static final String MESSAGE_LENGTH_FIELD = "_message_length";
+        /**
+         * length in bytes of the message.
+         */
+        MESSAGE_LENGTH_FIELD,
 
-    /**
-     * <tt>_headers</tt> - The header fields of the Kafka message. Key is a UTF-8 String and values an array of byte[].
-     */
-    public static final String HEADERS_FIELD = "_headers";
+        /**
+         * The header fields of the Kafka message. Key is a UTF-8 String and values an array of byte[].
+         */
+        HEADERS_FIELD,
 
-    /**
-     * <tt>_key_corrupt</tt> - True if the row converter could not read the a key. May be null if the row converter does not set a value (e.g. the dummy row converter does not).
-     */
-    public static final String KEY_CORRUPT_FIELD = "_key_corrupt";
+        /**
+         * Field is true if the row converter could not read a key. May be null if the row converter does not set a value (e.g. the dummy row converter does not).
+         */
+        KEY_CORRUPT_FIELD,
 
-    /**
-     * <tt>_key</tt> - Represents the key as a text column. Format is UTF-8 which may be wrong for topics. TODO: make charset configurable.
-     */
-    public static final String KEY_FIELD = "_key";
+        /**
+         * Represents the key as a text column. Format is UTF-8 which may be wrong for topics. TODO: make charset configurable.
+         */
+        KEY_FIELD,
 
-    /**
-     * <tt>_key_length</tt> - length in bytes of the key.
-     */
-    public static final String KEY_LENGTH_FIELD = "_key_length";
+        /**
+         * length in bytes of the key.
+         */
+        KEY_LENGTH_FIELD,
 
-    /**
-     * <tt>_timestamp</tt> - message timestamp
-     */
-    public static final String OFFSET_TIMESTAMP_FIELD = "_timestamp";
+        /**
+         * message timestamp
+         */
+        OFFSET_TIMESTAMP_FIELD,
+    }
 
     public static class InternalField
     {
+        private final InternalFieldId internalFieldId;
         private final String columnName;
         private final String comment;
         private final Type type;
 
-        InternalField(String columnName, String comment, Type type)
+        InternalField(InternalFieldId internalFieldId, String columnName, String comment, Type type)
         {
+            this.internalFieldId = requireNonNull(internalFieldId, "internalFieldId is null");
             this.columnName = requireNonNull(columnName, "columnName is null");
             this.comment = requireNonNull(comment, "comment is null");
             this.type = requireNonNull(type, "type is null");
+        }
+
+        public InternalFieldId getInternalFieldId()
+        {
+            return internalFieldId;
         }
 
         public String getColumnName()
@@ -107,7 +131,7 @@ public class KafkaInternalFieldManager
             return type;
         }
 
-        KafkaColumnHandle getColumnHandle(int index, boolean hidden)
+        KafkaColumnHandle getColumnHandle(boolean hidden)
         {
             return new KafkaColumnHandle(
                     getColumnName(),
@@ -131,62 +155,87 @@ public class KafkaInternalFieldManager
         }
     }
 
-    private final Map<String, InternalField> internalFields;
+    private final Map<String, InternalField> fieldsByNames;
+    private final Map<InternalFieldId, InternalField> fieldsByIds;
 
     @Inject
-    public KafkaInternalFieldManager(TypeManager typeManager)
+    public KafkaInternalFieldManager(TypeManager typeManager, KafkaConfig kafkaConfig)
     {
         Type varcharMapType = typeManager.getType(mapType(VARCHAR.getTypeSignature(), arrayType(VARBINARY.getTypeSignature())));
-
-        internalFields = new ImmutableMap.Builder<String, InternalField>()
-                .put(PARTITION_ID_FIELD, new InternalField(
-                        PARTITION_ID_FIELD,
-                        "Partition Id",
-                        BigintType.BIGINT))
-                .put(PARTITION_OFFSET_FIELD, new InternalField(
-                        PARTITION_OFFSET_FIELD,
-                        "Offset for the message within the partition",
-                        BigintType.BIGINT))
-                .put(MESSAGE_CORRUPT_FIELD, new InternalField(
-                        MESSAGE_CORRUPT_FIELD,
-                        "Message data is corrupt",
-                        BooleanType.BOOLEAN))
-                .put(MESSAGE_FIELD, new InternalField(
-                        MESSAGE_FIELD,
-                        "Message text",
-                        createUnboundedVarcharType()))
-                .put(HEADERS_FIELD, new InternalField(
-                        HEADERS_FIELD,
-                        "Headers of the message as map",
-                        varcharMapType))
-                .put(MESSAGE_LENGTH_FIELD, new InternalField(
-                        MESSAGE_LENGTH_FIELD,
-                        "Total number of message bytes",
-                        BigintType.BIGINT))
-                .put(KEY_CORRUPT_FIELD, new InternalField(
-                        KEY_CORRUPT_FIELD,
-                        "Key data is corrupt",
-                        BooleanType.BOOLEAN))
-                .put(KEY_FIELD, new InternalField(
-                        KEY_FIELD,
-                        "Key text",
-                        createUnboundedVarcharType()))
-                .put(KEY_LENGTH_FIELD, new InternalField(
-                        KEY_LENGTH_FIELD,
-                        "Total number of key bytes",
-                        BigintType.BIGINT))
-                .put(OFFSET_TIMESTAMP_FIELD, new InternalField(
-                        OFFSET_TIMESTAMP_FIELD,
-                        "Message timestamp",
-                        TIMESTAMP_MILLIS))
-                .build();
+        String prefix = kafkaConfig.getInternalFieldPrefix();
+        List<InternalField> fields = Stream.of(
+                        new InternalField(
+                                PARTITION_ID_FIELD,
+                                prefix + "partition_id",
+                                "Partition Id",
+                                BigintType.BIGINT),
+                        new InternalField(
+                                PARTITION_OFFSET_FIELD,
+                                prefix + "partition_offset",
+                                "Offset for the message within the partition",
+                                BigintType.BIGINT),
+                        new InternalField(
+                                MESSAGE_CORRUPT_FIELD,
+                                prefix + "message_corrupt",
+                                "Message data is corrupt",
+                                BooleanType.BOOLEAN),
+                        new InternalField(
+                                MESSAGE_FIELD,
+                                prefix + "message",
+                                "Message text",
+                                createUnboundedVarcharType()),
+                        new InternalField(
+                                HEADERS_FIELD,
+                                prefix + "headers",
+                                "Headers of the message as map",
+                                varcharMapType),
+                        new InternalField(
+                                MESSAGE_LENGTH_FIELD,
+                                prefix + "message_length",
+                                "Total number of message bytes",
+                                BigintType.BIGINT),
+                        new InternalField(
+                                KEY_CORRUPT_FIELD,
+                                prefix + "key_corrupt",
+                                "Key data is corrupt",
+                                BooleanType.BOOLEAN),
+                        new InternalField(
+                                InternalFieldId.KEY_FIELD,
+                                prefix + "key",
+                                "Key text",
+                                createUnboundedVarcharType()),
+                        new InternalField(
+                                KEY_LENGTH_FIELD,
+                                prefix + "key_length",
+                                "Total number of key bytes",
+                                BigintType.BIGINT),
+                        new InternalField(
+                                OFFSET_TIMESTAMP_FIELD,
+                                prefix + "timestamp",
+                                "Message timestamp",
+                                TIMESTAMP_MILLIS))
+                .collect(toImmutableList());
+        fieldsByNames = fields.stream()
+                .collect(toImmutableMap(InternalField::getColumnName, identity()));
+        fieldsByIds = fields.stream()
+                .collect(toImmutableMap(InternalField::getInternalFieldId, identity()));
     }
 
     /**
      * @return Map of {@link InternalField} for each internal field.
      */
-    public Map<String, InternalField> getInternalFields()
+    public Collection<InternalField> getInternalFields()
     {
-        return internalFields;
+        return fieldsByNames.values();
+    }
+
+    public InternalField getFieldByName(String name)
+    {
+        return fieldsByNames.get(name);
+    }
+
+    public InternalField getFieldById(InternalFieldId id)
+    {
+        return fieldsByIds.get(id);
     }
 }

@@ -34,9 +34,7 @@ public class TestDatabaseConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("metadata.db.type", "h2")
-                .build();
+        Map<String, String> properties = ImmutableMap.of("metadata.db.type", "h2");
 
         DatabaseConfig expected = new DatabaseConfig()
                 .setDatabaseType("h2");

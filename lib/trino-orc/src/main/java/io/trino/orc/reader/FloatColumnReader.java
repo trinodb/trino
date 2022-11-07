@@ -44,12 +44,13 @@ import static io.trino.orc.reader.ReaderUtils.minNonNullValueSize;
 import static io.trino.orc.reader.ReaderUtils.verifyStreamType;
 import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static io.trino.spi.type.RealType.REAL;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class FloatColumnReader
         implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(FloatColumnReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(FloatColumnReader.class).instanceSize());
 
     private final OrcColumn column;
 
@@ -68,16 +69,16 @@ public class FloatColumnReader
 
     private int[] nonNullValueTemp = new int[0];
 
-    private final LocalMemoryContext systemMemoryContext;
+    private final LocalMemoryContext memoryContext;
 
-    public FloatColumnReader(Type type, OrcColumn column, LocalMemoryContext systemMemoryContext)
+    public FloatColumnReader(Type type, OrcColumn column, LocalMemoryContext memoryContext)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
         verifyStreamType(column, type, RealType.class::isInstance);
 
         this.column = requireNonNull(column, "column is null");
-        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
     }
 
     @Override
@@ -156,7 +157,7 @@ public class FloatColumnReader
         int minNonNullValueSize = minNonNullValueSize(nonNullCount);
         if (nonNullValueTemp.length < minNonNullValueSize) {
             nonNullValueTemp = new int[minNonNullValueSize];
-            systemMemoryContext.setBytes(sizeOf(nonNullValueTemp));
+            memoryContext.setBytes(sizeOf(nonNullValueTemp));
         }
 
         dataStream.next(nonNullValueTemp, nonNullCount);
@@ -216,7 +217,7 @@ public class FloatColumnReader
     @Override
     public void close()
     {
-        systemMemoryContext.close();
+        memoryContext.close();
     }
 
     @Override

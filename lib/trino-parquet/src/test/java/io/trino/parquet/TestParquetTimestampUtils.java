@@ -42,7 +42,7 @@ public class TestParquetTimestampUtils
     {
         try {
             byte[] invalidLengthBinaryTimestamp = new byte[8];
-            decodeInt96Timestamp(Binary.fromByteArray(invalidLengthBinaryTimestamp));
+            decodeInt96Timestamp(Binary.fromConstantByteArray(invalidLengthBinaryTimestamp));
         }
         catch (TrinoException e) {
             assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());

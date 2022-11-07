@@ -62,6 +62,7 @@ import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.values;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionRewriteRuleSet
@@ -144,6 +145,12 @@ public class ExpressionRewriteRuleSet
             }
             return Result.ofPlanNode(new ProjectNode(projectNode.getId(), projectNode.getSource(), assignments));
         }
+
+        @Override
+        public String toString()
+        {
+            return format("%s(%s)", getClass().getSimpleName(), rewriter);
+        }
     }
 
     private static final class AggregationExpressionRewrite
@@ -202,17 +209,17 @@ public class ExpressionRewriteRuleSet
                 }
             }
             if (anyRewritten) {
-                return Result.ofPlanNode(new AggregationNode(
-                        aggregationNode.getId(),
-                        aggregationNode.getSource(),
-                        aggregations.build(),
-                        aggregationNode.getGroupingSets(),
-                        aggregationNode.getPreGroupedSymbols(),
-                        aggregationNode.getStep(),
-                        aggregationNode.getHashSymbol(),
-                        aggregationNode.getGroupIdSymbol()));
+                return Result.ofPlanNode(AggregationNode.builderFrom(aggregationNode)
+                        .setAggregations(aggregations.buildOrThrow())
+                        .build());
             }
             return Result.empty();
+        }
+
+        @Override
+        public String toString()
+        {
+            return format("%s(%s)", getClass().getSimpleName(), rewriter);
         }
     }
 
@@ -240,6 +247,12 @@ public class ExpressionRewriteRuleSet
                 return Result.empty();
             }
             return Result.ofPlanNode(new FilterNode(filterNode.getId(), filterNode.getSource(), rewritten));
+        }
+
+        @Override
+        public String toString()
+        {
+            return format("%s(%s)", getClass().getSimpleName(), rewriter);
         }
     }
 
@@ -282,6 +295,12 @@ public class ExpressionRewriteRuleSet
                         joinNode.getReorderJoinStatsAndCost()));
             }
             return Result.empty();
+        }
+
+        @Override
+        public String toString()
+        {
+            return format("%s(%s)", getClass().getSimpleName(), rewriter);
         }
     }
 
@@ -330,6 +349,12 @@ public class ExpressionRewriteRuleSet
                 return Result.ofPlanNode(new ValuesNode(valuesNode.getId(), valuesNode.getOutputSymbols(), rows.build()));
             }
             return Result.empty();
+        }
+
+        @Override
+        public String toString()
+        {
+            return format("%s(%s)", getClass().getSimpleName(), rewriter);
         }
     }
 
@@ -391,7 +416,7 @@ public class ExpressionRewriteRuleSet
                         node.getPrePartitionedInputs(),
                         node.getPreSortedOrderPrefix(),
                         node.getWindowFunctions(),
-                        rewrittenMeasures.build(),
+                        rewrittenMeasures.buildOrThrow(),
                         node.getCommonBaseFrame(),
                         node.getRowsPerMatch(),
                         node.getSkipToLabel(),
@@ -399,7 +424,7 @@ public class ExpressionRewriteRuleSet
                         node.isInitial(),
                         node.getPattern(),
                         node.getSubsets(),
-                        rewrittenDefinitions.build()));
+                        rewrittenDefinitions.buildOrThrow()));
             }
 
             return Result.empty();
@@ -471,6 +496,12 @@ public class ExpressionRewriteRuleSet
             }
 
             return Optional.empty();
+        }
+
+        @Override
+        public String toString()
+        {
+            return format("%s(%s)", getClass().getSimpleName(), rewriter);
         }
     }
 }

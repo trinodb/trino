@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -43,20 +44,18 @@ public class TestKinesisPlugin
 
         String accessKey = "kinesis.accessKey";
         String secretKey = "kinesis.secretKey";
-        // Important: this has to be created before we setup the injector in the factory:
-        assertNotNull(factory.getHandleResolver());
 
         Connector c = factory.create("kinesis.test-connector", ImmutableMap.<String, String>builder()
                 .put("kinesis.hide-internal-columns", "false")
                 .put("kinesis.access-key", TestUtils.noneToBlank(accessKey))
                 .put("kinesis.secret-key", TestUtils.noneToBlank(secretKey))
-                .build(), new TestingConnectorContext());
+                .buildOrThrow(), new TestingConnectorContext());
         assertNotNull(c);
 
         // Verify that the key objects have been created on the connector
         assertNotNull(c.getRecordSetProvider());
         assertNotNull(c.getSplitManager());
-        ConnectorMetadata md = c.getMetadata(KinesisTransactionHandle.INSTANCE);
+        ConnectorMetadata md = c.getMetadata(SESSION, KinesisTransactionHandle.INSTANCE);
         assertNotNull(md);
 
         ConnectorTransactionHandle handle = c.beginTransaction(READ_COMMITTED, true, true);

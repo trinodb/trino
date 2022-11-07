@@ -6,11 +6,10 @@ Logging properties
 ^^^^^^^^^^^^
 
 * **Type:** :ref:`prop-type-string`
-* **Default value:** ``var/log/server.log``
 
 The path to the log file used by Trino. The path is relative to the data
-directory, configured by the launcher script as detailed in
-:ref:`running_trino`.
+directory, configured to ``var/log/server.log`` by the launcher script as
+detailed in :ref:`running_trino`.
 
 ``log.max-history``
 ^^^^^^^^^^^^^^^^^^^

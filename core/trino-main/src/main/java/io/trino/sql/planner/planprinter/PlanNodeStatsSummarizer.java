@@ -78,6 +78,7 @@ public final class PlanNodeStatsSummarizer
         Map<PlanNodeId, Long> planNodeSpilledDataSize = new HashMap<>();
         Map<PlanNodeId, Long> planNodeScheduledMillis = new HashMap<>();
         Map<PlanNodeId, Long> planNodeCpuMillis = new HashMap<>();
+        Map<PlanNodeId, Long> planNodeBlockedMillis = new HashMap<>();
 
         Map<PlanNodeId, Map<String, BasicOperatorStats>> basicOperatorStats = new HashMap<>();
         Map<PlanNodeId, Map<String, OperatorHashCollisionsStats>> operatorHashCollisionsStats = new HashMap<>();
@@ -104,8 +105,16 @@ public final class PlanNodeStatsSummarizer
                 long cpuMillis = operatorStats.getAddInputCpu().toMillis() + operatorStats.getGetOutputCpu().toMillis() + operatorStats.getFinishCpu().toMillis();
                 planNodeCpuMillis.merge(planNodeId, cpuMillis, Long::sum);
 
-                // A pipeline like hash build before join might link to another "internal" pipelines which provide actual input for this plan node
+                planNodeBlockedMillis.merge(planNodeId, operatorStats.getBlockedWall().toMillis(), Long::sum);
+                planNodeSpilledDataSize.merge(planNodeId, operatorStats.getSpilledDataSize().toBytes(), Long::sum);
+
+                // A plan node like LocalExchange consists of LocalExchangeSource which links to another pipeline containing LocalExchangeSink
                 if (operatorStats.getPlanNodeId().equals(inputPlanNode) && !pipelineStats.isInputPipeline()) {
+                    continue;
+                }
+                // Skip DynamicFilterSourceOperator as input operator as for join build side HashBuilderOperator metrics
+                // should be reported
+                if (operatorStats.getOperatorType().equals("DynamicFilterSourceOperator")) {
                     continue;
                 }
                 if (processedNodes.contains(planNodeId)) {
@@ -125,7 +134,6 @@ public final class PlanNodeStatsSummarizer
 
                 planNodeInputPositions.merge(planNodeId, operatorStats.getInputPositions(), Long::sum);
                 planNodeInputBytes.merge(planNodeId, operatorStats.getInputDataSize().toBytes(), Long::sum);
-                planNodeSpilledDataSize.merge(planNodeId, operatorStats.getSpilledDataSize().toBytes(), Long::sum);
                 processedNodes.add(planNodeId);
             }
 
@@ -191,6 +199,7 @@ public final class PlanNodeStatsSummarizer
                         planNodeId,
                         new Duration(planNodeScheduledMillis.get(planNodeId), MILLISECONDS),
                         new Duration(planNodeCpuMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeBlockedMillis.get(planNodeId), MILLISECONDS),
                         planNodeInputPositions.get(planNodeId),
                         succinctBytes(planNodeInputBytes.get(planNodeId)),
                         outputPositions,
@@ -204,6 +213,7 @@ public final class PlanNodeStatsSummarizer
                         planNodeId,
                         new Duration(planNodeScheduledMillis.get(planNodeId), MILLISECONDS),
                         new Duration(planNodeCpuMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeBlockedMillis.get(planNodeId), MILLISECONDS),
                         planNodeInputPositions.get(planNodeId),
                         succinctBytes(planNodeInputBytes.get(planNodeId)),
                         outputPositions,
@@ -217,6 +227,7 @@ public final class PlanNodeStatsSummarizer
                         planNodeId,
                         new Duration(planNodeScheduledMillis.get(planNodeId), MILLISECONDS),
                         new Duration(planNodeCpuMillis.get(planNodeId), MILLISECONDS),
+                        new Duration(planNodeBlockedMillis.get(planNodeId), MILLISECONDS),
                         planNodeInputPositions.get(planNodeId),
                         succinctBytes(planNodeInputBytes.get(planNodeId)),
                         outputPositions,

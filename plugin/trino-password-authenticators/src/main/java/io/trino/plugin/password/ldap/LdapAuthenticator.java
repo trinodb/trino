@@ -17,9 +17,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
+import io.trino.collect.cache.NonKeyEvictableLoadingCache;
 import io.trino.plugin.password.Credential;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.security.AccessDeniedException;
@@ -37,6 +37,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -56,18 +57,18 @@ public class LdapAuthenticator
     private final Optional<String> bindDistinguishedName;
     private final Optional<String> bindPassword;
 
-    private final LoadingCache<Credential, Principal> authenticationCache;
+    private final NonKeyEvictableLoadingCache<Credential, Principal> authenticationCache;
 
     @Inject
-    public LdapAuthenticator(LdapAuthenticatorClient client, LdapConfig ldapConfig)
+    public LdapAuthenticator(LdapAuthenticatorClient client, LdapAuthenticatorConfig ldapAuthenticatorConfig)
     {
         this.client = requireNonNull(client, "client is null");
 
-        this.userBindSearchPatterns = ldapConfig.getUserBindSearchPatterns();
-        this.groupAuthorizationSearchPattern = Optional.ofNullable(ldapConfig.getGroupAuthorizationSearchPattern());
-        this.userBaseDistinguishedName = Optional.ofNullable(ldapConfig.getUserBaseDistinguishedName());
-        this.bindDistinguishedName = Optional.ofNullable(ldapConfig.getBindDistingushedName());
-        this.bindPassword = Optional.ofNullable(ldapConfig.getBindPassword());
+        this.userBindSearchPatterns = ldapAuthenticatorConfig.getUserBindSearchPatterns();
+        this.groupAuthorizationSearchPattern = Optional.ofNullable(ldapAuthenticatorConfig.getGroupAuthorizationSearchPattern());
+        this.userBaseDistinguishedName = Optional.ofNullable(ldapAuthenticatorConfig.getUserBaseDistinguishedName());
+        this.bindDistinguishedName = Optional.ofNullable(ldapAuthenticatorConfig.getBindDistingushedName());
+        this.bindPassword = Optional.ofNullable(ldapAuthenticatorConfig.getBindPassword());
 
         checkArgument(
                 groupAuthorizationSearchPattern.isEmpty() || userBaseDistinguishedName.isPresent(),
@@ -82,9 +83,10 @@ public class LdapAuthenticator
                 bindDistinguishedName.isPresent() || !userBindSearchPatterns.isEmpty(),
                 "Either user bind search pattern or bind distinguished name must be provided");
 
-        this.authenticationCache = CacheBuilder.newBuilder()
-                .expireAfterWrite(ldapConfig.getLdapCacheTtl().toMillis(), MILLISECONDS)
-                .build(CacheLoader.from(bindDistinguishedName.isPresent()
+        this.authenticationCache = buildNonEvictableCacheWithWeakInvalidateAll(
+                CacheBuilder.newBuilder()
+                        .expireAfterWrite(ldapAuthenticatorConfig.getLdapCacheTtl().toMillis(), MILLISECONDS),
+                CacheLoader.from(bindDistinguishedName.isPresent()
                         ? this::authenticateWithBindDistinguishedName
                         : this::authenticateWithUserBind));
     }
@@ -92,6 +94,8 @@ public class LdapAuthenticator
     @VisibleForTesting
     void invalidateCache()
     {
+        // Note: this may not invalidate ongoing loads (https://github.com/trinodb/trino/issues/10512, https://github.com/google/guava/issues/1881)
+        // This is acceptable, since this operation is invoked in tests only, and not relied upon for correctness.
         authenticationCache.invalidateAll();
     }
 
@@ -184,6 +188,7 @@ public class LdapAuthenticator
         String searchBase = userBaseDistinguishedName.orElseThrow();
         String searchFilter = replaceUser(groupAuthorizationSearchPattern.orElseThrow(), user);
         Set<String> userDistinguishedNames = client.lookupUserDistinguishedNames(searchBase, searchFilter, bindDistinguishedName.orElseThrow(), bindPassword.orElseThrow());
+
         if (userDistinguishedNames.isEmpty()) {
             String message = format("User [%s] not a member of an authorized group", user);
             log.debug("%s", message);

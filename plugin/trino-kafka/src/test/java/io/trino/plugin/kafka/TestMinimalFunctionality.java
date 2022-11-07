@@ -41,13 +41,10 @@ public class TestMinimalFunctionality
     {
         testingKafka = closeAfterClass(TestingKafka.create());
         topicName = "test_" + randomUUID().toString().replaceAll("-", "_");
+        SchemaTableName schemaTableName = new SchemaTableName("default", topicName);
         QueryRunner queryRunner = KafkaQueryRunner.builder(testingKafka)
-                .setExtraTopicDescription(ImmutableMap.<SchemaTableName, KafkaTopicDescription>builder()
-                        .put(createEmptyTopicDescription(topicName, new SchemaTableName("default", topicName)))
-                        .build())
-                .setExtraKafkaProperties(ImmutableMap.<String, String>builder()
-                        .put("kafka.messages-per-split", "100")
-                        .build())
+                .setExtraTopicDescription(ImmutableMap.of(schemaTableName, createEmptyTopicDescription(topicName, schemaTableName).getValue()))
+                .setExtraKafkaProperties(ImmutableMap.of("kafka.messages-per-split", "100"))
                 .build();
         return queryRunner;
     }

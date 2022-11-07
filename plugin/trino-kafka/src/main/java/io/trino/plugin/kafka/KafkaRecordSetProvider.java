@@ -32,7 +32,6 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.plugin.kafka.KafkaHandleResolver.convertSplit;
 import static java.util.Objects.requireNonNull;
 
 public class KafkaRecordSetProvider
@@ -40,21 +39,23 @@ public class KafkaRecordSetProvider
 {
     private final DispatchingRowDecoderFactory decoderFactory;
     private final KafkaConsumerFactory consumerFactory;
+    private final KafkaInternalFieldManager kafkaInternalFieldManager;
 
     @Inject
-    public KafkaRecordSetProvider(DispatchingRowDecoderFactory decoderFactory, KafkaConsumerFactory consumerFactory)
+    public KafkaRecordSetProvider(DispatchingRowDecoderFactory decoderFactory, KafkaConsumerFactory consumerFactory, KafkaInternalFieldManager kafkaInternalFieldManager)
     {
         this.decoderFactory = requireNonNull(decoderFactory, "decoderFactory is null");
         this.consumerFactory = requireNonNull(consumerFactory, "consumerFactory is null");
+        this.kafkaInternalFieldManager = requireNonNull(kafkaInternalFieldManager, "kafkaInternalFieldManager is null");
     }
 
     @Override
     public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<? extends ColumnHandle> columns)
     {
-        KafkaSplit kafkaSplit = convertSplit(split);
+        KafkaSplit kafkaSplit = (KafkaSplit) split;
 
         List<KafkaColumnHandle> kafkaColumns = columns.stream()
-                .map(KafkaHandleResolver::convertColumnHandle)
+                .map(KafkaColumnHandle.class::cast)
                 .collect(toImmutableList());
 
         RowDecoder keyDecoder = decoderFactory.create(
@@ -73,13 +74,13 @@ public class KafkaRecordSetProvider
                         .filter(col -> !col.isKeyCodec())
                         .collect(toImmutableSet()));
 
-        return new KafkaRecordSet(kafkaSplit, consumerFactory, session, kafkaColumns, keyDecoder, messageDecoder);
+        return new KafkaRecordSet(kafkaSplit, consumerFactory, session, kafkaColumns, keyDecoder, messageDecoder, kafkaInternalFieldManager);
     }
 
     private static Map<String, String> getDecoderParameters(Optional<String> dataSchema)
     {
         ImmutableMap.Builder<String, String> parameters = ImmutableMap.builder();
         dataSchema.ifPresent(schema -> parameters.put("dataSchema", schema));
-        return parameters.build();
+        return parameters.buildOrThrow();
     }
 }

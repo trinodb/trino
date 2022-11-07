@@ -34,6 +34,7 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.parquet.schema.MessageType;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -53,6 +54,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.transform;
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.parquet.TestParquetDecimalScaling.ParquetDecimalInsert.maximumValue;
 import static io.trino.plugin.hive.parquet.TestParquetDecimalScaling.ParquetDecimalInsert.minimumValue;
 import static io.trino.spi.type.Decimals.overflows;
@@ -441,13 +443,13 @@ public class TestParquetDecimalScaling
     {
         Properties tableProperties = createTableProperties(columnNames, Collections.singletonList(inspector));
 
-        JobConf jobConf = new JobConf();
+        JobConf jobConf = new JobConf(newEmptyConfiguration());
         jobConf.setEnum(COMPRESSION, UNCOMPRESSED);
         jobConf.setBoolean(ENABLE_DICTIONARY, false);
         jobConf.setEnum(WRITER_VERSION, writerVersion);
 
         try {
-            FileSinkOperator.RecordWriter recordWriter = new TestMapredParquetOutputFormat(Optional.of(parquetSchema), true)
+            FileSinkOperator.RecordWriter recordWriter = new TestMapredParquetOutputFormat(Optional.of(parquetSchema), true, DateTimeZone.getDefault())
                     .getHiveRecordWriter(
                             jobConf,
                             path,
@@ -588,9 +590,7 @@ public class TestParquetDecimalScaling
 
         public Iterable<?> getValues()
         {
-            ImmutableList<String> inserts = ImmutableList.<String>builder()
-                    .addAll(values)
-                    .build();
+            ImmutableList<String> inserts = ImmutableList.copyOf(values);
 
             return inserts.stream().map(this::convertValue).collect(toImmutableList());
         }

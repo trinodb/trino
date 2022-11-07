@@ -46,11 +46,11 @@ public class TestSalesforceConfig
         String cacheSize = "111";
         String cacheExpire = "3333s";
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("salesforce.allowed-organizations", org)
                 .put("salesforce.cache-size", cacheSize)
                 .put("salesforce.cache-expire-duration", cacheExpire)
-                .build();
+                .buildOrThrow();
 
         SalesforceConfig expected = new SalesforceConfig()
                 .setAllowedOrganizations(org)

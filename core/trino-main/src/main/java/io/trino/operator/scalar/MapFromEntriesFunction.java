@@ -30,16 +30,15 @@ import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
+import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
 
-import static io.trino.operator.aggregation.TypedSet.createEqualityTypedSet;
+import static io.trino.operator.aggregation.TypedSet.createDistinctTypedSet;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
+import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static java.lang.String.format;
 
 @ScalarFunction("map_from_entries")
@@ -61,9 +60,9 @@ public final class MapFromEntriesFunction
     @SqlNullable
     public Block mapFromEntries(
             @OperatorDependency(
-                    operator = EQUAL,
+                    operator = IS_DISTINCT_FROM,
                     argumentTypes = {"K", "K"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = NULLABLE_RETURN)) BlockPositionEqual keyEqual,
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) BlockPositionIsDistinctFrom keysDistinctOperator,
             @OperatorDependency(
                     operator = HASH_CODE,
                     argumentTypes = "K",
@@ -84,7 +83,7 @@ public final class MapFromEntriesFunction
 
         BlockBuilder mapBlockBuilder = pageBuilder.getBlockBuilder(0);
         BlockBuilder resultBuilder = mapBlockBuilder.beginBlockEntry();
-        TypedSet uniqueKeys = createEqualityTypedSet(keyType, keyEqual, keyHashCode, entryCount, "map_from_entries");
+        TypedSet uniqueKeys = createDistinctTypedSet(keyType, keysDistinctOperator, keyHashCode, entryCount, "map_from_entries");
 
         for (int i = 0; i < entryCount; i++) {
             if (mapEntries.isNull(i)) {

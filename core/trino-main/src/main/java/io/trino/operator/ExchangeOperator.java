@@ -15,51 +15,68 @@ package io.trino.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
+import io.trino.exchange.ExchangeDataSource;
+import io.trino.exchange.ExchangeManagerRegistry;
+import io.trino.exchange.LazyExchangeDataSource;
+import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
+import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.connector.UpdatablePageSource;
+import io.trino.spi.exchange.ExchangeId;
 import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.ints.IntSet;
 
-import java.net.URI;
+import javax.annotation.concurrent.ThreadSafe;
+
 import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ExchangeOperator
         implements SourceOperator
 {
-    public static final CatalogName REMOTE_CONNECTOR_ID = new CatalogName("$remote");
+    public static final CatalogHandle REMOTE_CATALOG_HANDLE = createRootCatalogHandle("$remote");
 
     public static class ExchangeOperatorFactory
             implements SourceOperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId sourceId;
-        private final ExchangeClientSupplier exchangeClientSupplier;
+        private final DirectExchangeClientSupplier directExchangeClientSupplier;
         private final PagesSerdeFactory serdeFactory;
         private final RetryPolicy retryPolicy;
-        private ExchangeClient exchangeClient;
+        private final ExchangeManagerRegistry exchangeManagerRegistry;
+        private ExchangeDataSource exchangeDataSource;
         private boolean closed;
+
+        private final NoMoreSplitsTracker noMoreSplitsTracker = new NoMoreSplitsTracker();
+        private int nextOperatorInstanceId;
 
         public ExchangeOperatorFactory(
                 int operatorId,
                 PlanNodeId sourceId,
-                ExchangeClientSupplier exchangeClientSupplier,
+                DirectExchangeClientSupplier directExchangeClientSupplier,
                 PagesSerdeFactory serdeFactory,
-                RetryPolicy retryPolicy)
+                RetryPolicy retryPolicy,
+                ExchangeManagerRegistry exchangeManagerRegistry)
         {
             this.operatorId = operatorId;
             this.sourceId = sourceId;
-            this.exchangeClientSupplier = exchangeClientSupplier;
+            this.directExchangeClientSupplier = directExchangeClientSupplier;
             this.serdeFactory = serdeFactory;
             this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
+            this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
         }
 
         @Override
@@ -74,42 +91,72 @@ public class ExchangeOperator
             checkState(!closed, "Factory is already closed");
             TaskContext taskContext = driverContext.getPipelineContext().getTaskContext();
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, ExchangeOperator.class.getSimpleName());
-            if (exchangeClient == null) {
-                exchangeClient = exchangeClientSupplier.get(driverContext.getPipelineContext().localSystemMemoryContext(), taskContext::sourceTaskFailed, retryPolicy);
+            LocalMemoryContext memoryContext = driverContext.getPipelineContext().localMemoryContext();
+            if (exchangeDataSource == null) {
+                // The decision of what exchange to use (streaming vs external) is currently made at the scheduling phase. It is more convenient to deliver it as part of a RemoteSplit.
+                // Postponing this decision until scheduling allows to dynamically change the exchange type as part of an adaptive query re-planning.
+                // LazyExchangeDataSource allows to choose an exchange source implementation based on the information received from a split.
+                TaskId taskId = taskContext.getTaskId();
+                exchangeDataSource = new LazyExchangeDataSource(
+                        taskId.getQueryId(),
+                        new ExchangeId(format("direct-exchange-%s-%s", taskId.getStageId().getId(), sourceId)),
+                        directExchangeClientSupplier,
+                        memoryContext,
+                        taskContext::sourceTaskFailed,
+                        retryPolicy,
+                        exchangeManagerRegistry);
             }
-
-            return new ExchangeOperator(
+            int operatorInstanceId = nextOperatorInstanceId;
+            nextOperatorInstanceId++;
+            ExchangeOperator exchangeOperator = new ExchangeOperator(
                     operatorContext,
                     sourceId,
+                    exchangeDataSource,
                     serdeFactory.createPagesSerde(),
-                    exchangeClient);
+                    noMoreSplitsTracker,
+                    operatorInstanceId);
+            noMoreSplitsTracker.operatorAdded(operatorInstanceId);
+            return exchangeOperator;
         }
 
         @Override
         public void noMoreOperators()
         {
+            noMoreSplitsTracker.noMoreOperators();
+            if (noMoreSplitsTracker.isNoMoreSplits()) {
+                if (exchangeDataSource != null) {
+                    exchangeDataSource.noMoreInputs();
+                }
+            }
             closed = true;
         }
     }
 
     private final OperatorContext operatorContext;
     private final PlanNodeId sourceId;
-    private final ExchangeClient exchangeClient;
+    private final ExchangeDataSource exchangeDataSource;
     private final PagesSerde serde;
+    private final NoMoreSplitsTracker noMoreSplitsTracker;
+    private final int operatorInstanceId;
+
     private ListenableFuture<Void> isBlocked = NOT_BLOCKED;
 
     public ExchangeOperator(
             OperatorContext operatorContext,
             PlanNodeId sourceId,
+            ExchangeDataSource exchangeDataSource,
             PagesSerde serde,
-            ExchangeClient exchangeClient)
+            NoMoreSplitsTracker noMoreSplitsTracker,
+            int operatorInstanceId)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.sourceId = requireNonNull(sourceId, "sourceId is null");
-        this.exchangeClient = requireNonNull(exchangeClient, "exchangeClient is null");
+        this.exchangeDataSource = requireNonNull(exchangeDataSource, "exchangeDataSource is null");
         this.serde = requireNonNull(serde, "serde is null");
+        this.noMoreSplitsTracker = requireNonNull(noMoreSplitsTracker, "noMoreSplitsTracker is null");
+        this.operatorInstanceId = operatorInstanceId;
 
-        operatorContext.setInfoSupplier(exchangeClient::getStatus);
+        operatorContext.setInfoSupplier(exchangeDataSource::getInfo);
     }
 
     @Override
@@ -122,10 +169,10 @@ public class ExchangeOperator
     public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
     {
         requireNonNull(split, "split is null");
-        checkArgument(split.getCatalogName().equals(REMOTE_CONNECTOR_ID), "split is not a remote split");
+        checkArgument(split.getCatalogHandle().equals(REMOTE_CATALOG_HANDLE), "split is not a remote split");
 
         RemoteSplit remoteSplit = (RemoteSplit) split.getConnectorSplit();
-        exchangeClient.addLocation(remoteSplit.getTaskId(), URI.create(remoteSplit.getLocation()));
+        exchangeDataSource.addInput(remoteSplit.getExchangeInput());
 
         return Optional::empty;
     }
@@ -133,7 +180,10 @@ public class ExchangeOperator
     @Override
     public void noMoreSplits()
     {
-        exchangeClient.noMoreLocations();
+        noMoreSplitsTracker.noMoreSplits(operatorInstanceId);
+        if (noMoreSplitsTracker.isNoMoreSplits()) {
+            exchangeDataSource.noMoreInputs();
+        }
     }
 
     @Override
@@ -151,15 +201,15 @@ public class ExchangeOperator
     @Override
     public boolean isFinished()
     {
-        return exchangeClient.isFinished();
+        return exchangeDataSource.isFinished();
     }
 
     @Override
     public ListenableFuture<Void> isBlocked()
     {
-        // Avoid registering a new callback in the ExchangeClient when one is already pending
+        // Avoid registering a new callback in the data source when one is already pending
         if (isBlocked.isDone()) {
-            isBlocked = exchangeClient.isBlocked();
+            isBlocked = exchangeDataSource.isBlocked();
             if (isBlocked.isDone()) {
                 isBlocked = NOT_BLOCKED;
             }
@@ -182,7 +232,7 @@ public class ExchangeOperator
     @Override
     public Page getOutput()
     {
-        Slice page = exchangeClient.pollPage();
+        Slice page = exchangeDataSource.pollPage();
         if (page == null) {
             return null;
         }
@@ -197,6 +247,36 @@ public class ExchangeOperator
     @Override
     public void close()
     {
-        exchangeClient.close();
+        exchangeDataSource.close();
+    }
+
+    @ThreadSafe
+    private static class NoMoreSplitsTracker
+    {
+        private final IntSet allOperators = new IntOpenHashSet();
+        private final IntSet noMoreSplitsOperators = new IntOpenHashSet();
+        private boolean noMoreOperators;
+
+        public synchronized void operatorAdded(int operatorInstanceId)
+        {
+            checkState(!noMoreOperators, "noMoreOperators is set");
+            allOperators.add(operatorInstanceId);
+        }
+
+        public synchronized void noMoreOperators()
+        {
+            noMoreOperators = true;
+        }
+
+        public synchronized void noMoreSplits(int operatorInstanceId)
+        {
+            checkState(allOperators.contains(operatorInstanceId), "operatorInstanceId not found: %s", operatorInstanceId);
+            noMoreSplitsOperators.add(operatorInstanceId);
+        }
+
+        public synchronized boolean isNoMoreSplits()
+        {
+            return noMoreOperators && noMoreSplitsOperators.containsAll(allOperators);
+        }
     }
 }

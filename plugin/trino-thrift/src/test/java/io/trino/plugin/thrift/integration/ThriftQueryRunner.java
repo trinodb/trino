@@ -29,10 +29,11 @@ import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
+import io.trino.metadata.FunctionBundle;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
-import io.trino.metadata.SqlFunction;
 import io.trino.plugin.thrift.ThriftPlugin;
 import io.trino.plugin.thrift.server.ThriftIndexedTpchService;
 import io.trino.plugin.thrift.server.ThriftTpchService;
@@ -142,7 +143,7 @@ public final class ThriftQueryRunner
                 .put("trino.thrift.client.addresses", addresses)
                 .put("trino.thrift.client.connect-timeout", "30s")
                 .put("trino-thrift.lookup-requests-concurrency", "2")
-                .build();
+                .buildOrThrow();
         queryRunner.createCatalog("thrift", "trino-thrift", connectorProperties);
 
         queryRunner.installPlugin(new TpchPlugin());
@@ -239,6 +240,12 @@ public final class ThriftQueryRunner
         }
 
         @Override
+        public FunctionManager getFunctionManager()
+        {
+            return source.getFunctionManager();
+        }
+
+        @Override
         public SplitManager getSplitManager()
         {
             return source.getSplitManager();
@@ -305,9 +312,9 @@ public final class ThriftQueryRunner
         }
 
         @Override
-        public void addFunctions(List<? extends SqlFunction> functions)
+        public void addFunctions(FunctionBundle functionBundle)
         {
-            source.getMetadata().addFunctions(functions);
+            source.addFunctions(functionBundle);
         }
 
         @Override
@@ -332,6 +339,12 @@ public final class ThriftQueryRunner
                 Optional<ErrorType> errorType)
         {
             source.injectTaskFailure(traceToken, stageId, partitionId, attemptId, injectionType, errorType);
+        }
+
+        @Override
+        public void loadExchangeManager(String name, Map<String, String> properties)
+        {
+            source.loadExchangeManager(name, properties);
         }
     }
 }

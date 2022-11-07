@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 
 import java.util.List;
 
+import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static java.util.Collections.singletonList;
 
 public abstract class AbstractSingleArrayBlock
@@ -37,129 +38,115 @@ public abstract class AbstractSingleArrayBlock
 
     protected abstract Block getBlock();
 
-    private void checkReadablePosition(int position)
-    {
-        if (position < 0 || position >= getPositionCount()) {
-            throw new IllegalArgumentException("position is not valid");
-        }
-    }
-
     @Override
     public int getSliceLength(int position)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return getBlock().getSliceLength(position + start);
     }
 
     @Override
     public byte getByte(int position, int offset)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return getBlock().getByte(position + start, offset);
     }
 
     @Override
     public short getShort(int position, int offset)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return getBlock().getShort(position + start, offset);
     }
 
     @Override
     public int getInt(int position, int offset)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return getBlock().getInt(position + start, offset);
     }
 
     @Override
     public long getLong(int position, int offset)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return getBlock().getLong(position + start, offset);
     }
 
     @Override
     public Slice getSlice(int position, int offset, int length)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return getBlock().getSlice(position + start, offset, length);
     }
 
     @Override
     public <T> T getObject(int position, Class<T> clazz)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return getBlock().getObject(position + start, clazz);
     }
 
     @Override
     public boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return getBlock().bytesEqual(position + start, offset, otherSlice, otherOffset, length);
     }
 
     @Override
     public int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return getBlock().bytesCompare(position + start, offset, length, otherSlice, otherOffset, otherLength);
     }
 
     @Override
     public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         getBlock().writeBytesTo(position + start, offset, length, blockBuilder);
-    }
-
-    @Override
-    public void writePositionTo(int position, BlockBuilder blockBuilder)
-    {
-        checkReadablePosition(position);
-        getBlock().writePositionTo(position + start, blockBuilder);
     }
 
     @Override
     public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return getBlock().equals(position + start, offset, otherBlock, otherPosition, otherOffset, length);
     }
 
     @Override
     public long hash(int position, int offset, int length)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return getBlock().hash(position + start, offset, length);
     }
 
     @Override
     public int compareTo(int leftPosition, int leftOffset, int leftLength, Block rightBlock, int rightPosition, int rightOffset, int rightLength)
     {
-        checkReadablePosition(leftPosition);
+        checkReadablePosition(this, leftPosition);
         return getBlock().compareTo(leftPosition + start, leftOffset, leftLength, rightBlock, rightPosition, rightOffset, rightLength);
     }
 
     @Override
     public Block getSingleValueBlock(int position)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return getBlock().getSingleValueBlock(position + start);
     }
 
     @Override
     public long getEstimatedDataSizeForStats(int position)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return getBlock().getEstimatedDataSizeForStats(position + start);
     }
 
     @Override
     public boolean isNull(int position)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return getBlock().isNull(position + start);
     }
 
@@ -189,7 +176,7 @@ public abstract class AbstractSingleArrayBlock
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount)
     {
         throw new UnsupportedOperationException();
     }

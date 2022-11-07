@@ -43,7 +43,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunnerHashEnabled;
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
-import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
+import static io.trino.operator.OperatorFactories.JoinOperatorType.innerJoin;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -125,7 +125,7 @@ public class HashBuildAndJoinBenchmark
                 SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory(),
                 incrementalLoadFactorHashArraySizeSupplier(session));
         driversBuilder.add(hashBuilder);
-        DriverFactory hashBuildDriverFactory = new DriverFactory(0, true, false, driversBuilder.build(), OptionalInt.empty(), UNGROUPED_EXECUTION);
+        DriverFactory hashBuildDriverFactory = new DriverFactory(0, true, false, driversBuilder.build(), OptionalInt.empty());
 
         // join
         ImmutableList.Builder<OperatorFactory> joinDriversBuilder = ImmutableList.builder();
@@ -141,12 +141,11 @@ public class HashBuildAndJoinBenchmark
             hashChannel = OptionalInt.of(sourceTypes.size() - 1);
         }
 
-        OperatorFactory joinOperator = operatorFactories.innerJoin(
+        OperatorFactory joinOperator = operatorFactories.spillingJoin(
+                innerJoin(false, false),
                 2,
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,
-                false,
-                false,
                 false,
                 sourceTypes,
                 Ints.asList(0),
@@ -157,7 +156,7 @@ public class HashBuildAndJoinBenchmark
                 blockTypeOperators);
         joinDriversBuilder.add(joinOperator);
         joinDriversBuilder.add(new NullOutputOperatorFactory(3, new PlanNodeId("test")));
-        DriverFactory joinDriverFactory = new DriverFactory(1, true, true, joinDriversBuilder.build(), OptionalInt.empty(), UNGROUPED_EXECUTION);
+        DriverFactory joinDriverFactory = new DriverFactory(1, true, true, joinDriversBuilder.build(), OptionalInt.empty());
 
         Driver hashBuildDriver = hashBuildDriverFactory.createDriver(taskContext.addPipelineContext(0, true, false, false).addDriverContext());
         hashBuildDriverFactory.noMoreDrivers();

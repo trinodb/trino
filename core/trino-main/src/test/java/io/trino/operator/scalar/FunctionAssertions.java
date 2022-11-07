@@ -15,6 +15,7 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.UncheckedExecutionException;
@@ -23,8 +24,8 @@ import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
-import io.trino.execution.Lifespan;
+import io.trino.metadata.FunctionBundle;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
@@ -66,6 +67,7 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.split.PageSourceProvider;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.gen.ExpressionCompiler;
+import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
@@ -78,7 +80,6 @@ import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.type.BlockTypeOperators;
-import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
@@ -95,11 +96,13 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -125,23 +128,23 @@ import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ExpressionTestUtils.createExpression;
 import static io.trino.sql.ExpressionTestUtils.getTypes;
 import static io.trino.sql.relational.Expressions.constant;
 import static io.trino.sql.relational.SqlToRowExpressionTranslator.translate;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static io.trino.type.UnknownType.UNKNOWN;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -192,7 +195,7 @@ public final class FunctionAssertions
             .put(new Symbol("bound_row"), TEST_ROW_TYPE)
             .put(new Symbol("bound_short_decimal"), SHORT_DECIMAL_TYPE)
             .put(new Symbol("bound_long_decimal"), LONG_DECIMAL_TYPE)
-            .build());
+            .buildOrThrow());
 
     private static final Map<Symbol, Integer> INPUT_MAPPING = ImmutableMap.<Symbol, Integer>builder()
             .put(new Symbol("bound_long"), 0)
@@ -208,7 +211,7 @@ public final class FunctionAssertions
             .put(new Symbol("bound_row"), 10)
             .put(new Symbol("bound_short_decimal"), 11)
             .put(new Symbol("bound_long_decimal"), 12)
-            .build();
+            .buildOrThrow();
 
     private static final PageSourceProvider PAGE_SOURCE_PROVIDER = new TestPageSourceProvider();
     private static final PlanNodeId SOURCE_ID = new PlanNodeId("scan");
@@ -216,11 +219,6 @@ public final class FunctionAssertions
     private final Session session;
     private final LocalQueryRunner runner;
     private final TestingFunctionResolution testingFunctionResolution;
-
-    public FunctionAssertions()
-    {
-        this(TEST_SESSION);
-    }
 
     public FunctionAssertions(Session session)
     {
@@ -233,7 +231,12 @@ public final class FunctionAssertions
         runner = LocalQueryRunner.builder(session)
                 .withFeaturesConfig(featuresConfig)
                 .build();
-        testingFunctionResolution = new TestingFunctionResolution(runner.getTransactionManager(), runner.getMetadata());
+        testingFunctionResolution = new TestingFunctionResolution(runner);
+    }
+
+    public void addFunctions(FunctionBundle functionBundle)
+    {
+        runner.addFunctions(functionBundle);
     }
 
     public Metadata getMetadata()
@@ -251,6 +254,11 @@ public final class FunctionAssertions
         return testingFunctionResolution;
     }
 
+    public FunctionManager getFunctionManager()
+    {
+        return runner.getFunctionManager();
+    }
+
     public TypeOperators getTypeOperators()
     {
         return runner.getTypeOperators();
@@ -261,11 +269,25 @@ public final class FunctionAssertions
         return runner.getBlockTypeOperators();
     }
 
+    public TestingFunctionResolution getTestingFunctionResolution()
+    {
+        return new TestingFunctionResolution(runner);
+    }
+
+    public ExpressionCompiler getExpressionCompiler()
+    {
+        return new ExpressionCompiler(getFunctionManager(), new PageFunctionCompiler(getFunctionManager(), 0));
+    }
+
     public void installPlugin(Plugin plugin)
     {
         runner.installPlugin(plugin);
     }
 
+    /**
+     * @deprecated Use {@link io.trino.sql.query.QueryAssertions#function(String, String...)}
+     */
+    @Deprecated
     public void assertFunction(String projection, Type expectedType, Object expected)
     {
         if (expected instanceof Slice) {
@@ -276,17 +298,29 @@ public final class FunctionAssertions
         assertEquals(actual, expected);
     }
 
+    /**
+     * @deprecated Use {@link io.trino.sql.query.QueryAssertions#function(String, String...)}
+     */
+    @Deprecated
     public void assertFunctionString(String projection, Type expectedType, String expected)
     {
         Object actual = selectSingleValue(projection, expectedType, runner.getExpressionCompiler());
         assertEquals(actual.toString(), expected);
     }
 
+    /**
+     * @deprecated Use {@link io.trino.sql.query.QueryAssertions#expression(String)}
+     */
+    @Deprecated
     public void tryEvaluate(String expression, Type expectedType)
     {
         tryEvaluate(expression, expectedType, session);
     }
 
+    /**
+     * @deprecated Use {@link io.trino.sql.query.QueryAssertions#expression(String)}
+     */
+    @Deprecated
     public void tryEvaluate(String expression, Type expectedType, Session session)
     {
         selectUniqueValue(expression, expectedType, session, runner.getExpressionCompiler());
@@ -297,6 +331,10 @@ public final class FunctionAssertions
         tryEvaluateWithAll(expression, expectedType, session);
     }
 
+    /**
+     * @deprecated Use {@link io.trino.sql.query.QueryAssertions#expression(String)}
+     */
+    @Deprecated
     public void tryEvaluateWithAll(String expression, Type expectedType, Session session)
     {
         executeProjectionWithAll(expression, expectedType, session, runner.getExpressionCompiler());
@@ -323,6 +361,19 @@ public final class FunctionAssertions
         return Iterables.getOnlyElement(resultSet);
     }
 
+    public void assertAmbiguousFunction(String projection, Type expectedType, Set<Object> expected)
+    {
+        expected = expected.stream()
+                .map(expectedValue -> expectedValue instanceof Slice ? ((Slice) expectedValue).toStringUtf8() : expectedValue)
+                .collect(toImmutableSet());
+
+        Set<Object> actual = ImmutableSet.copyOf(executeProjectionWithAll(projection, expectedType, session, runner.getExpressionCompiler()));
+
+        for (Object actualValue : actual) {
+            assertTrue(expected.contains(actualValue));
+        }
+    }
+
     public void assertInvalidFunction(String projection, ErrorCodeSupplier errorCode, String message)
     {
         assertTrinoExceptionThrownBy(() -> evaluateInvalid(projection))
@@ -339,13 +390,6 @@ public final class FunctionAssertions
     {
         assertTrinoExceptionThrownBy(() -> evaluateInvalid(projection))
                 .hasErrorCode(expectedErrorCode);
-    }
-
-    public void assertFunctionThrowsIncorrectly(@Language("SQL") String projection, Class<? extends Throwable> throwableClass, @Language("RegExp") String message)
-    {
-        assertThatThrownBy(() -> evaluateInvalid(projection))
-                .isInstanceOf(throwableClass)
-                .hasMessageMatching(message);
     }
 
     public void assertNumericOverflow(String projection, String message)
@@ -548,17 +592,6 @@ public final class FunctionAssertions
         Object recordValue = selectSingleValue(scanProjectOperatorFactory, expectedType, createRecordSetSplit(), session);
         results.add(recordValue);
 
-        //
-        // If the projection does not need bound values, execute query using full engine
-        if (!needsBoundValue(projectionExpression)) {
-            MaterializedResult result = runner.execute("SELECT " + projection);
-            assertType(result.getTypes(), expectedType);
-            assertEquals(result.getTypes().size(), 1);
-            assertEquals(result.getMaterializedRows().size(), 1);
-            Object queryResult = Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
-            results.add(queryResult);
-        }
-
         // validate type at end since some tests expect failure and for those UNKNOWN is used instead of actual type
         assertEquals(projectionRowExpression.getType(), expectedType);
         return results;
@@ -595,11 +628,6 @@ public final class FunctionAssertions
         assertEquals(block.getPositionCount(), 1);
 
         return type.getObjectValue(session.toConnectorSession(), block, 0);
-    }
-
-    public void assertFilter(String filter, boolean expected, boolean withNoInputColumns)
-    {
-        assertFilter(filter, expected, withNoInputColumns, runner.getExpressionCompiler());
     }
 
     private void assertFilter(String filter, boolean expected, boolean withNoInputColumns, ExpressionCompiler compiler)
@@ -756,21 +784,19 @@ public final class FunctionAssertions
             if (javaType == boolean.class) {
                 return type.getBoolean(block, position);
             }
-            else if (javaType == long.class) {
+            if (javaType == long.class) {
                 return type.getLong(block, position);
             }
-            else if (javaType == double.class) {
+            if (javaType == double.class) {
                 return type.getDouble(block, position);
             }
-            else if (javaType == Slice.class) {
+            if (javaType == Slice.class) {
                 return type.getSlice(block, position);
             }
-            else if (javaType == Block.class || javaType == Int128.class) {
+            if (javaType == Block.class || javaType == Int128.class) {
                 return type.getObject(block, position);
             }
-            else {
-                throw new UnsupportedOperationException("not yet implemented");
-            }
+            throw new UnsupportedOperationException("not yet implemented");
         });
 
         // convert result from stack type to Type ObjectValue
@@ -843,7 +869,7 @@ public final class FunctionAssertions
 
     private RowExpression toRowExpression(Session session, Expression projection, Map<NodeRef<Expression>, Type> expressionTypes, Map<Symbol, Integer> layout)
     {
-        return translate(projection, expressionTypes, layout, getMetadata(), session, false);
+        return translate(projection, expressionTypes, layout, getMetadata(), getFunctionManager(), session, false);
     }
 
     private static Page getAtMostOnePage(Operator operator, Page sourcePage)
@@ -908,7 +934,7 @@ public final class FunctionAssertions
             assertInstanceOf(split.getConnectorSplit(), FunctionAssertions.TestSplit.class);
             FunctionAssertions.TestSplit testSplit = (FunctionAssertions.TestSplit) split.getConnectorSplit();
             if (testSplit.isRecordSet()) {
-                RecordSet records = InMemoryRecordSet.builder(ImmutableList.of(BIGINT, VARCHAR, DOUBLE, BOOLEAN, BIGINT, VARCHAR, VARCHAR, TIMESTAMP_WITH_TIME_ZONE, VARBINARY, INTEGER, TEST_ROW_TYPE, SHORT_DECIMAL_TYPE, LONG_DECIMAL_TYPE))
+                RecordSet records = InMemoryRecordSet.builder(ImmutableList.of(BIGINT, VARCHAR, DOUBLE, BOOLEAN, BIGINT, VARCHAR, VARCHAR, TIMESTAMP_TZ_MILLIS, VARBINARY, INTEGER, TEST_ROW_TYPE, SHORT_DECIMAL_TYPE, LONG_DECIMAL_TYPE))
                         .addRow(
                                 1234L,
                                 "hello",
@@ -926,20 +952,18 @@ public final class FunctionAssertions
                         .build();
                 return new RecordPageSource(records);
             }
-            else {
-                return new FixedPageSource(ImmutableList.of(SOURCE_PAGE));
-            }
+            return new FixedPageSource(ImmutableList.of(SOURCE_PAGE));
         }
     }
 
     private static Split createRecordSetSplit()
     {
-        return new Split(new CatalogName("test"), new TestSplit(true), Lifespan.taskWide());
+        return new Split(TEST_CATALOG_HANDLE, new TestSplit(true));
     }
 
     private static Split createNormalSplit()
     {
-        return new Split(new CatalogName("test"), new TestSplit(false), Lifespan.taskWide());
+        return new Split(TEST_CATALOG_HANDLE, new TestSplit(false));
     }
 
     private static RowType createTestRowType(int numberOfFields)
@@ -984,7 +1008,7 @@ public final class FunctionAssertions
     private static class TestSplit
             implements ConnectorSplit
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(TestSplit.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TestSplit.class).instanceSize());
 
         private final boolean recordSet;
 

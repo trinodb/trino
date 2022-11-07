@@ -19,7 +19,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.RowPagesBuilder;
 import io.trino.Session;
-import io.trino.execution.Lifespan;
 import io.trino.operator.DriverContext;
 import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.Operator;
@@ -72,6 +71,7 @@ import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
+import static io.trino.operator.OperatorFactories.JoinOperatorType.innerJoin;
 import static io.trino.operator.join.JoinBridgeManager.lookupAllAtOnce;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -240,12 +240,11 @@ public class BenchmarkHashBuildAndJoinOperators
             }
 
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = getLookupSourceFactoryManager(this, outputChannels, partitionCount);
-            joinOperatorFactory = operatorFactories.innerJoin(
+            joinOperatorFactory = operatorFactories.spillingJoin(
+                    innerJoin(false, false),
                     HASH_JOIN_OPERATOR_ID,
                     TEST_PLAN_NODE_ID,
                     lookupSourceFactory,
-                    false,
-                    false,
                     false,
                     types,
                     hashChannels,
@@ -389,7 +388,7 @@ public class BenchmarkHashBuildAndJoinOperators
             }
         }
 
-        LookupSourceFactory lookupSourceFactory = lookupSourceFactoryManager.getJoinBridge(Lifespan.taskWide());
+        LookupSourceFactory lookupSourceFactory = lookupSourceFactoryManager.getJoinBridge();
         ListenableFuture<LookupSourceProvider> lookupSourceProvider = lookupSourceFactory.createLookupSourceProvider();
         for (Operator operator : operators) {
             operator.finish();

@@ -2,14 +2,18 @@
 Redis connector
 ===============
 
+.. raw:: html
+
+  <img src="../_static/img/redis.png" class="connector-logo">
+
 The Redis connector allows querying of live data stored in `Redis <https://redis.io/>`_. This can be
 used to join data between different systems like Redis and Hive.
 
 Each Redis key/value pair is presented as a single row in Trino. Rows can be
 broken down into cells by using table definition files.
 
-Only Redis string and hash value types are supported; sets and zsets cannot be
-queried from Trino.
+Currently, only Redis key of string and zset types are supported, only Redis value of
+string and hash types are supported.
 
 Requirements
 ------------
@@ -46,20 +50,23 @@ Configuration properties
 
 The following configuration properties are available:
 
-=================================   ==============================================================
-Property Name                       Description
-=================================   ==============================================================
-``redis.table-names``               List of all tables provided by the catalog
-``redis.default-schema``            Default schema name for tables
-``redis.nodes``                     Location of the Redis server
-``redis.scan-count``                Redis parameter for scanning of the keys
-``redis.key-prefix-schema-table``   Redis keys have schema-name:table-name prefix
-``redis.key-delimiter``             Delimiter separating schema_name and table_name if redis.key-prefix-schema-table is used
-``redis.table-description-dir``     Directory containing table description files
-``redis.hide-internal-columns``     Controls whether internal columns are part of the table schema or not
-``redis.database-index``            Redis database index
-``redis.password``                  Redis server password
-=================================   ==============================================================
+======================================  ==============================================================
+Property name                           Description
+======================================  ==============================================================
+``redis.table-names``                   List of all tables provided by the catalog
+``redis.default-schema``                Default schema name for tables
+``redis.nodes``                         Location of the Redis server
+``redis.scan-count``                    Redis parameter for scanning of the keys
+``redis.max-keys-per-fetch``            Get values associated with the specified number of keys in the redis command such as MGET(key...)
+``redis.key-prefix-schema-table``       Redis keys have schema-name:table-name prefix
+``redis.key-delimiter``                 Delimiter separating schema_name and table_name if redis.key-prefix-schema-table is used
+``redis.table-description-dir``         Directory containing table description files
+``redis.table-description-cache-ttl``   The cache time for table description files
+``redis.hide-internal-columns``         Controls whether internal columns are part of the table schema or not
+``redis.database-index``                Redis database index
+``redis.user``                          Redis server username
+``redis.password``                      Redis server password
+======================================  ==============================================================
 
 ``redis.table-names``
 ^^^^^^^^^^^^^^^^^^^^^
@@ -72,8 +79,8 @@ For each table defined, a table description file (see below) may
 exist. If no table description file exists, the
 table only contains internal columns (see below).
 
-This property is required; there is no default and at least one table must be
-defined.
+This property is optional; the connector relies on the table description files
+specified in the ``redis.table-description-dir`` property.
 
 ``redis.default-schema``
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -101,6 +108,15 @@ of the Redis connector.
 
 This property is optional; the default is ``100``.
 
+``redis.max-keys-per-fetch``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The internal number of keys for the Redis MGET command and Pipeline HGETALL command
+when connector is using these commands to find values of keys. This parameter can be
+used to tune performance of the Redis connector.
+
+This property is optional; the default is ``100``.
+
 ``redis.key-prefix-schema-table``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -124,7 +140,21 @@ This property is optional; the default is ``:``.
 References a folder within Trino deployment that holds one or more JSON
 files, which must end with ``.json`` and contain table description files.
 
+Note that the table description files will only be used by the Trino coordinator
+node.
+
 This property is optional; the default is ``etc/redis``.
+
+``redis.table-description-cache-ttl``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Redis connector dynamically loads the table description files after waiting
+for the time specified by this property. Therefore, there is no need to update
+the ``redis.table-names`` property and restart the Trino service when adding,
+updating, or deleting a file end with ``.json`` to ``redis.table-description-dir``
+folder.
+
+This property is optional; the default is ``5m``.
 
 ``redis.hide-internal-columns``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -142,6 +172,14 @@ This property is optional; the default is ``true``.
 The Redis database to query.
 
 This property is optional; the default is ``0``.
+
+``redis.user``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The username for Redis server.
+
+This property is optional; the default is ``null``.
+
 
 ``redis.password``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -235,3 +273,38 @@ SQL support
 The connector provides :ref:`globally available <sql-globally-available>` and
 :ref:`read operation <sql-read-operations>` statements to access data and
 metadata in Redis.
+
+Performance
+-----------
+
+The connector includes a number of performance improvements, detailed in the
+following sections.
+
+.. _redis-pushdown:
+
+Pushdown
+^^^^^^^^
+
+.. _redis-predicate-pushdown:
+
+Predicate pushdown support
+""""""""""""""""""""""""""
+
+The connector supports pushdown of keys of ``string`` type only, the ``zset``
+type is not supported. Key pushdown is not supported when multiple key fields
+are defined in the table definition file.
+
+The connector supports pushdown of equality predicates, such as ``IN`` or ``=``.
+Inequality predicates, such as ``!=``, and range predicates, such as ``>``,
+``<``, or ``BETWEEN`` are not pushed down.
+
+In the following example, the predicate of the first query is not pushed down
+since ``>`` is a range predicate. The other queries are pushed down:
+
+.. code-block:: sql
+
+    -- Not pushed down
+    SELECT * FROM nation WHERE redis_key > 'CANADA';
+    -- Pushed down
+    SELECT * FROM nation WHERE redis_key = 'CANADA';
+    SELECT * FROM nation WHERE redis_key IN ('CANADA', 'POLAND');

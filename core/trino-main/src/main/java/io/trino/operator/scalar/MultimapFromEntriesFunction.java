@@ -30,19 +30,18 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
+import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.operator.aggregation.TypedSet.createEqualityTypedSet;
+import static io.trino.operator.aggregation.TypedSet.createDistinctTypedSet;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
+import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
 
 @ScalarFunction("multimap_from_entries")
 @Description("Construct a multimap from an array of entries")
@@ -69,9 +68,9 @@ public final class MultimapFromEntriesFunction
     public Block multimapFromEntries(
             @TypeParameter("map(K,array(V))") MapType mapType,
             @OperatorDependency(
-                    operator = EQUAL,
+                    operator = IS_DISTINCT_FROM,
                     argumentTypes = {"K", "K"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = NULLABLE_RETURN)) BlockPositionEqual keyEqual,
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) BlockPositionIsDistinctFrom keysDistinctOperator,
             @OperatorDependency(
                     operator = HASH_CODE,
                     argumentTypes = "K",
@@ -90,7 +89,7 @@ public final class MultimapFromEntriesFunction
         if (entryCount > entryIndicesList.length) {
             initializeEntryIndicesList(entryCount);
         }
-        TypedSet keySet = createEqualityTypedSet(keyType, keyEqual, keyHashCode, entryCount, NAME);
+        TypedSet keySet = createDistinctTypedSet(keyType, keysDistinctOperator, keyHashCode, entryCount, NAME);
 
         for (int i = 0; i < entryCount; i++) {
             if (mapEntries.isNull(i)) {

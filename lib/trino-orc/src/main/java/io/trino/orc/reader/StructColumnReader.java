@@ -52,13 +52,14 @@ import static io.trino.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.trino.orc.reader.ColumnReaders.createColumnReader;
 import static io.trino.orc.reader.ReaderUtils.verifyStreamType;
 import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static java.lang.Math.toIntExact;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class StructColumnReader
         implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(StructColumnReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(StructColumnReader.class).instanceSize());
 
     private final OrcColumn column;
     private final OrcBlockFactory blockFactory;
@@ -80,7 +81,7 @@ public class StructColumnReader
             Type type,
             OrcColumn column,
             OrcReader.ProjectedLayout readLayout,
-            AggregatedMemoryContext systemMemoryContext,
+            AggregatedMemoryContext memoryContext,
             OrcBlockFactory blockFactory,
             FieldMapperFactory fieldMapperFactory)
             throws OrcCorruptionException
@@ -112,14 +113,14 @@ public class StructColumnReader
                                     field.getType(),
                                     fieldStream,
                                     fieldLayout,
-                                    systemMemoryContext,
+                                    memoryContext,
                                     blockFactory,
                                     fieldMapperFactory));
                 }
             }
         }
         this.fieldNames = fieldNames.build();
-        this.structFields = structFields.build();
+        this.structFields = structFields.buildOrThrow();
     }
 
     @Override

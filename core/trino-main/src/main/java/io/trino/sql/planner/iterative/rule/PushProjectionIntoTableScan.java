@@ -30,9 +30,12 @@ import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
+import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.LiteralEncoder;
+import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
@@ -72,12 +75,14 @@ public class PushProjectionIntoTableScan
 
     private final PlannerContext plannerContext;
     private final TypeAnalyzer typeAnalyzer;
+    private final LiteralEncoder literalEncoder;
     private final ScalarStatsCalculator scalarStatsCalculator;
 
     public PushProjectionIntoTableScan(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, ScalarStatsCalculator scalarStatsCalculator)
     {
         this.plannerContext = plannerContext;
         this.typeAnalyzer = typeAnalyzer;
+        this.literalEncoder = new LiteralEncoder(plannerContext);
         this.scalarStatsCalculator = requireNonNull(scalarStatsCalculator, "scalarStatsCalculator is null");
     }
 
@@ -98,15 +103,18 @@ public class PushProjectionIntoTableScan
     {
         TableScanNode tableScan = captures.get(TABLE_SCAN);
 
+        Session session = context.getSession();
+
         // Extract translatable components from projection expressions. Prepare a mapping from these internal
         // expression nodes to corresponding ConnectorExpression translations.
         Map<NodeRef<Expression>, ConnectorExpression> partialTranslations = project.getAssignments().getMap().entrySet().stream()
                 .flatMap(expression ->
                         extractPartialTranslations(
                                 expression.getValue(),
-                                context.getSession(),
+                                session,
                                 typeAnalyzer,
-                                context.getSymbolAllocator().getTypes()).entrySet().stream())
+                                context.getSymbolAllocator().getTypes(),
+                                plannerContext).entrySet().stream())
                 // Avoid duplicates
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue, (first, ignore) -> first));
 
@@ -118,7 +126,7 @@ public class PushProjectionIntoTableScan
         Map<String, ColumnHandle> assignments = inputVariableMappings.entrySet().stream()
                 .collect(toImmutableMap(Entry::getKey, entry -> tableScan.getAssignments().get(entry.getValue())));
 
-        Optional<ProjectionApplicationResult<TableHandle>> result = plannerContext.getMetadata().applyProjection(context.getSession(), tableScan.getTable(), connectorPartialProjections, assignments);
+        Optional<ProjectionApplicationResult<TableHandle>> result = plannerContext.getMetadata().applyProjection(session, tableScan.getTable(), connectorPartialProjections, assignments);
 
         if (result.isEmpty()) {
             return Result.empty();
@@ -143,7 +151,18 @@ public class PushProjectionIntoTableScan
 
         // Translate partial connector projections back to new partial projections
         List<Expression> newPartialProjections = newConnectorPartialProjections.stream()
-                .map(expression -> ConnectorExpressionTranslator.translate(context.getSession(), expression, variableMappings, new LiteralEncoder(plannerContext)))
+                .map(expression -> {
+                    Expression translated = ConnectorExpressionTranslator.translate(session, expression, plannerContext, variableMappings, literalEncoder);
+                    // ConnectorExpressionTranslator may or may not preserve optimized form of expressions during round-trip. Avoid potential optimizer loop
+                    // by ensuring expression is optimized.
+                    Map<NodeRef<Expression>, Type> translatedExpressionTypes = typeAnalyzer.getTypes(session, context.getSymbolAllocator().getTypes(), translated);
+                    translated = literalEncoder.toExpression(
+                            session,
+                            new ExpressionInterpreter(translated, plannerContext, session, translatedExpressionTypes)
+                                    .optimize(NoOpSymbolResolver.INSTANCE),
+                            translatedExpressionTypes.get(NodeRef.of(translated)));
+                    return translated;
+                })
                 .collect(toImmutableList());
 
         // Map internal node references to new partial projections
@@ -151,7 +170,7 @@ public class PushProjectionIntoTableScan
         for (int i = 0; i < nodesForPartialProjections.size(); i++) {
             nodesToNewPartialProjectionsBuilder.put(nodesForPartialProjections.get(i), newPartialProjections.get(i));
         }
-        Map<NodeRef<Expression>, Expression> nodesToNewPartialProjections = nodesToNewPartialProjectionsBuilder.build();
+        Map<NodeRef<Expression>, Expression> nodesToNewPartialProjections = nodesToNewPartialProjectionsBuilder.buildOrThrow();
 
         // Stitch partial translations to form new complete projections
         Assignments.Builder newProjectionAssignments = Assignments.builder();
@@ -170,8 +189,8 @@ public class PushProjectionIntoTableScan
                     continue;
                 }
                 String resultVariableName = ((Variable) resultConnectorExpression).getName();
-                Expression inputExpression = ConnectorExpressionTranslator.translate(context.getSession(), inputConnectorExpression, inputVariableMappings, new LiteralEncoder(plannerContext));
-                SymbolStatsEstimate symbolStatistics = scalarStatsCalculator.calculate(inputExpression, statistics, context.getSession(), context.getSymbolAllocator().getTypes());
+                Expression inputExpression = ConnectorExpressionTranslator.translate(session, inputConnectorExpression, plannerContext, inputVariableMappings, literalEncoder);
+                SymbolStatsEstimate symbolStatistics = scalarStatsCalculator.calculate(inputExpression, statistics, session, context.getSymbolAllocator().getTypes());
                 builder.addSymbolStatistics(variableMappings.get(resultVariableName), symbolStatistics);
             }
             return builder.build();

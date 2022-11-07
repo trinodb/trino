@@ -18,9 +18,11 @@ import com.google.common.primitives.Primitives;
 import io.trino.metadata.PolymorphicScalarFunctionBuilder.MethodAndNativeContainerTypes;
 import io.trino.metadata.PolymorphicScalarFunctionBuilder.MethodsGroup;
 import io.trino.metadata.PolymorphicScalarFunctionBuilder.SpecializeContext;
-import io.trino.operator.scalar.ChoicesScalarFunctionImplementation;
-import io.trino.operator.scalar.ChoicesScalarFunctionImplementation.ScalarImplementationChoice;
-import io.trino.operator.scalar.ScalarFunctionImplementation;
+import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
+import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction.ScalarImplementationChoice;
+import io.trino.operator.scalar.SpecializedSqlScalarFunction;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.InvocationConvention.InvocationReturnConvention;
 import io.trino.spi.type.Type;
@@ -48,7 +50,7 @@ class PolymorphicScalarFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         ImmutableList.Builder<ScalarImplementationChoice> implementationChoices = ImmutableList.builder();
 
@@ -58,7 +60,7 @@ class PolymorphicScalarFunction
             implementationChoices.add(getScalarFunctionImplementationChoice(functionBinding, choice));
         }
 
-        return new ChoicesScalarFunctionImplementation(boundSignature, implementationChoices.build());
+        return new ChoicesSpecializedSqlScalarFunction(boundSignature, implementationChoices.build());
     }
 
     private ScalarImplementationChoice getScalarFunctionImplementationChoice(
@@ -128,6 +130,11 @@ class PolymorphicScalarFunction
                         expectedType = explicitNativeContainerTypes.get();
                     }
                     actualType = resolvedType.getJavaType();
+                    break;
+                case IN_OUT:
+                    // any type is supported, so just ignore this check
+                    actualType = resolvedType.getJavaType();
+                    expectedType = resolvedType.getJavaType();
                     break;
                 default:
                     throw new UnsupportedOperationException("Unknown argument convention: " + argumentConvention);

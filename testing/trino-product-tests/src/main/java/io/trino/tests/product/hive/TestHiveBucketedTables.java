@@ -32,7 +32,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Lists.cartesianProduct;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.anyOf;
@@ -44,13 +43,15 @@ import static io.trino.tempto.fulfillment.table.MutableTablesState.mutableTables
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static io.trino.tempto.query.QueryExecutor.param;
-import static io.trino.tests.product.TestGroups.BIG_QUERY;
+import static io.trino.tests.product.TestGroups.LARGE_QUERY;
 import static io.trino.tests.product.TpchTableResults.PRESTO_NATION_RESULT;
 import static io.trino.tests.product.hive.BucketingType.BUCKETED_DEFAULT;
 import static io.trino.tests.product.hive.BucketingType.BUCKETED_V1;
 import static io.trino.tests.product.hive.BucketingType.BUCKETED_V2;
 import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.hive.util.TemporaryHiveTable.temporaryHiveTable;
+import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
+import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static io.trino.tests.product.utils.TableDefinitionUtils.mutableTableInstanceOf;
@@ -115,7 +116,7 @@ public class TestHiveBucketedTables
         assertThat(onTrino().executeQuery("SELECT * FROM " + tableName)).matches(PRESTO_NATION_RESULT);
     }
 
-    @Test(groups = BIG_QUERY)
+    @Test(groups = LARGE_QUERY)
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testIgnorePartitionBucketingIfNotBucketed()
     {
@@ -133,7 +134,7 @@ public class TestHiveBucketedTables
                 .containsExactlyInOrder(row(2));
     }
 
-    @Test(groups = BIG_QUERY)
+    @Test(groups = LARGE_QUERY)
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testAllowMultipleFilesPerBucket()
     {
@@ -336,7 +337,7 @@ public class TestHiveBucketedTables
             QueryResult showCreateTableResult = onTrino().executeQuery("SHOW CREATE TABLE " + tableName);
             assertThat(showCreateTableResult)
                     .hasRowsCount(1);
-            Assertions.assertThat((String) getOnlyElement(getOnlyElement(showCreateTableResult.rows())))
+            Assertions.assertThat((String) showCreateTableResult.getOnlyValue())
                     .matches(Pattern.compile(format("\\QCREATE TABLE hive.default.%s (\n" +
                                     "   n_integer integer,\n" +
                                     "   n_decimal decimal(9, 2),\n" +

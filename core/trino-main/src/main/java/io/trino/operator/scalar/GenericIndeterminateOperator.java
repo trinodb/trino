@@ -13,45 +13,49 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionInvoker;
-import io.trino.metadata.SqlOperator;
-import io.trino.spi.function.OperatorType;
+import io.trino.metadata.SqlScalarFunction;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.ScalarFunctionImplementation;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Optional;
 
-import static io.trino.metadata.Signature.comparableTypeParameter;
+import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
 
 public class GenericIndeterminateOperator
-        extends SqlOperator
+        extends SqlScalarFunction
 {
     private final TypeOperators typeOperators;
 
     public GenericIndeterminateOperator(TypeOperators typeOperators)
     {
-        super(OperatorType.INDETERMINATE,
-                ImmutableList.of(comparableTypeParameter("T")),
-                ImmutableList.of(),
-                BOOLEAN.getTypeSignature(),
-                ImmutableList.of(new TypeSignature("T")),
-                true);
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .operatorType(INDETERMINATE)
+                        .comparableTypeParameter("T")
+                        .returnType(BOOLEAN)
+                        .argumentType(new TypeSignature("T"))
+                        .build())
+                .argumentNullability(true)
+                .build());
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         Type type = boundSignature.getArgumentType(0);
         return invocationConvention -> {
             MethodHandle methodHandle = typeOperators.getIndeterminateOperator(type, invocationConvention);
-            return new FunctionInvoker(methodHandle, Optional.empty());
+            return ScalarFunctionImplementation.builder()
+                    .methodHandle(methodHandle)
+                    .build();
         };
     }
 }

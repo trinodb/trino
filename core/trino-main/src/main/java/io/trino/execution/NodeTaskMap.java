@@ -97,16 +97,17 @@ public class NodeTaskMap
         private void addTask(RemoteTask task)
         {
             if (remoteTasks.add(task)) {
+                // Check if task state is already done before adding the listener
+                if (task.getTaskStatus().getState().isDone()) {
+                    remoteTasks.remove(task);
+                    return;
+                }
+
                 task.addStateChangeListener(taskStatus -> {
                     if (taskStatus.getState().isDone()) {
                         remoteTasks.remove(task);
                     }
                 });
-
-                // Check if task state is already done before adding the listener
-                if (task.getTaskStatus().getState().isDone()) {
-                    remoteTasks.remove(task);
-                }
             }
         }
 

@@ -21,12 +21,14 @@ import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
+import io.trino.plugin.mongodb.ptf.Query;
+import io.trino.spi.ptf.ConnectorTableFunction;
 import io.trino.spi.type.TypeManager;
 
 import javax.inject.Singleton;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class MongoClientModule
@@ -41,14 +43,13 @@ public class MongoClientModule
         binder.bind(MongoPageSinkProvider.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(MongoClientConfig.class);
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 
     @Singleton
     @Provides
     public static MongoSession createMongoSession(TypeManager typeManager, MongoClientConfig config)
     {
-        requireNonNull(config, "config is null");
-
         MongoClientSettings.Builder options = MongoClientSettings.builder();
         options.writeConcern(config.getWriteConcern().getWriteConcern())
                 .readPreference(config.getReadPreference().getReadPreference())

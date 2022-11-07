@@ -104,7 +104,7 @@ public final class IntervalYearMonthOperators
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice castToSlice(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long value)
+    public static Slice castToVarchar(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long value)
     {
         return utf8Slice(IntervalYearMonth.formatMonths(toIntExact(value)));
     }

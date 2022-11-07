@@ -64,7 +64,7 @@ public final class MetadataUtil
                 .put("timestamp(3) with time zone", TIMESTAMP_COLUMN_TYPE)
                 .put(StandardTypes.DOUBLE, DOUBLE)
                 .put(StandardTypes.VARCHAR, createUnboundedVarcharType())
-                .build();
+                .buildOrThrow();
 
         public TestingTypeDeserializer()
         {

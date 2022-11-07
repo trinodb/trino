@@ -24,6 +24,7 @@ import io.trino.client.ProtocolDetectionException;
 import io.trino.client.ProtocolHeaders;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
+import io.trino.server.protocol.PreparedStatementEncoder;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.Identity;
@@ -72,13 +73,15 @@ public class HttpRequestSessionContextFactory
     private static final Splitter DOT_SPLITTER = Splitter.on('.');
     public static final String AUTHENTICATED_IDENTITY = "trino.authenticated-identity";
 
+    private final PreparedStatementEncoder preparedStatementEncoder;
     private final Metadata metadata;
     private final GroupProvider groupProvider;
     private final AccessControl accessControl;
 
     @Inject
-    public HttpRequestSessionContextFactory(Metadata metadata, GroupProvider groupProvider, AccessControl accessControl)
+    public HttpRequestSessionContextFactory(PreparedStatementEncoder preparedStatementEncoder, Metadata metadata, GroupProvider groupProvider, AccessControl accessControl)
     {
+        this.preparedStatementEncoder = requireNonNull(preparedStatementEncoder, "preparedStatementEncoder is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -173,7 +176,7 @@ public class HttpRequestSessionContextFactory
                 clientTags,
                 clientCapabilities,
                 resourceEstimates,
-                systemProperties.build(),
+                systemProperties.buildOrThrow(),
                 catalogSessionProperties,
                 preparedStatements,
                 transactionId,
@@ -297,7 +300,7 @@ public class HttpRequestSessionContextFactory
             }
             roles.put(key, toSelectedRole(protocolHeaders, value));
         });
-        return roles.build();
+        return roles.buildOrThrow();
     }
 
     private static SelectedRole toSelectedRole(ProtocolHeaders protocolHeaders, String value)
@@ -378,10 +381,10 @@ public class HttpRequestSessionContextFactory
         }
     }
 
-    private static Map<String, String> parsePreparedStatementsHeaders(ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers)
+    private Map<String, String> parsePreparedStatementsHeaders(ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers)
     {
         ImmutableMap.Builder<String, String> preparedStatements = ImmutableMap.builder();
-        parseProperty(headers, protocolHeaders.requestPreparedStatement()).forEach((key, sqlString) -> {
+        parseProperty(headers, protocolHeaders.requestPreparedStatement()).forEach((key, value) -> {
             String statementName;
             try {
                 statementName = urlDecode(key);
@@ -389,6 +392,7 @@ public class HttpRequestSessionContextFactory
             catch (IllegalArgumentException e) {
                 throw badRequest(format("Invalid %s header: %s", protocolHeaders.requestPreparedStatement(), e.getMessage()));
             }
+            String sqlString = preparedStatementEncoder.decodePreparedStatementFromHeader(value);
 
             // Validate statement
             SqlParser sqlParser = new SqlParser();
@@ -402,7 +406,7 @@ public class HttpRequestSessionContextFactory
             preparedStatements.put(statementName, sqlString);
         });
 
-        return preparedStatements.build();
+        return preparedStatements.buildOrThrow();
     }
 
     private static Optional<TransactionId> parseTransactionId(String transactionId)

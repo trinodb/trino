@@ -232,7 +232,6 @@ public class BenchmarkHashAndStreamingAggregationOperators
                     hashTypes,
                     hashTypes,
                     hashChannels,
-                    SINGLE,
                     ImmutableList.of(
                             COUNT.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty()),
                             LONG_SUM.createAggregatorFactory(SINGLE, ImmutableList.of(sumChannel), OptionalInt.empty())),
@@ -268,7 +267,7 @@ public class BenchmarkHashAndStreamingAggregationOperators
                     spillerFactory,
                     JOIN_COMPILER,
                     BLOCK_TYPE_OPERATORS,
-                    false);
+                    Optional.empty());
         }
 
         private static void repeatToBigintBlock(long value, int count, BlockBuilder blockBuilder)

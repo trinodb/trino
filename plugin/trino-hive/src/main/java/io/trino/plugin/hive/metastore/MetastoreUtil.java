@@ -22,7 +22,6 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.PartitionOfflineException;
 import io.trino.plugin.hive.TableOfflineException;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -45,6 +44,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.metastore.ProtectMode;
+import org.apache.hadoop.hive.serde2.avro.AvroSerDe;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
@@ -59,7 +59,9 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.hive.HiveMetadata.AVRO_SCHEMA_LITERAL_KEY;
 import static io.trino.plugin.hive.HiveMetadata.AVRO_SCHEMA_URL_KEY;
 import static io.trino.plugin.hive.HiveSplitManager.PRESTO_OFFLINE;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
@@ -97,6 +99,7 @@ public final class MetastoreUtil
         // Mimics function in Hive: MetaStoreUtils.getTableMetadata(Table)
         return getHiveSchema(
                 table.getStorage(),
+                Optional.empty(),
                 table.getDataColumns(),
                 table.getDataColumns(),
                 table.getParameters(),
@@ -110,6 +113,7 @@ public final class MetastoreUtil
         // Mimics function in Hive: MetaStoreUtils.getSchema(Partition, Table)
         return getHiveSchema(
                 partition.getStorage(),
+                Optional.of(table.getStorage()),
                 partition.getColumns(),
                 table.getDataColumns(),
                 table.getParameters(),
@@ -120,6 +124,7 @@ public final class MetastoreUtil
 
     private static Properties getHiveSchema(
             Storage sd,
+            Optional<Storage> tableSd,
             List<Column> dataColumns,
             List<Column> tableDataColumns,
             Map<String, String> parameters,
@@ -149,7 +154,14 @@ public final class MetastoreUtil
         for (Map.Entry<String, String> param : sd.getSerdeParameters().entrySet()) {
             schema.setProperty(param.getKey(), (param.getValue() != null) ? param.getValue() : "");
         }
-        schema.setProperty(SERIALIZATION_LIB, sd.getStorageFormat().getSerDe());
+
+        if (sd.getStorageFormat().getSerde().equals(AvroSerDe.class.getName()) && tableSd.isPresent()) {
+            for (Map.Entry<String, String> param : tableSd.get().getSerdeParameters().entrySet()) {
+                schema.setProperty(param.getKey(), nullToEmpty(param.getValue()));
+            }
+        }
+
+        schema.setProperty(SERIALIZATION_LIB, sd.getStorageFormat().getSerde());
 
         StringBuilder columnNameBuilder = new StringBuilder();
         StringBuilder columnTypeBuilder = new StringBuilder();
@@ -217,9 +229,11 @@ public final class MetastoreUtil
 
     public static boolean isAvroTableWithSchemaSet(Table table)
     {
-        return AVRO.getSerDe().equals(table.getStorage().getStorageFormat().getSerDeNullable()) &&
-                (table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null ||
-                        (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_URL_KEY) != null));
+        return AVRO.getSerde().equals(table.getStorage().getStorageFormat().getSerDeNullable()) &&
+                ((table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null ||
+                        (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_URL_KEY) != null)) ||
+                 (table.getParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null ||
+                         (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null)));
     }
 
     public static String makePartitionName(Table table, Partition partition)
@@ -277,9 +291,7 @@ public final class MetastoreUtil
         if (!parameters.containsKey(ProtectMode.PARAMETER_NAME)) {
             return new ProtectMode();
         }
-        else {
-            return getProtectModeFromString(parameters.get(ProtectMode.PARAMETER_NAME));
-        }
+        return getProtectModeFromString(parameters.get(ProtectMode.PARAMETER_NAME));
     }
 
     public static void verifyOnline(SchemaTableName tableName, Optional<String> partitionName, ProtectMode protectMode, Map<String, String> parameters)
@@ -300,9 +312,9 @@ public final class MetastoreUtil
         }
     }
 
-    public static void verifyCanDropColumn(HiveMetastore metastore, HiveIdentity identity, String databaseName, String tableName, String columnName)
+    public static void verifyCanDropColumn(HiveMetastore metastore, String databaseName, String tableName, String columnName)
     {
-        Table table = metastore.getTable(identity, databaseName, tableName)
+        Table table = metastore.getTable(databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
 
         if (table.getPartitionColumns().stream().anyMatch(column -> column.getName().equals(columnName))) {
@@ -346,7 +358,6 @@ public final class MetastoreUtil
 
     /**
      * @param domain - domain expression for the column. null => TupleDomain.all()
-     * @param assumeCanonicalPartitionKeys
      * @param partitionWildcardString wildcard
      * @return string for scalar values
      */
@@ -385,29 +396,29 @@ public final class MetastoreUtil
         if (value == null) {
             return nullString;
         }
-        else if (type instanceof CharType) {
+        if (type instanceof CharType) {
             Slice slice = (Slice) value;
             return padSpaces(slice, (CharType) type).toStringUtf8();
         }
-        else if (type instanceof VarcharType) {
+        if (type instanceof VarcharType) {
             Slice slice = (Slice) value;
             return slice.toStringUtf8();
         }
-        else if (type instanceof DecimalType && !((DecimalType) type).isShort()) {
-            return Decimals.toString((Int128) value, ((DecimalType) type).getScale());
+        if (type instanceof DecimalType decimalType && !decimalType.isShort()) {
+            return Decimals.toString((Int128) value, decimalType.getScale());
         }
-        else if (type instanceof DecimalType && ((DecimalType) type).isShort()) {
-            return Decimals.toString((long) value, ((DecimalType) type).getScale());
+        if (type instanceof DecimalType decimalType && decimalType.isShort()) {
+            return Decimals.toString((long) value, decimalType.getScale());
         }
-        else if (type instanceof DateType) {
+        if (type instanceof DateType) {
             DateTimeFormatter dateTimeFormatter = ISODateTimeFormat.date().withZoneUTC();
             return dateTimeFormatter.print(TimeUnit.DAYS.toMillis((long) value));
         }
-        else if (type instanceof TimestampType) {
+        if (type instanceof TimestampType) {
             // we throw on this type as we don't have timezone. Callers should not ask for this conversion type, but document for possible future work (?)
             throw new TrinoException(NOT_SUPPORTED, "TimestampType conversion to scalar expressions is not supported");
         }
-        else if (type instanceof TinyintType
+        if (type instanceof TinyintType
                 || type instanceof SmallintType
                 || type instanceof IntegerType
                 || type instanceof BigintType
@@ -416,9 +427,7 @@ public final class MetastoreUtil
                 || type instanceof BooleanType) {
             return value.toString();
         }
-        else {
-            throw new TrinoException(NOT_SUPPORTED, format("Unsupported partition key type: %s", type.getDisplayName()));
-        }
+        throw new TrinoException(NOT_SUPPORTED, format("Unsupported partition key type: %s", type.getDisplayName()));
     }
 
     /**

@@ -63,10 +63,10 @@ public final class AggregationTestUtils
     public static BiFunction<Object, Object, Boolean> makeValidityAssertion(Object expectedValue)
     {
         if (expectedValue instanceof Double && !expectedValue.equals(Double.NaN)) {
-            return (actual, expected) -> Precision.equals((double) actual, (double) expected, 1.0e-10);
+            return (actual, expected) -> actual != null && expected != null && Precision.equals((double) actual, (double) expected, 1.0e-10);
         }
         if (expectedValue instanceof Float && !expectedValue.equals(Float.NaN)) {
-            return (actual, expected) -> Precision.equals((float) actual, (float) expected, 1.0e-10f);
+            return (actual, expected) -> actual != null && expected != null && Precision.equals((float) actual, (float) expected, 1.0e-10f);
         }
         return Objects::equals;
     }
@@ -175,7 +175,7 @@ public final class AggregationTestUtils
         Page[] maskedPages = new Page[pages.length];
         for (int i = 0; i < pages.length; i++) {
             Page page = pages[i];
-            maskedPages[i] = page.appendColumn(new RunLengthEncodedBlock(BooleanType.createBlockForSingleNonNullValue(maskValue), page.getPositionCount()));
+            maskedPages[i] = page.appendColumn(RunLengthEncodedBlock.create(BooleanType.createBlockForSingleNonNullValue(maskValue), page.getPositionCount()));
         }
         return maskedPages;
     }
@@ -416,7 +416,7 @@ public final class AggregationTestUtils
             Page page = pages[i];
             Block[] newBlocks = new Block[page.getChannelCount() + offset];
             for (int channel = 0; channel < offset; channel++) {
-                newBlocks[channel] = createNullRLEBlock(page.getPositionCount());
+                newBlocks[channel] = createAllNullBlock(page.getPositionCount());
             }
             for (int channel = 0; channel < page.getChannelCount(); channel++) {
                 newBlocks[channel + offset] = page.getBlock(channel);
@@ -426,9 +426,9 @@ public final class AggregationTestUtils
         return newPages;
     }
 
-    private static RunLengthEncodedBlock createNullRLEBlock(int positionCount)
+    private static Block createAllNullBlock(int positionCount)
     {
-        return (RunLengthEncodedBlock) RunLengthEncodedBlock.create(BOOLEAN, null, positionCount);
+        return RunLengthEncodedBlock.create(BOOLEAN, null, positionCount);
     }
 
     public static Object getGroupValue(Type finalType, GroupedAggregator groupedAggregator, int groupId)

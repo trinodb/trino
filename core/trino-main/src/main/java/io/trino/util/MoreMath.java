@@ -15,6 +15,7 @@ package io.trino.util;
 
 import java.util.stream.DoubleStream;
 
+import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
 
 public final class MoreMath
@@ -33,14 +34,12 @@ public final class MoreMath
         if (a == b) { // shortcut, handles infinities
             return true;
         }
-        else if (a == 0 || b == 0 || diff < Double.MIN_NORMAL) {
+        if (a == 0 || b == 0 || diff < Double.MIN_NORMAL) {
             // a or b is zero or both are extremely close to it
             // relative error is less meaningful here
             return diff < (epsilon * Double.MIN_NORMAL);
-        }
-        else { // use relative error
-            return diff / Math.min((absA + absB), Double.MAX_VALUE) < epsilon;
-        }
+        } // use relative error
+        return diff / Math.min((absA + absB), Double.MAX_VALUE) < epsilon;
     }
 
     /**
@@ -55,14 +54,12 @@ public final class MoreMath
         if (a == b) { // shortcut, handles infinities
             return true;
         }
-        else if (a == 0 || b == 0 || diff < Float.MIN_NORMAL) {
+        if (a == 0 || b == 0 || diff < Float.MIN_NORMAL) {
             // a or b is zero or both are extremely close to it
             // relative error is less meaningful here
             return diff < (epsilon * Float.MIN_NORMAL);
-        }
-        else { // use relative error
-            return diff / Math.min((absA + absB), Float.MAX_VALUE) < epsilon;
-        }
+        } // use relative error
+        return diff / Math.min((absA + absB), Float.MAX_VALUE) < epsilon;
     }
 
     public static double min(double... values)
@@ -109,5 +106,38 @@ public final class MoreMath
             }
         }
         throw new IllegalArgumentException("All values are NaN");
+    }
+
+    public static double averageExcludingNaNs(double first, double second)
+    {
+        if (isNaN(first) && isNaN(second)) {
+            return NaN;
+        }
+        if (!isNaN(first) && !isNaN(second)) {
+            return (first + second) / 2;
+        }
+        return firstNonNaN(first, second);
+    }
+
+    public static double minExcludeNaN(double v1, double v2)
+    {
+        if (isNaN(v1)) {
+            return v2;
+        }
+        if (isNaN(v2)) {
+            return v1;
+        }
+        return min(v1, v2);
+    }
+
+    public static double maxExcludeNaN(double v1, double v2)
+    {
+        if (isNaN(v1)) {
+            return v2;
+        }
+        if (isNaN(v2)) {
+            return v1;
+        }
+        return max(v1, v2);
     }
 }

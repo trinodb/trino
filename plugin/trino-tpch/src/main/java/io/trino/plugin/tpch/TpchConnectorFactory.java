@@ -17,11 +17,11 @@ import io.trino.spi.NodeManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static io.trino.plugin.base.Versions.checkSpiVersion;
 import static java.lang.Boolean.FALSE;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -44,11 +45,11 @@ public class TpchConnectorFactory
     public static final String TPCH_TABLE_SCAN_REDIRECTION_CATALOG = "tpch.table-scan-redirection-catalog";
     public static final String TPCH_TABLE_SCAN_REDIRECTION_SCHEMA = "tpch.table-scan-redirection-schema";
     public static final String TPCH_SPLITS_PER_NODE = "tpch.splits-per-node";
+    public static final String TPCH_PARTITIONING_ENABLED = "tpch.partitioning-enabled";
     private static final int DEFAULT_MAX_ROWS_PER_PAGE = 1_000_000;
 
     private final int defaultSplitsPerNode;
     private final boolean predicatePushdownEnabled;
-    private final boolean partitioningEnabled;
 
     public TpchConnectorFactory()
     {
@@ -57,14 +58,13 @@ public class TpchConnectorFactory
 
     public TpchConnectorFactory(int defaultSplitsPerNode)
     {
-        this(defaultSplitsPerNode, true, true);
+        this(defaultSplitsPerNode, true);
     }
 
-    public TpchConnectorFactory(int defaultSplitsPerNode, boolean predicatePushdownEnabled, boolean partitioningEnabled)
+    public TpchConnectorFactory(int defaultSplitsPerNode, boolean predicatePushdownEnabled)
     {
         this.defaultSplitsPerNode = defaultSplitsPerNode;
         this.predicatePushdownEnabled = predicatePushdownEnabled;
-        this.partitioningEnabled = partitioningEnabled;
     }
 
     @Override
@@ -74,17 +74,14 @@ public class TpchConnectorFactory
     }
 
     @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new TpchHandleResolver();
-    }
-
-    @Override
     public Connector create(String catalogName, Map<String, String> properties, ConnectorContext context)
     {
+        checkSpiVersion(context, this);
+
         int splitsPerNode = getSplitsPerNode(properties);
         ColumnNaming columnNaming = ColumnNaming.valueOf(properties.getOrDefault(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.SIMPLIFIED.name()).toUpperCase(ENGLISH));
         DecimalTypeMapping decimalTypeMapping = DecimalTypeMapping.valueOf(properties.getOrDefault(TPCH_DOUBLE_TYPE_MAPPING_PROPERTY, DecimalTypeMapping.DOUBLE.name()).toUpperCase(ENGLISH));
+        boolean partitioningEnabled = Boolean.parseBoolean(properties.getOrDefault(TPCH_PARTITIONING_ENABLED, "true"));
         NodeManager nodeManager = context.getNodeManager();
 
         return new Connector()
@@ -96,7 +93,7 @@ public class TpchConnectorFactory
             }
 
             @Override
-            public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
+            public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transaction)
             {
                 return new TpchMetadata(
                         columnNaming,

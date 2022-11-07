@@ -97,8 +97,8 @@ class IndexInserter
         }
 
         this.columns = columnBuilder.build();
-        this.indexes = indexBuilder.build();
-        this.types = typeBuilder.build();
+        this.indexes = indexBuilder.buildOrThrow();
+        this.types = typeBuilder.buildOrThrow();
 
         String sql = "" +
                 "INSERT INTO " + shardIndexTable(tableId) + "\n" +

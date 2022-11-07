@@ -63,7 +63,14 @@ public class InvocationConvention
         return supportsSession;
     }
 
+    // TODO remove some time after nearest release
+    @Deprecated
     public boolean supportsInstanceFactor()
+    {
+        return supportsInstanceFactory();
+    }
+
+    public boolean supportsInstanceFactory()
     {
         return supportsInstanceFactory;
     }
@@ -116,6 +123,10 @@ public class InvocationConvention
          * sql value may be null.
          */
         BLOCK_POSITION(true, 2),
+        /**
+         * Argument is passed in an InOut. The sql value may be null.
+         */
+        IN_OUT(true, 1),
         /**
          * Argument is a lambda function.
          */

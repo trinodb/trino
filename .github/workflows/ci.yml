@@ -8,6 +8,10 @@ on:
     paths-ignore:
       - 'docs/**'
 
+defaults:
+  run:
+    shell: bash --noprofile --norc -euo pipefail {0}
+
 env:
   # An envar that signals to tests we are executing in the CI environment
   CONTINUOUS_INTEGRATION: true
@@ -15,9 +19,11 @@ env:
   MAVEN: ./mvnw
   # maven.wagon.rto is in millis, defaults to 30m
   MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
-  MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
-  MAVEN_FAST_INSTALL: "-B --strict-checksums -V --quiet -T C1 -DskipTests -Dair.check.skip-all"
-  MAVEN_TEST: "-B --strict-checksums -Dair.check.skip-all --fail-at-end"
+  MAVEN_INSTALL_OPTS: "-Xmx3G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
+  MAVEN_FAST_INSTALL: "-B --strict-checksums -V --quiet -T C1 -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all"
+  MAVEN_COMPILE_COMMITS: "-B --strict-checksums --quiet -T C1 -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all=true -Dmaven.javadoc.skip=true --no-snapshot-updates --no-transfer-progress -pl '!:trino-server-rpm'"
+  MAVEN_GIB: "-P gib -Dgib.referenceBranch=refs/remotes/origin/${{ github.event.pull_request.base.ref }}"
+  MAVEN_TEST: "-B --strict-checksums -Dmaven.source.skip=true -Dair.check.skip-all --fail-at-end -P gib -Dgib.referenceBranch=refs/remotes/origin/${{ github.event.pull_request.base.ref }}"
   RETRY: .github/bin/retry
   # Testcontainers kills image pulls if they don't make progress for > 30s and retries for 2m before failing. This means
   # that if an image doesn't download all it's layers within ~2m then any other concurrent pull will be killed because
@@ -25,6 +31,8 @@ env:
   # This value should be greater than the time taken for the longest image pull.
   TESTCONTAINERS_PULL_PAUSE_TIMEOUT: 600
   TEST_REPORT_RETENTION_DAYS: 5
+  # used by actions/cache to retry the download after this time: https://github.com/actions/cache/blob/main/workarounds.md#cache-segment-restore-timeout
+  SEGMENT_DOWNLOAD_TIMEOUT_MINS: 5
 
 # Cancel previous PR builds.
 concurrency:
@@ -40,66 +48,123 @@ jobs:
       fail-fast: false
       matrix:
         java-version:
-          - 11
           - 17
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-java@v2
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
+      - uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
           java-version: ${{ matrix.java-version }}
           cache: 'maven'
       - name: Configure Problem Matchers
+        run: echo "::add-matcher::.github/problem-matcher.json"
+      - name: Download all Trino dependencies to make sure cache is complete
         run: |
-          echo "::add-matcher::.github/problem-matcher.json"
+          $RETRY $MAVEN dependency:go-offline
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install -B --strict-checksums -V -T C1 -DskipTests -P ci -pl '!:trino-server-rpm'
+          $MAVEN clean install -B --strict-checksums -V -T C1 -DskipTests -P ci -pl '!:trino-server-rpm'
       - name: Test Server RPM
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY bash -c "$MAVEN verify -B --strict-checksums -P ci -pl :trino-server-rpm || find core/trino-server-rpm/ -exec ls -ald {} +"
+          $MAVEN verify -B --strict-checksums -P ci -pl :trino-server-rpm
       - name: Clean Maven Output
         run: $MAVEN clean -pl '!:trino-server,!:trino-cli'
-      - uses: docker/setup-qemu-action@v1
+      - uses: docker/setup-qemu-action@v2
         with:
-          platforms: arm64
+          platforms: arm64,ppc64le
       - name: Test Docker Image
-        run: core/docker/build-local.sh
+        run: core/docker/build.sh
+      - name: Remove Trino from local Maven repo to avoid caching it
+        # Avoid caching artifacts built in this job, cache should only include dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: rm -rf ~/.m2/repository/io/trino/trino-*
+
+  check-commits:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # checkout all commits to be able to determine merge base
+          ref: ${{ github.event.pull_request.head.sha }} # checkout PR HEAD commit instead of merge commit
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: 17
+          cache: 'maven'
+      - name: Fetch base ref to find merge-base for GIB
+        run: .github/bin/git-fetch-base-ref.sh
+      - name: Check Commits
+        uses: trinodb/github-actions/block-commits@c2991972560c5219d9ae5fb68c0c9d687ffcdd10
+        with:
+          action-merge: fail
+          action-fixup: none
+      - name: Check if all intermediate commits of this PR compile
+        run: |
+          set -x
+          # Fake identity to tag rebased commits with.
+          # These commits will be discarded, but the important part is that `git rebase` executes commands between all commits.
+          git config user.name "Compile all commits builder"
+          git config user.email "compile-all-commits@trino.io"
+          # Show the entire PR branch and the base ref all the way to the fork point.
+          # This shows some context on the state of the repo and shows commit hashes without having to scroll through entire repo history.
+          git log --oneline --decorate=full --graph "$( git merge-base HEAD refs/remotes/origin/${{ github.event.pull_request.base.ref }} )~..refs/remotes/origin/${{ github.event.pull_request.base.ref }}" HEAD
+          # We can skip compiling the top commit since it's already being compiled and tested in other jobs.
+          git checkout HEAD~
+          # If the PR branch contains only 1 commit, checkout will move HEAD to a commit already on the base branch, and the rebase doesn't do anything.
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          git rebase --verbose --exec "$MAVEN package ${MAVEN_COMPILE_COMMITS} ${MAVEN_GIB} || (git status && false)" $( git merge-base HEAD refs/remotes/origin/${{ github.event.pull_request.base.ref }} )
+      # The local repo is broken at this point, and should be abandoned
+      - name: Clean local Maven repo
+        # Avoid creating a cache entry because this job doesn't download all dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: rm -rf ~/.m2/repository
 
   error-prone-checks:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-java@v2
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
+      - name: Fetch base ref to find merge-base for GIB
+        run: .github/bin/git-fetch-base-ref.sh
+      - uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
-          java-version: 11
+          java-version: 17
           cache: 'maven'
       - name: Configure Problem Matchers
-        run: |
-          echo "::add-matcher::.github/problem-matcher.json"
-      - name: Maven Install
+        run: echo "::add-matcher::.github/problem-matcher.json"
+      - name: Maven Package
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $RETRY $MAVEN clean package ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
       - name: Error Prone Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           # Run Error Prone on one module with a retry to ensure all runtime dependencies are fetched
-          $RETRY $MAVEN ${MAVEN_TEST} -T C1 clean test-compile -P errorprone-compiler -pl ':trino-spi'
+          $RETRY $MAVEN ${MAVEN_TEST} -T C1 clean verify -DskipTests -P gib,errorprone-compiler -am -pl ':trino-spi'
           # The main Error Prone run
-          $MAVEN ${MAVEN_TEST} -T C1 clean test-compile -P errorprone-compiler \
+          $MAVEN ${MAVEN_TEST} -T C1 clean verify -DskipTests -P gib,errorprone-compiler \
             -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+      - name: Clean local Maven repo
+        # Avoid creating a cache entry because this job doesn't download all dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: rm -rf ~/.m2/repository
 
   web-ui-checks:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # checkout all commits: it's not needed here, but it's needed almost always, so let's do this for completeness
       - name: Web UI Checks
         run: core/trino-main/bin/check_webui.sh
 
@@ -107,28 +172,35 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0 # checkout tags so version in Manifest is set properly
-      - uses: actions/setup-java@v2
+      - name: Fetch base ref to find merge-base for GIB
+        run: .github/bin/git-fetch-base-ref.sh
+      - uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
-          java-version: 11
+          java-version: 17
           cache: 'maven'
       - name: Configure Problem Matchers
-        run: |
-          echo "::add-matcher::.github/problem-matcher.json"
+        run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -pl '!:trino-test-jdbc-compatibility-old-driver,!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
       - name: Test old JDBC vs current server
-        run: testing/trino-test-jdbc-compatibility-old-driver/bin/run_tests.sh
+        run: |
+          if [ ! -f gib-impacted.log ] || grep -q testing/trino-test-jdbc-compatibility-old-driver gib-impacted.log; then
+            testing/trino-test-jdbc-compatibility-old-driver/bin/run_tests.sh
+          fi
       - name: Test current JDBC vs old server
         if: always()
-        run: $MAVEN test ${MAVEN_TEST} -pl :trino-test-jdbc-compatibility-old-server
+        run: |
+          if [ ! -f gib-impacted.log ] || grep -q testing/trino-test-jdbc-compatibility-old-server gib-impacted.log; then
+            $MAVEN test ${MAVEN_TEST} -pl :trino-test-jdbc-compatibility-old-server
+          fi
       - name: Upload test results
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         # Upload all test reports only on failure, because the artifacts are large
         if: failure()
         with:
@@ -137,7 +209,7 @@ jobs:
             **/target/surefire-reports
             **/target/checkstyle-*
       - name: Upload test report
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         # Always upload the test report for the annotate.yml workflow,
         # but only the single XML file to keep the artifact small
         if: always()
@@ -147,6 +219,10 @@ jobs:
           path: |
             **/surefire-reports/TEST-*.xml
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
+      - name: Clean local Maven repo
+        # Avoid creating a cache entry because this job doesn't download all dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: rm -rf ~/.m2/repository
 
   hive-tests:
     runs-on: ubuntu-latest
@@ -154,25 +230,26 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - config-empty
           - config-hdp3
-          # TODO: config-cdh5
           # TODO: config-apache-hive3
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-java@v2
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
+      - name: Fetch base ref to find merge-base for GIB
+        run: .github/bin/git-fetch-base-ref.sh
+      - uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
-          java-version: 11
+          java-version: 17
           cache: 'maven'
       - name: Configure Problem Matchers
-        run: |
-          echo "::add-matcher::.github/problem-matcher.json"
+        run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Install Hive Module
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl :trino-hive-hadoop2
+          $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -am -pl :trino-hive-hadoop2
       - name: Run Hive Tests
         run: |
           source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
@@ -182,11 +259,15 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESSKEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRETKEY }}
           S3_BUCKET: "presto-ci-test"
-          S3_BUCKET_ENDPOINT: "s3.us-east-2.amazonaws.com"
+          S3_BUCKET_ENDPOINT: "https://s3.us-east-2.amazonaws.com"
         run: |
           if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
             source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
               plugin/trino-hive-hadoop2/bin/run_hive_s3_tests.sh
+            if [ matrix.config == 'config-hdp3' ]; then
+              # JsonSerde class needed for the S3 Select JSON tests is only available on hdp3.
+              plugin/trino-hive-hadoop2/bin/run_hive_s3_select_json_tests.sh
+            fi
           fi
       - name: Run Hive Glue Tests
         env:
@@ -249,7 +330,7 @@ jobs:
           source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
             plugin/trino-hive-hadoop2/bin/run_hive_alluxio_tests.sh
       - name: Upload test results
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         # Upload all test reports only on failure, because the artifacts are large
         if: failure()
         with:
@@ -258,7 +339,7 @@ jobs:
             **/target/surefire-reports
             **/target/checkstyle-*
       - name: Upload test report
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         # Always upload the test report for the annotate.yml workflow,
         # but only the single XML file to keep the artifact small
         if: always()
@@ -268,46 +349,65 @@ jobs:
           path: |
             **/surefire-reports/TEST-*.xml
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
+      - name: Clean local Maven repo
+        # Avoid creating a cache entry because this job doesn't download all dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: rm -rf ~/.m2/repository
 
   test-other-modules:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-java@v2
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
+      - name: Fetch base ref to find merge-base for GIB
+        run: .github/bin/git-fetch-base-ref.sh
+      - uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
-          java-version: 11
+          java-version: 17
           cache: 'maven'
       - name: Configure Problem Matchers
-        run: |
-          echo "::add-matcher::.github/problem-matcher.json"
+        run: echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
       - name: Maven Tests
         run: |
           $MAVEN test ${MAVEN_TEST} -pl '
-            !:trino-main,
-            !:trino-tests,
-            !:trino-raptor-legacy,
             !:trino-accumulo,
+            !:trino-bigquery,
             !:trino-cassandra,
             !:trino-clickhouse,
-            !:trino-hive,!:trino-orc,!:trino-parquet,
-            !:trino-mongodb,!:trino-kafka,!:trino-elasticsearch,
-            !:trino-redis,
-            !:trino-sqlserver,!:trino-postgresql,!:trino-mysql,!:trino-memsql,
-            !:trino-oracle,
-            !:trino-kudu,
-            !:trino-iceberg,!:trino-druid,
-            !:trino-phoenix,!:trino-phoenix5,
+            !:trino-delta-lake,
             !:trino-docs,!:trino-server,!:trino-server-rpm,
+            !:trino-druid,
+            !:trino-elasticsearch,
+            !:trino-faulttolerant-tests,
+            !:trino-hive,
+            !:trino-hudi,
+            !:trino-iceberg,
+            !:trino-jdbc,!:trino-base-jdbc,!:trino-thrift,!:trino-memory,
+            !:trino-kafka,
+            !:trino-kudu,
+            !:trino-main,
+            !:trino-mariadb,
+            !:trino-mongodb,
+            !:trino-mysql,
+            !:trino-oracle,
+            !:trino-phoenix5,
+            !:trino-pinot,
+            !:trino-postgresql,
+            !:trino-raptor-legacy,
+            !:trino-redis,
+            !:trino-singlestore,
+            !:trino-sqlserver,
             !:trino-test-jdbc-compatibility-old-server,
-            !:trino-bigquery'
+            !:trino-tests'
       - name: Upload test results
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         # Upload all test reports only on failure, because the artifacts are large
         if: failure()
         with:
@@ -316,7 +416,7 @@ jobs:
             **/target/surefire-reports
             **/target/checkstyle-*
       - name: Upload test report
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         # Always upload the test report for the annotate.yml workflow,
         # but only the single XML file to keep the artifact small
         if: always()
@@ -326,57 +426,186 @@ jobs:
           path: |
             **/surefire-reports/TEST-*.xml
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
+      - name: Clean local Maven repo
+        # Avoid creating a cache entry because this job doesn't download all dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: rm -rf ~/.m2/repository
+
+  build-test-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
+      - name: Fetch base ref to find merge-base for GIB
+        run: .github/bin/git-fetch-base-ref.sh
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: 17
+      - name: Maven validate
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          $RETRY $MAVEN validate ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -P disable-check-spi-dependencies -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+      - name: Set matrix
+        id: set-matrix
+        run: |
+          # GIB doesn't run on master, so make sure the file always exist
+          touch gib-impacted.log
+          cat <<EOF > .github/test-matrix.yaml
+          include:
+            - { modules: [ client/trino-jdbc, plugin/trino-base-jdbc, plugin/trino-thrift, plugin/trino-memory ] }
+            - { modules: core/trino-main }
+            - { modules: plugin/trino-accumulo }
+            - { modules: plugin/trino-bigquery }
+            - { modules: plugin/trino-cassandra }
+            - { modules: plugin/trino-clickhouse }
+            - { modules: plugin/trino-delta-lake }
+            - { modules: plugin/trino-delta-lake, profile: cloud-tests }
+            - { modules: plugin/trino-delta-lake, profile: gcs-tests }
+            - { modules: plugin/trino-druid }
+            - { modules: plugin/trino-elasticsearch }
+            - { modules: plugin/trino-hive }
+            - { modules: plugin/trino-hive, profile: test-parquet }
+            - { modules: plugin/trino-hudi }
+            - { modules: plugin/trino-iceberg }
+            - { modules: plugin/trino-iceberg, profile: cloud-tests }
+            - { modules: plugin/trino-kafka }
+            - { modules: plugin/trino-kudu }
+            - { modules: plugin/trino-mariadb }
+            - { modules: plugin/trino-mongodb }
+            - { modules: plugin/trino-mysql }
+            - { modules: plugin/trino-oracle }
+            - { modules: plugin/trino-phoenix5 }
+            - { modules: plugin/trino-pinot }
+            - { modules: plugin/trino-postgresql }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-redis }
+            - { modules: plugin/trino-singlestore }
+            - { modules: plugin/trino-sqlserver }
+            - { modules: testing/trino-faulttolerant-tests, profile: default }
+            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
+            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive-1 }
+            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive-2 }
+            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-iceberg }
+            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-postgresql }
+            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-mysql }
+            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-sqlserver }
+            - { modules: testing/trino-tests }
+          EOF
+          ./.github/bin/build-matrix-from-impacted.py -v -i gib-impacted.log -m .github/test-matrix.yaml -o matrix.json
+          echo "Matrix: $(jq '.' matrix.json)"
+          echo "matrix=$(jq -c '.' matrix.json)" >> $GITHUB_OUTPUT
 
   test:
     runs-on: ubuntu-latest
+    needs: build-test-matrix
+    if: needs.build-test-matrix.outputs.matrix != '{}'
     strategy:
       fail-fast: false
-      matrix:
-        modules:
-          - ":trino-main"
-          - ":trino-tests"
-          - ":trino-raptor-legacy"
-          - ":trino-accumulo"
-          - ":trino-cassandra"
-          - ":trino-clickhouse"
-          - ":trino-hive,:trino-orc"
-          - ":trino-hive,:trino-parquet -P test-parquet"
-          - ":trino-hive -P test-failure-recovery"
-          - ":trino-mongodb,:trino-kafka,:trino-elasticsearch"
-          - ":trino-elasticsearch -P test-stats"
-          - ":trino-redis"
-          - ":trino-sqlserver,:trino-postgresql,:trino-mysql"
-          - ":trino-oracle"
-          - ":trino-kudu"
-          - ":trino-iceberg,:trino-druid"
-          - ":trino-phoenix,:trino-phoenix5"
+      matrix: ${{ fromJson(needs.build-test-matrix.outputs.matrix) }}
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-java@v2
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
+      - name: Fetch base ref to find merge-base for GIB
+        run: .github/bin/git-fetch-base-ref.sh
+      - uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
-          java-version: 11
+          java-version: 17
           cache: 'maven'
       - name: Configure Problem Matchers
-        run: |
-          echo "::add-matcher::.github/problem-matcher.json"
+        run: echo "::add-matcher::.github/problem-matcher.json"
+      - name: Cleanup node
+        # This is required as a virtual environment update 20210219.1 left too little space for MemSQL to work
+        if: matrix.modules == 'plugin/trino-singlestore'
+        run: .github/bin/cleanup-node.sh
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl $(echo '${{ matrix.modules }}' | cut -d' ' -f1)
+          $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -am -pl "${{ matrix.modules }}"
       - name: Maven Tests
-        run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }}
+        if: >-
+          matrix.modules != 'plugin/trino-singlestore' &&
+          !((contains(matrix.modules, 'trino-delta-lake') && (contains(matrix.profile, 'cloud-tests') || contains(matrix.profile, 'gcs-tests'))) || (contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests')))
+        run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
+      # Additional tests for selected modules
+      - name: Cloud Delta Lake Tests
+      # Cloud tests are separate because they are time intensive, requiring cross-cloud network communication
+        env:
+          ABFS_CONTAINER: ${{ secrets.AZURE_ABFS_CONTAINER }}
+          ABFS_ACCOUNT: ${{ secrets.AZURE_ABFS_ACCOUNT }}
+          ABFS_ACCESSKEY: ${{ secrets.AZURE_ABFS_ACCESSKEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESSKEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRETKEY }}
+          AWS_REGION: us-east-2
+        # Run tests if any of the secrets is present. Do not skip tests when one secret renamed, or secret name has a typo.
+        if: >-
+          contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'cloud-tests') &&
+          (env.ABFS_ACCOUNT != '' || env.ABFS_CONTAINER != '' || env.ABFS_ACCESSKEY != '' || env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '')
+        run: |
+          $MAVEN test ${MAVEN_TEST} ${{ format('-P {0}', matrix.profile) }} -pl :trino-delta-lake \
+            -Dhive.hadoop2.azure-abfs-container="${ABFS_CONTAINER}" \
+            -Dhive.hadoop2.azure-abfs-account="${ABFS_ACCOUNT}" \
+            -Dhive.hadoop2.azure-abfs-access-key="${ABFS_ACCESSKEY}"
+      - name: GCS Delta Lake Tests
+      # Cloud tests are separate because they are time intensive, requiring cross-cloud network communication
+        env:
+          GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
+        # Run tests if any of the secrets is present. Do not skip tests when one secret renamed, or secret name has a typo.
+        if: >-
+          contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'gcs-tests') && env.GCP_CREDENTIALS_KEY != ''
+        run: |
+          $MAVEN test ${MAVEN_TEST} -P gcs-tests -pl :trino-delta-lake \
+            -Dtesting.gcp-storage-bucket="trino-ci-test" \
+            -Dtesting.gcp-credentials-key="${GCP_CREDENTIALS_KEY}"
+      - name: Memsql Tests
+        env:
+          MEMSQL_LICENSE: ${{ secrets.MEMSQL_LICENSE }}
+        if: matrix.modules == 'plugin/trino-singlestore' && env.MEMSQL_LICENSE != ''
+        run: |
+          $MAVEN test ${MAVEN_TEST} -pl :trino-singlestore -Dmemsql.license=${MEMSQL_LICENSE}
+      - name: Cloud BigQuery Tests
+        env:
+          BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CREDENTIALS_KEY }}
+        if: matrix.modules == 'plugin/trino-bigquery' && env.BIGQUERY_CREDENTIALS_KEY != ''
+        run: |
+          $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}" -Dtesting.gcp-storage-bucket="trino-ci-test"
+      - name: Cloud BigQuery Case Insensitive Mapping Tests
+        env:
+          BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY }}
+        if: matrix.modules == 'plugin/trino-bigquery' && env.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY != ''
+        run: |
+          $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dbigquery.credentials-key="${BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY}"
+      - name: Iceberg Cloud Tests
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESSKEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRETKEY }}
+          AWS_REGION: us-east-2
+          S3_BUCKET: presto-ci-test
+          GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
+        if: >-
+          contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests') &&
+          (env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '' || env.GCP_CREDENTIALS_KEY != '')
+        run: |
+          $MAVEN test ${MAVEN_TEST} -pl :trino-iceberg ${{ format('-P {0}', matrix.profile) }} \
+            -Ds3.bucket=${S3_BUCKET} \
+            -Dtesting.gcp-storage-bucket="trino-ci-test-us-east" \
+            -Dtesting.gcp-credentials-key="${GCP_CREDENTIALS_KEY}"
       - name: Sanitize artifact name
         if: always()
         run: |
           # Generate a valid artifact name and make it available to next steps as
           # an environment variable ARTIFACT_NAME
-          # ", :, <, >, |, *, ?, \, / are not allowed in artifact names but we only use : so we remove it
-          name=$(echo -n "${{ matrix.modules }}" | sed -e 's/[:]//g')
+          # ", :, <, >, |, *, ?, \, / are not allowed in artifact names, replace it with an underscore
+          name=$(echo -n "${{ matrix.modules }}" | sed -e 's/[":<>|\*\?\\\/]/_/g')
           echo "ARTIFACT_NAME=$name" >> $GITHUB_ENV
       - name: Upload test results
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         # Upload all test reports only on failure, because the artifacts are large
         if: failure()
         with:
@@ -385,7 +614,7 @@ jobs:
             **/target/surefire-reports
             **/target/checkstyle-*
       - name: Upload test report
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         # Always upload the test report for the annotate.yml workflow,
         # but only the single XML file to keep the artifact small
         if: always()
@@ -395,221 +624,269 @@ jobs:
           path: |
             **/surefire-reports/TEST-*.xml
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
+      - name: Clean local Maven repo
+        # Avoid creating a cache entry because this job doesn't download all dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: rm -rf ~/.m2/repository
 
-  test-memsql:
+  build-pt:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      product-tests-changed: ${{ steps.filter.outputs.product-tests }}
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-java@v2
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
+      - name: Fetch base ref to find merge-base for GIB
+        run: .github/bin/git-fetch-base-ref.sh
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            product-tests:
+              - 'testing/trino-product-tests*/**'
+              - 'testing/trino-testing-services/**'
+              # run all tests when there are any changes in the trino-server Maven module
+              # because it doesn't define it's Trino dependencies and
+              # it relies on the Provisio plugin to find the right artifacts
+              - 'core/trino-server/**'
+              - '.github/**'
+      - uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
-          java-version: 11
+          java-version: 17
           cache: 'maven'
-      - name: Configure Problem Matchers
-        run: |
-          echo "::add-matcher::.github/problem-matcher.json"
-      - name: Cleanup node
-        # This is required as a virtual environment update 20210219.1 left too little space for MemSQL to work
-        run: .github/bin/cleanup-node.sh
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl :trino-memsql
-      - name: Memsql Tests
-        env:
-          MEMSQL_LICENSE: ${{ secrets.MEMSQL_LICENSE }}
-        run: |
-          if [ "${MEMSQL_LICENSE}" != "" ]; then
-            $MAVEN test ${MAVEN_TEST} -pl :trino-memsql -Dmemsql.license=${MEMSQL_LICENSE}
-          fi
-      - name: Upload test results
-        uses: actions/upload-artifact@v2
-        # Upload all test reports only on failure, because the artifacts are large
-        if: failure()
-        with:
-          name: result ${{ github.job }}
-          path: |
-            **/target/surefire-reports
-            **/target/checkstyle-*
-      - name: Upload test report
-        uses: actions/upload-artifact@v2
-        # Always upload the test report for the annotate.yml workflow,
-        # but only the single XML file to keep the artifact small
-        if: always()
-        with:
-          # Name prefix is checked in the `Annotate checks` workflow
-          name: test report ${{ github.job }}
-          path: |
-            **/surefire-reports/TEST-*.xml
-          retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
-
-  test-bigquery:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-java@v2
-        with:
-          distribution: 'zulu'
-          java-version: 11
-          cache: 'maven'
-      - name: Configure Problem Matchers
-        run: |
-          echo "::add-matcher::.github/problem-matcher.json"
-      - name: Maven Install
+          $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server-rpm'
+      - name: Map impacted plugins to features
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl :trino-bigquery
-      - name: Basic BigQuery Tests
-        run: $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery
-      - name: Cloud BigQuery Tests
-        env:
-          BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CREDENTIALS_KEY }}
-        run: |
-          if [ "${BIGQUERY_CREDENTIALS_KEY}" != "" ]; then
-            $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}"
-          fi
-      - name: Cloud BigQuery Case Insensitive Mapping Tests
-        env:
-          BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY }}
-        run: |
-          if [ "${BIGQUERY_CREDENTIALS_KEY}" != "" ]; then
-            $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}"
-          fi
-      - name: Upload test results
-        uses: actions/upload-artifact@v2
-        # Upload all test reports only on failure, because the artifacts are large
-        if: failure()
+          $MAVEN validate ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -pl '!:trino-docs,!:trino-server-rpm'
+          # GIB doesn't run on master, so make sure the file always exist
+          touch gib-impacted.log
+          testing/trino-plugin-reader/target/trino-plugin-reader-*-executable.jar -i gib-impacted.log -p core/trino-server/target/trino-server-*-hardlinks/plugin > impacted-features.log
+          echo "Impacted plugin features:"
+          cat impacted-features.log
+      - name: Product tests artifact
+        uses: actions/upload-artifact@v3
         with:
-          name: result ${{ github.job }}
+          name: product tests and server tarball
           path: |
-            **/target/surefire-reports
-            **/target/checkstyle-*
-      - name: Upload test report
-        uses: actions/upload-artifact@v2
-        # Always upload the test report for the annotate.yml workflow,
-        # but only the single XML file to keep the artifact small
-        if: always()
-        with:
-          # Name prefix is checked in the `Annotate checks` workflow
-          name: test report ${{ github.job }}
-          path: |
-            **/surefire-reports/TEST-*.xml
-          retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
+            core/trino-server/target/*.tar.gz
+            impacted-features.log
+            testing/trino-product-tests-launcher/target/*-executable.jar
+            testing/trino-product-tests/target/*-executable.jar
+            client/trino-cli/target/*-executable.jar
+          retention-days: 1
+      - id: prepare-matrix-template
+        run: |
+          cat <<EOF > .github/test-pt-matrix.yaml
+          config:
+            - default
+            - hdp3
+            # TODO: config-apache-hive3
+          suite:
+            - suite-1
+            - suite-2
+            - suite-3
+            # suite-4 does not exist
+            - suite-5
+            - suite-azure
+            - suite-delta-lake-databricks73
+            - suite-delta-lake-databricks91
+            - suite-delta-lake-databricks104
+            - suite-gcs
+          exclude:
+            - config: default
+              ignore exclusion if: >-
+                ${{ github.event_name != 'pull_request'
+                 || github.event.pull_request.head.repo.full_name == github.repository
+                 || contains(github.event.pull_request.labels.*.name, 'tests:all')
+                 || contains(github.event.pull_request.labels.*.name, 'tests:hive')
+                 }}
+
+            - suite: suite-azure
+              config: default
+            - suite: suite-azure
+              ignore exclusion if: >-
+                ${{ secrets.AZURE_ABFS_CONTAINER != '' &&
+                    secrets.AZURE_ABFS_ACCOUNT != '' &&
+                    secrets.AZURE_ABFS_ACCESSKEY != '' }}
+
+            - suite: suite-gcs
+              config: default
+            - suite: suite-gcs
+              ignore exclusion if: >-
+                ${{ secrets.GCP_CREDENTIALS_KEY != '' }}
+
+            - suite: suite-delta-lake-databricks73
+              config: hdp3
+            - suite: suite-delta-lake-databricks73
+              ignore exclusion if: >-
+                ${{ secrets.DATABRICKS_TOKEN != '' }}
+            - suite: suite-delta-lake-databricks91
+              config: hdp3
+            - suite: suite-delta-lake-databricks91
+              ignore exclusion if: >-
+                ${{ secrets.DATABRICKS_TOKEN != '' }}
+            - suite: suite-delta-lake-databricks104
+              config: hdp3
+            - suite: suite-delta-lake-databricks104
+              ignore exclusion if: >-
+                ${{ secrets.DATABRICKS_TOKEN != '' }}
+
+          ignore exclusion if:
+            # Do not use this property outside of the matrix configuration.
+            #
+            # This is added to all matrix entries so they may be conditionally
+            # excluded by adding them to the excludes list with a GHA expression
+            # for this property.
+            # - If the expression evaluates to true, it will never match the a
+            #   actual value of the property, and will therefore not be excluded.
+            # - If the expression evaluates to false, it will match the actual
+            #   value of the property, and the exclusion will apply normally.
+            - "false"
+          include:
+            # this suite is not meant to be run with different configs
+            - config: default
+              suite: suite-6-non-generic
+            # this suite is not meant to be run with different configs
+            - config: default
+              suite: suite-7-non-generic
+            # this suite is not meant to be run with different configs
+            - config: default
+              suite: suite-8-non-generic
+            # this suite is not meant to be run with different configs
+            - config: default
+              suite: suite-tpcds
+            # this suite is not meant to be run with different configs
+            - config: default
+              suite: suite-parquet
+            # this suite is not meant to be run with different configs
+            - config: default
+              suite: suite-oauth2
+            # this suite is not meant to be run with different configs
+            - config: default
+              suite: suite-ldap
+            # this suite is not meant to be run with different configs
+            - config: default
+              suite: suite-compatibility
+            # this suite is designed specifically for apache-hive3. TODO remove the suite once we can run all regular tests on apache-hive3.
+            - config: apache-hive3
+              suite: suite-hms-only
+            # this suite is not meant to be run with different configs
+            - config: default
+              suite: suite-all
+            # this suite is not meant to be run with different configs
+            - config: default
+              suite: suite-delta-lake-oss
+          EOF
+      - name: Build PT matrix (all)
+        if: |
+          github.event_name != 'pull_request' ||
+          steps.filter.outputs.product-tests == 'true' ||
+          contains(github.event.pull_request.labels.*.name, 'tests:all') ||
+          contains(github.event.pull_request.labels.*.name, 'tests:all-product')
+        run: |
+          # converts entire YAML file into JSON - no filtering since we want all PTs to run
+          ./.github/bin/build-pt-matrix-from-impacted-connectors.py -v -m .github/test-pt-matrix.yaml -o matrix.json
+      - name: Build PT matrix (impacted-features)
+        if: |
+          github.event_name == 'pull_request' &&
+          steps.filter.outputs.product-tests == 'false' &&
+          !contains(github.event.pull_request.labels.*.name, 'tests:all') &&
+          !contains(github.event.pull_request.labels.*.name, 'product-tests:all')
+        # all these envs are required to be set by some product test environments
+        env:
+          ABFS_CONTAINER:
+          ABFS_ACCOUNT:
+          ABFS_ACCESS_KEY:
+          S3_BUCKET:
+          AWS_REGION:
+          DATABRICKS_AWS_ACCESS_KEY_ID:
+          DATABRICKS_AWS_SECRET_ACCESS_KEY:
+          DATABRICKS_73_JDBC_URL:
+          DATABRICKS_91_JDBC_URL:
+          DATABRICKS_104_JDBC_URL:
+          DATABRICKS_LOGIN:
+          DATABRICKS_TOKEN:
+          GCP_CREDENTIALS_KEY:
+          GCP_STORAGE_BUCKET:
+        run: |
+          # converts filtered YAML file into JSON
+          ./.github/bin/build-pt-matrix-from-impacted-connectors.py -v -m .github/test-pt-matrix.yaml -i impacted-features.log -o matrix.json
+      - id: set-matrix
+        run: |
+          echo "Matrix: $(jq '.' matrix.json)"
+          echo "matrix=$(cat matrix.json)" >> $GITHUB_OUTPUT
+      - name: Clean local Maven repo
+        # Avoid creating a cache entry because this job doesn't download all dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: rm -rf ~/.m2/repository
 
   pt:
     runs-on: ubuntu-latest
     # explicitly define the name to avoid adding the value of the `ignore exclusion if` matrix item
     name: pt (${{ matrix.config }}, ${{ matrix.suite }}, ${{ matrix.jdk }})
+    if: needs.build-pt.outputs.matrix != '{}'
     strategy:
       fail-fast: false
-      matrix:
-        config:
-          - default
-          - hdp3
-          - cdh5
-          # TODO: config-apache-hive3
-        suite:
-          - suite-1
-          - suite-2
-          - suite-3
-          # suite-4 does not exist
-          - suite-5
-        jdk:
-          - 11
-        exclude:
-          - config: cdh5
-            ignore exclusion if: >-
-              ${{ github.event_name != 'pull_request'
-               || contains(github.event.pull_request.labels.*.name, 'tests:all')
-               || contains(github.event.pull_request.labels.*.name, 'tests:hive')
-               }}
-
-          - config: default
-            ignore exclusion if: >-
-              ${{ github.event_name != 'pull_request'
-               || contains(github.event.pull_request.labels.*.name, 'tests:all')
-               || contains(github.event.pull_request.labels.*.name, 'tests:hive')
-               }}
-
-        ignore exclusion if:
-          # Do not use this property outside of the matrix configuration.
-          #
-          # This is added to all matrix entries so they may be conditionally
-          # excluded by adding them to the excludes list with a GHA expression
-          # for this property.
-          # - If the expression evaluates to true, it will never match the a
-          #   actual value of the property, and will therefore not be excluded.
-          # - If the expression evaluates to false, it will match the actual
-          #   value of the property, and the exclusion will apply normally.
-          - false
-        include:
-          # this suite is not meant to be run with different configs
-          - config: default
-            suite: suite-6-non-generic
-            jdk: 11
-          # this suite is not meant to be run with different configs
-          - config: default
-            suite: suite-7-non-generic
-            jdk: 11
-          # this suite is not meant to be run with different configs
-          - config: default
-            suite: suite-8-non-generic
-            jdk: 11
-          # this suite is not meant to be run with different configs
-          - config: default
-            suite: suite-tpcds
-            jdk: 11
-          # this suite is not meant to be run with different configs
-          - config: default
-            suite: suite-oauth2
-            jdk: 11
-          # this suite is not meant to be run with different configs
-          - config: default
-            suite: suite-ldap
-            jdk: 11
-          # this suite is not meant to be run with different configs
-          - config: default
-            suite: suite-compatibility
-            jdk: 11
-          # this suite is designed specifically for apache-hive3. TODO remove the suite once we can run all regular tests on apache-hive3.
-          - config: apache-hive3
-            suite: suite-hms-only
-            jdk: 11
-          # suite-1 does not contain Kerberos/encrypted Hive environments
-          - config: hdp3
-            suite: suite-1
-            jdk: 17
-          # suite-2 contains Kerberos/encrypted Hive environments
-          - config: hdp3
-            suite: suite-2
-            jdk: 17
-    # PT Launcher's timeout defaults to 2h, account for preparation steps (compilation) and add some margin
-    timeout-minutes: 140
+      matrix: ${{ fromJson(needs.build-pt.outputs.matrix) }}
+    # PT Launcher's timeout defaults to 2h, add some margin
+    timeout-minutes: 130
+    needs: build-pt
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-java@v2
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
+      - uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
-          java-version: 11
-          cache: 'maven'
-      - name: Maven Install
+          java-version: 17
+      - name: Product tests artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: product tests and server tarball
+      - name: Fix artifact permissions
         run: |
-          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server-rpm'
-      - name: Free Disk Space
-        run: |
-          docker image prune -af
-          sudo apt-get clean
-          rm -rf ~/.m2/repository
+          find . -type f -name \*-executable.jar -exec chmod 0777 {} \;
+      - name: Enable impact analysis
+        # don't enable this on pushes to master and in PRs in the main repository (not from forks)
+        # because these are most often used to run all tests with additional secrets
+        if: |
+          needs.build-pt.outputs.product-tests-changed == 'false' &&
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name != github.repository &&
+          !contains(github.event.pull_request.labels.*.name, 'tests:all') &&
+          !contains(github.event.pull_request.labels.*.name, 'tests:all-product')
+        run: echo "PTL_OPTS=--impacted-features impacted-features.log" >> $GITHUB_ENV
       - name: Product Tests
+        env:
+          ABFS_CONTAINER: ${{ secrets.AZURE_ABFS_CONTAINER }}
+          ABFS_ACCOUNT: ${{ secrets.AZURE_ABFS_ACCOUNT }}
+          ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_ACCESSKEY }}
+          S3_BUCKET: trino-ci-test
+          AWS_REGION: us-east-2
+          DATABRICKS_AWS_ACCESS_KEY_ID: ${{ secrets.DATABRICKS_AWS_ACCESS_KEY_ID }}
+          DATABRICKS_AWS_SECRET_ACCESS_KEY: ${{ secrets.DATABRICKS_AWS_SECRET_ACCESS_KEY }}
+          DATABRICKS_73_JDBC_URL: ${{ secrets.DATABRICKS_73_JDBC_URL }}
+          DATABRICKS_91_JDBC_URL: ${{ secrets.DATABRICKS_91_JDBC_URL }}
+          DATABRICKS_104_JDBC_URL: ${{ secrets.DATABRICKS_104_JDBC_URL }}
+          DATABRICKS_LOGIN: token
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
+          GCP_STORAGE_BUCKET: trino-ci-test-us-east
         run: |
-          testing/bin/ptl suite run \
-            --suite ${{ matrix.suite }} --config config-${{ matrix.config }} --bind=off --logs-dir logs/ --timeout 2h \
-            --trino-jdk-version zulu_${{ matrix.jdk }}
+          exec testing/trino-product-tests-launcher/target/trino-product-tests-launcher-*-executable.jar suite run \
+            --suite ${{ matrix.suite }} \
+            --config config-${{ matrix.config }} \
+            ${PTL_OPTS:-} \
+            --bind=off --logs-dir logs/ --timeout 2h
       - name: Upload test logs and results
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         # Upload all test reports only on failure, because the artifacts are large
         if: failure()
         with:
@@ -618,7 +895,7 @@ jobs:
             testing/trino-product-tests/target/*
             logs/*
       - name: Upload test report
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         # Always upload the test report for the annotate.yml workflow,
         # but only the single XML file to keep the artifact small
         if: always()

@@ -33,7 +33,8 @@ public class TestPhoenixConfig
         assertRecordedDefaults(recordDefaults(PhoenixConfig.class)
                 .setConnectionUrl(null)
                 .setResourceConfigFiles("")
-                .setMaxScansPerSplit(20));
+                .setMaxScansPerSplit(20)
+                .setReuseConnection(true));
     }
 
     @Test
@@ -42,16 +43,18 @@ public class TestPhoenixConfig
     {
         Path configFile = Files.createTempFile(null, null);
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("phoenix.connection-url", "jdbc:phoenix:localhost:2181:/hbase")
                 .put("phoenix.config.resources", configFile.toString())
                 .put("phoenix.max-scans-per-split", "1")
-                .build();
+                .put("query.reuse-connection", "false")
+                .buildOrThrow();
 
         PhoenixConfig expected = new PhoenixConfig()
                 .setConnectionUrl("jdbc:phoenix:localhost:2181:/hbase")
                 .setResourceConfigFiles(configFile.toString())
-                .setMaxScansPerSplit(1);
+                .setMaxScansPerSplit(1)
+                .setReuseConnection(false);
 
         assertFullMapping(properties, expected);
     }

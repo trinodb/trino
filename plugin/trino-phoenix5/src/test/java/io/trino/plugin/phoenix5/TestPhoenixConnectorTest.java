@@ -33,9 +33,12 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.phoenix5.PhoenixQueryRunner.createPhoenixQueryRunner;
@@ -58,6 +61,7 @@ import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestPhoenixConnectorTest
@@ -79,6 +83,7 @@ public class TestPhoenixConnectorTest
         TestingPhoenixServer.shutDown();
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -88,18 +93,28 @@ public class TestPhoenixConnectorTest
             case SUPPORTS_AGGREGATION_PUSHDOWN:
                 return false;
 
+            case SUPPORTS_RENAME_SCHEMA:
+                return false;
+
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
+            case SUPPORTS_RENAME_TABLE:
+                return false;
+
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
+                return false;
+
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
 
-            case SUPPORTS_RENAME_TABLE:
-            case SUPPORTS_RENAME_SCHEMA:
+            case SUPPORTS_NOT_NULL_CONSTRAINT:
                 return false;
 
             case SUPPORTS_TRUNCATE:
                 return false;
 
-            case SUPPORTS_NOT_NULL_CONSTRAINT:
+            case SUPPORTS_ROW_TYPE:
                 return false;
 
             default:
@@ -127,6 +142,46 @@ public class TestPhoenixConnectorTest
                 // TODO (https://github.com/trinodb/trino/issues/7205) support column rename in Phoenix
                 .hasMessageContaining("Syntax error. Encountered \"RENAME\"");
         throw new SkipException("Rename column is not yet supported by Phoenix connector");
+    }
+
+    @Override
+    public void testAlterTableRenameColumnToLongName()
+    {
+        assertThatThrownBy(super::testAlterTableRenameColumnToLongName)
+                // TODO (https://github.com/trinodb/trino/issues/7205) support column rename in Phoenix
+                .hasMessageContaining("Syntax error. Encountered \"RENAME\"");
+        throw new SkipException("Rename column is not yet supported by Phoenix connector");
+    }
+
+    @Override
+    public void testRenameColumnName(String columnName)
+    {
+        // The column name is rejected when creating a table
+        if (columnName.equals("a\"quote")) {
+            super.testRenameColumnName(columnName);
+            return;
+        }
+        assertThatThrownBy(() -> super.testRenameColumnName(columnName))
+                // TODO (https://github.com/trinodb/trino/issues/7205) support column rename in Phoenix
+                .hasMessageContaining("Syntax error. Encountered \"RENAME\"");
+        throw new SkipException("Rename column is not yet supported by Phoenix connector");
+    }
+
+    @Override
+    public void testAddAndDropColumnName(String columnName)
+    {
+        // TODO: Investigate why these two case fail
+        if (columnName.equals("an'apostrophe")) {
+            assertThatThrownBy(() -> super.testAddAndDropColumnName(columnName))
+                    .hasMessageContaining("Syntax error. Mismatched input");
+            throw new SkipException("TODO");
+        }
+        if (columnName.equals("a\\backslash`")) {
+            assertThatThrownBy(() -> super.testAddAndDropColumnName(columnName))
+                    .hasMessageContaining("Undefined column");
+            throw new SkipException("TODO");
+        }
+        super.testAddAndDropColumnName(columnName);
     }
 
     @Override
@@ -174,10 +229,7 @@ public class TestPhoenixConnectorTest
     {
         assertThatThrownBy(super::testInsertArray)
                 // TODO (https://github.com/trinodb/trino/issues/6421) array with double null stored as array with 0
-                .hasMessageContaining("Actual rows (up to 100 of 1 extra rows shown, 2 rows in total):\n" +
-                        "    [0.0, null]\n" +
-                        "Expected rows (up to 100 of 1 missing rows shown, 2 rows in total):\n" +
-                        "    [null, null]");
+                .hasMessage("Phoenix JDBC driver replaced 'null' with '0.0' at index 1 in [0.0]");
     }
 
     @Override
@@ -194,10 +246,28 @@ public class TestPhoenixConnectorTest
     }
 
     @Override
-    public void testDataMappingSmokeTest(DataMappingTestSetup dataMappingTestSetup)
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
-        // TODO enable the test
-        throw new SkipException("test fails on Phoenix");
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
+        if (typeName.equals("time(6)") ||
+                typeName.equals("timestamp") ||
+                typeName.equals("timestamp(6)") ||
+                typeName.equals("timestamp(3) with time zone") ||
+                typeName.equals("timestamp(6) with time zone")) {
+            return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+
+        if (typeName.equals("time")) {
+            // TODO Enable when adding support reading time column
+            return Optional.empty();
+        }
+
+        if (typeName.equals("date") && dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-05'")) {
+            // Phoenix connector returns +10 days during julian->gregorian switch. The test case exists in TestPhoenixTypeMapping.testDate().
+            return Optional.empty();
+        }
+
+        return Optional.of(dataMappingTestSetup);
     }
 
     @Override
@@ -275,6 +345,14 @@ public class TestPhoenixConnectorTest
         }
     }
 
+    @Override
+    public void testCharTrailingSpace()
+    {
+        assertThatThrownBy(super::testCharTrailingSpace)
+                .hasMessageContaining("The table does not have a primary key. tableName=TPCH.CHAR_TRAILING_SPACE");
+        throw new SkipException("Implement test for Phoenix");
+    }
+
     // Overridden because Phoenix requires a ROWID column
     @Override
     public void testCountDistinctWithStringTypes()
@@ -290,6 +368,13 @@ public class TestPhoenixConnectorTest
             assertQuery("SELECT count(DISTINCT t_char) FROM " + testTable.getName(), "VALUES 6");
             assertQuery("SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName(), "VALUES (6, 6)");
         }
+    }
+
+    @Override
+    public void testDeleteWithLike()
+    {
+        assertThatThrownBy(super::testDeleteWithLike)
+                .hasStackTraceContaining("TrinoException: Unsupported delete");
     }
 
     @Test
@@ -316,9 +401,9 @@ public class TestPhoenixConnectorTest
     public void testUnsupportedType()
             throws Exception
     {
-        executeInPhoenix("CREATE TABLE tpch.test_timestamp (pk bigint primary key, val1 timestamp)");
-        executeInPhoenix("UPSERT INTO tpch.test_timestamp (pk, val1) VALUES (1, null)");
-        executeInPhoenix("UPSERT INTO tpch.test_timestamp (pk, val1) VALUES (2, '2002-05-30T09:30:10.5')");
+        onRemoteDatabase().execute("CREATE TABLE tpch.test_timestamp (pk bigint primary key, val1 timestamp)");
+        onRemoteDatabase().execute("UPSERT INTO tpch.test_timestamp (pk, val1) VALUES (1, null)");
+        onRemoteDatabase().execute("UPSERT INTO tpch.test_timestamp (pk, val1) VALUES (2, '2002-05-30T09:30:10.5')");
         assertUpdate("INSERT INTO test_timestamp VALUES (3)", 1);
         assertQuery("SELECT * FROM test_timestamp", "VALUES 1, 2, 3");
         assertQuery(
@@ -339,8 +424,8 @@ public class TestPhoenixConnectorTest
     public void testDefaultDecimalTable()
             throws Exception
     {
-        executeInPhoenix("CREATE TABLE tpch.test_null_decimal (pk bigint primary key, val1 decimal)");
-        executeInPhoenix("UPSERT INTO tpch.test_null_decimal (pk, val1) VALUES (1, 2)");
+        onRemoteDatabase().execute("CREATE TABLE tpch.test_null_decimal (pk bigint primary key, val1 decimal)");
+        onRemoteDatabase().execute("UPSERT INTO tpch.test_null_decimal (pk, val1) VALUES (1, 2)");
         assertQuery("SELECT * FROM tpch.test_null_decimal", "VALUES (1, 2) ");
     }
 
@@ -388,8 +473,8 @@ public class TestPhoenixConnectorTest
             throws Exception
     {
         assertUpdate("CREATE TABLE test_primary_table (pk bigint, val1 double, val2 double, val3 double) with(rowkeys = 'pk')");
-        executeInPhoenix("CREATE LOCAL INDEX test_local_index ON tpch.test_primary_table (val1)");
-        executeInPhoenix("CREATE INDEX test_global_index ON tpch.test_primary_table (val2)");
+        onRemoteDatabase().execute("CREATE LOCAL INDEX test_local_index ON tpch.test_primary_table (val1)");
+        onRemoteDatabase().execute("CREATE INDEX test_global_index ON tpch.test_primary_table (val2)");
         assertUpdate("INSERT INTO test_primary_table VALUES (1, 1.1, 1.2, 1.3)", 1);
         assertQuery("SELECT val1,val3 FROM test_primary_table where val1 < 1.2", "SELECT 1.1,1.3");
         assertQuery("SELECT val2,val3 FROM test_primary_table where val2 < 1.3", "SELECT 1.2,1.3");
@@ -400,7 +485,7 @@ public class TestPhoenixConnectorTest
     public void testCaseInsensitiveNameMatching()
             throws Exception
     {
-        executeInPhoenix("CREATE TABLE tpch.\"TestCaseInsensitive\" (\"pK\" bigint primary key, \"Val1\" double)");
+        onRemoteDatabase().execute("CREATE TABLE tpch.\"TestCaseInsensitive\" (\"pK\" bigint primary key, \"Val1\" double)");
         assertUpdate("INSERT INTO testcaseinsensitive VALUES (1, 1.1)", 1);
         assertQuery("SELECT Val1 FROM testcaseinsensitive where Val1 < 1.2", "SELECT 1.1");
     }
@@ -409,7 +494,7 @@ public class TestPhoenixConnectorTest
     public void testMissingColumnsOnInsert()
             throws Exception
     {
-        executeInPhoenix("CREATE TABLE tpch.test_col_insert(pk VARCHAR NOT NULL PRIMARY KEY, col1 VARCHAR, col2 VARCHAR)");
+        onRemoteDatabase().execute("CREATE TABLE tpch.test_col_insert(pk VARCHAR NOT NULL PRIMARY KEY, col1 VARCHAR, col2 VARCHAR)");
         assertUpdate("INSERT INTO test_col_insert(pk, col1) VALUES('1', 'val1')", 1);
         assertUpdate("INSERT INTO test_col_insert(pk, col2) VALUES('1', 'val2')", 1);
         assertQuery("SELECT * FROM test_col_insert", "SELECT 1, 'val1', 'val2'");
@@ -528,9 +613,147 @@ public class TestPhoenixConnectorTest
     }
 
     @Override
+    public void testNativeQuerySimple()
+    {
+        // not implemented
+        assertQueryFails("SELECT * FROM TABLE(system.query(query => 'SELECT 1'))", "line 1:21: Table function system.query not registered");
+    }
+
+    @Override
+    public void testNativeQueryParameters()
+    {
+        // not implemented
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query_simple", "SELECT * FROM TABLE(system.query(query => ?))")
+                .addPreparedStatement("my_query", "SELECT * FROM TABLE(system.query(query => format('SELECT %s FROM %s', ?, ?)))")
+                .build();
+        assertQueryFails(session, "EXECUTE my_query_simple USING 'SELECT 1 a'", "line 1:21: Table function system.query not registered");
+        assertQueryFails(session, "EXECUTE my_query USING 'a', '(SELECT 2 a) t'", "line 1:21: Table function system.query not registered");
+    }
+
+    @Override
+    public void testNativeQuerySelectFromNation()
+    {
+        // not implemented
+        assertQueryFails(
+                format("SELECT * FROM TABLE(system.query(query => 'SELECT name FROM %s.nation WHERE nationkey = 0'))", getSession().getSchema().orElseThrow()),
+                "line 1:21: Table function system.query not registered");
+    }
+
+    @Override
+    public void testNativeQuerySelectFromTestTable()
+    {
+        // not implemented
+        try (TestTable testTable = simpleTable()) {
+            assertQueryFails(
+                    format("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))", testTable.getName()),
+                    "line 1:21: Table function system.query not registered");
+        }
+    }
+
+    @Override
+    public void testNativeQueryCreateStatement()
+    {
+        // not implemented
+        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
+                .hasMessage("line 1:21: Table function system.query not registered");
+        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+    }
+
+    @Override
+    public void testNativeQueryInsertStatementTableDoesNotExist()
+    {
+        // not implemented
+        assertFalse(getQueryRunner().tableExists(getSession(), "non_existent_table"));
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
+                .hasMessage("line 1:21: Table function system.query not registered");
+    }
+
+    @Override
+    public void testNativeQueryInsertStatementTableExists()
+    {
+        // not implemented
+        try (TestTable testTable = simpleTable()) {
+            assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
+                    .hasMessage("line 1:21: Table function system.query not registered");
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("VALUES BIGINT '1', BIGINT '2'");
+        }
+    }
+
+    @Override
+    public void testNativeQueryIncorrectSyntax()
+    {
+        // not implemented
+        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
+                .hasMessage("line 1:21: Table function system.query not registered");
+    }
+
+    @Override
+    protected TestTable simpleTable()
+    {
+        // override because Phoenix requires primary key specification
+        return new PhoenixTestTable(onRemoteDatabase(), "tpch.simple_table", "(col BIGINT PRIMARY KEY)", ImmutableList.of("1", "2"));
+    }
+
+    @Override
     protected TestTable createTableWithDoubleAndRealColumns(String name, List<String> rows)
     {
         return new TestTable(onRemoteDatabase(), name, "(t_double double primary key, u_double double, v_real float, w_real float)", rows);
+    }
+
+    @Override
+    protected void verifyConcurrentAddColumnFailurePermissible(Exception e)
+    {
+        assertThat(e)
+                .hasMessageContaining("Concurrent modification to table");
+    }
+
+    @Override
+    public void testCreateSchemaWithLongName()
+    {
+        // TODO: Find the maximum table schema length in Phoenix and enable this test.
+        throw new SkipException("TODO");
+    }
+
+    @Override
+    public void testCreateTableWithLongTableName()
+    {
+        // TODO: Find the maximum table name length in Phoenix and enable this test.
+        // Table name length with 65536 chars throws "startRow's length must be less than or equal to 32767 to meet the criteria for a row key."
+        // 32767 chars still causes the same error and shorter names (e.g. 10000) causes timeout.
+        throw new SkipException("TODO");
+    }
+
+    @Override
+    public void testCreateTableWithLongColumnName()
+    {
+        // TODO: Find the maximum column name length in Phoenix and enable this test.
+        throw new SkipException("TODO");
+    }
+
+    @Override
+    public void testAlterTableAddLongColumnName()
+    {
+        // TODO: Find the maximum column name length in Phoenix and enable this test.
+        throw new SkipException("TODO");
+    }
+
+    @Test
+    public void testLargeDefaultDomainCompactionThreshold()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+        String propertyName = catalogName + "." + DOMAIN_COMPACTION_THRESHOLD;
+        assertQuery(
+                "SHOW SESSION LIKE '" + propertyName + "'",
+                "VALUES('" + propertyName + "','5000', '5000', 'integer', 'Maximum ranges to allow in a tuple domain without simplifying it')");
+    }
+
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        return OptionalInt.of(32767);
     }
 
     @Override
@@ -538,21 +761,15 @@ public class TestPhoenixConnectorTest
     {
         return sql -> {
             try {
-                executeInPhoenix(sql);
+                try (Connection connection = DriverManager.getConnection(testingPhoenixServer.getJdbcUrl());
+                        Statement statement = connection.createStatement()) {
+                    statement.execute(sql);
+                    connection.commit();
+                }
             }
             catch (SQLException e) {
                 throw new RuntimeException(e);
             }
         };
-    }
-
-    private void executeInPhoenix(String sql)
-            throws SQLException
-    {
-        try (Connection connection = DriverManager.getConnection(testingPhoenixServer.getJdbcUrl());
-                Statement statement = connection.createStatement()) {
-            statement.execute(sql);
-            connection.commit();
-        }
     }
 }

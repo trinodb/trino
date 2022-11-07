@@ -12,6 +12,9 @@
 * Improve query performance through optimizations to in-memory representations. ({issue}`10225`)
 * Reduce query latency for contended clusters or complex queries with multiple stages. ({issue}`10249`)
 * Fix incorrect results or failure when casting numeric values to `varchar(n)` type. ({issue}`552`)
+* Remove support for spilling aggregations containing `ORDER BY` or `DISTINCT` clauses and associated
+  configuration properties `spill-distincting-aggregations-enabled`, `spill-ordering-aggregations-enabled`.
+  ({issue}`10183`)
 
 ## Elasticsearch connector
 

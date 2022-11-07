@@ -14,8 +14,9 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionNullability;
+import io.trino.spi.function.AggregationImplementation;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -43,15 +44,15 @@ public class TestingAggregationFunction
     private final AccumulatorFactory factory;
     private final DistinctAccumulatorFactory distinctFactory;
 
-    public TestingAggregationFunction(BoundSignature signature, FunctionNullability functionNullability, AggregationMetadata aggregationMetadata)
+    public TestingAggregationFunction(BoundSignature signature, FunctionNullability functionNullability, AggregationImplementation aggregationImplementation)
     {
         this.parameterTypes = signature.getArgumentTypes();
-        List<Type> intermediateTypes = aggregationMetadata.getAccumulatorStateDescriptors().stream()
+        List<Type> intermediateTypes = aggregationImplementation.getAccumulatorStateDescriptors().stream()
                 .map(stateDescriptor -> stateDescriptor.getSerializer().getSerializedType())
                 .collect(toImmutableList());
         intermediateType = (intermediateTypes.size() == 1) ? getOnlyElement(intermediateTypes) : RowType.anonymous(intermediateTypes);
         this.finalType = signature.getReturnType();
-        this.factory = generateAccumulatorFactory(signature, aggregationMetadata, functionNullability, ImmutableList.of());
+        this.factory = generateAccumulatorFactory(signature, aggregationImplementation, functionNullability);
         distinctFactory = new DistinctAccumulatorFactory(
                 factory,
                 parameterTypes,
@@ -114,6 +115,7 @@ public class TestingAggregationFunction
                 finalType,
                 inputChannels,
                 maskChannel,
-                true);
+                true,
+                ImmutableList.of());
     }
 }

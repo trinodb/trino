@@ -16,7 +16,6 @@ package io.trino.plugin.raptor.legacy;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.Files;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.slice.Slice;
 import io.trino.operator.PagesIndex;
@@ -50,6 +49,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.util.Collection;
 import java.util.Optional;
 
@@ -61,6 +61,7 @@ import static io.trino.plugin.raptor.legacy.RaptorTableProperties.TEMPORAL_COLUM
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.trino.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
 import static io.trino.plugin.raptor.legacy.storage.TestRaptorStorageManager.createRaptorStorageManager;
+import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
@@ -82,12 +83,13 @@ public class TestRaptorConnector
 
     @BeforeMethod
     public void setup()
+            throws Exception
     {
         Jdbi dbi = createTestingJdbi();
         dummyHandle = dbi.open();
         metadataDao = dbi.onDemand(MetadataDao.class);
         createTablesWithRetry(dbi);
-        dataDir = Files.createTempDir();
+        dataDir = Files.createTempDirectory(null).toFile();
 
         CatalogName connectorId = new CatalogName("test");
         NodeManager nodeManager = new TestingNodeManager();
@@ -131,24 +133,24 @@ public class TestRaptorConnector
 
         // begin delete for table1
         ConnectorTransactionHandle txn1 = beginTransaction();
-        ConnectorTableHandle handle1 = getTableHandle(connector.getMetadata(txn1), "test1");
-        connector.getMetadata(txn1).beginDelete(SESSION, handle1);
+        ConnectorTableHandle handle1 = getTableHandle(connector.getMetadata(SESSION, txn1), "test1");
+        connector.getMetadata(SESSION, txn1).beginDelete(SESSION, handle1, NO_RETRIES);
 
         assertTrue(metadataDao.isMaintenanceBlockedLocked(tableId1));
         assertFalse(metadataDao.isMaintenanceBlockedLocked(tableId2));
 
         // begin delete for table2
         ConnectorTransactionHandle txn2 = beginTransaction();
-        ConnectorTableHandle handle2 = getTableHandle(connector.getMetadata(txn2), "test2");
-        connector.getMetadata(txn2).beginDelete(SESSION, handle2);
+        ConnectorTableHandle handle2 = getTableHandle(connector.getMetadata(SESSION, txn2), "test2");
+        connector.getMetadata(SESSION, txn2).beginDelete(SESSION, handle2, NO_RETRIES);
 
         assertTrue(metadataDao.isMaintenanceBlockedLocked(tableId1));
         assertTrue(metadataDao.isMaintenanceBlockedLocked(tableId2));
 
         // begin another delete for table1
         ConnectorTransactionHandle txn3 = beginTransaction();
-        ConnectorTableHandle handle3 = getTableHandle(connector.getMetadata(txn3), "test1");
-        connector.getMetadata(txn3).beginDelete(SESSION, handle3);
+        ConnectorTableHandle handle3 = getTableHandle(connector.getMetadata(SESSION, txn3), "test1");
+        connector.getMetadata(SESSION, txn3).beginDelete(SESSION, handle3, NO_RETRIES);
 
         assertTrue(metadataDao.isMaintenanceBlockedLocked(tableId1));
         assertTrue(metadataDao.isMaintenanceBlockedLocked(tableId2));
@@ -211,7 +213,7 @@ public class TestRaptorConnector
                 .build();
 
         ConnectorTransactionHandle transaction = beginTransaction();
-        connector.getMetadata(transaction).createTable(
+        connector.getMetadata(SESSION, transaction).createTable(
                 SESSION,
                 new ConnectorTableMetadata(
                         new SchemaTableName("test", "test"),
@@ -221,8 +223,8 @@ public class TestRaptorConnector
         connector.commit(transaction);
 
         ConnectorTransactionHandle txn1 = beginTransaction();
-        ConnectorTableHandle handle1 = getTableHandle(connector.getMetadata(txn1), "test");
-        ConnectorInsertTableHandle insertTableHandle = connector.getMetadata(txn1).beginInsert(session, handle1);
+        ConnectorTableHandle handle1 = getTableHandle(connector.getMetadata(SESSION, txn1), "test");
+        ConnectorInsertTableHandle insertTableHandle = connector.getMetadata(SESSION, txn1).beginInsert(session, handle1, ImmutableList.of(), NO_RETRIES);
         ConnectorPageSink raptorPageSink = connector.getPageSinkProvider().createPageSink(txn1, session, insertTableHandle);
 
         Object timestamp1 = null;
@@ -246,14 +248,14 @@ public class TestRaptorConnector
 
         Collection<Slice> shards = raptorPageSink.finish().get();
         assertEquals(shards.size(), expectedSplits);
-        connector.getMetadata(txn1).dropTable(session, handle1);
+        connector.getMetadata(session, txn1).dropTable(session, handle1);
         connector.commit(txn1);
     }
 
     private long createTable(String name)
     {
         ConnectorTransactionHandle transaction = beginTransaction();
-        connector.getMetadata(transaction).createTable(
+        connector.getMetadata(SESSION, transaction).createTable(
                 SESSION,
                 new ConnectorTableMetadata(
                         new SchemaTableName("test", name),
@@ -262,7 +264,7 @@ public class TestRaptorConnector
         connector.commit(transaction);
 
         transaction = beginTransaction();
-        ConnectorTableHandle tableHandle = getTableHandle(connector.getMetadata(transaction), name);
+        ConnectorTableHandle tableHandle = getTableHandle(connector.getMetadata(SESSION, transaction), name);
         connector.commit(transaction);
         return ((RaptorTableHandle) tableHandle).getTableId();
     }

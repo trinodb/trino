@@ -14,11 +14,11 @@
 package io.trino.plugin.jdbc.mapping;
 
 import com.google.common.base.CharMatcher;
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.collect.cache.NonKeyEvictableCache;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.mapping.IdentifierMappingModule.ForCachingIdentifierMapping;
 import io.trino.spi.TrinoException;
@@ -43,6 +43,7 @@ import java.util.function.Function;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -50,8 +51,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public final class CachingIdentifierMapping
         implements IdentifierMapping
 {
-    private final Cache<ConnectorIdentity, Mapping> remoteSchemaNames;
-    private final Cache<RemoteTableNameCacheKey, Mapping> remoteTableNames;
+    private final NonKeyEvictableCache<ConnectorIdentity, Mapping> remoteSchemaNames;
+    private final NonKeyEvictableCache<RemoteTableNameCacheKey, Mapping> remoteTableNames;
     private final IdentifierMapping identifierMapping;
     private final Provider<BaseJdbcClient> baseJdbcClient;
 
@@ -61,11 +62,10 @@ public final class CachingIdentifierMapping
             @ForCachingIdentifierMapping IdentifierMapping identifierMapping,
             Provider<BaseJdbcClient> baseJdbcClient)
     {
-        requireNonNull(mappingConfig, "mappingConfig is null");
         CacheBuilder<Object, Object> remoteNamesCacheBuilder = CacheBuilder.newBuilder()
                 .expireAfterWrite(mappingConfig.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS);
-        this.remoteSchemaNames = remoteNamesCacheBuilder.build();
-        this.remoteTableNames = remoteNamesCacheBuilder.build();
+        this.remoteSchemaNames = buildNonEvictableCacheWithWeakInvalidateAll(remoteNamesCacheBuilder);
+        this.remoteTableNames = buildNonEvictableCacheWithWeakInvalidateAll(remoteNamesCacheBuilder);
 
         this.identifierMapping = requireNonNull(identifierMapping, "identifierMapping is null");
         this.baseJdbcClient = requireNonNull(baseJdbcClient, "baseJdbcClient is null");
@@ -73,6 +73,8 @@ public final class CachingIdentifierMapping
 
     public void flushCache()
     {
+        // Note: this may not invalidate ongoing loads (https://github.com/trinodb/trino/issues/10512, https://github.com/google/guava/issues/1881)
+        // This is acceptable, since this operation is invoked manually, and not relied upon for correctness.
         remoteSchemaNames.invalidateAll();
         remoteTableNames.invalidateAll();
     }

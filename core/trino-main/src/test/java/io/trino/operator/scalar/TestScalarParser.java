@@ -14,45 +14,75 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
-import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestScalarParser
-        extends AbstractTestFunctions
 {
-    @BeforeClass
-    public void setUp()
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
     {
-        registerParametricScalar(GenericWithIncompleteSpecializationNullable.class);
-        registerParametricScalar(GenericWithIncompleteSpecializationNotNullable.class);
+        assertions = new QueryAssertions();
+
+        assertions.addFunctions(InternalFunctionBundle.builder()
+                .scalar(GenericWithIncompleteSpecializationNullable.class)
+                .scalar(GenericWithIncompleteSpecializationNotNullable.class)
+                .build());
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
     }
 
     @Test
     public void testGenericWithIncompleteSpecialization()
     {
-        assertFunction("generic_incomplete_specialization_nullable(9876543210)", BIGINT, 9876543210L);
-        assertFunction("generic_incomplete_specialization_nullable(1.234E0)", DOUBLE, 1.234);
-        assertFunction("generic_incomplete_specialization_nullable('abcd')", createVarcharType(4), "abcd");
-        assertFunction("generic_incomplete_specialization_nullable(true)", BOOLEAN, true);
-        assertFunction("generic_incomplete_specialization_nullable(array[1, 2])", new ArrayType(INTEGER), ImmutableList.of(1, 2));
+        assertThat(assertions.function("generic_incomplete_specialization_nullable", "9876543210"))
+                .isEqualTo(9876543210L);
+        assertThat(assertions.function("generic_incomplete_specialization_nullable", "1.234E0"))
+                .isEqualTo(1.234);
+        assertThat(assertions.function("generic_incomplete_specialization_nullable", "'abcd'"))
+                .hasType(createVarcharType(4))
+                .isEqualTo("abcd");
+        assertThat(assertions.function("generic_incomplete_specialization_nullable", "true"))
+                .isEqualTo(true);
+        assertThat(assertions.function("generic_incomplete_specialization_nullable", "array[1, 2]"))
+                .hasType(new ArrayType(INTEGER))
+                .isEqualTo(ImmutableList.of(1, 2));
 
-        assertFunction("generic_incomplete_specialization_not_nullable(9876543210)", BIGINT, 9876543210L);
-        assertFunction("generic_incomplete_specialization_not_nullable(1.234E0)", DOUBLE, 1.234);
-        assertFunction("generic_incomplete_specialization_not_nullable('abcd')", createVarcharType(4), "abcd");
-        assertFunction("generic_incomplete_specialization_not_nullable(true)", BOOLEAN, true);
-        assertFunction("generic_incomplete_specialization_not_nullable(array[1, 2])", new ArrayType(INTEGER), ImmutableList.of(1, 2));
+        assertThat(assertions.function("generic_incomplete_specialization_not_nullable", "9876543210"))
+                .isEqualTo(9876543210L);
+        assertThat(assertions.function("generic_incomplete_specialization_not_nullable", "1.234E0"))
+                .isEqualTo(1.234);
+        assertThat(assertions.function("generic_incomplete_specialization_not_nullable", "'abcd'"))
+                .hasType(createVarcharType(4))
+                .isEqualTo("abcd");
+        assertThat(assertions.function("generic_incomplete_specialization_not_nullable", "true"))
+                .isEqualTo(true);
+        assertThat(assertions.function("generic_incomplete_specialization_not_nullable", "array[1, 2]"))
+                .hasType(new ArrayType(INTEGER))
+                .isEqualTo(ImmutableList.of(1, 2));
     }
 
     @ScalarFunction("generic_incomplete_specialization_nullable")

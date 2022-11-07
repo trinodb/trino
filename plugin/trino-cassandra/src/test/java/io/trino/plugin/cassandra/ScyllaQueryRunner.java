@@ -49,10 +49,13 @@ public final class ScyllaQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
+            // note: additional copy via ImmutableList so that if fails on nulls
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("cassandra.contact-points", server.getHost());
             connectorProperties.putIfAbsent("cassandra.native-protocol-port", Integer.toString(server.getPort()));
             connectorProperties.putIfAbsent("cassandra.allow-drop-table", "true");
+            connectorProperties.putIfAbsent("cassandra.load-policy.use-dc-aware", "true");
+            connectorProperties.putIfAbsent("cassandra.load-policy.dc-aware.local-dc", "datacenter1");
 
             queryRunner.installPlugin(new CassandraPlugin());
             queryRunner.createCatalog("cassandra", "cassandra", connectorProperties);

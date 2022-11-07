@@ -13,31 +13,32 @@
  */
 package io.trino.type;
 
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import io.trino.collect.cache.NonKeyEvictableCache;
 import org.weakref.jmx.Managed;
 
-import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
 
 public class TypeOperatorsCache
         implements BiFunction<Object, Supplier<Object>, Object>
 {
-    private final Cache<Object, Object> cache = CacheBuilder.newBuilder()
-            .maximumSize(10_000)
-            .build();
+    private final NonKeyEvictableCache<Object, Object> cache = buildNonEvictableCacheWithWeakInvalidateAll(
+            CacheBuilder.newBuilder()
+                    .maximumSize(10_000));
 
     @Override
     public Object apply(Object operatorConvention, Supplier<Object> supplier)
     {
         try {
-            return cache.get(operatorConvention, supplier::get);
+            return uncheckedCacheGet(cache, operatorConvention, supplier);
         }
-        catch (ExecutionException | UncheckedExecutionException e) {
+        catch (UncheckedExecutionException e) {
             throwIfUnchecked(e.getCause());
             throw new RuntimeException(e.getCause());
         }
@@ -71,6 +72,8 @@ public class TypeOperatorsCache
     @Managed
     public void cacheReset()
     {
+        // Note: this may not invalidate ongoing loads (https://github.com/trinodb/trino/issues/10512, https://github.com/google/guava/issues/1881)
+        // This is acceptable, since this operation is invoked manually, and not relied upon for correctness.
         cache.invalidateAll();
     }
 }

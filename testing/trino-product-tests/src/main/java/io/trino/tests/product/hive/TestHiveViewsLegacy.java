@@ -39,7 +39,7 @@ public class TestHiveViewsLegacy
     @BeforeTestWithContext
     public void setup()
     {
-        setSessionProperty("hive.legacy_hive_view_translation", "true");
+        setSessionProperty("hive.hive_views_legacy_translation", "true");
     }
 
     @Override
@@ -154,7 +154,7 @@ public class TestHiveViewsLegacy
     protected QueryExecutor connectToTrino(String catalog)
     {
         QueryExecutor executor = super.connectToTrino(catalog);
-        executor.executeQuery("SET SESSION hive.legacy_hive_view_translation = true");
+        executor.executeQuery("SET SESSION hive.hive_views_legacy_translation = true");
         return executor;
     }
 }

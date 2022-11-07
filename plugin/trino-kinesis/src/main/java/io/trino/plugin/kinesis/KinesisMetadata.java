@@ -50,7 +50,6 @@ public class KinesisMetadata
             Supplier<Map<SchemaTableName, KinesisStreamDescription>> tableDescriptionSupplier,
             Set<KinesisInternalFieldDescription> internalFieldDescriptions)
     {
-        requireNonNull(kinesisConfig, "kinesisConfig is null");
         isHideInternalColumns = kinesisConfig.isHideInternalColumns();
         this.tableDescriptionSupplier = requireNonNull(tableDescriptionSupplier, "tableDescriptionSupplier is null");
         this.internalFieldDescriptions = requireNonNull(internalFieldDescriptions, "internalFieldDescriptions is null");
@@ -84,12 +83,6 @@ public class KinesisMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession connectorSession, ConnectorTableHandle tableHandle)
     {
         return getTableMetadata(((KinesisTableHandle) tableHandle).toSchemaTableName());
-    }
-
-    @Override
-    public boolean usesLegacyTableLayouts()
-    {
-        return false;
     }
 
     @Override
@@ -139,7 +132,7 @@ public class KinesisMetadata
             columnHandles.put(kinesisInternalFieldDescription.getColumnName(), kinesisInternalFieldDescription.getColumnHandle(index++, isHideInternalColumns));
         }
 
-        return columnHandles.build();
+        return columnHandles.buildOrThrow();
     }
 
     @Override
@@ -170,7 +163,7 @@ public class KinesisMetadata
                 columns.put(tableName, tableMetadata.getColumns());
             }
         }
-        return columns.build();
+        return columns.buildOrThrow();
     }
 
     private static String getDataFormat(KinesisStreamFieldGroup fieldGroup)

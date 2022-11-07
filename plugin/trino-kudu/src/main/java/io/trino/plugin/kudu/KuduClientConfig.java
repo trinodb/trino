@@ -17,6 +17,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
@@ -32,18 +33,17 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 /**
  * Configuration read from etc/catalog/kudu.properties
  */
+@DefunctConfig("kudu.client.default-socket-read-timeout")
 public class KuduClientConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
-    private List<String> masterAddresses;
+    private List<String> masterAddresses = ImmutableList.of();
     private Duration defaultAdminOperationTimeout = new Duration(30, TimeUnit.SECONDS);
     private Duration defaultOperationTimeout = new Duration(30, TimeUnit.SECONDS);
-    private Duration defaultSocketReadTimeout = new Duration(10, TimeUnit.SECONDS);
     private boolean disableStatistics;
     private boolean schemaEmulationEnabled;
     private String schemaEmulationPrefix = "presto::";
-    private boolean groupedExecutionEnabled;
     private Duration dynamicFilteringWaitTimeout = new Duration(0, MINUTES);
 
     @NotNull
@@ -94,20 +94,6 @@ public class KuduClientConfig
         return defaultOperationTimeout;
     }
 
-    @Config("kudu.client.default-socket-read-timeout")
-    public KuduClientConfig setDefaultSocketReadTimeout(Duration timeout)
-    {
-        this.defaultSocketReadTimeout = timeout;
-        return this;
-    }
-
-    @MinDuration("1s")
-    @MaxDuration("1h")
-    public Duration getDefaultSocketReadTimeout()
-    {
-        return defaultSocketReadTimeout;
-    }
-
     public boolean isDisableStatistics()
     {
         return this.disableStatistics;
@@ -142,18 +128,6 @@ public class KuduClientConfig
     {
         this.schemaEmulationEnabled = enabled;
         return this;
-    }
-
-    @Config("kudu.grouped-execution.enabled")
-    public KuduClientConfig setGroupedExecutionEnabled(boolean enabled)
-    {
-        this.groupedExecutionEnabled = enabled;
-        return this;
-    }
-
-    public boolean isGroupedExecutionEnabled()
-    {
-        return groupedExecutionEnabled;
     }
 
     @MinDuration("0ms")

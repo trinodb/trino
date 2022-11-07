@@ -30,31 +30,29 @@ import io.airlift.json.JsonModule;
 import io.airlift.units.Duration;
 import io.trino.block.BlockJsonSerde;
 import io.trino.client.NodeVersion;
-import io.trino.connector.CatalogName;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
-import io.trino.execution.Lifespan;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.RemoteTask;
+import io.trino.execution.SplitAssignment;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskManagerConfig;
-import io.trino.execution.TaskSource;
 import io.trino.execution.TaskState;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.TaskTestUtils;
 import io.trino.execution.TestSqlTaskManager;
-import io.trino.execution.buffer.OutputBuffers;
+import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.HandleJsonModule;
-import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.Split;
 import io.trino.server.DynamicFilterService;
+import io.trino.server.FailTaskRequest;
 import io.trino.server.HttpRemoteTaskFactory;
 import io.trino.server.TaskUpdateRequest;
 import io.trino.spi.ErrorCode;
@@ -75,7 +73,6 @@ import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.tree.SymbolReference;
-import io.trino.testing.TestingHandleResolver;
 import io.trino.testing.TestingSplit;
 import io.trino.type.TypeDeserializer;
 import org.testng.annotations.Test;
@@ -109,7 +106,6 @@ import java.util.function.BooleanSupplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static com.google.inject.Scopes.SINGLETON;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
@@ -117,13 +113,15 @@ import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.trino.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
-import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.BROADCAST;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION;
 import static io.trino.server.InternalHeaders.TRINO_MAX_WAIT;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -183,16 +181,12 @@ public class TestHttpRemoteTask
         testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
         remoteTask.start();
 
-        Lifespan lifespan = Lifespan.driverGroup(3);
-        remoteTask.addSplits(ImmutableMultimap.of(TABLE_SCAN_NODE_ID, new Split(new CatalogName("test"), TestingSplit.createLocalSplit(), lifespan)));
-        poll(() -> testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID) != null);
-        poll(() -> testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID).getSplits().size() == 1);
-
-        remoteTask.noMoreSplits(TABLE_SCAN_NODE_ID, lifespan);
-        poll(() -> testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID).getNoMoreSplitsForLifespan().size() == 1);
+        remoteTask.addSplits(ImmutableMultimap.of(TABLE_SCAN_NODE_ID, new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit())));
+        poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID) != null);
+        poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID).getSplits().size() == 1);
 
         remoteTask.noMoreSplits(TABLE_SCAN_NODE_ID);
-        poll(() -> testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID).isNoMoreSplits());
+        poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID).isNoMoreSplits());
 
         remoteTask.cancel();
         poll(() -> remoteTask.getTaskStatus().getState().isDone());
@@ -217,7 +211,11 @@ public class TestHttpRemoteTask
         QueryId queryId = new QueryId("test");
 
         TestingTaskResource testingTaskResource = new TestingTaskResource(new AtomicLong(System.nanoTime()), FailureScenario.NO_FAILURE);
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(createTestMetadataManager(), new TypeOperators(), newDirectExecutorService());
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(
+                PLANNER_CONTEXT.getMetadata(),
+                PLANNER_CONTEXT.getFunctionManager(),
+                new TypeOperators(),
+                new DynamicFilterConfig());
         HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource, dynamicFilterService);
         RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory, ImmutableSet.of());
 
@@ -275,7 +273,6 @@ public class TestHttpRemoteTask
         assertGreaterThanOrEqual(testingTaskResource.getStatusFetchCounter(), 4L);
 
         httpRemoteTaskFactory.stop();
-        dynamicFilterService.stop();
     }
 
     @Test(timeOut = 30_000)
@@ -294,7 +291,11 @@ public class TestHttpRemoteTask
         QueryId queryId = new QueryId("test");
 
         TestingTaskResource testingTaskResource = new TestingTaskResource(new AtomicLong(System.nanoTime()), FailureScenario.NO_FAILURE);
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(createTestMetadataManager(), new TypeOperators(), newDirectExecutorService());
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(
+                PLANNER_CONTEXT.getMetadata(),
+                PLANNER_CONTEXT.getFunctionManager(),
+                new TypeOperators(),
+                new DynamicFilterConfig());
         dynamicFilterService.registerQuery(
                 queryId,
                 TEST_SESSION,
@@ -366,7 +367,6 @@ public class TestHttpRemoteTask
                 ImmutableMap.of(filterId2, Domain.singleValue(BIGINT, 2L)));
 
         httpRemoteTaskFactory.stop();
-        dynamicFilterService.stop();
     }
 
     private void runTest(FailureScenario failureScenario)
@@ -405,11 +405,10 @@ public class TestHttpRemoteTask
     private void addSplit(RemoteTask remoteTask, TestingTaskResource testingTaskResource, int expectedSplitsCount)
             throws InterruptedException
     {
-        Lifespan lifespan = Lifespan.driverGroup(3);
-        remoteTask.addSplits(ImmutableMultimap.of(TABLE_SCAN_NODE_ID, new Split(new CatalogName("test"), TestingSplit.createLocalSplit(), lifespan)));
+        remoteTask.addSplits(ImmutableMultimap.of(TABLE_SCAN_NODE_ID, new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit())));
         // wait for splits to be received by remote task
-        poll(() -> testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID) != null);
-        poll(() -> testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID).getSplits().size() == expectedSplitsCount);
+        poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID) != null);
+        poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID).getSplits().size() == expectedSplitsCount);
     }
 
     private RemoteTask createRemoteTask(HttpRemoteTaskFactory httpRemoteTaskFactory, Set<DynamicFilterId> outboundDynamicFilterIds)
@@ -420,15 +419,20 @@ public class TestHttpRemoteTask
                 new InternalNode("node-id", URI.create("http://fake.invalid/"), new NodeVersion("version"), false),
                 TaskTestUtils.PLAN_FRAGMENT,
                 ImmutableMultimap.of(),
-                createInitialEmptyOutputBuffers(OutputBuffers.BufferType.BROADCAST),
+                PipelinedOutputBuffers.createInitial(BROADCAST),
                 new NodeTaskMap.PartitionedSplitCountTracker(i -> {}),
                 outboundDynamicFilterIds,
+                Optional.empty(),
                 true);
     }
 
     private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource)
     {
-        return createHttpRemoteTaskFactory(testingTaskResource, new DynamicFilterService(createTestMetadataManager(), new TypeOperators(), new DynamicFilterConfig()));
+        return createHttpRemoteTaskFactory(testingTaskResource, new DynamicFilterService(
+                PLANNER_CONTEXT.getMetadata(),
+                PLANNER_CONTEXT.getFunctionManager(),
+                new TypeOperators(),
+                new DynamicFilterConfig()));
     }
 
     private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource, DynamicFilterService dynamicFilterService)
@@ -450,6 +454,7 @@ public class TestHttpRemoteTask
                         jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
+                        jsonCodecBinder(binder).bindJsonCodec(FailTaskRequest.class);
 
                         binder.bind(TypeManager.class).toInstance(TESTING_TYPE_MANAGER);
                         binder.bind(BlockEncodingManager.class).in(SINGLETON);
@@ -462,7 +467,8 @@ public class TestHttpRemoteTask
                             JsonCodec<TaskStatus> taskStatusCodec,
                             JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec,
                             JsonCodec<TaskInfo> taskInfoCodec,
-                            JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec)
+                            JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
+                            JsonCodec<FailTaskRequest> failTaskRequestCodec)
                     {
                         JaxrsTestingHttpProcessor jaxrsTestingHttpProcessor = new JaxrsTestingHttpProcessor(URI.create("http://fake.invalid/"), testingTaskResource, jsonMapper);
                         TestingHttpClient testingHttpClient = new TestingHttpClient(jaxrsTestingHttpProcessor.setTrace(TRACE_HTTP));
@@ -476,6 +482,7 @@ public class TestHttpRemoteTask
                                 dynamicFilterDomainsCodec,
                                 taskInfoCodec,
                                 taskUpdateRequestCodec,
+                                failTaskRequestCodec,
                                 new RemoteTaskStats(),
                                 dynamicFilterService);
                     }
@@ -484,8 +491,6 @@ public class TestHttpRemoteTask
                 .doNotInitializeLogging()
                 .quiet()
                 .initialize();
-        HandleResolver handleResolver = injector.getInstance(HandleResolver.class);
-        handleResolver.addCatalogHandleResolver("test", new TestingHandleResolver());
         return injector.getInstance(HttpRemoteTaskFactory.class);
     }
 
@@ -580,7 +585,7 @@ public class TestHttpRemoteTask
             return buildTaskInfo();
         }
 
-        Map<PlanNodeId, TaskSource> taskSourceMap = new HashMap<>();
+        Map<PlanNodeId, SplitAssignment> taskSplitAssignmentMap = new HashMap<>();
 
         @POST
         @Path("{taskId}")
@@ -591,8 +596,8 @@ public class TestHttpRemoteTask
                 TaskUpdateRequest taskUpdateRequest,
                 @Context UriInfo uriInfo)
         {
-            for (TaskSource source : taskUpdateRequest.getSources()) {
-                taskSourceMap.compute(source.getPlanNodeId(), (planNodeId, taskSource) -> taskSource == null ? source : taskSource.update(source));
+            for (SplitAssignment splitAssignment : taskUpdateRequest.getSplitAssignments()) {
+                taskSplitAssignmentMap.compute(splitAssignment.getPlanNodeId(), (planNodeId, taskSplitAssignment) -> taskSplitAssignment == null ? splitAssignment : taskSplitAssignment.update(splitAssignment));
             }
             if (!taskUpdateRequest.getDynamicFilterDomains().isEmpty()) {
                 dynamicFiltersSentCounter++;
@@ -603,13 +608,13 @@ public class TestHttpRemoteTask
             return buildTaskInfo();
         }
 
-        public synchronized TaskSource getTaskSource(PlanNodeId planNodeId)
+        public synchronized SplitAssignment getTaskSplitAssignment(PlanNodeId planNodeId)
         {
-            TaskSource source = taskSourceMap.get(planNodeId);
-            if (source == null) {
+            SplitAssignment assignment = taskSplitAssignmentMap.get(planNodeId);
+            if (assignment == null) {
                 return null;
             }
-            return new TaskSource(source.getPlanNodeId(), source.getSplits(), source.getNoMoreSplitsForLifespan(), source.isNoMoreSplits());
+            return new SplitAssignment(assignment.getPlanNodeId(), assignment.getSplits(), assignment.isNoMoreSplits());
         }
 
         @GET
@@ -726,6 +731,7 @@ public class TestHttpRemoteTask
                     initialTaskInfo.getOutputBuffers(),
                     initialTaskInfo.getNoMoreSplits(),
                     initialTaskInfo.getStats(),
+                    initialTaskInfo.getEstimatedMemory(),
                     initialTaskInfo.isNeedsPlan());
         }
 
@@ -760,14 +766,13 @@ public class TestHttpRemoteTask
                     taskState,
                     initialTaskStatus.getSelf(),
                     "fake",
-                    ImmutableSet.of(),
                     initialTaskStatus.getFailures(),
                     initialTaskStatus.getQueuedPartitionedDrivers(),
                     initialTaskStatus.getRunningPartitionedDrivers(),
-                    initialTaskStatus.isOutputBufferOverutilized(),
+                    initialTaskStatus.getOutputBufferStatus(),
                     initialTaskStatus.getPhysicalWrittenDataSize(),
                     initialTaskStatus.getMemoryReservation(),
-                    initialTaskStatus.getSystemMemoryReservation(),
+                    initialTaskStatus.getPeakMemoryReservation(),
                     initialTaskStatus.getRevocableMemoryReservation(),
                     initialTaskStatus.getFullGcCount(),
                     initialTaskStatus.getFullGcTime(),

@@ -51,6 +51,8 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.TimestampLiteral;
 
+import javax.annotation.Nullable;
+
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -60,7 +62,6 @@ import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -99,7 +100,7 @@ public final class LiteralEncoder
         return expressions.build();
     }
 
-    public Expression toExpression(Session session, Object object, Type type)
+    public Expression toExpression(Session session, @Nullable Object object, Type type)
     {
         requireNonNull(type, "type is null");
 
@@ -138,9 +139,6 @@ public final class LiteralEncoder
 
         if (type.equals(DOUBLE)) {
             Double value = (Double) object;
-            // WARNING: the ORC predicate code depends on NaN and infinity not appearing in a tuple domain, so
-            // if you remove this, you will need to update the TupleDomainOrcPredicate
-            // When changing this, don't forget about similar code for REAL below
             if (value.isNaN()) {
                 return FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
                         .setName(QualifiedName.of("nan"))
@@ -161,7 +159,6 @@ public final class LiteralEncoder
 
         if (type.equals(REAL)) {
             Float value = intBitsToFloat(((Long) object).intValue());
-            // WARNING for ORC predicate code as above (for double)
             if (value.isNaN()) {
                 return new Cast(
                         FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
@@ -186,13 +183,13 @@ public final class LiteralEncoder
             return new GenericLiteral("REAL", value.toString());
         }
 
-        if (type instanceof DecimalType) {
+        if (type instanceof DecimalType decimalType) {
             String string;
-            if (isShortDecimal(type)) {
-                string = Decimals.toString((long) object, ((DecimalType) type).getScale());
+            if (decimalType.isShort()) {
+                string = Decimals.toString((long) object, decimalType.getScale());
             }
             else {
-                string = Decimals.toString((Int128) object, ((DecimalType) type).getScale());
+                string = Decimals.toString((Int128) object, decimalType.getScale());
             }
             return new Cast(new DecimalLiteral(string), toSqlType(type));
         }

@@ -96,20 +96,18 @@ public class ApplyTableScanRedirection
         });
 
         TableMetadata tableMetadata = plannerContext.getMetadata().getTableMetadata(context.getSession(), scanNode.getTable());
-        CatalogSchemaTableName sourceTable = new CatalogSchemaTableName(tableMetadata.getCatalogName().getCatalogName(), tableMetadata.getTable());
+        CatalogSchemaTableName sourceTable = new CatalogSchemaTableName(tableMetadata.getCatalogName(), tableMetadata.getTable());
         if (destinationTable.equals(sourceTable)) {
             return Result.empty();
         }
 
-        Optional<TableHandle> destinationTableHandle = plannerContext.getMetadata().getTableHandle(
-                context.getSession(),
-                convertFromSchemaTableName(destinationTable.getCatalogName()).apply(destinationTable.getSchemaTableName()));
-        if (destinationTableHandle.isEmpty()) {
-            throw new TrinoException(TABLE_NOT_FOUND, format("Destination table %s from table scan redirection not found", destinationTable));
-        }
+        TableHandle destinationTableHandle = plannerContext.getMetadata().getTableHandle(
+                        context.getSession(),
+                        convertFromSchemaTableName(destinationTable.getCatalogName()).apply(destinationTable.getSchemaTableName()))
+                .orElseThrow(() -> new TrinoException(TABLE_NOT_FOUND, format("Destination table %s from table scan redirection not found", destinationTable)));
 
         Map<ColumnHandle, String> columnMapping = tableScanRedirectApplicationResult.get().getDestinationColumns();
-        Map<String, ColumnHandle> destinationColumnHandles = plannerContext.getMetadata().getColumnHandles(context.getSession(), destinationTableHandle.get());
+        Map<String, ColumnHandle> destinationColumnHandles = plannerContext.getMetadata().getColumnHandles(context.getSession(), destinationTableHandle);
         ImmutableMap.Builder<Symbol, Cast> casts = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, ColumnHandle> newAssignmentsBuilder = ImmutableMap.builder();
         for (Map.Entry<Symbol, ColumnHandle> assignment : scanNode.getAssignments().entrySet()) {
@@ -124,7 +122,7 @@ public class ApplyTableScanRedirection
 
             // insert ts if redirected types don't match source types
             Type sourceType = context.getSymbolAllocator().getTypes().get(assignment.getKey());
-            Type redirectedType = plannerContext.getMetadata().getColumnMetadata(context.getSession(), destinationTableHandle.get(), destinationColumnHandle).getType();
+            Type redirectedType = plannerContext.getMetadata().getColumnMetadata(context.getSession(), destinationTableHandle, destinationColumnHandle).getType();
             if (!sourceType.equals(redirectedType)) {
                 Symbol redirectedSymbol = context.getSymbolAllocator().newSymbol(destinationColumn, redirectedType);
                 Cast cast = getCast(
@@ -146,14 +144,14 @@ public class ApplyTableScanRedirection
 
         TupleDomain<String> requiredFilter = tableScanRedirectApplicationResult.get().getFilter();
         if (requiredFilter.isAll()) {
-            ImmutableMap<Symbol, ColumnHandle> newAssignments = newAssignmentsBuilder.build();
+            ImmutableMap<Symbol, ColumnHandle> newAssignments = newAssignmentsBuilder.buildOrThrow();
             return Result.ofPlanNode(applyProjection(
                     context.getIdAllocator(),
                     ImmutableSet.copyOf(scanNode.getOutputSymbols()),
-                    casts.build(),
+                    casts.buildOrThrow(),
                     new TableScanNode(
                             scanNode.getId(),
-                            destinationTableHandle.get(),
+                            destinationTableHandle,
                             ImmutableList.copyOf(newAssignments.keySet()),
                             newAssignments,
                             TupleDomain.all(),
@@ -185,7 +183,7 @@ public class ApplyTableScanRedirection
             }
 
             // insert casts if redirected types don't match domain types
-            Type redirectedType = plannerContext.getMetadata().getColumnMetadata(context.getSession(), destinationTableHandle.get(), destinationColumnHandle).getType();
+            Type redirectedType = plannerContext.getMetadata().getColumnMetadata(context.getSession(), destinationTableHandle, destinationColumnHandle).getType();
             if (!domainType.equals(redirectedType)) {
                 Symbol redirectedSymbol = context.getSymbolAllocator().newSymbol(destinationColumn, redirectedType);
                 Cast cast = getCast(
@@ -207,10 +205,10 @@ public class ApplyTableScanRedirection
             return symbol;
         });
 
-        Map<Symbol, ColumnHandle> newAssignments = newAssignmentsBuilder.build();
+        Map<Symbol, ColumnHandle> newAssignments = newAssignmentsBuilder.buildOrThrow();
         TableScanNode newScanNode = new TableScanNode(
                 scanNode.getId(),
-                destinationTableHandle.get(),
+                destinationTableHandle,
                 ImmutableList.copyOf(newAssignments.keySet()),
                 newAssignments,
                 TupleDomain.all(),
@@ -224,7 +222,7 @@ public class ApplyTableScanRedirection
                 applyProjection(
                         context.getIdAllocator(),
                         newAssignments.keySet(),
-                        casts.build(),
+                        casts.buildOrThrow(),
                         newScanNode),
                 domainTranslator.toPredicate(context.getSession(), transformedConstraint));
 

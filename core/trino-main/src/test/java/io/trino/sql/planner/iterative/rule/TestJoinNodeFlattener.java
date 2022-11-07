@@ -103,7 +103,7 @@ public class TestJoinNodeFlattener
                 ImmutableList.of(a1),
                 ImmutableList.of(b1),
                 Optional.empty());
-        assertThatThrownBy(() -> toMultiJoinNode(queryRunner.getMetadata(), outerJoin, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes()))
+        assertThatThrownBy(() -> toMultiJoinNode(queryRunner.getPlannerContext(), outerJoin, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageMatching("join type must be.*");
     }
@@ -139,7 +139,7 @@ public class TestJoinNodeFlattener
                 .setOutputSymbols(a1, b1, c1)
                 .build();
         assertEquals(
-                toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes()),
+                toMultiJoinNode(queryRunner.getPlannerContext(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes()),
                 expected);
     }
 
@@ -166,7 +166,7 @@ public class TestJoinNodeFlattener
                                 equiJoinClause(a, b))),
                 valuesC,
                 equiJoinClause(d, c));
-        MultiJoinNode actual = toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, true, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes());
+        MultiJoinNode actual = toMultiJoinNode(queryRunner.getPlannerContext(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, true, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes());
         assertEquals(actual.getOutputSymbols(), ImmutableList.of(d, c));
         assertEquals(actual.getFilter(), and(createEqualsExpression(a, b), createEqualsExpression(d, c)));
         assertTrue(actual.isPushedProjectionThroughJoin());
@@ -212,7 +212,7 @@ public class TestJoinNodeFlattener
                                 equiJoinClause(a, b))),
                 valuesC,
                 equiJoinClause(d, c));
-        MultiJoinNode actual = toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, true, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes());
+        MultiJoinNode actual = toMultiJoinNode(queryRunner.getPlannerContext(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, true, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes());
         assertEquals(actual.getOutputSymbols(), ImmutableList.of(d, c));
         assertEquals(actual.getFilter(), createEqualsExpression(d, c));
         assertFalse(actual.isPushedProjectionThroughJoin());
@@ -264,7 +264,7 @@ public class TestJoinNodeFlattener
                 .setOutputSymbols(a1, b1)
                 .build();
         assertEquals(
-                toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes()),
+                toMultiJoinNode(queryRunner.getPlannerContext(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes()),
                 expected);
     }
 
@@ -310,7 +310,7 @@ public class TestJoinNodeFlattener
                 ImmutableList.of(a1, b1, b2, c1, c2),
                 false);
         assertEquals(
-                toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes()),
+                toMultiJoinNode(queryRunner.getPlannerContext(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes()),
                 expected);
     }
 
@@ -368,7 +368,7 @@ public class TestJoinNodeFlattener
                 .setOutputSymbols(a1, b1, c1, d1, d2, e1, e2)
                 .build();
         assertEquals(
-                toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, 5, false, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes()),
+                toMultiJoinNode(queryRunner.getPlannerContext(), joinNode, noLookup(), planNodeIdAllocator, 5, false, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes()),
                 expected);
     }
 
@@ -428,7 +428,7 @@ public class TestJoinNodeFlattener
                 .setOutputSymbols(a1, b1, c1, d1, d2, e1, e2)
                 .build();
         assertEquals(
-                toMultiJoinNode(queryRunner.getMetadata(), joinNode, noLookup(), planNodeIdAllocator, 2, false, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes()),
+                toMultiJoinNode(queryRunner.getPlannerContext(), joinNode, noLookup(), planNodeIdAllocator, 2, false, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes()),
                 expected);
     }
 
@@ -452,6 +452,7 @@ public class TestJoinNodeFlattener
         PlanAssert.assertPlan(
                 testSessionBuilder().build(),
                 dummyMetadata(),
+                queryRunner.getFunctionManager(),
                 node -> unknown(),
                 new Plan(actual, typeProvider, empty()), noLookup(),
                 pattern);

@@ -29,6 +29,22 @@ The optional ``IF EXISTS`` (when used before the column name) clause causes the 
 
 The optional ``IF NOT EXISTS`` clause causes the error to be suppressed if the column already exists.
 
+.. _alter-table-set-properties:
+
+SET PROPERTIES
+^^^^^^^^^^^^^^
+
+The ``ALTER TABLE SET PROPERTIES``  statement followed by some number
+of ``property_name`` and ``expression`` pairs applies the specified properties
+and values to a table. Ommitting an already-set property from this
+statement leaves that property unchanged in the table.
+
+A property in a ``SET PROPERTIES`` statement can be set to ``DEFAULT``, which
+reverts its value back to the default in that table.
+
+Support for ``ALTER TABLE SET PROPERTIES`` varies between
+connectors, as not all connectors support modifying table properties.
+
 .. _alter-table-execute:
 
 EXECUTE
@@ -38,6 +54,11 @@ The ``ALTER TABLE EXECUTE`` statement followed by a ``command`` and
 ``parameters`` modifies the table according to the specified command and
 parameters. ``ALTER TABLE EXECUTE`` supports different commands on a
 per-connector basis.
+
+You can use the ``=>`` operator for passing named parameter values.
+The left side is the name of the parameter, the right side is the value being passed::
+
+    ALTER TABLE hive.schema.test_table EXECUTE optimize(file_size_threshold => '10MB')
 
 Examples
 --------
@@ -82,14 +103,24 @@ Allow everyone with role public to drop and alter table ``people``::
 
     ALTER TABLE people SET AUTHORIZATION ROLE PUBLIC
 
-Set table properties (``x=y``) to table ``users``::
+Set table properties (``x = y``) in table ``people``::
 
-    ALTER TABLE people SET PROPERTIES x = 'y'
+    ALTER TABLE people SET PROPERTIES x = 'y';
+
+Set multiple table properties (``foo = 123`` and ``foo bar = 456``) in
+table ``people``::
+
+    ALTER TABLE people SET PROPERTIES foo = 123, "foo bar" = 456;
+
+Set table property ``x`` to its default value in table``people``::
+
+    ALTER TABLE people SET PROPERTIES x = DEFAULT;
+
 
 Collapse files in a table that are over 10 megabytes in size, as supported by
 the Hive connector::
 
-    ALTER TABLE hive.schema.test_table EXECUTE optimize(file_size_threshold => `10MB`)
+    ALTER TABLE hive.schema.test_table EXECUTE optimize(file_size_threshold => '10MB')
 
 See also
 --------

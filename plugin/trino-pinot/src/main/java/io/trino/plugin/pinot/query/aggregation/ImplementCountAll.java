@@ -15,36 +15,36 @@ package io.trino.plugin.pinot.query.aggregation;
 
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.plugin.base.expression.AggregateFunctionRule;
+import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.pinot.query.AggregateExpression;
 import io.trino.spi.connector.AggregateFunction;
 
 import java.util.List;
 import java.util.Optional;
 
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.basicAggregation;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.functionName;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.inputs;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.outputType;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.arguments;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.basicAggregation;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.functionName;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.outputType;
 import static io.trino.spi.type.BigintType.BIGINT;
 
 /**
  * Implements {@code count(*)}.
  */
 public class ImplementCountAll
-        implements AggregateFunctionRule<AggregateExpression>
+        implements AggregateFunctionRule<AggregateExpression, Void>
 {
     @Override
     public Pattern<AggregateFunction> getPattern()
     {
         return basicAggregation()
                 .with(functionName().equalTo("count"))
-                .with(inputs().equalTo(List.of()))
+                .with(arguments().equalTo(List.of()))
                 .with(outputType().equalTo(BIGINT));
     }
 
     @Override
-    public Optional<AggregateExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
+    public Optional<AggregateExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<Void> context)
     {
         return Optional.of(new AggregateExpression("count", "*", false));
     }

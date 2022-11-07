@@ -23,6 +23,8 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RealType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.Timestamps;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
@@ -69,7 +71,7 @@ public final class PinotQueryBuilder
                 .append(" FROM ")
                 .append(getTableName(tableHandle, tableNameSuffix))
                 .append(" ");
-        generateFilterPql(pqlBuilder, tableHandle, timePredicate, columnHandles);
+        generateFilterPql(pqlBuilder, tableHandle, timePredicate);
         OptionalLong appliedLimit = tableHandle.getLimit();
         long limit = limitForSegmentQueries + 1;
         if (appliedLimit.isPresent()) {
@@ -90,36 +92,42 @@ public final class PinotQueryBuilder
         return tableHandle.getTableName();
     }
 
-    private static void generateFilterPql(StringBuilder pqlBuilder, PinotTableHandle tableHandle, Optional<String> timePredicate, List<PinotColumnHandle> columnHandles)
+    private static void generateFilterPql(StringBuilder pqlBuilder, PinotTableHandle tableHandle, Optional<String> timePredicate)
     {
-        Optional<String> filterClause = getFilterClause(tableHandle.getConstraint(), timePredicate, columnHandles);
+        Optional<String> filterClause = getFilterClause(tableHandle.getConstraint(), timePredicate, false);
         if (filterClause.isPresent()) {
             pqlBuilder.append(" WHERE ")
                     .append(filterClause.get());
         }
     }
 
-    public static Optional<String> getFilterClause(TupleDomain<ColumnHandle> tupleDomain, Optional<String> timePredicate, List<PinotColumnHandle> columnHandles)
+    public static Optional<String> getFilterClause(TupleDomain<ColumnHandle> tupleDomain, Optional<String> timePredicate, boolean forHavingClause)
     {
         ImmutableList.Builder<String> conjunctsBuilder = ImmutableList.builder();
+        checkState((forHavingClause && timePredicate.isEmpty()) || !forHavingClause, "Unexpected time predicate with having clause");
         timePredicate.ifPresent(conjunctsBuilder::add);
         if (!tupleDomain.equals(TupleDomain.all())) {
             Map<ColumnHandle, Domain> domains = tupleDomain.getDomains().orElseThrow();
             for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
-                conjunctsBuilder.add(toPredicate(((PinotColumnHandle) entry.getKey()).getColumnName(), entry.getValue()));
+                PinotColumnHandle pinotColumnHandle = (PinotColumnHandle) entry.getKey();
+                // If this is for a having clause, only include aggregate columns.
+                // If this is for a where clause, only include non-aggregate columns.
+                // i.e. (forHavingClause && isAggregate) || (!forHavingClause && !isAggregate)
+                if (forHavingClause == pinotColumnHandle.isAggregate()) {
+                    conjunctsBuilder.add(toPredicate(pinotColumnHandle, entry.getValue()));
+                }
             }
         }
         List<String> conjuncts = conjunctsBuilder.build();
         if (!conjuncts.isEmpty()) {
             return Optional.of(Joiner.on(" AND ").join(conjuncts));
         }
-        else {
-            return Optional.empty();
-        }
+        return Optional.empty();
     }
 
-    private static String toPredicate(String columnName, Domain domain)
+    private static String toPredicate(PinotColumnHandle pinotColumnHandle, Domain domain)
     {
+        String predicateArgument = pinotColumnHandle.isAggregate() ? pinotColumnHandle.getExpression() : quoteIdentifier(pinotColumnHandle.getColumnName());
         List<String> disjuncts = new ArrayList<>();
         List<Object> singleValues = new ArrayList<>();
         for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
@@ -130,10 +138,10 @@ public final class PinotQueryBuilder
             else {
                 List<String> rangeConjuncts = new ArrayList<>();
                 if (!range.isLowUnbounded()) {
-                    rangeConjuncts.add(toConjunct(columnName, range.isLowInclusive() ? ">=" : ">", convertValue(range.getType(), range.getLowBoundedValue())));
+                    rangeConjuncts.add(toConjunct(predicateArgument, range.isLowInclusive() ? ">=" : ">", convertValue(range.getType(), range.getLowBoundedValue())));
                 }
                 if (!range.isHighUnbounded()) {
-                    rangeConjuncts.add(toConjunct(columnName, range.isHighInclusive() ? "<=" : "<", convertValue(range.getType(), range.getHighBoundedValue())));
+                    rangeConjuncts.add(toConjunct(predicateArgument, range.isHighInclusive() ? "<=" : "<", convertValue(range.getType(), range.getHighBoundedValue())));
                 }
                 // If rangeConjuncts is null, then the range was ALL, which is not supported in pql
                 checkState(!rangeConjuncts.isEmpty());
@@ -142,10 +150,10 @@ public final class PinotQueryBuilder
         }
         // Add back all of the possible single values either as an equality or an IN predicate
         if (singleValues.size() == 1) {
-            disjuncts.add(toConjunct(columnName, "=", getOnlyElement(singleValues)));
+            disjuncts.add(toConjunct(predicateArgument, "=", getOnlyElement(singleValues)));
         }
         else if (singleValues.size() > 1) {
-            disjuncts.add(inClauseValues(columnName, singleValues));
+            disjuncts.add(inClauseValues(predicateArgument, singleValues));
         }
         return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
     }
@@ -155,13 +163,24 @@ public final class PinotQueryBuilder
         if (type instanceof RealType) {
             return intBitsToFloat(toIntExact((Long) value));
         }
-        else if (type instanceof VarcharType) {
+        if (type instanceof VarcharType) {
             return ((Slice) value).toStringUtf8();
         }
-        else if (type instanceof VarbinaryType) {
+        if (type instanceof VarbinaryType) {
             return Hex.encodeHexString(((Slice) value).getBytes());
         }
+        if (type instanceof TimestampType) {
+            return toMillis((Long) value);
+        }
         return value;
+    }
+
+    private static Long toMillis(Long value)
+    {
+        if (value == null) {
+            return null;
+        }
+        return Timestamps.epochMicrosToMillisWithRounding(value);
     }
 
     private static String toConjunct(String columnName, String operator, Object value)
@@ -169,12 +188,12 @@ public final class PinotQueryBuilder
         if (value instanceof Slice) {
             value = ((Slice) value).toStringUtf8();
         }
-        return format("%s %s %s", quoteIdentifier(columnName), operator, singleQuote(value));
+        return format("%s %s %s", columnName, operator, singleQuote(value));
     }
 
     private static String inClauseValues(String columnName, List<Object> singleValues)
     {
-        return format("%s IN (%s)", quoteIdentifier(columnName), singleValues.stream()
+        return format("%s IN (%s)", columnName, singleValues.stream()
                 .map(PinotQueryBuilder::singleQuote)
                 .collect(joining(", ")));
     }

@@ -405,25 +405,12 @@ public class TestAllDatatypesFromHiveConnector
                         "kot binarny".getBytes(UTF_8)));
     }
 
-    private boolean isHiveWithBrokenAvroTimestamps()
-    {
-        // In 3.1.0 timestamp semantics in hive changed in backward incompatible way,
-        // which was fixed for Parquet and Avro in 3.1.2 (https://issues.apache.org/jira/browse/HIVE-21002)
-        // we do have a work-around for Parquet, but still need this for Avro until
-        // https://github.com/trinodb/trino/issues/5144 is addressed
-        return getHiveVersionMajor() == 3 &&
-                getHiveVersionMinor() == 1 &&
-                (getHiveVersionPatch() == 0 || getHiveVersionPatch() == 1);
-    }
-
     private static TableInstance<?> mutableTableInstanceOf(TableDefinition tableDefinition)
     {
         if (tableDefinition.getDatabase().isPresent()) {
             return mutableTableInstanceOf(tableDefinition, tableDefinition.getDatabase().get());
         }
-        else {
-            return mutableTableInstanceOf(tableHandleInSchema(tableDefinition));
-        }
+        return mutableTableInstanceOf(tableHandleInSchema(tableDefinition));
     }
 
     private static TableInstance<?> mutableTableInstanceOf(TableDefinition tableDefinition, String database)

@@ -16,6 +16,7 @@ package io.trino.plugin.bigquery;
 import com.google.cloud.bigquery.storage.v1.BigQueryReadClient;
 import com.google.cloud.bigquery.storage.v1.ReadRowsRequest;
 import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
+import io.airlift.log.Logger;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -24,6 +25,8 @@ import static java.util.Objects.requireNonNull;
 
 public class ReadRowsHelper
 {
+    private static final Logger log = Logger.get(ReadRowsHelper.class);
+
     private final BigQueryReadClient client;
     private final String streamName;
     private final int maxReadRowsRetries;
@@ -44,6 +47,7 @@ public class ReadRowsHelper
     // In order to enable testing
     protected Iterator<ReadRowsResponse> fetchResponses(long offset)
     {
+        log.debug("Reading rows from %s offset %s", streamName, offset);
         return client.readRowsCallable()
                 .call(ReadRowsRequest.newBuilder()
                         .setReadStream(streamName)
@@ -81,12 +85,14 @@ public class ReadRowsHelper
             do {
                 try {
                     ReadRowsResponse response = serverResponses.next();
+                    log.debug("ReadRowsResponse from BigQuery: %s", response);
                     nextOffset += response.getRowCount();
                     return response;
                 }
                 catch (Exception e) {
                     // if relevant, retry the read, from the last read position
                     if (BigQueryUtil.isRetryable(e) && retries < helper.maxReadRowsRetries) {
+                        log.debug("Request failed, retrying: %s", e);
                         serverResponses = helper.fetchResponses(nextOffset);
                         retries++;
                     }

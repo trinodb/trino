@@ -20,7 +20,6 @@ import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.HydraIdentityProvider;
-import io.trino.tests.product.launcher.env.common.SeleniumChrome;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
@@ -28,7 +27,8 @@ import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import javax.inject.Inject;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_CONFIG_PROPERTIES;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -41,9 +41,9 @@ public class EnvSinglenodeOauth2
     private final ResourceProvider configDir;
 
     @Inject
-    public EnvSinglenodeOauth2(DockerFiles dockerFiles, PortBinder binder, Standard standard, HydraIdentityProvider hydraIdentityProvider, SeleniumChrome seleniumChrome)
+    public EnvSinglenodeOauth2(DockerFiles dockerFiles, PortBinder binder, Standard standard, HydraIdentityProvider hydraIdentityProvider)
     {
-        super(ImmutableList.of(standard, hydraIdentityProvider, seleniumChrome));
+        super(ImmutableList.of(standard, hydraIdentityProvider));
 
         this.binder = requireNonNull(binder, "binder is null");
         this.hydraIdentityProvider = requireNonNull(hydraIdentityProvider, "hydraIdentityProvider is null");
@@ -58,7 +58,10 @@ public class EnvSinglenodeOauth2
             dockerContainer
                     .withCopyFileToContainer(
                             forHostPath(configDir.getPath("config.properties")),
-                            CONTAINER_PRESTO_CONFIG_PROPERTIES);
+                            CONTAINER_TRINO_CONFIG_PROPERTIES)
+                    .withCopyFileToContainer(
+                            forHostPath(configDir.getPath("log.properties")),
+                            CONTAINER_TRINO_ETC + "/log.properties");
 
             binder.exposePort(dockerContainer, 7778);
         });

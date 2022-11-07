@@ -75,7 +75,6 @@ public class TestStreamingAggregationOperator
                 ImmutableList.of(BOOLEAN, VARCHAR, BIGINT),
                 ImmutableList.of(VARCHAR),
                 ImmutableList.of(1),
-                SINGLE,
                 ImmutableList.of(COUNT.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty()),
                         LONG_SUM.createAggregatorFactory(SINGLE, ImmutableList.of(2), OptionalInt.empty())),
                 new JoinCompiler(new TypeOperators()));
@@ -97,7 +96,6 @@ public class TestStreamingAggregationOperator
                 ImmutableList.of(BOOLEAN, DOUBLE, BIGINT),
                 ImmutableList.of(DOUBLE),
                 ImmutableList.of(1),
-                SINGLE,
                 ImmutableList.of(COUNT.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty()),
                         LONG_SUM.createAggregatorFactory(SINGLE, ImmutableList.of(2), OptionalInt.empty())),
                 new JoinCompiler(new TypeOperators()));

@@ -34,10 +34,12 @@ public class MockConnectorPageSource
         implements UpdatablePageSource
 {
     private final ConnectorPageSource delegate;
+    private final Metrics metrics;
 
-    public MockConnectorPageSource(ConnectorPageSource delegate)
+    public MockConnectorPageSource(ConnectorPageSource delegate, Metrics metrics)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
+        this.metrics = requireNonNull(metrics, "metrics is null");
     }
 
     @Override
@@ -71,9 +73,9 @@ public class MockConnectorPageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
-        return delegate.getSystemMemoryUsage();
+        return delegate.getMemoryUsage();
     }
 
     @Override
@@ -92,7 +94,7 @@ public class MockConnectorPageSource
     @Override
     public Metrics getMetrics()
     {
-        return delegate.getMetrics();
+        return delegate.getMetrics().mergeWith(metrics);
     }
 
     @Override

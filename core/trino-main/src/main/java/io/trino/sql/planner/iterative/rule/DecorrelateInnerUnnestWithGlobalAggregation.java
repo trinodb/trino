@@ -53,6 +53,7 @@ import static io.trino.sql.planner.iterative.rule.AggregationDecorrelation.rewri
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
@@ -218,8 +219,7 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
         }
 
         AggregationNode aggregationNode = (AggregationNode) node;
-        return aggregationNode.hasEmptyGroupingSet() &&
-                aggregationNode.getGroupingSetCount() == 1 &&
+        return aggregationNode.hasSingleGlobalAggregation() &&
                 aggregationNode.getStep() == SINGLE;
     }
 
@@ -337,15 +337,11 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
                             .build());
         }
 
-        return new AggregationNode(
+        return singleAggregation(
                 aggregationNode.getId(),
                 source,
-                rewriteWithMasks(aggregationNode.getAggregations(), masks.build()),
-                singleGroupingSet(groupingSymbols),
-                ImmutableList.of(),
-                SINGLE,
-                Optional.empty(),
-                Optional.empty());
+                rewriteWithMasks(aggregationNode.getAggregations(), masks.buildOrThrow()),
+                singleGroupingSet(groupingSymbols));
     }
 
     private static AggregationNode withGrouping(AggregationNode aggregationNode, List<Symbol> groupingSymbols, PlanNode source)
@@ -354,14 +350,10 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
                 .distinct()
                 .collect(toImmutableList()));
 
-        return new AggregationNode(
+        return singleAggregation(
                 aggregationNode.getId(),
                 source,
                 aggregationNode.getAggregations(),
-                groupingSet,
-                ImmutableList.of(),
-                SINGLE,
-                Optional.empty(),
-                Optional.empty());
+                groupingSet);
     }
 }

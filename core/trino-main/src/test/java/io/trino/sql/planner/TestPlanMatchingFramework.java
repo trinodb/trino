@@ -15,9 +15,9 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.FeaturesConfig.JoinDistributionType;
-import io.trino.FeaturesConfig.JoinReorderingStrategy;
 import io.trino.Session;
+import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
+import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.TableScanNode;
@@ -28,7 +28,6 @@ import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.columnReference;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -149,11 +148,14 @@ public class TestPlanMatchingFramework
                 "SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey",
                 noJoinReordering(),
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
-                                anyTree(
-                                        tableScan("orders").withAlias("ORDERS_OK", columnReference("orders", "orderkey"))),
-                                anyTree(
-                                        tableScan("lineitem").withAlias("LINEITEM_OK", columnReference("lineitem", "orderkey"))))));
+                        join(INNER, builder -> builder
+                                .equiCriteria("ORDERS_OK", "LINEITEM_OK")
+                                .left(
+                                        anyTree(
+                                                tableScan("orders").withAlias("ORDERS_OK", columnReference("orders", "orderkey"))))
+                                .right(
+                                        anyTree(
+                                                tableScan("lineitem").withAlias("LINEITEM_OK", columnReference("lineitem", "orderkey")))))));
     }
 
     @Test
@@ -161,11 +163,14 @@ public class TestPlanMatchingFramework
     {
         assertPlan("SELECT l.orderkey FROM orders l, orders r WHERE l.orderkey = r.orderkey",
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("L_ORDERS_OK", "R_ORDERS_OK")),
-                                anyTree(
-                                        tableScan("orders").withAlias("L_ORDERS_OK", columnReference("orders", "orderkey"))),
-                                anyTree(
-                                        tableScan("orders").withAlias("R_ORDERS_OK", columnReference("orders", "orderkey"))))));
+                        join(INNER, builder -> builder
+                                .equiCriteria("L_ORDERS_OK", "R_ORDERS_OK")
+                                .left(
+                                        anyTree(
+                                                tableScan("orders").withAlias("L_ORDERS_OK", columnReference("orders", "orderkey"))))
+                                .right(
+                                        anyTree(
+                                                tableScan("orders").withAlias("R_ORDERS_OK", columnReference("orders", "orderkey")))))));
     }
 
     @Test
@@ -244,11 +249,14 @@ public class TestPlanMatchingFramework
                 "SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey",
                 noJoinReordering(),
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("LINEITEM_OK", "ORDERS_OK")),
-                                anyTree(
-                                        tableScan("orders").withAlias("ORDERS_OK", columnReference("orders", "orderkey"))),
-                                anyTree(
-                                        tableScan("lineitem").withAlias("ORDERS_OK", columnReference("lineitem", "orderkey")))))))
+                        join(INNER, builder -> builder
+                                .equiCriteria("LINEITEM_OK", "ORDERS_OK")
+                                .left(
+                                        anyTree(
+                                                tableScan("orders").withAlias("ORDERS_OK", columnReference("orders", "orderkey"))))
+                                .right(
+                                        anyTree(
+                                                tableScan("lineitem").withAlias("ORDERS_OK", columnReference("lineitem", "orderkey"))))))))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageMatching(".*already bound to expression.*");
     }

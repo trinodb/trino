@@ -64,7 +64,7 @@ public class TestHiveTypeTranslator
             .put(new ArrayType(TIMESTAMP_MILLIS), HiveType.valueOf("array<timestamp>"))
             .put(TESTING_TYPE_MANAGER.getType(mapType(BOOLEAN.getTypeSignature(), VARBINARY.getTypeSignature())), HiveType.valueOf("map<boolean,binary>"))
             .put(RowType.from(List.of(field("col0", INTEGER), field("col1", VARBINARY))), HiveType.valueOf("struct<col0:int,col1:binary>"))
-            .build();
+            .buildOrThrow();
 
     @Test
     public void testTypeTranslator()

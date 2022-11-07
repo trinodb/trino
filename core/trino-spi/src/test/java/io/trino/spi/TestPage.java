@@ -19,10 +19,13 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
+import io.trino.spi.block.LazyBlock;
 import org.testng.annotations.Test;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verifyNotNull;
+import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.spi.block.DictionaryBlock.createProjectedDictionaryBlock;
 import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -82,20 +85,20 @@ public class TestPage
         // first dictionary contains "varbinary" values
         Slice[] dictionaryValues1 = createExpectedValues(50);
         Block dictionary1 = createSlicesBlock(dictionaryValues1);
-        DictionaryBlock commonSourceIdBlock1 = new DictionaryBlock(positionCount, dictionary1, commonDictionaryIds, commonSourceId);
+        Block commonSourceIdBlock1 = createProjectedDictionaryBlock(positionCount, dictionary1, commonDictionaryIds, commonSourceId);
 
         // second dictionary block is "length(firstColumn)"
         BlockBuilder dictionary2 = BIGINT.createBlockBuilder(null, dictionary1.getPositionCount());
         for (Slice expectedValue : dictionaryValues1) {
             BIGINT.writeLong(dictionary2, expectedValue.length());
         }
-        DictionaryBlock commonSourceIdBlock2 = new DictionaryBlock(positionCount, dictionary2.build(), commonDictionaryIds, commonSourceId);
+        Block commonSourceIdBlock2 = createProjectedDictionaryBlock(positionCount, dictionary2.build(), commonDictionaryIds, commonSourceId);
 
         // Create block with a different source id, dictionary size, used
         int otherDictionaryUsedPositions = 30;
         int[] otherDictionaryIds = getDictionaryIds(positionCount, otherDictionaryUsedPositions);
         Block dictionary3 = createSlicesBlock(createExpectedValues(70));
-        DictionaryBlock randomSourceIdBlock = new DictionaryBlock(dictionary3, otherDictionaryIds);
+        Block randomSourceIdBlock = DictionaryBlock.create(otherDictionaryIds.length, dictionary3, otherDictionaryIds);
 
         Page page = new Page(commonSourceIdBlock1, randomSourceIdBlock, commonSourceIdBlock2);
         page.compact();
@@ -132,6 +135,41 @@ public class TestPage
             assertEquals(page.getBlock(i).getLong(3, 0), 2);
             assertEquals(page.getBlock(i).getLong(4, 0), 5);
         }
+    }
+
+    @Test
+    public void testGetLoadedPage()
+    {
+        int entries = 10;
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, entries);
+        for (int i = 0; i < entries; i++) {
+            BIGINT.writeLong(blockBuilder, i);
+        }
+        Block block = blockBuilder.build();
+
+        LazyBlock lazyBlock = lazyWrapper(block);
+        Page page = new Page(lazyBlock);
+        long lazyPageRetainedSize = Page.INSTANCE_SIZE + sizeOf(new Block[] {block}) + lazyBlock.getRetainedSizeInBytes();
+        assertEquals(page.getRetainedSizeInBytes(), lazyPageRetainedSize);
+        Page loadedPage = page.getLoadedPage();
+        // Retained size of page remains the same
+        assertEquals(page.getRetainedSizeInBytes(), lazyPageRetainedSize);
+        long loadedPageRetainedSize = Page.INSTANCE_SIZE + sizeOf(new Block[] {block}) + block.getRetainedSizeInBytes();
+        // Retained size of loaded page depends on the loaded block
+        assertEquals(loadedPage.getRetainedSizeInBytes(), loadedPageRetainedSize);
+
+        lazyBlock = lazyWrapper(block);
+        page = new Page(lazyBlock);
+        assertEquals(page.getRetainedSizeInBytes(), lazyPageRetainedSize);
+        loadedPage = page.getLoadedPage(new int[] {0}, new int[] {0});
+        // Retained size of page is updated based on loaded block
+        assertEquals(page.getRetainedSizeInBytes(), loadedPageRetainedSize);
+        assertEquals(loadedPage.getRetainedSizeInBytes(), loadedPageRetainedSize);
+    }
+
+    private static LazyBlock lazyWrapper(Block block)
+    {
+        return new LazyBlock(block.getPositionCount(), block::getLoadedBlock);
     }
 
     private static Slice[] createExpectedValues(int positionCount)

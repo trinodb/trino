@@ -149,7 +149,7 @@ public class PinotBrokerPageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
         return 0;
     }

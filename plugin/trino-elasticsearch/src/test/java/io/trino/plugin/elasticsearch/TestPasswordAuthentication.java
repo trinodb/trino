@@ -60,7 +60,7 @@ public class TestPasswordAuthentication
                 .put("users", loadResource("users"))
                 .put("users_roles", loadResource("users_roles"))
                 .put("roles.yml", loadResource("roles.yml"))
-                .build());
+                .buildOrThrow());
 
         HostAndPort address = elasticsearch.getAddress();
         client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
@@ -73,7 +73,7 @@ public class TestPasswordAuthentication
                         .put("elasticsearch.security", "PASSWORD")
                         .put("elasticsearch.auth.user", USER)
                         .put("elasticsearch.auth.password", PASSWORD)
-                        .build(),
+                        .buildOrThrow(),
                 3);
 
         assertions = new QueryAssertions(runner);
@@ -97,9 +97,7 @@ public class TestPasswordAuthentication
     public void test()
             throws IOException
     {
-        String json = new ObjectMapper().writeValueAsString(ImmutableMap.<String, Object>builder()
-                .put("value", 42L)
-                .build());
+        String json = new ObjectMapper().writeValueAsString(ImmutableMap.of("value", 42L));
 
         client.getLowLevelClient()
                 .performRequest(

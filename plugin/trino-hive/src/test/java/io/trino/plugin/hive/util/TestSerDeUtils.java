@@ -75,11 +75,13 @@ public class TestSerDeUtils
 {
     private final BlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
 
+    @SuppressWarnings("UnusedVariable") // these fields are serialized to a Block and verified there
     private static class ListHolder
     {
         List<InnerStruct> array;
     }
 
+    @SuppressWarnings("UnusedVariable") // these fields are serialized to a Block and verified there
     private static class InnerStruct
     {
         public InnerStruct(Integer intVal, Long longVal)
@@ -92,6 +94,7 @@ public class TestSerDeUtils
         Long longVal;
     }
 
+    @SuppressWarnings("UnusedVariable") // these fields are serialized to a Block and verified there
     private static class OuterStruct
     {
         Byte byteVal;

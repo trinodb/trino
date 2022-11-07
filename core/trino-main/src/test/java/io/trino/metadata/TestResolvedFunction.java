@@ -15,7 +15,12 @@ package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.ResolvedFunction.ResolvedFunctionDecoder;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionId;
+import io.trino.spi.function.FunctionNullability;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeSignature;
@@ -27,7 +32,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.metadata.FunctionKind.SCALAR;
+import static io.trino.spi.function.FunctionKind.SCALAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Integer.parseInt;
 import static org.testng.Assert.assertEquals;
@@ -51,10 +56,12 @@ public class TestResolvedFunction
     {
         return new ResolvedFunction(
                 new BoundSignature(name + "_" + depth, createVarcharType(10 + depth), ImmutableList.of(createVarcharType(20 + depth), createVarcharType(30 + depth))),
+                GlobalSystemConnector.CATALOG_HANDLE,
                 FunctionId.toFunctionId(Signature.builder()
                         .name(name)
                         .returnType(new TypeSignature("x"))
-                        .argumentTypes(new TypeSignature("y"), new TypeSignature("z"))
+                        .argumentType(new TypeSignature("y"))
+                        .argumentType(new TypeSignature("z"))
                         .build()),
                 SCALAR,
                 true,

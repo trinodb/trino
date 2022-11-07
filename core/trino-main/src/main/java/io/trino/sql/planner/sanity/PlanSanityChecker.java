@@ -56,12 +56,12 @@ public final class PlanSanityChecker
                         new VerifyNoFilteredAggregations(),
                         new VerifyUseConnectorNodePartitioningSet(),
                         new ValidateAggregationsWithDefaultValues(forceSingleNode),
+                        new ValidateScaledWritersUsage(),
                         new ValidateStreamingAggregations(),
                         new ValidateLimitWithPresortedInput(),
                         new DynamicFiltersChecker(),
                         new TableScanValidator(),
                         new TableExecuteStructureValidator())
-
                 .build();
     }
 
@@ -89,7 +89,8 @@ public final class PlanSanityChecker
     {
         void validate(PlanNode planNode,
                 Session session,
-                PlannerContext plannerContext, TypeAnalyzer typeAnalyzer,
+                PlannerContext plannerContext,
+                TypeAnalyzer typeAnalyzer,
                 TypeProvider types,
                 WarningCollector warningCollector);
     }

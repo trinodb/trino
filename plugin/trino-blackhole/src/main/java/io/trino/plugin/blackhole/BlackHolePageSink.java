@@ -40,7 +40,7 @@ class BlackHolePageSink
     public BlackHolePageSink(ListeningScheduledExecutorService executorService, Duration pageProcessingDelay)
     {
         this.executorService = requireNonNull(executorService, "executorService is null");
-        this.pageProcessingDelayMillis = requireNonNull(pageProcessingDelay, "pageProcessingDelay is null").toMillis();
+        this.pageProcessingDelayMillis = pageProcessingDelay.toMillis();
     }
 
     @Override

@@ -14,10 +14,10 @@
 package io.trino.operator.annotations;
 
 import io.trino.metadata.FunctionBinding;
-import io.trino.metadata.FunctionDependencies;
-import io.trino.metadata.FunctionInvoker;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.function.ScalarFunctionImplementation;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandleProxies;
@@ -35,17 +35,27 @@ public abstract class ScalarImplementationDependency
     {
         this.invocationConvention = requireNonNull(invocationConvention, "invocationConvention is null");
         this.type = requireNonNull(type, "type is null");
-        if (invocationConvention.supportsInstanceFactor()) {
+        if (invocationConvention.supportsInstanceFactory()) {
             throw new IllegalArgumentException(getClass().getSimpleName() + " does not support instance functions");
         }
     }
 
-    protected abstract FunctionInvoker getInvoker(FunctionBinding functionBinding, FunctionDependencies functionDependencies, InvocationConvention invocationConvention);
+    public InvocationConvention getInvocationConvention()
+    {
+        return invocationConvention;
+    }
+
+    public Class<?> getType()
+    {
+        return type;
+    }
+
+    protected abstract ScalarFunctionImplementation getImplementation(FunctionBinding functionBinding, FunctionDependencies functionDependencies, InvocationConvention invocationConvention);
 
     @Override
     public Object resolve(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
-        MethodHandle methodHandle = getInvoker(functionBinding, functionDependencies, invocationConvention).getMethodHandle();
+        MethodHandle methodHandle = getImplementation(functionBinding, functionDependencies, invocationConvention).getMethodHandle();
         if (invocationConvention.supportsSession() && !methodHandle.type().parameterType(0).equals(ConnectorSession.class)) {
             methodHandle = dropArguments(methodHandle, 0, ConnectorSession.class);
         }

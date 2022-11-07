@@ -24,18 +24,23 @@ import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.PreparedQuery;
+import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.Range;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
@@ -43,21 +48,33 @@ import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.chrono.IsoChronology;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.ResolverStyle;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
+import java.util.TimeZone;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
+import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
@@ -70,6 +87,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.defaultCharColumnMappi
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.fromTrinoTimestamp;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
@@ -79,9 +97,9 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunct
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timeColumnMappingUsingSqlTime;
-import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMappingUsingSqlTimestampWithRounding;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.toTrinoTimestamp;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
@@ -98,11 +116,15 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Math.max;
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
 
 public class DruidJdbcClient
         extends BaseJdbcClient
@@ -112,12 +134,24 @@ public class DruidJdbcClient
     // to druid will always have the TABLE_CATALOG set to DRUID_CATALOG
     private static final String DRUID_CATALOG = "druid";
     // All the datasources in Druid are created under schema "druid"
-    public static final String DRUID_SCHEMA = "druid";
+    private static final String DRUID_SCHEMA = "druid";
+
+    // TODO We could also re-evaluate this logic by using a new Calendar for each row if necessary
+    private static final Calendar UTC_CALENDAR = Calendar.getInstance(TimeZone.getTimeZone(UTC));
+
+    private static final DateTimeFormatter LOCAL_DATE_TIME = new DateTimeFormatterBuilder()
+            .parseCaseInsensitive()
+            .append(ISO_LOCAL_DATE)
+            .appendLiteral(' ')
+            .append(ISO_LOCAL_TIME)
+            .toFormatter()
+            .withResolverStyle(ResolverStyle.STRICT)
+            .withChronology(IsoChronology.INSTANCE);
 
     @Inject
-    public DruidJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping)
+    public DruidJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping)
     {
-        super(config, "\"", connectionFactory, identifierMapping);
+        super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
     }
 
     @Override
@@ -141,9 +175,8 @@ public class DruidJdbcClient
                 if (Objects.equals(schemaName, jdbcSchemaName) && Objects.equals(tableName, jdbcTableName)) {
                     tableHandles.add(new JdbcTableHandle(
                             schemaTableName,
-                            DRUID_CATALOG,
-                            schemaName,
-                            tableName));
+                            new RemoteTableName(Optional.of(DRUID_CATALOG), Optional.ofNullable(schemaName), tableName),
+                            Optional.empty()));
                 }
             }
             if (tableHandles.isEmpty()) {
@@ -156,14 +189,14 @@ public class DruidJdbcClient
         }
     }
 
-    /*
+    /**
      * Overridden since the {@link BaseJdbcClient#getTables(Connection, Optional, Optional)}
      * method uses character escaping that doesn't work well with Druid's Avatica handler.
      * Unfortunately, because we can't escape search characters like '_' and '%", this call
      * ends up retrieving metadata for all tables that match the search
      * pattern. For ex - LIKE some_table matches somertable, somextable and some_table.
      *
-     * See getTableHandle(JdbcIdentity, SchemaTableName)} to look at
+     * See {@link DruidJdbcClient#getTableHandle(ConnectorSession, SchemaTableName)} to look at
      * how tables are filtered.
      */
     @Override
@@ -175,6 +208,13 @@ public class DruidJdbcClient
                 DRUID_SCHEMA,
                 tableName.orElse(null),
                 null);
+    }
+
+    @Override
+    public Optional<String> getTableComment(ResultSet resultSet)
+    {
+        // Don't return a comment until the connector supports creating tables with comment
+        return Optional.empty();
     }
 
     @Override
@@ -203,10 +243,10 @@ public class DruidJdbcClient
             case Types.BIGINT:
                 return Optional.of(bigintColumnMapping());
 
+            case Types.FLOAT:
             case Types.REAL:
                 return Optional.of(realColumnMapping());
 
-            case Types.FLOAT:
             case Types.DOUBLE:
                 return Optional.of(doubleColumnMapping());
 
@@ -248,8 +288,8 @@ public class DruidJdbcClient
                 return Optional.of(timeColumnMappingUsingSqlTime());
 
             case Types.TIMESTAMP:
-                // TODO Consider using `StandardColumnMappings.timestampColumnMapping`
-                return Optional.of(timestampColumnMappingUsingSqlTimestampWithRounding(TIMESTAMP_MILLIS));
+                // TODO: use `StandardColumnMappings.timestampColumnMapping` when https://issues.apache.org/jira/browse/CALCITE-1630 gets resolved
+                return Optional.of(timestampColumnMappingUsingSqlTimestampWithFullPushdown(TIMESTAMP_MILLIS));
         }
 
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
@@ -264,6 +304,70 @@ public class DruidJdbcClient
         return legacyToWriteMapping(type);
     }
 
+    public static ColumnMapping timestampColumnMappingUsingSqlTimestampWithFullPushdown(TimestampType timestampType)
+    {
+        // Druid supports Timestamp with MILLI_SECOND Precision
+        checkArgument(timestampType.getPrecision() <= 3, "Precision is out of range: %s", timestampType.getPrecision());
+        return ColumnMapping.longMapping(
+                timestampType,
+                (resultSet, columnIndex) -> {
+                    // Druid's ResultSet depends on JDBC Connection TimeZone, so we pass the Calendar to get the result at UTC.
+                    Instant instant = Instant.ofEpochMilli(resultSet.getTimestamp(columnIndex, UTC_CALENDAR).getTime());
+                    LocalDateTime timestamp = LocalDateTime.ofInstant(instant, UTC);
+                    return toTrinoTimestamp(timestampType, timestamp);
+                },
+                timestampWriteFunctionUsingSqlTimestamp(timestampType),
+                /*
+                Druid's push down expression for "__time" i.e CAST('yyyy-mm-dd hh:MM:ss.zzz' AS TIMESTAMP) ignores the millisecond precision, so if the filter has a
+                millisecond precision then we would avoid pushdown.
+                 */
+                (session, domain) -> {
+                    boolean canPushdownFilter = domain.getValues().getValuesProcessor().transform(
+                            ranges -> ranges.getOrderedRanges().stream()
+                                    .allMatch(DruidJdbcClient::hasSecondPrecision),
+                            discreteValues -> {
+                                throw new UnsupportedOperationException("Not supported for discrete values");
+                            },
+                            allOrNone -> true);
+
+                    if (canPushdownFilter) {
+                        return FULL_PUSHDOWN.apply(session, domain);
+                    }
+                    return DISABLE_PUSHDOWN.apply(session, domain);
+                });
+    }
+
+    public static LongWriteFunction timestampWriteFunctionUsingSqlTimestamp(TimestampType timestampType)
+    {
+        checkArgument(timestampType.getPrecision() <= 3, "Precision is out of range: %s", timestampType.getPrecision());
+        return new LongWriteFunction()
+        {
+            @Override
+            public String getBindExpression()
+            {
+                return "CAST(? AS TIMESTAMP)";
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, long value)
+                    throws SQLException
+            {
+                statement.setString(index, LOCAL_DATE_TIME.format(fromTrinoTimestamp(value)));
+            }
+        };
+    }
+
+    private static boolean hasSecondPrecision(Range range)
+    {
+        return range.getLowValue().map(Long.class::cast).map(DruidJdbcClient::hasSecondPrecision).orElse(true) &&
+                range.getHighValue().map(Long.class::cast).map(DruidJdbcClient::hasSecondPrecision).orElse(true);
+    }
+
+    private static boolean hasSecondPrecision(long epochMicros)
+    {
+        return epochMicros % MICROSECONDS_PER_SECOND == 0;
+    }
+
     @Override
     protected PreparedQuery prepareQuery(ConnectorSession session, Connection connection, JdbcTableHandle table, Optional<List<List<JdbcColumnHandle>>> groupingSets, List<JdbcColumnHandle> columns, Map<String, String> columnExpressions, Optional<JdbcSplit> split)
     {
@@ -273,18 +377,22 @@ public class DruidJdbcClient
     private JdbcTableHandle prepareTableHandleForQuery(JdbcTableHandle table)
     {
         if (table.isNamedRelation()) {
-            String schemaName = table.getSchemaName();
+            JdbcNamedRelationHandle relation = table.getRequiredNamedRelation();
+            RemoteTableName remoteTableName = relation.getRemoteTableName();
+            String schemaName = remoteTableName.getSchemaName().orElse(null);
             checkArgument("druid".equals(schemaName), "Only \"druid\" schema is supported");
 
             table = new JdbcTableHandle(
                     new JdbcNamedRelationHandle(
-                            table.getRequiredNamedRelation().getSchemaTableName(),
+                            relation.getSchemaTableName(),
                             // Druid doesn't like table names to be qualified with catalog names in the SQL query, hence we null out the catalog.
                             new RemoteTableName(
                                     Optional.empty(),
-                                    table.getRequiredNamedRelation().getRemoteTableName().getSchemaName(),
-                                    table.getRequiredNamedRelation().getRemoteTableName().getTableName())),
+                                    remoteTableName.getSchemaName(),
+                                    remoteTableName.getTableName()),
+                            Optional.empty()),
                     table.getConstraint(),
+                    table.getConstraintExpressions(),
                     table.getSortOrder(),
                     table.getLimit(),
                     table.getColumns(),
@@ -295,23 +403,25 @@ public class DruidJdbcClient
         return table;
     }
 
-    /*
+    /**
      * Overridden since the {@link BaseJdbcClient#getColumns(JdbcTableHandle, DatabaseMetaData)}
      * method uses character escaping that doesn't work well with Druid's Avatica handler.
      * Unfortunately, because we can't escape search characters like '_' and '%",
      * this call ends up retrieving columns for all tables that match the search
      * pattern. For ex - LIKE some_table matches somertable, somextable and some_table.
      *
-     * See getColumns(ConnectorSession, JdbcTableHandle)} to look at tables are filtered.
+     * See {@link BaseJdbcClient#getColumns(ConnectorSession, JdbcTableHandle)} to look at
+     * how columns are filtered.
      */
     @Override
     protected ResultSet getColumns(JdbcTableHandle tableHandle, DatabaseMetaData metadata)
             throws SQLException
     {
+        RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
         return metadata.getColumns(
-                tableHandle.getCatalogName(),
-                tableHandle.getSchemaName(),
-                tableHandle.getTableName(),
+                remoteTableName.getCatalogName().orElse(null),
+                remoteTableName.getSchemaName().orElse(null),
+                remoteTableName.getTableName(),
                 null);
     }
 
@@ -353,9 +463,15 @@ public class DruidJdbcClient
     }
 
     @Override
-    public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
+    public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables");
+    }
+
+    @Override
+    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns");
     }
 
     @Override
@@ -400,6 +516,12 @@ public class DruidJdbcClient
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas");
     }
 
+    @Override
+    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
+    }
+
     private WriteMapping legacyToWriteMapping(Type type)
     {
         // TODO (https://github.com/trinodb/trino/issues/497) Implement proper type mapping and add test
@@ -425,19 +547,17 @@ public class DruidJdbcClient
         if (type == DOUBLE) {
             return WriteMapping.doubleMapping("double precision", doubleWriteFunction());
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
             if (decimalType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
             }
             return WriteMapping.objectMapping(dataType, longDecimalWriteFunction(decimalType));
         }
-        if (type instanceof CharType) {
-            return WriteMapping.sliceMapping("char(" + ((CharType) type).getLength() + ")", charWriteFunction());
+        if (type instanceof CharType charType) {
+            return WriteMapping.sliceMapping("char(" + charType.getLength() + ")", charWriteFunction());
         }
-        if (type instanceof VarcharType) {
-            VarcharType varcharType = (VarcharType) type;
+        if (type instanceof VarcharType varcharType) {
             String dataType;
             if (varcharType.isUnbounded()) {
                 dataType = "varchar";

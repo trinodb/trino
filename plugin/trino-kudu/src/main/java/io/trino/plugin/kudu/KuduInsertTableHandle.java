@@ -30,23 +30,27 @@ public class KuduInsertTableHandle
 {
     private final SchemaTableName schemaTableName;
     private final List<Type> columnTypes;
+    private final boolean generateUUID;
     private transient KuduTable table;
 
     @JsonCreator
     public KuduInsertTableHandle(
             @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
-            @JsonProperty("columnTypes") List<Type> columnTypes)
+            @JsonProperty("columnTypes") List<Type> columnTypes,
+            @JsonProperty("generateUUID") boolean generateUUID)
     {
-        this(schemaTableName, columnTypes, null);
+        this(schemaTableName, columnTypes, generateUUID, null);
     }
 
     public KuduInsertTableHandle(
             SchemaTableName schemaTableName,
             List<Type> columnTypes,
+            boolean generateUUID,
             KuduTable table)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
+        this.generateUUID = generateUUID;
         this.table = table;
     }
 
@@ -70,9 +74,10 @@ public class KuduInsertTableHandle
     }
 
     @Override
+    @JsonProperty
     public boolean isGenerateUUID()
     {
-        return false;
+        return generateUUID;
     }
 
     public KuduTable getTable(KuduClientSession session)

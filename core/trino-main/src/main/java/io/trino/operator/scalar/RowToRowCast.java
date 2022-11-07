@@ -15,7 +15,6 @@ package io.trino.operator.scalar;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
 import io.airlift.bytecode.BytecodeBlock;
@@ -24,19 +23,21 @@ import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionDependencies;
-import io.trino.metadata.FunctionDependencyDeclaration;
-import io.trino.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
-import io.trino.metadata.SqlOperator;
-import io.trino.metadata.TypeVariableConstraint;
+import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionDependencyDeclaration;
+import io.trino.spi.function.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
+import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.function.Signature;
+import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.CachedInstanceBinder;
@@ -56,7 +57,6 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantBoolean
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
-import static io.trino.metadata.Signature.withVariadicBound;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -78,7 +78,7 @@ import static java.lang.invoke.MethodType.methodType;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class RowToRowCast
-        extends SqlOperator
+        extends SqlScalarFunction
 {
     private static final MethodHandle OBJECT_IS_NULL;
     private static final MethodHandle BLOCK_IS_NULL;
@@ -108,15 +108,20 @@ public class RowToRowCast
 
     private RowToRowCast()
     {
-        super(CAST,
-                ImmutableList.of(
-                        // this is technically a recursive constraint for cast, but TypeRegistry.canCast has explicit handling for row to row cast
-                        new TypeVariableConstraint("F", false, false, "row", ImmutableSet.of(new TypeSignature("T")), ImmutableSet.of()),
-                        withVariadicBound("T", "row")),
-                ImmutableList.of(),
-                new TypeSignature("T"),
-                ImmutableList.of(new TypeSignature("F")),
-                false);
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .operatorType(CAST)
+                        .typeVariableConstraint(
+                                // this is technically a recursive constraint for cast, but TypeRegistry.canCast has explicit handling for row to row cast
+                                TypeVariableConstraint.builder("F")
+                                        .variadicBound("row")
+                                        .castableTo(new TypeSignature("T"))
+                                        .build())
+                        .variadicTypeParameter("T", "row")
+                        .returnType(new TypeSignature("T"))
+                        .argumentType(new TypeSignature("F"))
+                        .build())
+                .build());
     }
 
     @Override
@@ -135,7 +140,7 @@ public class RowToRowCast
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         Type fromType = boundSignature.getArgumentType(0);
         Type toType = boundSignature.getReturnType();
@@ -144,7 +149,7 @@ public class RowToRowCast
         }
         Class<?> castOperatorClass = generateRowCast(fromType, toType, functionDependencies);
         MethodHandle methodHandle = methodHandle(castOperatorClass, "castRow", ConnectorSession.class, Block.class);
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),
@@ -158,13 +163,13 @@ public class RowToRowCast
 
         CallSiteBinder binder = new CallSiteBinder();
 
-        // Embed the MD5 hash code of input and output types into the generated class name instead of the raw type names,
-        // which could prevent the class name from hitting the length limitation and invalid characters.
-        byte[] md5Suffix = Hashing.md5().hashBytes((fromType + "$" + toType).getBytes(UTF_8)).asBytes();
+        // Embed the hash code of input and output types into the generated class name instead of the raw type names,
+        // which ensures the class name does not hit the length limitation or invalid characters.
+        byte[] hashSuffix = Hashing.goodFastHash(128).hashBytes((fromType + "$" + toType).getBytes(UTF_8)).asBytes();
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(Joiner.on("$").join("RowCast", BaseEncoding.base16().encode(md5Suffix))),
+                makeClassName(Joiner.on("$").join("RowCast", BaseEncoding.base16().encode(hashSuffix))),
                 type(Object.class));
 
         Parameter session = arg("session", ConnectorSession.class);
@@ -266,7 +271,7 @@ public class RowToRowCast
 
     private static MethodHandle getNullSafeCast(FunctionDependencies functionDependencies, Type fromElementType, Type toElementType)
     {
-        MethodHandle castMethod = functionDependencies.getCastInvoker(
+        MethodHandle castMethod = functionDependencies.getCastImplementation(
                 fromElementType,
                 toElementType,
                 new InvocationConvention(ImmutableList.of(BLOCK_POSITION), NULLABLE_RETURN, true, false))

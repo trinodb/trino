@@ -2,6 +2,10 @@
 Cassandra connector
 ===================
 
+.. raw:: html
+
+  <img src="../_static/img/cassandra.png" class="connector-logo">
+
 The Cassandra connector allows querying data stored in
 `Apache Cassandra <https://cassandra.apache.org/>`_.
 
@@ -10,7 +14,7 @@ Requirements
 
 To connect to Cassandra, you need:
 
-* Cassandra version 2.2 or higher.
+* Cassandra version 3.0 or higher.
 * Network access from the Trino coordinator and workers to Cassandra.
   Port 9042 is the default port.
 
@@ -26,6 +30,7 @@ nodes, used to discovery the cluster topology:
 
     connector.name=cassandra
     cassandra.contact-points=host1,host2
+    cassandra.load-policy.dc-aware.local-dc=datacenter1
 
 You also need to set ``cassandra.native-protocol-port``, if your
 Cassandra nodes are not using the default port 9042.
@@ -45,7 +50,7 @@ Configuration properties
 The following configuration properties are available:
 
 ================================================== ======================================================================
-Property Name                                      Description
+Property name                                      Description
 ================================================== ======================================================================
 ``cassandra.contact-points``                       Comma-separated list of hosts in a Cassandra cluster. The Cassandra
                                                    driver uses these contact points to discover cluster topology.
@@ -62,8 +67,7 @@ Property Name                                      Description
                                                    ``EACH_QUORUM``, ``QUORUM``, ``LOCAL_QUORUM``, ``ONE``, ``TWO``,
                                                    ``THREE``, ``LOCAL_ONE``, ``ANY``, ``SERIAL``, ``LOCAL_SERIAL``.
 
-``cassandra.allow-drop-table``                     Set to ``true`` to allow dropping Cassandra tables from Trino
-                                                   via :doc:`/sql/drop-table`, defaults to ``false``.
+``cassandra.allow-drop-table``                     Enables :doc:`/sql/drop-table` operations. Defaults to ``false``.
 
 ``cassandra.username``                             Username used for authentication to the Cassandra cluster.
                                                    This is a global setting used for all connections, regardless
@@ -73,9 +77,11 @@ Property Name                                      Description
                                                    This is a global setting used for all connections, regardless
                                                    of the user connected to Trino.
 
-``cassandra.protocol-version``                     It is possible to override the protocol version for older Cassandra clusters.
-                                                   By default, the values from the highest protocol version the driver can use.
-                                                   Possible values include ``V2``, ``V3`` and ``V4``.
+``cassandra.protocol-version``                     It is possible to override the protocol version for older Cassandra
+                                                   clusters.
+                                                   By default, the value corresponds to the default protocol version
+                                                   used in the underlying Cassandra java driver.
+                                                   Possible values include ``V3``, ``V4``, ``V5``, ``V6``.
 ================================================== ======================================================================
 
 .. note::
@@ -83,12 +89,12 @@ Property Name                                      Description
         If authorization is enabled, ``cassandra.username`` must have enough permissions to perform ``SELECT`` queries on
         the ``system.size_estimates`` table.
 
-.. _Cassandra consistency: http://www.datastax.com/documentation/cassandra/2.0/cassandra/dml/dml_config_consistency_c.html
+.. _Cassandra consistency: https://docs.datastax.com/en/cassandra-oss/2.2/cassandra/dml/dmlConfigConsistency.html
 
 The following advanced configuration properties are available:
 
 ============================================================= ======================================================================
-Property Name                                                 Description
+Property name                                                 Description
 ============================================================= ======================================================================
 ``cassandra.fetch-size``                                      Number of rows fetched at a time in a Cassandra query.
 
@@ -127,25 +133,18 @@ Property Name                                                 Description
                                                               queries fail with *"not enough replicas"*. The other possible
                                                               values are ``DOWNGRADING_CONSISTENCY`` and ``FALLTHROUGH``.
 
-``cassandra.load-policy.use-dc-aware``                        Set to ``true`` to use ``DCAwareRoundRobinPolicy``,
-                                                              defaults to ``false``.
+``cassandra.load-policy.use-dc-aware``                        Set to ``true`` if the load balancing policy requires a local
+                                                              datacenter, defaults to ``true``.
 
-``cassandra.load-policy.dc-aware.local-dc``                   The name of the local datacenter for ``DCAwareRoundRobinPolicy``.
+``cassandra.load-policy.dc-aware.local-dc``                   The name of the datacenter considered "local".
 
 ``cassandra.load-policy.dc-aware.used-hosts-per-remote-dc``   Uses the provided number of host per remote datacenter
-                                                              as failover for the local hosts for ``DCAwareRoundRobinPolicy``.
+                                                              as failover for the local hosts for ``DefaultLoadBalancingPolicy``.
 
 ``cassandra.load-policy.dc-aware.allow-remote-dc-for-local``  Set to ``true`` to allow to use hosts of
                                                               remote datacenter for local consistency level.
 
-``cassandra.load-policy.use-token-aware``                     Set to ``true`` to use ``TokenAwarePolicy`` (defaults to ``false``).
-
-``cassandra.load-policy.shuffle-replicas``                    Set to ``true`` to use ``TokenAwarePolicy`` with shuffling of replicas,
-                                                              defaults to ``false``.
-
-``cassandra.load-policy.allowed-addresses``                   Comma-separated list of hosts to allow.
-
-``cassandra.no-host-available-retry-timeout``                 Retry timeout for ``NoHostAvailableException``, defaults to ``1m``.
+``cassandra.no-host-available-retry-timeout``                 Retry timeout for ``AllNodesFailedException``, defaults to ``1m``.
 
 ``cassandra.speculative-execution.limit``                     The number of speculative executions. This is disabled by default.
 
@@ -169,7 +168,7 @@ The ``users`` table is an example Cassandra table from the Cassandra
 `Getting Started`_ guide. It can be created along with the ``mykeyspace``
 keyspace using Cassandra's cqlsh (CQL interactive terminal):
 
-.. _Getting Started: https://wiki.apache.org/cassandra/GettingStarted
+.. _Getting Started: https://cassandra.apache.org/doc/latest/cassandra/getting_started/index.html
 
 .. code-block:: text
 
@@ -199,43 +198,158 @@ This table can then be queried in Trino::
 
     SELECT * FROM cassandra.mykeyspace.users;
 
-Data types
-----------
+.. _cassandra-type-mapping:
 
-The data types mappings are as follows:
+Type mapping
+------------
 
-================  ======
-Cassandra         Trino
-================  ======
-ASCII             VARCHAR
-BIGINT            BIGINT
-BLOB              VARBINARY
-BOOLEAN           BOOLEAN
-DATE              DATE
-DECIMAL           DOUBLE
-DOUBLE            DOUBLE
-FLOAT             DOUBLE
-INET              VARCHAR(45)
-INT               INTEGER
-LIST<?>           VARCHAR
-MAP<?, ?>         VARCHAR
-SET<?>            VARCHAR
-SMALLINT          SMALLINT
-TEXT              VARCHAR
-TIMESTAMP         TIMESTAMP(3) WITH TIME ZONE
-TIMEUUID          UUID
-TINYINT           TINYINT
-TUPLE             ROW with anonymous fields
-UUID              UUID
-UDT               ROW with field names
-VARCHAR           VARCHAR
-VARIANT           VARCHAR
-================  ======
+Because Trino and Cassandra each support types that the other does not, this
+connector :ref:`modifies some types <type-mapping-overview>` when reading or
+writing data. Data types may not map the same way in both directions between
+Trino and the data source. Refer to the following sections for type mapping in
+each direction.
 
-Any collection (LIST/MAP/SET) can be designated as FROZEN, and the value is
-mapped to VARCHAR. Additionally, blobs have the limitation that they cannot be empty.
+Cassandra type to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Types not mentioned in the table above are not supported.
+The connector maps Cassandra types to the corresponding Trino types according to
+the following table:
+
+.. list-table:: Cassandra type to Trino type mapping
+  :widths: 30, 25, 50
+  :header-rows: 1
+
+  * - Cassandra type
+    - Trino type
+    - Notes
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+    -
+  * - ``TINYINT``
+    - ``TINYINT``
+    -
+  * - ``SMALLINT``
+    - ``SMALLINT``
+    -
+  * - ``INT``
+    - ``INTEGER``
+    -
+  * - ``BIGINT``
+    - ``BIGINT``
+    -
+  * - ``FLOAT``
+    - ``REAL``
+    -
+  * - ``DOUBLE``
+    - ``DOUBLE``
+    -
+  * - ``DECIMAL``
+    - ``DOUBLE``
+    -
+  * - ``ASCII``
+    - ``VARCHAR``
+    - US-ASCII character string
+  * - ``TEXT``
+    - ``VARCHAR``
+    - UTF-8 encoded string
+  * - ``VARCHAR``
+    - ``VARCHAR``
+    - UTF-8 encoded string
+  * - ``VARINT``
+    - ``VARCHAR``
+    - Arbitrary-precision integer
+  * - ``BLOB``
+    - ``VARBINARY``
+    -
+  * - ``DATE``
+    - ``DATE``
+    -
+  * - ``TIMESTAMP``
+    - ``TIMESTAMP(3) WITH TIME ZONE``
+    -
+  * - ``LIST<?>``
+    - ``VARCHAR``
+    -
+  * - ``MAP<?, ?>``
+    - ``VARCHAR``
+    -
+  * - ``SET<?>``
+    - ``VARCHAR``
+    -
+  * - ``TUPLE``
+    - ``ROW`` with anonymous fields
+    -
+  * - ``UDT``
+    - ``ROW`` with field names
+    -
+  * - ``INET``
+    - ``IPADDRESS``
+    -
+  * - ``UUID``
+    - ``UUID``
+    -
+  * - ``TIMEUUID``
+    - ``UUID``
+    -
+
+No other types are supported.
+
+Trino type to Cassandra type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps Trino types to the corresponding Cassandra types according to
+the following table:
+
+.. list-table:: Trino type to Cassandra type mapping
+  :widths: 30, 25, 50
+  :header-rows: 1
+
+  * - Trino type
+    - Cassandra type
+    - Notes
+
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+    -
+  * - ``TINYINT``
+    - ``TINYINT``
+    -
+  * - ``SMALLINT``
+    - ``SMALLINT``
+    -
+  * - ``INTEGER``
+    - ``INT``
+    -
+  * - ``BIGINT``
+    - ``BIGINT``
+    -
+  * - ``REAL``
+    - ``FLOAT``
+    -
+  * - ``DOUBLE``
+    - ``DOUBLE``
+    -
+  * - ``VARCHAR``
+    - ``TEXT``
+    -
+  * - ``DATE``
+    - ``DATE``
+    -
+  * - ``TIMESTAMP(3) WITH TIME ZONE``
+    - ``TIMESTAMP``
+    -
+  * - ``IPADDRESS``
+    - ``INET``
+    -
+  * - ``UUID``
+    - ``UUID``
+    -
+
+
+No other types are supported.
+
+Partition key types
+-------------------
 
 Partition keys can only be of the following types:
 
@@ -274,9 +388,22 @@ statements, the connector supports the following features:
 
 * :doc:`/sql/insert`
 * :doc:`/sql/delete` see :ref:`sql-delete-limitation`
+* :doc:`/sql/truncate`
 * :doc:`/sql/create-table`
 * :doc:`/sql/create-table-as`
 * :doc:`/sql/drop-table`
+
+DROP TABLE
+^^^^^^^^^^
+
+By default, ``DROP TABLE`` operations are disabled on Cassandra catalogs. To
+enable ``DROP TABLE``, set the ``cassandra.allow-drop-table`` catalog
+configuration property to ``true``:
+
+.. code-block:: properties
+
+  cassandra.allow-drop-table=true
+
 
 .. _sql-delete-limitation:
 

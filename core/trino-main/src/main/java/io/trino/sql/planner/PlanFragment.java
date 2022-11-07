@@ -17,8 +17,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.connector.CatalogProperties;
 import io.trino.cost.StatsAndCosts;
-import io.trino.operator.StageExecutionDescriptor;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
@@ -50,8 +50,8 @@ public class PlanFragment
     private final Set<PlanNode> partitionedSourceNodes;
     private final List<RemoteSourceNode> remoteSourceNodes;
     private final PartitioningScheme partitioningScheme;
-    private final StageExecutionDescriptor stageExecutionDescriptor;
     private final StatsAndCosts statsAndCosts;
+    private final List<CatalogProperties> activeCatalogs;
     private final Optional<String> jsonRepresentation;
 
     // Only for creating instances without the JSON representation embedded
@@ -66,8 +66,8 @@ public class PlanFragment
             Set<PlanNode> partitionedSourceNodes,
             List<RemoteSourceNode> remoteSourceNodes,
             PartitioningScheme partitioningScheme,
-            StageExecutionDescriptor stageExecutionDescriptor,
-            StatsAndCosts statsAndCosts)
+            StatsAndCosts statsAndCosts,
+            List<CatalogProperties> activeCatalogs)
     {
         this.id = requireNonNull(id, "id is null");
         this.root = requireNonNull(root, "root is null");
@@ -79,8 +79,8 @@ public class PlanFragment
         this.partitionedSourceNodes = requireNonNull(partitionedSourceNodes, "partitionedSourceNodes is null");
         this.remoteSourceNodes = requireNonNull(remoteSourceNodes, "remoteSourceNodes is null");
         this.partitioningScheme = requireNonNull(partitioningScheme, "partitioningScheme is null");
-        this.stageExecutionDescriptor = requireNonNull(stageExecutionDescriptor, "stageExecutionDescriptor is null");
         this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
+        this.activeCatalogs = requireNonNull(activeCatalogs, "activeCatalogs is null");
         this.jsonRepresentation = Optional.empty();
     }
 
@@ -92,8 +92,8 @@ public class PlanFragment
             @JsonProperty("partitioning") PartitioningHandle partitioning,
             @JsonProperty("partitionedSources") List<PlanNodeId> partitionedSources,
             @JsonProperty("partitioningScheme") PartitioningScheme partitioningScheme,
-            @JsonProperty("stageExecutionDescriptor") StageExecutionDescriptor stageExecutionDescriptor,
             @JsonProperty("statsAndCosts") StatsAndCosts statsAndCosts,
+            @JsonProperty("activeCatalogs") List<CatalogProperties> activeCatalogs,
             @JsonProperty("jsonRepresentation") Optional<String> jsonRepresentation)
     {
         this.id = requireNonNull(id, "id is null");
@@ -102,8 +102,8 @@ public class PlanFragment
         this.partitioning = requireNonNull(partitioning, "partitioning is null");
         this.partitionedSources = ImmutableList.copyOf(requireNonNull(partitionedSources, "partitionedSources is null"));
         this.partitionedSourcesSet = ImmutableSet.copyOf(partitionedSources);
-        this.stageExecutionDescriptor = requireNonNull(stageExecutionDescriptor, "stageExecutionDescriptor is null");
         this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
+        this.activeCatalogs = requireNonNull(activeCatalogs, "activeCatalogs is null");
         this.jsonRepresentation = requireNonNull(jsonRepresentation, "jsonRepresentation is null");
 
         checkArgument(partitionedSourcesSet.size() == partitionedSources.size(), "partitionedSources contains duplicates");
@@ -165,15 +165,15 @@ public class PlanFragment
     }
 
     @JsonProperty
-    public StageExecutionDescriptor getStageExecutionDescriptor()
-    {
-        return stageExecutionDescriptor;
-    }
-
-    @JsonProperty
     public StatsAndCosts getStatsAndCosts()
     {
         return statsAndCosts;
+    }
+
+    @JsonProperty
+    public List<CatalogProperties> getActiveCatalogs()
+    {
+        return activeCatalogs;
     }
 
     @JsonProperty
@@ -200,8 +200,8 @@ public class PlanFragment
                 this.partitionedSourceNodes,
                 this.remoteSourceNodes,
                 this.partitioningScheme,
-                this.stageExecutionDescriptor,
-                this.statsAndCosts);
+                this.statsAndCosts,
+                this.activeCatalogs);
     }
 
     public List<Type> getTypes()
@@ -255,17 +255,7 @@ public class PlanFragment
 
     public PlanFragment withBucketToPartition(Optional<int[]> bucketToPartition)
     {
-        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme.withBucketToPartition(bucketToPartition), stageExecutionDescriptor, statsAndCosts, jsonRepresentation);
-    }
-
-    public PlanFragment withFixedLifespanScheduleGroupedExecution(List<PlanNodeId> capableTableScanNodes)
-    {
-        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme, StageExecutionDescriptor.fixedLifespanScheduleGroupedExecution(capableTableScanNodes), statsAndCosts, jsonRepresentation);
-    }
-
-    public PlanFragment withDynamicLifespanScheduleGroupedExecution(List<PlanNodeId> capableTableScanNodes)
-    {
-        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme, StageExecutionDescriptor.dynamicLifespanScheduleGroupedExecution(capableTableScanNodes), statsAndCosts, jsonRepresentation);
+        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme.withBucketToPartition(bucketToPartition), statsAndCosts, activeCatalogs, jsonRepresentation);
     }
 
     @Override

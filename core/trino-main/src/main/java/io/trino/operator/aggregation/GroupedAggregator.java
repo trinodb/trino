@@ -59,9 +59,7 @@ public class GroupedAggregator
         if (step.isOutputPartial()) {
             return intermediateType;
         }
-        else {
-            return finalType;
-        }
+        return finalType;
     }
 
     public void processPage(GroupByIdBlock groupIds, Page page)

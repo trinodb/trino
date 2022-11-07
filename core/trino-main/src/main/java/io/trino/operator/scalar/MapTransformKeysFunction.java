@@ -25,10 +25,6 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.aggregation.TypedSet;
 import io.trino.spi.ErrorCodeSupplier;
@@ -37,6 +33,9 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -70,8 +69,6 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.newArray;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.expression.BytecodeExpressions.subtract;
 import static io.airlift.bytecode.instruction.VariableInstruction.incrementVariable;
-import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -96,26 +93,24 @@ public final class MapTransformKeysFunction
 
     public MapTransformKeysFunction(BlockTypeOperators blockTypeOperators)
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        NAME,
-                        ImmutableList.of(typeVariable("K1"), typeVariable("K2"), typeVariable("V")),
-                        ImmutableList.of(),
-                        mapType(new TypeSignature("K2"), new TypeSignature("V")),
-                        ImmutableList.of(
-                                mapType(new TypeSignature("K1"), new TypeSignature("V")),
-                                functionType(new TypeSignature("K1"), new TypeSignature("V"), new TypeSignature("K2"))),
-                        false),
-                new FunctionNullability(false, ImmutableList.of(false, false)),
-                false,
-                false,
-                "Apply lambda to each entry of the map and transform the key",
-                SCALAR));
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .name(NAME)
+                        .typeVariable("K1")
+                        .typeVariable("K2")
+                        .typeVariable("V")
+                        .returnType(mapType(new TypeSignature("K2"), new TypeSignature("V")))
+                        .argumentType(mapType(new TypeSignature("K1"), new TypeSignature("V")))
+                        .argumentType(functionType(new TypeSignature("K1"), new TypeSignature("V"), new TypeSignature("K2")))
+                        .build())
+                .nondeterministic()
+                .description("Apply lambda to each entry of the map and transform the key")
+                .build());
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         MapType inputMapType = (MapType) boundSignature.getArgumentType(0);
         Type inputKeyType = inputMapType.getKeyType();
@@ -123,7 +118,7 @@ public final class MapTransformKeysFunction
         Type outputKeyType = outputMapType.getKeyType();
         Type valueType = outputMapType.getValueType();
 
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, FUNCTION),

@@ -28,7 +28,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.OptionalInt;
 
-import static io.trino.metadata.FunctionExtractor.extractFunctions;
+import static io.trino.metadata.InternalFunctionBundle.extractFunctions;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -40,8 +40,7 @@ public class TestEvaluateClassifierPredictions
     @Test
     public void testEvaluateClassifierPredictions()
     {
-        TestingFunctionResolution functionResolution = new TestingFunctionResolution()
-                .addFunctions(extractFunctions(new MLPlugin().getFunctions()));
+        TestingFunctionResolution functionResolution = new TestingFunctionResolution(extractFunctions(new MLPlugin().getFunctions()));
         TestingAggregationFunction aggregation = functionResolution.getAggregateFunction(
                 QualifiedName.of("evaluate_classifier_predictions"),
                 fromTypes(BIGINT, BIGINT));

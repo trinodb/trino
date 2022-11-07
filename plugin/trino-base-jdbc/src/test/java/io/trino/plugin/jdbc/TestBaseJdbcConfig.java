@@ -47,13 +47,13 @@ public class TestBaseJdbcConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("connection-url", "jdbc:h2:mem:config")
                 .put("jdbc-types-mapped-to-varchar", "mytype,struct_type1")
                 .put("metadata.cache-ttl", "1s")
                 .put("metadata.cache-missing", "true")
                 .put("metadata.cache-maximum-size", "5000")
-                .build();
+                .buildOrThrow();
 
         BaseJdbcConfig expected = new BaseJdbcConfig()
                 .setConnectionUrl("jdbc:h2:mem:config")

@@ -23,13 +23,14 @@ import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.LazyOutputBuffer;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.buffer.OutputBuffers;
-import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.memory.QueryContext;
 import io.trino.operator.PipelineContext;
 import io.trino.operator.PipelineStatus;
@@ -58,6 +59,7 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
@@ -103,9 +105,10 @@ public class SqlTask
             Consumer<SqlTask> onDone,
             DataSize maxBufferSize,
             DataSize maxBroadcastBufferSize,
+            ExchangeManagerRegistry exchangeManagerRegistry,
             CounterStat failedTasks)
     {
-        SqlTask sqlTask = new SqlTask(taskId, location, nodeId, queryContext, sqlTaskExecutionFactory, taskNotificationExecutor, maxBufferSize, maxBroadcastBufferSize);
+        SqlTask sqlTask = new SqlTask(taskId, location, nodeId, queryContext, sqlTaskExecutionFactory, taskNotificationExecutor, maxBufferSize, maxBroadcastBufferSize, exchangeManagerRegistry);
         sqlTask.initialize(onDone, failedTasks);
         return sqlTask;
     }
@@ -118,7 +121,8 @@ public class SqlTask
             SqlTaskExecutionFactory sqlTaskExecutionFactory,
             ExecutorService taskNotificationExecutor,
             DataSize maxBufferSize,
-            DataSize maxBroadcastBufferSize)
+            DataSize maxBroadcastBufferSize,
+            ExchangeManagerRegistry exchangeManagerRegistry)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = UUID.randomUUID().toString();
@@ -137,8 +141,9 @@ public class SqlTask
                 maxBroadcastBufferSize,
                 // Pass a memory context supplier instead of a memory context to the output buffer,
                 // because we haven't created the task context that holds the memory context yet.
-                () -> queryContext.getTaskContextByTaskId(taskId).localSystemMemoryContext(),
-                () -> notifyStatusChanged());
+                () -> queryContext.getTaskContextByTaskId(taskId).localMemoryContext(),
+                () -> notifyStatusChanged(),
+                exchangeManagerRegistry);
         taskStateMachine = new TaskStateMachine(taskId, taskNotificationExecutor);
     }
 
@@ -169,7 +174,10 @@ public class SqlTask
                     return;
                 }
 
-                if (taskHolderReference.compareAndSet(taskHolder, new TaskHolder(createTaskInfo(taskHolder), taskHolder.getIoStats()))) {
+                if (taskHolderReference.compareAndSet(taskHolder, new TaskHolder(
+                        createTaskInfo(taskHolder),
+                        taskHolder.getIoStats(),
+                        taskHolder.getDynamicFilterDomains()))) {
                     break;
                 }
             }
@@ -178,7 +186,7 @@ public class SqlTask
             if (newState == FAILED || newState == ABORTED) {
                 // don't close buffers for a failed query
                 // closed buffers signal to upstream tasks that everything finished cleanly
-                outputBuffer.fail();
+                outputBuffer.abort();
             }
             else {
                 outputBuffer.destroy();
@@ -194,11 +202,6 @@ public class SqlTask
             // notify that task is finished
             notifyStatusChanged();
         });
-    }
-
-    public boolean isOutputBufferOverutilized()
-    {
-        return outputBuffer.isOverutilized();
     }
 
     public SqlTaskIoStats getIoStats()
@@ -247,18 +250,7 @@ public class SqlTask
 
     public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(long callersDynamicFiltersVersion)
     {
-        TaskHolder taskHolder = taskHolderReference.get();
-        if (taskHolder.getTaskExecution() == null) {
-            // Dynamic filters are only available during task execution.
-            // Dynamic filters are collected by same tasks that run corresponding
-            // join operators. When task (and implicitly join operator) is done it
-            // means that all potential consumers (that belong to probe side of join)
-            // of dynamic filters are either finished or cancelled. Therefore dynamic
-            // filters are no longer required.
-            return INITIAL_DYNAMIC_FILTER_DOMAINS;
-        }
-
-        return taskHolder.getTaskExecution().getTaskContext().acknowledgeAndGetNewDynamicFilterDomains(callersDynamicFiltersVersion);
+        return taskHolderReference.get().acknowledgeAndGetNewDynamicFilterDomains(callersDynamicFiltersVersion);
     }
 
     private synchronized void notifyStatusChanged()
@@ -286,10 +278,8 @@ public class SqlTask
         long runningPartitionedSplitsWeight = 0L;
         DataSize physicalWrittenDataSize = DataSize.ofBytes(0);
         DataSize userMemoryReservation = DataSize.ofBytes(0);
-        DataSize systemMemoryReservation = DataSize.ofBytes(0);
+        DataSize peakUserMemoryReservation = DataSize.ofBytes(0);
         DataSize revocableMemoryReservation = DataSize.ofBytes(0);
-        // TODO: add a mechanism to avoid sending the whole completedDriverGroups set over the wire for every task status reply
-        Set<Lifespan> completedDriverGroups = ImmutableSet.of();
         long fullGcCount = 0;
         Duration fullGcTime = new Duration(0, MILLISECONDS);
         long dynamicFiltersVersion = INITIAL_DYNAMIC_FILTERS_VERSION;
@@ -302,10 +292,11 @@ public class SqlTask
             runningPartitionedSplitsWeight = taskStats.getRunningPartitionedSplitsWeight();
             physicalWrittenDataSize = taskStats.getPhysicalWrittenDataSize();
             userMemoryReservation = taskStats.getUserMemoryReservation();
-            systemMemoryReservation = taskStats.getSystemMemoryReservation();
+            peakUserMemoryReservation = taskStats.getPeakUserMemoryReservation();
             revocableMemoryReservation = taskStats.getRevocableMemoryReservation();
             fullGcCount = taskStats.getFullGcCount();
             fullGcTime = taskStats.getFullGcTime();
+            dynamicFiltersVersion = taskHolder.getDynamicFiltersVersion();
         }
         else if (taskHolder.getTaskExecution() != null) {
             long physicalWrittenBytes = 0;
@@ -320,28 +311,27 @@ public class SqlTask
             }
             physicalWrittenDataSize = succinctBytes(physicalWrittenBytes);
             userMemoryReservation = taskContext.getMemoryReservation();
-            systemMemoryReservation = taskContext.getSystemMemoryReservation();
+            peakUserMemoryReservation = taskContext.getPeakMemoryReservation();
             revocableMemoryReservation = taskContext.getRevocableMemoryReservation();
-            completedDriverGroups = taskContext.getCompletedDriverGroups();
             fullGcCount = taskContext.getFullGcCount();
             fullGcTime = taskContext.getFullGcTime();
             dynamicFiltersVersion = taskContext.getDynamicFiltersVersion();
         }
 
-        return new TaskStatus(taskStateMachine.getTaskId(),
+        return new TaskStatus(
+                taskStateMachine.getTaskId(),
                 taskInstanceId,
                 versionNumber,
                 state,
                 location,
                 nodeId,
-                completedDriverGroups,
                 failures,
                 queuedPartitionedDrivers,
                 runningPartitionedDrivers,
-                isOutputBufferOverutilized(),
+                outputBuffer.getStatus(),
                 physicalWrittenDataSize,
                 userMemoryReservation,
-                systemMemoryReservation,
+                peakUserMemoryReservation,
                 revocableMemoryReservation,
                 fullGcCount,
                 fullGcTime,
@@ -391,6 +381,7 @@ public class SqlTask
                 outputBuffer.getInfo(),
                 noMoreSplits,
                 taskStats,
+                Optional.empty(),
                 needsPlan.get());
     }
 
@@ -421,7 +412,7 @@ public class SqlTask
     public TaskInfo updateTask(
             Session session,
             Optional<PlanFragment> fragment,
-            List<TaskSource> sources,
+            List<SplitAssignment> splitAssignments,
             OutputBuffers outputBuffers,
             Map<DynamicFilterId, Domain> dynamicFilterDomains)
     {
@@ -454,13 +445,12 @@ public class SqlTask
                             this::notifyStatusChanged);
                     taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
                     needsPlan.set(false);
+                    taskExecution.start();
                 }
             }
 
-            if (taskExecution != null) {
-                taskExecution.addSources(sources);
-                taskExecution.getTaskContext().addDynamicFilter(dynamicFilterDomains);
-            }
+            taskExecution.addSplitAssignments(splitAssignments);
+            taskExecution.getTaskContext().addDynamicFilter(dynamicFilterDomains);
         }
         catch (Error e) {
             failed(e);
@@ -473,7 +463,7 @@ public class SqlTask
         return getTaskInfo();
     }
 
-    public ListenableFuture<BufferResult> getTaskResults(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
+    public ListenableFuture<BufferResult> getTaskResults(PipelinedOutputBuffers.OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
     {
         requireNonNull(bufferId, "bufferId is null");
         checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
@@ -481,19 +471,19 @@ public class SqlTask
         return outputBuffer.get(bufferId, startingSequenceId, maxSize);
     }
 
-    public void acknowledgeTaskResults(OutputBufferId bufferId, long sequenceId)
+    public void acknowledgeTaskResults(PipelinedOutputBuffers.OutputBufferId bufferId, long sequenceId)
     {
         requireNonNull(bufferId, "bufferId is null");
 
         outputBuffer.acknowledge(bufferId, sequenceId);
     }
 
-    public TaskInfo abortTaskResults(OutputBufferId bufferId)
+    public TaskInfo destroyTaskResults(PipelinedOutputBuffers.OutputBufferId bufferId)
     {
         requireNonNull(bufferId, "bufferId is null");
 
         log.debug("Aborting task %s output %s", taskId, bufferId);
-        outputBuffer.abort(bufferId);
+        outputBuffer.destroy(bufferId);
 
         return getTaskInfo();
     }
@@ -529,12 +519,14 @@ public class SqlTask
         private final SqlTaskExecution taskExecution;
         private final TaskInfo finalTaskInfo;
         private final SqlTaskIoStats finalIoStats;
+        private final VersionedDynamicFilterDomains finalDynamicFilterDomains;
 
         private TaskHolder()
         {
             this.taskExecution = null;
             this.finalTaskInfo = null;
             this.finalIoStats = null;
+            this.finalDynamicFilterDomains = null;
         }
 
         private TaskHolder(SqlTaskExecution taskExecution)
@@ -542,13 +534,15 @@ public class SqlTask
             this.taskExecution = requireNonNull(taskExecution, "taskExecution is null");
             this.finalTaskInfo = null;
             this.finalIoStats = null;
+            this.finalDynamicFilterDomains = null;
         }
 
-        private TaskHolder(TaskInfo finalTaskInfo, SqlTaskIoStats finalIoStats)
+        private TaskHolder(TaskInfo finalTaskInfo, SqlTaskIoStats finalIoStats, VersionedDynamicFilterDomains finalDynamicFilterDomains)
         {
             this.taskExecution = null;
             this.finalTaskInfo = requireNonNull(finalTaskInfo, "finalTaskInfo is null");
             this.finalIoStats = requireNonNull(finalIoStats, "finalIoStats is null");
+            this.finalDynamicFilterDomains = requireNonNull(finalDynamicFilterDomains, "finalDynamicFilterDomains is null");
         }
 
         public boolean isFinished()
@@ -581,6 +575,42 @@ public class SqlTask
             // get IoStats from the current task execution
             TaskContext taskContext = taskExecution.getTaskContext();
             return new SqlTaskIoStats(taskContext.getProcessedInputDataSize(), taskContext.getInputPositions(), taskContext.getOutputDataSize(), taskContext.getOutputPositions());
+        }
+
+        public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(long callersSummaryVersion)
+        {
+            // if we are finished, return the final VersionedDynamicFilterDomains
+            if (finalDynamicFilterDomains != null) {
+                return finalDynamicFilterDomains;
+            }
+            // if we haven't started yet, return an empty VersionedDynamicFilterDomains
+            if (taskExecution == null) {
+                return INITIAL_DYNAMIC_FILTER_DOMAINS;
+            }
+            // get VersionedDynamicFilterDomains from the current task execution
+            TaskContext taskContext = taskExecution.getTaskContext();
+            return taskContext.acknowledgeAndGetNewDynamicFilterDomains(callersSummaryVersion);
+        }
+
+        public long getDynamicFiltersVersion()
+        {
+            // if we are finished, return the version of the final VersionedDynamicFilterDomains
+            if (finalDynamicFilterDomains != null) {
+                return finalDynamicFilterDomains.getVersion();
+            }
+            requireNonNull(taskExecution, "taskExecution is null");
+            return taskExecution.getTaskContext().getDynamicFiltersVersion();
+        }
+
+        public VersionedDynamicFilterDomains getDynamicFilterDomains()
+        {
+            verify(finalDynamicFilterDomains == null, "finalDynamicFilterDomains has already been set");
+            // Task was aborted or failed before taskExecution was created, return an empty VersionedDynamicFilterDomains
+            if (taskExecution == null) {
+                return INITIAL_DYNAMIC_FILTER_DOMAINS;
+            }
+            // get VersionedDynamicFilterDomains from the current task execution
+            return taskExecution.getTaskContext().getCurrentDynamicFilterDomains();
         }
     }
 

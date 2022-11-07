@@ -13,19 +13,17 @@
  */
 package io.trino.sql.planner.optimizations;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.SystemSessionProperties;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
@@ -67,12 +65,15 @@ public class TestEliminateCrossJoins
     {
         assertPlan("SELECT * FROM part p, orders o, lineitem l WHERE p.partkey = l.partkey AND l.orderkey = o.orderkey",
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("L_ORDERKEY", "O_ORDERKEY")),
-                                anyTree(
-                                        join(INNER, ImmutableList.of(equiJoinClause("P_PARTKEY", "L_PARTKEY")),
-                                                anyTree(PART_TABLESCAN),
-                                                anyTree(LINEITEM_TABLESCAN))),
-                                anyTree(ORDERS_TABLESCAN))));
+                        join(INNER, builder -> builder
+                                .equiCriteria("L_ORDERKEY", "O_ORDERKEY")
+                                .left(
+                                        anyTree(
+                                                join(INNER, leftJoinBuilder -> leftJoinBuilder
+                                                        .equiCriteria("P_PARTKEY", "L_PARTKEY")
+                                                        .left(anyTree(PART_TABLESCAN))
+                                                        .right(anyTree(LINEITEM_TABLESCAN)))))
+                                .right(anyTree(ORDERS_TABLESCAN)))));
     }
 
     @Test
@@ -82,14 +83,19 @@ public class TestEliminateCrossJoins
                         "FROM (orders o1 JOIN orders o2 ON o1.orderkey = o2.orderkey) " +
                         "JOIN (orders o3 JOIN orders o4 ON o3.orderkey = o4.orderkey) ON o1.orderkey = o3.orderkey",
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("O1_ORDERKEY", "O3_ORDERKEY")),
-                                join(INNER, ImmutableList.of(equiJoinClause("O1_ORDERKEY", "O2_ORDERKEY")),
-                                        anyTree(strictTableScan("orders", ImmutableMap.of("O1_ORDERKEY", "orderkey"))),
-                                        anyTree(strictTableScan("orders", ImmutableMap.of("O2_ORDERKEY", "orderkey", "O2_CUSTKEY", "custkey")))),
-                                anyTree(
-                                        join(INNER, ImmutableList.of(equiJoinClause("O3_ORDERKEY", "O4_ORDERKEY")),
-                                                anyTree(strictTableScan("orders", ImmutableMap.of("O3_ORDERKEY", "orderkey", "O3_ORDERSTATUS", "orderstatus"))),
-                                                anyTree(strictTableScan("orders", ImmutableMap.of("O4_ORDERKEY", "orderkey", "O4_totalprice", "totalprice"))))))));
+                        join(INNER, builder -> builder
+                                .equiCriteria("O1_ORDERKEY", "O3_ORDERKEY")
+                                .left(
+                                        join(INNER, leftJoinBuilder -> leftJoinBuilder
+                                                .equiCriteria("O1_ORDERKEY", "O2_ORDERKEY")
+                                                .left(anyTree(strictTableScan("orders", ImmutableMap.of("O1_ORDERKEY", "orderkey"))))
+                                                .right(anyTree(strictTableScan("orders", ImmutableMap.of("O2_ORDERKEY", "orderkey", "O2_CUSTKEY", "custkey"))))))
+                                .right(
+                                        anyTree(
+                                                join(INNER, rightJoinBuilder -> rightJoinBuilder
+                                                        .equiCriteria("O3_ORDERKEY", "O4_ORDERKEY")
+                                                        .left(anyTree(strictTableScan("orders", ImmutableMap.of("O3_ORDERKEY", "orderkey", "O3_ORDERSTATUS", "orderstatus"))))
+                                                        .right(anyTree(strictTableScan("orders", ImmutableMap.of("O4_ORDERKEY", "orderkey", "O4_totalprice", "totalprice"))))))))));
     }
 
     @Test
@@ -97,26 +103,40 @@ public class TestEliminateCrossJoins
     {
         assertPlan("SELECT o.orderkey FROM part p, orders o, lineitem l WHERE l.orderkey = o.orderkey",
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("O_ORDERKEY", "L_ORDERKEY")),
-                                anyTree(
-                                        join(INNER, ImmutableList.of(),
-                                                tableScan("part"),
-                                                anyTree(tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))),
-                                anyTree(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))));
+                        join(INNER, builder -> builder
+                                .equiCriteria("O_ORDERKEY", "L_ORDERKEY")
+                                .left(
+                                        anyTree(
+                                                join(INNER, leftJoinBuilder -> leftJoinBuilder
+                                                        .left(tableScan("part"))
+                                                        .right(anyTree(tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")))))))
+                                .right(
+                                        anyTree(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey")))))));
     }
 
     @Test
     public void testEliminateCrossJoinWithNonEqualityCondition()
     {
+        // "p.name < l.comment" expression is automatically transformed to "p.name < cast(L_COMMENT AS varchar(55))"
+        // with PushInequalityFilterExpressionBelowJoinRuleSet the cast "cast(L_COMMENT AS varchar(55))" is pushed down
         assertPlan("SELECT o.orderkey FROM part p, orders o, lineitem l " +
                         "WHERE p.partkey = l.partkey AND l.orderkey = o.orderkey AND p.partkey <> o.orderkey AND p.name < l.comment",
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("L_ORDERKEY", "O_ORDERKEY")),
-                                anyTree(
-                                        join(INNER, ImmutableList.of(equiJoinClause("P_PARTKEY", "L_PARTKEY")), Optional.of("P_NAME < cast(L_COMMENT AS varchar(55))"),
-                                                anyTree(PART_WITH_NAME_TABLESCAN),
-                                                anyTree(filter("L_PARTKEY <> L_ORDERKEY", LINEITEM_WITH_COMMENT_TABLESCAN)))),
-                                anyTree(ORDERS_TABLESCAN))));
+                        join(INNER, builder -> builder
+                                .equiCriteria("L_ORDERKEY", "O_ORDERKEY")
+                                .left(
+                                        anyTree(
+                                                join(INNER, leftJoinBuilder -> leftJoinBuilder
+                                                        .equiCriteria("P_PARTKEY", "L_PARTKEY")
+                                                        .filter("P_NAME < expr")
+                                                        .left(anyTree(PART_WITH_NAME_TABLESCAN))
+                                                        .right(
+                                                                anyTree(
+                                                                        project(
+                                                                                ImmutableMap.of("expr", expression("cast(L_COMMENT AS varchar(55))")),
+                                                                                filter("L_PARTKEY <> L_ORDERKEY",
+                                                                                        LINEITEM_WITH_COMMENT_TABLESCAN)))))))
+                                .right(anyTree(ORDERS_TABLESCAN)))));
     }
 
     @Test
@@ -124,11 +144,16 @@ public class TestEliminateCrossJoins
     {
         assertPlan("SELECT o.orderkey FROM part p, orders o, lineitem l " +
                         "WHERE p.partkey = l.partkey AND l.orderkey = o.orderkey AND l.returnflag = 'R' AND shippriority >= 10",
-                anyTree(join(INNER, ImmutableList.of(equiJoinClause("L_ORDERKEY", "O_ORDERKEY")),
-                        anyTree(
-                                join(INNER, ImmutableList.of(equiJoinClause("P_PARTKEY", "L_PARTKEY")),
-                                        anyTree(PART_TABLESCAN),
-                                        anyTree(filter("L_RETURNFLAG = 'R'", LINEITEM_WITH_RETURNFLAG_TABLESCAN)))),
-                        anyTree(filter("O_SHIPPRIORITY >= 10", ORDERS_WITH_SHIPPRIORITY_TABLESCAN)))));
+                anyTree(
+                        join(INNER, builder -> builder
+                                .equiCriteria("L_ORDERKEY", "O_ORDERKEY")
+                                .left(
+                                        anyTree(
+                                                join(INNER, leftJoinBuilder -> leftJoinBuilder
+                                                        .equiCriteria("P_PARTKEY", "L_PARTKEY")
+                                                        .left(anyTree(PART_TABLESCAN))
+                                                        .right(anyTree(filter("L_RETURNFLAG = 'R'", LINEITEM_WITH_RETURNFLAG_TABLESCAN))))))
+                                .right(
+                                        anyTree(filter("O_SHIPPRIORITY >= 10", ORDERS_WITH_SHIPPRIORITY_TABLESCAN))))));
     }
 }

@@ -106,11 +106,11 @@ public class TestTimestampWithTimeZone
                 .hasType(createTimestampWithTimeZoneType(12))
                 .isEqualTo(timestampWithTimeZone(12, 2020, 5, 1, 12, 34, 56, 123_456_789_012L, getTimeZoneKey("Asia/Kathmandu")));
 
-        assertThatThrownBy(() -> assertions.expression("TIMESTAMP '2020-05-01 12:34:56.1234567890123 Asia/Kathmandu'"))
-                .hasMessage("line 1:8: TIMESTAMP WITH TIME ZONE precision must be in range [0, 12]: 13");
+        assertThatThrownBy(() -> assertions.expression("TIMESTAMP '2020-05-01 12:34:56.1234567890123 Asia/Kathmandu'").evaluate())
+                .hasMessage("line 1:12: TIMESTAMP WITH TIME ZONE precision must be in range [0, 12]: 13");
 
-        assertThatThrownBy(() -> assertions.expression("TIMESTAMP '2020-13-01 Asia/Kathmandu'"))
-                .hasMessage("line 1:8: '2020-13-01 Asia/Kathmandu' is not a valid timestamp literal");
+        assertThatThrownBy(() -> assertions.expression("TIMESTAMP '2020-13-01 Asia/Kathmandu'").evaluate())
+                .hasMessage("line 1:12: '2020-13-01 Asia/Kathmandu' is not a valid timestamp literal");
 
         // negative epoch
         assertThat(assertions.expression("TIMESTAMP '1500-05-01 12:34:56 Asia/Kathmandu'"))
@@ -1987,6 +1987,67 @@ public class TestTimestampWithTimeZone
                 .hasType(createVarcharType(41))
                 .isEqualTo("2020-05-01T12:34:56.123456789012+05:45");
 
+        // Following test will verify all precisions for timestamps fall in the DST gap
+        assertThat(assertions.expression("to_iso8601(TIMESTAMP '2020-11-01 07:00:00 UTC' AT TIME ZONE 'America/Chicago')"))
+                .hasType(createVarcharType(28))
+                .isEqualTo("2020-11-01T01:00:00-06:00");
+
+        assertThat(assertions.expression("to_iso8601(TIMESTAMP '2020-11-01 07:00:00.1 UTC' AT TIME ZONE 'America/Chicago')"))
+                .hasType(createVarcharType(30))
+                .isEqualTo("2020-11-01T01:00:00.1-06:00");
+
+        assertThat(assertions.expression("to_iso8601(TIMESTAMP '2020-11-01 07:00:00.12 UTC' AT TIME ZONE 'America/Chicago')"))
+                .hasType(createVarcharType(31))
+                .isEqualTo("2020-11-01T01:00:00.12-06:00");
+
+        assertThat(assertions.expression("to_iso8601(TIMESTAMP '2020-11-01 07:00:00.00 UTC' AT TIME ZONE 'America/Chicago')"))
+                .hasType(createVarcharType(31))
+                .isEqualTo("2020-11-01T01:00:00.00-06:00");
+
+        assertThat(assertions.expression("to_iso8601(TIMESTAMP '2020-11-01 07:00:00.123 UTC' AT TIME ZONE 'America/Chicago')"))
+                .hasType(createVarcharType(32))
+                .isEqualTo("2020-11-01T01:00:00.123-06:00");
+
+        assertThat(assertions.expression("to_iso8601(TIMESTAMP '2020-11-01 07:00:00.1234 UTC' AT TIME ZONE 'America/Chicago')"))
+                .hasType(createVarcharType(33))
+                .isEqualTo("2020-11-01T01:00:00.1234-06:00");
+
+        assertThat(assertions.expression("to_iso8601(TIMESTAMP '2020-11-01 07:00:00.12345 UTC' AT TIME ZONE 'America/Chicago')"))
+                .hasType(createVarcharType(34))
+                .isEqualTo("2020-11-01T01:00:00.12345-06:00");
+
+        assertThat(assertions.expression("to_iso8601(TIMESTAMP '2020-11-01 07:00:00.123456 UTC' AT TIME ZONE 'America/Chicago')"))
+                .hasType(createVarcharType(35))
+                .isEqualTo("2020-11-01T01:00:00.123456-06:00");
+
+        assertThat(assertions.expression("to_iso8601(TIMESTAMP '2020-11-01 07:00:00.1234567 UTC' AT TIME ZONE 'America/Chicago')"))
+                .hasType(createVarcharType(36))
+                .isEqualTo("2020-11-01T01:00:00.1234567-06:00");
+
+        assertThat(assertions.expression("to_iso8601(TIMESTAMP '2020-11-01 07:00:00.12345678 UTC' AT TIME ZONE 'America/Chicago')"))
+                .hasType(createVarcharType(37))
+                .isEqualTo("2020-11-01T01:00:00.12345678-06:00");
+
+        assertThat(assertions.expression("to_iso8601(TIMESTAMP '2020-11-01 07:00:00.123456789 UTC' AT TIME ZONE 'America/Chicago')"))
+                .hasType(createVarcharType(38))
+                .isEqualTo("2020-11-01T01:00:00.123456789-06:00");
+
+        assertThat(assertions.expression("to_iso8601(TIMESTAMP '2020-11-01 07:00:00.1234567890 UTC' AT TIME ZONE 'America/Chicago')"))
+                .hasType(createVarcharType(39))
+                .isEqualTo("2020-11-01T01:00:00.1234567890-06:00");
+
+        assertThat(assertions.expression("to_iso8601(TIMESTAMP '2020-11-01 07:00:00.12345678901 UTC' AT TIME ZONE 'America/Chicago')"))
+                .hasType(createVarcharType(40))
+                .isEqualTo("2020-11-01T01:00:00.12345678901-06:00");
+
+        assertThat(assertions.expression("to_iso8601(TIMESTAMP '2020-11-01 07:00:00.123456789012 UTC' AT TIME ZONE 'America/Chicago')"))
+                .hasType(createVarcharType(41))
+                .isEqualTo("2020-11-01T01:00:00.123456789012-06:00");
+
+        assertThat(assertions.expression("to_iso8601(TIMESTAMP '2020-11-01 07:00:00.000000000000 UTC' AT TIME ZONE 'America/Chicago')"))
+                .hasType(createVarcharType(41))
+                .isEqualTo("2020-11-01T01:00:00.000000000000-06:00");
+
         // Zulu offset
         assertThat(assertions.expression("to_iso8601(TIMESTAMP '2020-05-01 12:34:56 +00:00')"))
                 .hasType(createVarcharType(28))
@@ -2422,6 +2483,40 @@ public class TestTimestampWithTimeZone
                 "SELECT count(*) FROM (VALUES TIMESTAMP '2020-05-10 04:00:00.000000 America/New_York') t(v) " +
                 "JOIN (VALUES TIMESTAMP '2020-05-10 01:00:00.000000 America/Los_Angeles') u(v) USING (v)"))
                 .matches("VALUES BIGINT '1'");
+    }
+
+    @Test
+    public void testCastInvalidTimestamp()
+    {
+        assertThatThrownBy(() -> assertions.expression("CAST('ABC' AS TIMESTAMP WITH TIME ZONE)").evaluate())
+                .hasMessage("Value cannot be cast to timestamp: ABC");
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-00 00:00:00 UTC' AS TIMESTAMP WITH TIME ZONE)").evaluate())
+                .hasMessage("Value cannot be cast to timestamp: 2022-01-00 00:00:00 UTC");
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-00-01 00:00:00 UTC' AS TIMESTAMP WITH TIME ZONE)").evaluate())
+                .hasMessage("Value cannot be cast to timestamp: 2022-00-01 00:00:00 UTC");
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 25:00:00 UTC' AS TIMESTAMP WITH TIME ZONE)").evaluate())
+                .hasMessage("Value cannot be cast to timestamp: 2022-01-01 25:00:00 UTC");
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 00:61:00 UTC' AS TIMESTAMP WITH TIME ZONE)").evaluate())
+                .hasMessage("Value cannot be cast to timestamp: 2022-01-01 00:61:00 UTC");
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 00:00:61 UTC' AS TIMESTAMP WITH TIME ZONE)").evaluate())
+                .hasMessage("Value cannot be cast to timestamp: 2022-01-01 00:00:61 UTC");
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 00:00:00 ABC' AS TIMESTAMP WITH TIME ZONE)").evaluate())
+                .hasMessage("Value cannot be cast to timestamp: 2022-01-01 00:00:00 ABC");
+
+        assertThatThrownBy(() -> assertions.expression("CAST('ABC' AS TIMESTAMP(12))").evaluate())
+                .hasMessage("Value cannot be cast to timestamp: ABC");
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-00 00:00:00 UTC' AS TIMESTAMP(12) WITH TIME ZONE)").evaluate())
+                .hasMessage("Value cannot be cast to timestamp: 2022-01-00 00:00:00 UTC");
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-00-01 00:00:00 UTC' AS TIMESTAMP(12) WITH TIME ZONE)").evaluate())
+                .hasMessage("Value cannot be cast to timestamp: 2022-00-01 00:00:00 UTC");
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 25:00:00 UTC' AS TIMESTAMP(12) WITH TIME ZONE)").evaluate())
+                .hasMessage("Value cannot be cast to timestamp: 2022-01-01 25:00:00 UTC");
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 00:61:00 UTC' AS TIMESTAMP(12) WITH TIME ZONE)").evaluate())
+                .hasMessage("Value cannot be cast to timestamp: 2022-01-01 00:61:00 UTC");
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 00:00:61 UTC' AS TIMESTAMP(12) WITH TIME ZONE)").evaluate())
+                .hasMessage("Value cannot be cast to timestamp: 2022-01-01 00:00:61 UTC");
+        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 00:00:00 ABC' AS TIMESTAMP(12) WITH TIME ZONE)").evaluate())
+                .hasMessage("Value cannot be cast to timestamp: 2022-01-01 00:00:00 ABC");
     }
 
     private BiFunction<Session, QueryRunner, Object> timestampWithTimeZone(int precision, int year, int month, int day, int hour, int minute, int second, long picoOfSecond, TimeZoneKey timeZoneKey)

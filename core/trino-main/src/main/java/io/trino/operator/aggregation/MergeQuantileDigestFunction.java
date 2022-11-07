@@ -13,96 +13,46 @@
  */
 package io.trino.operator.aggregation;
 
-import com.google.common.collect.ImmutableList;
 import io.airlift.stats.QuantileDigest;
-import io.trino.metadata.AggregationFunctionMetadata;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
-import io.trino.metadata.Signature;
-import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.state.QuantileDigestState;
-import io.trino.operator.aggregation.state.QuantileDigestStateFactory;
-import io.trino.operator.aggregation.state.QuantileDigestStateSerializer;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
+import io.trino.spi.function.AggregationState;
+import io.trino.spi.function.BlockIndex;
+import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
-import io.trino.spi.type.QuantileDigestType;
+import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
-
-import java.lang.invoke.MethodHandle;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.metadata.Signature.comparableTypeParameter;
-import static io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import static io.trino.spi.type.StandardTypes.QDIGEST;
-import static io.trino.spi.type.TypeSignature.parametricType;
 import static io.trino.util.MoreMath.nearlyEqual;
-import static io.trino.util.Reflection.methodHandle;
 
-@AggregationFunction("merge")
+@AggregationFunction(value = "merge", isOrderSensitive = true)
+@Description("Merges the input quantile digests into a single quantile digest")
 public final class MergeQuantileDigestFunction
-        extends SqlAggregationFunction
 {
-    public static final MergeQuantileDigestFunction MERGE = new MergeQuantileDigestFunction();
-    public static final String NAME = "merge";
-    private static final MethodHandle INPUT_FUNCTION = methodHandle(MergeQuantileDigestFunction.class, "input", Type.class, QuantileDigestState.class, Block.class, int.class);
-    private static final MethodHandle COMBINE_FUNCTION = methodHandle(MergeQuantileDigestFunction.class, "combine", QuantileDigestState.class, QuantileDigestState.class);
-    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(MergeQuantileDigestFunction.class, "output", QuantileDigestStateSerializer.class, QuantileDigestState.class, BlockBuilder.class);
-    private static final double COMPARISON_EPSILON = 1E-6;
+    private MergeQuantileDigestFunction() {}
 
-    public MergeQuantileDigestFunction()
-    {
-        super(
-                new FunctionMetadata(
-                        new Signature(
-                                NAME,
-                                ImmutableList.of(comparableTypeParameter("T")),
-                                ImmutableList.of(),
-                                parametricType("qdigest", new TypeSignature("T")),
-                                ImmutableList.of(parametricType("qdigest", new TypeSignature("T"))),
-                                false),
-                        new FunctionNullability(true, ImmutableList.of(false)),
-                        false,
-                        true,
-                        "Merges the input quantile digests into a single quantile digest",
-                        AGGREGATE),
-                new AggregationFunctionMetadata(
-                        true,
-                        parametricType(QDIGEST, new TypeSignature("T"))));
-    }
-
-    @Override
-    public AggregationMetadata specialize(BoundSignature boundSignature)
-    {
-        QuantileDigestType outputType = (QuantileDigestType) boundSignature.getReturnType();
-        Type valueType = outputType.getValueType();
-        QuantileDigestStateSerializer stateSerializer = new QuantileDigestStateSerializer(valueType);
-
-        return new AggregationMetadata(
-                INPUT_FUNCTION.bindTo(outputType),
-                Optional.empty(),
-                Optional.of(COMBINE_FUNCTION),
-                OUTPUT_FUNCTION.bindTo(stateSerializer),
-                ImmutableList.of(new AccumulatorStateDescriptor<>(
-                        QuantileDigestState.class,
-                        stateSerializer,
-                        new QuantileDigestStateFactory())));
-    }
+    private static final double COMPARISON_EPSILON = 1.0E-6;
 
     @InputFunction
-    public static void input(Type type, QuantileDigestState state, Block value, int index)
+    @TypeParameter("V")
+    public static void input(
+            @TypeParameter("qdigest(V)") Type type,
+            @AggregationState QuantileDigestState state,
+            @BlockPosition @SqlType("qdigest(V)") Block value,
+            @BlockIndex int index)
     {
         merge(state, new QuantileDigest(type.getSlice(value, index)));
     }
 
     @CombineFunction
-    public static void combine(QuantileDigestState state, QuantileDigestState otherState)
+    public static void combine(@AggregationState QuantileDigestState state, @AggregationState QuantileDigestState otherState)
     {
         merge(state, otherState.getQuantileDigest());
     }
@@ -128,8 +78,17 @@ public final class MergeQuantileDigestFunction
         }
     }
 
-    public static void output(QuantileDigestStateSerializer serializer, QuantileDigestState state, BlockBuilder out)
+    @OutputFunction("qdigest(V)")
+    public static void output(
+            @TypeParameter("qdigest(V)") Type type,
+            @AggregationState QuantileDigestState state,
+            BlockBuilder out)
     {
-        serializer.serialize(state, out);
+        if (state.getQuantileDigest() == null) {
+            out.appendNull();
+        }
+        else {
+            type.writeSlice(out, state.getQuantileDigest().serialize());
+        }
     }
 }

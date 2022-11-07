@@ -17,8 +17,8 @@ import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.hdfs.HdfsContext;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveReadOnlyException;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.HiveType;
@@ -51,7 +51,6 @@ import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.FilterFileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.viewfs.ViewFileSystem;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
@@ -83,6 +82,7 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
 import org.joda.time.DateTimeZone;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -95,6 +95,7 @@ import java.util.Properties;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.BaseEncoding.base16;
+import static io.trino.filesystem.FileSystemUtils.getRawFileSystem;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
@@ -447,12 +448,10 @@ public final class HiveWriteUtils
 
     public static Path getTableDefaultLocation(Database database, HdfsContext context, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName)
     {
-        Optional<String> location = database.getLocation();
-        if (location.isEmpty()) {
-            throw new TrinoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not set", schemaName));
-        }
+        String location = database.getLocation()
+                .orElseThrow(() -> new TrinoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not set", schemaName)));
 
-        Path databasePath = new Path(location.get());
+        Path databasePath = new Path(location);
         if (!isS3FileSystem(context, hdfsEnvironment, databasePath)) {
             if (!pathExists(context, hdfsEnvironment, databasePath)) {
                 throw new TrinoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location does not exist: %s", schemaName, databasePath));
@@ -494,14 +493,6 @@ public final class HiveWriteUtils
         catch (IOException e) {
             throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
         }
-    }
-
-    public static FileSystem getRawFileSystem(FileSystem fileSystem)
-    {
-        if (fileSystem instanceof FilterFileSystem) {
-            return getRawFileSystem(((FilterFileSystem) fileSystem).getRawFileSystem());
-        }
-        return fileSystem;
     }
 
     private static boolean isDirectory(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
@@ -602,6 +593,22 @@ public final class HiveWriteUtils
             catch (IOException e) {
                 throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed to set permission on directory: " + path, e);
             }
+        }
+    }
+
+    public static void checkedDelete(FileSystem fileSystem, Path file, boolean recursive)
+            throws IOException
+    {
+        try {
+            if (!fileSystem.delete(file, recursive)) {
+                if (fileSystem.exists(file)) {
+                    // only throw exception if file still exists
+                    throw new IOException("Failed to delete " + file);
+                }
+            }
+        }
+        catch (FileNotFoundException ignored) {
+            // ok
         }
     }
 

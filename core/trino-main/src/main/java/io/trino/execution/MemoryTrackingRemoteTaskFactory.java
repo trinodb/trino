@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.collect.Multimap;
+import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.trino.execution.StateMachine.StateChangeListener;
@@ -24,6 +25,7 @@ import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 
+import java.util.Optional;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
@@ -50,6 +52,7 @@ public class MemoryTrackingRemoteTaskFactory
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             Set<DynamicFilterId> outboundDynamicFilterIds,
+            Optional<DataSize> estimatedMemory,
             boolean summarizeTaskInfo)
     {
         RemoteTask task = remoteTaskFactory.createRemoteTask(session,
@@ -60,6 +63,7 @@ public class MemoryTrackingRemoteTaskFactory
                 outputBuffers,
                 partitionedSplitCountTracker,
                 outboundDynamicFilterIds,
+                estimatedMemory,
                 summarizeTaskInfo);
 
         task.addStateChangeListener(new UpdatePeakMemory(stateMachine));
@@ -71,7 +75,6 @@ public class MemoryTrackingRemoteTaskFactory
     {
         private final QueryStateMachine stateMachine;
         private long previousUserMemory;
-        private long previousSystemMemory;
         private long previousRevocableMemory;
 
         public UpdatePeakMemory(QueryStateMachine stateMachine)
@@ -83,14 +86,12 @@ public class MemoryTrackingRemoteTaskFactory
         public synchronized void stateChanged(TaskStatus newStatus)
         {
             long currentUserMemory = newStatus.getMemoryReservation().toBytes();
-            long currentSystemMemory = newStatus.getSystemMemoryReservation().toBytes();
             long currentRevocableMemory = newStatus.getRevocableMemoryReservation().toBytes();
-            long currentTotalMemory = currentUserMemory + currentSystemMemory + currentRevocableMemory;
+            long currentTotalMemory = currentUserMemory + currentRevocableMemory;
             long deltaUserMemoryInBytes = currentUserMemory - previousUserMemory;
             long deltaRevocableMemoryInBytes = currentRevocableMemory - previousRevocableMemory;
-            long deltaTotalMemoryInBytes = currentTotalMemory - (previousUserMemory + previousSystemMemory + previousRevocableMemory);
+            long deltaTotalMemoryInBytes = currentTotalMemory - (previousUserMemory + previousRevocableMemory);
             previousUserMemory = currentUserMemory;
-            previousSystemMemory = currentSystemMemory;
             previousRevocableMemory = currentRevocableMemory;
             stateMachine.updateMemoryUsage(deltaUserMemoryInBytes, deltaRevocableMemoryInBytes, deltaTotalMemoryInBytes, currentUserMemory, currentRevocableMemory, currentTotalMemory);
         }

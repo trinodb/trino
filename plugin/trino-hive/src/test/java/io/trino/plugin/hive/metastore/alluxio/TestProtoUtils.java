@@ -145,7 +145,7 @@ public class TestProtoUtils
     {
         alluxio.grpc.table.layout.hive.StorageFormat.Builder storageFormat = TestingAlluxioMetastoreObjects.getTestingStorageFormat();
         StorageFormat fmt = ProtoUtils.fromProto(storageFormat.build());
-        assertEquals(storageFormat.getSerde(), fmt.getSerDe());
+        assertEquals(storageFormat.getSerde(), fmt.getSerde());
         assertEquals(storageFormat.getInputFormat(), fmt.getInputFormat());
         assertEquals(storageFormat.getOutputFormat(), fmt.getOutputFormat());
     }

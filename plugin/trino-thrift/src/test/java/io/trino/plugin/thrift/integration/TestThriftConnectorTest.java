@@ -27,33 +27,31 @@ import static io.trino.testing.QueryAssertions.assertContains;
 public class TestThriftConnectorTest
         extends BaseConnectorTest
 {
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_INSERT:
-            case SUPPORTS_NOT_NULL_CONSTRAINT:
+            case SUPPORTS_TOPN_PUSHDOWN:
+                return false;
+
+            case SUPPORTS_CREATE_SCHEMA:
                 return false;
 
             case SUPPORTS_CREATE_TABLE:
             case SUPPORTS_RENAME_TABLE:
-            case SUPPORTS_CREATE_TABLE_WITH_DATA:
-                return false;
-
-            case SUPPORTS_CREATE_SCHEMA:
-            case SUPPORTS_RENAME_SCHEMA:
                 return false;
 
             case SUPPORTS_ADD_COLUMN:
-            case SUPPORTS_DROP_COLUMN:
             case SUPPORTS_RENAME_COLUMN:
                 return false;
 
-            case SUPPORTS_COMMENT_ON_COLUMN:
             case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
 
-            case SUPPORTS_TOPN_PUSHDOWN:
+            case SUPPORTS_INSERT:
+            case SUPPORTS_NOT_NULL_CONSTRAINT:
                 return false;
 
             default:

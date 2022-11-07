@@ -15,11 +15,16 @@ package io.trino.server;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
-import io.trino.connector.ConnectorManager;
+import io.trino.connector.CatalogFactory;
+import io.trino.connector.CatalogHandle;
 import io.trino.eventlistener.EventListenerManager;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.metadata.BlockEncodingManager;
-import io.trino.metadata.MetadataManager;
+import io.trino.metadata.GlobalFunctionCatalog;
+import io.trino.metadata.HandleResolver;
+import io.trino.metadata.InternalFunctionBundle;
+import io.trino.metadata.InternalFunctionBundle.InternalFunctionBundleBuilder;
 import io.trino.metadata.TypeRegistry;
 import io.trino.security.AccessControlManager;
 import io.trino.security.GroupProviderManager;
@@ -31,6 +36,7 @@ import io.trino.spi.block.BlockEncoding;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.eventlistener.EventListenerFactory;
+import io.trino.spi.exchange.ExchangeManagerFactory;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 import io.trino.spi.security.CertificateAuthenticatorFactory;
 import io.trino.spi.security.GroupProviderFactory;
@@ -48,11 +54,12 @@ import java.net.URL;
 import java.util.List;
 import java.util.Optional;
 import java.util.ServiceLoader;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.metadata.FunctionExtractor.extractFunctions;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
@@ -69,8 +76,8 @@ public class PluginManager
     private static final Logger log = Logger.get(PluginManager.class);
 
     private final PluginsProvider pluginsProvider;
-    private final ConnectorManager connectorManager;
-    private final MetadataManager metadataManager;
+    private final CatalogFactory connectorFactory;
+    private final GlobalFunctionCatalog globalFunctionCatalog;
     private final ResourceGroupManager<?> resourceGroupManager;
     private final AccessControlManager accessControlManager;
     private final Optional<PasswordAuthenticatorManager> passwordAuthenticatorManager;
@@ -78,17 +85,18 @@ public class PluginManager
     private final Optional<HeaderAuthenticatorManager> headerAuthenticatorManager;
     private final EventListenerManager eventListenerManager;
     private final GroupProviderManager groupProviderManager;
+    private final ExchangeManagerRegistry exchangeManagerRegistry;
     private final SessionPropertyDefaults sessionPropertyDefaults;
     private final TypeRegistry typeRegistry;
     private final BlockEncodingManager blockEncodingManager;
+    private final HandleResolver handleResolver;
     private final AtomicBoolean pluginsLoading = new AtomicBoolean();
-    private final AtomicBoolean pluginsLoaded = new AtomicBoolean();
 
     @Inject
     public PluginManager(
             PluginsProvider pluginsProvider,
-            ConnectorManager connectorManager,
-            MetadataManager metadataManager,
+            CatalogFactory connectorFactory,
+            GlobalFunctionCatalog globalFunctionCatalog,
             ResourceGroupManager<?> resourceGroupManager,
             AccessControlManager accessControlManager,
             Optional<PasswordAuthenticatorManager> passwordAuthenticatorManager,
@@ -98,11 +106,13 @@ public class PluginManager
             GroupProviderManager groupProviderManager,
             SessionPropertyDefaults sessionPropertyDefaults,
             TypeRegistry typeRegistry,
-            BlockEncodingManager blockEncodingManager)
+            BlockEncodingManager blockEncodingManager,
+            HandleResolver handleResolver,
+            ExchangeManagerRegistry exchangeManagerRegistry)
     {
         this.pluginsProvider = requireNonNull(pluginsProvider, "pluginsProvider is null");
-        this.connectorManager = requireNonNull(connectorManager, "connectorManager is null");
-        this.metadataManager = requireNonNull(metadataManager, "metadataManager is null");
+        this.connectorFactory = requireNonNull(connectorFactory, "connectorFactory is null");
+        this.globalFunctionCatalog = requireNonNull(globalFunctionCatalog, "globalFunctionCatalog is null");
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
         this.accessControlManager = requireNonNull(accessControlManager, "accessControlManager is null");
         this.passwordAuthenticatorManager = requireNonNull(passwordAuthenticatorManager, "passwordAuthenticatorManager is null");
@@ -113,6 +123,8 @@ public class PluginManager
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
         this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
+        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
+        this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
     }
 
     public void loadPlugins()
@@ -124,8 +136,6 @@ public class PluginManager
         pluginsProvider.loadPlugins(this::loadPlugin, PluginManager::createClassLoader);
 
         typeRegistry.verifyTypes();
-
-        pluginsLoaded.set(true);
     }
 
     private void loadPlugin(String plugin, Supplier<PluginClassLoader> createClassLoader)
@@ -139,6 +149,7 @@ public class PluginManager
             log.debug("    %s", url.getPath());
         }
 
+        handleResolver.registerClassLoader(pluginClassLoader);
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(pluginClassLoader)) {
             loadPlugin(pluginClassLoader);
         }
@@ -158,13 +169,13 @@ public class PluginManager
         }
     }
 
-    public void installPlugin(Plugin plugin, Supplier<ClassLoader> duplicatePluginClassLoaderFactory)
+    public void installPlugin(Plugin plugin, Function<CatalogHandle, ClassLoader> duplicatePluginClassLoaderFactory)
     {
         installPluginInternal(plugin, duplicatePluginClassLoaderFactory);
         typeRegistry.verifyTypes();
     }
 
-    private void installPluginInternal(Plugin plugin, Supplier<ClassLoader> duplicatePluginClassLoaderFactory)
+    private void installPluginInternal(Plugin plugin, Function<CatalogHandle, ClassLoader> duplicatePluginClassLoaderFactory)
     {
         for (BlockEncoding blockEncoding : plugin.getBlockEncodings()) {
             log.info("Registering block encoding %s", blockEncoding.getName());
@@ -183,12 +194,15 @@ public class PluginManager
 
         for (ConnectorFactory connectorFactory : plugin.getConnectorFactories()) {
             log.info("Registering connector %s", connectorFactory.getName());
-            connectorManager.addConnectorFactory(connectorFactory, duplicatePluginClassLoaderFactory);
+            this.connectorFactory.addConnectorFactory(connectorFactory, duplicatePluginClassLoaderFactory);
         }
 
-        for (Class<?> functionClass : plugin.getFunctions()) {
-            log.info("Registering functions from %s", functionClass.getName());
-            metadataManager.addFunctions(extractFunctions(functionClass));
+        Set<Class<?>> functions = plugin.getFunctions();
+        if (!functions.isEmpty()) {
+            log.info("Registering functions from %s", plugin.getClass().getSimpleName());
+            InternalFunctionBundleBuilder builder = InternalFunctionBundle.builder();
+            functions.forEach(builder::functions);
+            globalFunctionCatalog.addFunctions(builder.build());
         }
 
         for (SessionPropertyConfigurationManagerFactory sessionConfigFactory : plugin.getSessionPropertyConfigurationManagerFactories()) {
@@ -234,12 +248,17 @@ public class PluginManager
             log.info("Registering group provider %s", groupProviderFactory.getName());
             groupProviderManager.addGroupProviderFactory(groupProviderFactory);
         }
+
+        for (ExchangeManagerFactory exchangeManagerFactory : plugin.getExchangeManagerFactories()) {
+            log.info("Registering exchange manager %s", exchangeManagerFactory.getName());
+            exchangeManagerRegistry.addExchangeManagerFactory(exchangeManagerFactory);
+        }
     }
 
-    public static PluginClassLoader createClassLoader(List<URL> urls)
+    public static PluginClassLoader createClassLoader(String pluginName, List<URL> urls)
     {
         ClassLoader parent = PluginManager.class.getClassLoader();
-        return new PluginClassLoader(urls, parent, SPI_PACKAGES);
+        return new PluginClassLoader(pluginName, urls, parent, SPI_PACKAGES);
     }
 
     public interface PluginsProvider
@@ -253,7 +272,7 @@ public class PluginManager
 
         interface ClassLoaderFactory
         {
-            PluginClassLoader create(List<URL> urls);
+            PluginClassLoader create(String pluginName, List<URL> urls);
         }
     }
 }

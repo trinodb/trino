@@ -15,31 +15,28 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.aggregation.TypedSet;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.VarArgsToArrayAdapterGenerator.MethodHandleAndConstructor;
 import io.trino.type.BlockTypeOperators;
-import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
+import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.util.Optional;
 
-import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.typeVariable;
-import static io.trino.operator.aggregation.TypedSet.createEqualityTypedSet;
+import static io.trino.operator.aggregation.TypedSet.createDistinctTypedSet;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -61,7 +58,7 @@ public final class MapConcatFunction
             MapConcatFunction.class,
             "mapConcat",
             MapType.class,
-            BlockPositionEqual.class,
+            BlockPositionIsDistinctFrom.class,
             BlockPositionHashCode.class,
             Object.class,
             Block[].class);
@@ -70,24 +67,22 @@ public final class MapConcatFunction
 
     public MapConcatFunction(BlockTypeOperators blockTypeOperators)
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        FUNCTION_NAME,
-                        ImmutableList.of(typeVariable("K"), typeVariable("V")),
-                        ImmutableList.of(),
-                        mapType(new TypeSignature("K"), new TypeSignature("V")),
-                        ImmutableList.of(mapType(new TypeSignature("K"), new TypeSignature("V"))),
-                        true),
-                new FunctionNullability(false, ImmutableList.of(false)),
-                false,
-                true,
-                DESCRIPTION,
-                SCALAR));
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .name(FUNCTION_NAME)
+                        .typeVariable("K")
+                        .typeVariable("V")
+                        .returnType(mapType(new TypeSignature("K"), new TypeSignature("V")))
+                        .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V")))
+                        .variableArity()
+                        .build())
+                .description(DESCRIPTION)
+                .build());
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         if (boundSignature.getArity() < 2) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "There must be two or more concatenation arguments to " + FUNCTION_NAME);
@@ -95,17 +90,17 @@ public final class MapConcatFunction
 
         MapType mapType = (MapType) boundSignature.getReturnType();
         Type keyType = mapType.getKeyType();
-        BlockPositionEqual keyEqual = blockTypeOperators.getEqualOperator(keyType);
+        BlockPositionIsDistinctFrom keysDistinctOperator = blockTypeOperators.getDistinctFromOperator(keyType);
         BlockPositionHashCode keyHashCode = blockTypeOperators.getHashCodeOperator(keyType);
 
         MethodHandleAndConstructor methodHandleAndConstructor = generateVarArgsToArrayAdapter(
                 Block.class,
                 Block.class,
                 boundSignature.getArity(),
-                MethodHandles.insertArguments(METHOD_HANDLE, 0, mapType, keyEqual, keyHashCode),
+                MethodHandles.insertArguments(METHOD_HANDLE, 0, mapType, keysDistinctOperator, keyHashCode),
                 USER_STATE_FACTORY.bindTo(mapType));
 
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 nCopies(boundSignature.getArity(), NEVER_NULL),
@@ -120,7 +115,7 @@ public final class MapConcatFunction
     }
 
     @UsedByGeneratedCode
-    public static Block mapConcat(MapType mapType, BlockPositionEqual keyEqual, BlockPositionHashCode keyHashCode, Object state, Block[] maps)
+    public static Block mapConcat(MapType mapType, BlockPositionIsDistinctFrom keysDistinctOperator, BlockPositionHashCode keyHashCode, Object state, Block[] maps)
     {
         int entries = 0;
         int lastMapIndex = maps.length - 1;
@@ -144,7 +139,7 @@ public final class MapConcatFunction
         // TODO: we should move TypedSet into user state as well
         Type keyType = mapType.getKeyType();
         Type valueType = mapType.getValueType();
-        TypedSet typedSet = createEqualityTypedSet(keyType, keyEqual, keyHashCode, entries / 2, FUNCTION_NAME);
+        TypedSet typedSet = createDistinctTypedSet(keyType, keysDistinctOperator, keyHashCode, entries / 2, FUNCTION_NAME);
         BlockBuilder mapBlockBuilder = pageBuilder.getBlockBuilder(0);
         BlockBuilder blockBuilder = mapBlockBuilder.beginBlockEntry();
 

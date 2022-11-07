@@ -76,16 +76,18 @@ public class TupleDomainOrcPredicate
 {
     private final List<ColumnDomain> columnDomains;
     private final boolean orcBloomFiltersEnabled;
+    private final int domainCompactionThreshold;
 
     public static TupleDomainOrcPredicateBuilder builder()
     {
         return new TupleDomainOrcPredicateBuilder();
     }
 
-    private TupleDomainOrcPredicate(List<ColumnDomain> columnDomains, boolean orcBloomFiltersEnabled)
+    private TupleDomainOrcPredicate(List<ColumnDomain> columnDomains, boolean orcBloomFiltersEnabled, int domainCompactionThreshold)
     {
         this.columnDomains = ImmutableList.copyOf(requireNonNull(columnDomains, "columnDomains is null"));
         this.orcBloomFiltersEnabled = orcBloomFiltersEnabled;
+        this.domainCompactionThreshold = domainCompactionThreshold;
     }
 
     @Override
@@ -142,10 +144,10 @@ public class TupleDomainOrcPredicate
         return discreteValues.get().stream().anyMatch(value -> checkInBloomFilter(bloomFilter, value, stripeDomain.getType()));
     }
 
-    private static Optional<Collection<Object>> extractDiscreteValues(ValueSet valueSet)
+    private Optional<Collection<Object>> extractDiscreteValues(ValueSet valueSet)
     {
         if (!valueSet.isDiscreteSet()) {
-            return Optional.empty();
+            return valueSet.tryExpandRanges(domainCompactionThreshold);
         }
 
         return Optional.of(valueSet.getDiscreteSet());
@@ -327,6 +329,7 @@ public class TupleDomainOrcPredicate
     {
         private final List<ColumnDomain> columns = new ArrayList<>();
         private boolean bloomFiltersEnabled;
+        private int domainCompactionThreshold;
 
         public TupleDomainOrcPredicateBuilder addColumn(OrcColumnId columnId, Domain domain)
         {
@@ -341,9 +344,15 @@ public class TupleDomainOrcPredicate
             return this;
         }
 
+        public TupleDomainOrcPredicateBuilder setDomainCompactionThreshold(int domainCompactionThreshold)
+        {
+            this.domainCompactionThreshold = domainCompactionThreshold;
+            return this;
+        }
+
         public TupleDomainOrcPredicate build()
         {
-            return new TupleDomainOrcPredicate(columns, bloomFiltersEnabled);
+            return new TupleDomainOrcPredicate(columns, bloomFiltersEnabled, domainCompactionThreshold);
         }
     }
 

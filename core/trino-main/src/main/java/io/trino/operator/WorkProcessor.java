@@ -25,6 +25,7 @@ import java.util.Optional;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 
@@ -64,6 +65,11 @@ public interface WorkProcessor<T>
     default WorkProcessor<T> yielding(BooleanSupplier yieldSignal)
     {
         return WorkProcessorUtils.yielding(this, yieldSignal);
+    }
+
+    default WorkProcessor<T> blocking(Supplier<ListenableFuture<Void>> futureSupplier)
+    {
+        return WorkProcessorUtils.blocking(this, futureSupplier);
     }
 
     default WorkProcessor<T> withProcessEntryMonitor(Runnable monitor)

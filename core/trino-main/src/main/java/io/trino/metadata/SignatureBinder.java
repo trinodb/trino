@@ -19,6 +19,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionId;
+import io.trino.spi.function.LongVariableConstraint;
+import io.trino.spi.function.Signature;
+import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.ParameterKind;
 import io.trino.spi.type.RowType;
@@ -175,13 +180,11 @@ public class SignatureBinder
         List<TypeSignature> boundArgumentSignatures = applyBoundVariables(argumentSignatures, typeVariables);
         TypeSignature boundReturnTypeSignature = applyBoundVariables(signature.getReturnType(), typeVariables);
 
-        return new Signature(
-                signature.getName(),
-                ImmutableList.of(),
-                ImmutableList.of(),
-                boundReturnTypeSignature,
-                boundArgumentSignatures,
-                false);
+        return Signature.builder()
+                .name(signature.getName())
+                .returnType(boundReturnTypeSignature)
+                .argumentTypes(boundArgumentSignatures)
+                .build();
     }
 
     public static List<TypeSignature> applyBoundVariables(List<TypeSignature> typeSignatures, FunctionBinding functionBinding)
@@ -448,7 +451,7 @@ public class SignatureBinder
             for (TypeSignature castFromSignature : typeVariableConstraint.getCastableFrom()) {
                 appendTypeRelationshipConstraintSolver(resultBuilder, castFromSignature, actualTypeSignatureProvider, EXPLICIT_COERCION_FROM);
             }
-            if (typeVariableConstraint.getVariadicBound() != null && !typeVariableConstraint.getVariadicBound().equalsIgnoreCase(actualType.getTypeSignature().getBase())) {
+            if (typeVariableConstraint.getVariadicBound().isPresent() && !typeVariableConstraint.getVariadicBound().get().equalsIgnoreCase(actualType.getTypeSignature().getBase())) {
                 return actualType == UNKNOWN;
             }
             resultBuilder.add(new TypeParameterSolver(
@@ -456,7 +459,7 @@ public class SignatureBinder
                     actualType,
                     typeVariableConstraint.isComparableRequired(),
                     typeVariableConstraint.isOrderableRequired(),
-                    Optional.ofNullable(typeVariableConstraint.getVariadicBound())));
+                    typeVariableConstraint.getVariadicBound()));
             return true;
         }
 
@@ -476,11 +479,9 @@ public class SignatureBinder
 
         ImmutableList.Builder<TypeSignature> formalTypeParameterTypeSignatures = ImmutableList.builder();
         for (TypeSignatureParameter formalTypeParameter : formalTypeSignature.getParameters()) {
-            Optional<TypeSignature> typeSignature = formalTypeParameter.getTypeSignatureOrNamedTypeSignature();
-            if (typeSignature.isEmpty()) {
-                throw new UnsupportedOperationException("Types with both type parameters and literal parameters at the same time are not supported");
-            }
-            formalTypeParameterTypeSignatures.add(typeSignature.get());
+            TypeSignature typeSignature = formalTypeParameter.getTypeSignatureOrNamedTypeSignature()
+                    .orElseThrow(() -> new UnsupportedOperationException("Types with both type parameters and literal parameters at the same time are not supported"));
+            formalTypeParameterTypeSignatures.add(typeSignature);
         }
 
         return appendConstraintSolvers(
@@ -689,13 +690,11 @@ public class SignatureBinder
                 }
                 return true;
             }
-            else if (toType instanceof JsonType) {
+            if (toType instanceof JsonType) {
                 return fromType.getTypeParameters().stream()
                         .allMatch(fromTypeParameter -> canCast(fromTypeParameter, toType));
             }
-            else {
-                return false;
-            }
+            return false;
         }
         if (fromType instanceof JsonType) {
             if (toType instanceof RowType) {

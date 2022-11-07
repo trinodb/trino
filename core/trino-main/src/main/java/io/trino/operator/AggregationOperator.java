@@ -41,15 +41,13 @@ public class AggregationOperator
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final List<AggregatorFactory> aggregatorFactories;
-        private final boolean useSystemMemory;
         private boolean closed;
 
-        public AggregationOperatorFactory(int operatorId, PlanNodeId planNodeId, List<AggregatorFactory> aggregatorFactories, boolean useSystemMemory)
+        public AggregationOperatorFactory(int operatorId, PlanNodeId planNodeId, List<AggregatorFactory> aggregatorFactories)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.aggregatorFactories = ImmutableList.copyOf(aggregatorFactories);
-            this.useSystemMemory = useSystemMemory;
         }
 
         @Override
@@ -57,7 +55,7 @@ public class AggregationOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, AggregationOperator.class.getSimpleName());
-            return new AggregationOperator(operatorContext, aggregatorFactories, useSystemMemory);
+            return new AggregationOperator(operatorContext, aggregatorFactories);
         }
 
         @Override
@@ -69,7 +67,7 @@ public class AggregationOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new AggregationOperatorFactory(operatorId, planNodeId, aggregatorFactories, useSystemMemory);
+            return new AggregationOperatorFactory(operatorId, planNodeId, aggregatorFactories);
         }
     }
 
@@ -81,19 +79,15 @@ public class AggregationOperator
     }
 
     private final OperatorContext operatorContext;
-    private final LocalMemoryContext systemMemoryContext;
     private final LocalMemoryContext userMemoryContext;
     private final List<Aggregator> aggregates;
-    private final boolean useSystemMemory;
 
     private State state = State.NEEDS_INPUT;
 
-    public AggregationOperator(OperatorContext operatorContext, List<AggregatorFactory> aggregatorFactories, boolean useSystemMemory)
+    public AggregationOperator(OperatorContext operatorContext, List<AggregatorFactory> aggregatorFactories)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(AggregationOperator.class.getSimpleName());
         this.userMemoryContext = operatorContext.localUserMemoryContext();
-        this.useSystemMemory = useSystemMemory;
 
         aggregates = aggregatorFactories.stream()
                 .map(AggregatorFactory::createAggregator)
@@ -118,7 +112,6 @@ public class AggregationOperator
     public void close()
     {
         userMemoryContext.setBytes(0);
-        systemMemoryContext.close();
     }
 
     @Override
@@ -144,12 +137,7 @@ public class AggregationOperator
             aggregate.processPage(page);
             memorySize += aggregate.getEstimatedSize();
         }
-        if (useSystemMemory) {
-            systemMemoryContext.setBytes(memorySize);
-        }
-        else {
-            userMemoryContext.setBytes(memorySize);
-        }
+        userMemoryContext.setBytes(memorySize);
     }
 
     @Override

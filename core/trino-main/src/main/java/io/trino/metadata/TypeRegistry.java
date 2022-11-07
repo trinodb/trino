@@ -14,13 +14,13 @@
 package io.trino.metadata;
 
 import com.google.common.base.Joiner;
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.trino.FeaturesConfig;
+import io.trino.collect.cache.NonEvictableCache;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
@@ -48,11 +48,12 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutionException;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -93,6 +94,7 @@ import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
+import static io.trino.type.Json2016Type.JSON_2016;
 import static io.trino.type.JsonPathType.JSON_PATH;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
@@ -112,7 +114,7 @@ public final class TypeRegistry
     private final ConcurrentMap<TypeSignature, Type> types = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ParametricType> parametricTypes = new ConcurrentHashMap<>();
 
-    private final Cache<TypeSignature, Type> parametricTypeCache;
+    private final NonEvictableCache<TypeSignature, Type> parametricTypeCache;
     private final TypeManager typeManager;
     private final TypeOperators typeOperators;
 
@@ -145,6 +147,7 @@ public final class TypeRegistry
         addType(new Re2JRegexpType(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()));
         addType(LIKE_PATTERN);
         addType(JSON_PATH);
+        addType(JSON_2016);
         addType(COLOR);
         addType(JSON);
         addType(CODE_POINTS);
@@ -164,9 +167,7 @@ public final class TypeRegistry
         addParametricType(TIME);
         addParametricType(TIME_WITH_TIME_ZONE);
 
-        parametricTypeCache = CacheBuilder.newBuilder()
-                .maximumSize(1000)
-                .build();
+        parametricTypeCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
 
         typeManager = new InternalTypeManager(this, typeOperators);
 
@@ -178,9 +179,9 @@ public final class TypeRegistry
         Type type = types.get(signature);
         if (type == null) {
             try {
-                return parametricTypeCache.get(signature, () -> instantiateParametricType(signature));
+                return uncheckedCacheGet(parametricTypeCache, signature, () -> instantiateParametricType(signature));
             }
-            catch (ExecutionException | UncheckedExecutionException e) {
+            catch (UncheckedExecutionException e) {
                 throwIfUnchecked(e.getCause());
                 throw new RuntimeException(e.getCause());
             }

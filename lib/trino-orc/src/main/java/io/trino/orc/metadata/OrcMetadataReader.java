@@ -294,7 +294,7 @@ public class OrcMetadataReader
         // is set to 1, but the value is wrongly set to default 0 which implies there is something wrong with
         // the stats. Drop the column statistics altogether.
         if (statistics.hasHasNull() && statistics.getNumberOfValues() == 0 && !statistics.getHasNull()) {
-            return new ColumnStatistics(null, 0, null, null, null, null, null, null, null, null, null);
+            return new ColumnStatistics(null, 0, null, null, null, null, null, null, null, null, null, null);
         }
 
         return new ColumnStatistics(
@@ -303,6 +303,7 @@ public class OrcMetadataReader
                 statistics.hasBucketStatistics() ? toBooleanStatistics(statistics.getBucketStatistics()) : null,
                 statistics.hasIntStatistics() ? toIntegerStatistics(statistics.getIntStatistics()) : null,
                 statistics.hasDoubleStatistics() ? toDoubleStatistics(statistics.getDoubleStatistics()) : null,
+                null,
                 statistics.hasStringStatistics() ? toStringStatistics(hiveWriterVersion, statistics.getStringStatistics(), isRowGroup) : null,
                 statistics.hasDateStatistics() ? toDateStatistics(hiveWriterVersion, statistics.getDateStatistics(), isRowGroup) : null,
                 statistics.hasTimestampStatistics() ? toTimestampStatistics(hiveWriterVersion, statistics.getTimestampStatistics(), isRowGroup) : null,
@@ -327,7 +328,7 @@ public class OrcMetadataReader
         for (OrcProto.UserMetadataItem item : metadataList) {
             mapBuilder.put(item.getName(), byteStringToSlice(item.getValue()));
         }
-        return mapBuilder.build();
+        return mapBuilder.buildOrThrow();
     }
 
     private static BooleanStatistics toBooleanStatistics(OrcProto.BucketStatistics bucketStatistics)
@@ -585,7 +586,7 @@ public class OrcMetadataReader
     // This method assumes type attributes have no duplicate key
     private static Map<String, String> toMap(List<OrcProto.StringPair> attributes)
     {
-        ImmutableMap.Builder<String, String> results = new ImmutableMap.Builder<>();
+        ImmutableMap.Builder<String, String> results = ImmutableMap.builder();
         if (attributes != null) {
             for (OrcProto.StringPair attribute : attributes) {
                 if (attribute.hasKey() && attribute.hasValue()) {
@@ -593,7 +594,7 @@ public class OrcMetadataReader
                 }
             }
         }
-        return results.build();
+        return results.buildOrThrow();
     }
 
     private static StreamKind toStreamKind(OrcProto.Stream.Kind streamKind)

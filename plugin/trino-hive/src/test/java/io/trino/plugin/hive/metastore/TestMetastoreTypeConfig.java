@@ -34,9 +34,7 @@ public class TestMetastoreTypeConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("hive.metastore", "foo")
-                .build();
+        Map<String, String> properties = ImmutableMap.of("hive.metastore", "foo");
 
         MetastoreTypeConfig expected = new MetastoreTypeConfig()
                 .setMetastoreType("foo");

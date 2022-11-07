@@ -23,11 +23,11 @@ import io.trino.spi.NodeManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.connector.ConnectorIndexProvider;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SystemTable;
@@ -37,6 +37,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static io.trino.plugin.base.Versions.checkSpiVersion;
 import static java.util.Objects.requireNonNull;
 
 public class IndexedTpchConnectorFactory
@@ -58,14 +59,10 @@ public class IndexedTpchConnectorFactory
     }
 
     @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new TpchIndexHandleResolver();
-    }
-
-    @Override
     public Connector create(String catalogName, Map<String, String> properties, ConnectorContext context)
     {
+        checkSpiVersion(context, this);
+
         int splitsPerNode = getSplitsPerNode(properties);
         TpchIndexedData indexedData = new TpchIndexedData(indexSpec);
         NodeManager nodeManager = context.getNodeManager();
@@ -79,7 +76,7 @@ public class IndexedTpchConnectorFactory
             }
 
             @Override
-            public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
+            public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transactionHandle)
             {
                 return new TpchIndexMetadata(indexedData);
             }

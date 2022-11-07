@@ -24,7 +24,6 @@ import io.trino.sql.tree.Node;
 import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static io.trino.sql.util.AstUtils.treeEqual;
 import static io.trino.sql.util.AstUtils.treeHash;
 import static java.util.Objects.requireNonNull;
@@ -100,6 +99,27 @@ public class ScopeAware<T extends Node>
         return "ScopeAware(" + node + ")";
     }
 
+    /**
+     * Syntactic comparison of Nodes with special handling of column references.
+     * <p>
+     * When both compared Nodes are column references, the following rules apply:
+     * <p>
+     * 1. If both columns belong to scopes associated with subqueries of the current query,
+     * they are compared by syntax (that is, textually, respecting the canonicalization rules).
+     * <p>
+     * 2. If none of the columns belongs to some subquery scope, that is, either they belong
+     * to the current query scope, or some outer scope, they are compared by resolved field.
+     * <p>
+     * 3. If only one of the columns belongs to some subquery scope, they are not equal.
+     * <p>
+     * Note: it'd appear that hash() and equal() are inconsistent with each other in the case that:
+     * - left.hasOuterParent(...) == true and right.hasOuterParent(...) == false
+     * - leftField.getFieldId().equals(rightField.getFieldId()) == true
+     * Both fields would seem to have different hashes but be equal to each other.
+     * However, this cannot happen because we *require* that both expressions being compared be
+     * rooted in the same "query scope" (i.e., sub-scopes that are local to each other) -- see ScopeAwareKey.equals().
+     * If both fields have the same field id, by definition they will produce the same result for hasOuterParent().
+     */
     private Boolean scopeAwareComparison(Node left, Node right)
     {
         if (left instanceof Expression && right instanceof Expression) {
@@ -109,27 +129,22 @@ public class ScopeAware<T extends Node>
                 ResolvedField leftField = analysis.getResolvedField(leftExpression);
                 ResolvedField rightField = analysis.getResolvedField(rightExpression);
 
-                Scope leftScope = leftField.getScope();
-                Scope rightScope = rightField.getScope();
+                boolean leftFieldInSubqueryScope = leftField.getScope().hasOuterParent(queryScope);
+                boolean rightFieldInSubqueryScope = rightField.getScope().hasOuterParent(queryScope);
 
                 // For subqueries of the query associated with the current expression, compare by syntax
-                // Note: it'd appear that hash() and equal() are inconsistent with each other in the case that:
-                //    * left.hasOuterParent(...) == true and right.hasOuterParent(...) == false
-                //    * leftField.getFieldId().equals(rightField.getFieldId()) == true
-                // Both fields would seem to have different hashes but be equal to each other.
-                // However, this cannot happen because we *require* that both expressions being compared by
-                // rooted in the same "query scope" (i.e., sub-scopes that are local to each other) -- see ScopeAwareKey.equals().
-                // If both fields have the same field id, by definition they will produce the same result for hasOuterParent().
-                checkState(leftScope.hasOuterParent(queryScope) == rightScope.hasOuterParent(queryScope));
-                if (leftScope.hasOuterParent(queryScope) && rightScope.hasOuterParent(queryScope)) {
+                if (leftFieldInSubqueryScope && rightFieldInSubqueryScope) {
                     return treeEqual(leftExpression, rightExpression, CanonicalizationAware::canonicalizationAwareComparison);
                 }
-
-                // Otherwise, for references that come from the current query scope or an outer scope of the current
+                // For references that come from the current query scope or an outer scope of the current
                 // expression, compare by resolved field
-                return leftField.getFieldId().equals(rightField.getFieldId());
+                if (!leftFieldInSubqueryScope && !rightFieldInSubqueryScope) {
+                    return leftField.getFieldId().equals(rightField.getFieldId());
+                }
+                // References come from different scopes
+                return false;
             }
-            else if (leftExpression instanceof Identifier && rightExpression instanceof Identifier) {
+            if (leftExpression instanceof Identifier && rightExpression instanceof Identifier) {
                 return treeEqual(leftExpression, rightExpression, CanonicalizationAware::canonicalizationAwareComparison);
             }
         }
@@ -155,10 +170,10 @@ public class ScopeAware<T extends Node>
 
                 return OptionalInt.of(field.getFieldId().hashCode());
             }
-            else if (expression instanceof Identifier) {
+            if (expression instanceof Identifier) {
                 return OptionalInt.of(treeHash(expression, CanonicalizationAware::canonicalizationAwareHash));
             }
-            else if (node.getChildren().isEmpty()) {
+            if (node.getChildren().isEmpty()) {
                 // Calculate shallow hash since node doesn't have any children
                 return OptionalInt.of(expression.hashCode());
             }

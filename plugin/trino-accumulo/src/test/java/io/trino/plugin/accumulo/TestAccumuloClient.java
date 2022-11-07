@@ -24,6 +24,8 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import org.apache.accumulo.core.client.Connector;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.HashMap;
@@ -36,10 +38,11 @@ import static org.testng.Assert.assertNotNull;
 
 public class TestAccumuloClient
 {
-    private final AccumuloClient client;
-    private final ZooKeeperMetadataManager zooKeeperMetadataManager;
+    private AccumuloClient client;
+    private ZooKeeperMetadataManager zooKeeperMetadataManager;
 
-    public TestAccumuloClient()
+    @BeforeClass
+    public void setUp()
             throws Exception
     {
         AccumuloConfig config = new AccumuloConfig()
@@ -50,6 +53,13 @@ public class TestAccumuloClient
         config.setZooKeepers(connector.getInstance().getZooKeepers());
         zooKeeperMetadataManager = new ZooKeeperMetadataManager(config, TESTING_TYPE_MANAGER);
         client = new AccumuloClient(connector, config, zooKeeperMetadataManager, new AccumuloTableManager(connector), new IndexLookup(connector, new ColumnCardinalityCache(connector, config)));
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        zooKeeperMetadataManager = null;
+        client = null;
     }
 
     @Test

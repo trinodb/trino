@@ -248,7 +248,7 @@ public class EqualityInference
             canonicalMappings.put(expression, canonical);
         }
 
-        return new EqualityInference(equalitySets, canonicalMappings.build(), derivedExpressions);
+        return new EqualityInference(equalitySets, canonicalMappings.buildOrThrow(), derivedExpressions);
     }
 
     /**

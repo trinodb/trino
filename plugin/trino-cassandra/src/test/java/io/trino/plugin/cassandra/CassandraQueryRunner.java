@@ -16,12 +16,12 @@ package io.trino.plugin.cassandra;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.tpch.TpchTable;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import static io.trino.plugin.cassandra.CassandraTestingUtils.createKeyspace;
@@ -36,12 +36,13 @@ public final class CassandraQueryRunner
     public static DistributedQueryRunner createCassandraQueryRunner(CassandraServer server, TpchTable<?>... tables)
             throws Exception
     {
-        return createCassandraQueryRunner(server, ImmutableMap.of(), ImmutableList.copyOf(tables));
+        return createCassandraQueryRunner(server, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.copyOf(tables));
     }
 
     public static DistributedQueryRunner createCassandraQueryRunner(
             CassandraServer server,
             Map<String, String> extraProperties,
+            Map<String, String> connectorProperties,
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
@@ -52,11 +53,16 @@ public final class CassandraQueryRunner
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
 
+        // note: additional copy via ImmutableList so that if fails on nulls
+        connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
+        connectorProperties.putIfAbsent("cassandra.contact-points", server.getHost());
+        connectorProperties.putIfAbsent("cassandra.native-protocol-port", Integer.toString(server.getPort()));
+        connectorProperties.putIfAbsent("cassandra.load-policy.use-dc-aware", "true");
+        connectorProperties.putIfAbsent("cassandra.load-policy.dc-aware.local-dc", "datacenter1");
+        connectorProperties.putIfAbsent("cassandra.allow-drop-table", "true");
+
         queryRunner.installPlugin(new CassandraPlugin());
-        queryRunner.createCatalog("cassandra", "cassandra", ImmutableMap.of(
-                "cassandra.contact-points", server.getHost(),
-                "cassandra.native-protocol-port", Integer.toString(server.getPort()),
-                "cassandra.allow-drop-table", "true"));
+        queryRunner.createCatalog("cassandra", "cassandra", connectorProperties);
 
         createKeyspace(server.getSession(), "tpch");
         copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createCassandraSession("tpch"), tables);
@@ -78,11 +84,10 @@ public final class CassandraQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        Logging.initialize();
-
         DistributedQueryRunner queryRunner = createCassandraQueryRunner(
                 new CassandraServer(),
                 ImmutableMap.of("http-server.http.port", "8080"),
+                ImmutableMap.of(),
                 TpchTable.getTables());
 
         Logger log = Logger.get(CassandraQueryRunner.class);

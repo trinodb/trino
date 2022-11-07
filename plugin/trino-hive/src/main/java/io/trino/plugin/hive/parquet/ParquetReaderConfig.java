@@ -15,12 +15,17 @@ package io.trino.plugin.hive.parquet;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.trino.parquet.ParquetReaderOptions;
 
 import javax.validation.constraints.NotNull;
 
+@DefunctConfig({
+        "hive.parquet.fail-on-corrupted-statistics",
+        "parquet.fail-on-corrupted-statistics",
+})
 public class ParquetReaderConfig
 {
     private ParquetReaderOptions options = new ParquetReaderOptions();
@@ -38,16 +43,6 @@ public class ParquetReaderConfig
     {
         options = options.withIgnoreStatistics(ignoreStatistics);
         return this;
-    }
-
-    /**
-     * @deprecated Use {@link #setIgnoreStatistics} instead.
-     */
-    @Deprecated
-    @LegacyConfig(value = {"hive.parquet.fail-on-corrupted-statistics", "parquet.fail-on-corrupted-statistics"}, replacedBy = "parquet.ignore-statistics")
-    public ParquetReaderConfig setFailOnCorruptedStatistics(boolean failOnCorruptedStatistics)
-    {
-        return setIgnoreStatistics(!failOnCorruptedStatistics);
     }
 
     @NotNull

@@ -29,6 +29,7 @@ import io.trino.type.BlockTypeOperators;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -60,10 +61,16 @@ public class DistinctAccumulatorFactory
     }
 
     @Override
-    public Accumulator createAccumulator()
+    public List<Class<?>> getLambdaInterfaces()
+    {
+        return delegate.getLambdaInterfaces();
+    }
+
+    @Override
+    public Accumulator createAccumulator(List<Supplier<Object>> lambdaProviders)
     {
         return new DistinctAccumulator(
-                delegate.createAccumulator(),
+                delegate.createAccumulator(lambdaProviders),
                 argumentTypes,
                 session,
                 joinCompiler,
@@ -71,16 +78,16 @@ public class DistinctAccumulatorFactory
     }
 
     @Override
-    public Accumulator createIntermediateAccumulator()
+    public Accumulator createIntermediateAccumulator(List<Supplier<Object>> lambdaProviders)
     {
-        return delegate.createIntermediateAccumulator();
+        return delegate.createIntermediateAccumulator(lambdaProviders);
     }
 
     @Override
-    public GroupedAccumulator createGroupedAccumulator()
+    public GroupedAccumulator createGroupedAccumulator(List<Supplier<Object>> lambdaProviders)
     {
         return new DistinctGroupedAccumulator(
-                delegate.createGroupedAccumulator(),
+                delegate.createGroupedAccumulator(lambdaProviders),
                 argumentTypes,
                 session,
                 joinCompiler,
@@ -88,9 +95,9 @@ public class DistinctAccumulatorFactory
     }
 
     @Override
-    public GroupedAccumulator createGroupedIntermediateAccumulator()
+    public GroupedAccumulator createGroupedIntermediateAccumulator(List<Supplier<Object>> lambdaProviders)
     {
-        return delegate.createGroupedIntermediateAccumulator();
+        return delegate.createGroupedIntermediateAccumulator(lambdaProviders);
     }
 
     private static class DistinctAccumulator
@@ -226,7 +233,7 @@ public class DistinctAccumulatorFactory
                 columnIndexes[i] = i + 1;
             }
             Page filtered = filteredWithGroup.getColumns(columnIndexes);
-
+            // NOTE: the accumulator must be called even if the filtered page is empty to inform the accumulator about the group count
             accumulator.addInput(groupIds, filtered, Optional.of(distinctMask));
         }
 
@@ -260,9 +267,7 @@ public class DistinctAccumulatorFactory
             if (!mask.isNull(0) && BOOLEAN.getBoolean(mask, 0)) {
                 return page;
             }
-            else {
-                return page.getPositions(new int[0], 0, 0);
-            }
+            return page.getPositions(new int[0], 0, 0);
         }
         boolean mayHaveNull = mask.mayHaveNull();
         int[] ids = new int[positions];

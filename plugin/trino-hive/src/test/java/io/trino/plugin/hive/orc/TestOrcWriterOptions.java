@@ -24,8 +24,8 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.orc.OrcWriterOptions.WriterIdentification.LEGACY_HIVE_COMPATIBLE;
 import static io.trino.orc.OrcWriterOptions.WriterIdentification.TRINO;
-import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_COLUMNS;
-import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
+import static io.trino.plugin.hive.HiveMetadata.ORC_BLOOM_FILTER_COLUMNS_KEY;
+import static io.trino.plugin.hive.HiveMetadata.ORC_BLOOM_FILTER_FPP_KEY;
 import static io.trino.plugin.hive.util.HiveUtil.getOrcWriterOptions;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
@@ -78,8 +78,8 @@ public class TestOrcWriterOptions
     public void testOrcWriterOptionsFromTableProperties()
     {
         Properties tableProperties = new Properties();
-        tableProperties.setProperty(ORC_BLOOM_FILTER_COLUMNS, "column_a, column_b");
-        tableProperties.setProperty(ORC_BLOOM_FILTER_FPP, "0.5");
+        tableProperties.setProperty(ORC_BLOOM_FILTER_COLUMNS_KEY, "column_a, column_b");
+        tableProperties.setProperty(ORC_BLOOM_FILTER_FPP_KEY, "0.5");
         OrcWriterOptions orcWriterOptions = getOrcWriterOptions(tableProperties, new OrcWriterOptions());
         assertThat(orcWriterOptions.getBloomFilterFpp()).isEqualTo(0.5);
         assertThat(orcWriterOptions.isBloomFilterColumn("column_a")).isTrue();
@@ -91,8 +91,8 @@ public class TestOrcWriterOptions
     public void testOrcWriterOptionsWithInvalidFPPValue()
     {
         Properties tableProperties = new Properties();
-        tableProperties.setProperty(ORC_BLOOM_FILTER_COLUMNS, "column_with_bloom_filter");
-        tableProperties.setProperty(ORC_BLOOM_FILTER_FPP, "abc");
+        tableProperties.setProperty(ORC_BLOOM_FILTER_COLUMNS_KEY, "column_with_bloom_filter");
+        tableProperties.setProperty(ORC_BLOOM_FILTER_FPP_KEY, "abc");
         assertThatThrownBy(() -> getOrcWriterOptions(tableProperties, new OrcWriterOptions()))
                 .hasMessage("Invalid value for orc_bloom_filter_fpp property: abc");
     }
@@ -101,8 +101,8 @@ public class TestOrcWriterOptions
     public void testOrcBloomFilterWithInvalidRange(String fpp)
     {
         Properties tableProperties = new Properties();
-        tableProperties.setProperty(ORC_BLOOM_FILTER_COLUMNS, "column_with_bloom_filter");
-        tableProperties.setProperty(ORC_BLOOM_FILTER_FPP, fpp);
+        tableProperties.setProperty(ORC_BLOOM_FILTER_COLUMNS_KEY, "column_with_bloom_filter");
+        tableProperties.setProperty(ORC_BLOOM_FILTER_FPP_KEY, fpp);
         assertThatThrownBy(() -> getOrcWriterOptions(tableProperties, new OrcWriterOptions()))
                 .hasMessage("bloomFilterFpp should be > 0.0 & < 1.0");
     }

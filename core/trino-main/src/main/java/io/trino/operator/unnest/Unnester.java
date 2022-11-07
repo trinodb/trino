@@ -14,120 +14,31 @@
 package io.trino.operator.unnest;
 
 import io.trino.spi.block.Block;
-import io.trino.spi.block.PageBuilderStatus;
-import io.trino.spi.type.Type;
-
-import static com.google.common.base.Preconditions.checkState;
-import static java.util.Objects.requireNonNull;
 
 /**
- * Generic Unnester implementation for nested columns.
- * <p>
  * This is a layer of abstraction between {@link UnnestOperator} and {@link UnnestBlockBuilder} to enable
  * translation of indices from input nested blocks to underlying element blocks.
  */
-abstract class Unnester
+public interface Unnester
 {
-    private final UnnestBlockBuilder[] unnestBlockBuilders;
-    private int currentPosition;
+    int getChannelCount();
 
-    protected Unnester(Type... types)
-    {
-        requireNonNull(types, "types is null");
-        this.unnestBlockBuilders = new UnnestBlockBuilder[types.length];
-        this.currentPosition = 0;
-        for (int i = 0; i < types.length; i++) {
-            requireNonNull(types[i], "type is null");
-            unnestBlockBuilders[i] = new UnnestBlockBuilder(types[i]);
-        }
-    }
+    void resetInput(Block block);
 
     /**
-     * Update {@code unnestBlockBuilders} with a new input.
+     * Return a vector with the number of entries for each position of the block to be unnested.
      */
-    public final void resetInput(Block block)
-    {
-        requireNonNull(block, "block is null");
-        resetColumnarStructure(block);
-        for (int i = 0; i < getChannelCount(); i++) {
-            unnestBlockBuilders[i].resetInputBlock(getElementsBlock(i));
-        }
-        currentPosition = 0;
-    }
-
-    public final int getCurrentUnnestedLength()
-    {
-        return getElementsLength(currentPosition);
-    }
+    int[] getOutputEntriesPerPosition();
 
     /**
-     * Prepare for a new output page
+     * Build the output blocks for the current batch for this unnester.
+     *
+     * @param outputEntriesPerPosition A vector that holds the max unnested row count for each position of all blocks to be unnested.
+     * @param startPosition The start input position of this batch.
+     * @param batchSize The number of input rows to be processed in this batch.
+     * @param outputRowCount The total output row count for this batch after the unnest is done.
      */
-    public final void startNewOutput(PageBuilderStatus status, int expectedEntries)
-    {
-        for (int i = 0; i < getChannelCount(); i++) {
-            unnestBlockBuilders[i].startNewOutput(status, expectedEntries);
-        }
-    }
+    Block[] buildOutputBlocks(int[] outputEntriesPerPosition, int startPosition, int batchSize, int outputRowCount);
 
-    public final void processCurrentAndAdvance(int requiredOutputCount)
-    {
-        checkState(currentPosition >= 0 && currentPosition < getInputEntryCount(), "position out of bounds");
-        processCurrentPosition(requiredOutputCount);
-        currentPosition++;
-    }
-
-    public final void advance()
-    {
-        checkState(currentPosition >= 0 && currentPosition < getInputEntryCount(), "position out of bounds");
-        currentPosition++;
-    }
-
-    /**
-     * Build output and flush output state for the @{code unnestBlockBuilders}.
-     */
-    public final Block[] buildOutputBlocksAndFlush()
-    {
-        Block[] outputBlocks = new Block[getChannelCount()];
-        for (int i = 0; i < getChannelCount(); i++) {
-            outputBlocks[i] = unnestBlockBuilders[i].buildOutputAndFlush();
-        }
-        return outputBlocks;
-    }
-
-    protected final int getCurrentPosition()
-    {
-        return currentPosition;
-    }
-
-    protected final UnnestBlockBuilder getBlockBuilder(int index)
-    {
-        return unnestBlockBuilders[index];
-    }
-
-    public abstract int getChannelCount();
-
-    abstract int getInputEntryCount();
-
-    /**
-     * Process current position for all {@code unnestBlockBuilders}. This method has to
-     * (1) translate {@code currentPosition} to indexes for the block builders, using columnar structures.
-     * (2) invoke {@link UnnestBlockBuilder} methods to produce {@code requiredOutputCount} number of rows
-     * for every output block.
-     */
-    protected abstract void processCurrentPosition(int requiredOutputCount);
-
-    protected abstract void appendNulls(int count);
-
-    protected abstract void resetColumnarStructure(Block block);
-
-    /**
-     * Get underlying elements block corresponding to {@code channel}
-     */
-    protected abstract Block getElementsBlock(int channel);
-
-    /**
-     * Get the length of the nested element at position {@code index}
-     */
-    protected abstract int getElementsLength(int index);
+    long getRetainedSizeInBytes();
 }

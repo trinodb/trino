@@ -45,6 +45,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
+import java.util.stream.Stream;
 
 import static io.trino.tests.product.launcher.cli.Commands.runCommand;
 import static io.trino.tests.product.launcher.docker.DockerFiles.ROOT_PATH;
@@ -72,7 +73,7 @@ public class EnvironmentDescribe
 
     public EnvironmentDescribe(Extensions extensions)
     {
-        this.additionalEnvironments = requireNonNull(extensions, "extensions is null").getAdditionalEnvironments();
+        this.additionalEnvironments = extensions.getAdditionalEnvironments();
     }
 
     @Override
@@ -119,7 +120,7 @@ public class EnvironmentDescribe
         @Inject
         public Execution(DockerFiles dockerFiles, EnvironmentFactory environmentFactory, EnvironmentConfig environmentConfig, EnvironmentOptions environmentOptions, EnvironmentUpOptions environmentUpOptions)
         {
-            this.dockerFilesBasePath = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostPath();
+            this.dockerFilesBasePath = dockerFiles.getDockerFilesHostPath();
             this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
             this.environmentConfig = requireNonNull(environmentConfig, "environmentConfig is null");
             this.environmentOptions = requireNonNull(environmentOptions, "environmentOptions is null");
@@ -201,10 +202,12 @@ public class EnvironmentDescribe
     private static long directorySize(Path directory)
     {
         try {
-            return Files.walk(directory)
-                    .filter(path -> path.toFile().isFile())
-                    .mapToLong(path -> path.toFile().length())
-                    .sum();
+            try (Stream<Path> stream = Files.walk(directory)) {
+                return stream
+                        .filter(path -> path.toFile().isFile())
+                        .mapToLong(path -> path.toFile().length())
+                        .sum();
+            }
         }
         catch (IOException e) {
             log.warn(e, "Could not calculate directory size: %s", directory);

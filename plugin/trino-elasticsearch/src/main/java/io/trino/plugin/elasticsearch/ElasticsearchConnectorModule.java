@@ -17,7 +17,10 @@ import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
+import io.trino.plugin.elasticsearch.ptf.RawQuery;
+import io.trino.spi.ptf.ConnectorTableFunction;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -45,6 +48,8 @@ public class ElasticsearchConnectorModule
 
         newOptionalBinder(binder, AwsSecurityConfig.class);
         newOptionalBinder(binder, PasswordConfig.class);
+
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(RawQuery.class).in(Scopes.SINGLETON);
 
         install(conditionalModule(
                 ElasticsearchConfig.class,

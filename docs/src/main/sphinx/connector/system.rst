@@ -56,7 +56,7 @@ that can be set when creating a new table.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The materialized views table contains the following information about all
-:ref:`materialized views <sql-materialized-views-management>`:
+:ref:`materialized views <sql-materialized-view-management>`:
 
 .. list-table:: Metadata for materialized views
   :widths: 30, 70
@@ -150,6 +150,14 @@ System connector procedures
 
     Kill the query identified by ``query_id``. The query failure message
     includes the specified ``message``.
+
+.. _system-type-mapping:
+
+Type mapping
+------------
+
+Trino supports all data types used within the System schemas so no mapping
+is required.
 
 .. _system-sql-support:
 

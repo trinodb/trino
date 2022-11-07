@@ -26,7 +26,7 @@ import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.control.WhileLoop;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.slice.Slice;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.FunctionManager;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.CursorProcessorOutput;
 import io.trino.spi.PageBuilder;
@@ -63,11 +63,11 @@ import static java.lang.String.format;
 public class CursorProcessorCompiler
         implements BodyCompiler
 {
-    private final Metadata metadata;
+    private final FunctionManager functionManager;
 
-    public CursorProcessorCompiler(Metadata metadata)
+    public CursorProcessorCompiler(FunctionManager functionManager)
     {
-        this.metadata = metadata;
+        this.functionManager = functionManager;
     }
 
     @Override
@@ -208,15 +208,15 @@ public class CursorProcessorCompiler
                     lambdaExpression,
                     methodName,
                     containerClassDefinition,
-                    compiledLambdaMap.build(),
+                    compiledLambdaMap.buildOrThrow(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    metadata);
+                    functionManager);
             compiledLambdaMap.put(lambdaExpression, compiledLambda);
             counter++;
         }
 
-        return compiledLambdaMap.build();
+        return compiledLambdaMap.buildOrThrow();
     }
 
     private void generateFilterMethod(
@@ -239,7 +239,7 @@ public class CursorProcessorCompiler
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(cursor),
-                metadata,
+                functionManager,
                 compiledLambdaMap);
 
         LabelNode end = new LabelNode("end");
@@ -279,7 +279,7 @@ public class CursorProcessorCompiler
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(cursor),
-                metadata,
+                functionManager,
                 compiledLambdaMap);
 
         method.getBody()

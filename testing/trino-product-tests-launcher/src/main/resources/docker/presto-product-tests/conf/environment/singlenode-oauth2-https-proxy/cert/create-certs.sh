@@ -2,14 +2,12 @@
 
 set -eux
 
-for i in hydra proxy; do
-    echo $i
+cp "$(dirname "$0")/../../../../common/hydra-identity-provider/cert/truststore.jks" truststore.jks
 
-    # Generate private key and certificate
-    openssl req -new -x509 -newkey rsa:4096 -sha256 -nodes -keyout $i.key -days 3650 -out $i.crt -config $i.conf
-    cat $i.crt $i.key > $i.pem
+# Generate private key and certificate
+openssl req -new -x509 -newkey rsa:4096 -sha256 -nodes -keyout proxy.key -days 36500 -out proxy.crt -config proxy.conf
+cat proxy.crt proxy.key > proxy.pem
 
-    # Create truststore and import the cert.
-    keytool -keystore truststore.jks -alias $i -import -file $i.crt -storepass changeit -noprompt
-    rm $i.crt $i.key
-done
+# Create truststore and import the cert.
+keytool -keystore truststore.jks -alias proxy -import -file proxy.crt -storepass 123456 -noprompt
+rm proxy.crt proxy.key

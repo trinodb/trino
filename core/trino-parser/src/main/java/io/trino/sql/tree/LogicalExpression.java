@@ -81,9 +81,9 @@ public class LogicalExpression
     }
 
     @Override
-    public List<Node> getChildren()
+    public List<? extends Node> getChildren()
     {
-        return ImmutableList.copyOf(terms);
+        return terms;
     }
 
     public static LogicalExpression and(Expression left, Expression right)

@@ -39,6 +39,7 @@ import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.fromPrimitiveType;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toTypeInfo;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toTypeSignature;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.binaryTypeInfo;
@@ -57,7 +58,7 @@ import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils.getTypeInfosF
 
 public final class HiveType
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(HiveType.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(HiveType.class).instanceSize());
 
     public static final HiveType HIVE_BOOLEAN = new HiveType(booleanTypeInfo);
     public static final HiveType HIVE_BYTE = new HiveType(byteTypeInfo);
@@ -179,7 +180,7 @@ public final class HiveType
                 //   3. The Parquet format doesn't support uniontypes itself so there's no need to add support for it in Trino.
                 //   4. TODO: RCFile tables are not supported yet.
                 //   5. TODO: The support for Avro is done in SerDeUtils so it's possible that formats other than Avro are also supported. But verification is needed.
-                if (storageFormat.getSerDe().equalsIgnoreCase(AVRO.getSerDe()) || storageFormat.getSerDe().equalsIgnoreCase(ORC.getSerDe())) {
+                if (storageFormat.getSerde().equalsIgnoreCase(AVRO.getSerde()) || storageFormat.getSerde().equalsIgnoreCase(ORC.getSerde())) {
                     UnionTypeInfo unionTypeInfo = (UnionTypeInfo) typeInfo;
                     return unionTypeInfo.getAllUnionObjectTypeInfos().stream()
                             .allMatch(fieldTypeInfo -> isSupportedType(fieldTypeInfo, storageFormat));
@@ -198,9 +199,9 @@ public final class HiveType
     public static List<HiveType> toHiveTypes(String hiveTypes)
     {
         requireNonNull(hiveTypes, "hiveTypes is null");
-        return ImmutableList.copyOf(getTypeInfosFromTypeString(hiveTypes).stream()
+        return getTypeInfosFromTypeString(hiveTypes).stream()
                 .map(HiveType::toHiveType)
-                .collect(toImmutableList()));
+                .collect(toImmutableList());
     }
 
     public static HiveType toHiveType(TypeInfo typeInfo)

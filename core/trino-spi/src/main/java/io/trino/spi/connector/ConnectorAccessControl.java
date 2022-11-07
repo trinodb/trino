@@ -13,11 +13,16 @@
  */
 package io.trino.spi.connector;
 
+import io.trino.spi.function.FunctionKind;
+import io.trino.spi.security.AccessDeniedException;
+import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -25,6 +30,7 @@ import java.util.Set;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
+import static io.trino.spi.security.AccessDeniedException.denyCommentView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateRole;
 import static io.trino.spi.security.AccessDeniedException.denyCreateSchema;
@@ -40,8 +46,10 @@ import static io.trino.spi.security.AccessDeniedException.denyDropRole;
 import static io.trino.spi.security.AccessDeniedException.denyDropSchema;
 import static io.trino.spi.security.AccessDeniedException.denyDropTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropView;
+import static io.trino.spi.security.AccessDeniedException.denyExecuteFunction;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteTableProcedure;
+import static io.trino.spi.security.AccessDeniedException.denyGrantExecuteFunctionPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
@@ -57,6 +65,7 @@ import static io.trino.spi.security.AccessDeniedException.denyRevokeSchemaPrivil
 import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denySelectColumns;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.trino.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetRole;
 import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetTableAuthorization;
@@ -73,6 +82,8 @@ import static io.trino.spi.security.AccessDeniedException.denyShowSchemas;
 import static io.trino.spi.security.AccessDeniedException.denyShowTables;
 import static io.trino.spi.security.AccessDeniedException.denyTruncateTable;
 import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
+import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
 
 public interface ConnectorAccessControl
@@ -160,18 +171,6 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to create the specified table.
-     *
-     * @throws io.trino.spi.security.AccessDeniedException if not allowed
-     * @deprecated use {@link #checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName, Map properties)} instead
-     */
-    @Deprecated
-    default void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-        denyCreateTable(tableName.toString());
-    }
-
-    /**
      * Check if identity is allowed to create the specified table with properties.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
@@ -206,7 +205,7 @@ public interface ConnectorAccessControl
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanSetTableProperties(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
+    default void checkCanSetTableProperties(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Optional<Object>> properties)
     {
         denySetTableProperties(tableName.toString());
     }
@@ -219,6 +218,16 @@ public interface ConnectorAccessControl
     default void checkCanSetTableComment(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         denyCommentTable(tableName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to comment the specified view.
+     *
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanSetViewComment(ConnectorSecurityContext context, SchemaTableName viewName)
+    {
+        denyCommentView(viewName.toString());
     }
 
     /**
@@ -420,7 +429,7 @@ public interface ConnectorAccessControl
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanCreateMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    default void checkCanCreateMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName, Map<String, Object> properties)
     {
         denyCreateMaterializedView(materializedViewName.toString());
     }
@@ -433,6 +442,16 @@ public interface ConnectorAccessControl
     default void checkCanRefreshMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
     {
         denyRefreshMaterializedView(materializedViewName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to set the properties of the specified materialized view.
+     *
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanSetMaterializedViewProperties(ConnectorSecurityContext context, SchemaTableName materializedViewName, Map<String, Optional<Object>> properties)
+    {
+        denySetMaterializedViewProperties(materializedViewName.toString());
     }
 
     /**
@@ -453,6 +472,17 @@ public interface ConnectorAccessControl
     default void checkCanRenameMaterializedView(ConnectorSecurityContext context, SchemaTableName viewName, SchemaTableName newViewName)
     {
         denyRenameMaterializedView(viewName.toString(), newViewName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to grant an access to the function execution to grantee.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanGrantExecuteFunctionPrivilege(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName functionName, TrinoPrincipal grantee, boolean grantOption)
+    {
+        String granteeAsString = format("%s '%s'", grantee.getType().name().toLowerCase(Locale.ENGLISH), grantee.getName());
+        denyGrantExecuteFunctionPrivilege(functionName.toString(), Identity.ofUser(context.getIdentity().getUser()), granteeAsString);
     }
 
     /**
@@ -596,27 +626,37 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Get a row filter associated with the given table and identity.
-     * <p>
-     * The filter must be a scalar SQL expression of boolean type over the columns in the table.
+     * Check if identity is allowed to execute function
      *
-     * @return the filter, or {@link Optional#empty()} if not applicable
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
-    default Optional<ViewExpression> getRowFilter(ConnectorSecurityContext context, SchemaTableName tableName)
+    default void checkCanExecuteFunction(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName function)
     {
-        return Optional.empty();
+        denyExecuteFunction(function.toString());
     }
 
     /**
-     * Get a column mask associated with the given table, column and identity.
+     * Get row filters associated with the given table and identity.
      * <p>
-     * The mask must be a scalar SQL expression of a type coercible to the type of the column being masked. The expression
+     * Each filter must be a scalar SQL expression of boolean type over the columns in the table.
+     *
+     * @return the list of filters, or empty list if not applicable
+     */
+    default List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        return emptyList();
+    }
+
+    /**
+     * Get column masks associated with the given table, column and identity.
+     * <p>
+     * Each mask must be a scalar SQL expression of a type coercible to the type of the column being masked. The expression
      * must be written in terms of columns in the table.
      *
-     * @return the mask, or {@link Optional#empty()} if not applicable
+     * @return the list of masks, or empty list if not applicable
      */
-    default Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
+    default List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
     {
-        return Optional.empty();
+        return emptyList();
     }
 }

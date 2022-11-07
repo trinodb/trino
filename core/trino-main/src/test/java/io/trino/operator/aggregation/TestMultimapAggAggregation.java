@@ -22,7 +22,6 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.aggregation.groupby.AggregationTestInput;
 import io.trino.operator.aggregation.groupby.AggregationTestInputBuilder;
 import io.trino.operator.aggregation.groupby.AggregationTestOutput;
-import io.trino.operator.aggregation.multimapagg.MultimapAggregationFunction;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -86,6 +85,13 @@ public class TestMultimapAggAggregation
     public void testNullMap()
     {
         testMultimapAgg(DOUBLE, ImmutableList.<Double>of(), VARCHAR, ImmutableList.<String>of());
+    }
+
+    @Test
+    public void testKeysUseIsDistinctSemantics()
+    {
+        testMultimapAgg(DOUBLE, ImmutableList.of(Double.NaN, Double.NaN), BIGINT, ImmutableList.of(1L, 1L));
+        testMultimapAgg(DOUBLE, ImmutableList.of(Double.NaN, Double.NaN, Double.NaN), BIGINT, ImmutableList.of(2L, 1L, 2L));
     }
 
     @Test
@@ -174,9 +180,14 @@ public class TestMultimapAggAggregation
 
     private static TestingAggregationFunction getAggregationFunction(Type keyType, Type valueType)
     {
-        return FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of(MultimapAggregationFunction.NAME), fromTypes(keyType, valueType));
+        return FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("multimap_agg"), fromTypes(keyType, valueType));
     }
 
+    /**
+     * Given a list of keys and a list of corresponding values, manually
+     * aggregate them into a map of list and check that Trino's aggregation has
+     * the same results.
+     */
     private static <K, V> void testMultimapAgg(Type keyType, List<K> expectedKeys, Type valueType, List<V> expectedValues)
     {
         checkState(expectedKeys.size() == expectedValues.size(), "expectedKeys and expectedValues should have equal size");
@@ -195,7 +206,7 @@ public class TestMultimapAggAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of(MultimapAggregationFunction.NAME),
+                QualifiedName.of("multimap_agg"),
                 fromTypes(keyType, valueType),
                 map.isEmpty() ? null : map,
                 builder.build());

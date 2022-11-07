@@ -22,12 +22,9 @@ import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.ExpressionAnalyzer;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.parser.SqlParser;
-import io.trino.sql.planner.DesugarArrayConstructorRewriter;
-import io.trino.sql.planner.DesugarLikeRewriter;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.ExpressionVerifier;
 import io.trino.sql.planner.assertions.SymbolAliases;
-import io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
@@ -104,11 +101,7 @@ public final class ExpressionTestUtils
 
     private static Expression planExpressionInExistingTx(PlannerContext plannerContext, TypeProvider typeProvider, Expression expression, Session transactionSession)
     {
-        Expression rewritten = rewriteIdentifiersToSymbolReferences(expression);
-        rewritten = DesugarLikeRewriter.rewrite(rewritten, transactionSession, plannerContext.getMetadata(), createTestingTypeAnalyzer(plannerContext), typeProvider);
-        rewritten = DesugarArrayConstructorRewriter.rewrite(rewritten, transactionSession, plannerContext.getMetadata(), createTestingTypeAnalyzer(plannerContext), typeProvider);
-        rewritten = CanonicalizeExpressionRewriter.rewrite(rewritten, transactionSession, plannerContext.getMetadata(), createTestingTypeAnalyzer(plannerContext), typeProvider);
-        return resolveFunctionCalls(plannerContext, transactionSession, typeProvider, rewritten);
+        return resolveFunctionCalls(plannerContext, transactionSession, typeProvider, rewriteIdentifiersToSymbolReferences(expression));
     }
 
     public static Expression resolveFunctionCalls(PlannerContext plannerContext, Session session, TypeProvider typeProvider, Expression expression)

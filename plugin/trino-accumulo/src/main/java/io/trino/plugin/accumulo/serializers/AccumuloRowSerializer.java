@@ -25,7 +25,6 @@ import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.Value;
 import org.apache.hadoop.io.Text;
 
-import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.HashMap;
@@ -168,7 +167,7 @@ public interface AccumuloRowSerializer
      * @param name Column name
      * @return Date value
      */
-    Date getDate(String name);
+    long getDate(String name);
 
     /**
      * Encode the given Date value into the given Text object.
@@ -176,7 +175,7 @@ public interface AccumuloRowSerializer
      * @param text Text object to set
      * @param value Value to encode
      */
-    void setDate(Text text, Date value);
+    void setDate(Text text, long value);
 
     /**
      * Gets the Double value of the given Trino column.
@@ -366,7 +365,7 @@ public interface AccumuloRowSerializer
      * </tr>
      * <tr>
      * <td>DATE</td>
-     * <td>java.sql.Date, Long</td>
+     * <td>long</td>
      * </tr>
      * <tr>
      * <td>DOUBLE</td>
@@ -610,16 +609,14 @@ public interface AccumuloRowSerializer
             Type elementType = Types.getElementType(type);
             return getArrayFromBlock(elementType, block.getObject(position, Block.class));
         }
-        else if (Types.isMapType(type)) {
+        if (Types.isMapType(type)) {
             return getMapFromBlock(type, block.getObject(position, Block.class));
         }
-        else {
-            if (type.getJavaType() == Slice.class) {
-                Slice slice = (Slice) TypeUtils.readNativeValue(type, block, position);
-                return type.equals(VarcharType.VARCHAR) ? slice.toStringUtf8() : slice.getBytes();
-            }
-
-            return TypeUtils.readNativeValue(type, block, position);
+        if (type.getJavaType() == Slice.class) {
+            Slice slice = (Slice) TypeUtils.readNativeValue(type, block, position);
+            return type.equals(VarcharType.VARCHAR) ? slice.toStringUtf8() : slice.getBytes();
         }
+
+        return TypeUtils.readNativeValue(type, block, position);
     }
 }

@@ -13,11 +13,9 @@
  */
 package io.trino.plugin.redis;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.redis.util.CodecSupplier;
@@ -48,15 +46,10 @@ public final class RedisQueryRunner
     private static final Logger log = Logger.get(RedisQueryRunner.class);
     private static final String TPCH_SCHEMA = "tpch";
 
-    public static DistributedQueryRunner createRedisQueryRunner(RedisServer redisServer, String dataFormat, TpchTable<?>... tables)
-            throws Exception
-    {
-        return createRedisQueryRunner(redisServer, ImmutableMap.of(), dataFormat, ImmutableList.copyOf(tables));
-    }
-
     public static DistributedQueryRunner createRedisQueryRunner(
             RedisServer redisServer,
             Map<String, String> extraProperties,
+            Map<String, String> connectorProperties,
             String dataFormat,
             Iterable<TpchTable<?>> tables)
             throws Exception
@@ -72,7 +65,7 @@ public final class RedisQueryRunner
 
             Map<SchemaTableName, RedisTableDescription> tableDescriptions = createTpchTableDescriptions(queryRunner.getCoordinator().getTypeManager(), tables, dataFormat);
 
-            installRedisPlugin(redisServer, queryRunner, tableDescriptions);
+            installRedisPlugin(redisServer, queryRunner, tableDescriptions, connectorProperties);
 
             TestingTrinoClient trinoClient = queryRunner.getClient();
 
@@ -121,7 +114,7 @@ public final class RedisQueryRunner
 
             tableDescriptions.put(loadTpchTableDescription(tableDescriptionJsonCodec, tpchTable, dataFormat));
         }
-        return tableDescriptions.build();
+        return tableDescriptions.buildOrThrow();
     }
 
     public static Session createSession()
@@ -135,11 +128,10 @@ public final class RedisQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        Logging.initialize();
-
         DistributedQueryRunner queryRunner = createRedisQueryRunner(
                 new RedisServer(),
                 ImmutableMap.of("http-server.http.port", "8080"),
+                ImmutableMap.of(),
                 "string",
                 TpchTable.getTables());
 

@@ -22,13 +22,17 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 
+import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
 public class TpcdsSplitManager
@@ -53,8 +57,8 @@ public class TpcdsSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle tableHandle,
-            SplitSchedulingStrategy splitSchedulingStrategy,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            Constraint constraint)
     {
         Set<Node> nodes = nodeManager.getRequiredWorkerNodes();
         checkState(!nodes.isEmpty(), "No TPCDS nodes available");
@@ -62,9 +66,14 @@ public class TpcdsSplitManager
         int totalParts = nodes.size() * splitsPerNode;
         int partNumber = 0;
 
+        // sort to ensure the assignment is consistent with TpcdsNodePartitioningProvider
+        List<Node> sortedNodes = nodes.stream()
+                .sorted(comparing(node -> node.getHostAndPort().toString()))
+                .collect(toImmutableList());
+
         // Split the data using split and skew by the number of nodes available.
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
-        for (Node node : nodes) {
+        for (Node node : sortedNodes) {
             for (int i = 0; i < splitsPerNode; i++) {
                 splits.add(new TpcdsSplit(partNumber, totalParts, ImmutableList.of(node.getHostAndPort()), noSexism));
                 partNumber++;

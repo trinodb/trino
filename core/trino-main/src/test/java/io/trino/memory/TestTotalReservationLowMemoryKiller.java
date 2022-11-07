@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.memory.LowMemoryKillerTestingUtils.toNodeMemoryInfoList;
-import static io.trino.memory.LowMemoryKillerTestingUtils.toQueryMemoryInfoList;
+import static io.trino.memory.LowMemoryKillerTestingUtils.toRunningQueryInfoList;
 import static io.trino.testing.assertions.Assert.assertEquals;
 
 public class TestTotalReservationLowMemoryKiller
@@ -30,38 +30,32 @@ public class TestTotalReservationLowMemoryKiller
     private final LowMemoryKiller lowMemoryKiller = new TotalReservationLowMemoryKiller();
 
     @Test
-    public void testGeneralPoolHasNoReservation()
+    public void testMemoryPoolHasNoReservation()
     {
-        int reservePool = 10;
-        int generalPool = 12;
-        Map<String, Map<String, Long>> queries = ImmutableMap.<String, Map<String, Long>>builder()
-                .put("q_1", ImmutableMap.of("n1", 0L, "n2", 0L, "n3", 0L, "n4", 0L, "n5", 0L))
-                .put("q_r", ImmutableMap.of("n1", 6L, "n2", 6L, "n3", 6L, "n4", 6L, "n5", 6L))
-                .build();
+        int memoryPool = 12;
+        Map<String, Map<String, Long>> queries = ImmutableMap.of("q_1", ImmutableMap.of("n1", 0L, "n2", 0L, "n3", 0L, "n4", 0L, "n5", 0L));
         assertEquals(
-                lowMemoryKiller.chooseQueryToKill(
-                        toQueryMemoryInfoList("q_r", queries),
-                        toNodeMemoryInfoList(reservePool, generalPool, "q_r", queries)),
+                lowMemoryKiller.chooseTargetToKill(
+                        toRunningQueryInfoList(queries),
+                        toNodeMemoryInfoList(memoryPool, queries)),
                 Optional.empty());
     }
 
     @Test
     public void testSkewedQuery()
     {
-        int reservePool = 10;
-        int generalPool = 12;
+        int memoryPool = 12;
         // q2 is the query with the most total memory reservation, but not the query with the max memory reservation.
-        // This also tests the corner case where a node doesn't have a general pool.
+        // This also tests the corner case where a node has an empty memory pool
         Map<String, Map<String, Long>> queries = ImmutableMap.<String, Map<String, Long>>builder()
                 .put("q_1", ImmutableMap.of("n1", 0L, "n2", 8L, "n3", 0L, "n4", 0L, "n5", 0L))
                 .put("q_2", ImmutableMap.of("n1", 3L, "n2", 5L, "n3", 2L, "n4", 4L, "n5", 0L))
                 .put("q_3", ImmutableMap.of("n1", 0L, "n2", 0L, "n3", 9L, "n4", 0L, "n5", 0L))
-                .put("q_r", ImmutableMap.of("n1", 6L, "n2", 6L, "n3", 6L, "n4", 6L, "n5", 6L))
-                .build();
+                .buildOrThrow();
         assertEquals(
-                lowMemoryKiller.chooseQueryToKill(
-                        toQueryMemoryInfoList("q_r", queries),
-                        toNodeMemoryInfoList(reservePool, generalPool, "q_r", queries)),
-                Optional.of(new QueryId("q_2")));
+                lowMemoryKiller.chooseTargetToKill(
+                        toRunningQueryInfoList(queries),
+                        toNodeMemoryInfoList(memoryPool, queries)),
+                Optional.of(KillTarget.wholeQuery(new QueryId("q_2"))));
     }
 }

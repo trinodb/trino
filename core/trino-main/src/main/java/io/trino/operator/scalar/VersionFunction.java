@@ -16,16 +16,14 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 
 import java.lang.invoke.MethodHandle;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.metadata.FunctionKind.SCALAR;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.Reflection.methodHandle;
@@ -38,27 +36,22 @@ public final class VersionFunction
 
     public VersionFunction(String nodeVersion)
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        "version",
-                        ImmutableList.of(),
-                        ImmutableList.of(),
-                        VARCHAR.getTypeSignature(),
-                        ImmutableList.of(),
-                        false),
-                new FunctionNullability(false, ImmutableList.of()),
-                true,
-                true,
-                "Return server version",
-                SCALAR));
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .name("version")
+                        .returnType(VARCHAR)
+                        .build())
+                .hidden()
+                .description("Return server version")
+                .build());
         this.nodeVersion = nodeVersion;
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(nodeVersion);
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(),

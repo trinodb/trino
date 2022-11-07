@@ -18,6 +18,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.function.FunctionKind;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
@@ -101,7 +102,7 @@ public interface AccessControl
     /**
      * Filter the list of catalogs to those visible to the identity.
      */
-    Set<String> filterCatalogs(Identity identity, Set<String> catalogs);
+    Set<String> filterCatalogs(SecurityContext context, Set<String> catalogs);
 
     /**
      * Check if identity is allowed to create the specified schema.
@@ -162,15 +163,6 @@ public interface AccessControl
     void checkCanShowCreateTable(SecurityContext context, QualifiedObjectName tableName);
 
     /**
-     * Check if identity is allowed to create the specified table.
-     *
-     * @throws AccessDeniedException if not allowed
-     * @deprecated use {@link #checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName, Map properties)}
-     */
-    @Deprecated
-    void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName);
-
-    /**
      * Check if identity is allowed to create the specified table with properties.
      *
      * @throws AccessDeniedException if not allowed
@@ -196,7 +188,7 @@ public interface AccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanSetTableProperties(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> properties);
+    void checkCanSetTableProperties(SecurityContext context, QualifiedObjectName tableName, Map<String, Optional<Object>> properties);
 
     /**
      * Check if identity is allowed to comment the specified table.
@@ -204,6 +196,13 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanSetTableComment(SecurityContext context, QualifiedObjectName tableName);
+
+    /**
+     * Check if identity is allowed to comment the specified view.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanSetViewComment(SecurityContext context, QualifiedObjectName viewName);
 
     /**
      * Check if identity is allowed to comment the specified column.
@@ -343,7 +342,7 @@ public interface AccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanCreateMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName);
+    void checkCanCreateMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Object> properties);
 
     /**
      * Check if identity is allowed to refresh the specified materialized view.
@@ -367,11 +366,25 @@ public interface AccessControl
     void checkCanRenameMaterializedView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName);
 
     /**
+     * Check if identity is allowed to set the properties of the specified materialized view.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanSetMaterializedViewProperties(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Optional<Object>> properties);
+
+    /**
      * Check if identity is allowed to create a view that executes the function.
      *
      * @throws AccessDeniedException if not allowed
      */
     void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption);
+
+    /**
+     * Check if identity is allowed to create a view that executes the function.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName, Identity grantee, boolean grantOption);
 
     /**
      * Check if identity is allowed to grant a privilege to the grantee on the specified schema.
@@ -526,6 +539,13 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanExecuteFunction(SecurityContext context, String functionName);
+
+    /**
+     * Check if identity is allowed to execute function
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanExecuteFunction(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName);
 
     /**
      * Check if identity is allowed to execute given table procedure on given table

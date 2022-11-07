@@ -18,7 +18,6 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.RenameView;
@@ -26,11 +25,11 @@ import io.trino.sql.tree.RenameView;
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
@@ -69,16 +68,15 @@ public class RenameViewTask
             throw semanticException(
                     TABLE_NOT_FOUND,
                     statement,
-                    "View '%s' does not exist, but a materialized view with that name exists. Did you mean ALTER MATERIALIZED VIEW %s RENAME ...?", viewName, viewName);
+                    "View '%s' does not exist, but a materialized view with that name exists. Did you mean ALTER MATERIALIZED VIEW %s RENAME TO ...?", viewName, viewName);
         }
 
         if (!metadata.isView(session, viewName)) {
-            Optional<TableHandle> table = metadata.getTableHandle(session, viewName);
-            if (table.isPresent()) {
+            if (metadata.getTableHandle(session, viewName).isPresent()) {
                 throw semanticException(
                         TABLE_NOT_FOUND,
                         statement,
-                        "View '%s' does not exist, but a table with that name exists. Did you mean ALTER TABLE %s RENAME ...?", viewName, viewName);
+                        "View '%s' does not exist, but a table with that name exists. Did you mean ALTER TABLE %s RENAME TO ...?", viewName, viewName);
             }
 
             throw semanticException(TABLE_NOT_FOUND, statement, "View '%s' does not exist", viewName);
@@ -88,8 +86,14 @@ public class RenameViewTask
         if (metadata.getCatalogHandle(session, target.getCatalogName()).isEmpty()) {
             throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' does not exist", target.getCatalogName());
         }
+        if (metadata.isMaterializedView(session, target)) {
+            throw semanticException(GENERIC_USER_ERROR, statement, "Target view '%s' does not exist, but a materialized view with that name exists.", target);
+        }
         if (metadata.isView(session, target)) {
-            throw semanticException(TABLE_ALREADY_EXISTS, statement, "Target view '%s' already exists", target);
+            throw semanticException(GENERIC_USER_ERROR, statement, "Target view '%s' already exists", target);
+        }
+        if (metadata.getTableHandle(session, target).isPresent()) {
+            throw semanticException(TABLE_ALREADY_EXISTS, statement, "Target view '%s' does not exist, but a table with that name exists.", target);
         }
         if (!viewName.getCatalogName().equals(target.getCatalogName())) {
             throw semanticException(NOT_SUPPORTED, statement, "View rename across catalogs is not supported");

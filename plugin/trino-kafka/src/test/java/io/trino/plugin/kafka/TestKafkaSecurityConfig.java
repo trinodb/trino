@@ -35,15 +35,13 @@ public class TestKafkaSecurityConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(KafkaSecurityConfig.class)
-                .setSecurityProtocol(PLAINTEXT));
+                .setSecurityProtocol(null));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("kafka.security-protocol", "SSL")
-                .build();
+        Map<String, String> properties = ImmutableMap.of("kafka.security-protocol", "SSL");
 
         KafkaSecurityConfig expected = new KafkaSecurityConfig()
                 .setSecurityProtocol(SSL);
@@ -72,7 +70,7 @@ public class TestKafkaSecurityConfig
                 .setSecurityProtocol(securityProtocol)
                 .validate())
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Only PLAINTEXT and SSL security protocols are supported");
+                .hasMessage("Only PLAINTEXT and SSL security protocols are supported. See 'kafka.config.resources' if other security protocols are needed");
     }
 
     @DataProvider(name = "invalidSecurityProtocols")

@@ -23,19 +23,18 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.Type;
-import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
+import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static io.trino.operator.aggregation.TypedSet.createEqualityTypedSet;
+import static io.trino.operator.aggregation.TypedSet.createDistinctTypedSet;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
+import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.trino.spi.type.BigintType.BIGINT;
 
 @ScalarFunction("array_union")
@@ -49,9 +48,9 @@ public final class ArrayUnionFunction
     public static Block union(
             @TypeParameter("E") Type type,
             @OperatorDependency(
-                    operator = EQUAL,
+                    operator = IS_DISTINCT_FROM,
                     argumentTypes = {"E", "E"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = NULLABLE_RETURN)) BlockPositionEqual elementEqual,
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) BlockPositionIsDistinctFrom isDistinctOperator,
             @OperatorDependency(
                     operator = HASH_CODE,
                     argumentTypes = "E",
@@ -62,9 +61,9 @@ public final class ArrayUnionFunction
         int leftArrayCount = leftArray.getPositionCount();
         int rightArrayCount = rightArray.getPositionCount();
         BlockBuilder distinctElementBlockBuilder = type.createBlockBuilder(null, leftArrayCount + rightArrayCount);
-        TypedSet typedSet = createEqualityTypedSet(
+        TypedSet typedSet = createDistinctTypedSet(
                 type,
-                elementEqual,
+                isDistinctOperator,
                 elementHashCode,
                 distinctElementBlockBuilder,
                 leftArrayCount + rightArrayCount,

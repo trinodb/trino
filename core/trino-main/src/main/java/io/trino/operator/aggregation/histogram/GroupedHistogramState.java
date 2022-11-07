@@ -21,6 +21,7 @@ import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import org.openjdk.jol.info.ClassLayout;
 
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -30,19 +31,19 @@ public class GroupedHistogramState
         extends AbstractGroupedAccumulatorState
         implements HistogramState
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedHistogramState.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(GroupedHistogramState.class).instanceSize());
     private final Type type;
     private final BlockPositionEqual equalOperator;
     private final BlockPositionHashCode hashCodeOperator;
     private TypedHistogram typedHistogram;
     private long size;
 
-    public GroupedHistogramState(Type keyType, BlockPositionEqual equalOperator, BlockPositionHashCode hashCodeOperator, int expectedEntriesCount)
+    public GroupedHistogramState(Type type, BlockPositionEqual equalOperator, BlockPositionHashCode hashCodeOperator, int expectedEntriesCount)
     {
-        this.type = requireNonNull(keyType, "keyType is null");
+        this.type = requireNonNull(type, "type is null");
         this.equalOperator = requireNonNull(equalOperator, "equalOperator is null");
         this.hashCodeOperator = requireNonNull(hashCodeOperator, "hashCodeOperator is null");
-        typedHistogram = new GroupedTypedHistogram(keyType, equalOperator, hashCodeOperator, expectedEntriesCount);
+        typedHistogram = new GroupedTypedHistogram(type, equalOperator, hashCodeOperator, expectedEntriesCount);
     }
 
     @Override

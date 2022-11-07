@@ -22,7 +22,6 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.PlanNodeDecorrelator;
-import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.Assignments;
@@ -47,6 +46,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.plan.AggregationNode.globalAggregation;
+import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
 import static io.trino.sql.planner.plan.Patterns.applyNode;
@@ -174,7 +174,7 @@ public class TransformExistsApplyToCorrelatedJoin
                 applyNode.getInput(),
                 new ProjectNode(
                         context.getIdAllocator().getNextId(),
-                        new AggregationNode(
+                        singleAggregation(
                                 context.getIdAllocator().getNextId(),
                                 applyNode.getSubquery(),
                                 ImmutableMap.of(count, new Aggregation(
@@ -184,11 +184,7 @@ public class TransformExistsApplyToCorrelatedJoin
                                         Optional.empty(),
                                         Optional.empty(),
                                         Optional.empty())),
-                                globalAggregation(),
-                                ImmutableList.of(),
-                                AggregationNode.Step.SINGLE,
-                                Optional.empty(),
-                                Optional.empty()),
+                                globalAggregation()),
                         Assignments.of(exists, new ComparisonExpression(GREATER_THAN, count.toSymbolReference(), new Cast(new LongLiteral("0"), toSqlType(BIGINT))))),
                 applyNode.getCorrelation(),
                 INNER,

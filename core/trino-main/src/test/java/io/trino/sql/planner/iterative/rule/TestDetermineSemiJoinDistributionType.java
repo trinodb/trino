@@ -15,12 +15,12 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.FeaturesConfig.JoinDistributionType;
 import io.trino.cost.CostComparator;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.SymbolStatsEstimate;
 import io.trino.cost.TaskCountEstimator;
 import io.trino.spi.type.Type;
+import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.RuleAssert;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
@@ -39,7 +39,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expressions;
-import static io.trino.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
 import static io.trino.sql.planner.plan.SemiJoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.SemiJoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -55,7 +54,9 @@ public class TestDetermineSemiJoinDistributionType
     @BeforeClass
     public void setUp()
     {
-        tester = defaultRuleTester(ImmutableList.of(), ImmutableMap.of(), Optional.of(NODES_COUNT));
+        tester = RuleTester.builder()
+                .withNodeCountForStats(NODES_COUNT)
+                .build();
     }
 
     @AfterClass(alwaysRun = true)
@@ -239,7 +240,7 @@ public class TestDetermineSemiJoinDistributionType
                 .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 10)))
                 .build();
 
-        // B table is small enough to be replicated in AUTOMATIC_RESTRICTED mode
+        // B table is small enough to be replicated according to JOIN_MAX_BROADCAST_TABLE_SIZE limit
         assertDetermineSemiJoinDistributionType()
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
                 .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
@@ -275,7 +276,7 @@ public class TestDetermineSemiJoinDistributionType
                 .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
                 .build();
 
-        // B table exceeds AUTOMATIC_RESTRICTED limit therefore it is partitioned
+        // B table exceeds JOIN_MAX_BROADCAST_TABLE_SIZE limit therefore it is partitioned
         assertDetermineSemiJoinDistributionType()
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
                 .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
@@ -323,7 +324,7 @@ public class TestDetermineSemiJoinDistributionType
                 .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 64, 10)))
                 .build();
 
-        // build side exceeds AUTOMATIC_RESTRICTED limit but source plan nodes are small
+        // build side exceeds JOIN_MAX_BROADCAST_TABLE_SIZE limit but source plan nodes are small
         // therefore replicated distribution type is chosen
         assertDetermineSemiJoinDistributionType()
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())

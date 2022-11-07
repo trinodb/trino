@@ -24,14 +24,13 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -55,8 +54,6 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.expression.BytecodeExpressions.subtract;
 import static io.airlift.bytecode.instruction.VariableInstruction.incrementVariable;
-import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -75,30 +72,27 @@ public final class ArrayTransformFunction
 
     private ArrayTransformFunction()
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        "transform",
-                        ImmutableList.of(typeVariable("T"), typeVariable("U")),
-                        ImmutableList.of(),
-                        arrayType(new TypeSignature("U")),
-                        ImmutableList.of(
-                                arrayType(new TypeSignature("T")),
-                                functionType(new TypeSignature("T"), new TypeSignature("U"))),
-                        false),
-                new FunctionNullability(false, ImmutableList.of(false, false)),
-                false,
-                false,
-                "Apply lambda to each element of the array",
-                SCALAR));
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .name("transform")
+                        .typeVariable("T")
+                        .typeVariable("U")
+                        .returnType(arrayType(new TypeSignature("U")))
+                        .argumentType(arrayType(new TypeSignature("T")))
+                        .argumentType(functionType(new TypeSignature("T"), new TypeSignature("U")))
+                        .build())
+                .nondeterministic()
+                .description("Apply lambda to each element of the array")
+                .build());
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         Type inputType = ((ArrayType) boundSignature.getArgumentTypes().get(0)).getElementType();
         Type outputType = ((ArrayType) boundSignature.getReturnType()).getElementType();
         Class<?> generatedClass = generateTransform(inputType, outputType);
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, FUNCTION),

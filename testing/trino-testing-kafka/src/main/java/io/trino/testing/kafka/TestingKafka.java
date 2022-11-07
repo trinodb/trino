@@ -28,6 +28,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.MountableFile;
 
 import java.io.Closeable;
 import java.io.FileDescriptor;
@@ -48,6 +49,7 @@ import java.util.stream.Stream;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.MILLIS;
 import static org.testcontainers.containers.KafkaContainer.KAFKA_PORT;
+import static org.testcontainers.utility.MountableFile.forClasspathResource;
 
 public final class TestingKafka
         implements Closeable
@@ -86,10 +88,18 @@ public final class TestingKafka
         this.withSchemaRegistry = withSchemaRegistry;
         network = Network.newNetwork();
         closer.register(network::close);
+
+        // Confluent Docker entry point script overwrites /etc/kafka/log4j.properties
+        // Modify the template directly instead.
+        MountableFile kafkaLogTemplate = forClasspathResource("log4j-kafka.properties.template");
+        MountableFile schemaRegistryLogTemplate = forClasspathResource("log4j-schema-registry.properties.template");
         kafka = new KafkaContainer(KAFKA_IMAGE_NAME.withTag(confluentPlatformVersion))
                 .withStartupAttempts(3)
                 .withNetwork(network)
-                .withNetworkAliases("kafka");
+                .withNetworkAliases("kafka")
+                .withCopyFileToContainer(
+                        kafkaLogTemplate,
+                        "/etc/confluent/docker/log4j.properties.template");
         schemaRegistry = new GenericContainer<>(SCHEMA_REGISTRY_IMAGE_NAME.withTag(confluentPlatformVersion))
                 .withStartupAttempts(3)
                 .withNetwork(network)
@@ -99,6 +109,9 @@ public final class TestingKafka
                 .withEnv("SCHEMA_REGISTRY_LISTENERS", "http://0.0.0.0:" + SCHEMA_REGISTRY_PORT)
                 .withEnv("SCHEMA_REGISTRY_HEAP_OPTS", "-Xmx1G")
                 .withExposedPorts(SCHEMA_REGISTRY_PORT)
+                .withCopyFileToContainer(
+                        schemaRegistryLogTemplate,
+                        "/etc/confluent/docker/log4j.properties.template")
                 .dependsOn(kafka);
         closer.register(kafka::stop);
         closer.register(schemaRegistry::stop);
@@ -215,7 +228,7 @@ public final class TestingKafka
 
     public String getConnectString()
     {
-        return kafka.getContainerIpAddress() + ":" + kafka.getMappedPort(KAFKA_PORT);
+        return kafka.getHost() + ":" + kafka.getMappedPort(KAFKA_PORT);
     }
 
     private <K, V> KafkaProducer<K, V> createProducer(Map<String, String> extraProperties)
@@ -242,7 +255,7 @@ public final class TestingKafka
 
     public String getSchemaRegistryConnectString()
     {
-        return "http://" + schemaRegistry.getContainerIpAddress() + ":" + schemaRegistry.getMappedPort(SCHEMA_REGISTRY_PORT);
+        return "http://" + schemaRegistry.getHost() + ":" + schemaRegistry.getMappedPort(SCHEMA_REGISTRY_PORT);
     }
 
     public Network getNetwork()

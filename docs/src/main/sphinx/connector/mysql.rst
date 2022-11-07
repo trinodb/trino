@@ -2,6 +2,10 @@
 MySQL connector
 ===============
 
+.. raw:: html
+
+  <img src="../_static/img/mysql.png" class="connector-logo">
+
 The MySQL connector allows querying and creating tables in an external
 `MySQL <https://www.mysql.com/>`_ instance. This can be used to join data between different
 systems like MySQL and Hive, or between two different MySQL instances.
@@ -34,7 +38,7 @@ connection properties as appropriate for your setup:
 The ``connection-url`` defines the connection information and parameters to pass
 to the MySQL JDBC driver. The supported parameters for the URL are
 available in the `MySQL Developer Guide
-<https://dev.mysql.com/doc/connector-j/8.0/en/>`_.
+<https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-reference-configuration-properties.html>`_.
 
 For example, the following ``connection-url`` allows you to
 configure the JDBC driver to interpret time values based on UTC as a timezone on
@@ -50,6 +54,32 @@ determine the user credentials for the connection, often a service user. You can
 use :doc:`secrets </security/secrets>` to avoid actual values in the catalog
 properties files.
 
+.. _mysql-tls:
+
+Connection security
+^^^^^^^^^^^^^^^^^^^
+
+If you have TLS configured with a globally-trusted certificate installed on your
+data source, you can enable TLS between your cluster and the data
+source by appending a parameter to the JDBC connection string set in the
+``connection-url`` catalog configuration property.
+
+For example, with version 8.0 of MySQL Connector/J, use the ``sslMode``
+parameter to secure the connection with TLS. By default the parameter is set to
+``PREFERRED`` which secures the connection if enabled by the server. You can
+also set this parameter to ``REQUIRED`` which causes the connection to fail if
+TLS is not established.
+
+You can set the ``sslMode`` paremeter in the catalog configuration file by
+appending it to the ``connection-url`` configuration property:
+
+.. code-block:: properties
+
+  connection-url=jdbc:mysql://example.net:3306/?sslMode=REQUIRED
+
+For more information on TLS configuration options, see the `MySQL JDBC security
+documentation <https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-connp-props-security.html#cj-conn-prop_sslMode>`_.
+
 Multiple MySQL servers
 ^^^^^^^^^^^^^^^^^^^^^^
 
@@ -60,6 +90,9 @@ example, if you name the property file ``sales.properties``, Trino
 creates a catalog named ``sales`` using the configured connector.
 
 .. include:: jdbc-common-configurations.fragment
+
+.. |default_domain_compaction_threshold| replace:: ``32``
+.. include:: jdbc-domain-compaction-threshold.fragment
 
 .. include:: jdbc-procedures.fragment
 
@@ -73,14 +106,16 @@ Type mapping
 ------------
 
 Because Trino and MySQL each support types that the other does not, this
-connector modifies some types when reading or writing data.
+connector :ref:`modifies some types <type-mapping-overview>` when reading or
+writing data. Data types may not map the same way in both directions between
+Trino and the data source. Refer to the following sections for type mapping in
+each direction.
 
-MySQL to Trino read type mapping
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+MySQL to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This connector supports reading the following MySQL types and performs
-conversion to Trino types with the detailed mappings as shown in the following
-table.
+The connector maps MySQL types to the corresponding Trino types following
+this table:
 
 .. list-table:: MySQL to Trino type mapping
   :widths: 30, 20, 50
@@ -137,8 +172,14 @@ table.
   * - ``LONGTEXT``
     - ``VARCHAR``
     -
+  * - ``ENUM(n)``
+    - ``VARCHAR(n)``
+    -
   * - ``BINARY``, ``VARBINARY``, ``TINYBLOB``, ``BLOB``, ``MEDIUMBLOB``, ``LONGBLOB``
     - ``VARBINARY``
+    -
+  * - ``JSON``
+    - ``JSON``
     -
   * - ``DATE``
     - ``DATE``
@@ -155,12 +196,11 @@ table.
 
 No other types are supported.
 
-Trino to MySQL write type mapping
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Trino to MySQL type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This connector supports writing the following Trino types and performs
-conversion to MySQL types with the detailed mappings as shown in the
-following table.
+The connector maps Trino types to the corresponding MySQL types following
+this table:
 
 .. list-table:: Trino to MySQL type mapping
   :widths: 30, 20, 50
@@ -199,6 +239,9 @@ following table.
   * - ``VARCHAR(n)``
     - ``VARCHAR(n)``
     -
+  * - ``JSON``
+    - ``JSON``
+    -
   * - ``DATE``
     - ``DATE``
     -
@@ -213,19 +256,7 @@ No other types are supported.
 
 .. _mysql-decimal-handling:
 
-Decimal type handling
-^^^^^^^^^^^^^^^^^^^^^
-
-``DECIMAL`` types with precision larger than 38 can be mapped to a Trino ``DECIMAL``
-by setting the ``decimal-mapping`` configuration property or the ``decimal_mapping`` session property to
-``allow_overflow``. The scale of the resulting type is controlled via the ``decimal-default-scale``
-configuration property or the ``decimal-rounding-mode`` session property. The precision is always 38.
-
-By default, values that require rounding or truncation to fit will cause a failure at runtime. This behavior
-is controlled via the ``decimal-rounding-mode`` configuration property or the ``decimal_rounding_mode`` session
-property, which can be set to ``UNNECESSARY`` (the default),
-``UP``, ``DOWN``, ``CEILING``, ``FLOOR``, ``HALF_UP``, ``HALF_DOWN``, or ``HALF_EVEN``
-(see `RoundingMode <https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/math/RoundingMode.html#enum.constant.summary>`_).
+.. include:: decimal-type-handling.fragment
 
 .. include:: jdbc-type-mapping.fragment
 
@@ -255,10 +286,117 @@ Finally, you can access the ``clicks`` table in the ``web`` database::
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``mysql`` in the above examples.
 
+.. _mysql-sql-support:
+
+SQL support
+-----------
+
+The connector provides read access and write access to data and metadata in the
+MySQL database. In addition to the :ref:`globally available <sql-globally-available>` and
+:ref:`read operation <sql-read-operations>` statements, the connector supports
+the following statements:
+
+* :doc:`/sql/insert`
+* :doc:`/sql/delete`
+* :doc:`/sql/truncate`
+* :doc:`/sql/create-table`
+* :doc:`/sql/create-table-as`
+* :doc:`/sql/drop-table`
+* :doc:`/sql/create-schema`
+* :doc:`/sql/drop-schema`
+
+.. include:: sql-delete-limitation.fragment
+
+Table functions
+---------------
+
+The connector provides specific :doc:`table functions </functions/table>` to
+access MySQL.
+
+.. _mysql-query-function:
+
+``query(varchar) -> table``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``query`` function allows you to query the underlying database directly. It
+requires syntax native to MySQL, because the full query is pushed down and
+processed in MySQL. This can be useful for accessing native features which are
+not available in Trino or for improving query performance in situations where
+running a query natively may be faster.
+
+.. include:: polymorphic-table-function-ordering.fragment
+
+For example, group and concatenate all employee IDs by manager ID::
+
+    SELECT
+      *
+    FROM
+      TABLE(
+        mysql.system.query(
+          query => 'SELECT
+            manager_id, GROUP_CONCAT(employee_id)
+          FROM
+            company.employees
+          GROUP BY
+            manager_id'
+        )
+      );
+
+Performance
+-----------
+
+The connector includes a number of performance improvements, detailed in the
+following sections.
+
+.. _mysql-table-statistics:
+
+Table statistics
+^^^^^^^^^^^^^^^^
+
+The MySQL connector can use :doc:`table and column statistics
+</optimizer/statistics>` for :doc:`cost based optimizations
+</optimizer/cost-based-optimizations>`, to improve query processing performance
+based on the actual data in the data source.
+
+The statistics are collected by MySQL and retrieved by the connector.
+
+The table-level statistics are based on MySQL's ``INFORMATION_SCHEMA.TABLES``
+table. The column-level statistics are based on MySQL's index statistics
+``INFORMATION_SCHEMA.STATISTICS`` table. The connector can return column-level
+statistics only when the column is the first column in some index.
+
+MySQL database can automatically update its table and index statistics. In some
+cases, you may want to force statistics update, for example after creating new
+index, or after changing data in the table. You can do that by executing the
+following statement in MySQL Database.
+
+.. code-block:: text
+
+    ANALYZE TABLE table_name;
+
+.. note::
+
+    MySQL and Trino may use statistics information in different ways. For this
+    reason, the accuracy of table and column statistics returned by the MySQL
+    connector might be lower than than that of others connectors.
+
+**Improving statistics accuracy**
+
+You can improve statistics accuracy with histogram statistics (available since
+MySQL 8.0). To create histogram statistics execute the following statement in
+MySQL Database.
+
+.. code-block:: text
+
+    ANALYZE TABLE table_name UPDATE HISTOGRAM ON column_name1, column_name2, ...;
+
+Refer to MySQL documentation for information about options, limitations
+and additional considerations.
+
 .. _mysql-pushdown:
 
 Pushdown
---------
+^^^^^^^^
 
 The connector supports pushdown for a number of operations:
 
@@ -280,25 +418,6 @@ The connector supports pushdown for a number of operations:
 * :func:`var_pop`
 * :func:`var_samp`
 
+.. include:: join-pushdown-enabled-true.fragment
+
 .. include:: no-pushdown-text-type.fragment
-
-.. _mysql-sql-support:
-
-SQL support
------------
-
-The connector provides read access and write access to data and metadata in the
-MySQL database. In addition to the :ref:`globally available <sql-globally-available>` and
-:ref:`read operation <sql-read-operations>` statements, the connector supports
-the following statements:
-
-* :doc:`/sql/insert`
-* :doc:`/sql/delete`
-* :doc:`/sql/truncate`
-* :doc:`/sql/create-table`
-* :doc:`/sql/create-table-as`
-* :doc:`/sql/drop-table`
-* :doc:`/sql/create-schema`
-* :doc:`/sql/drop-schema`
-
-.. include:: sql-delete-limitation.fragment

@@ -24,9 +24,9 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignatureParameter;
 import org.testng.annotations.Test;
 
-import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.util.GregorianCalendar;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -37,7 +37,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -91,7 +91,7 @@ public class TestField
     public void testDate()
     {
         Type type = DATE;
-        Date expected = new Date(new GregorianCalendar(1999, 0, 1).getTime().getTime());
+        long expected = LocalDate.parse("1999-01-01").toEpochDay();
         Field f1 = new Field(10592L, type);
         assertEquals(f1.getDate(), expected);
         assertEquals(f1.getObject(), expected);
@@ -187,7 +187,7 @@ public class TestField
     @Test
     public void testTime()
     {
-        Type type = TIME;
+        Type type = TIME_MILLIS;
         Time expected = new Time(new GregorianCalendar(1970, 0, 1, 12, 30, 0).getTime().getTime());
         Field f1 = new Field(70200000L, type);
         assertEquals(f1.getTime(), expected);

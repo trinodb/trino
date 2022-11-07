@@ -16,9 +16,11 @@ package io.trino.metadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Booleans;
 import io.trino.metadata.PolymorphicScalarFunction.PolymorphicScalarFunctionChoice;
+import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.InvocationConvention.InvocationReturnConvention;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 
 import java.lang.reflect.Method;
@@ -32,8 +34,7 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.mangleOperatorName;
+import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -47,7 +48,7 @@ public final class PolymorphicScalarFunctionBuilder
     private Signature signature;
     private boolean nullableResult;
     private List<Boolean> argumentNullability;
-    private String description = "";
+    private String description;
     private Optional<Boolean> hidden = Optional.empty();
     private Boolean deterministic;
     private final List<PolymorphicScalarFunctionChoice> choices = new ArrayList<>();
@@ -114,14 +115,29 @@ public final class PolymorphicScalarFunctionBuilder
         checkState(deterministic != null, "deterministic is null");
         checkState(argumentNullability != null, "argumentNullability is null");
 
+        FunctionMetadata.Builder functionMetadata = FunctionMetadata.scalarBuilder()
+                .signature(signature);
+
+        if (description != null) {
+            functionMetadata.description(description);
+        }
+        else {
+            functionMetadata.noDescription();
+        }
+
+        if (hidden.orElse(false)) {
+            functionMetadata.hidden();
+        }
+        if (!deterministic) {
+            functionMetadata.nondeterministic();
+        }
+        if (nullableResult) {
+            functionMetadata.nullable();
+        }
+        functionMetadata.argumentNullability(argumentNullability);
+
         return new PolymorphicScalarFunction(
-                new FunctionMetadata(
-                        signature,
-                        new FunctionNullability(nullableResult, argumentNullability),
-                        hidden.orElse(false),
-                        deterministic,
-                        description,
-                        SCALAR),
+                functionMetadata.build(),
                 choices);
     }
 

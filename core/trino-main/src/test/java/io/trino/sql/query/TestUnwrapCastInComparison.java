@@ -350,6 +350,56 @@ public class TestUnwrapCastInComparison
         assertTrue(result, "Query evaluated to false: " + query);
     }
 
+    @Test
+    public void testUnwrapTimestampToDate()
+    {
+        for (String from : asList(
+                null,
+                "1981-06-21 23:59:59.999",
+                "1981-06-22 00:00:00.000",
+                "1981-06-22 00:00:00.001",
+                "1981-06-22 23:59:59.999",
+                "1981-06-23 00:00:00.000",
+                "1981-06-23 00:00:00.001")) {
+            for (String operator : COMPARISON_OPERATORS) {
+                for (String to : asList(
+                        null,
+                        "1981-06-21",
+                        "1981-06-22",
+                        "1981-06-23")) {
+                    String fromLiteral = from == null ? "NULL" : format("TIMESTAMP '%s'", from);
+                    String toLiteral = to == null ? "NULL" : format("DATE '%s'", to);
+                    validate(operator, "timestamp(3)", fromLiteral, "date", toLiteral);
+                    validateWithDateFunction(operator, "timestamp(3)", fromLiteral, toLiteral);
+                }
+            }
+        }
+    }
+
+    private void validateWithDateFunction(String operator, String fromType, Object fromValue, Object toValue)
+    {
+        validateWithDateFunction(assertions.getDefaultSession(), operator, fromType, fromValue, toValue);
+    }
+
+    private void validateWithDateFunction(Session session, String operator, String fromType, Object fromValue, Object toValue)
+    {
+        String query = format(
+                "SELECT (date(v) %s CAST(%s AS date)) " +
+                        "IS NOT DISTINCT FROM " +
+                        "(CAST(%s AS date) %s CAST(%s AS date)) " +
+                        "FROM (VALUES CAST(%s AS %s)) t(v)",
+                operator, toValue,
+                fromValue, operator, toValue,
+                fromValue, fromType);
+
+        boolean result = (boolean) assertions.execute(session, query)
+                .getMaterializedRows()
+                .get(0)
+                .getField(0);
+
+        assertTrue(result, "Query evaluated to false: " + query);
+    }
+
     private static List<String> toLiteral(String type, List<Number> values)
     {
         return values.stream()

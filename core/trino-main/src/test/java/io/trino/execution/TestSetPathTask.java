@@ -14,9 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.FeaturesConfig;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.CatalogManager;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
@@ -37,7 +35,7 @@ import java.util.concurrent.ExecutorService;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.metadata.MetadataManager.testMetadataManagerBuilder;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -54,11 +52,12 @@ public class TestSetPathTask
 
     public TestSetPathTask()
     {
-        CatalogManager catalogManager = new CatalogManager();
-        transactionManager = createTestTransactionManager(catalogManager);
+        transactionManager = createTestTransactionManager();
         accessControl = new AllowAllAccessControl();
 
-        metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
+        metadata = testMetadataManagerBuilder()
+                .withTransactionManager(transactionManager)
+                .build();
     }
 
     @AfterClass(alwaysRun = true)
@@ -96,6 +95,7 @@ public class TestSetPathTask
     private QueryStateMachine createQueryStateMachine(String query)
     {
         return QueryStateMachine.begin(
+                Optional.empty(),
                 query,
                 Optional.empty(),
                 TEST_SESSION,

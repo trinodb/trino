@@ -13,15 +13,12 @@
  */
 package io.trino.sql.planner.planprinter;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
-import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
-import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
-import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
 
 import java.util.Iterator;
 import java.util.List;
@@ -69,7 +66,10 @@ public class TextRenderer
     {
         output.append(indent.nodeIndent())
                 .append(node.getName())
-                .append(node.getIdentifier())
+                .append(node.getDescriptor().entrySet().stream()
+                        .filter(entry -> !(entry.getValue().isEmpty() || entry.getValue().equals("[]")))
+                        .map(entry -> entry.getKey() + " = " + entry.getValue())
+                        .collect(joining(", ", "[", "]")))
                 .append("\n");
 
         String columns = node.getOutputs().stream()
@@ -83,9 +83,9 @@ public class TextRenderer
             output.append(indentMultilineString(reorderJoinStatsAndCost, indent.detailIndent()));
         }
 
-        String estimates = printEstimates(plan, node);
+        List<PlanNodeStatsAndCostSummary> estimates = node.getEstimates(plan.getTypes());
         if (!estimates.isEmpty()) {
-            output.append(indentMultilineString(estimates, indent.detailIndent()));
+            output.append(indentMultilineString(printEstimates(estimates), indent.detailIndent()));
         }
 
         String stats = printStats(plan, node);
@@ -94,7 +94,7 @@ public class TextRenderer
         }
 
         if (!node.getDetails().isEmpty()) {
-            String details = indentMultilineString(node.getDetails(), indent.detailIndent());
+            String details = indentMultilineString(Joiner.on("\n").join(node.getDetails()), indent.detailIndent());
             output.append(details);
             if (!details.endsWith("\n")) {
                 output.append('\n');
@@ -118,7 +118,7 @@ public class TextRenderer
     private String printStats(PlanRepresentation plan, NodeRepresentation node)
     {
         StringBuilder output = new StringBuilder();
-        if (node.getStats().isEmpty() || !(plan.getTotalCpuTime().isPresent() && plan.getTotalScheduledTime().isPresent())) {
+        if (node.getStats().isEmpty() || !(plan.getTotalCpuTime().isPresent() && plan.getTotalScheduledTime().isPresent() && plan.getTotalBlockedTime().isPresent())) {
             return "";
         }
 
@@ -126,12 +126,15 @@ public class TextRenderer
 
         double scheduledTimeFraction = 100.0d * nodeStats.getPlanNodeScheduledTime().toMillis() / plan.getTotalScheduledTime().get().toMillis();
         double cpuTimeFraction = 100.0d * nodeStats.getPlanNodeCpuTime().toMillis() / plan.getTotalCpuTime().get().toMillis();
+        double blockedTimeFraction = 100.0d * nodeStats.getPlanNodeBlockedTime().toMillis() / plan.getTotalBlockedTime().get().toMillis();
 
-        output.append(format("CPU: %s (%s%%), Scheduled: %s (%s%%)",
+        output.append(format("CPU: %s (%s%%), Scheduled: %s (%s%%), Blocked: %s (%s%%)",
                 nodeStats.getPlanNodeCpuTime().convertToMostSuccinctTimeUnit(),
                 formatDouble(cpuTimeFraction),
                 nodeStats.getPlanNodeScheduledTime().convertToMostSuccinctTimeUnit(),
-                formatDouble(scheduledTimeFraction)));
+                formatDouble(scheduledTimeFraction),
+                nodeStats.getPlanNodeBlockedTime().convertToMostSuccinctTimeUnit(),
+                formatDouble(blockedTimeFraction)));
 
         output.append(format(", Output: %s (%s)", formatPositions(nodeStats.getPlanNodeOutputPositions()), nodeStats.getPlanNodeOutputDataSize().toString()));
         if (nodeStats.getPlanNodeSpilledDataSize().toBytes() > 0) {
@@ -244,13 +247,6 @@ public class TextRenderer
                     "HashBuilderOperator", "Right (build) ");
         }
 
-        if (operators.contains("LookupJoinOperator") && operators.contains("DynamicFilterSourceOperator")) {
-            // join plan node
-            return ImmutableMap.of(
-                    "LookupJoinOperator", "Left (probe) ",
-                    "DynamicFilterSourceOperator", "Right (build) ");
-        }
-
         return ImmutableMap.of();
     }
 
@@ -262,6 +258,13 @@ public class TextRenderer
         return "";
     }
 
+    private String printEstimates(List<PlanNodeStatsAndCostSummary> estimates)
+    {
+        return estimates.stream()
+                .map(this::formatPlanNodeStatsAndCostSummary)
+                .collect(joining("/", "Estimates: ", "\n"));
+    }
+
     private String formatPlanNodeStatsAndCostSummary(PlanNodeStatsAndCostSummary stats)
     {
         requireNonNull(stats, "stats is null");
@@ -271,41 +274,6 @@ public class TextRenderer
                 formatAsCpuCost(stats.getCpuCost()),
                 formatAsDataSize(stats.getMemoryCost()),
                 formatAsDataSize(stats.getNetworkCost()));
-    }
-
-    private String printEstimates(PlanRepresentation plan, NodeRepresentation node)
-    {
-        if (node.getEstimatedStats().stream().allMatch(PlanNodeStatsEstimate::isOutputRowCountUnknown) &&
-                node.getEstimatedCost().stream().allMatch(c -> c.equals(PlanCostEstimate.unknown()))) {
-            return "";
-        }
-
-        StringBuilder output = new StringBuilder();
-        int estimateCount = node.getEstimatedStats().size();
-
-        output.append("Estimates: ");
-        for (int i = 0; i < estimateCount; i++) {
-            PlanNodeStatsEstimate stats = node.getEstimatedStats().get(i);
-            PlanCostEstimate cost = node.getEstimatedCost().get(i);
-
-            List<Symbol> outputSymbols = node.getOutputs().stream()
-                    .map(TypedSymbol::getSymbol)
-                    .collect(toList());
-
-            output.append(format("{rows: %s (%s), cpu: %s, memory: %s, network: %s}",
-                    formatAsLong(stats.getOutputRowCount()),
-                    formatAsDataSize(stats.getOutputSizeInBytes(outputSymbols, plan.getTypes())),
-                    formatAsCpuCost(cost.getCpuCost()),
-                    formatAsDataSize(cost.getMaxMemory()),
-                    formatAsDataSize(cost.getNetworkCost())));
-
-            if (i < estimateCount - 1) {
-                output.append("/");
-            }
-        }
-
-        output.append("\n");
-        return output.toString();
     }
 
     private static boolean hasChildren(NodeRepresentation node, PlanRepresentation plan)

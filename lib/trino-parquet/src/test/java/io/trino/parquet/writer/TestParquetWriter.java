@@ -17,8 +17,6 @@ import org.apache.parquet.VersionParser;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -29,19 +27,14 @@ public class TestParquetWriter
             throws VersionParser.VersionParseException, IOException
     {
         String createdBy = ParquetWriter.formatCreatedBy("test-version");
+        // createdBy must start with "parquet-mr" to make Apache Hive perform timezone conversion on INT96 timestamps correctly
+        // when hive.parquet.timestamp.skip.conversion is set to true.
+        // Apache Hive 3.2 and above enable hive.parquet.timestamp.skip.conversion by default
+        assertThat(createdBy).startsWith("parquet-mr");
         VersionParser.ParsedVersion version = VersionParser.parse(createdBy);
         assertThat(version).isNotNull();
-        assertThat(version.application).isEqualTo("Trino");
+        assertThat(version.application).isEqualTo("parquet-mr-trino");
         assertThat(version.version).isEqualTo("test-version");
         assertThat(version.appBuildHash).isEqualTo("n/a");
-
-        // Ensure that createdBy field is parsable in CDH 5 to avoid the exception "parquet.io.ParquetDecodingException: Cannot read data due to PARQUET-246: to read safely, set parquet.split.files to false";
-        // the pattern is taken from https://github.com/cloudera/parquet-mr/blob/cdh5-1.5.0_5.15.1/parquet-common/src/main/java/parquet/VersionParser.java#L34
-        Pattern pattern = Pattern.compile("(.+) version ((.*) )?\\(build ?(.*)\\)");
-        Matcher matcher = pattern.matcher(createdBy);
-        assertThat(matcher.matches()).isTrue();
-        assertThat(matcher.group(1)).isEqualTo("Trino");
-        assertThat(matcher.group(3)).isEqualTo("test-version");
-        assertThat(matcher.group(4)).isEqualTo("n/a");
     }
 }

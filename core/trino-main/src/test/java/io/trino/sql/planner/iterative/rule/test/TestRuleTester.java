@@ -30,7 +30,6 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
@@ -95,7 +94,7 @@ public class TestRuleTester
                             (node, captures, context) -> Result.empty()))
                     .on(p ->
                             p.tableScan(
-                                    new TableHandle(tester.getCurrentConnectorId(), new TpchTableHandle("sf1", "nation", 1.0), TestingTransactionHandle.create(), Optional.empty()),
+                                    new TableHandle(tester.getCurrentCatalogHandle(), new TpchTableHandle("sf1", "nation", 1.0), TestingTransactionHandle.create()),
                                     List.of(p.symbol("x")),
                                     Map.of(p.symbol("x"), new TestingColumnHandle("column"))));
 

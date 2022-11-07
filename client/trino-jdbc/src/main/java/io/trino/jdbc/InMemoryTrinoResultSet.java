@@ -18,19 +18,29 @@ import io.trino.client.Column;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
-
-import static java.util.Objects.requireNonNull;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 class InMemoryTrinoResultSet
         extends AbstractTrinoResultSet
 {
+    private final AtomicBoolean closed = new AtomicBoolean();
+
     public InMemoryTrinoResultSet(List<Column> columns, List<List<Object>> results)
     {
-        super(Optional.empty(), columns, requireNonNull(results, "results is null").iterator());
+        super(Optional.empty(), columns, results.iterator());
     }
 
     @Override
     public void close()
             throws SQLException
-    {}
+    {
+        closed.set(true);
+    }
+
+    @Override
+    public boolean isClosed()
+            throws SQLException
+    {
+        return closed.get();
+    }
 }

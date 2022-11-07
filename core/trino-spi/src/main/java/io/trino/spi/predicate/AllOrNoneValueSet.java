@@ -19,11 +19,14 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -33,7 +36,7 @@ import static java.util.Objects.requireNonNull;
 public class AllOrNoneValueSet
         implements ValueSet
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(AllOrNoneValueSet.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(AllOrNoneValueSet.class).instanceSize());
 
     private final Type type;
     private final boolean all;
@@ -177,6 +180,15 @@ public class AllOrNoneValueSet
     {
         // type is not accounted for as the instances are cached (by TypeRegistry) and shared
         return INSTANCE_SIZE;
+    }
+
+    @Override
+    public Optional<Collection<Object>> tryExpandRanges(int valuesLimit)
+    {
+        if (this.isNone()) {
+            return Optional.of(List.of());
+        }
+        return Optional.empty();
     }
 
     @Override

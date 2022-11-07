@@ -26,6 +26,7 @@ import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
+import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
@@ -101,6 +102,7 @@ public final class GraphvizPrinter
         INDEX_SOURCE,
         UNNEST,
         ANALYZE_FINISH,
+        DYNAMIC_FILTER_SOURCE
     }
 
     private static final Map<NodeType, String> NODE_COLORS = immutableEnumMap(ImmutableMap.<NodeType, String>builder()
@@ -125,7 +127,8 @@ public final class GraphvizPrinter
             .put(NodeType.UNNEST, "crimson")
             .put(NodeType.SAMPLE, "goldenrod4")
             .put(NodeType.ANALYZE_FINISH, "plum")
-            .build());
+            .put(NodeType.DYNAMIC_FILTER_SOURCE, "magenta")
+            .buildOrThrow());
 
     static {
         checkState(NODE_COLORS.size() == NodeType.values().length);
@@ -354,7 +357,7 @@ public final class GraphvizPrinter
         {
             StringBuilder builder = new StringBuilder();
             for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
-                builder.append(format("%s := %s\\n", entry.getKey(), formatAggregation(entry.getValue())));
+                builder.append(format("%s := %s\\n", entry.getKey(), formatAggregation(new NoOpAnonymizer(), entry.getValue())));
             }
             printNode(node, format("Aggregate[%s]", node.getStep()), builder.toString(), NODE_COLORS.get(NodeType.AGGREGATE));
             return node.getSource().accept(this, context);
@@ -584,6 +587,13 @@ public final class GraphvizPrinter
             node.getIndexSource().accept(this, context);
 
             return null;
+        }
+
+        @Override
+        public Void visitDynamicFilterSource(DynamicFilterSourceNode node, Void context)
+        {
+            printNode(node, "DynamicFilterSource", NODE_COLORS.get(NodeType.DYNAMIC_FILTER_SOURCE));
+            return node.getSource().accept(this, context);
         }
 
         private void printNode(PlanNode node, String label, String color)

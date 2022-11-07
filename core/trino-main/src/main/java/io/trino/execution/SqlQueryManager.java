@@ -148,17 +148,23 @@ public class SqlQueryManager
     }
 
     @Override
-    public void addOutputInfoListener(QueryId queryId, Consumer<QueryOutputInfo> listener)
+    public void setOutputInfoListener(QueryId queryId, Consumer<QueryOutputInfo> listener)
     {
         requireNonNull(listener, "listener is null");
 
-        queryTracker.getQuery(queryId).addOutputInfoListener(listener);
+        queryTracker.getQuery(queryId).setOutputInfoListener(listener);
     }
 
     @Override
     public void outputTaskFailed(TaskId taskId, Throwable failure)
     {
         queryTracker.getQuery(taskId.getQueryId()).outputTaskFailed(taskId, failure);
+    }
+
+    @Override
+    public void resultsConsumed(QueryId queryId)
+    {
+        queryTracker.getQuery(queryId).resultsConsumed();
     }
 
     @Override

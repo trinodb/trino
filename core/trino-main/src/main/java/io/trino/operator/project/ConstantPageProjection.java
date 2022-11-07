@@ -63,6 +63,6 @@ public class ConstantPageProjection
     @Override
     public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
     {
-        return new CompletedWork<>(new RunLengthEncodedBlock(value, selectedPositions.size()));
+        return new CompletedWork<>(RunLengthEncodedBlock.create(value, selectedPositions.size()));
     }
 }

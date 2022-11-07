@@ -139,7 +139,7 @@ public class TestBinaryFileSpiller
     }
 
     @SafeVarargs
-    private final void testSpiller(List<Type> types, Spiller spiller, List<Page>... spills)
+    private void testSpiller(List<Type> types, Spiller spiller, List<Page>... spills)
             throws ExecutionException, InterruptedException
     {
         long spilledBytesBefore = spillerStats.getTotalSpilledBytes();

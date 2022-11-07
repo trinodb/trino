@@ -111,7 +111,7 @@ public class LongArrayBlockEncoding
         if (block instanceof LongArrayBlock) {
             return ((LongArrayBlock) block).getValuesSlice();
         }
-        else if (block instanceof LongArrayBlockBuilder) {
+        if (block instanceof LongArrayBlockBuilder) {
             return ((LongArrayBlockBuilder) block).getValuesSlice();
         }
 

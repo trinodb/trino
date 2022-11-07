@@ -19,9 +19,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import io.trino.metadata.AggregationFunctionMetadata;
+import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.tree.Expression;
@@ -54,6 +55,15 @@ public class AggregationNode
     private final Optional<Symbol> hashSymbol;
     private final Optional<Symbol> groupIdSymbol;
     private final List<Symbol> outputs;
+
+    public static AggregationNode singleAggregation(
+            PlanNodeId id,
+            PlanNode source,
+            Map<Symbol, Aggregation> aggregations,
+            GroupingSetDescriptor groupingSets)
+    {
+        return new AggregationNode(id, source, aggregations, groupingSets, ImmutableList.of(), SINGLE, Optional.empty(), Optional.empty());
+    }
 
     @JsonCreator
     public AggregationNode(
@@ -107,6 +117,15 @@ public class AggregationNode
     public GroupingSetDescriptor getGroupingSets()
     {
         return groupingSets;
+    }
+
+    /**
+     * @return true if the aggregation collapses all rows into a single global group (e.g., as a result of a GROUP BY () query).
+     * Otherwise, false.
+     */
+    public boolean hasSingleGlobalAggregation()
+    {
+        return hasEmptyGroupingSet() && getGroupingSetCount() == 1;
     }
 
     /**
@@ -206,7 +225,9 @@ public class AggregationNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new AggregationNode(getId(), Iterables.getOnlyElement(newChildren), aggregations, groupingSets, preGroupedSymbols, step, hashSymbol, groupIdSymbol);
+        return builderFrom(this)
+                .setSource(Iterables.getOnlyElement(newChildren))
+                .build();
     }
 
     public boolean producesDistinctRows()
@@ -217,7 +238,7 @@ public class AggregationNode
                 outputs.containsAll(new HashSet<>(groupingSets.getGroupingKeys()));
     }
 
-    public boolean isDecomposable(Metadata metadata)
+    public boolean isDecomposable(Session session, Metadata metadata)
     {
         boolean hasOrderBy = getAggregations().values().stream()
                 .map(Aggregation::getOrderingScheme)
@@ -228,13 +249,13 @@ public class AggregationNode
 
         boolean decomposableFunctions = getAggregations().values().stream()
                 .map(Aggregation::getResolvedFunction)
-                .map(metadata::getAggregationFunctionMetadata)
+                .map(resolvedFunction -> metadata.getAggregationFunctionMetadata(session, resolvedFunction))
                 .allMatch(AggregationFunctionMetadata::isDecomposable);
 
         return !hasOrderBy && !hasDistinct && decomposableFunctions;
     }
 
-    public boolean hasSingleNodeExecutionPreference(Metadata metadata)
+    public boolean hasSingleNodeExecutionPreference(Session session, Metadata metadata)
     {
         // There are two kinds of aggregations the have single node execution preference:
         //
@@ -246,7 +267,7 @@ public class AggregationNode
         // since all input have to be aggregated into one line output.
         //
         // 2. aggregations that must produce default output and are not decomposable, we cannot distribute them.
-        return (hasEmptyGroupingSet() && !hasNonEmptyGroupingSet()) || (hasDefaultOutput() && !isDecomposable(metadata));
+        return (hasEmptyGroupingSet() && !hasNonEmptyGroupingSet()) || (hasDefaultOutput() && !isDecomposable(session, metadata));
     }
 
     public boolean isStreamable()
@@ -476,6 +497,97 @@ public class AggregationNode
                     resolvedFunction.getSignature(),
                     expectedArgumentCount,
                     arguments.size());
+        }
+    }
+
+    public static Builder builderFrom(AggregationNode node)
+    {
+        return new Builder(node);
+    }
+
+    public static class Builder
+    {
+        private PlanNodeId id;
+        private PlanNode source;
+        private Map<Symbol, Aggregation> aggregations;
+        private GroupingSetDescriptor groupingSets;
+        private List<Symbol> preGroupedSymbols;
+        private Step step;
+        private Optional<Symbol> hashSymbol;
+        private Optional<Symbol> groupIdSymbol;
+
+        public Builder(AggregationNode node)
+        {
+            requireNonNull(node, "node is null");
+            this.id = node.getId();
+            this.source = node.getSource();
+            this.aggregations = node.getAggregations();
+            this.groupingSets = node.getGroupingSets();
+            this.preGroupedSymbols = node.getPreGroupedSymbols();
+            this.step = node.getStep();
+            this.hashSymbol = node.getHashSymbol();
+            this.groupIdSymbol = node.getGroupIdSymbol();
+        }
+
+        public Builder setId(PlanNodeId id)
+        {
+            this.id = requireNonNull(id, "id is null");
+            return this;
+        }
+
+        public Builder setSource(PlanNode source)
+        {
+            this.source = requireNonNull(source, "source is null");
+            return this;
+        }
+
+        public Builder setAggregations(Map<Symbol, Aggregation> aggregations)
+        {
+            this.aggregations = requireNonNull(aggregations, "aggregations is null");
+            return this;
+        }
+
+        public Builder setGroupingSets(GroupingSetDescriptor groupingSets)
+        {
+            this.groupingSets = requireNonNull(groupingSets, "groupingSets is null");
+            return this;
+        }
+
+        public Builder setPreGroupedSymbols(List<Symbol> preGroupedSymbols)
+        {
+            this.preGroupedSymbols = requireNonNull(preGroupedSymbols, "preGroupedSymbols is null");
+            return this;
+        }
+
+        public Builder setStep(Step step)
+        {
+            this.step = requireNonNull(step, "step is null");
+            return this;
+        }
+
+        public Builder setHashSymbol(Optional<Symbol> hashSymbol)
+        {
+            this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
+            return this;
+        }
+
+        public Builder setGroupIdSymbol(Optional<Symbol> groupIdSymbol)
+        {
+            this.groupIdSymbol = requireNonNull(groupIdSymbol, "groupIdSymbol is null");
+            return this;
+        }
+
+        public AggregationNode build()
+        {
+            return new AggregationNode(
+                    id,
+                    source,
+                    aggregations,
+                    groupingSets,
+                    preGroupedSymbols,
+                    step,
+                    hashSymbol,
+                    groupIdSymbol);
         }
     }
 }

@@ -41,13 +41,13 @@ public class TestDbResourceGroupConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("resource-groups.config-db-url", "jdbc:mysql://localhost:3306/config")
                 .put("resource-groups.config-db-user", "trino_admin")
                 .put("resource-groups.config-db-password", "trino_admin_pass")
                 .put("resource-groups.max-refresh-interval", "1m")
                 .put("resource-groups.exact-match-selector-enabled", "true")
-                .build();
+                .buildOrThrow();
         DbResourceGroupConfig expected = new DbResourceGroupConfig()
                 .setConfigDbUrl("jdbc:mysql://localhost:3306/config")
                 .setConfigDbUser("trino_admin")

@@ -148,7 +148,7 @@ public final class GeoFunctions
             .put(OGCPolylineSelfTangency, "Self-tangency")
             .put(OGCPolygonSelfTangency, "Self-tangency")
             .put(OGCDisconnectedInterior, "Disconnected interior")
-            .build();
+            .buildOrThrow();
     private static final int NUMBER_OF_DIMENSIONS = 3;
     private static final Block EMPTY_ARRAY_OF_INTS = IntegerType.INTEGER.createFixedSizeBlockBuilder(0).build();
 

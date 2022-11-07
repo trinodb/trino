@@ -15,11 +15,9 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Files;
 import com.google.common.io.RecursiveDeleteOption;
 import com.google.common.reflect.ClassPath;
 import io.airlift.log.Logger;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -47,6 +45,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.net.URI;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -61,7 +60,6 @@ import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveUtil.SPARK_TABLE_PROVIDER_KEY;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.nio.file.Files.copy;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
@@ -71,7 +69,6 @@ public abstract class AbstractTestHiveLocal
 {
     private static final Logger log = Logger.get(AbstractTestHiveLocal.class);
     private static final String DEFAULT_TEST_DB_NAME = "test";
-    private static final HiveIdentity HIVE_IDENTITY = new HiveIdentity(SESSION);
 
     private File tempDir;
     private final String testDbName;
@@ -90,12 +87,13 @@ public abstract class AbstractTestHiveLocal
 
     @BeforeClass(alwaysRun = true)
     public void initialize()
+            throws Exception
     {
-        tempDir = Files.createTempDir();
+        tempDir = Files.createTempDirectory(null).toFile();
 
         HiveMetastore metastore = createMetastore(tempDir);
 
-        metastore.createDatabase(HIVE_IDENTITY,
+        metastore.createDatabase(
                 Database.builder()
                         .setDatabaseName(testDbName)
                         .setOwnerName(Optional.of("public"))
@@ -114,7 +112,7 @@ public abstract class AbstractTestHiveLocal
             throws IOException
     {
         try {
-            getMetastoreClient().dropDatabase(HIVE_IDENTITY, testDbName, true);
+            getMetastoreClient().dropDatabase(testDbName, true);
         }
         finally {
             deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
@@ -222,9 +220,9 @@ public abstract class AbstractTestHiveLocal
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
             PrincipalPrivileges principalPrivileges = testingPrincipalPrivilege(session);
-            Table oldTable = transaction.getMetastore().getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName()).get();
+            Table oldTable = transaction.getMetastore().getTable(tableName.getSchemaName(), tableName.getTableName()).get();
             Table.Builder newTable = Table.builder(oldTable).setParameter(SPARK_TABLE_PROVIDER_KEY, provider);
-            transaction.getMetastore().replaceTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName(), newTable.build(), principalPrivileges);
+            transaction.getMetastore().replaceTable(tableName.getSchemaName(), tableName.getTableName(), newTable.build(), principalPrivileges);
             transaction.commit();
         }
     }
@@ -251,7 +249,7 @@ public abstract class AbstractTestHiveLocal
 
             tableBuilder.getStorageBuilder()
                     .setLocation(externalLocation.toString())
-                    .setStorageFormat(StorageFormat.create(hiveStorageFormat.getSerDe(), hiveStorageFormat.getInputFormat(), hiveStorageFormat.getOutputFormat()))
+                    .setStorageFormat(StorageFormat.create(hiveStorageFormat.getSerde(), hiveStorageFormat.getInputFormat(), hiveStorageFormat.getOutputFormat()))
                     .setBucketProperty(bucketProperty)
                     .setSerdeParameters(ImmutableMap.of());
 

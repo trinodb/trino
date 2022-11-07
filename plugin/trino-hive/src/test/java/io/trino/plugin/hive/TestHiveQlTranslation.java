@@ -65,7 +65,7 @@ public class TestHiveQlTranslation
                     // just quotes
                     .put("'\\''", "''''")
                     .put("\"\\\"\"", "'\"'")
-                    .build();
+                    .buildOrThrow();
 
     private static Map<String, String> extendedColumnNames =
             ImmutableMap.<String, String>builder()
@@ -100,7 +100,7 @@ public class TestHiveQlTranslation
                     .put(
                             "\"double: two singles''\"",
                             "'double: two singles'''''")
-                    .build();
+                    .buildOrThrow();
 
     /**
      * Prepare all combinations of {@code n} of the given columns.

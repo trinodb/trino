@@ -95,7 +95,6 @@ down to the connector in the query plan.
     Fragment 1 [SOURCE]
         Output layout: [count_3]
         Output partitioning: SINGLE []
-        Stage Execution Strategy: UNGROUPED_EXECUTION
         Aggregate(PARTIAL)
         │   Layout: [count_3:bigint]
         │   count_3 := count(*)
@@ -118,7 +117,6 @@ down to the connector in the query plan.
     Fragment 2 [SOURCE]
         Output layout: [d_date_sk, $hashvalue_6]
         Output partitioning: BROADCAST []
-        Stage Execution Strategy: UNGROUPED_EXECUTION
         ScanFilterProject[table = hive:default:date_dim, grouped = false, filterPredicate = ((""d_following_holiday"" = CAST('Y' AS char(1))) AND (""d_year"" = 2000))]
             Layout: [d_date_sk:bigint, $hashvalue_6:bigint]
             Estimates: {rows: 0 (0B), cpu: 0, memory: 0B, network: 0B}/{rows: 0 (0B), cpu: 0, memory: 0B, network: 0B}/{rows: 0 (0B), cpu: 0, memory: 0B, network: 0B}

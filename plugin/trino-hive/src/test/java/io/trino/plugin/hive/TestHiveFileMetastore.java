@@ -14,7 +14,6 @@
 package io.trino.plugin.hive;
 
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import org.testng.SkipException;
@@ -36,8 +35,7 @@ public class TestHiveFileMetastore
         return new FileHiveMetastore(
                 new NodeVersion("test_version"),
                 HDFS_ENVIRONMENT,
-                new MetastoreConfig()
-                        .setHideDeltaLakeTables(true),
+                true,
                 new FileHiveMetastoreConfig()
                         .setCatalogDirectory(baseDir.toURI().toString())
                         .setMetastoreUser("test"));
@@ -68,6 +66,12 @@ public class TestHiveFileMetastore
     public void testBucketedTableEvolution()
     {
         // FileHiveMetastore only supports replaceTable() for views
+    }
+
+    @Override
+    public void testBucketedTableEvolutionWithDifferentReadBucketCount()
+    {
+        // FileHiveMetastore has various incompatibilities
     }
 
     @Override

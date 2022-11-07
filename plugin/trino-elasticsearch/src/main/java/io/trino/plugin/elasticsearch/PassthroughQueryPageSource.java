@@ -78,7 +78,7 @@ public class PassthroughQueryPageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
         return 0;
     }

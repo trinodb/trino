@@ -25,6 +25,8 @@ import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.MergeProcessorNode;
+import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
 import io.trino.sql.planner.plan.PlanNode;
@@ -149,7 +151,7 @@ public class SymbolMapper
         return new AggregationNode(
                 newNodeId,
                 source,
-                aggregations.build(),
+                aggregations.buildOrThrow(),
                 groupingSets(
                         mapAndDistinct(node.getGroupingKeys()),
                         node.getGroupingSetCount(),
@@ -215,7 +217,7 @@ public class SymbolMapper
                 node.getId(),
                 source,
                 mapAndDistinct(node.getSpecification()),
-                newFunctions.build(),
+                newFunctions.buildOrThrow(),
                 node.getHashSymbol().map(this::map),
                 node.getPrePartitionedInputs().stream()
                         .map(this::map)
@@ -274,8 +276,8 @@ public class SymbolMapper
                         .map(this::map)
                         .collect(toImmutableSet()),
                 node.getPreSortedOrderPrefix(),
-                newFunctions.build(),
-                newMeasures.build(),
+                newFunctions.buildOrThrow(),
+                newMeasures.buildOrThrow(),
                 node.getCommonBaseFrame().map(this::map),
                 node.getRowsPerMatch(),
                 node.getSkipToLabel(),
@@ -283,7 +285,7 @@ public class SymbolMapper
                 node.isInitial(),
                 node.getPattern(),
                 node.getSubsets(),
-                newVariableDefinitions.build());
+                newVariableDefinitions.buildOrThrow());
     }
 
     private ExpressionAndValuePointers map(ExpressionAndValuePointers expressionAndValuePointers)
@@ -362,7 +364,7 @@ public class SymbolMapper
                 newOrderings.put(canonical, orderingScheme.getOrdering(symbol));
             }
         }
-        return new OrderingScheme(newSymbols.build(), newOrderings.build());
+        return new OrderingScheme(newSymbols.build(), newOrderings.buildOrThrow());
     }
 
     public DistinctLimitNode map(DistinctLimitNode node, PlanNode source)
@@ -403,7 +405,6 @@ public class SymbolMapper
                 map(node.getFragmentSymbol()),
                 map(node.getColumns()),
                 node.getColumnNames(),
-                node.getNotNullColumnSymbols(),
                 node.getPartitioningScheme().map(partitioningScheme -> map(partitioningScheme, source.getOutputSymbols())),
                 node.getPreferredPartitioningScheme().map(partitioningScheme -> map(partitioningScheme, source.getOutputSymbols())),
                 node.getStatisticsAggregation().map(this::map),
@@ -428,6 +429,49 @@ public class SymbolMapper
                 node.getColumnNames(),
                 node.getPartitioningScheme().map(partitioningScheme -> map(partitioningScheme, source.getOutputSymbols())),
                 node.getPreferredPartitioningScheme().map(partitioningScheme -> map(partitioningScheme, source.getOutputSymbols())));
+    }
+
+    public MergeWriterNode map(MergeWriterNode node, PlanNode source)
+    {
+        // Intentionally does not use mapAndDistinct on columns as that would remove columns
+        List<Symbol> newOutputs = map(node.getOutputSymbols());
+
+        return new MergeWriterNode(
+                node.getId(),
+                source,
+                node.getTarget(),
+                map(node.getProjectedSymbols()),
+                node.getPartitioningScheme().map(partitioningScheme -> map(partitioningScheme, source.getOutputSymbols())),
+                newOutputs);
+    }
+
+    public MergeWriterNode map(MergeWriterNode node, PlanNode source, PlanNodeId newId)
+    {
+        // Intentionally does not use mapAndDistinct on columns as that would remove columns
+        List<Symbol> newOutputs = map(node.getOutputSymbols());
+
+        return new MergeWriterNode(
+                newId,
+                source,
+                node.getTarget(),
+                map(node.getProjectedSymbols()),
+                node.getPartitioningScheme().map(partitioningScheme -> map(partitioningScheme, source.getOutputSymbols())),
+                newOutputs);
+    }
+
+    public MergeProcessorNode map(MergeProcessorNode node, PlanNode source)
+    {
+        List<Symbol> newOutputs = map(node.getOutputSymbols());
+
+        return new MergeProcessorNode(
+                node.getId(),
+                source,
+                node.getTarget(),
+                map(node.getRowIdSymbol()),
+                map(node.getMergeRowSymbol()),
+                map(node.getDataColumnSymbols()),
+                map(node.getRedistributionColumnSymbols()),
+                newOutputs);
     }
 
     public PartitioningScheme map(PartitioningScheme scheme, List<Symbol> sourceLayout)
@@ -514,7 +558,7 @@ public class SymbolMapper
 
         public SymbolMapper build()
         {
-            return SymbolMapper.symbolMapper(mappings.build());
+            return SymbolMapper.symbolMapper(mappings.buildOrThrow());
         }
     }
 }

@@ -130,18 +130,19 @@ public class TransformCorrelatedDistinctAggregationWithoutProjection
 
         // restore aggregation
         AggregationNode aggregation = captures.get(AGGREGATION);
-        aggregation = new AggregationNode(
-                aggregation.getId(),
-                join,
-                aggregation.getAggregations(),
-                singleGroupingSet(ImmutableList.<Symbol>builder()
-                        .addAll(join.getLeftOutputSymbols())
-                        .addAll(aggregation.getGroupingKeys())
-                        .build()),
-                ImmutableList.of(),
-                aggregation.getStep(),
-                Optional.empty(),
-                Optional.empty());
+        aggregation = AggregationNode.builderFrom(aggregation)
+                .setSource(join)
+                .setGroupingSets(
+                        singleGroupingSet(ImmutableList.<Symbol>builder()
+                                .addAll(join.getLeftOutputSymbols())
+                                .addAll(aggregation.getGroupingKeys())
+                                .build()))
+                .setPreGroupedSymbols(
+                        ImmutableList.of())
+                .setHashSymbol(
+                        Optional.empty())
+                .setGroupIdSymbol(Optional.empty())
+                .build();
 
         // restrict outputs
         Optional<PlanNode> project = restrictOutputs(context.getIdAllocator(), aggregation, ImmutableSet.copyOf(correlatedJoinNode.getOutputSymbols()));

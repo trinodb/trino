@@ -17,25 +17,25 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionDependencies;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.Metadata;
-import io.trino.metadata.Signature;
+import io.trino.metadata.FunctionManager;
+import io.trino.metadata.InternalFunctionDependencies;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.annotations.ImplementationDependency;
 import io.trino.operator.annotations.LiteralImplementationDependency;
 import io.trino.operator.annotations.TypeImplementationDependency;
-import io.trino.operator.scalar.ChoicesScalarFunctionImplementation;
+import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
 import io.trino.operator.scalar.ParametricScalar;
 import io.trino.operator.scalar.annotations.ParametricScalarImplementation.ParametricScalarImplementationChoice;
 import io.trino.operator.scalar.annotations.ScalarFromAnnotationsParser;
 import io.trino.spi.block.Block;
+import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.IsNull;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.Signature;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
@@ -49,8 +49,7 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
-import static io.trino.metadata.Signature.typeVariable;
+import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -63,7 +62,7 @@ import static org.testng.Assert.assertTrue;
 public class TestAnnotationEngineForScalars
         extends TestAnnotationEngine
 {
-    private static final Metadata METADATA = createTestMetadataManager();
+    private static final FunctionManager FUNCTION_MANAGER = createTestingFunctionManager();
 
     @ScalarFunction("single_implementation_parametric_scalar")
     @Description("Simple scalar with single implementation based on class")
@@ -79,10 +78,11 @@ public class TestAnnotationEngineForScalars
     @Test
     public void testSingleImplementationScalarParse()
     {
-        Signature expectedSignature = new Signature(
-                "single_implementation_parametric_scalar",
-                DOUBLE.getTypeSignature(),
-                ImmutableList.of(DOUBLE.getTypeSignature()));
+        Signature expectedSignature = Signature.builder()
+                .name("single_implementation_parametric_scalar")
+                .returnType(DOUBLE)
+                .argumentType(DOUBLE)
+                .build();
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(SingleImplementationScalarFunction.class);
         assertEquals(functions.size(), 1);
@@ -98,9 +98,9 @@ public class TestAnnotationEngineForScalars
         assertImplementationCount(scalar, 1, 0, 0);
 
         BoundSignature boundSignature = new BoundSignature(expectedSignature.getName(), DOUBLE, ImmutableList.of(DOUBLE));
-        ChoicesScalarFunctionImplementation specialized = (ChoicesScalarFunctionImplementation) scalar.specialize(
+        ChoicesSpecializedSqlScalarFunction specialized = (ChoicesSpecializedSqlScalarFunction) scalar.specialize(
                 boundSignature,
-                new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of()));
+                new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionImplementation, ImmutableMap.of(), ImmutableSet.of()));
         assertFalse(specialized.getChoices().get(0).getInstanceFactory().isPresent());
     }
 
@@ -167,10 +167,12 @@ public class TestAnnotationEngineForScalars
     @Test
     public void testWithNullablePrimitiveArgScalarParse()
     {
-        Signature expectedSignature = new Signature(
-                "scalar_with_nullable",
-                DOUBLE.getTypeSignature(),
-                ImmutableList.of(DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
+        Signature expectedSignature = Signature.builder()
+                .name("scalar_with_nullable")
+                .returnType(DOUBLE)
+                .argumentType(DOUBLE)
+                .argumentType(DOUBLE)
+                .build();
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(WithNullablePrimitiveArgScalarFunction.class);
         assertEquals(functions.size(), 1);
@@ -185,9 +187,9 @@ public class TestAnnotationEngineForScalars
         assertTrue(functionMetadata.getFunctionNullability().isArgumentNullable(1));
 
         BoundSignature boundSignature = new BoundSignature(expectedSignature.getName(), DOUBLE, ImmutableList.of(DOUBLE, DOUBLE));
-        ChoicesScalarFunctionImplementation specialized = (ChoicesScalarFunctionImplementation) scalar.specialize(
+        ChoicesSpecializedSqlScalarFunction specialized = (ChoicesSpecializedSqlScalarFunction) scalar.specialize(
                 boundSignature,
-                new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of()));
+                new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionImplementation, ImmutableMap.of(), ImmutableSet.of()));
         assertFalse(specialized.getChoices().get(0).getInstanceFactory().isPresent());
     }
 
@@ -207,10 +209,12 @@ public class TestAnnotationEngineForScalars
     @Test
     public void testWithNullableComplexArgScalarParse()
     {
-        Signature expectedSignature = new Signature(
-                "scalar_with_nullable_complex",
-                DOUBLE.getTypeSignature(),
-                ImmutableList.of(DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
+        Signature expectedSignature = Signature.builder()
+                .name("scalar_with_nullable_complex")
+                .returnType(DOUBLE)
+                .argumentType(DOUBLE)
+                .argumentType(DOUBLE)
+                .build();
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(WithNullableComplexArgScalarFunction.class);
         assertEquals(functions.size(), 1);
@@ -225,9 +229,9 @@ public class TestAnnotationEngineForScalars
         assertTrue(functionMetadata.getFunctionNullability().isArgumentNullable(1));
 
         BoundSignature boundSignature = new BoundSignature(expectedSignature.getName(), DOUBLE, ImmutableList.of(DOUBLE, DOUBLE));
-        ChoicesScalarFunctionImplementation specialized = (ChoicesScalarFunctionImplementation) scalar.specialize(
+        ChoicesSpecializedSqlScalarFunction specialized = (ChoicesSpecializedSqlScalarFunction) scalar.specialize(
                 boundSignature,
-                new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of()));
+                new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionImplementation, ImmutableMap.of(), ImmutableSet.of()));
         assertFalse(specialized.getChoices().get(0).getInstanceFactory().isPresent());
     }
 
@@ -245,10 +249,11 @@ public class TestAnnotationEngineForScalars
     @Test
     public void testStaticMethodScalarParse()
     {
-        Signature expectedSignature = new Signature(
-                "static_method_scalar",
-                DOUBLE.getTypeSignature(),
-                ImmutableList.of(DOUBLE.getTypeSignature()));
+        Signature expectedSignature = Signature.builder()
+                .name("static_method_scalar")
+                .returnType(DOUBLE)
+                .argumentType(DOUBLE)
+                .build();
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinitions(StaticMethodScalarFunction.class);
         assertEquals(functions.size(), 1);
@@ -283,15 +288,17 @@ public class TestAnnotationEngineForScalars
     @Test
     public void testMultiScalarParse()
     {
-        Signature expectedSignature1 = new Signature(
-                "static_method_scalar_1",
-                DOUBLE.getTypeSignature(),
-                ImmutableList.of(DOUBLE.getTypeSignature()));
+        Signature expectedSignature1 = Signature.builder()
+                .name("static_method_scalar_1")
+                .returnType(DOUBLE)
+                .argumentType(DOUBLE)
+                .build();
 
-        Signature expectedSignature2 = new Signature(
-                "static_method_scalar_2",
-                BIGINT.getTypeSignature(),
-                ImmutableList.of(BIGINT.getTypeSignature()));
+        Signature expectedSignature2 = Signature.builder()
+                .name("static_method_scalar_2")
+                .returnType(BIGINT)
+                .argumentType(BIGINT)
+                .build();
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinitions(MultiScalarFunction.class);
         assertEquals(functions.size(), 2);
@@ -336,13 +343,12 @@ public class TestAnnotationEngineForScalars
     @Test
     public void testParametricScalarParse()
     {
-        Signature expectedSignature = new Signature(
-                "parametric_scalar",
-                ImmutableList.of(typeVariable("T")),
-                ImmutableList.of(),
-                new TypeSignature("T"),
-                ImmutableList.of(new TypeSignature("T")),
-                false);
+        Signature expectedSignature = Signature.builder()
+                .name("parametric_scalar")
+                .typeVariable("T")
+                .returnType(new TypeSignature("T"))
+                .argumentType(new TypeSignature("T"))
+                .build();
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(ParametricScalarFunction.class);
         assertEquals(functions.size(), 1);
@@ -377,21 +383,17 @@ public class TestAnnotationEngineForScalars
     @Test
     public void testComplexParametricScalarParse()
     {
-        Signature expectedSignature = new Signature(
-                "with_exact_scalar",
-                ImmutableList.of(),
-                ImmutableList.of(),
-                BOOLEAN.getTypeSignature(),
-                ImmutableList.of(arrayType(new TypeSignature("varchar", TypeSignatureParameter.typeVariable("x")))),
-                false);
+        Signature expectedSignature = Signature.builder()
+                .name("with_exact_scalar")
+                .returnType(BOOLEAN)
+                .argumentType(arrayType(new TypeSignature("varchar", TypeSignatureParameter.typeVariable("x"))))
+                .build();
 
-        Signature exactSignature = new Signature(
-                "with_exact_scalar",
-                ImmutableList.of(),
-                ImmutableList.of(),
-                BOOLEAN.getTypeSignature(),
-                ImmutableList.of(arrayType(createVarcharType(17).getTypeSignature())),
-                false);
+        Signature exactSignature = Signature.builder()
+                .name("with_exact_scalar")
+                .returnType(BOOLEAN)
+                .argumentType(arrayType(createVarcharType(17).getTypeSignature()))
+                .build();
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(ComplexParametricScalarFunction.class);
         assertEquals(functions.size(), 1);
@@ -423,13 +425,11 @@ public class TestAnnotationEngineForScalars
     @Test
     public void testSimpleInjectionScalarParse()
     {
-        Signature expectedSignature = new Signature(
-                "parametric_scalar_inject",
-                ImmutableList.of(),
-                ImmutableList.of(),
-                BIGINT.getTypeSignature(),
-                ImmutableList.of(new TypeSignature("varchar", TypeSignatureParameter.typeVariable("x"))),
-                false);
+        Signature expectedSignature = Signature.builder()
+                .name("parametric_scalar_inject")
+                .returnType(BIGINT)
+                .argumentType(new TypeSignature("varchar", TypeSignatureParameter.typeVariable("x")))
+                .build();
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(SimpleInjectionScalarFunction.class);
         assertEquals(functions.size(), 1);
@@ -478,13 +478,12 @@ public class TestAnnotationEngineForScalars
     @Test
     public void testConstructorInjectionScalarParse()
     {
-        Signature expectedSignature = new Signature(
-                "parametric_scalar_inject_constructor",
-                ImmutableList.of(typeVariable("T")),
-                ImmutableList.of(),
-                BIGINT.getTypeSignature(),
-                ImmutableList.of(arrayType(new TypeSignature("T"))),
-                false);
+        Signature expectedSignature = Signature.builder()
+                .name("parametric_scalar_inject_constructor")
+                .typeVariable("T")
+                .returnType(BIGINT)
+                .argumentType(arrayType(new TypeSignature("T")))
+                .build();
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(ConstructorInjectionScalarFunction.class);
         assertEquals(functions.size(), 1);
@@ -521,13 +520,11 @@ public class TestAnnotationEngineForScalars
     @Test
     public void testFixedTypeParameterParse()
     {
-        Signature expectedSignature = new Signature(
-                "fixed_type_parameter_scalar_function",
-                ImmutableList.of(),
-                ImmutableList.of(),
-                BIGINT.getTypeSignature(),
-                ImmutableList.of(BIGINT.getTypeSignature()),
-                false);
+        Signature expectedSignature = Signature.builder()
+                .name("fixed_type_parameter_scalar_function")
+                .returnType(BIGINT)
+                .argumentType(BIGINT)
+                .build();
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(FixedTypeParameterScalarFunction.class);
         assertEquals(functions.size(), 1);
@@ -559,13 +556,13 @@ public class TestAnnotationEngineForScalars
     @Test
     public void testPartiallyFixedTypeParameterParse()
     {
-        Signature expectedSignature = new Signature(
-                "partially_fixed_type_parameter_scalar_function",
-                ImmutableList.of(typeVariable("T1"), typeVariable("T2")),
-                ImmutableList.of(),
-                BIGINT.getTypeSignature(),
-                ImmutableList.of(BIGINT.getTypeSignature()),
-                false);
+        Signature expectedSignature = Signature.builder()
+                .name("partially_fixed_type_parameter_scalar_function")
+                .typeVariable("T1")
+                .typeVariable("T2")
+                .returnType(BIGINT)
+                .argumentType(BIGINT)
+                .build();
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(PartiallyFixedTypeParameterScalarFunction.class);
         assertEquals(functions.size(), 1);

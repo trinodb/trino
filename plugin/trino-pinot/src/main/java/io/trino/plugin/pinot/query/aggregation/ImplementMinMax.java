@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.plugin.base.expression.AggregateFunctionRule;
+import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.pinot.PinotColumnHandle;
 import io.trino.plugin.pinot.query.AggregateExpression;
 import io.trino.spi.connector.AggregateFunction;
@@ -26,45 +26,55 @@ import io.trino.spi.type.Type;
 
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.basicAggregation;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.expressionType;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.functionName;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.singleInput;
-import static io.trino.plugin.base.expression.AggregateFunctionPatterns.variable;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.basicAggregation;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.expressionType;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.functionName;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleArgument;
+import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.variable;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Implements {@code min(x)}, {@code max(x)}.
  */
 public class ImplementMinMax
-        implements AggregateFunctionRule<AggregateExpression>
+        implements AggregateFunctionRule<AggregateExpression, Void>
 {
-    private static final Capture<Variable> INPUT = newCapture();
-    private static final Set<Type> SUPPORTED_INPUT_TYPES = ImmutableSet.of(INTEGER, BIGINT, REAL, DOUBLE);
+    private static final Capture<Variable> ARGUMENT = newCapture();
+    private static final Set<Type> SUPPORTED_ARGUMENT_TYPES = ImmutableSet.of(INTEGER, BIGINT, REAL, DOUBLE, TIMESTAMP_MILLIS);
+
+    private final Function<String, String> identifierQuote;
+
+    public ImplementMinMax(Function<String, String> identifierQuote)
+    {
+        this.identifierQuote = requireNonNull(identifierQuote, "identifierQuote is null");
+    }
 
     @Override
     public Pattern<AggregateFunction> getPattern()
     {
         return basicAggregation()
                 .with(functionName().matching(Set.of("min", "max")::contains))
-                .with(singleInput().matching(
+                .with(singleArgument().matching(
                         variable()
-                                .with(expressionType().matching(SUPPORTED_INPUT_TYPES::contains))
-                                .capturedAs(INPUT)));
+                                .with(expressionType().matching(SUPPORTED_ARGUMENT_TYPES::contains))
+                                .capturedAs(ARGUMENT)));
     }
 
     @Override
-    public Optional<AggregateExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
+    public Optional<AggregateExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<Void> context)
     {
-        Variable input = captures.get(INPUT);
-        PinotColumnHandle columnHandle = (PinotColumnHandle) context.getAssignment(input.getName());
+        Variable argument = captures.get(ARGUMENT);
+        PinotColumnHandle columnHandle = (PinotColumnHandle) context.getAssignment(argument.getName());
         verify(columnHandle.getDataType().equals(aggregateFunction.getOutputType()));
-        return Optional.of(new AggregateExpression(aggregateFunction.getFunctionName(), context.getIdentifierQuote().apply(columnHandle.getColumnName()), true));
+        return Optional.of(new AggregateExpression(aggregateFunction.getFunctionName(), identifierQuote.apply(columnHandle.getColumnName()), true));
     }
 }

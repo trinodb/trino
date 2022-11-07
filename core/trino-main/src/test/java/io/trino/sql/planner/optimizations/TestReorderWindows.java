@@ -79,7 +79,7 @@ public class TestReorderWindows
         columns.put(SHIPDATE_ALIAS, "shipdate");
         columns.put(SUPPKEY_ALIAS, "suppkey");
         columns.put(TAX_ALIAS, "tax");
-        LINEITEM_TABLESCAN_DOQPRSST = tableScan("lineitem", columns.build());
+        LINEITEM_TABLESCAN_DOQPRSST = tableScan("lineitem", columns.buildOrThrow());
 
         columns = ImmutableMap.builder();
         columns.put(DISCOUNT_ALIAS, "discount");
@@ -88,7 +88,7 @@ public class TestReorderWindows
         columns.put(RECEIPTDATE_ALIAS, "receiptdate");
         columns.put(SUPPKEY_ALIAS, "suppkey");
         columns.put(TAX_ALIAS, "tax");
-        LINEITEM_TABLESCAN_DOQRST = tableScan("lineitem", columns.build());
+        LINEITEM_TABLESCAN_DOQRST = tableScan("lineitem", columns.buildOrThrow());
 
         commonFrame = Optional.empty();
 
@@ -340,7 +340,7 @@ public class TestReorderWindows
                         false,
                         false),
                 new IterativeOptimizer(
-                        getQueryRunner().getMetadata(),
+                        getQueryRunner().getPlannerContext(),
                         new RuleStatsRecorder(),
                         getQueryRunner().getStatsCalculator(),
                         getQueryRunner().getEstimatedExchangesCostCalculator(),

@@ -20,10 +20,10 @@ import io.trino.plugin.base.TypeDeserializerModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 
 import java.util.Map;
 
+import static io.trino.plugin.base.Versions.checkSpiVersion;
 import static java.util.Objects.requireNonNull;
 
 public class ExampleConnectorFactory
@@ -36,15 +36,10 @@ public class ExampleConnectorFactory
     }
 
     @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new ExampleHandleResolver();
-    }
-
-    @Override
     public Connector create(String catalogName, Map<String, String> requiredConfig, ConnectorContext context)
     {
         requireNonNull(requiredConfig, "requiredConfig is null");
+        checkSpiVersion(context, this);
 
         // A plugin is not required to use Guice; it is just very convenient
         Bootstrap app = new Bootstrap(

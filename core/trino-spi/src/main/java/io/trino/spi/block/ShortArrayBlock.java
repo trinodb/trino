@@ -20,18 +20,23 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.util.Optional;
-import java.util.function.BiConsumer;
+import java.util.OptionalInt;
+import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
+import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
-import static io.trino.spi.block.BlockUtil.countUsedPositions;
+import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
+import static io.trino.spi.block.BlockUtil.ensureCapacity;
+import static java.lang.Math.toIntExact;
 
 public class ShortArrayBlock
         implements Block
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ShortArrayBlock.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ShortArrayBlock.class).instanceSize());
+    public static final int SIZE_IN_BYTES_PER_POSITION = Short.BYTES + Byte.BYTES;
 
     private final int arrayOffset;
     private final int positionCount;
@@ -39,7 +44,6 @@ public class ShortArrayBlock
     private final boolean[] valueIsNull;
     private final short[] values;
 
-    private final long sizeInBytes;
     private final long retainedSizeInBytes;
 
     public ShortArrayBlock(int positionCount, Optional<boolean[]> valueIsNull, short[] values)
@@ -68,32 +72,31 @@ public class ShortArrayBlock
         }
         this.valueIsNull = valueIsNull;
 
-        sizeInBytes = (Short.BYTES + Byte.BYTES) * (long) positionCount;
         retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values);
+    }
+
+    @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.of(SIZE_IN_BYTES_PER_POSITION);
     }
 
     @Override
     public long getSizeInBytes()
     {
-        return sizeInBytes;
+        return SIZE_IN_BYTES_PER_POSITION * (long) positionCount;
     }
 
     @Override
     public long getRegionSizeInBytes(int position, int length)
     {
-        return (Short.BYTES + Byte.BYTES) * (long) length;
-    }
-
-    @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
-    {
-        return getPositionsSizeInBytes(positions, countUsedPositions(positions));
+        return SIZE_IN_BYTES_PER_POSITION * (long) length;
     }
 
     @Override
     public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount)
     {
-        return (long) (Short.BYTES + Byte.BYTES) * selectedPositionsCount;
+        return (long) SIZE_IN_BYTES_PER_POSITION * selectedPositionsCount;
     }
 
     @Override
@@ -109,13 +112,13 @@ public class ShortArrayBlock
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(values, sizeOf(values));
         if (valueIsNull != null) {
             consumer.accept(valueIsNull, sizeOf(valueIsNull));
         }
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -127,7 +130,7 @@ public class ShortArrayBlock
     @Override
     public short getShort(int position, int offset)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         if (offset != 0) {
             throw new IllegalArgumentException("offset must be zero");
         }
@@ -143,22 +146,14 @@ public class ShortArrayBlock
     @Override
     public boolean isNull(int position)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return valueIsNull != null && valueIsNull[position + arrayOffset];
-    }
-
-    @Override
-    public void writePositionTo(int position, BlockBuilder blockBuilder)
-    {
-        checkReadablePosition(position);
-        blockBuilder.writeShort(values[position + arrayOffset]);
-        blockBuilder.closeEntry();
     }
 
     @Override
     public Block getSingleValueBlock(int position)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return new ShortArrayBlock(
                 0,
                 1,
@@ -178,7 +173,7 @@ public class ShortArrayBlock
         short[] newValues = new short[length];
         for (int i = 0; i < length; i++) {
             int position = positions[offset + i];
-            checkReadablePosition(position);
+            checkReadablePosition(this, position);
             if (valueIsNull != null) {
                 newValueIsNull[i] = valueIsNull[position + arrayOffset];
             }
@@ -217,6 +212,14 @@ public class ShortArrayBlock
     }
 
     @Override
+    public Block copyWithAppendedNull()
+    {
+        boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, arrayOffset, positionCount);
+        short[] newValues = ensureCapacity(values, arrayOffset + positionCount + 1);
+        return new ShortArrayBlock(arrayOffset, positionCount + 1, newValueIsNull, newValues);
+    }
+
+    @Override
     public String toString()
     {
         StringBuilder sb = new StringBuilder("ShortArrayBlock{");
@@ -228,12 +231,5 @@ public class ShortArrayBlock
     Slice getValuesSlice()
     {
         return Slices.wrappedShortArray(values, arrayOffset, positionCount);
-    }
-
-    private void checkReadablePosition(int position)
-    {
-        if (position < 0 || position >= getPositionCount()) {
-            throw new IllegalArgumentException("position is not valid");
-        }
     }
 }

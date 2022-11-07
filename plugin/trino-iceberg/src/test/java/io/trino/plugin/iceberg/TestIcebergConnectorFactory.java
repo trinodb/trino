@@ -27,9 +27,7 @@ public class TestIcebergConnectorFactory
     @Test
     public void testBasicConfig()
     {
-        Map<String, String> config = ImmutableMap.<String, String>builder()
-                .put("hive.metastore.uri", "thrift://localhost:1234")
-                .build();
+        Map<String, String> config = ImmutableMap.of("hive.metastore.uri", "thrift://localhost:1234");
         createConnector(config);
     }
 
@@ -39,7 +37,7 @@ public class TestIcebergConnectorFactory
         Map<String, String> config = ImmutableMap.<String, String>builder()
                 .put("hive.metastore.uri", "thrift://localhost:1234")
                 .put("hive.metastore-cache-ttl", "5m")
-                .build();
+                .buildOrThrow();
         assertThatThrownBy(() -> createConnector(config))
                 .hasMessageContaining("Hive metastore caching must not be enabled for Iceberg");
     }

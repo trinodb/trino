@@ -16,13 +16,18 @@ package io.trino.plugin.hive;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.base.CatalogName;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
+import io.trino.plugin.hive.aws.athena.PartitionProjectionService;
+import io.trino.plugin.hive.fs.DirectoryLister;
+import io.trino.plugin.hive.fs.TransactionScopeCachingDirectoryLister;
+import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.security.AccessControlMetadataFactory;
 import io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider;
 import io.trino.spi.connector.MetadataProvider;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 
 import javax.inject.Inject;
@@ -47,9 +52,10 @@ public class HiveMetadataFactory
     private final boolean createsOfNonManagedTablesEnabled;
     private final boolean deleteSchemaLocationsFallback;
     private final boolean translateHiveViews;
+    private final boolean hiveViewsRunAsInvoker;
     private final boolean hideDeltaLakeTables;
     private final long perTransactionCacheMaximumSize;
-    private final HiveMetastore metastore;
+    private final HiveMetastoreFactory metastoreFactory;
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
     private final TypeManager typeManager;
@@ -59,21 +65,25 @@ public class HiveMetadataFactory
     private final BoundedExecutor renameExecution;
     private final BoundedExecutor dropExecutor;
     private final Executor updateExecutor;
+    private final long maxPartitionDropsPerQuery;
     private final String trinoVersion;
     private final HiveRedirectionsProvider hiveRedirectionsProvider;
     private final Set<SystemTableProvider> systemTableProviders;
     private final HiveMaterializedViewMetadataFactory hiveMaterializedViewMetadataFactory;
     private final AccessControlMetadataFactory accessControlMetadataFactory;
     private final Optional<Duration> hiveTransactionHeartbeatInterval;
-    private final HiveTableRedirectionsProvider tableRedirectionsProvider;
     private final ScheduledExecutorService heartbeatService;
+    private final DirectoryLister directoryLister;
+    private final long perTransactionFileStatusCacheMaximumSize;
+    private final PartitionProjectionService partitionProjectionService;
+    private final boolean allowTableRename;
 
     @Inject
     public HiveMetadataFactory(
             CatalogName catalogName,
             HiveConfig hiveConfig,
-            MetastoreConfig metastoreConfig,
-            HiveMetastore metastore,
+            HiveMetastoreConfig hiveMetastoreConfig,
+            HiveMetastoreFactory metastoreFactory,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
             ExecutorService executorService,
@@ -87,25 +97,29 @@ public class HiveMetadataFactory
             Set<SystemTableProvider> systemTableProviders,
             HiveMaterializedViewMetadataFactory hiveMaterializedViewMetadataFactory,
             AccessControlMetadataFactory accessControlMetadataFactory,
-            HiveTableRedirectionsProvider tableRedirectionsProvider)
+            DirectoryLister directoryLister,
+            PartitionProjectionService partitionProjectionService,
+            @AllowHiveTableRename boolean allowTableRename)
     {
         this(
                 catalogName,
-                metastore,
+                metastoreFactory,
                 hdfsEnvironment,
                 partitionManager,
                 hiveConfig.getMaxConcurrentFileRenames(),
                 hiveConfig.getMaxConcurrentMetastoreDrops(),
                 hiveConfig.getMaxConcurrentMetastoreUpdates(),
+                hiveConfig.getMaxPartitionDropsPerQuery(),
                 hiveConfig.isSkipDeletionForAlter(),
                 hiveConfig.isSkipTargetCleanupOnRollback(),
                 hiveConfig.getWritesToNonManagedTablesEnabled(),
                 hiveConfig.getCreatesOfNonManagedTablesEnabled(),
                 hiveConfig.isDeleteSchemaLocationsFallback(),
                 hiveConfig.isTranslateHiveViews(),
+                hiveConfig.isHiveViewsRunAsInvoker(),
                 hiveConfig.getPerTransactionMetastoreCacheMaximumSize(),
                 hiveConfig.getHiveTransactionHeartbeatInterval(),
-                metastoreConfig.isHideDeltaLakeTables(),
+                hiveMetastoreConfig.isHideDeltaLakeTables(),
                 typeManager,
                 metadataProvider,
                 locationService,
@@ -117,23 +131,28 @@ public class HiveMetadataFactory
                 systemTableProviders,
                 hiveMaterializedViewMetadataFactory,
                 accessControlMetadataFactory,
-                tableRedirectionsProvider);
+                directoryLister,
+                hiveConfig.getPerTransactionFileStatusCacheMaximumSize(),
+                partitionProjectionService,
+                allowTableRename);
     }
 
     public HiveMetadataFactory(
             CatalogName catalogName,
-            HiveMetastore metastore,
+            HiveMetastoreFactory metastoreFactory,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
             int maxConcurrentFileRenames,
             int maxConcurrentMetastoreDrops,
             int maxConcurrentMetastoreUpdates,
+            long maxPartitionDropsPerQuery,
             boolean skipDeletionForAlter,
             boolean skipTargetCleanupOnRollback,
             boolean writesToNonManagedTablesEnabled,
             boolean createsOfNonManagedTablesEnabled,
             boolean deleteSchemaLocationsFallback,
             boolean translateHiveViews,
+            boolean hiveViewsRunAsInvoker,
             long perTransactionCacheMaximumSize,
             Optional<Duration> hiveTransactionHeartbeatInterval,
             boolean hideDeltaLakeTables,
@@ -148,7 +167,10 @@ public class HiveMetadataFactory
             Set<SystemTableProvider> systemTableProviders,
             HiveMaterializedViewMetadataFactory hiveMaterializedViewMetadataFactory,
             AccessControlMetadataFactory accessControlMetadataFactory,
-            HiveTableRedirectionsProvider tableRedirectionsProvider)
+            DirectoryLister directoryLister,
+            long perTransactionFileStatusCacheMaximumSize,
+            PartitionProjectionService partitionProjectionService,
+            boolean allowTableRename)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.skipDeletionForAlter = skipDeletionForAlter;
@@ -157,10 +179,11 @@ public class HiveMetadataFactory
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
         this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
         this.translateHiveViews = translateHiveViews;
+        this.hiveViewsRunAsInvoker = hiveViewsRunAsInvoker;
         this.hideDeltaLakeTables = hideDeltaLakeTables;
         this.perTransactionCacheMaximumSize = perTransactionCacheMaximumSize;
 
-        this.metastore = requireNonNull(metastore, "metastore is null");
+        this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -172,7 +195,6 @@ public class HiveMetadataFactory
         this.systemTableProviders = requireNonNull(systemTableProviders, "systemTableProviders is null");
         this.hiveMaterializedViewMetadataFactory = requireNonNull(hiveMaterializedViewMetadataFactory, "hiveMaterializedViewMetadataFactory is null");
         this.accessControlMetadataFactory = requireNonNull(accessControlMetadataFactory, "accessControlMetadataFactory is null");
-        this.tableRedirectionsProvider = requireNonNull(tableRedirectionsProvider, "tableRedirectionsProvider is null");
         this.hiveTransactionHeartbeatInterval = requireNonNull(hiveTransactionHeartbeatInterval, "hiveTransactionHeartbeatInterval is null");
 
         renameExecution = new BoundedExecutor(executorService, maxConcurrentFileRenames);
@@ -184,14 +206,21 @@ public class HiveMetadataFactory
         else {
             updateExecutor = new BoundedExecutor(executorService, maxConcurrentMetastoreUpdates);
         }
+        this.maxPartitionDropsPerQuery = maxPartitionDropsPerQuery;
         this.heartbeatService = requireNonNull(heartbeatService, "heartbeatService is null");
+        this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
+        this.perTransactionFileStatusCacheMaximumSize = perTransactionFileStatusCacheMaximumSize;
+        this.partitionProjectionService = requireNonNull(partitionProjectionService, "partitionProjectionService is null");
+        this.allowTableRename = allowTableRename;
     }
 
     @Override
-    public TransactionalMetadata create(boolean autoCommit)
+    public TransactionalMetadata create(ConnectorIdentity identity, boolean autoCommit)
     {
         HiveMetastoreClosure hiveMetastoreClosure = new HiveMetastoreClosure(
-                memoizeMetastore(metastore, perTransactionCacheMaximumSize)); // per-transaction cache
+                memoizeMetastore(metastoreFactory.createMetastore(Optional.of(identity)), perTransactionCacheMaximumSize)); // per-transaction cache
+
+        DirectoryLister directoryLister = new TransactionScopeCachingDirectoryLister(this.directoryLister, perTransactionFileStatusCacheMaximumSize);
 
         SemiTransactionalHiveMetastore metastore = new SemiTransactionalHiveMetastore(
                 hdfsEnvironment,
@@ -203,7 +232,8 @@ public class HiveMetadataFactory
                 skipTargetCleanupOnRollback,
                 deleteSchemaLocationsFallback,
                 hiveTransactionHeartbeatInterval,
-                heartbeatService);
+                heartbeatService,
+                directoryLister);
 
         return new HiveMetadata(
                 catalogName,
@@ -214,6 +244,7 @@ public class HiveMetadataFactory
                 writesToNonManagedTablesEnabled,
                 createsOfNonManagedTablesEnabled,
                 translateHiveViews,
+                hiveViewsRunAsInvoker,
                 hideDeltaLakeTables,
                 typeManager,
                 metadataProvider,
@@ -225,6 +256,9 @@ public class HiveMetadataFactory
                 systemTableProviders,
                 hiveMaterializedViewMetadataFactory.create(hiveMetastoreClosure),
                 accessControlMetadataFactory.create(metastore),
-                tableRedirectionsProvider);
+                directoryLister,
+                partitionProjectionService,
+                allowTableRename,
+                maxPartitionDropsPerQuery);
     }
 }

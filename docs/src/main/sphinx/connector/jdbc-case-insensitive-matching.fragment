@@ -1,5 +1,5 @@
 Case insensitive matching
-~~~~~~~~~~~~~~~~~~~~~~~~~
+"""""""""""""""""""""""""
 
 When ``case-insensitive-name-matching`` is set to ``true``, Trino
 is able to query non-lowercase schemas and tables by maintaining a mapping of
@@ -16,11 +16,11 @@ schemas/tables to their respective Trino schemas/tables:
   {
     "schemas": [
       {
-        "remote": "CaseSensitiveName",
+        "remoteSchema": "CaseSensitiveName",
         "mapping": "case_insensitive_1"
       },
       {
-        "remote": "cASEsENSITIVEnAME",
+        "remoteSchema": "cASEsENSITIVEnAME",
         "mapping": "case_insensitive_2"
       }],
     "tables": [

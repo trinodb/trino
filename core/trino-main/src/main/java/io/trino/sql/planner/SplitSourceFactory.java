@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.Session;
-import io.trino.operator.StageExecutionDescriptor;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
@@ -31,6 +30,7 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
+import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
@@ -40,6 +40,8 @@ import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.MergeProcessorNode;
+import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -51,6 +53,7 @@ import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
+import io.trino.sql.planner.plan.SimpleTableExecuteNode;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
@@ -75,8 +78,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
-import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.sql.ExpressionUtils.filterConjuncts;
@@ -106,7 +107,7 @@ public class SplitSourceFactory
         try {
             // get splits for this fragment, this is lazy so split assignments aren't actually calculated here
             return fragment.getRoot().accept(
-                    new Visitor(session, fragment.getStageExecutionDescriptor(), TypeProvider.copyOf(fragment.getSymbols()), allSplitSources),
+                    new Visitor(session, TypeProvider.copyOf(fragment.getSymbols()), allSplitSources),
                     null);
         }
         catch (Throwable t) {
@@ -129,18 +130,15 @@ public class SplitSourceFactory
             extends PlanVisitor<Map<PlanNodeId, SplitSource>, Void>
     {
         private final Session session;
-        private final StageExecutionDescriptor stageExecutionDescriptor;
         private final TypeProvider typeProvider;
         private final ImmutableList.Builder<SplitSource> splitSources;
 
         private Visitor(
                 Session session,
-                StageExecutionDescriptor stageExecutionDescriptor,
                 TypeProvider typeProvider,
                 ImmutableList.Builder<SplitSource> allSplitSources)
         {
             this.session = session;
-            this.stageExecutionDescriptor = stageExecutionDescriptor;
             this.typeProvider = typeProvider;
             this.splitSources = allSplitSources;
         }
@@ -183,7 +181,6 @@ public class SplitSourceFactory
             SplitSource splitSource = splitManager.getSplits(
                     session,
                     node.getTable(),
-                    stageExecutionDescriptor.isScanGroupedExecution(node.getId()) ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING,
                     dynamicFilter,
                     constraint);
 
@@ -200,7 +197,7 @@ public class SplitSourceFactory
             return ImmutableMap.<PlanNodeId, SplitSource>builder()
                     .putAll(leftSplits)
                     .putAll(rightSplits)
-                    .build();
+                    .buildOrThrow();
         }
 
         @Override
@@ -211,7 +208,7 @@ public class SplitSourceFactory
             return ImmutableMap.<PlanNodeId, SplitSource>builder()
                     .putAll(sourceSplits)
                     .putAll(filteringSourceSplits)
-                    .build();
+                    .buildOrThrow();
         }
 
         @Override
@@ -222,13 +219,19 @@ public class SplitSourceFactory
             return ImmutableMap.<PlanNodeId, SplitSource>builder()
                     .putAll(leftSplits)
                     .putAll(rightSplits)
-                    .build();
+                    .buildOrThrow();
         }
 
         @Override
         public Map<PlanNodeId, SplitSource> visitIndexJoin(IndexJoinNode node, Void context)
         {
             return node.getProbeSource().accept(this, context);
+        }
+
+        @Override
+        public Map<PlanNodeId, SplitSource> visitDynamicFilterSource(DynamicFilterSourceNode node, Void context)
+        {
+            return node.getSource().accept(this, context);
         }
 
         @Override
@@ -259,21 +262,20 @@ public class SplitSourceFactory
         @Override
         public Map<PlanNodeId, SplitSource> visitSample(SampleNode node, Void context)
         {
-            switch (node.getSampleType()) {
-                case BERNOULLI:
-                    return node.getSource().accept(this, context);
-                case SYSTEM:
+            return switch (node.getSampleType()) {
+                case BERNOULLI -> node.getSource().accept(this, context);
+                case SYSTEM -> {
                     Map<PlanNodeId, SplitSource> nodeSplits = node.getSource().accept(this, context);
                     // TODO: when this happens we should switch to either BERNOULLI or page sampling
                     if (nodeSplits.size() == 1) {
                         PlanNodeId planNodeId = getOnlyElement(nodeSplits.keySet());
                         SplitSource sampledSplitSource = new SampledSplitSource(nodeSplits.get(planNodeId), node.getSampleRatio());
-                        return ImmutableMap.of(planNodeId, sampledSplitSource);
+                        yield ImmutableMap.of(planNodeId, sampledSplitSource);
                     }
                     // table sampling on a sub query without splits is meaningless
-                    return nodeSplits;
-            }
-            throw new UnsupportedOperationException("Sampling is not supported for type " + node.getSampleType());
+                    yield nodeSplits;
+                }
+            };
         }
 
         @Override
@@ -410,6 +412,18 @@ public class SplitSourceFactory
         }
 
         @Override
+        public Map<PlanNodeId, SplitSource> visitMergeWriter(MergeWriterNode node, Void context)
+        {
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Map<PlanNodeId, SplitSource> visitMergeProcessor(MergeProcessorNode node, Void context)
+        {
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
         public Map<PlanNodeId, SplitSource> visitTableDelete(TableDeleteNode node, Void context)
         {
             // node does not have splits
@@ -420,6 +434,13 @@ public class SplitSourceFactory
         public Map<PlanNodeId, SplitSource> visitTableExecute(TableExecuteNode node, Void context)
         {
             return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Map<PlanNodeId, SplitSource> visitSimpleTableExecuteNode(SimpleTableExecuteNode node, Void context)
+        {
+            // node does not have splits
+            return ImmutableMap.of();
         }
 
         @Override
@@ -441,7 +462,7 @@ public class SplitSourceFactory
                 result.putAll(child.accept(this, context));
             }
 
-            return result.build();
+            return result.buildOrThrow();
         }
 
         @Override

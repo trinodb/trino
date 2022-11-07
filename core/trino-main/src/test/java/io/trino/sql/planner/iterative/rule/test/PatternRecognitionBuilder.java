@@ -170,7 +170,7 @@ public class PatternRecognitionBuilder
                 initial,
                 pattern,
                 subsets,
-                variableDefinitions.build());
+                variableDefinitions.buildOrThrow());
     }
 
     private Measure measure(Map.Entry<String, Type> entry)

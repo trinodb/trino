@@ -15,12 +15,12 @@ package io.trino.server.ui;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.execution.QueryState;
+import io.trino.operator.RetryPolicy;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.BasicQueryStats;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorType;
 import io.trino.spi.QueryId;
-import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 
@@ -43,7 +43,6 @@ public class TrimmedBasicQueryInfo
     private final Optional<String> sessionSource;
     private final Optional<ResourceGroupId> resourceGroupId;
     private final QueryState state;
-    private final MemoryPoolId memoryPool;
     private final boolean scheduled;
     private final URI self;
     private final String queryTextPreview;
@@ -53,6 +52,7 @@ public class TrimmedBasicQueryInfo
     private final Optional<ErrorType> errorType;
     private final Optional<ErrorCode> errorCode;
     private final Optional<QueryType> queryType;
+    private final RetryPolicy retryPolicy;
 
     public TrimmedBasicQueryInfo(BasicQueryInfo queryInfo)
     {
@@ -62,7 +62,6 @@ public class TrimmedBasicQueryInfo
         this.sessionSource = requireNonNull(queryInfo.getSession().getSource(), "source is null");
         this.resourceGroupId = requireNonNull(queryInfo.getResourceGroupId(), "resourceGroupId is null");
         this.state = requireNonNull(queryInfo.getState(), "state is null");
-        this.memoryPool = requireNonNull(queryInfo.getMemoryPool(), "memoryPool is null");
         this.errorType = Optional.ofNullable(queryInfo.getErrorType());
         this.errorCode = Optional.ofNullable(queryInfo.getErrorCode());
         this.scheduled = queryInfo.isScheduled();
@@ -78,6 +77,7 @@ public class TrimmedBasicQueryInfo
         this.preparedQuery = requireNonNull(queryInfo.getPreparedQuery(), "preparedQuery is null");
         this.queryStats = requireNonNull(queryInfo.getQueryStats(), "queryStats is null");
         this.queryType = requireNonNull(queryInfo.getQueryType(), "queryType is null");
+        this.retryPolicy = requireNonNull(queryInfo.getRetryPolicy(), "retryPolicy is null");
     }
 
     @JsonProperty
@@ -114,12 +114,6 @@ public class TrimmedBasicQueryInfo
     public QueryState getState()
     {
         return state;
-    }
-
-    @JsonProperty
-    public MemoryPoolId getMemoryPool()
-    {
-        return memoryPool;
     }
 
     @JsonProperty
@@ -174,6 +168,12 @@ public class TrimmedBasicQueryInfo
     public Optional<QueryType> getQueryType()
     {
         return queryType;
+    }
+
+    @JsonProperty
+    public RetryPolicy getRetryPolicy()
+    {
+        return retryPolicy;
     }
 
     @Override

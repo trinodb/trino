@@ -14,6 +14,7 @@
 package io.trino.client;
 
 import com.google.common.base.CharMatcher;
+import com.google.common.base.StandardSystemProperty;
 import com.google.common.net.HostAndPort;
 import io.trino.client.auth.kerberos.ContextBasedSubjectProvider;
 import io.trino.client.auth.kerberos.LoginBasedSubjectProvider;
@@ -172,9 +173,10 @@ public final class OkHttpUtil
             Optional<String> keyStoreType,
             Optional<String> trustStorePath,
             Optional<String> trustStorePassword,
-            Optional<String> trustStoreType)
+            Optional<String> trustStoreType,
+            boolean useSystemTrustStore)
     {
-        if (!keyStorePath.isPresent() && !trustStorePath.isPresent()) {
+        if (!keyStorePath.isPresent() && !trustStorePath.isPresent() && !useSystemTrustStore) {
             return;
         }
 
@@ -206,7 +208,10 @@ public final class OkHttpUtil
 
             // load TrustStore if configured, otherwise use KeyStore
             KeyStore trustStore = keyStore;
-            if (trustStorePath.isPresent()) {
+            if (useSystemTrustStore) {
+                trustStore = loadSystemTrustStore(trustStoreType);
+            }
+            else if (trustStorePath.isPresent()) {
                 trustStore = loadTrustStore(new File(trustStorePath.get()), trustStorePassword, trustStoreType);
             }
 
@@ -279,6 +284,25 @@ public final class OkHttpUtil
         try (InputStream in = new FileInputStream(trustStorePath)) {
             trustStore.load(in, trustStorePassword.map(String::toCharArray).orElse(null));
         }
+        return trustStore;
+    }
+
+    private static KeyStore loadSystemTrustStore(Optional<String> trustStoreType)
+            throws IOException, GeneralSecurityException
+    {
+        String osName = Optional.ofNullable(StandardSystemProperty.OS_NAME.value()).orElse("");
+        Optional<String> systemTrustStoreType = trustStoreType;
+        if (!systemTrustStoreType.isPresent()) {
+            if (osName.contains("Windows")) {
+                systemTrustStoreType = Optional.of("Windows-ROOT");
+            }
+            else if (osName.contains("Mac")) {
+                systemTrustStoreType = Optional.of("KeychainStore");
+            }
+        }
+
+        KeyStore trustStore = KeyStore.getInstance(systemTrustStoreType.orElse(KeyStore.getDefaultType()));
+        trustStore.load(null, null);
         return trustStore;
     }
 

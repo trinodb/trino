@@ -14,9 +14,12 @@
 package io.trino.plugin.jdbc;
 
 import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorSession;
 
 public interface JdbcMetadata
         extends ConnectorMetadata
 {
+    JdbcTableHandle getTableHandle(ConnectorSession session, PreparedQuery preparedQuery);
+
     void rollback();
 }

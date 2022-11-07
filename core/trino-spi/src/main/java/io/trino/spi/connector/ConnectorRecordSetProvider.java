@@ -24,16 +24,6 @@ public interface ConnectorRecordSetProvider
             ConnectorTableHandle table,
             List<? extends ColumnHandle> columns)
     {
-        return getRecordSet(transaction, session, split, columns);
-    }
-
-    @Deprecated
-    default RecordSet getRecordSet(
-            ConnectorTransactionHandle transactionHandle,
-            ConnectorSession session,
-            ConnectorSplit split,
-            List<? extends ColumnHandle> columns)
-    {
         throw new UnsupportedOperationException("getRecordSet() must be implemented");
     }
 }

@@ -115,6 +115,7 @@ public class TestRollbackTask
     private QueryStateMachine createQueryStateMachine(String query, Session session, TransactionManager transactionManager)
     {
         return QueryStateMachine.begin(
+                Optional.empty(),
                 query,
                 Optional.empty(),
                 session,

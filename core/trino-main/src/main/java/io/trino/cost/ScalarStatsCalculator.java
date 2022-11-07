@@ -27,6 +27,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.ExpressionAnalyzer;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.planner.ExpressionInterpreter;
+import io.trino.sql.planner.LiteralInterpreter;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
@@ -50,15 +51,15 @@ import java.util.Map;
 import java.util.OptionalDouble;
 
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
+import static io.trino.sql.ExpressionUtils.getExpressionTypes;
+import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
-import static io.trino.sql.planner.LiteralInterpreter.evaluate;
 import static io.trino.util.MoreMath.max;
 import static io.trino.util.MoreMath.min;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.abs;
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public class ScalarStatsCalculator
@@ -83,12 +84,14 @@ public class ScalarStatsCalculator
     {
         private final PlanNodeStatsEstimate input;
         private final Session session;
+        private final LiteralInterpreter literalInterpreter;
         private final TypeProvider types;
 
         Visitor(PlanNodeStatsEstimate input, Session session, TypeProvider types)
         {
             this.input = input;
             this.session = session;
+            this.literalInterpreter = new LiteralInterpreter(plannerContext, session);
             this.types = types;
         }
 
@@ -115,7 +118,7 @@ public class ScalarStatsCalculator
         {
             ExpressionAnalyzer analyzer = createConstantAnalyzer(plannerContext, new AllowAllAccessControl(), session, ImmutableMap.of(), WarningCollector.NOOP);
             Type type = analyzer.analyze(node, Scope.create());
-            Object value = evaluate(plannerContext, session, analyzer.getExpressionTypes(), node);
+            Object value = literalInterpreter.evaluate(node, type);
 
             OptionalDouble doubleValue = toStatsRepresentation(type, value);
             SymbolStatsEstimate.Builder estimate = SymbolStatsEstimate.builder()
@@ -132,7 +135,7 @@ public class ScalarStatsCalculator
         @Override
         protected SymbolStatsEstimate visitFunctionCall(FunctionCall node, Void context)
         {
-            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, node, types);
+            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(plannerContext, session, node, types);
             ExpressionInterpreter interpreter = new ExpressionInterpreter(node, plannerContext, session, expressionTypes);
             Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
 
@@ -140,7 +143,7 @@ public class ScalarStatsCalculator
                 return nullStatsEstimate();
             }
 
-            if (value instanceof Expression && !(value instanceof Literal)) {
+            if (value instanceof Expression && !isEffectivelyLiteral(plannerContext, session, (Expression) value)) {
                 // value is not a constant
                 return SymbolStatsEstimate.unknown();
             }
@@ -150,21 +153,6 @@ public class ScalarStatsCalculator
                     .setNullsFraction(0)
                     .setDistinctValuesCount(1)
                     .build();
-        }
-
-        private Map<NodeRef<Expression>, Type> getExpressionTypes(Session session, Expression expression, TypeProvider types)
-        {
-            ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                    plannerContext,
-                    new AllowAllAccessControl(),
-                    session,
-                    types,
-                    emptyMap(),
-                    node -> new IllegalStateException("Unexpected node: %s" + node),
-                    WarningCollector.NOOP,
-                    false);
-            expressionAnalyzer.analyze(expression, Scope.create());
-            return expressionAnalyzer.getExpressionTypes();
         }
 
         @Override
@@ -324,20 +312,18 @@ public class ScalarStatsCalculator
             if (left.getNullsFraction() == 0) {
                 return left;
             }
-            else if (left.getNullsFraction() == 1.0) {
+            if (left.getNullsFraction() == 1.0) {
                 return right;
             }
-            else {
-                return SymbolStatsEstimate.builder()
-                        .setLowValue(min(left.getLowValue(), right.getLowValue()))
-                        .setHighValue(max(left.getHighValue(), right.getHighValue()))
-                        .setDistinctValuesCount(left.getDistinctValuesCount() +
-                                min(right.getDistinctValuesCount(), input.getOutputRowCount() * left.getNullsFraction()))
-                        .setNullsFraction(left.getNullsFraction() * right.getNullsFraction())
-                        // TODO check if dataSize estimation method is correct
-                        .setAverageRowSize(max(left.getAverageRowSize(), right.getAverageRowSize()))
-                        .build();
-            }
+            return SymbolStatsEstimate.builder()
+                    .setLowValue(min(left.getLowValue(), right.getLowValue()))
+                    .setHighValue(max(left.getHighValue(), right.getHighValue()))
+                    .setDistinctValuesCount(left.getDistinctValuesCount() +
+                            min(right.getDistinctValuesCount(), input.getOutputRowCount() * left.getNullsFraction()))
+                    .setNullsFraction(left.getNullsFraction() * right.getNullsFraction())
+                    // TODO check if dataSize estimation method is correct
+                    .setAverageRowSize(max(left.getAverageRowSize(), right.getAverageRowSize()))
+                    .build();
         }
     }
 

@@ -20,14 +20,14 @@ import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import java.io.File;
+import java.nio.file.Path;
 
-import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 
 public class TestHiveCreateExternalTableDisabled
         extends AbstractTestQueryFramework
@@ -48,30 +48,30 @@ public class TestHiveCreateExternalTableDisabled
     public void testCreateExternalTableWithData()
             throws Exception
     {
-        File tempDir = createTempDir();
+        Path tempDir = createTempDirectory(null);
 
         @Language("SQL") String createTableSql = format("" +
                         "CREATE TABLE test_create_external " +
                         "WITH (external_location = '%s') AS " +
                         "SELECT * FROM tpch.tiny.nation",
-                tempDir.toURI().toASCIIString());
+                tempDir.toUri().toASCIIString());
         assertQueryFails(createTableSql, "Creating non-managed Hive tables is disabled");
 
-        deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
+        deleteRecursively(tempDir, ALLOW_INSECURE);
     }
 
     @Test
     public void testCreateExternalTable()
             throws Exception
     {
-        File tempDir = createTempDir();
+        Path tempDir = createTempDirectory(null);
 
         @Language("SQL") String createTableSql = format("" +
                         "CREATE TABLE test_create_external (n TINYINT) " +
                         "WITH (external_location = '%s')",
-                tempDir.toURI().toASCIIString());
+                tempDir.toUri().toASCIIString());
         assertQueryFails(createTableSql, "Cannot create non-managed Hive table");
 
-        deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
+        deleteRecursively(tempDir, ALLOW_INSECURE);
     }
 }

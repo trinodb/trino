@@ -13,7 +13,6 @@
  */
 package io.trino.parquet;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 import io.trino.plugin.base.type.DecodedTimestamp;
@@ -40,8 +39,7 @@ import static java.lang.StrictMath.toIntExact;
  */
 public final class ParquetTimestampUtils
 {
-    @VisibleForTesting
-    static final int JULIAN_EPOCH_OFFSET_DAYS = 2_440_588;
+    public static final int JULIAN_EPOCH_OFFSET_DAYS = 2_440_588;
 
     private ParquetTimestampUtils() {}
 

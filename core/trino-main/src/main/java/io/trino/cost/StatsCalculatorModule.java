@@ -65,11 +65,13 @@ public class StatsCalculatorModule
             ImmutableList.Builder<ComposableStatsCalculator.Rule<?>> rules = ImmutableList.builder();
 
             rules.add(new OutputStatsRule());
-            rules.add(new TableScanStatsRule(plannerContext.getMetadata(), normalizer));
+            rules.add(new TableScanStatsRule(normalizer));
             rules.add(new SimpleFilterProjectSemiJoinStatsRule(plannerContext.getMetadata(), normalizer, filterStatsCalculator)); // this must be before FilterStatsRule
+            rules.add(new FilterProjectAggregationStatsRule(normalizer, filterStatsCalculator)); // this must be before FilterStatsRule
             rules.add(new FilterStatsRule(normalizer, filterStatsCalculator));
             rules.add(new ValuesStatsRule(plannerContext));
             rules.add(new LimitStatsRule(normalizer));
+            rules.add(new DistinctLimitStatsRule(normalizer));
             rules.add(new TopNStatsRule(normalizer));
             rules.add(new EnforceSingleRowStatsRule(normalizer));
             rules.add(new ProjectStatsRule(scalarStatsCalculator, normalizer));

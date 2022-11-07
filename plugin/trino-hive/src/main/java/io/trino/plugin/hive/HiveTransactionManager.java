@@ -13,31 +13,83 @@
  */
 package io.trino.plugin.hive;
 
-import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.security.ConnectorIdentity;
 
+import javax.annotation.concurrent.GuardedBy;
+import javax.inject.Inject;
+
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class HiveTransactionManager
 {
-    private final ConcurrentMap<ConnectorTransactionHandle, TransactionalMetadata> transactions = new ConcurrentHashMap<>();
+    private final TransactionalMetadataFactory metadataFactory;
+    private final Map<ConnectorTransactionHandle, MemoizedMetadata> transactions = new ConcurrentHashMap<>();
 
-    public TransactionalMetadata get(ConnectorTransactionHandle transactionHandle)
+    @Inject
+    public HiveTransactionManager(TransactionalMetadataFactory metadataFactory)
     {
-        return transactions.get(transactionHandle);
+        this.metadataFactory = requireNonNull(metadataFactory, "metadataFactory is null");
     }
 
-    public TransactionalMetadata remove(ConnectorTransactionHandle transactionHandle)
+    public void begin(ConnectorTransactionHandle transactionHandle)
     {
-        return transactions.remove(transactionHandle);
-    }
-
-    public void put(ConnectorTransactionHandle transactionHandle, TransactionalMetadata metadata)
-    {
-        ConnectorMetadata previousValue = transactions.putIfAbsent(transactionHandle, metadata);
+        MemoizedMetadata previousValue = transactions.putIfAbsent(transactionHandle, new MemoizedMetadata());
         checkState(previousValue == null);
+    }
+
+    public TransactionalMetadata get(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity)
+    {
+        return transactions.get(transactionHandle).get(identity, ((HiveTransactionHandle) transactionHandle).isAutoCommit());
+    }
+
+    public void commit(ConnectorTransactionHandle transaction)
+    {
+        MemoizedMetadata transactionalMetadata = transactions.remove(transaction);
+        checkArgument(transactionalMetadata != null, "no such transaction: %s", transaction);
+        transactionalMetadata.optionalGet().ifPresent(metadata -> {
+            try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+                metadata.commit();
+            }
+        });
+    }
+
+    public void rollback(ConnectorTransactionHandle transaction)
+    {
+        MemoizedMetadata transactionalMetadata = transactions.remove(transaction);
+        checkArgument(transactionalMetadata != null, "no such transaction: %s", transaction);
+        transactionalMetadata.optionalGet().ifPresent(metadata -> {
+            try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+                metadata.rollback();
+            }
+        });
+    }
+
+    private class MemoizedMetadata
+    {
+        @GuardedBy("this")
+        private TransactionalMetadata metadata;
+
+        public synchronized Optional<TransactionalMetadata> optionalGet()
+        {
+            return Optional.ofNullable(metadata);
+        }
+
+        public synchronized TransactionalMetadata get(ConnectorIdentity identity, boolean autoCommit)
+        {
+            if (metadata == null) {
+                try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+                    metadata = metadataFactory.create(identity, autoCommit);
+                }
+            }
+            return metadata;
+        }
     }
 }

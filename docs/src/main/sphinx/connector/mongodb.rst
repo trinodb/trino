@@ -2,6 +2,10 @@
 MongoDB connector
 =================
 
+.. raw:: html
+
+  <img src="../_static/img/mongodb.png" class="connector-logo">
+
 The ``mongodb`` connector allows the use of `MongoDB <https://www.mongodb.com/>`_ collections as tables in Trino.
 
 
@@ -13,6 +17,8 @@ To connect to MongoDB, you need:
 * MongoDB 4.0 or higher.
 * Network access from the Trino coordinator and workers to MongoDB.
   Port 27017 is the default port.
+* Write access to the :ref:`schema information collection <table-definition-label>`
+  in MongoDB.
 
 Configuration
 -------------
@@ -24,7 +30,7 @@ replacing the properties as appropriate:
 .. code-block:: text
 
     connector.name=mongodb
-    mongodb.connection-url=protocol://user:pass@sample.host:27017/
+    mongodb.connection-url=mongodb://user:pass@sample.host:27017/
 
 Multiple MongoDB clusters
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -41,7 +47,7 @@ Configuration properties
 The following configuration properties are available:
 
 ========================================== ==============================================================
-Property Name                              Description
+Property name                              Description
 ========================================== ==============================================================
 ``mongodb.seeds``                          List of all MongoDB servers
 ``mongodb.connection-url``                 The connection url that the driver uses to connect to a MongoDB deployment
@@ -71,9 +77,14 @@ This property is deprecated and will be removed in a future release. Use ``mongo
 ``mongodb.connection-url``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-A string containing the protocol, credential and host info for use in connection to your MongoDB deployment.
+A connection string containing the protocol, credential, and host info for use
+inconnection to your MongoDB deployment.
 
-This could be ``mongodb://<user>:<pass>@<host>:<port>/?<options>`` or ``mongodb+srv://<user>:<pass>@<host>/?<options>``.
+For example, the connection string may use the format
+``mongodb://<user>:<pass>@<host>:<port>/?<options>`` or
+``mongodb+srv://<user>:<pass>@<host>/?<options>``, depending on the protocol
+used. The user/pass credentials must be for a user with write access to the
+:ref:`schema information collection <table-definition-label>`.
 
 See the `MongoDB Connection URI <https://docs.mongodb.com/drivers/java/sync/current/fundamentals/connection/#connection-uri>`_ for more information.
 
@@ -84,7 +95,11 @@ This property is required; there is no default. A connection url or seeds must b
 
 As MongoDB is a document database, there is no fixed schema information in the system. So a special collection in each MongoDB database should define the schema of all tables. Please refer the :ref:`table-definition-label` section for the details.
 
-At startup, this connector tries guessing fields' types, but it might not be correct for your collection. In that case, you need to modify it manually. ``CREATE TABLE`` and ``CREATE TABLE AS SELECT`` will create an entry for you.
+At startup, the connector tries to guess the data type of fields based on the :ref:`type mapping <mongodb-type-mapping>`.
+
+The initial guess can be incorrect for your specific collection. In that case, you need to modify it manually. Please refer the :ref:`table-definition-label` section for the details.
+
+Creating new tables using ``CREATE TABLE`` and ``CREATE TABLE AS SELECT`` automatically create an entry for you.
 
 This property is optional; the default is ``_schema``.
 
@@ -220,6 +235,10 @@ A schema collection consists of a MongoDB document for a table.
         }
     }
 
+The connector quotes the fields for a row type when auto-generating the schema.
+However, if the schema is being fixed manually in the collection then
+the fields need to be explicitly quoted. ``row("UpperCase" varchar)``
+
 =============== ========= ============== =============================
 Field           Required  Type           Description
 =============== ========= ============== =============================
@@ -332,6 +351,99 @@ In Trino, the same can be achieved with this query:
     FROM collection
     WHERE _id > timestamp_objectid(TIMESTAMP '2021-08-07 17:51:36 +00:00');
 
+.. _mongodb-type-mapping:
+
+Type mapping
+------------
+
+Because Trino and MongoDB each support types that the other does not, this
+connector :ref:`modifies some types <type-mapping-overview>` when reading or
+writing data. Data types may not map the same way in both directions between
+Trino and the data source. Refer to the following sections for type mapping in
+each direction.
+
+MongoDB to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps MongoDB types to the corresponding Trino types following
+this table:
+
+.. list-table:: MongoDB to Trino type mapping
+  :widths: 30, 20, 50
+  :header-rows: 1
+
+  * - MongoDB type
+    - Trino type
+    - Notes
+  * - ``Boolean``
+    - ``BOOLEAN``
+    -
+  * - ``Int32``
+    - ``BIGINT``
+    -
+  * - ``Int64``
+    - ``BIGINT``
+    -
+  * - ``Double``
+    - ``DOUBLE``
+    -
+  * - ``Date``
+    - ``TIMESTAMP(3)``
+    -
+  * - ``String``
+    - ``VARCHAR``
+    -
+  * - ``Binary``
+    - ``VARBINARY``
+    -
+  * - ``ObjectId``
+    - ``ObjectId``
+    -
+  * - ``Object``
+    - ``ROW``
+    -
+  * - ``Array``
+    - ``ARRAY``
+    -   Map to ``ROW`` if the element type is not unique.
+  * - ``DBRef``
+    - ``ROW``
+    -
+
+No other types are supported.
+
+Trino to MongoDB type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps Trino types to the corresponding MongoDB types following
+this table:
+
+.. list-table:: Trino to MongoDB type mapping
+  :widths: 30, 20
+  :header-rows: 1
+
+  * - Trino type
+    - MongoDB type
+  * - ``BOOLEAN``
+    - ``Boolean``
+  * - ``BIGINT``
+    - ``Int64``
+  * - ``DOUBLE``
+    - ``Double``
+  * - ``TIMESTAMP(3)``
+    - ``Date``
+  * - ``VARCHAR``
+    - ``String``
+  * - ``VARBINARY``
+    - ``Binary``
+  * - ``ObjectId``
+    - ``ObjectId``
+  * - ``ROW``
+    - ``Object``
+  * - ``ARRAY``
+    - ``Array``
+
+No other types are supported.
+
 .. _mongodb-sql-support:
 
 SQL support
@@ -347,9 +459,43 @@ statements, the connector supports the following features:
 * :doc:`/sql/create-table-as`
 * :doc:`/sql/drop-table`
 * :doc:`/sql/alter-table`
+* :doc:`/sql/create-schema`
+* :doc:`/sql/drop-schema`
+* :doc:`/sql/comment`
 
 ALTER TABLE
 ^^^^^^^^^^^
 
-The connector does not support ``ALTER TABLE RENAME`` operations. Other uses of
-``ALTER TABLE`` are supported.
+The connector supports ``ALTER TABLE RENAME TO``, ``ALTER TABLE ADD COLUMN``
+and ``ALTER TABLE DROP COLUMN`` operations.
+Other uses of ``ALTER TABLE`` are not supported.
+
+Table functions
+---------------
+
+The connector provides specific :doc:`table functions </functions/table>` to
+access MongoDB.
+
+.. _mongodb-query-function:
+
+``query(database, collection, filter) -> table``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``query`` function allows you to query the underlying MongoDB directly. It
+requires syntax native to MongoDB, because the full query is pushed down and
+processed by MongoDB. This can be useful for accessing native features which are
+not available in Trino or for improving query performance in situations where
+running a query natively may be faster.
+
+For example, get all rows where ``regionkey`` field is 0::
+
+    SELECT
+      *
+    FROM
+      TABLE(
+        mongodb.system.query(
+          database => 'tpch',
+          collection => 'region',
+          filter => '{ regionkey: 0 }'
+        )
+      );

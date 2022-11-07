@@ -67,7 +67,15 @@ public class ApplyPreferredTableWriterPartitioning
                 context.getStatsProvider().getStats(node.getSource()),
                 node.getPreferredPartitioningScheme().get().getPartitioning().getColumns());
 
-        if (isNaN(expectedNumberOfPartitions) || expectedNumberOfPartitions < minimumNumberOfPartitions) {
+        if (isNaN(expectedNumberOfPartitions)) {
+            // Force 'preferred write partitioning' when stats are missing. This is essential because query could write
+            // to huge amount of partition using unpartitioned writing route. Therefore, it can lead to out of memory
+            // error since each writer thread could write to all partitions while each partition per writer allocates
+            // a certain amount of memory for buffering.
+            return enable(node);
+        }
+
+        if (expectedNumberOfPartitions < minimumNumberOfPartitions) {
             return Result.empty();
         }
 
@@ -84,7 +92,6 @@ public class ApplyPreferredTableWriterPartitioning
                 node.getFragmentSymbol(),
                 node.getColumns(),
                 node.getColumnNames(),
-                node.getNotNullColumnSymbols(),
                 node.getPreferredPartitioningScheme(),
                 Optional.empty(),
                 node.getStatisticsAggregation(),

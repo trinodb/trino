@@ -429,7 +429,7 @@ public class TestMergePatternRecognitionNodes
                                                 .put("child_measure", PlanMatchPattern.expression("child_measure"))
                                                 .put("expression_1", PlanMatchPattern.expression("expression_1"))
                                                 .put("expression_2", PlanMatchPattern.expression("a + b"))
-                                                .build(),
+                                                .buildOrThrow(),
                                         patternRecognition(builder -> builder
                                                         .addMeasure("parent_measure", "LAST(X.expression_1)", BIGINT)
                                                         .addMeasure("child_measure", "FIRST(X.b)", BIGINT)

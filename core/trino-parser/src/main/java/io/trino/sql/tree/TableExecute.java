@@ -14,7 +14,6 @@
 package io.trino.sql.tree;
 
 import com.google.common.collect.ImmutableList;
-import org.checkerframework.checker.units.qual.C;
 
 import java.util.List;
 import java.util.Objects;
@@ -32,32 +31,13 @@ public class TableExecute
     private final Optional<Expression> where;
 
     public TableExecute(
-            Table table,
-            Identifier procedureName,
-            List<CallArgument> properties,
-            Optional<Expression> where)
-    {
-        this(Optional.empty(), table, procedureName, properties, where);
-    }
-
-    public TableExecute(
             NodeLocation location,
             Table table,
             Identifier procedureName,
             List<CallArgument> arguments,
             Optional<Expression> where)
     {
-        this(Optional.of(location), table, procedureName, arguments, where);
-    }
-
-    private TableExecute(
-            Optional<NodeLocation> location,
-            Table table,
-            Identifier procedureName,
-            List<CallArgument> arguments,
-            Optional<Expression> where)
-    {
-        super(location);
+        super(Optional.of(location));
         this.table = requireNonNull(table, "table is null");
         this.procedureName = requireNonNull(procedureName, "procedureName is null");
         this.arguments = requireNonNull(arguments, "arguments is null");

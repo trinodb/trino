@@ -366,7 +366,7 @@ public class TestHttpPageBufferClient
         TestingTicker ticker = new TestingTicker();
         AtomicReference<Duration> tickerIncrement = new AtomicReference<>(new Duration(0, TimeUnit.SECONDS));
 
-        TestingHttpClient.Processor processor = (input) -> {
+        TestingHttpClient.Processor processor = input -> {
             Duration delta = tickerIncrement.get();
             ticker.increment(delta.toMillis(), TimeUnit.MILLISECONDS);
             throw new RuntimeException("Foo");

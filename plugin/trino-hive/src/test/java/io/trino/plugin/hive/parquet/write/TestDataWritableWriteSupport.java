@@ -19,8 +19,11 @@ import org.apache.hadoop.hive.serde2.io.ParquetHiveRecord;
 import org.apache.parquet.hadoop.api.WriteSupport;
 import org.apache.parquet.io.api.RecordConsumer;
 import org.apache.parquet.schema.MessageType;
+import org.joda.time.DateTimeZone;
 
 import java.util.HashMap;
+
+import static java.util.Objects.requireNonNull;
 
 /**
  * This class is copied from org.apache.hadoop.hive.ql.io.parquet.write.DataWritableWriteSupport
@@ -32,10 +35,12 @@ class TestDataWritableWriteSupport
     private TestDataWritableWriter writer;
     private MessageType schema;
     private final boolean singleLevelArray;
+    private final DateTimeZone dateTimeZone;
 
-    public TestDataWritableWriteSupport(boolean singleLevelArray)
+    public TestDataWritableWriteSupport(boolean singleLevelArray, DateTimeZone dateTimeZone)
     {
         this.singleLevelArray = singleLevelArray;
+        this.dateTimeZone = requireNonNull(dateTimeZone, "dateTimeZone is null");
     }
 
     @Override
@@ -48,7 +53,7 @@ class TestDataWritableWriteSupport
     @Override
     public void prepareForWrite(RecordConsumer recordConsumer)
     {
-        writer = new TestDataWritableWriter(recordConsumer, schema, singleLevelArray);
+        writer = new TestDataWritableWriter(recordConsumer, schema, singleLevelArray, dateTimeZone);
     }
 
     @Override

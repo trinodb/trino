@@ -95,35 +95,6 @@ public class TestDecimals
     }
 
     @Test
-    public void testParseIncludeLeadingZerosInPrecision()
-    {
-        assertParseResultIncludeLeadingZerosInPrecision("0", 0L, 1, 0);
-        assertParseResultIncludeLeadingZerosInPrecision("+0", 0L, 1, 0);
-        assertParseResultIncludeLeadingZerosInPrecision("-0", 0L, 1, 0);
-        assertParseResultIncludeLeadingZerosInPrecision("00000000000000000", 0L, 17, 0);
-        assertParseResultIncludeLeadingZerosInPrecision("+00000000000000000", 0L, 17, 0);
-        assertParseResultIncludeLeadingZerosInPrecision("-00000000000000000", 0L, 17, 0);
-        assertParseResultIncludeLeadingZerosInPrecision("1.1", 11L, 2, 1);
-        assertParseResultIncludeLeadingZerosInPrecision("+1.1", 11L, 2, 1);
-        assertParseResultIncludeLeadingZerosInPrecision("-1.1", -11L, 2, 1);
-        assertParseResultIncludeLeadingZerosInPrecision("0001.1", 11L, 5, 1);
-        assertParseResultIncludeLeadingZerosInPrecision("+0001.1", 11L, 5, 1);
-        assertParseResultIncludeLeadingZerosInPrecision("-0001.1", -11L, 5, 1);
-        assertParseResultIncludeLeadingZerosInPrecision("000", 0L, 3, 0);
-        assertParseResultIncludeLeadingZerosInPrecision("+000", 0L, 3, 0);
-        assertParseResultIncludeLeadingZerosInPrecision("-000", -0L, 3, 0);
-        assertParseResultIncludeLeadingZerosInPrecision("000.1", 1L, 4, 1);
-        assertParseResultIncludeLeadingZerosInPrecision("+000.1", 1L, 4, 1);
-        assertParseResultIncludeLeadingZerosInPrecision("-000.1", -1L, 4, 1);
-        assertParseResultIncludeLeadingZerosInPrecision("000000000000000000", 0L, 18, 0);
-        assertParseResultIncludeLeadingZerosInPrecision("+000000000000000000", 0L, 18, 0);
-        assertParseResultIncludeLeadingZerosInPrecision("-000000000000000000", 0L, 18, 0);
-        assertParseResultIncludeLeadingZerosInPrecision("000000000000000000.123", Int128.valueOf("123"), 21, 3);
-        assertParseResultIncludeLeadingZerosInPrecision("+000000000000000000.123", Int128.valueOf("123"), 21, 3);
-        assertParseResultIncludeLeadingZerosInPrecision("-000000000000000000.123", Int128.valueOf("-123"), 21, 3);
-    }
-
-    @Test
     public void testRejectNoDigits()
     {
         assertParseFailure(".");
@@ -172,14 +143,6 @@ public class TestDecimals
     private void assertParseResult(String value, Object expectedObject, int expectedPrecision, int expectedScale)
     {
         assertEquals(Decimals.parse(value),
-                new DecimalParseResult(
-                        expectedObject,
-                        createDecimalType(expectedPrecision, expectedScale)));
-    }
-
-    private void assertParseResultIncludeLeadingZerosInPrecision(String value, Object expectedObject, int expectedPrecision, int expectedScale)
-    {
-        assertEquals(Decimals.parseIncludeLeadingZerosInPrecision(value),
                 new DecimalParseResult(
                         expectedObject,
                         createDecimalType(expectedPrecision, expectedScale)));

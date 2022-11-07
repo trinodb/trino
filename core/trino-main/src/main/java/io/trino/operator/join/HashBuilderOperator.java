@@ -19,7 +19,6 @@ import com.google.common.io.Closer;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
-import io.trino.execution.Lifespan;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.DriverContext;
 import io.trino.operator.HashArraySizeSupplier;
@@ -39,9 +38,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
@@ -83,7 +80,7 @@ public class HashBuilderOperator
         private final SingleStreamSpillerFactory singleStreamSpillerFactory;
         private final HashArraySizeSupplier hashArraySizeSupplier;
 
-        private final Map<Lifespan, Integer> partitionIndexManager = new HashMap<>();
+        private int partitionIndex;
 
         private boolean closed;
 
@@ -130,13 +127,13 @@ public class HashBuilderOperator
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, HashBuilderOperator.class.getSimpleName());
 
-            PartitionedLookupSourceFactory lookupSourceFactory = this.lookupSourceFactoryManager.getJoinBridge(driverContext.getLifespan());
-            int partitionIndex = getAndIncrementPartitionIndex(driverContext.getLifespan());
+            PartitionedLookupSourceFactory lookupSourceFactory = this.lookupSourceFactoryManager.getJoinBridge();
             verify(partitionIndex < lookupSourceFactory.partitions());
+            partitionIndex++;
             return new HashBuilderOperator(
                     operatorContext,
                     lookupSourceFactory,
-                    partitionIndex,
+                    partitionIndex - 1,
                     outputChannels,
                     hashChannels,
                     preComputedHashChannel,
@@ -160,11 +157,6 @@ public class HashBuilderOperator
         public OperatorFactory duplicate()
         {
             throw new UnsupportedOperationException("Parallel hash build cannot be duplicated");
-        }
-
-        private int getAndIncrementPartitionIndex(Lifespan lifespan)
-        {
-            return partitionIndexManager.compute(lifespan, (k, v) -> v == null ? 1 : v + 1) - 1;
         }
     }
 
@@ -433,7 +425,7 @@ public class HashBuilderOperator
         spiller = Optional.of(singleStreamSpillerFactory.create(
                 index.getTypes(),
                 operatorContext.getSpillContext().newLocalSpillContext(),
-                operatorContext.newLocalSystemMemoryContext(HashBuilderOperator.class.getSimpleName())));
+                operatorContext.newLocalUserMemoryContext(HashBuilderOperator.class.getSimpleName())));
         return getSpiller().spill(index.getPages());
     }
 

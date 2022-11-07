@@ -177,7 +177,7 @@ public class PatternRecognitionAnalyzer
                     throw semanticException(NESTED_ROW_PATTERN_RECOGNITION, nested, "nested row pattern recognition in row pattern recognition");
                 }));
 
-        return new PatternRecognitionAnalysis(allLabels, undefinedLabels, ranges.build());
+        return new PatternRecognitionAnalysis(allLabels, undefinedLabels, ranges.buildOrThrow());
     }
 
     public static void validateNoPatternSearchMode(Optional<PatternSearchMode> patternSearchMode)

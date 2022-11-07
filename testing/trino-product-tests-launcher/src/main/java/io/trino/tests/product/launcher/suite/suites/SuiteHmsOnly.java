@@ -31,7 +31,7 @@ public class SuiteHmsOnly
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvSinglenode.class)
-                        .withGroups("hms_only")
+                        .withGroups("configured_features", "hms_only")
                         .build());
     }
 }

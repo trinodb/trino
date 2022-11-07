@@ -19,9 +19,8 @@ import io.trino.execution.QueryInfo;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.ResultWithQueryId;
 import io.trino.testing.kafka.TestingKafka;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -40,7 +39,6 @@ import static io.trino.plugin.kafka.util.TestUtils.createEmptyTopicDescription;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -74,10 +72,8 @@ public class TestKafkaIntegrationPushDown
                         .put(createEmptyTopicDescription(topicNameOffset, new SchemaTableName("default", topicNameOffset)))
                         .put(createEmptyTopicDescription(topicNameCreateTime, new SchemaTableName("default", topicNameCreateTime)))
                         .put(createEmptyTopicDescription(topicNameLogAppend, new SchemaTableName("default", topicNameLogAppend)))
-                        .build())
-                .setExtraKafkaProperties(ImmutableMap.<String, String>builder()
-                        .put("kafka.messages-per-split", "100")
-                        .build())
+                        .buildOrThrow())
+                .setExtraKafkaProperties(ImmutableMap.of("kafka.messages-per-split", "100"))
                 .build();
         testingKafka.createTopicWithConfig(2, 1, topicNamePartition, false);
         testingKafka.createTopicWithConfig(2, 1, topicNameOffset, false);
@@ -93,7 +89,7 @@ public class TestKafkaIntegrationPushDown
         String sql = format("SELECT count(*) FROM default.%s WHERE _partition_id=1", topicNamePartition);
 
         assertEventually(() -> {
-            ResultWithQueryId<MaterializedResult> queryResult = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
+            MaterializedResultWithQueryId queryResult = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
             assertEquals(getQueryInfo(getDistributedQueryRunner(), queryResult).getQueryStats().getProcessedInputPositions(), MESSAGE_NUM / 2);
         });
     }
@@ -102,18 +98,9 @@ public class TestKafkaIntegrationPushDown
     public void testOffsetPushDown()
     {
         createMessages(topicNameOffset);
-        assertProcessedInputPossitions(format("SELECT count(*) FROM default.%s WHERE _partition_offset between 2 and 10", topicNameOffset), 18);
-        assertProcessedInputPossitions(format("SELECT count(*) FROM default.%s WHERE _partition_offset > 2 and _partition_offset < 10", topicNameOffset), 14);
-        assertProcessedInputPossitions(format("SELECT count(*) FROM default.%s WHERE _partition_offset = 3", topicNameOffset), 2);
-    }
-
-    private void assertProcessedInputPossitions(String sql, long expectedProcessedInputPositions)
-    {
-        DistributedQueryRunner queryRunner = getDistributedQueryRunner();
-        assertEventually(() -> {
-            ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(getSession(), sql);
-            assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputPositions(), expectedProcessedInputPositions);
-        });
+        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _partition_offset between 2 and 10", topicNameOffset), 18);
+        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _partition_offset > 2 and _partition_offset < 10", topicNameOffset), 14);
+        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _partition_offset = 3", topicNameOffset), 2);
     }
 
     @Test
@@ -121,32 +108,25 @@ public class TestKafkaIntegrationPushDown
             throws Exception
     {
         RecordMessage recordMessage = createTimestampTestMessages(topicNameCreateTime);
-        DistributedQueryRunner queryRunner = getDistributedQueryRunner();
-        // ">= startTime" insure including index 2, "< endTime"  insure excluding index 4;
-        String sql = format(
-                "SELECT count(*) FROM default.%s WHERE _timestamp >= timestamp '%s' and _timestamp < timestamp '%s'",
-                topicNameCreateTime,
-                recordMessage.getStartTime(),
-                recordMessage.getEndTime());
-
-        // timestamp_upper_bound_force_push_down_enabled default as false.
-        assertEventually(() -> {
-            ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(getSession(), sql);
-            assertThat(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputPositions())
-                    .isEqualTo(998);
-        });
+        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp < timestamp '%s'", topicNameCreateTime, recordMessage.getEndTime()), 1000);
+        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp <= timestamp '%s'", topicNameCreateTime, recordMessage.getEndTime()), 1000);
+        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp > timestamp '%s'", topicNameCreateTime, recordMessage.getStartTime()), 997);
+        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp >= timestamp '%s'", topicNameCreateTime, recordMessage.getStartTime()), 998);
+        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp between timestamp '%s' and timestamp '%s'", topicNameCreateTime, recordMessage.getStartTime(), recordMessage.getEndTime()), 998);
+        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp >= timestamp '%s' and _timestamp < timestamp '%s'", topicNameCreateTime, recordMessage.getStartTime(), recordMessage.getEndTime()), 998);
+        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp = timestamp '%s'", topicNameCreateTime, recordMessage.getStartTime()), 998);
 
         // timestamp_upper_bound_force_push_down_enabled set as true.
-        assertEventually(() -> {
-            // timestamp_upper_bound_force_push_down_enabled set as true.
-            Session sessionWithUpperBoundPushDownEnabled = Session.builder(getSession())
-                    .setSystemProperty("kafka.timestamp_upper_bound_force_push_down_enabled", "true")
-                    .build();
-
-            ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(sessionWithUpperBoundPushDownEnabled, sql);
-            assertThat(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputPositions())
-                    .isEqualTo(2);
-        });
+        Session sessionWithUpperBoundPushDownEnabled = Session.builder(getSession())
+                .setSystemProperty("kafka.timestamp_upper_bound_force_push_down_enabled", "true")
+                .build();
+        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp < timestamp '%s'", topicNameCreateTime, recordMessage.getEndTime()), 4, sessionWithUpperBoundPushDownEnabled);
+        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp <= timestamp '%s'", topicNameCreateTime, recordMessage.getEndTime()), 4, sessionWithUpperBoundPushDownEnabled);
+        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp > timestamp '%s'", topicNameCreateTime, recordMessage.getStartTime()), 997, sessionWithUpperBoundPushDownEnabled);
+        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp >= timestamp '%s'", topicNameCreateTime, recordMessage.getStartTime()), 998, sessionWithUpperBoundPushDownEnabled);
+        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp between timestamp '%s' and timestamp '%s'", topicNameCreateTime, recordMessage.getStartTime(), recordMessage.getEndTime()), 2, sessionWithUpperBoundPushDownEnabled);
+        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp >= timestamp '%s' and _timestamp < timestamp '%s'", topicNameCreateTime, recordMessage.getStartTime(), recordMessage.getEndTime()), 2, sessionWithUpperBoundPushDownEnabled);
+        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp = timestamp '%s'", topicNameCreateTime, recordMessage.getStartTime()), 0, sessionWithUpperBoundPushDownEnabled);
     }
 
     @Test
@@ -154,22 +134,30 @@ public class TestKafkaIntegrationPushDown
             throws Exception
     {
         RecordMessage recordMessage = createTimestampTestMessages(topicNameLogAppend);
-        DistributedQueryRunner queryRunner = getDistributedQueryRunner();
-        // ">= startTime" insure including index 2, "< endTime"  insure excluding index 4;
-        String sql = format(
-                "SELECT count(*) FROM default.%s WHERE _timestamp >= timestamp '%s' and _timestamp < timestamp '%s'",
-                topicNameLogAppend,
-                recordMessage.getStartTime(),
-                recordMessage.getEndTime());
+        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp < timestamp '%s'", topicNameLogAppend, recordMessage.getEndTime()), 4);
+        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp <= timestamp '%s'", topicNameLogAppend, recordMessage.getEndTime()), 4);
+        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp > timestamp '%s'", topicNameLogAppend, recordMessage.getStartTime()), 997);
+        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp >= timestamp '%s'", topicNameLogAppend, recordMessage.getStartTime()), 998);
+        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp between timestamp '%s' and timestamp '%s'", topicNameLogAppend, recordMessage.getStartTime(), recordMessage.getEndTime()), 2);
+        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp >= timestamp '%s' and _timestamp < timestamp '%s'", topicNameLogAppend, recordMessage.getStartTime(), recordMessage.getEndTime()), 2);
+        assertProcessedInputPositions(format("SELECT count(*) FROM default.%s WHERE _timestamp = timestamp '%s'", topicNameLogAppend, recordMessage.getStartTime()), 0);
+    }
 
+    private void assertProcessedInputPositions(String sql, long expectedProcessedInputPositions)
+    {
+        assertProcessedInputPositions(sql, expectedProcessedInputPositions, getSession());
+    }
+
+    private void assertProcessedInputPositions(String sql, long expectedProcessedInputPositions, Session session)
+    {
+        DistributedQueryRunner queryRunner = getDistributedQueryRunner();
         assertEventually(() -> {
-            ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(getSession(), sql);
-            assertThat(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputPositions())
-                    .isEqualTo(2);
+            MaterializedResultWithQueryId queryResult = queryRunner.executeWithQueryId(session, sql);
+            assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputPositions(), expectedProcessedInputPositions);
         });
     }
 
-    private static QueryInfo getQueryInfo(DistributedQueryRunner queryRunner, ResultWithQueryId<MaterializedResult> queryResult)
+    private static QueryInfo getQueryInfo(DistributedQueryRunner queryRunner, MaterializedResultWithQueryId queryResult)
     {
         return queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryResult.getQueryId());
     }

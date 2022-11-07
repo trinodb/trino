@@ -88,13 +88,13 @@ public class TestS3TableConfigClient
         // MinimalTable.json in that folder.
 
         // Create dependent objects, including the minimal config needed for this test
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("kinesis.table-description-location", tableDescriptionS3)
                 .put("kinesis.default-schema", "kinesis")
                 .put("kinesis.hide-internal-columns", "false")
                 .put("kinesis.access-key", TestUtils.noneToBlank(accessKey))
                 .put("kinesis.secret-key", TestUtils.noneToBlank(secretKey))
-                .build();
+                .buildOrThrow();
 
         KinesisPlugin kinesisPlugin = new KinesisPlugin();
         KinesisConnector kinesisConnector = TestUtils.createConnector(kinesisPlugin, properties, false);
@@ -108,7 +108,7 @@ public class TestS3TableConfigClient
             log.error("interrupted ...");
         }
 
-        KinesisMetadata metadata = (KinesisMetadata) kinesisConnector.getMetadata(new ConnectorTransactionHandle() {});
+        KinesisMetadata metadata = (KinesisMetadata) kinesisConnector.getMetadata(SESSION, new ConnectorTransactionHandle() {});
         SchemaTableName tblName = new SchemaTableName("default", "test123");
         KinesisTableHandle tableHandle = metadata.getTableHandle(SESSION, tblName);
         assertNotNull(metadata);

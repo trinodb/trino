@@ -13,13 +13,18 @@
  */
 package io.trino.metadata;
 
+import io.trino.connector.CatalogServiceProvider;
+import io.trino.spi.session.PropertyMetadata;
+
+import java.util.Map;
+
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 
 public class TablePropertyManager
         extends AbstractCatalogPropertyManager
 {
-    public TablePropertyManager()
+    public TablePropertyManager(CatalogServiceProvider<Map<String, PropertyMetadata<?>>> connectorProperties)
     {
-        super("table", INVALID_TABLE_PROPERTY);
+        super("table", INVALID_TABLE_PROPERTY, connectorProperties);
     }
 }

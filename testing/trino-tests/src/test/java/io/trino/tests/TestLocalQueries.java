@@ -48,6 +48,7 @@ public class TestLocalQueries
                 .build();
 
         LocalQueryRunner localQueryRunner = LocalQueryRunner.builder(defaultSession)
+                .withNodeCountForStats(1)
                 .build();
 
         // add the tpch catalog
@@ -57,7 +58,7 @@ public class TestLocalQueries
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
 
-        localQueryRunner.getMetadata().addFunctions(CUSTOM_FUNCTIONS);
+        localQueryRunner.addFunctions(CUSTOM_FUNCTIONS);
 
         return localQueryRunner;
     }

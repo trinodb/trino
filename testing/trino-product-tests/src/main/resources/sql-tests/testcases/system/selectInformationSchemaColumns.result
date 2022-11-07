@@ -12,12 +12,6 @@ system| information_schema| columns| column_default| varchar| YES| null| null|
 system| information_schema| columns| is_nullable| varchar| YES| null| null|
 system| information_schema| columns| data_type| varchar| YES| null| null|
 system| information_schema| enabled_roles| role_name| varchar| YES| null| null|
-system| information_schema| role_authorization_descriptors| role_name| varchar| YES| null| null|
-system| information_schema| role_authorization_descriptors| grantor| varchar| YES| null| null|
-system| information_schema| role_authorization_descriptors| grantor_type| varchar| YES| null| null|
-system| information_schema| role_authorization_descriptors| grantee| varchar| YES| null| null|
-system| information_schema| role_authorization_descriptors| grantee_type| varchar| YES| null| null|
-system| information_schema| role_authorization_descriptors| is_grantable| varchar| YES| null| null|
 system| information_schema| roles| role_name| varchar| YES| null| null|
 system| information_schema| schemata| catalog_name| varchar| YES| null| null|
 system| information_schema| schemata| schema_name| varchar| YES| null| null|

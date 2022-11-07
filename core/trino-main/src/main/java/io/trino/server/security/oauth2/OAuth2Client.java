@@ -15,28 +15,61 @@ package io.trino.server.security.oauth2;
 
 import java.net.URI;
 import java.time.Instant;
+import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public interface OAuth2Client
 {
-    URI getAuthorizationUri(String state, URI callbackUri, Optional<String> nonceHash);
+    void load();
 
-    OAuth2Response getOAuth2Response(String code, URI callbackUri)
+    Request createAuthorizationRequest(String state, URI callbackUri);
+
+    Response getOAuth2Response(String code, URI callbackUri, Optional<String> nonce)
             throws ChallengeFailedException;
 
-    class OAuth2Response
+    Optional<Map<String, Object>> getClaims(String accessToken);
+
+    Response refreshTokens(String refreshToken)
+            throws ChallengeFailedException;
+
+    class Request
+    {
+        private final URI authorizationUri;
+        private final Optional<String> nonce;
+
+        public Request(URI authorizationUri, Optional<String> nonce)
+        {
+            this.authorizationUri = requireNonNull(authorizationUri, "authorizationUri is null");
+            this.nonce = requireNonNull(nonce, "nonce is null");
+        }
+
+        public URI getAuthorizationUri()
+        {
+            return authorizationUri;
+        }
+
+        public Optional<String> getNonce()
+        {
+            return nonce;
+        }
+    }
+
+    class Response
     {
         private final String accessToken;
-        private final Optional<Instant> validUntil;
+        private final Instant expiration;
         private final Optional<String> idToken;
 
-        public OAuth2Response(String accessToken, Optional<Instant> validUntil, Optional<String> idToken)
+        private final Optional<String> refreshToken;
+
+        public Response(String accessToken, Instant expiration, Optional<String> idToken, Optional<String> refreshToken)
         {
             this.accessToken = requireNonNull(accessToken, "accessToken is null");
-            this.validUntil = requireNonNull(validUntil, "validUntil is null");
+            this.expiration = requireNonNull(expiration, "expiration is null");
             this.idToken = requireNonNull(idToken, "idToken is null");
+            this.refreshToken = requireNonNull(refreshToken, "refreshToken is null");
         }
 
         public String getAccessToken()
@@ -44,14 +77,19 @@ public interface OAuth2Client
             return accessToken;
         }
 
-        public Optional<Instant> getValidUntil()
+        public Instant getExpiration()
         {
-            return validUntil;
+            return expiration;
         }
 
         public Optional<String> getIdToken()
         {
             return idToken;
+        }
+
+        public Optional<String> getRefreshToken()
+        {
+            return refreshToken;
         }
     }
 }

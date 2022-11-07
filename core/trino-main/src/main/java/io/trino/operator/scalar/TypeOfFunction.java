@@ -38,31 +38,4 @@ public final class TypeOfFunction
     {
         return utf8Slice(type.getDisplayName());
     }
-
-    @TypeParameter("T")
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice typeof(
-            @TypeParameter("T") Type type,
-            @SqlNullable @SqlType("T") Long value)
-    {
-        return typeof(type, (Object) value);
-    }
-
-    @TypeParameter("T")
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice typeof(
-            @TypeParameter("T") Type type,
-            @SqlNullable @SqlType("T") Double value)
-    {
-        return typeof(type, (Object) value);
-    }
-
-    @TypeParameter("T")
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice typeof(
-            @TypeParameter("T") Type type,
-            @SqlNullable @SqlType("T") Boolean value)
-    {
-        return typeof(type, (Object) value);
-    }
 }

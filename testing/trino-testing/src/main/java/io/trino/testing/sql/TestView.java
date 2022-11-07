@@ -17,7 +17,7 @@ import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 
 public class TestView
-        implements AutoCloseable
+        implements TemporaryRelation
 {
     private final SqlExecutor sqlExecutor;
     private final String name;
@@ -29,6 +29,7 @@ public class TestView
         sqlExecutor.execute(format("CREATE VIEW %s AS %s", name, viewBody));
     }
 
+    @Override
     public String getName()
     {
         return name;

@@ -52,7 +52,7 @@ public final class MetadataUtil
         private final Map<String, Type> types = ImmutableMap.<String, Type>builder()
                 .put(StandardTypes.BIGINT, BIGINT)
                 .put(StandardTypes.VARCHAR, createUnboundedVarcharType()) // with max value length in signature
-                .build();
+                .buildOrThrow();
 
         public TestingTypeDeserializer()
         {

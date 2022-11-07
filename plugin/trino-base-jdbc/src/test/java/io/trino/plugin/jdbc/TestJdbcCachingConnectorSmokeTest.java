@@ -39,8 +39,7 @@ public class TestJdbcCachingConnectorSmokeTest
                 .put("metadata.cache-ttl", "10m")
                 .put("metadata.cache-missing", "true")
                 .put("case-insensitive-name-matching", "true")
-                .put("allow-drop-table", "true")
-                .build();
+                .buildOrThrow();
         this.h2SqlExecutor = new JdbcSqlExecutor(properties.get("connection-url"), new Properties());
         return createH2QueryRunner(REQUIRED_TPCH_TABLES, properties);
     }
@@ -131,7 +130,6 @@ public class TestJdbcCachingConnectorSmokeTest
     {
         switch (connectorBehavior) {
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
-            case SUPPORTS_RENAME_SCHEMA:
                 return false;
 
             default:

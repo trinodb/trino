@@ -20,12 +20,13 @@ import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import org.openjdk.jol.info.ClassLayout;
 
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class SingleHistogramState
         implements HistogramState
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleHistogramState.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SingleHistogramState.class).instanceSize());
 
     private final Type keyType;
     private final BlockPositionEqual equalOperator;

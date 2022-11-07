@@ -167,14 +167,14 @@ public class KdbTree
     {
         ImmutableMap.Builder<Integer, Rectangle> leaves = ImmutableMap.builder();
         addLeaves(root, leaves, node -> true);
-        return leaves.build();
+        return leaves.buildOrThrow();
     }
 
     public Map<Integer, Rectangle> findIntersectingLeaves(Rectangle envelope)
     {
         ImmutableMap.Builder<Integer, Rectangle> leaves = ImmutableMap.builder();
         addLeaves(root, leaves, node -> node.extent.intersects(envelope));
-        return leaves.build();
+        return leaves.buildOrThrow();
     }
 
     private static void addLeaves(Node node, ImmutableMap.Builder<Integer, Rectangle> leaves, Predicate<Node> predicate)

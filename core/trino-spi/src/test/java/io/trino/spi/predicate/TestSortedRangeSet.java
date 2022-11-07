@@ -25,13 +25,21 @@ import io.trino.spi.type.TestingTypeDeserializer;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import org.assertj.core.api.AssertProvider;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
+
+import java.util.List;
+import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Float.floatToRawIntBits;
@@ -618,6 +626,122 @@ public class TestSortedRangeSet
 
         set = SortedRangeSet.of(Range.equal(BOOLEAN, true), Range.equal(BOOLEAN, false));
         assertEquals(set, mapper.readValue(mapper.writeValueAsString(set), SortedRangeSet.class));
+    }
+
+    @DataProvider
+    public Object[][] denseTypes()
+    {
+        return new Object[][] {{BIGINT}, {INTEGER}, {SMALLINT}, {TINYINT}, {createDecimalType(2)}};
+    }
+
+    @Test(dataProvider = "denseTypes")
+    public void testExpandRangesForDenseType(Type type)
+    {
+        assertThat(ValueSet.ofRanges(Range.equal(type, 1L))
+                .tryExpandRanges(0))
+                .isEqualTo(Optional.empty());
+
+        assertThat(ValueSet.none(type)
+                .tryExpandRanges(0))
+                .isEqualTo(Optional.of(List.of()));
+
+        assertThat(ValueSet.ofRanges(Range.range(type, 1L, true, 5L, true))
+                .tryExpandRanges(10))
+                .isEqualTo(Optional.of(List.of(1L, 2L, 3L, 4L, 5L)));
+
+        assertThat(ValueSet.of(type, 1L, 2L, 3L, 4L, 5L)
+                .tryExpandRanges(10))
+                .isEqualTo(Optional.of(List.of(1L, 2L, 3L, 4L, 5L)));
+
+        type.getRange().ifPresent(range -> {
+            long min = (long) range.getMin();
+
+            assertThat(ValueSet.ofRanges(Range.range(type, min, true, min + 3, true))
+                    .tryExpandRanges(10))
+                    .isEqualTo(Optional.of(List.of(min, min + 1, min + 2, min + 3)));
+            assertThat(ValueSet.ofRanges(Range.lessThan(type, min + 4))
+                    .tryExpandRanges(10))
+                    .isEqualTo(Optional.of(List.of(min, min + 1, min + 2, min + 3)));
+            assertThat(ValueSet.ofRanges(Range.lessThanOrEqual(type, min + 3))
+                    .tryExpandRanges(10))
+                    .isEqualTo(Optional.of(List.of(min, min + 1, min + 2, min + 3)));
+
+            long max = (long) range.getMax();
+
+            assertThat(ValueSet.ofRanges(Range.range(type, max - 3, true, max, true))
+                    .tryExpandRanges(10))
+                    .isEqualTo(Optional.of(List.of(max - 3, max - 2, max - 1, max)));
+            assertThat(ValueSet.ofRanges(Range.greaterThan(type, max - 4))
+                    .tryExpandRanges(10))
+                    .isEqualTo(Optional.of(List.of(max - 3, max - 2, max - 1, max)));
+            assertThat(ValueSet.ofRanges(Range.greaterThanOrEqual(type, max - 3))
+                    .tryExpandRanges(10))
+                    .isEqualTo(Optional.of(List.of(max - 3, max - 2, max - 1, max)));
+        });
+
+        assertThat(ValueSet.ofRanges(Range.range(type, 1L, true, 5L, true))
+                .tryExpandRanges(10))
+                .isEqualTo(Optional.of(List.of(1L, 2L, 3L, 4L, 5L)));
+
+        assertThat(ValueSet.ofRanges(Range.range(type, 1L, true, 5L, true))
+                .tryExpandRanges(5))
+                .isEqualTo(Optional.of(List.of(1L, 2L, 3L, 4L, 5L)));
+
+        assertThat(ValueSet.ofRanges(Range.range(type, 1L, true, 5L, false))
+                .tryExpandRanges(5))
+                .isEqualTo(Optional.of(List.of(1L, 2L, 3L, 4L)));
+
+        assertThat(ValueSet.ofRanges(Range.range(type, 1L, true, 6L, true))
+                .tryExpandRanges(5))
+                .isEqualTo(Optional.empty());
+
+        assertThat(ValueSet.ofRanges(Range.range(type, 1L, true, 6L, false))
+                .tryExpandRanges(5))
+                .isEqualTo(Optional.of(List.of(1L, 2L, 3L, 4L, 5L)));
+
+        assertThat(ValueSet.ofRanges(Range.range(type, 1L, false, 5L, true))
+                .tryExpandRanges(5))
+                .isEqualTo(Optional.of(List.of(2L, 3L, 4L, 5L)));
+
+        assertThat(ValueSet.ofRanges(Range.range(type, 1L, true, 5L, false))
+                .tryExpandRanges(5))
+                .isEqualTo(Optional.of(List.of(1L, 2L, 3L, 4L)));
+
+        assertThat(ValueSet.ofRanges(Range.range(type, 1L, false, 5L, false))
+                .tryExpandRanges(5))
+                .isEqualTo(Optional.of(List.of(2L, 3L, 4L)));
+
+        assertThat(ValueSet.ofRanges(Range.range(type, 1L, false, 2L, false))
+                .tryExpandRanges(5))
+                .isEqualTo(Optional.of(List.of()));
+
+        assertThat(ValueSet.ofRanges(Range.range(type, 1L, false, 3L, false))
+                .tryExpandRanges(5))
+                .isEqualTo(Optional.of(List.of(2L)));
+
+        assertThat(ValueSet.ofRanges(Range.range(type, 1L, true, 5L, true))
+                .tryExpandRanges(3))
+                .isEqualTo(Optional.empty());
+
+        assertThat(ValueSet.of(type, 1L, 2L, 3L, 4L, 5L)
+                .tryExpandRanges(3))
+                .isEqualTo(Optional.empty());
+
+        assertThat(ValueSet.ofRanges(Range.greaterThan(type, 1L))
+                .tryExpandRanges(3))
+                .isEqualTo(Optional.empty());
+
+        assertThat(ValueSet.ofRanges(Range.greaterThanOrEqual(type, 1L))
+                .tryExpandRanges(3))
+                .isEqualTo(Optional.empty());
+
+        assertThat(ValueSet.ofRanges(Range.lessThan(type, 1L))
+                .tryExpandRanges(3))
+                .isEqualTo(Optional.empty());
+
+        assertThat(ValueSet.ofRanges(Range.lessThanOrEqual(type, 1L))
+                .tryExpandRanges(3))
+                .isEqualTo(Optional.empty());
     }
 
     private void assertUnion(SortedRangeSet first, SortedRangeSet second, SortedRangeSet expected)

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.trino.Session;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.DecimalParseResult;
@@ -78,8 +79,8 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
@@ -130,6 +131,7 @@ public final class SqlToRowExpressionTranslator
             Map<NodeRef<Expression>, Type> types,
             Map<Symbol, Integer> layout,
             Metadata metadata,
+            FunctionManager functionManager,
             Session session,
             boolean optimize)
     {
@@ -143,7 +145,7 @@ public final class SqlToRowExpressionTranslator
         requireNonNull(result, "result is null");
 
         if (optimize) {
-            ExpressionOptimizer optimizer = new ExpressionOptimizer(metadata, session);
+            ExpressionOptimizer optimizer = new ExpressionOptimizer(metadata, functionManager, session);
             return optimizer.optimize(result);
         }
 
@@ -226,19 +228,19 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitStringLiteral(StringLiteral node, Void context)
         {
-            return constant(node.getSlice(), createVarcharType(countCodePoints(node.getSlice())));
+            return constant(utf8Slice(node.getValue()), createVarcharType(node.length()));
         }
 
         @Override
         protected RowExpression visitCharLiteral(CharLiteral node, Void context)
         {
-            return constant(node.getSlice(), createCharType(node.getValue().length()));
+            return constant(utf8Slice(node.getValue()), createCharType(node.length()));
         }
 
         @Override
         protected RowExpression visitBinaryLiteral(BinaryLiteral node, Void context)
         {
-            return constant(node.getValue(), VARBINARY);
+            return constant(wrappedBuffer(node.getValue()), VARBINARY);
         }
 
         @Override
@@ -577,7 +579,7 @@ public final class SqlToRowExpressionTranslator
 
              */
             RowExpression expression = node.getDefaultValue()
-                    .map((value) -> process(value, context))
+                    .map(value -> process(value, context))
                     .orElse(constantNull(getType(node)));
 
             for (WhenClause clause : Lists.reverse(node.getWhenClauses())) {
@@ -686,9 +688,8 @@ public final class SqlToRowExpressionTranslator
             RowExpression min = process(node.getMin(), context);
             RowExpression max = process(node.getMax(), context);
 
-            List<ResolvedFunction> functionDependencies = ImmutableList.<ResolvedFunction>builder()
-                    .add(metadata.resolveOperator(session, LESS_THAN_OR_EQUAL, ImmutableList.of(value.getType(), max.getType())))
-                    .build();
+            List<ResolvedFunction> functionDependencies = ImmutableList.of(
+                    metadata.resolveOperator(session, LESS_THAN_OR_EQUAL, ImmutableList.of(value.getType(), max.getType())));
 
             return new SpecialForm(
                     BETWEEN,

@@ -18,6 +18,7 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.security.AccessControl;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.tree.Expression;
@@ -33,6 +34,7 @@ import static io.trino.metadata.MetadataUtil.checkRoleExists;
 import static io.trino.metadata.MetadataUtil.createPrincipal;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Objects.requireNonNull;
@@ -67,8 +69,12 @@ public class SetTableAuthorizationTask
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getSource());
 
         getRequiredCatalogHandle(metadata, session, statement, tableName.getCatalogName());
-        if (metadata.getTableHandle(session, tableName).isEmpty()) {
+        RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, tableName);
+        if (redirection.getTableHandle().isEmpty()) {
             throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
+        }
+        if (redirection.getRedirectedTableName().isPresent()) {
+            throw semanticException(NOT_SUPPORTED, statement, "Table %s is redirected to %s and SET TABLE AUTHORIZATION is not supported with table redirections", tableName, redirection.getRedirectedTableName().get());
         }
 
         TrinoPrincipal principal = createPrincipal(statement.getPrincipal());

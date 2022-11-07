@@ -32,11 +32,11 @@ public final class OAuthWebUiCookie
 
     private OAuthWebUiCookie() {}
 
-    public static NewCookie create(String accessToken, Instant tokenExpiration)
+    public static NewCookie create(String token, Instant tokenExpiration)
     {
         return new NewCookie(
                 OAUTH2_COOKIE,
-                accessToken,
+                token,
                 UI_LOCATION,
                 null,
                 DEFAULT_VERSION,

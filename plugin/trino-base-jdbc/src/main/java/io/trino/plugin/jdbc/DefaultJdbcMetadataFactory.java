@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.jdbc;
 
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 
 import javax.inject.Inject;
@@ -26,14 +27,13 @@ public class DefaultJdbcMetadataFactory
         implements JdbcMetadataFactory
 {
     private final JdbcClient jdbcClient;
-    private final boolean allowDropTable;
+    private final Set<JdbcQueryEventListener> jdbcQueryEventListeners;
 
     @Inject
-    public DefaultJdbcMetadataFactory(JdbcClient jdbcClient, JdbcMetadataConfig config)
+    public DefaultJdbcMetadataFactory(JdbcClient jdbcClient, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
-        requireNonNull(config, "config is null");
-        this.allowDropTable = config.isAllowDropTable();
+        this.jdbcQueryEventListeners = ImmutableSet.copyOf(requireNonNull(jdbcQueryEventListeners, "queryEventListeners is null"));
     }
 
     @Override
@@ -47,12 +47,11 @@ public class DefaultJdbcMetadataFactory
                         new SingletonIdentityCacheMapping(),
                         new Duration(1, DAYS),
                         true,
-                        Integer.MAX_VALUE),
-                allowDropTable);
+                        Integer.MAX_VALUE));
     }
 
-    protected JdbcMetadata create(JdbcClient transactionCachingJdbcClient, boolean allowDropTable)
+    protected JdbcMetadata create(JdbcClient transactionCachingJdbcClient)
     {
-        return new DefaultJdbcMetadata(transactionCachingJdbcClient, allowDropTable);
+        return new DefaultJdbcMetadata(transactionCachingJdbcClient, true, jdbcQueryEventListeners);
     }
 }

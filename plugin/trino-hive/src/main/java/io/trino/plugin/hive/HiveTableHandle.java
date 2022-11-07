@@ -46,13 +46,13 @@ public class HiveTableHandle
     private final Optional<Map<String, String>> tableParameters;
     private final List<HiveColumnHandle> partitionColumns;
     private final List<HiveColumnHandle> dataColumns;
+    private final Optional<List<String>> partitionNames;
     private final Optional<List<HivePartition>> partitions;
     private final TupleDomain<HiveColumnHandle> compactEffectivePredicate;
     private final TupleDomain<ColumnHandle> enforcedConstraint;
     private final Optional<HiveBucketHandle> bucketHandle;
     private final Optional<HiveBucketFilter> bucketFilter;
     private final Optional<List<List<String>>> analyzePartitionValues;
-    private final Optional<Set<String>> analyzeColumnNames;
     private final Set<ColumnHandle> constraintColumns;
     private final Set<ColumnHandle> projectedColumns;
     private final AcidTransaction transaction;
@@ -70,7 +70,6 @@ public class HiveTableHandle
             @JsonProperty("bucketHandle") Optional<HiveBucketHandle> bucketHandle,
             @JsonProperty("bucketFilter") Optional<HiveBucketFilter> bucketFilter,
             @JsonProperty("analyzePartitionValues") Optional<List<List<String>>> analyzePartitionValues,
-            @JsonProperty("analyzeColumnNames") Optional<Set<String>> analyzeColumnNames,
             @JsonProperty("transaction") AcidTransaction transaction)
     {
         this(
@@ -80,12 +79,12 @@ public class HiveTableHandle
                 partitionColumns,
                 dataColumns,
                 Optional.empty(),
+                Optional.empty(),
                 compactEffectivePredicate,
                 enforcedConstraint,
                 bucketHandle,
                 bucketFilter,
                 analyzePartitionValues,
-                analyzeColumnNames,
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 transaction,
@@ -108,10 +107,10 @@ public class HiveTableHandle
                 partitionColumns,
                 dataColumns,
                 Optional.empty(),
+                Optional.empty(),
                 TupleDomain.all(),
                 TupleDomain.all(),
                 bucketHandle,
-                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableSet.of(),
@@ -127,31 +126,32 @@ public class HiveTableHandle
             Optional<Map<String, String>> tableParameters,
             List<HiveColumnHandle> partitionColumns,
             List<HiveColumnHandle> dataColumns,
+            Optional<List<String>> partitionNames,
             Optional<List<HivePartition>> partitions,
             TupleDomain<HiveColumnHandle> compactEffectivePredicate,
             TupleDomain<ColumnHandle> enforcedConstraint,
             Optional<HiveBucketHandle> bucketHandle,
             Optional<HiveBucketFilter> bucketFilter,
             Optional<List<List<String>>> analyzePartitionValues,
-            Optional<Set<String>> analyzeColumnNames,
             Set<ColumnHandle> constraintColumns,
             Set<ColumnHandle> projectedColumns,
             AcidTransaction transaction,
             boolean recordScannedFiles,
             Optional<Long> maxSplitFileSize)
     {
+        checkState(partitionNames.isEmpty() || partitions.isEmpty(), "partition names and partitions list cannot be present at same time");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
-        this.tableParameters = requireNonNull(tableParameters, "tableParameters is null").map(ImmutableMap::copyOf);
+        this.tableParameters = tableParameters.map(ImmutableMap::copyOf);
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
         this.dataColumns = ImmutableList.copyOf(requireNonNull(dataColumns, "dataColumns is null"));
-        this.partitions = requireNonNull(partitions, "partitions is null").map(ImmutableList::copyOf);
+        this.partitionNames = partitionNames.map(ImmutableList::copyOf);
+        this.partitions = partitions.map(ImmutableList::copyOf);
         this.compactEffectivePredicate = requireNonNull(compactEffectivePredicate, "compactEffectivePredicate is null");
         this.enforcedConstraint = requireNonNull(enforcedConstraint, "enforcedConstraint is null");
         this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
         this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
-        this.analyzePartitionValues = requireNonNull(analyzePartitionValues, "analyzePartitionValues is null").map(ImmutableList::copyOf);
-        this.analyzeColumnNames = requireNonNull(analyzeColumnNames, "analyzeColumnNames is null").map(ImmutableSet::copyOf);
+        this.analyzePartitionValues = analyzePartitionValues.map(ImmutableList::copyOf);
         this.constraintColumns = ImmutableSet.copyOf(requireNonNull(constraintColumns, "constraintColumns is null"));
         this.projectedColumns = ImmutableSet.copyOf(requireNonNull(projectedColumns, "projectedColumns is null"));
         this.transaction = requireNonNull(transaction, "transaction is null");
@@ -167,13 +167,13 @@ public class HiveTableHandle
                 tableParameters,
                 partitionColumns,
                 dataColumns,
+                partitionNames,
                 partitions,
                 compactEffectivePredicate,
                 enforcedConstraint,
                 bucketHandle,
                 bucketFilter,
                 Optional.of(analyzePartitionValues),
-                analyzeColumnNames,
                 constraintColumns,
                 projectedColumns,
                 transaction,
@@ -181,7 +181,7 @@ public class HiveTableHandle
                 maxScannedFileSize);
     }
 
-    public HiveTableHandle withAnalyzeColumnNames(Set<String> analyzeColumnNames)
+    public HiveTableHandle withAnalyzeColumnNames()
     {
         return new HiveTableHandle(
                 schemaName,
@@ -189,13 +189,13 @@ public class HiveTableHandle
                 tableParameters,
                 partitionColumns,
                 dataColumns,
+                partitionNames,
                 partitions,
                 compactEffectivePredicate,
                 enforcedConstraint,
                 bucketHandle,
                 bucketFilter,
                 analyzePartitionValues,
-                Optional.of(analyzeColumnNames),
                 constraintColumns,
                 projectedColumns,
                 transaction,
@@ -211,13 +211,13 @@ public class HiveTableHandle
                 tableParameters,
                 partitionColumns,
                 dataColumns,
+                partitionNames,
                 partitions,
                 compactEffectivePredicate,
                 enforcedConstraint,
                 bucketHandle,
                 bucketFilter,
                 analyzePartitionValues,
-                analyzeColumnNames,
                 constraintColumns,
                 projectedColumns,
                 transaction,
@@ -234,13 +234,13 @@ public class HiveTableHandle
                 tableParameters,
                 partitionColumns,
                 dataColumns,
+                partitionNames,
                 partitions,
                 compactEffectivePredicate,
                 enforcedConstraint,
                 bucketHandle,
                 bucketFilter,
                 analyzePartitionValues,
-                analyzeColumnNames,
                 constraintColumns,
                 projectedColumns,
                 transaction,
@@ -256,13 +256,13 @@ public class HiveTableHandle
                 tableParameters,
                 partitionColumns,
                 dataColumns,
+                partitionNames,
                 partitions,
                 compactEffectivePredicate,
                 enforcedConstraint,
                 bucketHandle,
                 bucketFilter,
                 analyzePartitionValues,
-                analyzeColumnNames,
                 constraintColumns,
                 projectedColumns,
                 transaction,
@@ -278,13 +278,13 @@ public class HiveTableHandle
                 tableParameters,
                 partitionColumns,
                 dataColumns,
+                partitionNames,
                 partitions,
                 compactEffectivePredicate,
                 enforcedConstraint,
                 bucketHandle,
                 bucketFilter,
                 analyzePartitionValues,
-                analyzeColumnNames,
                 constraintColumns,
                 projectedColumns,
                 transaction,
@@ -300,13 +300,13 @@ public class HiveTableHandle
                 tableParameters,
                 partitionColumns,
                 dataColumns,
+                partitionNames,
                 partitions,
                 compactEffectivePredicate,
                 enforcedConstraint,
                 bucketHandle,
                 bucketFilter,
                 analyzePartitionValues,
-                analyzeColumnNames,
                 constraintColumns,
                 projectedColumns,
                 transaction,
@@ -345,7 +345,23 @@ public class HiveTableHandle
         return dataColumns;
     }
 
-    // do not serialize partitions as they are not needed on workers
+    /**
+     * Represents raw partition information as String.
+     * These are partially satisfied by the table filter criteria.
+     * This will be set to `Optional#empty` if parsed partition information are loaded.
+     * Skip serialization as they are not needed on workers
+     */
+    @JsonIgnore
+    public Optional<List<String>> getPartitionNames()
+    {
+        return partitionNames;
+    }
+
+    /**
+     * Represents parsed partition information (which is derived from raw partition string).
+     * These are fully satisfied by the table filter criteria.
+     * Skip serialization as they are not needed on workers
+     */
     @JsonIgnore
     public Optional<List<HivePartition>> getPartitions()
     {
@@ -383,12 +399,6 @@ public class HiveTableHandle
     }
 
     @JsonProperty
-    public Optional<Set<String>> getAnalyzeColumnNames()
-    {
-        return analyzeColumnNames;
-    }
-
-    @JsonProperty
     public AcidTransaction getTransaction()
     {
         return transaction;
@@ -423,6 +433,12 @@ public class HiveTableHandle
     public boolean isAcidUpdate()
     {
         return transaction.isUpdate();
+    }
+
+    @JsonIgnore
+    public boolean isAcidMerge()
+    {
+        return transaction.isMerge();
     }
 
     @JsonIgnore
@@ -477,6 +493,7 @@ public class HiveTableHandle
                 Objects.equals(tableName, that.tableName) &&
                 Objects.equals(tableParameters, that.tableParameters) &&
                 Objects.equals(partitionColumns, that.partitionColumns) &&
+                Objects.equals(partitionNames, that.partitionNames) &&
                 Objects.equals(partitions, that.partitions) &&
                 Objects.equals(compactEffectivePredicate, that.compactEffectivePredicate) &&
                 Objects.equals(enforcedConstraint, that.enforcedConstraint) &&
@@ -495,6 +512,7 @@ public class HiveTableHandle
                 tableName,
                 tableParameters,
                 partitionColumns,
+                partitionNames,
                 partitions,
                 compactEffectivePredicate,
                 enforcedConstraint,

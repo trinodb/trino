@@ -76,13 +76,16 @@ public class CsvPrinter
     public void printRows(List<List<?>> rows, boolean complete)
             throws IOException
     {
+        String[] array = null;
         if (needHeader) {
             needHeader = false;
-            writer.writeNext(toStrings(fieldNames));
+            array = toStrings(fieldNames, array);
+            writer.writeNext(array);
         }
 
         for (List<?> row : rows) {
-            writer.writeNext(toStrings(row));
+            array = toStrings(row, array);
+            writer.writeNext(array);
             checkError();
         }
     }
@@ -104,10 +107,13 @@ public class CsvPrinter
         }
     }
 
-    private static String[] toStrings(List<?> values)
+    private static String[] toStrings(List<?> values, String[] array)
     {
-        String[] array = new String[values.size()];
-        for (int i = 0; i < values.size(); i++) {
+        int rowSize = values.size();
+        if (array == null || rowSize != array.length) {
+            array = new String[rowSize];
+        }
+        for (int i = 0; i < rowSize; i++) {
             array[i] = formatValue(values.get(i));
         }
         return array;

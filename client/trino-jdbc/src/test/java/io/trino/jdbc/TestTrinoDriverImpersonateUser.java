@@ -60,7 +60,7 @@ public class TestTrinoDriverImpersonateUser
                         .put("http-server.https.enabled", "true")
                         .put("http-server.https.keystore.path", new File(getResource("localhost.keystore").toURI()).getPath())
                         .put("http-server.https.keystore.key", "changeit")
-                        .build())
+                        .buildOrThrow())
                 .build();
 
         server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestTrinoDriverImpersonateUser::authenticate);

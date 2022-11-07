@@ -14,12 +14,13 @@
 package io.trino.operator.aggregation;
 
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
 
-public class BlockBuilderCopier
+public final class BlockBuilderCopier
 {
     private BlockBuilderCopier() {}
 
-    public static BlockBuilder copyBlockBuilder(BlockBuilder blockBuilder)
+    public static BlockBuilder copyBlockBuilder(Type type, BlockBuilder blockBuilder)
     {
         if (blockBuilder == null) {
             return null;
@@ -27,7 +28,7 @@ public class BlockBuilderCopier
 
         BlockBuilder copy = blockBuilder.newBlockBuilderLike(null);
         for (int i = 0; i < blockBuilder.getPositionCount(); i++) {
-            copy.appendStructure(blockBuilder.getSingleValueBlock(i));
+            type.appendTo(blockBuilder, i, copy);
         }
 
         return copy;

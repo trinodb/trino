@@ -13,51 +13,26 @@
  */
 package io.trino.metadata;
 
-import com.google.common.collect.Maps;
-import io.trino.connector.CatalogName;
-import io.trino.spi.TrinoException;
+import io.trino.connector.CatalogHandle;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.spi.connector.TableProcedureMetadata;
 
-import java.util.Collection;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import javax.inject.Inject;
 
-import static com.google.common.base.Preconditions.checkState;
-import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.trino.spi.StandardErrorCode.PROCEDURE_NOT_FOUND;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class TableProceduresRegistry
 {
-    private final Map<CatalogName, Map<String, TableProcedureMetadata>> tableProcedures = new ConcurrentHashMap<>();
+    private final CatalogServiceProvider<CatalogTableProcedures> tableProceduresProvider;
 
-    public void addTableProcedures(CatalogName catalogName, Collection<TableProcedureMetadata> procedures)
+    @Inject
+    public TableProceduresRegistry(CatalogServiceProvider<CatalogTableProcedures> tableProceduresProvider)
     {
-        requireNonNull(catalogName, "catalogName is null");
-        requireNonNull(procedures, "procedures is null");
-
-        Map<String, TableProcedureMetadata> proceduresByName = Maps.uniqueIndex(procedures, TableProcedureMetadata::getName);
-
-        checkState(tableProcedures.putIfAbsent(catalogName, proceduresByName) == null, "Table procedures already registered for connector: %s", catalogName);
+        this.tableProceduresProvider = requireNonNull(tableProceduresProvider, "tableProceduresProvider is null");
     }
 
-    public void removeProcedures(CatalogName catalogName)
+    public TableProcedureMetadata resolve(CatalogHandle catalogHandle, String name)
     {
-        tableProcedures.remove(catalogName);
-    }
-
-    public TableProcedureMetadata resolve(CatalogName catalogName, String name)
-    {
-        Map<String, TableProcedureMetadata> procedures = tableProcedures.get(catalogName);
-        if (procedures == null) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Catalog %s not registered", catalogName));
-        }
-
-        TableProcedureMetadata procedure = procedures.get(name);
-        if (procedure == null) {
-            throw new TrinoException(PROCEDURE_NOT_FOUND, format("Procedure %s not registered for catalog %s", name, catalogName));
-        }
-        return procedure;
+        return tableProceduresProvider.getService(catalogHandle).getTableProcedure(name);
     }
 }

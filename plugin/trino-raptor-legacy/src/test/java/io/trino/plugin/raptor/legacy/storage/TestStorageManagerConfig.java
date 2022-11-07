@@ -71,7 +71,7 @@ public class TestStorageManagerConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("storage.data-directory", "/data")
                 .put("storage.min-available-space", "123GB")
                 .put("storage.orc.max-merge-distance", "16kB")
@@ -95,7 +95,7 @@ public class TestStorageManagerConfig
                 .put("storage.max-shard-size", "10MB")
                 .put("storage.max-buffer-size", "512MB")
                 .put("storage.one-split-per-bucket-threshold", "4")
-                .build();
+                .buildOrThrow();
 
         StorageManagerConfig expected = new StorageManagerConfig()
                 .setDataDirectory(new File("/data"))

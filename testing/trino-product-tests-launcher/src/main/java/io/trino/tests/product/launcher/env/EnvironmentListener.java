@@ -260,7 +260,7 @@ public interface EnvironmentListener
             private void printContainerStats()
             {
                 ConsoleTable statistics = new ConsoleTable();
-                statistics.addHeader(HEADER);
+                statistics.addHeader(HEADER.toArray());
                 fetchers.entrySet().forEach(entry -> statistics.addRow(entry.getValue().get().toRow(entry.getKey())));
                 statistics.addSeparator();
 

@@ -24,7 +24,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
-import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.statistics.TableStatistics;
@@ -100,12 +99,6 @@ public class TpcdsMetadata
     }
 
     @Override
-    public boolean usesLegacyTableLayouts()
-    {
-        return false;
-    }
-
-    @Override
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
     {
         return new ConnectorTableProperties();
@@ -133,7 +126,7 @@ public class TpcdsMetadata
     }
 
     @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
+    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         TpcdsTableHandle tpcdsTableHandle = (TpcdsTableHandle) tableHandle;
 
@@ -150,7 +143,7 @@ public class TpcdsMetadata
         for (ColumnMetadata columnMetadata : getTableMetadata(session, tableHandle).getColumns()) {
             builder.put(columnMetadata.getName(), new TpcdsColumnHandle(columnMetadata.getName(), columnMetadata.getType()));
         }
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     @Override
@@ -179,7 +172,7 @@ public class TpcdsMetadata
                 }
             }
         }
-        return tableColumns.build();
+        return tableColumns.buildOrThrow();
     }
 
     @Override
@@ -244,7 +237,7 @@ public class TpcdsMetadata
             case VARCHAR:
                 return createVarcharType(tpcdsType.getPrecision().get());
             case TIME:
-                return TimeType.TIME;
+                return TimeType.TIME_MILLIS;
         }
         throw new IllegalArgumentException("Unsupported TPC-DS type " + tpcdsType);
     }

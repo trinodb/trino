@@ -22,6 +22,7 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -51,7 +52,7 @@ public class KafkaSplitManager
     public KafkaSplitManager(KafkaConsumerFactory consumerFactory, KafkaConfig kafkaConfig, KafkaFilterManager kafkaFilterManager, ContentSchemaReader contentSchemaReader)
     {
         this.consumerFactory = requireNonNull(consumerFactory, "consumerFactory is null");
-        this.messagesPerSplit = requireNonNull(kafkaConfig, "kafkaConfig is null").getMessagesPerSplit();
+        this.messagesPerSplit = kafkaConfig.getMessagesPerSplit();
         this.kafkaFilterManager = requireNonNull(kafkaFilterManager, "kafkaFilterManager is null");
         this.contentSchemaReader = requireNonNull(contentSchemaReader, "contentSchemaReader is null");
     }
@@ -61,8 +62,8 @@ public class KafkaSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle table,
-            SplitSchedulingStrategy splitSchedulingStrategy,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            Constraint constraint)
     {
         KafkaTableHandle kafkaTableHandle = (KafkaTableHandle) table;
         try (KafkaConsumer<byte[], byte[]> kafkaConsumer = consumerFactory.create(session)) {

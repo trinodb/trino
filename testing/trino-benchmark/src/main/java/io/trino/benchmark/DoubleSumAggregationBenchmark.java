@@ -42,8 +42,7 @@ public class DoubleSumAggregationBenchmark
         AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(
                 1,
                 new PlanNodeId("test"),
-                ImmutableList.of(doubleSum.bind(ImmutableList.of(0))),
-                false);
+                ImmutableList.of(doubleSum.bind(ImmutableList.of(0))));
         return ImmutableList.of(tableScanOperator, aggregationOperator);
     }
 

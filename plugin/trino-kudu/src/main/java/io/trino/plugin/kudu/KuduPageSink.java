@@ -19,6 +19,7 @@ import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.DecimalType;
@@ -26,11 +27,14 @@ import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import org.apache.kudu.Schema;
+import org.apache.kudu.client.Delete;
+import org.apache.kudu.client.Insert;
+import org.apache.kudu.client.KeyEncoderAccessor;
 import org.apache.kudu.client.KuduException;
-import org.apache.kudu.client.KuduSession;
+import org.apache.kudu.client.KuduOperationApplier;
 import org.apache.kudu.client.KuduTable;
 import org.apache.kudu.client.PartialRow;
-import org.apache.kudu.client.SessionConfiguration;
 import org.apache.kudu.client.Upsert;
 
 import java.nio.charset.StandardCharsets;
@@ -43,6 +47,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -61,10 +66,10 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class KuduPageSink
-        implements ConnectorPageSink
+        implements ConnectorPageSink, ConnectorMergeSink
 {
     private final ConnectorSession connectorSession;
-    private final KuduSession session;
+    private final KuduClientSession session;
     private final KuduTable table;
     private final List<Type> columnTypes;
     private final List<Type> originalColumnTypes;
@@ -89,6 +94,14 @@ public class KuduPageSink
         this(connectorSession, clientSession, tableHandle.getTable(clientSession), tableHandle);
     }
 
+    public KuduPageSink(
+            ConnectorSession connectorSession,
+            KuduClientSession clientSession,
+            KuduMergeTableHandle tableHandle)
+    {
+        this(connectorSession, clientSession, tableHandle.getOutputTableHandle().getTable(clientSession), tableHandle);
+    }
+
     private KuduPageSink(
             ConnectorSession connectorSession,
             KuduClientSession clientSession,
@@ -102,36 +115,35 @@ public class KuduPageSink
         this.generateUUID = mapping.isGenerateUUID();
 
         this.table = table;
-        this.session = clientSession.newSession();
-        this.session.setFlushMode(SessionConfiguration.FlushMode.AUTO_FLUSH_BACKGROUND);
+        this.session = clientSession;
         uuid = UUID.randomUUID().toString();
     }
 
     @Override
     public CompletableFuture<?> appendPage(Page page)
     {
-        for (int position = 0; position < page.getPositionCount(); position++) {
-            Upsert upsert = table.newUpsert();
-            PartialRow row = upsert.getRow();
-            int start = 0;
-            if (generateUUID) {
-                String id = format("%s-%08x", uuid, nextSubId++);
-                row.addString(0, id);
-                start = 1;
-            }
+        try (KuduOperationApplier operationApplier = KuduOperationApplier.fromKuduClientSession(session)) {
+            for (int position = 0; position < page.getPositionCount(); position++) {
+                Upsert upsert = table.newUpsert();
+                PartialRow row = upsert.getRow();
+                int start = 0;
+                if (generateUUID) {
+                    String id = format("%s-%08x", uuid, nextSubId++);
+                    row.addString(0, id);
+                    start = 1;
+                }
 
-            for (int channel = 0; channel < page.getChannelCount(); channel++) {
-                appendColumn(row, page, position, channel, channel + start);
-            }
+                for (int channel = 0; channel < page.getChannelCount(); channel++) {
+                    appendColumn(row, page, position, channel, channel + start);
+                }
 
-            try {
-                session.apply(upsert);
+                operationApplier.applyOperationAsync(upsert);
             }
-            catch (KuduException e) {
-                throw new RuntimeException(e);
-            }
+            return NOT_BLOCKED;
         }
-        return NOT_BLOCKED;
+        catch (KuduException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private void appendColumn(PartialRow row, Page page, int position, int channel, int destChannel)
@@ -190,25 +202,65 @@ public class KuduPageSink
     }
 
     @Override
+    public void storeMergedRows(Page page)
+    {
+        // The last channel in the page is the rowId block, the next-to-last is the operation block
+        int columnCount = columnTypes.size();
+        checkArgument(page.getChannelCount() == 2 + columnCount, "The page size should be 2 + columnCount (%s), but is %s", columnCount, page.getChannelCount());
+        Block operationBlock = page.getBlock(columnCount);
+        Block rowIds = page.getBlock(columnCount + 1);
+
+        Schema schema = table.getSchema();
+        try (KuduOperationApplier operationApplier = KuduOperationApplier.fromKuduClientSession(session)) {
+            for (int position = 0; position < page.getPositionCount(); position++) {
+                long operation = TINYINT.getLong(operationBlock, position);
+
+                if (operation == DELETE_OPERATION_NUMBER || operation == UPDATE_OPERATION_NUMBER) {
+                    Delete delete = table.newDelete();
+                    Slice deleteRowId = VARBINARY.getSlice(rowIds, position);
+                    RowHelper.copyPrimaryKey(schema, KeyEncoderAccessor.decodePrimaryKey(schema, deleteRowId.getBytes()), delete.getRow());
+                    try {
+                        operationApplier.applyOperationAsync(delete);
+                    }
+                    catch (KuduException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+
+                if (operation == INSERT_OPERATION_NUMBER || operation == UPDATE_OPERATION_NUMBER) {
+                    Insert insert = table.newInsert();
+                    PartialRow insertRow = insert.getRow();
+                    int insertStart = 0;
+                    if (generateUUID) {
+                        String id = format("%s-%08x", uuid, nextSubId++);
+                        insertRow.addString(0, id);
+                        insertStart = 1;
+                    }
+                    for (int channel = 0; channel < columnCount; channel++) {
+                        appendColumn(insertRow, page, position, channel, channel + insertStart);
+                    }
+                    try {
+                        operationApplier.applyOperationAsync(insert);
+                    }
+                    catch (KuduException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
+        }
+        catch (KuduException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
-        closeSession();
         return completedFuture(ImmutableList.of());
     }
 
     @Override
     public void abort()
     {
-        closeSession();
-    }
-
-    private void closeSession()
-    {
-        try {
-            session.close();
-        }
-        catch (KuduException e) {
-            throw new RuntimeException(e);
-        }
     }
 }

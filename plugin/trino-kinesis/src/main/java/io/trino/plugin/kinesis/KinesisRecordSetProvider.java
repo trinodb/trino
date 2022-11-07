@@ -15,12 +15,14 @@ package io.trino.plugin.kinesis;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import io.airlift.units.Duration;
 import io.trino.decoder.DispatchingRowDecoderFactory;
 import io.trino.decoder.RowDecoder;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.RecordSet;
 
@@ -35,7 +37,11 @@ public class KinesisRecordSetProvider
         implements ConnectorRecordSetProvider
 {
     private final KinesisClientProvider clientManager;
-    private final KinesisConfig kinesisConfig;
+    private final long dynamoReadCapacity;
+    private final long dynamoWriteCapacity;
+    private final boolean isLogBatches;
+    private final int fetchAttempts;
+    private final Duration sleepTime;
     private final DispatchingRowDecoderFactory decoderFactory;
 
     @Inject
@@ -46,7 +52,12 @@ public class KinesisRecordSetProvider
     {
         this.decoderFactory = requireNonNull(decoderFactory, "decoderFactory is null");
         this.clientManager = requireNonNull(clientManager, "clientManager is null");
-        this.kinesisConfig = requireNonNull(kinesisConfig, "kinesisConfig is null");
+        requireNonNull(kinesisConfig, "kinesisConfig is null");
+        this.dynamoReadCapacity = kinesisConfig.getDynamoReadCapacity();
+        this.dynamoWriteCapacity = kinesisConfig.getDynamoWriteCapacity();
+        this.isLogBatches = kinesisConfig.isLogBatches();
+        this.fetchAttempts = kinesisConfig.getFetchAttempts();
+        this.sleepTime = kinesisConfig.getSleepTime();
     }
 
     @Override
@@ -54,6 +65,7 @@ public class KinesisRecordSetProvider
             ConnectorTransactionHandle transactionHandle,
             ConnectorSession session,
             ConnectorSplit split,
+            ConnectorTableHandle table,
             List<? extends ColumnHandle> columns)
     {
         KinesisSplit kinesisSplit = (KinesisSplit) split;
@@ -74,6 +86,16 @@ public class KinesisRecordSetProvider
             KinesisColumnHandle columnHandle = (KinesisColumnHandle) handle;
             handleBuilder.add(columnHandle);
         }
-        return new KinesisRecordSet(kinesisSplit, session, clientManager, handleBuilder.build(), messageDecoder, kinesisConfig);
+        return new KinesisRecordSet(
+                kinesisSplit,
+                session,
+                clientManager,
+                handleBuilder.build(),
+                messageDecoder,
+                dynamoReadCapacity,
+                dynamoWriteCapacity,
+                isLogBatches,
+                fetchAttempts,
+                sleepTime);
     }
 }

@@ -17,8 +17,9 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.metadata.AggregationFunctionMetadata;
+import io.trino.Session;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
@@ -59,7 +60,7 @@ public class StatisticAggregations
         return groupingSymbols;
     }
 
-    public Parts createPartialAggregations(SymbolAllocator symbolAllocator, PlannerContext plannerContext)
+    public Parts createPartialAggregations(SymbolAllocator symbolAllocator, Session session, PlannerContext plannerContext)
     {
         ImmutableMap.Builder<Symbol, Aggregation> partialAggregation = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, Aggregation> finalAggregation = ImmutableMap.builder();
@@ -67,7 +68,7 @@ public class StatisticAggregations
         for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
             Aggregation originalAggregation = entry.getValue();
             ResolvedFunction resolvedFunction = originalAggregation.getResolvedFunction();
-            AggregationFunctionMetadata functionMetadata = plannerContext.getMetadata().getAggregationFunctionMetadata(resolvedFunction);
+            AggregationFunctionMetadata functionMetadata = plannerContext.getMetadata().getAggregationFunctionMetadata(session, resolvedFunction);
             List<Type> intermediateTypes = functionMetadata.getIntermediateTypes().stream()
                     .map(plannerContext.getTypeManager()::getType)
                     .collect(toImmutableList());
@@ -92,9 +93,9 @@ public class StatisticAggregations
         }
         groupingSymbols.forEach(symbol -> mappings.put(symbol, symbol));
         return new Parts(
-                new StatisticAggregations(partialAggregation.build(), groupingSymbols),
-                new StatisticAggregations(finalAggregation.build(), groupingSymbols),
-                mappings.build());
+                new StatisticAggregations(partialAggregation.buildOrThrow(), groupingSymbols),
+                new StatisticAggregations(finalAggregation.buildOrThrow(), groupingSymbols),
+                mappings.buildOrThrow());
     }
 
     public static class Parts

@@ -14,16 +14,11 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.OrderBy;
-import io.trino.sql.tree.Property;
 import io.trino.sql.tree.SortItem;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 public final class NodeUtils
 {
@@ -32,12 +27,5 @@ public final class NodeUtils
     public static List<SortItem> getSortItemsFromOrderBy(Optional<OrderBy> orderBy)
     {
         return orderBy.map(OrderBy::getSortItems).orElse(ImmutableList.of());
-    }
-
-    public static Map<String, Expression> mapFromProperties(List<Property> properties)
-    {
-        return properties.stream().collect(toImmutableMap(
-                property -> property.getName().getValue(),
-                Property::getValue));
     }
 }

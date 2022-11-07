@@ -14,18 +14,10 @@
 package io.trino.sql.gen;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ObjectArrays;
-import com.google.common.collect.Sets;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListeningExecutorService;
-import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.airlift.slice.Slice;
-import io.airlift.units.Duration;
+import io.trino.Session;
 import io.trino.operator.scalar.BitwiseFunctions;
-import io.trino.operator.scalar.FunctionAssertions;
 import io.trino.operator.scalar.JoniRegexpFunctions;
 import io.trino.operator.scalar.JsonFunctions;
 import io.trino.operator.scalar.JsonPath;
@@ -45,41 +37,28 @@ import io.trino.operator.scalar.timestamp.ExtractYearOfWeek;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
-import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.query.QueryAssertions;
 import io.trino.sql.tree.Extract.Field;
-import io.trino.type.JoniRegexp;
 import io.trino.type.LikeFunctions;
 import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
-import java.lang.reflect.Method;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.Set;
 import java.util.function.BiPredicate;
 import java.util.stream.LongStream;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
-import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.testing.Closeables.closeAllRuntimeException;
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.scalar.JoniRegexpCasts.joniRegexp;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -88,30 +67,27 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.tree.Extract.Field.TIMEZONE_HOUR;
 import static io.trino.sql.tree.Extract.Field.TIMEZONE_MINUTE;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
-import static io.trino.testing.SqlVarbinaryTestingUtil.sqlVarbinary;
 import static io.trino.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.StructuralTestUtil.mapType;
 import static java.lang.Math.cos;
-import static java.lang.Runtime.getRuntime;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
-import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.joda.time.DateTimeZone.UTC;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
 public class TestExpressionCompiler
 {
     private static final Boolean[] booleanValues = {true, false, null};
@@ -135,528 +111,967 @@ public class TestExpressionCompiler
     private static final BigDecimal[] decimalRights = {new BigDecimal("3.0"), new BigDecimal("-3.0"), new BigDecimal("3.1"), new BigDecimal("-3.1"), null};
     private static final BigDecimal[] decimalMiddle = {new BigDecimal("9.0"), new BigDecimal("-3.1"), new BigDecimal("88.0"), null};
 
-    private static final DateTime[] dateTimeValues = {
-            new DateTime(2001, 1, 22, 3, 4, 5, 321, UTC),
-            new DateTime(1960, 1, 22, 3, 4, 5, 321, UTC),
-            new DateTime(1970, 1, 1, 0, 0, 0, 0, UTC),
-            null
-    };
+    private QueryAssertions assertions;
 
-    private static final String[] jsonValues = {
-            "{}",
-            "{\"fuu\": {\"bar\": 1}}",
-            "{\"fuu\": null}",
-            "{\"fuu\": 1}",
-            "{\"fuu\": 1, \"bar\": \"abc\"}",
-            null
-    };
-    private static final String[] jsonPatterns = {
-            "$",
-            "$.fuu",
-            "$.fuu[0]",
-            "$.bar",
-            null
-    };
-
-    private static final Logger log = Logger.get(TestExpressionCompiler.class);
-    private static final boolean PARALLEL = false;
-
-    private long start;
-    private ListeningExecutorService executor;
-    private FunctionAssertions functionAssertions;
-    private List<ListenableFuture<Void>> futures;
-
-    @BeforeClass
-    public void setupClass()
+    @BeforeAll
+    public void setup()
     {
-        Logging.initialize();
-        if (PARALLEL) {
-            executor = listeningDecorator(newFixedThreadPool(getRuntime().availableProcessors() * 2, daemonThreadsNamed("completer-%s")));
-        }
-        else {
-            executor = newDirectExecutorService();
-        }
-        functionAssertions = new FunctionAssertions();
+        assertions = new QueryAssertions();
     }
 
-    @AfterClass(alwaysRun = true)
-    public void tearDownClass()
+    @AfterAll
+    public void tearDown()
     {
-        if (executor != null) {
-            executor.shutdownNow();
-            executor = null;
-        }
-        closeAllRuntimeException(functionAssertions);
-        functionAssertions = null;
-    }
-
-    @BeforeMethod
-    public void setUp()
-    {
-        start = System.nanoTime();
-        futures = new ArrayList<>();
-    }
-
-    @AfterMethod(alwaysRun = true)
-    public void tearDown(Method method)
-    {
-        assertTrue(Futures.allAsList(futures).isDone(), "Expression test futures are not complete");
-        log.info("FINISHED %s in %s verified %s expressions", method.getName(), Duration.nanosSince(start), futures.size());
-    }
-
-    @Test
-    public void smokedTest()
-            throws Exception
-    {
-        assertExecute("cast(true as boolean)", BOOLEAN, true);
-        assertExecute("true", BOOLEAN, true);
-        assertExecute("false", BOOLEAN, false);
-        assertExecute("42", INTEGER, 42);
-        assertExecute("'foo'", createVarcharType(3), "foo");
-        assertExecute("4.2E0", DOUBLE, 4.2);
-        assertExecute("10000000000 + 1", BIGINT, 10000000001L);
-        assertExecute("4.2", createDecimalType(2, 1), new SqlDecimal(BigInteger.valueOf(42), 2, 1));
-        assertExecute("DECIMAL '4.2'", createDecimalType(2, 1), new SqlDecimal(BigInteger.valueOf(42), 2, 1));
-        assertExecute("X' 1 f'", VARBINARY, sqlVarbinary(0x1F));
-        assertExecute("X' '", VARBINARY, sqlVarbinary());
-        assertExecute("bound_integer", INTEGER, 1234);
-        assertExecute("bound_long", BIGINT, 1234L);
-        assertExecute("bound_string", VARCHAR, "hello");
-        assertExecute("bound_double", DOUBLE, 12.34);
-        assertExecute("bound_boolean", BOOLEAN, true);
-        assertExecute("bound_timestamp", BIGINT, new DateTime(2001, 8, 22, 3, 4, 5, 321, UTC).getMillis());
-        assertExecute("bound_pattern", VARCHAR, "%el%");
-        assertExecute("bound_null_string", VARCHAR, null);
-        assertExecute("bound_timestamp_with_timezone", TIMESTAMP_WITH_TIME_ZONE, SqlTimestampWithTimeZone.newInstance(3, new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), 0, TimeZoneKey.getTimeZoneKey("Z")));
-        assertExecute("bound_binary_literal", VARBINARY, sqlVarbinary(0xAB));
-
-        // todo enable when null output type is supported
-        // assertExecute("null", null);
-
-        Futures.allAsList(futures).get();
-    }
-
-    @Test
-    public void filterFunction()
-            throws Exception
-    {
-        assertFilter("true", true);
-        assertFilter("false", false);
-        assertFilter("bound_integer = 1234", true);
-        assertFilter("bound_integer = BIGINT '1234'", true);
-        assertFilter("bound_long = 1234", true);
-        assertFilter("bound_long = BIGINT '1234'", true);
-        assertFilter("bound_long = 5678", false);
-        assertFilter("bound_null_string is null", true);
-        assertFilter("bound_null_string = 'foo'", false);
-
-        // todo enable when null output type is supported
-        // assertFilter("null", false);
-        assertFilter("cast(null as boolean)", false);
-        assertFilter("nullif(true, true)", false);
-
-        assertFilter("true AND cast(null as boolean) AND true", false);
-
-        Futures.allAsList(futures).get();
+        assertions.close();
+        assertions = null;
     }
 
     @Test
     public void testUnaryOperators()
-            throws Exception
     {
-        assertExecute("cast(null as boolean) is null", BOOLEAN, true);
+        assertThat(assertions.expression("a IS NULL")
+                .binding("a", "CAST(null AS boolean)"))
+                .isEqualTo(true);
 
         for (Boolean value : booleanValues) {
-            assertExecute(generateExpression("%s", value), BOOLEAN, value == null ? null : value);
-            assertExecute(generateExpression("%s is null", value), BOOLEAN, value == null);
-            assertExecute(generateExpression("%s is not null", value), BOOLEAN, value != null);
+            assertThat(assertions.expression(toLiteral(value)))
+                    .hasType(BOOLEAN)
+                    .isEqualTo(value == null ? null : value);
+
+            assertThat(assertions.expression("a IS NULL")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null);
+
+            assertThat(assertions.expression("a IS NOT NULL")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value != null);
         }
 
         for (Integer value : intLefts) {
             Long longValue = value == null ? null : value * 10000000000L;
-            assertExecute(generateExpression("%s", value), INTEGER, value == null ? null : value);
-            assertExecute(generateExpression("- (%s)", value), INTEGER, value == null ? null : -value);
-            assertExecute(generateExpression("%s", longValue), BIGINT, value == null ? null : longValue);
-            assertExecute(generateExpression("- (%s)", longValue), BIGINT, value == null ? null : -longValue);
-            assertExecute(generateExpression("%s is null", value), BOOLEAN, value == null);
-            assertExecute(generateExpression("%s is not null", value), BOOLEAN, value != null);
+
+            assertThat(assertions.expression(toLiteral(value)))
+                    .hasType(INTEGER)
+                    .isEqualTo(value == null ? null : value);
+
+            assertThat(assertions.expression("- a")
+                    .binding("a", toLiteral(value)))
+                    .hasType(INTEGER)
+                    .isEqualTo(value == null ? null : -value);
+
+            assertThat(assertions.expression(toLiteral(longValue)))
+                    .hasType(BIGINT)
+                    .isEqualTo(value == null ? null : longValue);
+
+            assertThat(assertions.expression("- a")
+                    .binding("a", toLiteral(longValue)))
+                    .isEqualTo(value == null ? null : -longValue);
+
+            assertThat(assertions.expression("a IS NULL")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null);
+
+            assertThat(assertions.expression("a IS NOT NULL")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value != null);
         }
 
         for (Double value : doubleLefts) {
-            assertExecute(generateExpression("%s", value), DOUBLE, value == null ? null : value);
-            assertExecute(generateExpression("- (%s)", value), DOUBLE, value == null ? null : -value);
-            assertExecute(generateExpression("%s is null", value), BOOLEAN, value == null);
-            assertExecute(generateExpression("%s is not null", value), BOOLEAN, value != null);
+            assertThat(assertions.expression(toLiteral(value)))
+                    .hasType(DOUBLE)
+                    .isEqualTo(value == null ? null : value);
+
+            assertThat(assertions.expression("- a")
+                    .binding("a", toLiteral(value)))
+                    .hasType(DOUBLE)
+                    .isEqualTo(value == null ? null : -value);
+
+            assertThat(assertions.expression("a IS NULL")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null);
+
+            assertThat(assertions.expression("a IS NOT NULL")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value != null);
         }
 
         for (BigDecimal value : decimalLefts) {
-            assertExecute(generateExpression("%s", value), value == null ? null : value);
-            assertExecute(generateExpression("- (%s)", value), value == null ? null : value.negate());
-            assertExecute(generateExpression("%s is null", value), BOOLEAN, value == null);
-            assertExecute(generateExpression("%s is not null", value), BOOLEAN, value != null);
+            assertThat(assertions.expression(toLiteral(value)))
+                    .isEqualTo(value == null ? null : toSqlDecimal(value));
+
+            assertThat(assertions.expression("- a")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : toSqlDecimal(value.negate()));
+
+            assertThat(assertions.expression("a IS NULL")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null);
+
+            assertThat(assertions.expression("a IS NOT NULL")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value != null);
         }
 
         for (String value : stringLefts) {
-            assertExecute(generateExpression("%s", value), varcharType(value), value == null ? null : value);
-            assertExecute(generateExpression("%s is null", value), BOOLEAN, value == null);
-            assertExecute(generateExpression("%s is not null", value), BOOLEAN, value != null);
+            assertThat(assertions.expression(toLiteral(value)))
+                    .hasType(varcharType(value))
+                    .isEqualTo(value == null ? null : value);
+
+            assertThat(assertions.expression("a IS NULL")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null);
+
+            assertThat(assertions.expression("a IS NOT NULL")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value != null);
         }
-
-        Futures.allAsList(futures).get();
-    }
-
-    @Test
-    public void testFilterEmptyInput()
-            throws Exception
-    {
-        assertFilterWithNoInputColumns("true", true);
-
-        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testBinaryOperatorsBoolean()
-            throws Exception
     {
-        assertExecute("nullif(cast(null as boolean), true)", BOOLEAN, null);
+        assertThat(assertions.expression("nullif(a, true)")
+                .binding("a", "CAST(null AS boolean)"))
+                .isNull(BOOLEAN);
+
         for (Boolean left : booleanValues) {
             for (Boolean right : booleanValues) {
-                assertExecute(generateExpression("%s = %s", left, right), BOOLEAN, left == null || right == null ? null : left == right);
-                assertExecute(generateExpression("%s <> %s", left, right), BOOLEAN, left == null || right == null ? null : left != right);
+                assertThat(assertions.expression("a = b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left.equals(right));
 
-                assertExecute(generateExpression("nullif(%s, %s)", left, right), BOOLEAN, nullIf(left, right));
-                assertExecute(generateExpression("%s is distinct from %s", left, right), BOOLEAN, !Objects.equals(left, right));
+                assertThat(assertions.expression("a <> b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : !left.equals(right));
+
+                assertThat(assertions.expression("nullif(a, b)")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(nullIf(left, right));
+
+                assertThat(assertions.expression("a IS DISTINCT FROM b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(!Objects.equals(left, right));
             }
         }
-
-        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testBinaryOperatorsIntegralIntegral()
-            throws Exception
     {
         for (Integer left : smallInts) {
             for (Integer right : intRights) {
-                assertExecute(generateExpression("%s = %s", left, right), BOOLEAN, left == null || right == null ? null : (long) left == right);
-                assertExecute(generateExpression("%s <> %s", left, right), BOOLEAN, left == null || right == null ? null : (long) left != right);
-                assertExecute(generateExpression("%s > %s", left, right), BOOLEAN, left == null || right == null ? null : (long) left > right);
-                assertExecute(generateExpression("%s < %s", left, right), BOOLEAN, left == null || right == null ? null : (long) left < right);
-                assertExecute(generateExpression("%s >= %s", left, right), BOOLEAN, left == null || right == null ? null : (long) left >= right);
-                assertExecute(generateExpression("%s <= %s", left, right), BOOLEAN, left == null || right == null ? null : (long) left <= right);
+                assertThat(assertions.expression("a = b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : (long) left == right);
 
-                assertExecute(generateExpression("nullif(%s, %s)", left, right), INTEGER, nullIf(left, right));
-                assertExecute(generateExpression("%s is distinct from %s", left, right), BOOLEAN, !Objects.equals(left, right));
+                assertThat(assertions.expression("a <> b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : (long) left != right);
 
-                assertExecute(generateExpression("%s + %s", left, right), INTEGER, left == null || right == null ? null : left + right);
-                assertExecute(generateExpression("%s - %s", left, right), INTEGER, left == null || right == null ? null : left - right);
-                assertExecute(generateExpression("%s * %s", left, right), INTEGER, left == null || right == null ? null : left * right);
-                assertExecute(generateExpression("%s / %s", left, right), INTEGER, left == null || right == null ? null : left / right);
-                assertExecute(generateExpression("%s %% %s", left, right), INTEGER, left == null || right == null ? null : left % right);
+                assertThat(assertions.expression("a > b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : (long) left > right);
+
+                assertThat(assertions.expression("a < b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : (long) left < right);
+
+                assertThat(assertions.expression("a >= b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : (long) left >= right);
+
+                assertThat(assertions.expression("a <= b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : (long) left <= right);
+
+                assertThat(assertions.function("nullif", toLiteral(left), toLiteral(right)))
+                        .hasType(INTEGER)
+                        .isEqualTo(nullIf(left, right));
+
+                assertThat(assertions.expression("a IS DISTINCT FROM b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(!Objects.equals(left, right));
+
+                assertThat(assertions.expression("a + b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(INTEGER)
+                        .isEqualTo(left == null || right == null ? null : left + right);
+
+                assertThat(assertions.expression("a - b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(INTEGER)
+                        .isEqualTo(left == null || right == null ? null : left - right);
+
+                assertThat(assertions.expression("a * b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(INTEGER)
+                        .isEqualTo(left == null || right == null ? null : left * right);
+
+                assertThat(assertions.expression("a / b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(INTEGER)
+                        .isEqualTo(left == null || right == null ? null : left / right);
+
+                assertThat(assertions.expression("a % b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(INTEGER)
+                        .isEqualTo(left == null || right == null ? null : left % right);
 
                 Long longLeft = left == null ? null : left * 1000000000L;
-                assertExecute(generateExpression("%s + %s", longLeft, right), BIGINT, longLeft == null || right == null ? null : longLeft + right);
-                assertExecute(generateExpression("%s - %s", longLeft, right), BIGINT, longLeft == null || right == null ? null : longLeft - right);
-                assertExecute(generateExpression("%s * %s", longLeft, right), BIGINT, longLeft == null || right == null ? null : longLeft * right);
-                assertExecute(generateExpression("%s / %s", longLeft, right), BIGINT, longLeft == null || right == null ? null : longLeft / right);
-                assertExecute(generateExpression("%s %% %s", longLeft, right), BIGINT, longLeft == null || right == null ? null : longLeft % right);
+                assertThat(assertions.expression("a + b")
+                        .binding("a", toLiteral(longLeft))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BIGINT)
+                        .isEqualTo(longLeft == null || right == null ? null : longLeft + right);
+                assertThat(assertions.expression("a - b")
+                        .binding("a", toLiteral(longLeft))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BIGINT)
+                        .isEqualTo(longLeft == null || right == null ? null : longLeft - right);
+                assertThat(assertions.expression("a * b")
+                        .binding("a", toLiteral(longLeft))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BIGINT)
+                        .isEqualTo(longLeft == null || right == null ? null : longLeft * right);
+                assertThat(assertions.expression("a / b")
+                        .binding("a", toLiteral(longLeft))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BIGINT)
+                        .isEqualTo(longLeft == null || right == null ? null : longLeft / right);
+                assertThat(assertions.expression("a % b")
+                        .binding("a", toLiteral(longLeft))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BIGINT)
+                        .isEqualTo(longLeft == null || right == null ? null : longLeft % right);
             }
         }
-
-        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testBinaryOperatorsIntegralDouble()
-            throws Exception
     {
         for (Integer left : intLefts) {
             for (Double right : doubleRights) {
-                assertExecute(generateExpression("%s = %s", left, right), BOOLEAN, left == null || right == null ? null : (double) left == right);
-                assertExecute(generateExpression("%s <> %s", left, right), BOOLEAN, left == null || right == null ? null : (double) left != right);
-                assertExecute(generateExpression("%s > %s", left, right), BOOLEAN, left == null || right == null ? null : (double) left > right);
-                assertExecute(generateExpression("%s < %s", left, right), BOOLEAN, left == null || right == null ? null : (double) left < right);
-                assertExecute(generateExpression("%s >= %s", left, right), BOOLEAN, left == null || right == null ? null : (double) left >= right);
-                assertExecute(generateExpression("%s <= %s", left, right), BOOLEAN, left == null || right == null ? null : (double) left <= right);
+                assertThat(assertions.expression("a = b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : (double) left == right);
 
-                Object expectedNullIf = nullIf(left, right);
-                for (String expression : generateExpression("nullif(%s, CAST(%s as DOUBLE))", left, right)) {
-                    functionAssertions.assertFunction(expression, INTEGER, expectedNullIf);
-                }
+                assertThat(assertions.expression("a <> b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : (double) left != right);
 
-                assertExecute(generateExpression("%s is distinct from %s", left, right), BOOLEAN, !Objects.equals(left == null ? null : left.doubleValue(), right));
+                assertThat(assertions.expression("a > b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : (double) left > right);
 
-                assertExecute(generateExpression("%s + %s", left, right), DOUBLE, left == null || right == null ? null : left + right);
-                assertExecute(generateExpression("%s - %s", left, right), DOUBLE, left == null || right == null ? null : left - right);
-                assertExecute(generateExpression("%s * %s", left, right), DOUBLE, left == null || right == null ? null : left * right);
-                assertExecute(generateExpression("%s / %s", left, right), DOUBLE, left == null || right == null ? null : left / right);
-                assertExecute(generateExpression("%s %% %s", left, right), DOUBLE, left == null || right == null ? null : left % right);
+                assertThat(assertions.expression("a < b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : (double) left < right);
+
+                assertThat(assertions.expression("a >= b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : (double) left >= right);
+
+                assertThat(assertions.expression("a <= b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : (double) left <= right);
+
+                assertThat(assertions.expression("nullif(a, b)")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(INTEGER)
+                        .isEqualTo(nullIf(left, right));
+
+                assertThat(assertions.expression("a IS DISTINCT FROM b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(!Objects.equals(left == null ? null : left.doubleValue(), right));
+
+                assertThat(assertions.expression("a + b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(left == null || right == null ? null : left + right);
+
+                assertThat(assertions.expression("a - b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(left == null || right == null ? null : left - right);
+
+                assertThat(assertions.expression("a * b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(left == null || right == null ? null : left * right);
+
+                assertThat(assertions.expression("a / b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(left == null || right == null ? null : left / right);
+
+                assertThat(assertions.expression("a % b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(left == null || right == null ? null : left % right);
             }
         }
-
-        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testBinaryOperatorsDoubleIntegral()
-            throws Exception
     {
         for (Double left : doubleLefts) {
             for (Integer right : intRights) {
-                assertExecute(generateExpression("CAST(%s as DOUBLE) = %s", left, right), BOOLEAN, left == null || right == null ? null : left == (double) right);
-                assertExecute(generateExpression("CAST(%s as DOUBLE) <> %s", left, right), BOOLEAN, left == null || right == null ? null : left != (double) right);
-                assertExecute(generateExpression("CAST(%s as DOUBLE) > %s", left, right), BOOLEAN, left == null || right == null ? null : left > (double) right);
-                assertExecute(generateExpression("CAST(%s as DOUBLE) < %s", left, right), BOOLEAN, left == null || right == null ? null : left < (double) right);
-                assertExecute(generateExpression("CAST(%s as DOUBLE) >= %s", left, right), BOOLEAN, left == null || right == null ? null : left >= (double) right);
-                assertExecute(generateExpression("CAST(%s as DOUBLE) <= %s", left, right), BOOLEAN, left == null || right == null ? null : left <= (double) right);
+                assertThat(assertions.expression("a = b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left == (double) right);
 
-                assertExecute(generateExpression("nullif(CAST(%s as DOUBLE), %s)", left, right), DOUBLE, nullIf(left, right));
-                assertExecute(generateExpression("CAST(%s as DOUBLE) is distinct from %s", left, right), BOOLEAN, !Objects.equals(left, right == null ? null : right.doubleValue()));
+                assertThat(assertions.expression("a <> b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left != (double) right);
 
-                assertExecute(generateExpression("CAST(%s as DOUBLE) + %s", left, right), DOUBLE, left == null || right == null ? null : left + right);
-                assertExecute(generateExpression("CAST(%s as DOUBLE) - %s", left, right), DOUBLE, left == null || right == null ? null : left - right);
-                assertExecute(generateExpression("CAST(%s as DOUBLE) * %s", left, right), DOUBLE, left == null || right == null ? null : left * right);
-                assertExecute(generateExpression("CAST(%s as DOUBLE) / %s", left, right), DOUBLE, left == null || right == null ? null : left / right);
-                assertExecute(generateExpression("CAST(%s as DOUBLE) %% %s", left, right), DOUBLE, left == null || right == null ? null : left % right);
+                assertThat(assertions.expression("a > b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left > (double) right);
+
+                assertThat(assertions.expression("a < b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left < (double) right);
+
+                assertThat(assertions.expression("a >= b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left >= (double) right);
+
+                assertThat(assertions.expression("a <= b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left <= (double) right);
+
+                assertThat(assertions.function("nullif", toLiteral(left), toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(nullIf(left, right));
+
+                assertThat(assertions.expression("a IS DISTINCT FROM b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .isEqualTo(!Objects.equals(left, right == null ? null : right.doubleValue()));
+
+                assertThat(assertions.expression("a + b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(left == null || right == null ? null : left + right);
+
+                assertThat(assertions.expression("a - b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(left == null || right == null ? null : left - right);
+
+                assertThat(assertions.expression("a * b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(left == null || right == null ? null : left * right);
+
+                assertThat(assertions.expression("a / b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(left == null || right == null ? null : left / right);
+
+                assertThat(assertions.expression("a % b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(left == null || right == null ? null : left % right);
             }
         }
-
-        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testBinaryOperatorsDoubleDouble()
-            throws Exception
     {
         for (Double left : doubleLefts) {
             for (Double right : doubleRights) {
-                assertExecute(generateExpression("%s = %s", left, right), BOOLEAN, left == null || right == null ? null : (double) left == right);
-                assertExecute(generateExpression("%s <> %s", left, right), BOOLEAN, left == null || right == null ? null : (double) left != right);
-                assertExecute(generateExpression("%s > %s", left, right), BOOLEAN, left == null || right == null ? null : (double) left > right);
-                assertExecute(generateExpression("%s < %s", left, right), BOOLEAN, left == null || right == null ? null : (double) left < right);
-                assertExecute(generateExpression("%s >= %s", left, right), BOOLEAN, left == null || right == null ? null : (double) left >= right);
-                assertExecute(generateExpression("%s <= %s", left, right), BOOLEAN, left == null || right == null ? null : (double) left <= right);
+                assertThat(assertions.expression("a = b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : (double) left == right);
 
-                assertExecute(generateExpression("nullif(%s, %s)", left, right), DOUBLE, nullIf(left, right));
-                assertExecute(generateExpression("%s is distinct from %s", left, right), BOOLEAN, !Objects.equals(left, right));
+                assertThat(assertions.expression("a <> b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : (double) left != right);
 
-                assertExecute(generateExpression("%s + %s", left, right), DOUBLE, left == null || right == null ? null : left + right);
-                assertExecute(generateExpression("%s - %s", left, right), DOUBLE, left == null || right == null ? null : left - right);
-                assertExecute(generateExpression("%s * %s", left, right), DOUBLE, left == null || right == null ? null : left * right);
-                assertExecute(generateExpression("%s / %s", left, right), DOUBLE, left == null || right == null ? null : left / right);
-                assertExecute(generateExpression("%s %% %s", left, right), DOUBLE, left == null || right == null ? null : left % right);
+                assertThat(assertions.expression("a > b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : (double) left > right);
+
+                assertThat(assertions.expression("a < b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : (double) left < right);
+
+                assertThat(assertions.expression("a >= b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : (double) left >= right);
+
+                assertThat(assertions.expression("a <= b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : (double) left <= right);
+
+                assertThat(assertions.function("nullif", toLiteral(left), toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(nullIf(left, right));
+
+                assertThat(assertions.expression("a IS DISTINCT FROM b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(!Objects.equals(left, right));
+
+                assertThat(assertions.expression("a + b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(left == null || right == null ? null : left + right);
+
+                assertThat(assertions.expression("a - b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(left == null || right == null ? null : left - right);
+
+                assertThat(assertions.expression("a * b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(left == null || right == null ? null : left * right);
+                assertThat(assertions.expression("a / b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(left == null || right == null ? null : left / right);
+                assertThat(assertions.expression("a % b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(left == null || right == null ? null : left % right);
             }
         }
-
-        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testBinaryOperatorsDecimalBigint()
-            throws Exception
     {
         for (BigDecimal left : decimalLefts) {
             for (Long right : longRights) {
-                assertExecute(generateExpression("%s = %s", left, right), BOOLEAN, left == null || right == null ? null : left.equals(new BigDecimal(right)));
-                assertExecute(generateExpression("%s <> %s", left, right), BOOLEAN, left == null || right == null ? null : !left.equals(new BigDecimal(right)));
-                assertExecute(generateExpression("%s > %s", left, right), BOOLEAN, left == null || right == null ? null : left.compareTo(new BigDecimal(right)) > 0);
-                assertExecute(generateExpression("%s < %s", left, right), BOOLEAN, left == null || right == null ? null : left.compareTo(new BigDecimal(right)) < 0);
-                assertExecute(generateExpression("%s >= %s", left, right), BOOLEAN, left == null || right == null ? null : left.compareTo(new BigDecimal(right)) >= 0);
-                assertExecute(generateExpression("%s <= %s", left, right), BOOLEAN, left == null || right == null ? null : left.compareTo(new BigDecimal(right)) <= 0);
+                assertThat(assertions.expression("a = b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left.equals(new BigDecimal(right)));
 
-                assertExecute(generateExpression("nullif(%s, %s)", left, right), BigDecimal.class.cast(nullIf(left, right)));
+                assertThat(assertions.expression("a <> b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : !left.equals(new BigDecimal(right)));
 
-                assertExecute(generateExpression("%s is distinct from %s", left, right), BOOLEAN,
-                        !Objects.equals(left, right == null ? null : new BigDecimal(right)));
+                assertThat(assertions.expression("a > b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left.compareTo(new BigDecimal(right)) > 0);
+
+                assertThat(assertions.expression("a < b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left.compareTo(new BigDecimal(right)) < 0);
+
+                assertThat(assertions.expression("a >= b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left.compareTo(new BigDecimal(right)) >= 0);
+
+                assertThat(assertions.expression("a <= b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left.compareTo(new BigDecimal(right)) <= 0);
+
+                assertThat(assertions.function("nullif", toLiteral(left), toLiteral(right)))
+                        .isEqualTo(toSqlDecimal(BigDecimal.class.cast(nullIf(left, right))));
+
+                assertThat(assertions.expression("a IS DISTINCT FROM b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(!Objects.equals(left, right == null ? null : new BigDecimal(right)));
 
                 // arithmetic operators are already tested in TestDecimalOperators
             }
         }
-
-        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testBinaryOperatorsBigintDecimal()
-            throws Exception
     {
         for (Long left : longLefts) {
             for (BigDecimal right : decimalRights) {
-                assertExecute(generateExpression("%s = %s", left, right), BOOLEAN, left == null || right == null ? null : new BigDecimal(left).equals(right));
-                assertExecute(generateExpression("%s <> %s", left, right), BOOLEAN, left == null || right == null ? null : !new BigDecimal(left).equals(right));
-                assertExecute(generateExpression("%s > %s", left, right), BOOLEAN, left == null || right == null ? null : new BigDecimal(left).compareTo(right) > 0);
-                assertExecute(generateExpression("%s < %s", left, right), BOOLEAN, left == null || right == null ? null : new BigDecimal(left).compareTo(right) < 0);
-                assertExecute(generateExpression("%s >= %s", left, right), BOOLEAN, left == null || right == null ? null : new BigDecimal(left).compareTo(right) >= 0);
-                assertExecute(generateExpression("%s <= %s", left, right), BOOLEAN, left == null || right == null ? null : new BigDecimal(left).compareTo(right) <= 0);
+                assertThat(assertions.expression("a = b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : new BigDecimal(left).equals(right));
 
-                assertExecute(generateExpression("nullif(%s, %s)", left, right), BIGINT, left);
+                assertThat(assertions.expression("a <> b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : !new BigDecimal(left).equals(right));
 
-                assertExecute(generateExpression("%s is distinct from %s", left, right), BOOLEAN,
-                        !Objects.equals(left == null ? null : new BigDecimal(left), right));
+                assertThat(assertions.expression("a > b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : new BigDecimal(left).compareTo(right) > 0);
+
+                assertThat(assertions.expression("a < b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : new BigDecimal(left).compareTo(right) < 0);
+
+                assertThat(assertions.expression("a >= b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : new BigDecimal(left).compareTo(right) >= 0);
+
+                assertThat(assertions.expression("a <= b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : new BigDecimal(left).compareTo(right) <= 0);
+
+                assertThat(assertions.function("nullif", toLiteral(left), toLiteral(right)))
+                        .hasType(BIGINT)
+                        .isEqualTo(left);
+
+                assertThat(assertions.expression("a IS DISTINCT FROM b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(!Objects.equals(left == null ? null : new BigDecimal(left), right));
 
                 // arithmetic operators are already tested in TestDecimalOperators
             }
         }
-
-        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testBinaryOperatorsDecimalInteger()
-            throws Exception
     {
         for (BigDecimal left : decimalLefts) {
             for (Integer right : intRights) {
-                assertExecute(generateExpression("%s = %s", left, right), BOOLEAN, left == null || right == null ? null : left.equals(new BigDecimal(right)));
-                assertExecute(generateExpression("%s <> %s", left, right), BOOLEAN, left == null || right == null ? null : !left.equals(new BigDecimal(right)));
-                assertExecute(generateExpression("%s > %s", left, right), BOOLEAN, left == null || right == null ? null : left.compareTo(new BigDecimal(right)) > 0);
-                assertExecute(generateExpression("%s < %s", left, right), BOOLEAN, left == null || right == null ? null : left.compareTo(new BigDecimal(right)) < 0);
-                assertExecute(generateExpression("%s >= %s", left, right), BOOLEAN, left == null || right == null ? null : left.compareTo(new BigDecimal(right)) >= 0);
-                assertExecute(generateExpression("%s <= %s", left, right), BOOLEAN, left == null || right == null ? null : left.compareTo(new BigDecimal(right)) <= 0);
+                assertThat(assertions.expression("a = b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left.equals(new BigDecimal(right)));
 
-                assertExecute(generateExpression("nullif(%s, %s)", left, right), BigDecimal.class.cast(nullIf(left, right)));
+                assertThat(assertions.expression("a <> b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : !left.equals(new BigDecimal(right)));
 
-                assertExecute(generateExpression("%s is distinct from %s", left, right), BOOLEAN,
-                        !Objects.equals(left, right == null ? null : new BigDecimal(right)));
+                assertThat(assertions.expression("a > b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left.compareTo(new BigDecimal(right)) > 0);
+
+                assertThat(assertions.expression("a < b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left.compareTo(new BigDecimal(right)) < 0);
+
+                assertThat(assertions.expression("a >= b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left.compareTo(new BigDecimal(right)) >= 0);
+
+                assertThat(assertions.expression("a <= b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left.compareTo(new BigDecimal(right)) <= 0);
+
+                assertThat(assertions.function("nullif", toLiteral(left), toLiteral(right)))
+                        .isEqualTo(toSqlDecimal(BigDecimal.class.cast(nullIf(left, right))));
+
+                assertThat(assertions.expression("a IS DISTINCT FROM b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(!Objects.equals(left, right == null ? null : new BigDecimal(right)));
 
                 // arithmetic operators are already tested in TestDecimalOperators
             }
         }
-
-        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testBinaryOperatorsIntegerDecimal()
-            throws Exception
     {
         for (Integer left : intLefts) {
             for (BigDecimal right : decimalRights) {
-                assertExecute(generateExpression("%s = %s", left, right), BOOLEAN, left == null || right == null ? null : new BigDecimal(left).equals(right));
-                assertExecute(generateExpression("%s <> %s", left, right), BOOLEAN, left == null || right == null ? null : !new BigDecimal(left).equals(right));
-                assertExecute(generateExpression("%s > %s", left, right), BOOLEAN, left == null || right == null ? null : new BigDecimal(left).compareTo(right) > 0);
-                assertExecute(generateExpression("%s < %s", left, right), BOOLEAN, left == null || right == null ? null : new BigDecimal(left).compareTo(right) < 0);
-                assertExecute(generateExpression("%s >= %s", left, right), BOOLEAN, left == null || right == null ? null : new BigDecimal(left).compareTo(right) >= 0);
-                assertExecute(generateExpression("%s <= %s", left, right), BOOLEAN, left == null || right == null ? null : new BigDecimal(left).compareTo(right) <= 0);
+                assertThat(assertions.expression("a = b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : new BigDecimal(left).equals(right));
 
-                assertExecute(generateExpression("nullif(%s, %s)", left, right), INTEGER, left);
+                assertThat(assertions.expression("a <> b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : !new BigDecimal(left).equals(right));
 
-                assertExecute(generateExpression("%s is distinct from %s", left, right), BOOLEAN,
-                        !Objects.equals(left == null ? null : new BigDecimal(left), right));
+                assertThat(assertions.expression("a > b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : new BigDecimal(left).compareTo(right) > 0);
+
+                assertThat(assertions.expression("a < b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : new BigDecimal(left).compareTo(right) < 0);
+
+                assertThat(assertions.expression("a >= b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : new BigDecimal(left).compareTo(right) >= 0);
+
+                assertThat(assertions.expression("a <= b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : new BigDecimal(left).compareTo(right) <= 0);
+
+                assertThat(assertions.function("nullif", toLiteral(left), toLiteral(right)))
+                        .hasType(INTEGER)
+                        .isEqualTo(left);
+
+                assertThat(assertions.expression("a IS DISTINCT FROM b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(!Objects.equals(left == null ? null : new BigDecimal(left), right));
 
                 // arithmetic operators are already tested in TestDecimalOperators
             }
         }
-
-        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testBinaryOperatorsDecimalDouble()
-            throws Exception
     {
         for (BigDecimal left : decimalLefts) {
             for (Double right : doubleRights) {
-                assertExecute(generateExpression("%s = %s", left, right), BOOLEAN, left == null || right == null ? null : left.doubleValue() == right);
-                assertExecute(generateExpression("%s <> %s", left, right), BOOLEAN, left == null || right == null ? null : left.doubleValue() != right);
-                assertExecute(generateExpression("%s > %s", left, right), BOOLEAN, left == null || right == null ? null : left.doubleValue() > right);
-                assertExecute(generateExpression("%s < %s", left, right), BOOLEAN, left == null || right == null ? null : left.doubleValue() < right);
-                assertExecute(generateExpression("%s >= %s", left, right), BOOLEAN, left == null || right == null ? null : left.doubleValue() >= right);
-                assertExecute(generateExpression("%s <= %s", left, right), BOOLEAN, left == null || right == null ? null : left.doubleValue() <= right);
+                assertThat(assertions.expression("a = b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left.doubleValue() == right);
 
-                assertExecute(generateExpression("nullif(%s, %s)", left, right), BigDecimal.class.cast(nullIf(left, right)));
+                assertThat(assertions.expression("a <> b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left.doubleValue() != right);
 
-                assertExecute(generateExpression("%s is distinct from %s", left, right), BOOLEAN, !Objects.equals(left == null ? null : left.doubleValue(), right));
+                assertThat(assertions.expression("a > b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left.doubleValue() > right);
 
-                assertExecute(generateExpression("%s + %s", left, right), DOUBLE, left == null || right == null ? null : left.doubleValue() + right);
-                assertExecute(generateExpression("%s - %s", left, right), DOUBLE, left == null || right == null ? null : left.doubleValue() - right);
-                assertExecute(generateExpression("%s * %s", left, right), DOUBLE, left == null || right == null ? null : left.doubleValue() * right);
-                assertExecute(generateExpression("%s / %s", left, right), DOUBLE, left == null || right == null ? null : left.doubleValue() / right);
-                assertExecute(generateExpression("%s %% %s", left, right), DOUBLE, left == null || right == null ? null : left.doubleValue() % right);
+                assertThat(assertions.expression("a < b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left.doubleValue() < right);
+
+                assertThat(assertions.expression("a >= b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left.doubleValue() >= right);
+
+                assertThat(assertions.expression("a <= b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left.doubleValue() <= right);
+
+                assertThat(assertions.function("nullif", toLiteral(left), toLiteral(right)))
+                        .isEqualTo(toSqlDecimal(BigDecimal.class.cast(nullIf(left, right))));
+
+                assertThat(assertions.expression("a IS DISTINCT FROM b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(!Objects.equals(left == null ? null : left.doubleValue(), right));
+
+                assertThat(assertions.expression("a + b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(left == null || right == null ? null : left.doubleValue() + right);
+
+                assertThat(assertions.expression("a - b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(left == null || right == null ? null : left.doubleValue() - right);
+
+                assertThat(assertions.expression("a * b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(left == null || right == null ? null : left.doubleValue() * right);
+
+                assertThat(assertions.expression("a / b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(left == null || right == null ? null : left.doubleValue() / right);
+
+                assertThat(assertions.expression("a % b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(left == null || right == null ? null : left.doubleValue() % right);
             }
         }
-
-        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testBinaryOperatorsDoubleDecimal()
-            throws Exception
     {
         for (Double left : doubleLefts) {
             for (BigDecimal right : decimalRights) {
-                assertExecute(generateExpression("%s = %s", left, right), BOOLEAN, left == null || right == null ? null : left == right.doubleValue());
-                assertExecute(generateExpression("%s <> %s", left, right), BOOLEAN, left == null || right == null ? null : left != right.doubleValue());
-                assertExecute(generateExpression("%s > %s", left, right), BOOLEAN, left == null || right == null ? null : left > right.doubleValue());
-                assertExecute(generateExpression("%s < %s", left, right), BOOLEAN, left == null || right == null ? null : left < right.doubleValue());
-                assertExecute(generateExpression("%s >= %s", left, right), BOOLEAN, left == null || right == null ? null : left >= right.doubleValue());
-                assertExecute(generateExpression("%s <= %s", left, right), BOOLEAN, left == null || right == null ? null : left <= right.doubleValue());
+                assertThat(assertions.expression("a = b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left == right.doubleValue());
 
-                assertExecute(generateExpression("nullif(%s, %s)", left, right), DOUBLE, nullIf(left, right));
-                assertExecute(generateExpression("%s is distinct from %s", left, right), BOOLEAN, !Objects.equals(left, right == null ? null : right.doubleValue()));
+                assertThat(assertions.expression("a <> b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left != right.doubleValue());
 
-                assertExecute(generateExpression("%s + %s", left, right), DOUBLE, left == null || right == null ? null : left + right.doubleValue());
-                assertExecute(generateExpression("%s - %s", left, right), DOUBLE, left == null || right == null ? null : left - right.doubleValue());
-                assertExecute(generateExpression("%s * %s", left, right), DOUBLE, left == null || right == null ? null : left * right.doubleValue());
-                assertExecute(generateExpression("%s / %s", left, right), DOUBLE, left == null || right == null ? null : left / right.doubleValue());
-                assertExecute(generateExpression("%s %% %s", left, right), DOUBLE, left == null || right == null ? null : left % right.doubleValue());
+                assertThat(assertions.expression("a > b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left > right.doubleValue());
+
+                assertThat(assertions.expression("a < b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left < right.doubleValue());
+
+                assertThat(assertions.expression("a >= b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left >= right.doubleValue());
+
+                assertThat(assertions.expression("a <= b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left <= right.doubleValue());
+
+                assertThat(assertions.function("nullif", toLiteral(left), toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(nullIf(left, right));
+
+                assertThat(assertions.expression("a IS DISTINCT FROM b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(!Objects.equals(left, right == null ? null : right.doubleValue()));
+
+                assertThat(assertions.expression("a + b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(left == null || right == null ? null : left + right.doubleValue());
+
+                assertThat(assertions.expression("a - b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(left == null || right == null ? null : left - right.doubleValue());
+
+                assertThat(assertions.expression("a * b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(left == null || right == null ? null : left * right.doubleValue());
+
+                assertThat(assertions.expression("a / b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(left == null || right == null ? null : left / right.doubleValue());
+
+                assertThat(assertions.expression("a % b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(left == null || right == null ? null : left % right.doubleValue());
             }
         }
-
-        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testBinaryOperatorsString()
-            throws Exception
     {
         for (String left : stringLefts) {
             for (String right : stringRights) {
-                assertExecute(generateExpression("%s = %s", left, right), BOOLEAN, left == null || right == null ? null : left.equals(right));
-                assertExecute(generateExpression("%s <> %s", left, right), BOOLEAN, left == null || right == null ? null : !left.equals(right));
-                assertExecute(generateExpression("%s > %s", left, right), BOOLEAN, left == null || right == null ? null : left.compareTo(right) > 0);
-                assertExecute(generateExpression("%s < %s", left, right), BOOLEAN, left == null || right == null ? null : left.compareTo(right) < 0);
-                assertExecute(generateExpression("%s >= %s", left, right), BOOLEAN, left == null || right == null ? null : left.compareTo(right) >= 0);
-                assertExecute(generateExpression("%s <= %s", left, right), BOOLEAN, left == null || right == null ? null : left.compareTo(right) <= 0);
+                assertThat(assertions.expression("a = b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left.equals(right));
 
-                assertExecute(generateExpression("%s || %s", left, right), VARCHAR, left == null || right == null ? null : left + right);
+                assertThat(assertions.expression("a <> b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : !left.equals(right));
 
-                assertExecute(generateExpression("%s is distinct from %s", left, right), BOOLEAN, !Objects.equals(left, right));
+                assertThat(assertions.expression("a > b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left.compareTo(right) > 0);
 
-                assertExecute(generateExpression("nullif(%s, %s)", left, right), varcharType(left), nullIf(left, right));
+                assertThat(assertions.expression("a < b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left.compareTo(right) < 0);
+
+                assertThat(assertions.expression("a >= b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left.compareTo(right) >= 0);
+
+                assertThat(assertions.expression("a <= b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(left == null || right == null ? null : left.compareTo(right) <= 0);
+
+                assertThat(assertions.expression("a || b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(VARCHAR)
+                        .isEqualTo(left == null || right == null ? null : left + right);
+
+                assertThat(assertions.expression("a IS DISTINCT FROM b")
+                        .binding("a", toLiteral(left))
+                        .binding("b", toLiteral(right)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(!Objects.equals(left, right));
+
+                assertThat(assertions.function("nullif", toLiteral(left), toLiteral(right)))
+                        .hasType(varcharType(left))
+                        .isEqualTo(nullIf(left, right));
             }
         }
-
-        Futures.allAsList(futures).get();
-    }
-
-    @Test
-    public void testNestedColumnFilter()
-    {
-        assertFilter("bound_row[1] = 1234", true);
-        assertFilter("bound_row[1] = 1223", false);
-        assertFilter("bound_row[2] = 34", true);
-        assertFilter("bound_row[2] = 33", false);
-        assertFilter("bound_row[3] = 'hello'", true);
-        assertFilter("bound_row[3] = 'value1'", false);
-        assertFilter("bound_row[4] = 12.34", true);
-        assertFilter("bound_row[4] = 34.34", false);
-        assertFilter("bound_row[5] = true", true);
-        assertFilter("bound_row[5] = false", false);
-        assertFilter("bound_row[7][1] = 'innerFieldValue'", true);
-        assertFilter("bound_row[7][1] != 'innerFieldValue'", false);
-
-        // combination of types in one filter
-        assertFilter(
-                ImmutableList.of(
-                        "bound_row[1] = 1234", "bound_row[8] >= 1234",
-                        "bound_row[2] = 34", "bound_row[9] >= 33",
-                        "bound_row[3] = 'hello'", "bound_row[10] >= 'hello'",
-                        "bound_row[4] = 12.34", "bound_row[11] >= 12.34",
-                        "bound_row[5] = true", "NOT (bound_row[12] = false)",
-                        "bound_row[7][1] = 'innerFieldValue'", "bound_row[14][1] LIKE 'innerFieldValue'")
-                        .stream().collect(joining(" AND ")),
-                true);
     }
 
     private static VarcharType varcharType(String... values)
@@ -694,104 +1109,98 @@ public class TestExpressionCompiler
 
     @Test
     public void testTernaryOperatorsLongLong()
-            throws Exception
     {
         for (Integer first : intLefts) {
             for (Integer second : intLefts) {
                 for (Integer third : intRights) {
-                    assertExecute(generateExpression("%s between %s and %s", first, second, third),
-                            BOOLEAN,
-                            between(first, second, third, (min, value) -> min <= value, (value, max) -> value <= max));
+                    assertThat(assertions.expression("value BETWEEN low AND high")
+                            .binding("value", toLiteral(first))
+                            .binding("low", toLiteral(second))
+                            .binding("high", toLiteral(third)))
+                            .isEqualTo(between(first, second, third, (min, value) -> min <= value, (value, max) -> value <= max));
                 }
             }
         }
-
-        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testTernaryOperatorsLongDouble()
-            throws Exception
     {
         for (Integer first : intLefts) {
             for (Double second : doubleLefts) {
                 for (Integer third : intRights) {
-                    assertExecute(generateExpression("%s between %s and %s", first, second, third),
-                            BOOLEAN,
-                            between(first, second, third, (min, value) -> min <= value, (value, max) -> value <= max));
+                    assertThat(assertions.expression("value BETWEEN low AND high")
+                            .binding("value", toLiteral(first))
+                            .binding("low", toLiteral(second))
+                            .binding("high", toLiteral(third)))
+                            .isEqualTo(between(first, second, third, (min, value) -> min <= value, (value, max) -> value <= max));
                 }
             }
         }
-
-        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testTernaryOperatorsDoubleDouble()
-            throws Exception
     {
         for (Double first : doubleLefts) {
             for (Double second : doubleLefts) {
                 for (Integer third : intRights) {
-                    assertExecute(generateExpression("%s between %s and %s", first, second, third),
-                            BOOLEAN,
-                            between(first, second, third, (min, value) -> min <= value, (value, max) -> value <= max));
+                    assertThat(assertions.expression("value BETWEEN low AND high")
+                            .binding("value", toLiteral(first))
+                            .binding("low", toLiteral(second))
+                            .binding("high", toLiteral(third)))
+                            .isEqualTo(between(first, second, third, (min, value) -> min <= value, (value, max) -> value <= max));
                 }
             }
         }
-
-        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testTernaryOperatorsString()
-            throws Exception
     {
         for (String first : stringLefts) {
             for (String second : stringLefts) {
                 for (String third : stringRights) {
-                    assertExecute(generateExpression("%s between %s and %s", first, second, third),
-                            BOOLEAN,
-                            between(first, second, third, (min, value) -> min.compareTo(value) <= 0, (value, max) -> value.compareTo(max) <= 0));
+                    assertThat(assertions.expression("value BETWEEN low AND high")
+                            .binding("value", toLiteral(first))
+                            .binding("low", toLiteral(second))
+                            .binding("high", toLiteral(third)))
+                            .isEqualTo(between(first, second, third, (min, value) -> min.compareTo(value) <= 0, (value, max) -> value.compareTo(max) <= 0));
                 }
             }
         }
-
-        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testTernaryOperatorsLongDecimal()
-            throws Exception
     {
         for (Long first : longLefts) {
             for (BigDecimal second : decimalMiddle) {
                 for (Long third : longRights) {
-                    assertExecute(generateExpression("%s between %s and %s", first, second, third),
-                            BOOLEAN,
-                            between(first, second, third, (min, value) -> min.compareTo(new BigDecimal(value)) <= 0, (value, max) -> value <= max));
+                    assertThat(assertions.expression("value BETWEEN low AND high")
+                            .binding("value", toLiteral(first))
+                            .binding("low", toLiteral(second))
+                            .binding("high", toLiteral(third)))
+                            .isEqualTo(between(first, second, third, (min, value) -> min.compareTo(new BigDecimal(value)) <= 0, (value, max) -> value <= max));
                 }
             }
         }
-
-        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testTernaryOperatorsDecimalDouble()
-            throws Exception
     {
         for (BigDecimal first : decimalLefts) {
             for (Double second : doubleMiddle) {
                 for (BigDecimal third : decimalRights) {
-                    assertExecute(generateExpression("%s between %s and %s", first, second, third),
-                            BOOLEAN,
-                            between(first, second, third, (min, value) -> min <= value.doubleValue(), (value, max) -> value.compareTo(max) <= 0));
+                    assertThat(assertions.expression("value BETWEEN low AND high")
+                            .binding("value", toLiteral(first))
+                            .binding("low", toLiteral(second))
+                            .binding("high", toLiteral(third)))
+                            .isEqualTo(between(first, second, third, (min, value) -> min <= value.doubleValue(), (value, max) -> value.compareTo(max) <= 0));
                 }
             }
         }
-
-        Futures.allAsList(futures).get();
     }
 
     private static <V, L, H> Boolean between(V value, L min, H max, BiPredicate<L, V> greaterThanOrEquals, BiPredicate<V, H> lessThanOrEquals)
@@ -814,172 +1223,459 @@ public class TestExpressionCompiler
 
     @Test
     public void testCast()
-            throws Exception
     {
         for (Boolean value : booleanValues) {
-            assertExecute(generateExpression("cast(%s as boolean)", value), BOOLEAN, value == null ? null : (value ? true : false));
-            assertExecute(generateExpression("cast(%s as integer)", value), INTEGER, value == null ? null : (value ? 1 : 0));
-            assertExecute(generateExpression("cast(%s as bigint)", value), BIGINT, value == null ? null : (value ? 1L : 0L));
-            assertExecute(generateExpression("cast(%s as double)", value), DOUBLE, value == null ? null : (value ? 1.0 : 0.0));
-            assertExecute(generateExpression("cast(%s as varchar)", value), VARCHAR, value == null ? null : (value ? "true" : "false"));
+            assertThat(assertions.expression("CAST(a AS boolean)")
+                    .binding("a", toLiteral(value)))
+                    .hasType(BOOLEAN)
+                    .isEqualTo(value == null ? null : (value ? true : false));
+
+            assertThat(assertions.expression("CAST(a AS integer)")
+                    .binding("a", toLiteral(value)))
+                    .hasType(INTEGER)
+                    .isEqualTo(value == null ? null : (value ? 1 : 0));
+
+            assertThat(assertions.expression("CAST(a AS bigint)")
+                    .binding("a", toLiteral(value)))
+                    .hasType(BIGINT)
+                    .isEqualTo(value == null ? null : (value ? 1L : 0L));
+
+            assertThat(assertions.expression("CAST(a AS double)")
+                    .binding("a", toLiteral(value)))
+                    .hasType(DOUBLE)
+                    .isEqualTo(value == null ? null : (value ? 1.0 : 0.0));
+
+            assertThat(assertions.expression("CAST(a AS varchar)")
+                    .binding("a", toLiteral(value)))
+                    .hasType(VARCHAR)
+                    .isEqualTo(value == null ? null : (value ? "true" : "false"));
         }
 
         for (Integer value : intLefts) {
-            assertExecute(generateExpression("cast(%s as boolean)", value), BOOLEAN, value == null ? null : (value != 0L ? true : false));
-            assertExecute(generateExpression("cast(%s as integer)", value), INTEGER, value == null ? null : value);
-            assertExecute(generateExpression("cast(%s as bigint)", value), BIGINT, value == null ? null : (long) value);
-            assertExecute(generateExpression("cast(%s as double)", value), DOUBLE, value == null ? null : value.doubleValue());
-            assertExecute(generateExpression("cast(%s as varchar)", value), VARCHAR, value == null ? null : String.valueOf(value));
+            assertThat(assertions.expression("CAST(a AS boolean)")
+                    .binding("a", toLiteral(value)))
+                    .hasType(BOOLEAN)
+                    .isEqualTo(value == null ? null : (value != 0L ? true : false));
+
+            assertThat(assertions.expression("CAST(a AS integer)")
+                    .binding("a", toLiteral(value)))
+                    .hasType(INTEGER)
+                    .isEqualTo(value == null ? null : value);
+
+            assertThat(assertions.expression("CAST(a AS bigint)")
+                    .binding("a", toLiteral(value)))
+                    .hasType(BIGINT)
+                    .isEqualTo(value == null ? null : (long) value);
+
+            assertThat(assertions.expression("CAST(a AS double)")
+                    .binding("a", toLiteral(value)))
+                    .hasType(DOUBLE)
+                    .isEqualTo(value == null ? null : value.doubleValue());
+
+            assertThat(assertions.expression("CAST(a AS varchar)")
+                    .binding("a", toLiteral(value)))
+                    .hasType(VARCHAR)
+                    .isEqualTo(value == null ? null : String.valueOf(value));
         }
 
+        DecimalFormat doubleFormat = new DecimalFormat("0.0###################E0");
         for (Double value : doubleLefts) {
-            assertExecute(generateExpression("cast(%s as boolean)", value), BOOLEAN, value == null ? null : (value != 0.0 ? true : false));
+            assertThat(assertions.expression("CAST(a AS boolean)")
+                    .binding("a", toLiteral(value)))
+                    .hasType(BOOLEAN)
+                    .isEqualTo(value == null ? null : (value != 0.0 ? true : false));
+
             if (value == null || (value >= Long.MIN_VALUE && value < Long.MAX_VALUE)) {
-                assertExecute(generateExpression("cast(%s as bigint)", value), BIGINT, value == null ? null : value.longValue());
+                assertThat(assertions.expression("CAST(a AS bigint)")
+                        .binding("a", toLiteral(value)))
+                        .hasType(BIGINT)
+                        .isEqualTo(value == null ? null : value.longValue());
             }
-            assertExecute(generateExpression("cast(%s as double)", value), DOUBLE, value == null ? null : value);
-            assertExecute(generateExpression("cast(%s as varchar)", value), VARCHAR, value == null ? null : String.valueOf(value));
+
+            assertThat(assertions.expression("CAST(a AS double)")
+                    .binding("a", toLiteral(value)))
+                    .hasType(DOUBLE)
+                    .isEqualTo(value == null ? null : value);
+
+            assertThat(assertions.expression("CAST(a AS varchar)")
+                    .binding("a", toLiteral(value)))
+                    .hasType(VARCHAR)
+                    .isEqualTo(value == null ? null : doubleFormat.format(value));
         }
 
-        assertExecute("cast('true' as boolean)", BOOLEAN, true);
-        assertExecute("cast('true' as BOOLEAN)", BOOLEAN, true);
-        assertExecute("cast('tRuE' as BOOLEAN)", BOOLEAN, true);
-        assertExecute("cast('false' as BOOLEAN)", BOOLEAN, false);
-        assertExecute("cast('fAlSe' as BOOLEAN)", BOOLEAN, false);
-        assertExecute("cast('t' as BOOLEAN)", BOOLEAN, true);
-        assertExecute("cast('T' as BOOLEAN)", BOOLEAN, true);
-        assertExecute("cast('f' as BOOLEAN)", BOOLEAN, false);
-        assertExecute("cast('F' as BOOLEAN)", BOOLEAN, false);
-        assertExecute("cast('1' as BOOLEAN)", BOOLEAN, true);
-        assertExecute("cast('0' as BOOLEAN)", BOOLEAN, false);
+        assertThat(assertions.expression("CAST(a AS boolean)")
+                .binding("a", "'true'"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("CAST(a AS BOOLEAN)")
+                .binding("a", "'true'"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("CAST(a AS BOOLEAN)")
+                .binding("a", "'tRuE'"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("CAST(a AS BOOLEAN)")
+                .binding("a", "'false'"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("CAST(a AS BOOLEAN)")
+                .binding("a", "'fAlSe'"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("CAST(a AS BOOLEAN)")
+                .binding("a", "'t'"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("CAST(a AS BOOLEAN)")
+                .binding("a", "'T'"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("CAST(a AS BOOLEAN)")
+                .binding("a", "'f'"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("CAST(a AS BOOLEAN)")
+                .binding("a", "'F'"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("CAST(a AS BOOLEAN)")
+                .binding("a", "'1'"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("CAST(a AS BOOLEAN)")
+                .binding("a", "'0'"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
 
         for (Integer value : intLefts) {
             if (value != null) {
-                assertExecute(generateExpression("cast(%s as integer)", String.valueOf(value)), INTEGER, value == null ? null : value);
-                assertExecute(generateExpression("cast(%s as bigint)", String.valueOf(value)), BIGINT, value == null ? null : (long) value);
+                assertThat(assertions.expression("CAST(a AS integer)")
+                        .binding("a", toLiteral(String.valueOf(value))))
+                        .hasType(INTEGER)
+                        .isEqualTo(value == null ? null : value);
+
+                assertThat(assertions.expression("CAST(a AS bigint)")
+                        .binding("a", toLiteral(String.valueOf(value))))
+                        .hasType(BIGINT)
+                        .isEqualTo(value == null ? null : (long) value);
             }
         }
         for (Double value : doubleLefts) {
             if (value != null) {
-                assertExecute(generateExpression("cast(%s as double)", String.valueOf(value)), DOUBLE, value == null ? null : value);
+                assertThat(assertions.expression("CAST(a AS double)")
+                        .binding("a", toLiteral(String.valueOf(value))))
+                        .hasType(DOUBLE)
+                        .isEqualTo(value == null ? null : value);
             }
         }
         for (String value : stringLefts) {
-            assertExecute(generateExpression("cast(%s as varchar)", value), VARCHAR, value == null ? null : value);
+            assertThat(assertions.expression("CAST(a AS varchar)")
+                    .binding("a", toLiteral(value)))
+                    .hasType(VARCHAR)
+                    .isEqualTo(value == null ? null : value);
         }
-
-        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testTryCast()
-            throws Exception
     {
-        assertExecute("try_cast(null as integer)", INTEGER, null);
-        assertExecute("try_cast('123' as integer)", INTEGER, 123);
-        assertExecute("try_cast(null as bigint)", BIGINT, null);
-        assertExecute("try_cast('123' as bigint)", BIGINT, 123L);
-        assertExecute("try_cast('foo' as varchar)", VARCHAR, "foo");
-        assertExecute("try_cast('foo' as bigint)", BIGINT, null);
-        assertExecute("try_cast('foo' as integer)", INTEGER, null);
-        assertExecute("try_cast('2001-08-22' as timestamp)", TIMESTAMP_MILLIS, sqlTimestampOf(3, 2001, 8, 22, 0, 0, 0, 0));
-        assertExecute("try_cast(bound_string as bigint)", BIGINT, null);
-        assertExecute("try_cast(cast(null as varchar) as bigint)", BIGINT, null);
-        assertExecute("try_cast(bound_long / 13  as bigint)", BIGINT, 94L);
-        assertExecute("coalesce(try_cast('123' as bigint), 456)", BIGINT, 123L);
-        assertExecute("coalesce(try_cast('foo' as bigint), 456)", BIGINT, 456L);
-        assertExecute("concat('foo', VARCHAR 'bar')", VARCHAR, "foobar");
-        assertExecute("try_cast(try_cast(123 as varchar) as bigint)", BIGINT, 123L);
-        assertExecute("try_cast('foo' as varchar) || try_cast('bar' as varchar)", VARCHAR, "foobar");
+        assertThat(assertions.expression("try_CAST(a AS integer)")
+                .binding("a", "null"))
+                .isNull(INTEGER);
 
-        Futures.allAsList(futures).get();
+        assertThat(assertions.expression("try_CAST(a AS integer)")
+                .binding("a", "'123'"))
+                .hasType(INTEGER)
+                .isEqualTo(123);
+
+        assertThat(assertions.expression("try_CAST(a AS bigint)")
+                .binding("a", "null"))
+                .isNull(BIGINT);
+
+        assertThat(assertions.expression("try_CAST(a AS bigint)")
+                .binding("a", "'123'"))
+                .hasType(BIGINT)
+                .isEqualTo(123L);
+
+        assertThat(assertions.expression("try_CAST(a AS varchar)")
+                .binding("a", "'foo'"))
+                .hasType(VARCHAR)
+                .isEqualTo("foo");
+
+        assertThat(assertions.expression("try_CAST(a AS bigint)")
+                .binding("a", "'foo'"))
+                .isNull(BIGINT);
+
+        assertThat(assertions.expression("try_CAST(a AS integer)")
+                .binding("a", "'foo'"))
+                .isNull(INTEGER);
+
+        assertThat(assertions.expression("try_CAST(a AS timestamp)")
+                .binding("a", "'2001-08-22'"))
+                .hasType(TIMESTAMP_MILLIS)
+                .isEqualTo(sqlTimestampOf(3, 2001, 8, 22, 0, 0, 0, 0));
+
+        assertThat(assertions.expression("try_CAST(a AS bigint)")
+                .binding("a", "'hello'"))
+                .isNull(BIGINT);
+
+        assertThat(assertions.expression("try_CAST(a as bigint)")
+                .binding("a", "CAST(null AS varchar)"))
+                .isNull(BIGINT);
+
+        assertThat(assertions.expression("try_CAST(a / 13 AS bigint)")
+                .binding("a", "BIGINT '1234'"))
+                .hasType(BIGINT)
+                .isEqualTo(94L);
+
+        assertThat(assertions.function("coalesce", "try_CAST('123' as bigint)", "456"))
+                .hasType(BIGINT)
+                .isEqualTo(123L);
+
+        assertThat(assertions.function("coalesce", "try_CAST('foo' as bigint)", "456"))
+                .hasType(BIGINT)
+                .isEqualTo(456L);
+
+        assertThat(assertions.expression("try_CAST(try_CAST(a AS varchar) as bigint)")
+                .binding("a", "123"))
+                .hasType(BIGINT)
+                .isEqualTo(123L);
+
+        assertThat(assertions.expression("try_CAST(a AS varchar) || try_CAST(b as varchar)")
+                .binding("a", "'foo'")
+                .binding("b", "'bar'"))
+                .hasType(VARCHAR)
+                .isEqualTo("foobar");
     }
 
     @Test
     public void testAnd()
-            throws Exception
     {
-        assertExecute("true and true", BOOLEAN, true);
-        assertExecute("true and false", BOOLEAN, false);
-        assertExecute("false and true", BOOLEAN, false);
-        assertExecute("false and false", BOOLEAN, false);
+        assertThat(assertions.expression("a AND b")
+                .binding("a", "true")
+                .binding("b", "true"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
 
-        assertExecute("true and cast(null as boolean)", BOOLEAN, null);
-        assertExecute("false and cast(null as boolean)", BOOLEAN, false);
-        assertExecute("cast(null as boolean) and true", BOOLEAN, null);
-        assertExecute("cast(null as boolean) and false", BOOLEAN, false);
-        assertExecute("cast(null as boolean) and cast(null as boolean)", BOOLEAN, null);
+        assertThat(assertions.expression("a AND b")
+                .binding("a", "true")
+                .binding("b", "false"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
 
-        assertExecute("true and null", BOOLEAN, null);
-        assertExecute("false and null", BOOLEAN, false);
-        assertExecute("null and true", BOOLEAN, null);
-        assertExecute("null and false", BOOLEAN, false);
-        assertExecute("null and null", BOOLEAN, null);
+        assertThat(assertions.expression("a AND b")
+                .binding("a", "false")
+                .binding("b", "true"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
 
-        Futures.allAsList(futures).get();
+        assertThat(assertions.expression("a AND b")
+                .binding("a", "false")
+                .binding("b", "false"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a AND b")
+                .binding("a", "true")
+                .binding("b", "CAST(null as boolean)"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a AND b")
+                .binding("a", "false")
+                .binding("b", "CAST(null as boolean)"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a AND b")
+                .binding("a", "CAST(null as boolean)")
+                .binding("b", "true"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a AND b")
+                .binding("a", "CAST(null as boolean)")
+                .binding("b", "false"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a AND b")
+                .binding("a", "CAST(null as boolean)")
+                .binding("b", "CAST(null as boolean)"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a AND b")
+                .binding("a", "true")
+                .binding("b", "null"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a AND b")
+                .binding("a", "false")
+                .binding("b", "null"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a AND b")
+                .binding("a", "null")
+                .binding("b", "true"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a AND b")
+                .binding("a", "null")
+                .binding("b", "false"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a AND b")
+                .binding("a", "null")
+                .binding("b", "null"))
+                .isNull(BOOLEAN);
     }
 
     @Test
     public void testOr()
-            throws Exception
     {
-        assertExecute("true or true", BOOLEAN, true);
-        assertExecute("true or false", BOOLEAN, true);
-        assertExecute("false or true", BOOLEAN, true);
-        assertExecute("false or false", BOOLEAN, false);
+        assertThat(assertions.expression("a OR b")
+                .binding("a", "true")
+                .binding("b", "true"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
 
-        assertExecute("true or cast(null as boolean)", BOOLEAN, true);
-        assertExecute("false or cast(null as boolean)", BOOLEAN, null);
-        assertExecute("cast(null as boolean) or true", BOOLEAN, true);
-        assertExecute("cast(null as boolean) or false", BOOLEAN, null);
-        assertExecute("cast(null as boolean) or cast(null as boolean)", BOOLEAN, null);
+        assertThat(assertions.expression("a OR b")
+                .binding("a", "true")
+                .binding("b", "false"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
 
-        assertExecute("true or null", BOOLEAN, true);
-        assertExecute("false or null", BOOLEAN, null);
-        assertExecute("null or true", BOOLEAN, true);
-        assertExecute("null or false", BOOLEAN, null);
-        assertExecute("null or null", BOOLEAN, null);
+        assertThat(assertions.expression("a OR b")
+                .binding("a", "false")
+                .binding("b", "true"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
 
-        Futures.allAsList(futures).get();
+        assertThat(assertions.expression("a OR b")
+                .binding("a", "false")
+                .binding("b", "false"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a OR b")
+                .binding("a", "true")
+                .binding("b", "CAST(null as boolean)"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a OR b")
+                .binding("a", "false")
+                .binding("b", "CAST(null as boolean)"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a OR b")
+                .binding("a", "CAST(null as boolean)")
+                .binding("b", "true"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a OR b")
+                .binding("a", "CAST(null as boolean)")
+                .binding("b", "false"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a OR b")
+                .binding("a", "CAST(null as boolean)")
+                .binding("b", "CAST(null as boolean)"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a OR b")
+                .binding("a", "true")
+                .binding("b", "null"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a OR b")
+                .binding("a", "false")
+                .binding("b", "null"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a OR b")
+                .binding("a", "null")
+                .binding("b", "true"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a OR b")
+                .binding("a", "null")
+                .binding("b", "false"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a OR b")
+                .binding("a", "null")
+                .binding("b", "null"))
+                .isNull(BOOLEAN);
     }
 
     @Test
     public void testNot()
-            throws Exception
     {
-        assertExecute("not true", BOOLEAN, false);
-        assertExecute("not false", BOOLEAN, true);
+        assertThat(assertions.expression("NOT a")
+                .binding("a", "true"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
 
-        assertExecute("not cast(null as boolean)", BOOLEAN, null);
+        assertThat(assertions.expression("NOT a")
+                .binding("a", "false"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
 
-        assertExecute("not null", BOOLEAN, null);
+        assertThat(assertions.expression("NOT a")
+                .binding("a", "CAST(null as boolean)"))
+                .isNull(BOOLEAN);
 
-        Futures.allAsList(futures).get();
+        assertThat(assertions.expression("NOT a")
+                .binding("a", "null"))
+                .isNull(BOOLEAN);
     }
 
     @Test
     public void testIf()
-            throws Exception
     {
-        assertExecute("if(null and true, BIGINT '1', 0)", BIGINT, 0L);
-        assertExecute("if(null and true, 1, 0)", INTEGER, 0);
+        assertThat(assertions.expression("if(a AND b, BIGINT '1', 0)")
+                .binding("a", "null")
+                .binding("b", "true"))
+                .hasType(BIGINT)
+                .isEqualTo(0L);
+
+        assertThat(assertions.expression("if(a AND b, 1, 0)")
+                .binding("a", "null")
+                .binding("b", "true"))
+                .hasType(INTEGER)
+                .isEqualTo(0);
+
         for (Boolean condition : booleanValues) {
             for (String trueValue : stringLefts) {
                 for (String falseValue : stringRights) {
-                    assertExecute(
-                            generateExpression("if(%s, %s, %s)", condition, trueValue, falseValue),
-                            varcharType(trueValue, falseValue),
-                            condition != null && condition ? trueValue : falseValue);
+                    assertThat(assertions.expression("if(a, b, c)")
+                            .binding("a", toLiteral(condition))
+                            .binding("b", toLiteral(trueValue))
+                            .binding("c", toLiteral(falseValue)))
+                            .hasType(varcharType(trueValue, falseValue))
+                            .isEqualTo(condition != null && condition ? trueValue : falseValue);
                 }
             }
         }
-
-        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testSimpleCase()
-            throws Exception
     {
         for (Double value : doubleLefts) {
             for (Double firstTest : doubleMiddle) {
@@ -997,7 +1693,13 @@ public class TestExpressionCompiler
                     else {
                         expected = "else";
                     }
-                    assertExecute(generateExpression("case %s when %s then 'first' when %s then 'second' else 'else' end", value, firstTest, secondTest), createVarcharType(6), expected);
+
+                    assertThat(assertions.expression("case a when c1 then 'first' when c2 then 'second' else 'else' end")
+                            .binding("a", toLiteral(value))
+                            .binding("c1", toLiteral(firstTest))
+                            .binding("c2", toLiteral(secondTest)))
+                            .hasType(createVarcharType(6))
+                            .isEqualTo(expected);
                 }
             }
         }
@@ -1017,7 +1719,13 @@ public class TestExpressionCompiler
                     else {
                         expected = null;
                     }
-                    assertExecute(generateExpression("case %s when %s then 'first' when %s then 'second' end", value, firstTest, secondTest), createVarcharType(6), expected);
+
+                    assertThat(assertions.expression("case a when c1 then 'first' when c2 then 'second' end")
+                            .binding("a", toLiteral(value))
+                            .binding("c1", toLiteral(firstTest))
+                            .binding("c2", toLiteral(secondTest)))
+                            .hasType(createVarcharType(6))
+                            .isEqualTo(expected);
                 }
             }
         }
@@ -1038,21 +1746,38 @@ public class TestExpressionCompiler
                     else {
                         expected = null;
                     }
-                    assertExecute(generateExpression("case %s when %s then 'first' when %s then 'second' end", value, firstTest, secondTest), createVarcharType(6), expected);
+
+                    assertThat(assertions.expression("case a when c1 then 'first' when c2 then 'second' end")
+                            .binding("a", toLiteral(value))
+                            .binding("c1", toLiteral(firstTest))
+                            .binding("c2", toLiteral(secondTest)))
+                            .hasType(createVarcharType(6))
+                            .isEqualTo(expected);
                 }
             }
         }
 
-        assertExecute("case ARRAY[CAST(1 AS BIGINT)] when ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", createVarcharType(11), "matched");
-        assertExecute("case ARRAY[CAST(2 AS BIGINT)] when ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", createVarcharType(11), "not_matched");
-        assertExecute("case ARRAY[CAST(null AS BIGINT)] when ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", createVarcharType(11), "not_matched");
+        assertThat(assertions.expression("CASE a WHEN b THEN 'matched' ELSE 'not_matched' END")
+                .binding("a", "ARRAY[CAST(1 AS BIGINT)]")
+                .binding("b", "ARRAY[CAST(1 AS BIGINT)]"))
+                .hasType(createVarcharType(11))
+                .isEqualTo("matched");
 
-        Futures.allAsList(futures).get();
+        assertThat(assertions.expression("CASE a WHEN b THEN 'matched' ELSE 'not_matched' END")
+                .binding("a", "ARRAY[CAST(2 AS BIGINT)]")
+                .binding("b", "ARRAY[CAST(1 AS BIGINT)]"))
+                .hasType(createVarcharType(11))
+                .isEqualTo("not_matched");
+
+        assertThat(assertions.expression("CASE a WHEN b THEN 'matched' ELSE 'not_matched' END")
+                .binding("a", "ARRAY[CAST(null AS BIGINT)]")
+                .binding("b", "ARRAY[CAST(1 AS BIGINT)]"))
+                .hasType(createVarcharType(11))
+                .isEqualTo("not_matched");
     }
 
     @Test
     public void testSearchCaseSingle()
-            throws Exception
     {
         // assertExecute("case when null and true then 1 else 0 end", 0L);
         for (Double value : doubleLefts) {
@@ -1071,10 +1796,13 @@ public class TestExpressionCompiler
                     else {
                         expected = "else";
                     }
-                    List<String> expressions = formatExpression("case when %s = %s then 'first' when %s = %s then 'second' else 'else' end",
-                            Arrays.asList(value, firstTest, value, secondTest),
-                            ImmutableList.of("double", "bigint", "double", "double"));
-                    assertExecute(expressions, createVarcharType(6), expected);
+
+                    assertThat(assertions.expression("case when v = c1 then 'first' when v = c2 then 'second' else 'else' end")
+                            .binding("v", toLiteral(value))
+                            .binding("c1", toLiteral(firstTest))
+                            .binding("c2", toLiteral(secondTest)))
+                            .hasType(createVarcharType(6))
+                            .isEqualTo(expected);
                 }
             }
         }
@@ -1095,24 +1823,38 @@ public class TestExpressionCompiler
                     else {
                         expected = "else";
                     }
-                    List<String> expressions = formatExpression("case when %s = %s then 'first' when %s = %s then 'second' else 'else' end",
-                            Arrays.asList(value, firstTest, value, secondTest),
-                            ImmutableList.of("double", "bigint", "double", "decimal(1,0)"));
-                    assertExecute(expressions, createVarcharType(6), expected);
+
+                    assertThat(assertions.expression("case when v = c1 then 'first' when v = c2 then 'second' else 'else' end")
+                            .binding("v", toLiteral(value))
+                            .binding("c1", toLiteral(firstTest))
+                            .binding("c2", toLiteral(secondTest)))
+                            .hasType(createVarcharType(6))
+                            .isEqualTo(expected);
                 }
             }
         }
 
-        assertExecute("case when ARRAY[CAST(1 AS BIGINT)] = ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", createVarcharType(11), "matched");
-        assertExecute("case when ARRAY[CAST(2 AS BIGINT)] = ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", createVarcharType(11), "not_matched");
-        assertExecute("case when ARRAY[CAST(null AS BIGINT)] = ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", createVarcharType(11), "not_matched");
+        assertThat(assertions.expression("CASE WHEN a = b THEN 'matched' ELSE 'not_matched' END")
+                .binding("a", "ARRAY[CAST(1 AS BIGINT)]")
+                .binding("b", "ARRAY[CAST(1 AS BIGINT)]"))
+                .hasType(createVarcharType(11))
+                .isEqualTo("matched");
 
-        Futures.allAsList(futures).get();
+        assertThat(assertions.expression("CASE WHEN a = b THEN 'matched' ELSE 'not_matched' END")
+                .binding("a", "ARRAY[CAST(2 AS BIGINT)]")
+                .binding("b", "ARRAY[CAST(1 AS BIGINT)]"))
+                .hasType(createVarcharType(11))
+                .isEqualTo("not_matched");
+
+        assertThat(assertions.expression("CASE WHEN a = b THEN 'matched' ELSE 'not_matched' END")
+                .binding("a", "ARRAY[CAST(null AS BIGINT)]")
+                .binding("b", "ARRAY[CAST(1 AS BIGINT)]"))
+                .hasType(createVarcharType(11))
+                .isEqualTo("not_matched");
     }
 
     @Test
     public void testSearchCaseMultiple()
-            throws Exception
     {
         for (Double value : doubleLefts) {
             for (Integer firstTest : intLefts) {
@@ -1130,10 +1872,13 @@ public class TestExpressionCompiler
                     else {
                         expected = null;
                     }
-                    List<String> expressions = formatExpression("case when %s = %s then 'first' when %s = %s then 'second' end",
-                            Arrays.asList(value, firstTest, value, secondTest),
-                            ImmutableList.of("double", "bigint", "double", "double"));
-                    assertExecute(expressions, createVarcharType(6), expected);
+
+                    assertThat(assertions.expression("case when v = c1 then 'first' when v = c2 then 'second' end")
+                            .binding("v", toLiteral(value))
+                            .binding("c1", toLiteral(firstTest))
+                            .binding("c2", toLiteral(secondTest)))
+                            .hasType(createVarcharType(6))
+                            .isEqualTo(expected);
                 }
             }
         }
@@ -1154,806 +1899,897 @@ public class TestExpressionCompiler
                     else {
                         expected = null;
                     }
-                    List<String> expressions = formatExpression("case when %s = %s then 'first' when %s = %s then 'second' end",
-                            Arrays.asList(value, firstTest, value, secondTest),
-                            ImmutableList.of("decimal(14,4)", "bigint", "decimal(14,4)", "double"));
-                    assertExecute(expressions, createVarcharType(6), expected);
+
+                    assertThat(assertions.expression("case when v = c1 then 'first' when v = c2 then 'second' end")
+                            .binding("v", toLiteral(value))
+                            .binding("c1", toLiteral(firstTest))
+                            .binding("c2", toLiteral(secondTest)))
+                            .hasType(createVarcharType(6))
+                            .isEqualTo(expected);
                 }
             }
         }
-
-        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testIn()
-            throws Exception
     {
         for (Boolean value : booleanValues) {
-            assertExecute(generateExpression("%s in (true)", value), BOOLEAN, value == null ? null : value == Boolean.TRUE);
-            assertExecute(generateExpression("%s in (null, true)", value), BOOLEAN, value == null ? null : value == Boolean.TRUE ? true : null);
-            assertExecute(generateExpression("%s in (true, null)", value), BOOLEAN, value == null ? null : value == Boolean.TRUE ? true : null);
-            assertExecute(generateExpression("%s in (false)", value), BOOLEAN, value == null ? null : value == Boolean.FALSE);
-            assertExecute(generateExpression("%s in (null, false)", value), BOOLEAN, value == null ? null : value == Boolean.FALSE ? true : null);
-            assertExecute(generateExpression("%s in (null)", value), BOOLEAN, null);
+            assertThat(assertions.expression("a IN (true)")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : value == Boolean.TRUE);
+            assertThat(assertions.expression("a IN (null, true)")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : value == Boolean.TRUE ? true : null);
+            assertThat(assertions.expression("a IN (true, null)")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : value == Boolean.TRUE ? true : null);
+            assertThat(assertions.expression("a IN (false)")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : value == Boolean.FALSE);
+            assertThat(assertions.expression("a IN (null, false)")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : value == Boolean.FALSE ? true : null);
+            assertThat(assertions.expression("a IN (null)")
+                    .binding("a", toLiteral(value)))
+                    .isNull(BOOLEAN);
         }
 
         for (Integer value : intLefts) {
             List<Integer> testValues = Arrays.asList(33, 9, -9, -33);
-            assertExecute(generateExpression("%s in (33, 9, -9, -33)", value),
-                    BOOLEAN,
-                    value == null ? null : testValues.contains(value));
-            assertExecute(generateExpression("%s in (null, 33, 9, -9, -33)", value),
-                    BOOLEAN,
-                    value == null ? null : testValues.contains(value) ? true : null);
-            assertExecute(generateExpression("%s in (CAST(null AS BIGINT), 33, 9, -9, -33)", value),
-                    BOOLEAN,
-                    value == null ? null : testValues.contains(value) ? true : null);
-            assertExecute(generateExpression("%s in (33, null, 9, -9, -33)", value),
-                    BOOLEAN,
-                    value == null ? null : testValues.contains(value) ? true : null);
-            assertExecute(generateExpression("%s in (33, CAST(null AS BIGINT), 9, -9, -33)", value),
-                    BOOLEAN,
-                    value == null ? null : testValues.contains(value) ? true : null);
+
+            assertThat(assertions.expression("a IN (33, 9, -9, -33)")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : testValues.contains(value));
+
+            assertThat(assertions.expression("a IN (null, 33, 9, -9, -33)")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : testValues.contains(value) ? true : null);
+
+            assertThat(assertions.expression("a IN (CAST(null AS BIGINT), 33, 9, -9, -33)")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : testValues.contains(value) ? true : null);
+
+            assertThat(assertions.expression("a IN (33, null, 9, -9, -33)")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : testValues.contains(value) ? true : null);
+
+            assertThat(assertions.expression("a IN (33, CAST(null AS BIGINT), 9, -9, -33)")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : testValues.contains(value) ? true : null);
 
             // compare a long to in containing doubles
-            assertExecute(generateExpression("%s in (33, 9.0E0, -9, -33)", value),
-                    BOOLEAN,
-                    value == null ? null : testValues.contains(value));
-            assertExecute(generateExpression("%s in (null, 33, 9.0E0, -9, -33)", value),
-                    BOOLEAN,
-                    value == null ? null : testValues.contains(value) ? true : null);
-            assertExecute(generateExpression("%s in (33.0E0, null, 9.0E0, -9, -33)", value),
-                    BOOLEAN,
-                    value == null ? null : testValues.contains(value) ? true : null);
+            assertThat(assertions.expression("a IN (33, 9.0E0, -9, -33)")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : testValues.contains(value));
+
+            assertThat(assertions.expression("a IN (null, 33, 9.0E0, -9, -33)")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : testValues.contains(value) ? true : null);
+
+            assertThat(assertions.expression("a IN (33.0E0, null, 9.0E0, -9, -33)")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : testValues.contains(value) ? true : null);
         }
 
         for (Double value : doubleLefts) {
             List<Double> testValues = Arrays.asList(33.0, 9.0, -9.0, -33.0);
-            assertExecute(generateExpression("%s in (33.0E0, 9.0E0, -9.0E0, -33.0E0)", value),
-                    BOOLEAN,
-                    value == null ? null : testValues.contains(value));
-            assertExecute(generateExpression("%s in (null, 33.0E0, 9.0E0, -9.0E0, -33.0E0)", value),
-                    BOOLEAN,
-                    value == null ? null : testValues.contains(value) ? true : null);
-            assertExecute(generateExpression("%s in (33.0E0, null, 9.0E0, -9.0E0, -33.0E0)", value),
-                    BOOLEAN,
-                    value == null ? null : testValues.contains(value) ? true : null);
+
+            assertThat(assertions.expression("a IN (33.0E0, 9.0E0, -9.0E0, -33.0E0)")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : testValues.contains(value));
+
+            assertThat(assertions.expression("a IN (null, 33.0E0, 9.0E0, -9.0E0, -33.0E0)")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : testValues.contains(value) ? true : null);
+
+            assertThat(assertions.expression("a IN (33.0E0, null, 9.0E0, -9.0E0, -33.0E0)")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : testValues.contains(value) ? true : null);
 
             // compare a double to in containing longs
-            assertExecute(generateExpression("%s in (33.0E0, 9, -9, -33.0E0)", value),
-                    BOOLEAN,
-                    value == null ? null : testValues.contains(value));
-            assertExecute(generateExpression("%s in (null, 33.0E0, 9, -9, -33.0E0)", value),
-                    BOOLEAN,
-                    value == null ? null : testValues.contains(value) ? true : null);
-            assertExecute(generateExpression("%s in (33.0E0, null, 9, -9, -33.0E0)", value),
-                    BOOLEAN,
-                    value == null ? null : testValues.contains(value) ? true : null);
+            assertThat(assertions.expression("a IN (33.0E0, 9, -9, -33.0E0)")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : testValues.contains(value));
+
+            assertThat(assertions.expression("a IN (null, 33.0E0, 9, -9, -33.0E0)")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : testValues.contains(value) ? true : null);
+
+            assertThat(assertions.expression("a IN (33.0E0, null, 9, -9, -33.0E0)")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : testValues.contains(value) ? true : null);
 
             // compare to dynamically computed values
-            testValues = Arrays.asList(33.0, cos(9.0), cos(-9.0), -33.0);
-            assertExecute(generateExpression("cos(%s) in (33.0E0, cos(9.0E0), cos(-9.0E0), -33.0E0)", value),
-                    BOOLEAN,
-                    value == null ? null : testValues.contains(cos(value)));
-            assertExecute(generateExpression("cos(%s) in (null, 33.0E0, cos(9.0E0), cos(-9.0E0), -33.0E0)", value),
-                    BOOLEAN,
-                    value == null ? null : testValues.contains(cos(value)) ? true : null);
+            List<Double> cosines = Arrays.asList(33.0, cos(9.0), cos(-9.0), -33.0);
+            assertThat(assertions.expression("cos(a) IN (33.0E0, cos(9.0E0), cos(-9.0E0), -33.0E0)")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : cosines.contains(cos(value)));
+
+            assertThat(assertions.expression("cos(a) IN (null, 33.0E0, cos(9.0E0), cos(-9.0E0), -33.0E0)")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : cosines.contains(cos(value)) ? true : null);
         }
 
         for (BigDecimal value : decimalLefts) {
             List<BigDecimal> testValues = ImmutableList.of(new BigDecimal("9.0"), new BigDecimal("10.0"), new BigDecimal("-11.0"), new BigDecimal("9223372036.5477"));
-            assertExecute(generateExpression("%s in (9.0, 10.0, -11.0, 9223372036.5477)", value),
-                    BOOLEAN,
-                    value == null ? null : testValues.contains(value));
-            assertExecute(generateExpression("%s in (null, 9.0, 10.0, -11.0, 9223372036.5477)", value),
-                    BOOLEAN,
-                    value == null ? null : testValues.contains(value) ? true : null);
-            assertExecute(generateExpression("%s in (CAST(null AS DECIMAL(1,0)), 9.0, 10.0, -11.0, 9223372036.5477)", value),
-                    BOOLEAN,
-                    value == null ? null : testValues.contains(value) ? true : null);
-            assertExecute(generateExpression("%s in (9.0, CAST(null AS DECIMAL(1,0)), 10.0, -11.0, 9223372036.5477)", value),
-                    BOOLEAN,
-                    value == null ? null : testValues.contains(value) ? true : null);
-            assertExecute(generateExpression("%s in (9.0, null, 10.0, -11.0, 9223372036.5477)", value),
-                    BOOLEAN,
-                    value == null ? null : testValues.contains(value) ? true : null);
+
+            assertThat(assertions.expression("a IN (9.0, 10.0, -11.0, 9223372036.5477)")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : testValues.contains(value));
+
+            assertThat(assertions.expression("a IN (null, 9.0, 10.0, -11.0, 9223372036.5477)")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : testValues.contains(value) ? true : null);
+
+            assertThat(assertions.expression("a IN (CAST(null AS DECIMAL(1,0)), 9.0, 10.0, -11.0, 9223372036.5477)")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : testValues.contains(value) ? true : null);
+
+            assertThat(assertions.expression("a IN (9.0, CAST(null AS DECIMAL(1,0)), 10.0, -11.0, 9223372036.5477)")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : testValues.contains(value) ? true : null);
+
+            assertThat(assertions.expression("a IN (9.0, null, 10.0, -11.0, 9223372036.5477)")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : testValues.contains(value) ? true : null);
 
             // compare a long to in containing doubles
-            assertExecute(generateExpression("%s in (9.0, 10.0, CAST(-11.0 as DOUBLE), 9223372036.5477)", value),
-                    BOOLEAN,
-                    value == null ? null : testValues.contains(value));
-            assertExecute(generateExpression("%s in (null, 9.0, 10.0, CAST(-11.0 as DOUBLE), 9223372036.5477)", value),
-                    BOOLEAN,
-                    value == null ? null : testValues.contains(value) ? true : null);
-            assertExecute(generateExpression("%s in (null, 9, 10.0, CAST(-11.0 as DOUBLE), 9223372036.5477)", value),
-                    BOOLEAN,
-                    value == null ? null : testValues.contains(value) ? true : null);
-            assertExecute(generateExpression("%s in (CAST(9.0 as DOUBLE), null, 10.0, CAST(-11.0 as DOUBLE), 9223372036.5477)", value),
-                    BOOLEAN,
-                    value == null ? null : testValues.contains(value) ? true : null);
+            assertThat(assertions.expression("a IN (9.0, 10.0, CAST(-11.0 as DOUBLE), 9223372036.5477)")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : testValues.contains(value));
+
+            assertThat(assertions.expression("a IN (null, 9.0, 10.0, CAST(-11.0 as DOUBLE), 9223372036.5477)")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : testValues.contains(value) ? true : null);
+
+            assertThat(assertions.expression("a IN (null, 9, 10.0, CAST(-11.0 as DOUBLE), 9223372036.5477)")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : testValues.contains(value) ? true : null);
+
+            assertThat(assertions.expression("a IN (CAST(9.0 as DOUBLE), null, 10.0, CAST(-11.0 as DOUBLE), 9223372036.5477)")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : testValues.contains(value) ? true : null);
         }
 
         for (String value : stringLefts) {
             List<String> testValues = Arrays.asList("what?", "foo", "mellow", "end");
-            assertExecute(generateExpression("%s in ('what?', 'foo', 'mellow', 'end')", value),
-                    BOOLEAN,
-                    value == null ? null : testValues.contains(value));
-            assertExecute(generateExpression("%s in (null, 'what?', 'foo', 'mellow', 'end')", value),
-                    BOOLEAN,
-                    value == null ? null : testValues.contains(value) ? true : null);
-            assertExecute(generateExpression("%s in ('what?', null, 'foo', 'mellow', 'end')", value),
-                    BOOLEAN,
-                    value == null ? null : testValues.contains(value) ? true : null);
+
+            assertThat(assertions.expression("a IN ('what?', 'foo', 'mellow', 'end')")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : testValues.contains(value));
+
+            assertThat(assertions.expression("a IN (null, 'what?', 'foo', 'mellow', 'end')")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : testValues.contains(value) ? true : null);
+
+            assertThat(assertions.expression("a IN ('what?', null, 'foo', 'mellow', 'end')")
+                    .binding("a", toLiteral(value)))
+                    .isEqualTo(value == null ? null : testValues.contains(value) ? true : null);
         }
 
         // Test null-handling in default case of InCodeGenerator
-        assertExecute("1 in (100, 101, if(rand()>=0, 1), if(rand()<0, 1))", BOOLEAN, true);
-        assertExecute("1 in (100, 101, if(rand()<0, 1), if(rand()>=0, 1))", BOOLEAN, true);
-        assertExecute("2 in (100, 101, if(rand()>=0, 1), if(rand()<0, 1))", BOOLEAN, null);
-        assertExecute("2 in (100, 101, if(rand()<0, 1), if(rand()>=0, 1))", BOOLEAN, null);
+        assertThat(assertions.expression("a IN (100, 101, if(rand()>=0, 1), if(rand()<0, 1))")
+                .binding("a", "1"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
 
-        Futures.allAsList(futures).get();
+        assertThat(assertions.expression("a IN (100, 101, if(rand()<0, 1), if(rand()>=0, 1))")
+                .binding("a", "1"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a IN (100, 101, if(rand()>=0, 1), if(rand()<0, 1))")
+                .binding("a", "2"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN (100, 101, if(rand()<0, 1), if(rand()>=0, 1))")
+                .binding("a", "2"))
+                .isNull(BOOLEAN);
     }
 
     @Test
     public void testHugeIn()
-            throws Exception
     {
         String intValues = range(2000, 7000)
                 .mapToObj(Integer::toString)
                 .collect(joining(", "));
-        assertExecute("bound_integer in (1234, " + intValues + ")", BOOLEAN, true);
-        assertExecute("bound_integer in (" + intValues + ")", BOOLEAN, false);
+
+        assertThat(assertions.expression("a IN (1234, " + intValues + ")")
+                .binding("a", "1234"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a IN (" + intValues + ")")
+                .binding("a", "1234"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
 
         String longValues = LongStream.range(Integer.MAX_VALUE + 1L, Integer.MAX_VALUE + 5000L)
                 .mapToObj(Long::toString)
                 .collect(joining(", "));
-        assertExecute("bound_long in (1234, " + longValues + ")", BOOLEAN, true);
-        assertExecute("bound_long in (" + longValues + ")", BOOLEAN, false);
+
+        assertThat(assertions.expression("a IN (1234, " + longValues + ")")
+                .binding("a", "BIGINT '1234'"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a IN (" + longValues + ")")
+                .binding("a", "BIGINT '1234'"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
 
         String doubleValues = range(2000, 7000).asDoubleStream()
-                .mapToObj(this::formatDoubleToScientificNotation)
+                .mapToObj(TestExpressionCompiler::formatDoubleToScientificNotation)
                 .collect(joining(", "));
-        assertExecute("bound_double in (12.34E0, " + doubleValues + ")", BOOLEAN, true);
-        assertExecute("bound_double in (" + doubleValues + ")", BOOLEAN, false);
+
+        assertThat(assertions.expression("a IN (12.34E0, " + doubleValues + ")")
+                .binding("a", "12.34E0"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a IN (" + doubleValues + ")")
+                .binding("a", "12.34E0"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
 
         String stringValues = range(2000, 7000)
                 .mapToObj(i -> format("'%s'", i))
                 .collect(joining(", "));
-        assertExecute("bound_string in ('hello', " + stringValues + ")", BOOLEAN, true);
-        assertExecute("bound_string in (" + stringValues + ")", BOOLEAN, false);
+
+        assertThat(assertions.expression("a IN ('hello', " + stringValues + ")")
+                .binding("a", "'hello'"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a IN (" + stringValues + ")")
+                .binding("a", "'hello'"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
 
         String timestampValues = range(0, 2_000)
                 .mapToObj(i -> format("TIMESTAMP '1970-01-01 01:01:0%s.%s+01:00'", i / 1000, i % 1000))
                 .collect(joining(", "));
-        assertExecute("bound_timestamp_with_timezone in (" + timestampValues + ")", BOOLEAN, true);
-        assertExecute("bound_timestamp_with_timezone in (TIMESTAMP '1970-01-01 01:01:00.0+02:00')", BOOLEAN, false);
+
+        assertThat(assertions.expression("a IN (" + timestampValues + ")")
+                .binding("a", "TIMESTAMP '1970-01-01 00:01:00.999 UTC'"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a IN (TIMESTAMP '1970-01-01 01:01:00.0+02:00')")
+                .binding("a", "TIMESTAMP '1970-01-01 00:01:00.999'"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
 
         String shortDecimalValues = range(2000, 7000)
                 .mapToObj(value -> format("decimal '%s'", value))
                 .collect(joining(", "));
-        assertExecute("bound_short_decimal in (1234, " + shortDecimalValues + ")", BOOLEAN, true);
-        assertExecute("bound_short_decimal in (" + shortDecimalValues + ")", BOOLEAN, false);
+
+        assertThat(assertions.expression("a IN (1234, " + shortDecimalValues + ")")
+                .binding("a", "CAST(1234 AS decimal(14))"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a IN (" + shortDecimalValues + ")")
+                .binding("a", "CAST(1234 AS decimal(14))"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
 
         String longDecimalValues = range(2000, 7000)
                 .mapToObj(value -> format("decimal '123456789012345678901234567890%s'", value))
                 .collect(joining(", "));
-        assertExecute("bound_long_decimal in (1234, " + longDecimalValues + ")", BOOLEAN, true);
-        assertExecute("bound_long_decimal in (" + longDecimalValues + ")", BOOLEAN, false);
 
-        Futures.allAsList(futures).get();
+        assertThat(assertions.expression("a IN (1234, " + longDecimalValues + ")")
+                .binding("a", "CAST(1234 AS decimal(28))"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a IN (" + longDecimalValues + ")")
+                .binding("a", "CAST(1234 AS decimal(28))"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
     }
 
     @Test
     public void testInComplexTypes()
     {
-        assertExecute("ARRAY[1] IN (ARRAY[1])", BOOLEAN, true);
-        assertExecute("ARRAY[1] IN (ARRAY[2])", BOOLEAN, false);
-        assertExecute("ARRAY[1] IN (ARRAY[2], ARRAY[1])", BOOLEAN, true);
-        assertExecute("ARRAY[1] IN (null)", BOOLEAN, null);
-        assertExecute("ARRAY[1] IN (null, ARRAY[1])", BOOLEAN, true);
-        assertExecute("ARRAY[1, 2, null] IN (ARRAY[2, null], ARRAY[1, null])", BOOLEAN, false);
-        assertExecute("ARRAY[1, null] IN (ARRAY[2, null], null)", BOOLEAN, null);
-        assertExecute("ARRAY[null] IN (ARRAY[null])", BOOLEAN, null);
-        assertExecute("ARRAY[1] IN (ARRAY[null])", BOOLEAN, null);
-        assertExecute("ARRAY[null] IN (ARRAY[1])", BOOLEAN, null);
-        assertExecute("ARRAY[1, null] IN (ARRAY[1, null])", BOOLEAN, null);
-        assertExecute("ARRAY[1, null] IN (ARRAY[2, null])", BOOLEAN, false);
-        assertExecute("ARRAY[1, null] IN (ARRAY[1, null], ARRAY[2, null])", BOOLEAN, null);
-        assertExecute("ARRAY[1, null] IN (ARRAY[1, null], ARRAY[2, null], ARRAY[1, null])", BOOLEAN, null);
+        assertThat(assertions.expression("a IN (ARRAY[1])")
+                .binding("a", "ARRAY[1]"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
 
-        assertExecute("ROW(1) IN (ROW(1))", BOOLEAN, true);
-        assertExecute("ROW(1) IN (ROW(2))", BOOLEAN, false);
-        assertExecute("ROW(1) IN (ROW(2), ROW(1), ROW(2))", BOOLEAN, true);
-        assertExecute("ROW(1) IN (null)", BOOLEAN, null);
-        assertExecute("ROW(1) IN (null, ROW(1))", BOOLEAN, true);
-        assertExecute("ROW(1, null) IN (ROW(2, null), null)", BOOLEAN, null);
-        assertExecute("ROW(null) IN (ROW(null))", BOOLEAN, null);
-        assertExecute("ROW(1) IN (ROW(null))", BOOLEAN, null);
-        assertExecute("ROW(null) IN (ROW(1))", BOOLEAN, null);
-        assertExecute("ROW(1, null) IN (ROW(1, null))", BOOLEAN, null);
-        assertExecute("ROW(1, null) IN (ROW(2, null))", BOOLEAN, false);
-        assertExecute("ROW(1, null) IN (ROW(1, null), ROW(2, null))", BOOLEAN, null);
-        assertExecute("ROW(1, null) IN (ROW(1, null), ROW(2, null), ROW(1, null))", BOOLEAN, null);
+        assertThat(assertions.expression("a IN (ARRAY[2])")
+                .binding("a", "ARRAY[1]"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
 
-        assertExecute("MAP(ARRAY[1], ARRAY[1]) IN (MAP(ARRAY[1], ARRAY[1]))", BOOLEAN, true);
-        assertExecute("MAP(ARRAY[1], ARRAY[1]) IN (null)", BOOLEAN, null);
-        assertExecute("MAP(ARRAY[1], ARRAY[1]) IN (null, MAP(ARRAY[1], ARRAY[1]))", BOOLEAN, true);
-        assertExecute("MAP(ARRAY[1], ARRAY[1]) IN (MAP(ARRAY[1, 2], ARRAY[1, null]))", BOOLEAN, false);
-        assertExecute("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[2, null]), null)", BOOLEAN, null);
-        assertExecute("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[1, null]))", BOOLEAN, null);
-        assertExecute("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 3], ARRAY[1, null]))", BOOLEAN, false);
-        assertExecute("MAP(ARRAY[1], ARRAY[null]) IN (MAP(ARRAY[1], ARRAY[null]))", BOOLEAN, null);
-        assertExecute("MAP(ARRAY[1], ARRAY[1]) IN (MAP(ARRAY[1], ARRAY[null]))", BOOLEAN, null);
-        assertExecute("MAP(ARRAY[1], ARRAY[null]) IN (MAP(ARRAY[1], ARRAY[1]))", BOOLEAN, null);
-        assertExecute("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[1, null]))", BOOLEAN, null);
-        assertExecute("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 3], ARRAY[1, null]))", BOOLEAN, false);
-        assertExecute("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[2, null]))", BOOLEAN, false);
-        assertExecute("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[1, null]), MAP(ARRAY[1, 2], ARRAY[2, null]))", BOOLEAN, null);
-        assertExecute("MAP(ARRAY[1, 2], ARRAY[1, null]) IN (MAP(ARRAY[1, 2], ARRAY[1, null]), MAP(ARRAY[1, 2], ARRAY[2, null]), MAP(ARRAY[1, 2], ARRAY[1, null]))", BOOLEAN, null);
+        assertThat(assertions.expression("a IN (ARRAY[2], ARRAY[1])")
+                .binding("a", "ARRAY[1]"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a IN (null)")
+                .binding("a", "ARRAY[1]"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN (null, ARRAY[1])")
+                .binding("a", "ARRAY[1]"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a IN (ARRAY[2, null], ARRAY[1, null])")
+                .binding("a", "ARRAY[1, 2, null]"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a IN (ARRAY[2, null], null)")
+                .binding("a", "ARRAY[1, null]"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN (ARRAY[null])")
+                .binding("a", "ARRAY[null]"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN (ARRAY[null])")
+                .binding("a", "ARRAY[1]"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN (ARRAY[1])")
+                .binding("a", "ARRAY[null]"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN (ARRAY[1, null])")
+                .binding("a", "ARRAY[1, null]"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN (ARRAY[2, null])")
+                .binding("a", "ARRAY[1, null]"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a IN (ARRAY[1, null], ARRAY[2, null])")
+                .binding("a", "ARRAY[1, null]"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN (ARRAY[1, null], ARRAY[2, null], ARRAY[1, null])")
+                .binding("a", "ARRAY[1, null]"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN (ROW(1))")
+                .binding("a", "ROW(1)"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a IN (ROW(2))")
+                .binding("a", "ROW(1)"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a IN (ROW(2), ROW(1), ROW(2))")
+                .binding("a", "ROW(1)"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a IN (null)")
+                .binding("a", "ROW(1)"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN (null, ROW(1))")
+                .binding("a", "ROW(1)"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a IN (ROW(2, null), null)")
+                .binding("a", "ROW(1, null)"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN (ROW(null))")
+                .binding("a", "ROW(null)"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN (ROW(null))")
+                .binding("a", "ROW(1)"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN (ROW(1))")
+                .binding("a", "ROW(null)"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN (ROW(1, null))")
+                .binding("a", "ROW(1, null)"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN (ROW(2, null))")
+                .binding("a", "ROW(1, null)"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a IN (ROW(1, null), ROW(2, null))")
+                .binding("a", "ROW(1, null)"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN (ROW(1, null), ROW(2, null), ROW(1, null))")
+                .binding("a", "ROW(1, null)"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN (MAP(ARRAY[1], ARRAY[1]))")
+                .binding("a", "MAP(ARRAY[1], ARRAY[1])"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a IN (null)")
+                .binding("a", "MAP(ARRAY[1], ARRAY[1])"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN (null, MAP(ARRAY[1], ARRAY[1]))")
+                .binding("a", "MAP(ARRAY[1], ARRAY[1])"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a IN (MAP(ARRAY[1, 2], ARRAY[1, null]))")
+                .binding("a", "MAP(ARRAY[1], ARRAY[1])"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a IN (MAP(ARRAY[1, 2], ARRAY[2, null]), null)")
+                .binding("a", "MAP(ARRAY[1, 2], ARRAY[1, null])"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN (MAP(ARRAY[1, 2], ARRAY[1, null]))")
+                .binding("a", "MAP(ARRAY[1, 2], ARRAY[1, null])"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN (MAP(ARRAY[1, 3], ARRAY[1, null]))")
+                .binding("a", "MAP(ARRAY[1, 2], ARRAY[1, null])"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a IN (MAP(ARRAY[1], ARRAY[null]))")
+                .binding("a", "MAP(ARRAY[1], ARRAY[null])"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN (MAP(ARRAY[1], ARRAY[null]))")
+                .binding("a", "MAP(ARRAY[1], ARRAY[1])"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN (MAP(ARRAY[1], ARRAY[1]))")
+                .binding("a", "MAP(ARRAY[1], ARRAY[null])"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN (MAP(ARRAY[1, 2], ARRAY[1, null]))")
+                .binding("a", "MAP(ARRAY[1, 2], ARRAY[1, null])"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN (MAP(ARRAY[1, 3], ARRAY[1, null]))")
+                .binding("a", "MAP(ARRAY[1, 2], ARRAY[1, null])"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a IN (MAP(ARRAY[1, 2], ARRAY[2, null]))")
+                .binding("a", "MAP(ARRAY[1, 2], ARRAY[1, null])"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a IN (MAP(ARRAY[1, 2], ARRAY[1, null]), MAP(ARRAY[1, 2], ARRAY[2, null]))")
+                .binding("a", "MAP(ARRAY[1, 2], ARRAY[1, null])"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN (MAP(ARRAY[1, 2], ARRAY[1, null]), MAP(ARRAY[1, 2], ARRAY[2, null]), MAP(ARRAY[1, 2], ARRAY[1, null]))")
+                .binding("a", "MAP(ARRAY[1, 2], ARRAY[1, null])"))
+                .isNull(BOOLEAN);
     }
 
     @Test
     public void testFunctionCall()
-            throws Exception
     {
         for (Integer left : intLefts) {
             for (Integer right : intRights) {
-                assertExecute(generateExpression("bitwise_and(%s, %s)", left, right), BIGINT, left == null || right == null ? null : BitwiseFunctions.bitwiseAnd(left, right));
+                assertThat(assertions.function("bitwise_and", toLiteral(left), toLiteral(right)))
+                        .hasType(BIGINT)
+                        .isEqualTo(left == null || right == null ? null : BitwiseFunctions.bitwiseAnd(left, right));
             }
         }
 
         for (Integer left : intLefts) {
             for (Double right : doubleRights) {
-                assertExecute(generateExpression("mod(%s, %s)", left, right), DOUBLE, left == null || right == null ? null : MathFunctions.mod(left, right));
+                assertThat(assertions.function("mod", toLiteral(left), toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(left == null || right == null ? null : MathFunctions.mod(left, right));
             }
         }
 
         for (Double left : doubleLefts) {
             for (Integer right : intRights) {
-                assertExecute(generateExpression("mod(%s, %s)", left, right), DOUBLE, left == null || right == null ? null : MathFunctions.mod(left, right));
+                assertThat(assertions.function("mod", toLiteral(left), toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(left == null || right == null ? null : MathFunctions.mod(left, right));
             }
         }
 
         for (Double left : doubleLefts) {
             for (Double right : doubleRights) {
-                assertExecute(generateExpression("mod(%s, %s)", left, right), DOUBLE, left == null || right == null ? null : MathFunctions.mod(left, right));
+                assertThat(assertions.function("mod", toLiteral(left), toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(left == null || right == null ? null : MathFunctions.mod(left, right));
             }
         }
 
         for (Double left : doubleLefts) {
             for (BigDecimal right : decimalRights) {
-                assertExecute(generateExpression("mod(%s, %s)", left, right), DOUBLE, left == null || right == null ? null : MathFunctions.mod(left, right.doubleValue()));
+                assertThat(assertions.function("mod", toLiteral(left), toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(left == null || right == null ? null : MathFunctions.mod(left, right.doubleValue()));
             }
         }
 
         for (BigDecimal left : decimalLefts) {
             for (Long right : longRights) {
-                assertExecute(generateExpression("power(%s, %s)", left, right), DOUBLE, left == null || right == null ? null : MathFunctions.power(left.doubleValue(), right));
+                assertThat(assertions.function("power", toLiteral(left), toLiteral(right)))
+                        .hasType(DOUBLE)
+                        .isEqualTo(left == null || right == null ? null : MathFunctions.power(left.doubleValue(), right));
             }
         }
 
         for (String value : stringLefts) {
             for (Integer start : intLefts) {
                 for (Integer length : intRights) {
-                    String expected;
-                    if (value == null || start == null || length == null) {
-                        expected = null;
-                    }
-                    else {
-                        expected = StringFunctions.substring(utf8Slice(value), start, length).toStringUtf8();
-                    }
-                    VarcharType expectedType = value != null ? createVarcharType(value.length()) : VARCHAR;
-
-                    assertExecute(generateExpression("substr(%s, %s, %s)", value, start, length), expectedType, expected);
+                    assertThat(assertions.function("substr", toLiteral(value), toLiteral(start), toLiteral(length)))
+                            .hasType(value != null ? createVarcharType(value.length()) : VARCHAR)
+                            .isEqualTo(value == null || start == null || length == null ? null : toString(StringFunctions.substring(utf8Slice(value), start, length)));
                 }
             }
         }
-
-        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testFunctionCallRegexp()
-            throws Exception
     {
         for (String value : stringLefts) {
             for (String pattern : stringRights) {
-                assertExecute(generateExpression("regexp_like(%s, %s)", value, pattern),
-                        BOOLEAN,
-                        value == null || pattern == null ? null : JoniRegexpFunctions.regexpLike(utf8Slice(value), joniRegexp(utf8Slice(pattern))));
-                assertExecute(generateExpression("regexp_replace(%s, %s)", value, pattern),
-                        value == null ? VARCHAR : createVarcharType(value.length()),
-                        value == null || pattern == null ? null : JoniRegexpFunctions.regexpReplace(utf8Slice(value), joniRegexp(utf8Slice(pattern))));
-                assertExecute(generateExpression("regexp_extract(%s, %s)", value, pattern),
-                        value == null ? VARCHAR : createVarcharType(value.length()),
-                        value == null || pattern == null ? null : JoniRegexpFunctions.regexpExtract(utf8Slice(value), joniRegexp(utf8Slice(pattern))));
+                assertThat(assertions.function("regexp_like", toLiteral(value), toLiteral(pattern)))
+                        .hasType(BOOLEAN)
+                        .isEqualTo(value == null || pattern == null ? null : JoniRegexpFunctions.regexpLike(utf8Slice(value), joniRegexp(utf8Slice(pattern))));
+
+                assertThat(assertions.function("regexp_replace", toLiteral(value), toLiteral(pattern)))
+                        .hasType(value == null ? VARCHAR : createVarcharType(value.length()))
+                        .isEqualTo(value == null || pattern == null ? null : JoniRegexpFunctions.regexpReplace(utf8Slice(value), joniRegexp(utf8Slice(pattern))).toStringUtf8());
+
+                assertThat(assertions.function("regexp_extract", toLiteral(value), toLiteral(pattern)))
+                        .hasType(value == null ? VARCHAR : createVarcharType(value.length()))
+                        .isEqualTo(value == null || pattern == null ? null : toString(JoniRegexpFunctions.regexpExtract(utf8Slice(value), joniRegexp(utf8Slice(pattern)))));
             }
         }
-
-        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testFunctionCallJson()
-            throws Exception
     {
+        String[] jsonValues = {
+                "{}",
+                "{\"fuu\": {\"bar\": 1}}",
+                "{\"fuu\": null}",
+                "{\"fuu\": 1}",
+                "{\"fuu\": 1, \"bar\": \"abc\"}",
+                null
+        };
+
+        String[] jsonPatterns = {
+                "$",
+                "$.fuu",
+                "$.fuu[0]",
+                "$.bar",
+                null
+        };
+
         for (String value : jsonValues) {
             for (String pattern : jsonPatterns) {
-                assertExecute(generateExpression("json_extract(%s, %s)", value, pattern),
-                        JSON,
-                        value == null || pattern == null ? null : JsonFunctions.jsonExtract(utf8Slice(value), new JsonPath(pattern)));
-                assertExecute(generateExpression("json_extract_scalar(%s, %s)", value, pattern),
-                        value == null ? createUnboundedVarcharType() : createVarcharType(value.length()),
-                        value == null || pattern == null ? null : JsonFunctions.jsonExtractScalar(utf8Slice(value), new JsonPath(pattern)));
+                assertThat(assertions.function("json_extract", toLiteral(value), toLiteral(pattern)))
+                        .hasType(JSON)
+                        .isEqualTo(value == null || pattern == null ? null : toString(JsonFunctions.jsonExtract(utf8Slice(value), new JsonPath(pattern))));
 
-                assertExecute(generateExpression("json_extract(%s, %s || '')", value, pattern),
-                        JSON,
-                        value == null || pattern == null ? null : JsonFunctions.jsonExtract(utf8Slice(value), new JsonPath(pattern)));
-                assertExecute(generateExpression("json_extract_scalar(%s, %s || '')", value, pattern),
-                        value == null ? createUnboundedVarcharType() : createVarcharType(value.length()),
-                        value == null || pattern == null ? null : JsonFunctions.jsonExtractScalar(utf8Slice(value), new JsonPath(pattern)));
+                assertThat(assertions.function("json_extract_scalar", toLiteral(value), toLiteral(pattern)))
+                        .hasType(value == null ? createUnboundedVarcharType() : createVarcharType(value.length()))
+                        .isEqualTo(value == null || pattern == null ? null : toString(JsonFunctions.jsonExtractScalar(utf8Slice(value), new JsonPath(pattern))));
             }
         }
 
-        assertExecute("json_array_contains('[1, 2, 3]', 2)", BOOLEAN, true);
-        assertExecute("json_array_contains('[1, 2, 3]', BIGINT '2')", BOOLEAN, true);
-        assertExecute("json_array_contains('[2.5E0]', 2.5E0)", BOOLEAN, true);
-        assertExecute("json_array_contains('[false, true]', true)", BOOLEAN, true);
-        assertExecute("json_array_contains('[5]', 3)", BOOLEAN, false);
-        assertExecute("json_array_contains('[', 9)", BOOLEAN, null);
-        assertExecute("json_array_length('[')", BIGINT, null);
+        assertThat(assertions.function("json_array_contains", "'[1, 2, 3]'", "2"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
 
-        Futures.allAsList(futures).get();
+        assertThat(assertions.function("json_array_contains", "'[1, 2, 3]'", "BIGINT '2'"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "'[2.5E0]'", "2.5E0"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "'[false, true]'", "true"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "'[5]'", "3"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "'['", "9"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.function("json_array_length", "'['"))
+                .isNull(BIGINT);
     }
 
     @Test
     public void testFunctionWithSessionCall()
-            throws Exception
     {
-        assertExecute("now()", TIMESTAMP_WITH_TIME_ZONE, SqlTimestampWithTimeZone.fromInstant(3, TEST_SESSION.getStart(), TEST_SESSION.getTimeZoneKey().getZoneId()));
-        assertExecute("current_timestamp", TIMESTAMP_WITH_TIME_ZONE, SqlTimestampWithTimeZone.fromInstant(3, TEST_SESSION.getStart(), TEST_SESSION.getTimeZoneKey().getZoneId()));
+        Session session = assertions.getDefaultSession();
 
-        Futures.allAsList(futures).get();
+        assertThat(assertions.expression("now()"))
+                .hasType(TIMESTAMP_TZ_MILLIS)
+                .isEqualTo(SqlTimestampWithTimeZone.fromInstant(3, session.getStart(), session.getTimeZoneKey().getZoneId()));
+
+        assertThat(assertions.expression("current_timestamp"))
+                .hasType(TIMESTAMP_TZ_MILLIS)
+                .isEqualTo(SqlTimestampWithTimeZone.fromInstant(3, session.getStart(), session.getTimeZoneKey().getZoneId()));
     }
 
     @Test
     public void testExtract()
-            throws Exception
     {
+        DateTime[] dateTimeValues = {
+                new DateTime(2001, 1, 22, 3, 4, 5, 321, UTC),
+                new DateTime(1960, 1, 22, 3, 4, 5, 321, UTC),
+                new DateTime(1970, 1, 1, 0, 0, 0, 0, UTC),
+                null
+        };
+
         for (DateTime left : dateTimeValues) {
             for (Field field : Field.values()) {
                 if (field == TIMEZONE_MINUTE || field == TIMEZONE_HOUR) {
                     continue;
                 }
-                Long expected = null;
-                Long micros = null;
+                Long expected;
+                Long micros;
                 if (left != null) {
                     micros = left.getMillis() * MICROSECONDS_PER_MILLISECOND;
                     expected = callExtractFunction(micros, field);
                 }
-                String expressionPattern = format(
-                        "extract(%s from from_unixtime(cast(%s as double) / 1000000, 'UTC'))",
-                        field,
-                        micros);
-                assertExecute(generateExpression(expressionPattern, micros), BIGINT, expected);
+                else {
+                    micros = null;
+                    expected = null;
+                }
+
+                assertThat(assertions.expression("extract(%s from from_unixtime(CAST(a as double) / 1000000, 'UTC'))".formatted(field))
+                        .binding("a", toLiteral(micros)))
+                        .isEqualTo(expected);
             }
         }
-
-        Futures.allAsList(futures).get();
     }
 
     @SuppressWarnings("fallthrough")
     private static long callExtractFunction(long value, Field field)
     {
-        switch (field) {
-            case YEAR:
-                return ExtractYear.extract(value);
-            case QUARTER:
-                return ExtractQuarter.extract(value);
-            case MONTH:
-                return ExtractMonth.extract(value);
-            case WEEK:
-                return ExtractWeekOfYear.extract(value);
-            case DAY:
-            case DAY_OF_MONTH:
-                return ExtractDay.extract(value);
-            case DAY_OF_WEEK:
-            case DOW:
-                return ExtractDayOfWeek.extract(value);
-            case YEAR_OF_WEEK:
-            case YOW:
-                return ExtractYearOfWeek.extract(value);
-            case DAY_OF_YEAR:
-            case DOY:
-                return ExtractDayOfYear.extract(value);
-            case HOUR:
-                return ExtractHour.extract(value);
-            case MINUTE:
-                return ExtractMinute.extract(value);
-            case SECOND:
-                return ExtractSecond.extract(value);
-            case TIMEZONE_MINUTE:
-            case TIMEZONE_HOUR:
-                // TODO test these
-        }
-        throw new AssertionError("Unhandled field: " + field);
+        return switch (field) {
+            case YEAR -> ExtractYear.extract(value);
+            case QUARTER -> ExtractQuarter.extract(value);
+            case MONTH -> ExtractMonth.extract(value);
+            case WEEK -> ExtractWeekOfYear.extract(value);
+            case DAY, DAY_OF_MONTH -> ExtractDay.extract(value);
+            case DAY_OF_WEEK, DOW -> ExtractDayOfWeek.extract(value);
+            case YEAR_OF_WEEK, YOW -> ExtractYearOfWeek.extract(value);
+            case DAY_OF_YEAR, DOY -> ExtractDayOfYear.extract(value);
+            case HOUR -> ExtractHour.extract(value);
+            case MINUTE -> ExtractMinute.extract(value);
+            case SECOND -> ExtractSecond.extract(value);
+            case TIMEZONE_MINUTE, TIMEZONE_HOUR -> throw new AssertionError("Unhandled field: " + field);
+        };
     }
 
     @Test
     public void testLike()
-            throws Exception
     {
         for (String value : stringLefts) {
             for (String pattern : stringLefts) {
-                Boolean expected = null;
-                if (value != null && pattern != null) {
-                    JoniRegexp regex = LikeFunctions.likePattern(utf8Slice(pattern), utf8Slice("\\"));
-                    expected = LikeFunctions.likeVarchar(utf8Slice(value), regex);
-                }
-                assertExecute(generateExpression("%s like %s", value, pattern), BOOLEAN, expected);
+                assertThat(assertions.expression("a LIKE b")
+                        .binding("a", toLiteral(value))
+                        .binding("b", toLiteral(pattern)))
+                        .isEqualTo(value == null || pattern == null ?
+                                null :
+                                LikeFunctions.likeVarchar(utf8Slice(value), LikeFunctions.likePattern(utf8Slice(pattern), utf8Slice("\\"))));
             }
         }
-
-        Futures.allAsList(futures).get();
     }
 
     @Test
     public void testCoalesce()
-            throws Exception
     {
-        assertExecute("coalesce(9, 1)", INTEGER, 9);
-        assertExecute("coalesce(9, null)", INTEGER, 9);
-        assertExecute("coalesce(9, BIGINT '1')", BIGINT, 9L);
-        assertExecute("coalesce(BIGINT '9', null)", BIGINT, 9L);
-        assertExecute("coalesce(9, cast(null as bigint))", BIGINT, 9L);
-        assertExecute("coalesce(null, 9, 1)", INTEGER, 9);
-        assertExecute("coalesce(null, 9, null)", INTEGER, 9);
-        assertExecute("coalesce(null, 9, BIGINT '1')", BIGINT, 9L);
-        assertExecute("coalesce(null, 9, CAST (null AS BIGINT))", BIGINT, 9L);
-        assertExecute("coalesce(null, 9, cast(null as bigint))", BIGINT, 9L);
-        assertExecute("coalesce(cast(null as bigint), 9, 1)", BIGINT, 9L);
-        assertExecute("coalesce(cast(null as bigint), 9, null)", BIGINT, 9L);
-        assertExecute("coalesce(cast(null as bigint), 9, cast(null as bigint))", BIGINT, 9L);
+        assertThat(assertions.function("coalesce", "9", "1"))
+                .hasType(INTEGER)
+                .isEqualTo(9);
 
-        assertExecute("coalesce(9.0E0, 1.0E0)", DOUBLE, 9.0);
-        assertExecute("coalesce(9.0E0, 1)", DOUBLE, 9.0);
-        assertExecute("coalesce(9.0E0, null)", DOUBLE, 9.0);
-        assertExecute("coalesce(9.0E0, cast(null as double))", DOUBLE, 9.0);
-        assertExecute("coalesce(null, 9.0E0, 1)", DOUBLE, 9.0);
-        assertExecute("coalesce(null, 9.0E0, null)", DOUBLE, 9.0);
-        assertExecute("coalesce(null, 9.0E0, cast(null as double))", DOUBLE, 9.0);
-        assertExecute("coalesce(null, 9.0E0, cast(null as bigint))", DOUBLE, 9.0);
-        assertExecute("coalesce(cast(null as bigint), 9.0E0, 1)", DOUBLE, 9.0);
-        assertExecute("coalesce(cast(null as bigint), 9.0E0, null)", DOUBLE, 9.0);
-        assertExecute("coalesce(cast(null as bigint), 9.0E0, cast(null as bigint))", DOUBLE, 9.0);
-        assertExecute("coalesce(cast(null as double), 9.0E0, cast(null as double))", DOUBLE, 9.0);
+        assertThat(assertions.function("coalesce", "9", "null"))
+                .hasType(INTEGER)
+                .isEqualTo(9);
 
-        assertExecute("coalesce('foo', 'banana')", createVarcharType(6), "foo");
-        assertExecute("coalesce('foo', null)", createVarcharType(3), "foo");
-        assertExecute("coalesce('foo', cast(null as varchar))", VARCHAR, "foo");
-        assertExecute("coalesce(null, 'foo', 'banana')", createVarcharType(6), "foo");
-        assertExecute("coalesce(null, 'foo', null)", createVarcharType(3), "foo");
-        assertExecute("coalesce(null, 'foo', cast(null as varchar))", VARCHAR, "foo");
-        assertExecute("coalesce(cast(null as varchar), 'foo', 'bar')", VARCHAR, "foo");
-        assertExecute("coalesce(cast(null as varchar), 'foo', null)", VARCHAR, "foo");
-        assertExecute("coalesce(cast(null as varchar), 'foo', cast(null as varchar))", VARCHAR, "foo");
+        assertThat(assertions.function("coalesce", "9", "BIGINT '1'"))
+                .hasType(BIGINT)
+                .isEqualTo(9L);
 
-        assertExecute("coalesce(cast(null as bigint), null, cast(null as bigint))", BIGINT, null);
+        assertThat(assertions.function("coalesce", "BIGINT '9'", "null"))
+                .hasType(BIGINT)
+                .isEqualTo(9L);
 
-        Futures.allAsList(futures).get();
+        assertThat(assertions.function("coalesce", "9", "CAST(null as bigint)"))
+                .hasType(BIGINT)
+                .isEqualTo(9L);
+
+        assertThat(assertions.function("coalesce", "null", "9", "1"))
+                .hasType(INTEGER)
+                .isEqualTo(9);
+
+        assertThat(assertions.function("coalesce", "null", "9", "null"))
+                .hasType(INTEGER)
+                .isEqualTo(9);
+
+        assertThat(assertions.function("coalesce", "null", "9", "BIGINT '1'"))
+                .hasType(BIGINT)
+                .isEqualTo(9L);
+
+        assertThat(assertions.function("coalesce", "null", "9", "CAST (null AS BIGINT)"))
+                .hasType(BIGINT)
+                .isEqualTo(9L);
+
+        assertThat(assertions.function("coalesce", "null", "9", "CAST(null as bigint)"))
+                .hasType(BIGINT)
+                .isEqualTo(9L);
+
+        assertThat(assertions.function("coalesce", "CAST(null as bigint)", "9", "1"))
+                .hasType(BIGINT)
+                .isEqualTo(9L);
+
+        assertThat(assertions.function("coalesce", "CAST(null as bigint)", "9", "null"))
+                .hasType(BIGINT)
+                .isEqualTo(9L);
+
+        assertThat(assertions.function("coalesce", "CAST(null as bigint)", "9", "CAST(null as bigint)"))
+                .hasType(BIGINT)
+                .isEqualTo(9L);
+
+        assertThat(assertions.function("coalesce", "9.0E0", "1.0E0"))
+                .hasType(DOUBLE)
+                .isEqualTo(9.0);
+
+        assertThat(assertions.function("coalesce", "9.0E0", "1"))
+                .hasType(DOUBLE)
+                .isEqualTo(9.0);
+
+        assertThat(assertions.function("coalesce", "9.0E0", "null"))
+                .hasType(DOUBLE)
+                .isEqualTo(9.0);
+
+        assertThat(assertions.function("coalesce", "9.0E0", "CAST(null as double)"))
+                .hasType(DOUBLE)
+                .isEqualTo(9.0);
+
+        assertThat(assertions.function("coalesce", "null", "9.0E0", "1"))
+                .hasType(DOUBLE)
+                .isEqualTo(9.0);
+
+        assertThat(assertions.function("coalesce", "null", "9.0E0", "null"))
+                .hasType(DOUBLE)
+                .isEqualTo(9.0);
+
+        assertThat(assertions.function("coalesce", "null", "9.0E0", "CAST(null as double)"))
+                .hasType(DOUBLE)
+                .isEqualTo(9.0);
+
+        assertThat(assertions.function("coalesce", "null", "9.0E0", "CAST(null as bigint)"))
+                .hasType(DOUBLE)
+                .isEqualTo(9.0);
+
+        assertThat(assertions.function("coalesce", "CAST(null as bigint)", "9.0E0", "1"))
+                .hasType(DOUBLE)
+                .isEqualTo(9.0);
+
+        assertThat(assertions.function("coalesce", "CAST(null as bigint)", "9.0E0", "null"))
+                .hasType(DOUBLE)
+                .isEqualTo(9.0);
+
+        assertThat(assertions.function("coalesce", "CAST(null as bigint)", "9.0E0", "CAST(null as bigint)"))
+                .hasType(DOUBLE)
+                .isEqualTo(9.0);
+
+        assertThat(assertions.function("coalesce", "CAST(null as double)", "9.0E0", "CAST(null as double)"))
+                .hasType(DOUBLE)
+                .isEqualTo(9.0);
+
+        assertThat(assertions.function("coalesce", "'foo'", "'banana'"))
+                .hasType(createVarcharType(6))
+                .isEqualTo("foo");
+
+        assertThat(assertions.function("coalesce", "'foo'", "null"))
+                .hasType(createVarcharType(3))
+                .isEqualTo("foo");
+
+        assertThat(assertions.function("coalesce", "'foo'", "CAST(null as varchar)"))
+                .hasType(VARCHAR)
+                .isEqualTo("foo");
+
+        assertThat(assertions.function("coalesce", "null", "'foo'", "'banana'"))
+                .hasType(createVarcharType(6))
+                .isEqualTo("foo");
+
+        assertThat(assertions.function("coalesce", "null", "'foo'", "null"))
+                .hasType(createVarcharType(3))
+                .isEqualTo("foo");
+
+        assertThat(assertions.function("coalesce", "null", "'foo'", "CAST(null as varchar)"))
+                .hasType(VARCHAR)
+                .isEqualTo("foo");
+
+        assertThat(assertions.function("coalesce", "CAST(null as varchar)", "'foo'", "'bar'"))
+                .hasType(VARCHAR)
+                .isEqualTo("foo");
+
+        assertThat(assertions.function("coalesce", "CAST(null as varchar)", "'foo'", "null"))
+                .hasType(VARCHAR)
+                .isEqualTo("foo");
+
+        assertThat(assertions.function("coalesce", "CAST(null as varchar)", "'foo'", "CAST(null as varchar)"))
+                .hasType(VARCHAR)
+                .isEqualTo("foo");
+
+        assertThat(assertions.function("coalesce", "CAST(null as bigint)", "null", "CAST(null as bigint)"))
+                .isNull(BIGINT);
     }
 
     @Test
     public void testNullif()
-            throws Exception
     {
-        assertExecute("nullif(NULL, NULL)", UNKNOWN, null);
-        assertExecute("nullif(NULL, 2)", UNKNOWN, null);
-        assertExecute("nullif(2, NULL)", INTEGER, 2);
-        assertExecute("nullif(BIGINT '2', NULL)", BIGINT, 2L);
-        assertExecute("nullif(ARRAY[CAST(1 AS BIGINT)], ARRAY[CAST(1 AS BIGINT)])", new ArrayType(BIGINT), null);
-        assertExecute("nullif(ARRAY[CAST(1 AS BIGINT)], ARRAY[CAST(NULL AS BIGINT)])", new ArrayType(BIGINT), ImmutableList.of(1L));
-        assertExecute("nullif(ARRAY[CAST(NULL AS BIGINT)], ARRAY[CAST(NULL AS BIGINT)])", new ArrayType(BIGINT), singletonList(null));
+        assertThat(assertions.function("nullif", "NULL", "NULL"))
+                .isNull(UNKNOWN);
+
+        assertThat(assertions.function("nullif", "NULL", "2"))
+                .isNull(UNKNOWN);
+
+        assertThat(assertions.function("nullif", "2", "NULL"))
+                .hasType(INTEGER)
+                .isEqualTo(2);
+
+        assertThat(assertions.function("nullif", "BIGINT '2'", "NULL"))
+                .hasType(BIGINT)
+                .isEqualTo(2L);
+
+        assertThat(assertions.function("nullif", "ARRAY[CAST(1 AS BIGINT)]", "ARRAY[CAST(1 AS BIGINT)]"))
+                .isNull(new ArrayType(BIGINT));
+
+        assertThat(assertions.function("nullif", "ARRAY[CAST(1 AS BIGINT)]", "ARRAY[CAST(NULL AS BIGINT)]"))
+                .hasType(new ArrayType(BIGINT))
+                .isEqualTo(ImmutableList.of(1L));
+
+        assertThat(assertions.function("nullif", "ARRAY[CAST(NULL AS BIGINT)]", "ARRAY[CAST(NULL AS BIGINT)]"))
+                .hasType(new ArrayType(BIGINT))
+                .isEqualTo(singletonList(null));
 
         // Test coercion in which the CAST function takes ConnectorSession (e.g. MapToMapCast)
-        assertExecute("nullif(" +
-                        "map(array[1], array[smallint '1']), " +
-                        "map(array[1], array[integer '1']))",
-                mapType(INTEGER, SMALLINT),
-                null);
-
-        Futures.allAsList(futures).get();
+        assertThat(assertions.function("nullif", "map(array[1], array[smallint '1'])", "map(array[1], array[integer '1'])"))
+                .isNull(mapType(INTEGER, SMALLINT));
     }
 
-    private List<String> generateExpression(String expressionPattern, Boolean value)
-    {
-        return formatExpression(expressionPattern, value, "boolean");
-    }
-
-    private List<String> generateExpression(String expressionPattern, Long value)
-    {
-        return formatExpression(expressionPattern, value, "bigint");
-    }
-
-    private List<String> generateExpression(String expressionPattern, Integer value)
-    {
-        return formatExpression(expressionPattern, value, "integer");
-    }
-
-    private List<String> generateExpression(String expressionPattern, Double value)
-    {
-        return formatExpression(expressionPattern, value, "double");
-    }
-
-    private List<String> generateExpression(String expressionPattern, String value)
-    {
-        return formatExpression(expressionPattern, value, "varchar");
-    }
-
-    private List<String> generateExpression(String expressionPattern, BigDecimal value)
-    {
-        return formatExpression(expressionPattern, value, getDecimalType(value).toString());
-    }
-
-    private List<String> generateExpression(String expressionPattern, Boolean left, Boolean right)
-    {
-        return formatExpression(expressionPattern, left, "boolean", right, "boolean");
-    }
-
-    private List<String> generateExpression(String expressionPattern, Long left, Long right)
-    {
-        return formatExpression(expressionPattern, left, "bigint", right, "bigint");
-    }
-
-    private List<String> generateExpression(String expressionPattern, Long left, Integer right)
-    {
-        return formatExpression(expressionPattern, left, "bigint", right, "integer");
-    }
-
-    private List<String> generateExpression(String expressionPattern, Integer left, Integer right)
-    {
-        return formatExpression(expressionPattern, left, "integer", right, "integer");
-    }
-
-    private List<String> generateExpression(String expressionPattern, Long left, Double right)
-    {
-        return formatExpression(expressionPattern, left, "bigint", right, "double");
-    }
-
-    private List<String> generateExpression(String expressionPattern, Integer left, Double right)
-    {
-        return formatExpression(expressionPattern, left, "integer", right, "double");
-    }
-
-    private List<String> generateExpression(String expressionPattern, Double left, Long right)
-    {
-        return formatExpression(expressionPattern, left, "double", right, "bigint");
-    }
-
-    private List<String> generateExpression(String expressionPattern, Double left, Integer right)
-    {
-        return formatExpression(expressionPattern, left, "double", right, "integer");
-    }
-
-    private List<String> generateExpression(String expressionPattern, Double left, Double right)
-    {
-        return formatExpression(expressionPattern, left, "double", right, "double");
-    }
-
-    private List<String> generateExpression(String expressionPattern, Long left, BigDecimal right)
-    {
-        return formatExpression(expressionPattern, left, "bigint", right, getDecimalType(right).toString());
-    }
-
-    private List<String> generateExpression(String expressionPattern, BigDecimal left, Long right)
-    {
-        return formatExpression(expressionPattern, left, getDecimalType(left).toString(), right, "bigint");
-    }
-
-    private List<String> generateExpression(String expressionPattern, Integer left, BigDecimal right)
-    {
-        return formatExpression(expressionPattern, left, "integer", right, getDecimalType(right).toString());
-    }
-
-    private List<String> generateExpression(String expressionPattern, BigDecimal left, Integer right)
-    {
-        return formatExpression(expressionPattern, left, getDecimalType(left).toString(), right, "integer");
-    }
-
-    private List<String> generateExpression(String expressionPattern, Double left, BigDecimal right)
-    {
-        return formatExpression(expressionPattern, left, "double", right, getDecimalType(right).toString());
-    }
-
-    private List<String> generateExpression(String expressionPattern, BigDecimal left, Double right)
-    {
-        return formatExpression(expressionPattern, left, getDecimalType(left).toString(), right, "double");
-    }
-
-    private List<String> generateExpression(String expressionPattern, String left, String right)
-    {
-        return formatExpression(expressionPattern, left, "varchar", right, "varchar");
-    }
-
-    private List<String> generateExpression(String expressionPattern, Long first, Long second, Long third)
-    {
-        return formatExpression(expressionPattern, first, "bigint", second, "bigint", third, "bigint");
-    }
-
-    private List<String> generateExpression(String expressionPattern, Integer first, Integer second, Integer third)
-    {
-        return formatExpression(expressionPattern, first, "integer", second, "integer", third, "integer");
-    }
-
-    private List<String> generateExpression(String expressionPattern, BigDecimal first, BigDecimal second, BigDecimal third)
-    {
-        return formatExpression(expressionPattern, first, getDecimalType(first).toString(), second, getDecimalType(second).toString(), third, getDecimalType(third).toString());
-    }
-
-    private List<String> generateExpression(String expressionPattern, Long first, Double second, Long third)
-    {
-        return formatExpression(expressionPattern, first, "bigint", second, "double", third, "bigint");
-    }
-
-    private List<String> generateExpression(String expressionPattern, Integer first, Double second, Integer third)
-    {
-        return formatExpression(expressionPattern, first, "integer", second, "double", third, "integer");
-    }
-
-    private List<String> generateExpression(String expressionPattern, Double first, Double second, Double third)
-    {
-        return formatExpression(expressionPattern, first, "double", second, "double", third, "double");
-    }
-
-    private List<String> generateExpression(String expressionPattern, Double first, Double second, Long third)
-    {
-        return formatExpression(expressionPattern, first, "double", second, "double", third, "bigint");
-    }
-
-    private List<String> generateExpression(String expressionPattern, Double first, Double second, Integer third)
-    {
-        return formatExpression(expressionPattern, first, "double", second, "double", third, "integer");
-    }
-
-    private List<String> generateExpression(String expressionPattern, Double first, Long second, Double third)
-    {
-        return formatExpression(expressionPattern, first, "double", second, "bigint", third, "double");
-    }
-
-    private List<String> generateExpression(String expressionPattern, String first, String second, String third)
-    {
-        return formatExpression(expressionPattern, first, "varchar", second, "varchar", third, "varchar");
-    }
-
-    private List<String> generateExpression(String expressionPattern, Boolean first, String second, String third)
-    {
-        return formatExpression(expressionPattern, first, "boolean", second, "varchar", third, "varchar");
-    }
-
-    private List<String> generateExpression(String expressionPattern, String first, Long second, Long third)
-    {
-        return formatExpression(expressionPattern, first, "varchar", second, "bigint", third, "bigint");
-    }
-
-    private List<String> generateExpression(String expressionPattern, String first, Integer second, Integer third)
-    {
-        return formatExpression(expressionPattern, first, "varchar", second, "integer", third, "integer");
-    }
-
-    private List<String> generateExpression(String expressionPattern, Long first, BigDecimal second, Long third)
-    {
-        return formatExpression(expressionPattern, first, "bigint", second, "decimal(3,1)", third, "bigint");
-    }
-
-    private List<String> generateExpression(String expressionPattern, BigDecimal first, Double second, BigDecimal third)
-    {
-        return formatExpression(expressionPattern, first, getDecimalType(first).toString(), second, "double", third, getDecimalType(third).toString());
-    }
-
-    private static List<String> formatExpression(String expressionPattern, Object value, String type)
-    {
-        return formatExpression(expressionPattern,
-                Arrays.asList(value),
-                ImmutableList.of(type));
-    }
-
-    private static List<String> formatExpression(String expressionPattern, Object left, String leftType, Object right, String rightType)
-    {
-        return formatExpression(expressionPattern,
-                Arrays.asList(left, right),
-                ImmutableList.of(leftType, rightType));
-    }
-
-    private static List<String> formatExpression(
-            String expressionPattern,
-            Object first,
-            String firstType,
-            Object second,
-            String secondType,
-            Object third,
-            String thirdType)
-    {
-        return formatExpression(expressionPattern,
-                Arrays.asList(first, second, third),
-                ImmutableList.of(firstType, secondType, thirdType));
-    }
-
-    private static List<String> formatExpression(String expressionPattern, List<Object> values, List<String> types)
-    {
-        checkArgument(values.size() == types.size());
-
-        List<Set<String>> unrolledValues = new ArrayList<>();
-        for (int i = 0; i < values.size(); i++) {
-            Object value = values.get(i);
-            String type = types.get(i);
-            if (value != null) {
-                if (type.equals("varchar")) {
-                    value = "'" + value + "'";
-                }
-                else if (type.equals("bigint")) {
-                    value = "CAST( " + value + " AS BIGINT)";
-                }
-                else if (type.equals("double")) {
-                    value = "CAST( " + value + " AS DOUBLE)";
-                }
-                unrolledValues.add(ImmutableSet.of(String.valueOf(value)));
-            }
-            else {
-                // todo enable when null output type is supported
-                // unrolledValues.add(ImmutableSet.of("null", "cast(null as " + type + ")"));
-                unrolledValues.add(ImmutableSet.of("cast(null as " + type + ")"));
-            }
-        }
-
-        ImmutableList.Builder<String> expressions = ImmutableList.builder();
-        Set<List<String>> valueLists = Sets.cartesianProduct(unrolledValues);
-        for (List<String> valueList : valueLists) {
-            expressions.add(format(expressionPattern, valueList.toArray(new Object[valueList.size()])));
-        }
-        return expressions.build();
-    }
-
-    private String formatDoubleToScientificNotation(Double value)
+    private static String formatDoubleToScientificNotation(Double value)
     {
         DecimalFormat formatter = ((DecimalFormat) NumberFormat.getNumberInstance(Locale.US));
         formatter.applyPattern("0.##############E0");
         return formatter.format(value);
     }
 
-    private void assertExecute(String expression, Type expectedType, Object expected)
+    private static SqlDecimal toSqlDecimal(BigDecimal decimal)
     {
-        addCallable(new AssertExecuteTask(functionAssertions, expression, expectedType, expected));
-    }
-
-    private void addCallable(Runnable runnable)
-    {
-        if (PARALLEL) {
-            futures.add(Futures.submit(runnable, executor));
+        if (decimal == null) {
+            return null;
         }
-        else {
-            runnable.run();
-        }
-    }
-
-    private void assertExecute(List<String> expressions, Type expectedType, Object expected)
-    {
-        if (expected instanceof Slice) {
-            expected = ((Slice) expected).toStringUtf8();
-        }
-        for (String expression : expressions) {
-            assertExecute(expression, expectedType, expected);
-        }
-    }
-
-    private void assertExecute(List<String> expressions, BigDecimal decimal)
-    {
-        Type type = getDecimalType(decimal);
-        SqlDecimal value = decimal == null ? null : new SqlDecimal(decimal.unscaledValue(), decimal.precision(), decimal.scale());
-        for (String expression : expressions) {
-            assertExecute(expression, type, value);
-        }
+        return new SqlDecimal(decimal.unscaledValue(), decimal.precision(), decimal.scale());
     }
 
     private static Type getDecimalType(BigDecimal decimal)
@@ -1964,69 +2800,56 @@ public class TestExpressionCompiler
         return createDecimalType(decimal.precision(), decimal.scale());
     }
 
-    private static class AssertExecuteTask
-            implements Runnable
+    private static String toLiteral(Boolean value)
     {
-        private final FunctionAssertions functionAssertions;
-        private final String expression;
-        private final Type expectedType;
-        private final Object expected;
-
-        public AssertExecuteTask(FunctionAssertions functionAssertions, String expression, Type expectedType, Object expected)
-        {
-            this.functionAssertions = functionAssertions;
-            this.expectedType = expectedType;
-            this.expression = expression;
-            this.expected = expected;
-        }
-
-        @Override
-        public void run()
-        {
-            try {
-                functionAssertions.assertFunction(expression, expectedType, expected);
-            }
-            catch (Throwable e) {
-                throw new RuntimeException("Error processing " + expression, e);
-            }
-        }
+        return toLiteral(value, BOOLEAN);
     }
 
-    private void assertFilterWithNoInputColumns(String filter, boolean expected)
+    private static String toLiteral(Long value)
     {
-        addCallable(new AssertFilterTask(functionAssertions, filter, expected, true));
+        return toLiteral(value, BIGINT);
     }
 
-    private void assertFilter(String filter, boolean expected)
+    private static String toLiteral(BigDecimal value)
     {
-        addCallable(new AssertFilterTask(functionAssertions, filter, expected, false));
+        return toLiteral(value, getDecimalType(value));
     }
 
-    private static class AssertFilterTask
-            implements Runnable
+    private static String toLiteral(Double value)
     {
-        private final FunctionAssertions functionAssertions;
-        private final String filter;
-        private final boolean expected;
-        private final boolean withNoInputColumns;
+        return toLiteral(value, DOUBLE);
+    }
 
-        public AssertFilterTask(FunctionAssertions functionAssertions, String filter, boolean expected, boolean withNoInputColumns)
-        {
-            this.functionAssertions = functionAssertions;
-            this.filter = filter;
-            this.expected = expected;
-            this.withNoInputColumns = withNoInputColumns;
+    private static String toLiteral(String value)
+    {
+        return toLiteral(value, VARCHAR);
+    }
+
+    private static String toLiteral(Integer value)
+    {
+        return toLiteral(value, INTEGER);
+    }
+
+    private static String toLiteral(Object value, Type type)
+    {
+        if (value == null) {
+            value = "CAST(null AS %s)".formatted(type);
+        }
+        else if (type.equals(VARCHAR)) {
+            value = "'%s'".formatted(value);
+        }
+        else if (type.equals(BIGINT)) {
+            value = "BIGINT '%s'".formatted(value);
+        }
+        else if (type.equals(DOUBLE)) {
+            value = "DOUBLE '%s'".formatted(value);
         }
 
-        @Override
-        public void run()
-        {
-            try {
-                functionAssertions.assertFilter(filter, expected, withNoInputColumns);
-            }
-            catch (Throwable e) {
-                throw new RuntimeException("Error processing " + filter, e);
-            }
-        }
+        return String.valueOf(value);
+    }
+
+    private static String toString(Slice value)
+    {
+        return value == null ? null : value.toStringUtf8();
     }
 }

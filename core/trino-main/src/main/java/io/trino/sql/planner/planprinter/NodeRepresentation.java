@@ -13,17 +13,25 @@
  */
 package io.trino.sql.planner.planprinter;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
+import io.trino.cost.LocalCostEstimate;
 import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -32,7 +40,7 @@ public class NodeRepresentation
     private final PlanNodeId id;
     private final String name;
     private final String type;
-    private final String identifier;
+    private final Map<String, String> descriptor;
     private final List<TypedSymbol> outputs;
     private final List<PlanNodeId> children;
     private final List<PlanFragmentId> remoteSources;
@@ -41,13 +49,13 @@ public class NodeRepresentation
     private final List<PlanCostEstimate> estimatedCost;
     private final Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost;
 
-    private final StringBuilder details = new StringBuilder();
+    private final ImmutableList.Builder<String> details = ImmutableList.builder();
 
     public NodeRepresentation(
             PlanNodeId id,
             String name,
             String type,
-            String identifier,
+            Map<String, String> descriptor,
             List<TypedSymbol> outputs,
             Optional<PlanNodeStats> stats,
             List<PlanNodeStatsEstimate> estimatedStats,
@@ -59,7 +67,7 @@ public class NodeRepresentation
         this.id = requireNonNull(id, "id is null");
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
-        this.identifier = requireNonNull(identifier, "identifier is null");
+        this.descriptor = requireNonNull(descriptor, "descriptor is null");
         this.outputs = requireNonNull(outputs, "outputs is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.estimatedStats = requireNonNull(estimatedStats, "estimatedStats is null");
@@ -74,17 +82,11 @@ public class NodeRepresentation
     public void appendDetails(String string, Object... args)
     {
         if (args.length == 0) {
-            details.append(string);
+            details.add(string);
         }
         else {
-            details.append(format(string, args));
+            details.add(format(string, args));
         }
-    }
-
-    public void appendDetailsLine(String string, Object... args)
-    {
-        appendDetails(string, args);
-        details.append('\n');
     }
 
     public PlanNodeId getId()
@@ -102,9 +104,9 @@ public class NodeRepresentation
         return type;
     }
 
-    public String getIdentifier()
+    public Map<String, String> getDescriptor()
     {
-        return identifier;
+        return descriptor;
     }
 
     public List<TypedSymbol> getOutputs()
@@ -122,9 +124,9 @@ public class NodeRepresentation
         return remoteSources;
     }
 
-    public String getDetails()
+    public List<String> getDetails()
     {
-        return details.toString();
+        return details.build();
     }
 
     public Optional<PlanNodeStats> getStats()
@@ -147,25 +149,80 @@ public class NodeRepresentation
         return reorderJoinStatsAndCost;
     }
 
+    public List<PlanNodeStatsAndCostSummary> getEstimates(TypeProvider typeProvider)
+    {
+        if (getEstimatedStats().stream().allMatch(PlanNodeStatsEstimate::isOutputRowCountUnknown) &&
+                getEstimatedCost().stream().allMatch(c -> c.getRootNodeLocalCostEstimate().equals(LocalCostEstimate.unknown()))) {
+            return ImmutableList.of();
+        }
+
+        ImmutableList.Builder<PlanNodeStatsAndCostSummary> estimates = ImmutableList.builder();
+        for (int i = 0; i < getEstimatedStats().size(); i++) {
+            PlanNodeStatsEstimate stats = getEstimatedStats().get(i);
+            LocalCostEstimate cost = getEstimatedCost().get(i).getRootNodeLocalCostEstimate();
+
+            List<Symbol> outputSymbols = getOutputs().stream()
+                    .map(NodeRepresentation.TypedSymbol::getSymbol)
+                    .collect(toImmutableList());
+
+            estimates.add(new PlanNodeStatsAndCostSummary(
+                    stats.getOutputRowCount(),
+                    stats.getOutputSizeInBytes(outputSymbols, typeProvider),
+                    cost.getCpuCost(),
+                    cost.getMaxMemory(),
+                    cost.getNetworkCost()));
+        }
+
+        return estimates.build();
+    }
+
     public static class TypedSymbol
     {
         private final Symbol symbol;
         private final String type;
 
-        public TypedSymbol(Symbol symbol, String type)
+        @JsonCreator
+        public TypedSymbol(@JsonProperty("symbol") Symbol symbol, @JsonProperty("type") String type)
         {
             this.symbol = symbol;
             this.type = type;
         }
 
+        @JsonProperty
         public Symbol getSymbol()
         {
             return symbol;
         }
 
+        @JsonProperty
         public String getType()
         {
             return type;
+        }
+
+        public static TypedSymbol typedSymbol(String symbol, String type)
+        {
+            return new TypedSymbol(new Symbol(symbol), type);
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof TypedSymbol)) {
+                return false;
+            }
+            TypedSymbol that = (TypedSymbol) o;
+            return symbol.equals(that.symbol)
+                    && type.equals(that.type);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(symbol, type);
         }
     }
 }

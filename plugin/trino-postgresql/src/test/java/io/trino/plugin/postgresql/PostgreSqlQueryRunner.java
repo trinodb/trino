@@ -15,15 +15,16 @@ package io.trino.plugin.postgresql;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.jmx.JmxPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -43,20 +44,34 @@ public final class PostgreSqlQueryRunner
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
+        return createPostgreSqlQueryRunner(server, extraProperties, Map.of(), connectorProperties, tables, runner -> {});
+    }
+
+    public static DistributedQueryRunner createPostgreSqlQueryRunner(
+            TestingPostgreSqlServer server,
+            Map<String, String> extraProperties,
+            Map<String, String> coordinatorProperties,
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> tables,
+            Consumer<QueryRunner> moreSetup)
+            throws Exception
+    {
         DistributedQueryRunner queryRunner = null;
         try {
             queryRunner = DistributedQueryRunner.builder(createSession())
                     .setExtraProperties(extraProperties)
+                    .setCoordinatorProperties(coordinatorProperties)
+                    .setAdditionalSetup(moreSetup)
                     .build();
 
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
+            // note: additional copy via ImmutableList so that if fails on nulls
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("connection-url", server.getJdbcUrl());
             connectorProperties.putIfAbsent("connection-user", server.getUser());
             connectorProperties.putIfAbsent("connection-password", server.getPassword());
-            connectorProperties.putIfAbsent("allow-drop-table", "true");
             connectorProperties.putIfAbsent("postgresql.include-system-tables", "true");
             //connectorProperties.putIfAbsent("postgresql.experimental.enable-string-pushdown-with-collate", "true");
 
@@ -84,10 +99,8 @@ public final class PostgreSqlQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        Logging.initialize();
-
         DistributedQueryRunner queryRunner = createPostgreSqlQueryRunner(
-                new TestingPostgreSqlServer(),
+                new TestingPostgreSqlServer(true),
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),
                 TpchTable.getTables());

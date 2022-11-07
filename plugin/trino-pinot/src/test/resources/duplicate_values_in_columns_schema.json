@@ -1,0 +1,41 @@
+{
+    "schemaName": "duplicate_values_in_columns",
+    "dimensionFieldSpecs": [
+        {
+            "name": "dim_col",
+            "dataType": "LONG"
+        },
+        {
+            "name": "another_dim_col",
+            "dataType": "LONG"
+        },
+        {
+            "name": "string_col",
+            "dataType": "STRING"
+        },
+        {
+            "name": "another_string_col",
+            "dataType": "STRING"
+        }
+    ],
+    "metricFieldSpecs": [
+        {
+            "name": "metric_col1",
+            "dataType": "LONG"
+        },
+        {
+            "name": "metric_col2",
+            "dataType": "LONG"
+        }
+    ],
+    "dateTimeFieldSpecs": [
+        {
+            "name": "updated_at_seconds",
+            "dataType": "LONG",
+            "defaultNullValue" : 0,
+            "format": "1:SECONDS:EPOCH",
+            "transformFunction": "toEpochSeconds(updated_at)",
+            "granularity" : "1:SECONDS"
+        }
+    ]
+}

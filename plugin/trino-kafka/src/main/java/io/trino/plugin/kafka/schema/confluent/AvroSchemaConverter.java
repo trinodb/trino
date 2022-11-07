@@ -159,19 +159,19 @@ public class AvroSchemaConverter
                     .filter(type -> type.getType() != NULL)
                     .collect(toImmutableList())));
         }
-        else if (schema.getTypes().size() == 1) {
+        if (schema.getTypes().size() == 1) {
             return convert(getOnlyElement(schema.getTypes()));
         }
-        else if (INTEGRAL_TYPES.containsAll(types)) {
+        if (INTEGRAL_TYPES.containsAll(types)) {
             return Optional.of(BigintType.BIGINT);
         }
-        else if (DECIMAL_TYPES.containsAll(types)) {
+        if (DECIMAL_TYPES.containsAll(types)) {
             return Optional.of(DoubleType.DOUBLE);
         }
-        else if (STRING_TYPES.containsAll(types)) {
+        if (STRING_TYPES.containsAll(types)) {
             return Optional.of(VarcharType.VARCHAR);
         }
-        else if (BINARY_TYPES.containsAll(types)) {
+        if (BINARY_TYPES.containsAll(types)) {
             return Optional.of(VarbinaryType.VARBINARY);
         }
         throw new UnsupportedOperationException(format("Incompatible UNION type: '%s'", schema.toString(true)));

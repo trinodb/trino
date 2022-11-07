@@ -134,7 +134,7 @@ function start_docker_containers() {
 
     # pull docker images
     if [[ "${CONTINUOUS_INTEGRATION:-false}" == 'true' ]]; then
-        docker-compose ${compose_args} pull --quiet
+        retry docker-compose ${compose_args} pull --quiet
     fi
 
     # start containers
@@ -149,16 +149,6 @@ function start_hadoop_docker_containers() {
 
     # wait until hadoop processes is started
     retry check_hadoop
-}
-
-function get_hive_major_version() {
-    local version
-    version=$(exec_in_hadoop_master_container hive --version 2>/dev/null | sed -n 's/^Hive.*[ ]\([0-9]\)\..*/\1/p')
-    if [[ "${version}" == "" ]]; then
-        echo "Could not obtain Hive major version" >&2
-        return 1
-    fi
-    echo "${version}"
 }
 
 # $1 = base URI for table names
@@ -210,4 +200,15 @@ function deploy_core_site_xml() {
     exec_in_hadoop_master_container bash -c \
         'sed "${@:2}" "/docker/files/$1" > /etc/hadoop/conf/core-site.xml' \
         bash "$template" "${args[@]}"
+}
+
+# Checks if Gitflow Incremental Builder (GIB) is enabled and the trino-hive-hadoop2 module should be build and/or tested
+function abort_if_not_gib_impacted() {
+    local module=plugin/trino-hive-hadoop2
+    local impacted_log=gib-impacted.log
+    if [ -f "$impacted_log" ] && ! grep -q "^${module}$" "$impacted_log"; then
+        echo >&2 "Module $module not present in $impacted_log, exiting"
+        exit 0
+    fi
+    return 0
 }

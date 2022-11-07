@@ -24,13 +24,12 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.instruction.LabelNode;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionDependencies;
-import io.trino.metadata.FunctionDependencyDeclaration;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionDependencyDeclaration;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.CallSiteBinder;
@@ -53,8 +52,6 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.isNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.or;
-import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.orderableTypeParameter;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -79,19 +76,18 @@ public abstract class AbstractGreatestLeast
 
     protected AbstractGreatestLeast(boolean min, String description)
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        min ? "least" : "greatest",
-                        ImmutableList.of(orderableTypeParameter("E")),
-                        ImmutableList.of(),
-                        new TypeSignature("E"),
-                        ImmutableList.of(new TypeSignature("E")),
-                        true),
-                new FunctionNullability(true, ImmutableList.of(true)),
-                false,
-                true,
-                description,
-                SCALAR));
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .name(min ? "least" : "greatest")
+                        .orderableTypeParameter("E")
+                        .returnType(new TypeSignature("E"))
+                        .argumentType(new TypeSignature("E"))
+                        .variableArity()
+                        .build())
+                .nullable()
+                .argumentNullability(true)
+                .description(description)
+                .build());
         this.min = min;
     }
 
@@ -102,7 +98,7 @@ public abstract class AbstractGreatestLeast
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         Type type = boundSignature.getReturnType();
         checkArgument(type.isOrderable(), "Type must be orderable");
@@ -116,7 +112,7 @@ public abstract class AbstractGreatestLeast
         Class<?> clazz = generate(javaTypes, compareMethod);
         MethodHandle methodHandle = methodHandle(clazz, getFunctionMetadata().getSignature().getName(), javaTypes.toArray(new Class<?>[0]));
 
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 NULLABLE_RETURN,
                 nCopies(javaTypes.size(), BOXED_NULLABLE),

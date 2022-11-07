@@ -16,21 +16,24 @@ package io.trino.spi.block;
 
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.function.BiConsumer;
+import java.util.OptionalInt;
+import java.util.function.ObjLongConsumer;
 
 import static io.trino.spi.block.BlockUtil.ensureBlocksAreLoaded;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 public class SingleRowBlock
         extends AbstractSingleRowBlock
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleRowBlock.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SingleRowBlock.class).instanceSize());
 
     private final Block[] fieldBlocks;
+    private final int rowIndex;
 
     SingleRowBlock(int rowIndex, Block[] fieldBlocks)
     {
-        super(rowIndex);
+        this.rowIndex = rowIndex;
         this.fieldBlocks = fieldBlocks;
     }
 
@@ -58,11 +61,17 @@ public class SingleRowBlock
     }
 
     @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.empty();
+    }
+
+    @Override
     public long getSizeInBytes()
     {
         long sizeInBytes = 0;
         for (int i = 0; i < fieldBlocks.length; i++) {
-            sizeInBytes += getRawFieldBlock(i).getRegionSizeInBytes(rowIndex, 1);
+            sizeInBytes += getRawFieldBlock(i).getRegionSizeInBytes(getRowIndex(), 1);
         }
         return sizeInBytes;
     }
@@ -78,12 +87,12 @@ public class SingleRowBlock
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         for (Block fieldBlock : fieldBlocks) {
             consumer.accept(fieldBlock, fieldBlock.getRetainedSizeInBytes());
         }
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -92,9 +101,16 @@ public class SingleRowBlock
         return SingleRowBlockEncoding.NAME;
     }
 
+    @Override
     public int getRowIndex()
     {
         return rowIndex;
+    }
+
+    @Override
+    public Block copyWithAppendedNull()
+    {
+        throw new UnsupportedOperationException("SingleRowBlock does not support newBlockWithAppendedNull()");
     }
 
     @Override
@@ -122,6 +138,6 @@ public class SingleRowBlock
             // All blocks are already loaded
             return this;
         }
-        return new SingleRowBlock(rowIndex, loadedFieldBlocks);
+        return new SingleRowBlock(getRowIndex(), loadedFieldBlocks);
     }
 }

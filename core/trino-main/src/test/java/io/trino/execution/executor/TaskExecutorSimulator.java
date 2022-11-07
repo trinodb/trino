@@ -154,7 +154,7 @@ public class TaskExecutorSimulator
 
         SECONDS.sleep(30);
 
-        // this gets the executor into a more realistic point-in-time state, where long running tasks start to make progress
+        // this gets the executor into a more realistic point-in-time state, where long-running tasks start to make progress
         for (int i = 0; i < 20; i++) {
             controller.clearPendingQueue();
             MINUTES.sleep(1);

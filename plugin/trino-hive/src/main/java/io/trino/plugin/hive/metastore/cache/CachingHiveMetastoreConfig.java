@@ -29,6 +29,7 @@ public class CachingHiveMetastoreConfig
     private Optional<Duration> metastoreRefreshInterval = Optional.empty();
     private long metastoreCacheMaximumSize = 10000;
     private int maxMetastoreRefreshThreads = 10;
+    private boolean partitionCacheEnabled = true;
 
     @NotNull
     public Duration getMetastoreCacheTtl()
@@ -82,15 +83,15 @@ public class CachingHiveMetastoreConfig
         return this;
     }
 
-    public boolean isCacheEnabled()
+    public boolean isPartitionCacheEnabled()
     {
-        return isCacheEnabled(
-                getMetastoreCacheTtl(),
-                getMetastoreCacheMaximumSize());
+        return partitionCacheEnabled;
     }
 
-    public static boolean isCacheEnabled(Duration metastoreCacheTtl, long metastoreCacheMaximumSize)
+    @Config("hive.metastore-cache.cache-partitions")
+    public CachingHiveMetastoreConfig setPartitionCacheEnabled(boolean enabled)
     {
-        return metastoreCacheTtl.toMillis() != 0 && metastoreCacheMaximumSize != 0;
+        this.partitionCacheEnabled = enabled;
+        return this;
     }
 }

@@ -15,25 +15,24 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.BasicRelationStatistics;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.JoinApplicationResult;
-import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
-import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.sql.ExpressionUtils;
+import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.ConnectorExpressionTranslator;
+import io.trino.sql.planner.ConnectorExpressionTranslator.ConnectorExpressionTranslation;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
@@ -43,14 +42,11 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.tree.BooleanLiteral;
-import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -59,7 +55,6 @@ import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.predicate.Domain.onlyNull;
 import static io.trino.sql.ExpressionUtils.and;
-import static io.trino.sql.ExpressionUtils.extractConjuncts;
 import static io.trino.sql.planner.iterative.rule.Rules.deriveTableStatisticsForPushdown;
 import static io.trino.sql.planner.plan.JoinNode.Type.FULL;
 import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
@@ -81,11 +76,13 @@ public class PushJoinIntoTableScan
                     .with(left().matching(tableScan().capturedAs(LEFT_TABLE_SCAN)))
                     .with(right().matching(tableScan().capturedAs(RIGHT_TABLE_SCAN)));
 
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
+    private final TypeAnalyzer typeAnalyzer;
 
-    public PushJoinIntoTableScan(Metadata metadata)
+    public PushJoinIntoTableScan(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
     @Override
@@ -113,9 +110,14 @@ public class PushJoinIntoTableScan
         verify(!left.isUpdateTarget() && !right.isUpdateTarget(), "Unexpected Join over for-update table scan");
 
         Expression effectiveFilter = getEffectiveFilter(joinNode);
-        FilterSplitResult filterSplitResult = splitFilter(effectiveFilter, left.getOutputSymbols(), right.getOutputSymbols(), context);
+        ConnectorExpressionTranslation translation = ConnectorExpressionTranslator.translateConjuncts(
+                context.getSession(),
+                effectiveFilter,
+                context.getSymbolAllocator().getTypes(),
+                plannerContext,
+                typeAnalyzer);
 
-        if (!filterSplitResult.getRemainingFilter().equals(BooleanLiteral.TRUE_LITERAL)) {
+        if (!translation.remainingExpression().equals(BooleanLiteral.TRUE_LITERAL)) {
             // TODO add extra filter node above join
             return Result.empty();
         }
@@ -144,13 +146,13 @@ public class PushJoinIntoTableScan
          */
         JoinStatistics joinStatistics = getJoinStatistics(joinNode, left, right, context);
 
-        Optional<JoinApplicationResult<TableHandle>> joinApplicationResult = metadata.applyJoin(
+        Optional<JoinApplicationResult<TableHandle>> joinApplicationResult = plannerContext.getMetadata().applyJoin(
                 context.getSession(),
                 getJoinType(joinNode),
                 left.getTable(),
                 right.getTable(),
-                filterSplitResult.getPushableConditions(),
-                // TODO we could pass only subset of assignments here, those which are needed to resolve filterSplitResult.getPushableConditions
+                translation.connectorExpression(),
+                // TODO we could pass only subset of assignments here, those which are needed to resolve translation.getPushableConditions
                 leftAssignments,
                 rightAssignments,
                 joinStatistics);
@@ -171,7 +173,7 @@ public class PushJoinIntoTableScan
         assignmentsBuilder.putAll(right.getAssignments().entrySet().stream().collect(toImmutableMap(
                 Map.Entry::getKey,
                 entry -> rightColumnHandlesMapping.get(entry.getValue()))));
-        Map<Symbol, ColumnHandle> assignments = assignmentsBuilder.build();
+        Map<Symbol, ColumnHandle> assignments = assignmentsBuilder.buildOrThrow();
 
         // convert enforced constraint
         JoinNode.Type joinType = joinNode.getType();
@@ -183,7 +185,7 @@ public class PushJoinIntoTableScan
                         // we are sure that domains map is present as we bailed out on isNone above
                         .putAll(leftConstraint.getDomains().orElseThrow())
                         .putAll(rightConstraint.getDomains().orElseThrow())
-                        .build());
+                        .buildOrThrow());
 
         return Result.ofPlanNode(
                 new ProjectNode(
@@ -254,108 +256,13 @@ public class PushJoinIntoTableScan
         return effectiveFilter;
     }
 
-    private FilterSplitResult splitFilter(Expression filter, List<Symbol> leftSymbolsList, List<Symbol> rightSymbolsList, Context context)
-    {
-        Set<Symbol> leftSymbols = ImmutableSet.copyOf(leftSymbolsList);
-        Set<Symbol> rightSymbols = ImmutableSet.copyOf(rightSymbolsList);
-
-        ImmutableList.Builder<JoinCondition> comparisonConditions = ImmutableList.builder();
-        ImmutableList.Builder<Expression> remainingConjuncts = ImmutableList.builder();
-
-        for (Expression conjunct : extractConjuncts(filter)) {
-            getPushableJoinCondition(conjunct, leftSymbols, rightSymbols, context)
-                    .ifPresentOrElse(comparisonConditions::add, () -> remainingConjuncts.add(conjunct));
-        }
-
-        return new FilterSplitResult(comparisonConditions.build(), ExpressionUtils.and(remainingConjuncts.build()));
-    }
-
-    private Optional<JoinCondition> getPushableJoinCondition(Expression conjunct, Set<Symbol> leftSymbols, Set<Symbol> rightSymbols, Context context)
-    {
-        if (!(conjunct instanceof ComparisonExpression)) {
-            return Optional.empty();
-        }
-        ComparisonExpression comparison = (ComparisonExpression) conjunct;
-
-        if (!(comparison.getLeft() instanceof SymbolReference) || !(comparison.getRight() instanceof SymbolReference)) {
-            return Optional.empty();
-        }
-        Symbol left = Symbol.from(comparison.getLeft());
-        Symbol right = Symbol.from(comparison.getRight());
-        ComparisonExpression.Operator operator = comparison.getOperator();
-
-        if (!leftSymbols.contains(left)) {
-            // lets try with flipped expression
-            Symbol tmp = left;
-            left = right;
-            right = tmp;
-            operator = operator.flip();
-        }
-
-        if (leftSymbols.contains(left) && rightSymbols.contains(right)) {
-            return Optional.of(new JoinCondition(
-                    joinConditionOperator(operator),
-                    new Variable(left.getName(), context.getSymbolAllocator().getTypes().get(left)),
-                    new Variable(right.getName(), context.getSymbolAllocator().getTypes().get(right))));
-        }
-        return Optional.empty();
-    }
-
-    private static class FilterSplitResult
-    {
-        private final List<JoinCondition> pushableConditions;
-        private final Expression remainingFilter;
-
-        public FilterSplitResult(List<JoinCondition> pushableConditions, Expression remainingFilter)
-        {
-            this.pushableConditions = requireNonNull(pushableConditions, "pushableConditions is null");
-            this.remainingFilter = requireNonNull(remainingFilter, "remainingFilter is null");
-        }
-
-        public List<JoinCondition> getPushableConditions()
-        {
-            return pushableConditions;
-        }
-
-        public Expression getRemainingFilter()
-        {
-            return remainingFilter;
-        }
-    }
-
-    private JoinCondition.Operator joinConditionOperator(ComparisonExpression.Operator operator)
-    {
-        switch (operator) {
-            case EQUAL:
-                return JoinCondition.Operator.EQUAL;
-            case NOT_EQUAL:
-                return JoinCondition.Operator.NOT_EQUAL;
-            case LESS_THAN:
-                return JoinCondition.Operator.LESS_THAN;
-            case LESS_THAN_OR_EQUAL:
-                return JoinCondition.Operator.LESS_THAN_OR_EQUAL;
-            case GREATER_THAN:
-                return JoinCondition.Operator.GREATER_THAN;
-            case GREATER_THAN_OR_EQUAL:
-                return JoinCondition.Operator.GREATER_THAN_OR_EQUAL;
-            case IS_DISTINCT_FROM:
-                return JoinCondition.Operator.IS_DISTINCT_FROM;
-        }
-        throw new IllegalArgumentException("Unknown operator: " + operator);
-    }
-
     private JoinType getJoinType(JoinNode joinNode)
     {
-        switch (joinNode.getType()) {
-            case INNER:
-                return JoinType.INNER;
-            case LEFT:
-                return JoinType.LEFT_OUTER;
-            case RIGHT:
-                return JoinType.RIGHT_OUTER;
-            case FULL:
-                return JoinType.FULL_OUTER;
-        }
-        throw new IllegalArgumentException("Unknown join type: " + joinNode.getType());
+        return switch (joinNode.getType()) {
+            case INNER -> JoinType.INNER;
+            case LEFT -> JoinType.LEFT_OUTER;
+            case RIGHT -> JoinType.RIGHT_OUTER;
+            case FULL -> JoinType.FULL_OUTER;
+        };
     }
 }

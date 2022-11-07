@@ -56,7 +56,7 @@ public class AtopMetadata
     public AtopMetadata(TypeManager typeManager, Environment environment)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.environment = requireNonNull(environment, "environment is null").toString();
+        this.environment = environment.toString();
     }
 
     @Override
@@ -119,7 +119,7 @@ public class AtopMetadata
         for (AtopColumn column : atopTableHandle.getTable().getColumns()) {
             columnHandles.put(column.getName(), new AtopColumnHandle(column.getName()));
         }
-        return columnHandles.build();
+        return columnHandles.buildOrThrow();
     }
 
     @Override
@@ -130,7 +130,7 @@ public class AtopMetadata
             ConnectorTableMetadata tableMetadata = getTableMetadata(session, getTableHandle(session, tableName));
             columns.put(tableName, tableMetadata.getColumns());
         }
-        return columns.build();
+        return columns.buildOrThrow();
     }
 
     @Override
@@ -150,12 +150,6 @@ public class AtopMetadata
     }
 
     @Override
-    public boolean usesLegacyTableLayouts()
-    {
-        return false;
-    }
-
-    @Override
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
     {
         return new ConnectorTableProperties();
@@ -166,20 +160,18 @@ public class AtopMetadata
     {
         AtopTableHandle handle = (AtopTableHandle) table;
 
-        Optional<Map<ColumnHandle, Domain>> domains = constraint.getSummary().getDomains();
+        Map<ColumnHandle, Domain> domains = constraint.getSummary().getDomains().orElseThrow(() -> new IllegalArgumentException("constraint summary is NONE"));
 
         Domain oldEndTimeDomain = handle.getEndTimeConstraint();
         Domain oldStartTimeDomain = handle.getStartTimeConstraint();
         Domain newEndTimeDomain = oldEndTimeDomain;
         Domain newStartTimeDomain = oldStartTimeDomain;
 
-        if (domains.isPresent()) {
-            if (domains.get().containsKey(START_TIME_HANDLE)) {
-                newStartTimeDomain = domains.get().get(START_TIME_HANDLE).intersect(oldStartTimeDomain);
-            }
-            if (domains.get().containsKey(END_TIME_HANDLE)) {
-                newEndTimeDomain = domains.get().get(END_TIME_HANDLE).intersect(oldEndTimeDomain);
-            }
+        if (domains.containsKey(START_TIME_HANDLE)) {
+            newStartTimeDomain = domains.get(START_TIME_HANDLE).intersect(oldStartTimeDomain);
+        }
+        if (domains.containsKey(END_TIME_HANDLE)) {
+            newEndTimeDomain = domains.get(END_TIME_HANDLE).intersect(oldEndTimeDomain);
         }
 
         if (oldEndTimeDomain.equals(newEndTimeDomain) && oldStartTimeDomain.equals(newStartTimeDomain)) {

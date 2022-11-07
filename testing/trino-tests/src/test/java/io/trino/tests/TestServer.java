@@ -92,9 +92,7 @@ public class TestServer
     public void setup()
     {
         server = TestingTrinoServer.builder()
-                .setProperties(ImmutableMap.<String, String>builder()
-                        .put("http-server.process-forwarded", "true")
-                        .build())
+                .setProperties(ImmutableMap.of("http-server.process-forwarded", "true"))
                 .build();
 
         server.installPlugin(new MemoryPlugin());
@@ -204,15 +202,13 @@ public class TestServer
                 .put(QUERY_MAX_MEMORY, "1GB")
                 .put(JOIN_DISTRIBUTION_TYPE, "partitioned")
                 .put(HASH_PARTITION_COUNT, "43")
-                .build());
+                .buildOrThrow());
 
         // verify client info in session
         assertEquals(queryInfo.getSession().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
 
         // verify prepared statements
-        assertEquals(queryInfo.getSession().getPreparedStatements(), ImmutableMap.builder()
-                .put("foo", "select * from bar")
-                .build());
+        assertEquals(queryInfo.getSession().getPreparedStatements(), ImmutableMap.of("foo", "select * from bar"));
 
         List<List<Object>> rows = data.build();
         assertEquals(rows, ImmutableList.of(ImmutableList.of("memory"), ImmutableList.of("system")));

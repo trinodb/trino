@@ -45,6 +45,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ExpressionUtils.and;
 import static io.trino.sql.planner.iterative.rule.AggregationDecorrelation.isDistinctOperator;
+import static io.trino.sql.planner.iterative.rule.AggregationDecorrelation.restoreDistinctAggregation;
 import static io.trino.sql.planner.iterative.rule.AggregationDecorrelation.rewriteWithMasks;
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
@@ -62,7 +63,8 @@ import static java.util.Objects.requireNonNull;
 /**
  * This rule decorrelates a correlated subquery with:
  * - single global aggregation, or
- * - global aggregation over distinct operator (grouped aggregation with no aggregation assignments)
+ * - global aggregation over distinct operator (grouped aggregation with no aggregation assignments),
+ * in case when the distinct operator cannot be de-correlated by PlanNodeDecorrelator
  * It is similar to TransformCorrelatedGlobalAggregationWithProjection rule, but does not support projection over aggregation in the subquery
  * <p>
  * In the case of single aggregation, it transforms:
@@ -143,19 +145,24 @@ public class TransformCorrelatedGlobalAggregationWithoutProjection
     {
         checkArgument(correlatedJoinNode.getType() == INNER || correlatedJoinNode.getType() == LEFT, "unexpected correlated join type: " + correlatedJoinNode.getType());
 
-        // if there is another aggregation below the AggregationNode, handle both
         PlanNode source = captures.get(SOURCE);
+
+        // if we fail to decorrelate the nested plan, and it contains a distinct operator, we can extract and special-handle the distinct operator
         AggregationNode distinct = null;
-        if (isDistinctOperator(source)) {
-            distinct = (AggregationNode) source;
-            source = distinct.getSource();
-        }
 
         // decorrelate nested plan
         PlanNodeDecorrelator decorrelator = new PlanNodeDecorrelator(plannerContext, context.getSymbolAllocator(), context.getLookup());
         Optional<PlanNodeDecorrelator.DecorrelatedNode> decorrelatedSource = decorrelator.decorrelateFilters(source, correlatedJoinNode.getCorrelation());
         if (decorrelatedSource.isEmpty()) {
-            return Result.empty();
+            // we failed to decorrelate the nested plan, so check if we can extract a distinct operator from the nested plan
+            if (isDistinctOperator(source)) {
+                distinct = (AggregationNode) source;
+                source = distinct.getSource();
+                decorrelatedSource = decorrelator.decorrelateFilters(source, correlatedJoinNode.getCorrelation());
+            }
+            if (decorrelatedSource.isEmpty()) {
+                return Result.empty();
+            }
         }
 
         source = decorrelatedSource.get().getNode();
@@ -197,19 +204,14 @@ public class TransformCorrelatedGlobalAggregationWithoutProjection
 
         // restore distinct aggregation
         if (distinct != null) {
-            root = new AggregationNode(
-                    distinct.getId(),
+            root = restoreDistinctAggregation(
+                    distinct,
                     join,
-                    distinct.getAggregations(),
-                    singleGroupingSet(ImmutableList.<Symbol>builder()
+                    ImmutableList.<Symbol>builder()
                             .addAll(join.getLeftOutputSymbols())
                             .add(nonNull)
                             .addAll(distinct.getGroupingKeys())
-                            .build()),
-                    ImmutableList.of(),
-                    distinct.getStep(),
-                    Optional.empty(),
-                    Optional.empty());
+                            .build());
         }
 
         // prepare mask symbols for aggregations
@@ -250,7 +252,7 @@ public class TransformCorrelatedGlobalAggregationWithoutProjection
         globalAggregation = new AggregationNode(
                 globalAggregation.getId(),
                 root,
-                rewriteWithMasks(globalAggregation.getAggregations(), masks.build()),
+                rewriteWithMasks(globalAggregation.getAggregations(), masks.buildOrThrow()),
                 singleGroupingSet(ImmutableList.<Symbol>builder()
                         .addAll(join.getLeftOutputSymbols())
                         .addAll(globalAggregation.getGroupingKeys())

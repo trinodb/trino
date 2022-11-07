@@ -70,6 +70,11 @@ public final class Patterns
         return typeOf(TableExecuteNode.class);
     }
 
+    public static Pattern<MergeWriterNode> mergeWriter()
+    {
+        return typeOf(MergeWriterNode.class);
+    }
+
     public static Pattern<ExchangeNode> exchange()
     {
         return typeOf(ExchangeNode.class);
@@ -103,6 +108,11 @@ public final class Patterns
     public static Pattern<JoinNode> join()
     {
         return typeOf(JoinNode.class);
+    }
+
+    public static Pattern<DynamicFilterSourceNode> dynamicFilterSource()
+    {
+        return typeOf(DynamicFilterSourceNode.class);
     }
 
     public static Pattern<SpatialJoinNode> spatialJoin()
@@ -203,6 +213,11 @@ public final class Patterns
     public static Pattern<PatternRecognitionNode> patternRecognition()
     {
         return typeOf(PatternRecognitionNode.class);
+    }
+
+    public static Pattern<TableFunctionNode> tableFunction()
+    {
+        return typeOf(TableFunctionNode.class);
     }
 
     public static Pattern<RowNumberNode> rowNumber()

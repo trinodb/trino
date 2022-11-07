@@ -38,11 +38,11 @@ import java.net.URI;
 import java.util.Map;
 import java.util.function.Supplier;
 
-import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.inject.util.Modules.override;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
+import static java.nio.file.Files.createTempDirectory;
 
 @Test(singleThreaded = true)
 public class TestHttpBackupStore
@@ -52,12 +52,11 @@ public class TestHttpBackupStore
 
     @BeforeMethod
     public void setup()
+            throws IOException
     {
-        temporary = createTempDir();
+        temporary = createTempDirectory(null);
 
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("backup.http.uri", "http://localhost:8080")
-                .build();
+        Map<String, String> properties = ImmutableMap.of("backup.http.uri", "http://localhost:8080");
 
         Bootstrap app = new Bootstrap(
                 new TestingNodeModule(),
@@ -83,7 +82,7 @@ public class TestHttpBackupStore
     public void teardown()
             throws IOException
     {
-        deleteRecursively(temporary.toPath(), ALLOW_INSECURE);
+        deleteRecursively(temporary, ALLOW_INSECURE);
         if (lifeCycleManager != null) {
             lifeCycleManager.stop();
         }

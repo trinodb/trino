@@ -14,6 +14,7 @@
 package io.trino.sql.planner.assertions;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
@@ -196,36 +197,42 @@ public class PatternRecognitionMatcher
             this.source = requireNonNull(source, "source is null");
         }
 
+        @CanIgnoreReturnValue
         public Builder specification(ExpectedValueProvider<WindowNode.Specification> specification)
         {
             this.specification = Optional.of(specification);
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder addFunction(String outputAlias, ExpectedValueProvider<FunctionCall> functionCall)
         {
             windowFunctionMatchers.add(new AliasMatcher(Optional.of(outputAlias), new WindowFunctionMatcher(functionCall, Optional.empty(), Optional.empty())));
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder addMeasure(String outputAlias, String expression, Type type)
         {
             measures.put(outputAlias, new AbstractMap.SimpleEntry<>(expression, type));
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder frame(ExpectedValueProvider<WindowNode.Frame> frame)
         {
             this.frame = Optional.of(frame);
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder rowsPerMatch(RowsPerMatch rowsPerMatch)
         {
             this.rowsPerMatch = rowsPerMatch;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder skipTo(SkipTo.Position position, IrLabel label)
         {
             this.skipToLabel = Optional.of(label);
@@ -233,36 +240,42 @@ public class PatternRecognitionMatcher
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder skipTo(SkipTo.Position position)
         {
             this.skipToPosition = position;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder seek()
         {
             this.initial = false;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder pattern(IrRowPattern pattern)
         {
             this.pattern = pattern;
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder addSubset(IrLabel name, Set<IrLabel> elements)
         {
             subsets.put(name, elements);
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder addVariableDefinition(IrLabel name, String expression)
         {
             this.variableDefinitionsBySql.put(name, expression);
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder addVariableDefinition(IrLabel name, Expression expression)
         {
             this.variableDefinitionsByExpression.put(name, expression);
@@ -287,7 +300,7 @@ public class PatternRecognitionMatcher
                             initial,
                             pattern,
                             subsets,
-                            variableDefinitions.build()));
+                            variableDefinitions.buildOrThrow()));
             windowFunctionMatchers.forEach(result::with);
             measures.entrySet().stream()
                     .map(entry -> {

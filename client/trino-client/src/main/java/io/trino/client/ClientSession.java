@@ -34,7 +34,7 @@ import static java.util.Objects.requireNonNull;
 public class ClientSession
 {
     private final URI server;
-    private final String principal;
+    private final Optional<String> principal;
     private final Optional<String> user;
     private final String source;
     private final Optional<String> traceToken;
@@ -54,6 +54,11 @@ public class ClientSession
     private final Duration clientRequestTimeout;
     private final boolean compressionDisabled;
 
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
     public static Builder builder(ClientSession clientSession)
     {
         return new Builder(clientSession);
@@ -62,13 +67,13 @@ public class ClientSession
     public static ClientSession stripTransactionId(ClientSession session)
     {
         return ClientSession.builder(session)
-                .withoutTransactionId()
+                .transactionId(null)
                 .build();
     }
 
-    public ClientSession(
+    private ClientSession(
             URI server,
-            String principal,
+            Optional<String> principal,
             Optional<String> user,
             String source,
             Optional<String> traceToken,
@@ -89,8 +94,8 @@ public class ClientSession
             boolean compressionDisabled)
     {
         this.server = requireNonNull(server, "server is null");
-        this.principal = principal;
-        this.user = user;
+        this.principal = requireNonNull(principal, "principal is null");
+        this.user = requireNonNull(user, "user is null");
         this.source = source;
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.clientTags = ImmutableSet.copyOf(requireNonNull(clientTags, "clientTags is null"));
@@ -143,7 +148,7 @@ public class ClientSession
         return server;
     }
 
-    public String getPrincipal()
+    public Optional<String> getPrincipal()
     {
         return principal;
     }
@@ -270,25 +275,27 @@ public class ClientSession
     public static final class Builder
     {
         private URI server;
-        private String principal;
-        private Optional<String> user;
+        private Optional<String> principal = Optional.empty();
+        private Optional<String> user = Optional.empty();
         private String source;
-        private Optional<String> traceToken;
-        private Set<String> clientTags;
+        private Optional<String> traceToken = Optional.empty();
+        private Set<String> clientTags = ImmutableSet.of();
         private String clientInfo;
         private String catalog;
         private String schema;
         private String path;
         private ZoneId timeZone;
         private Locale locale;
-        private Map<String, String> resourceEstimates;
-        private Map<String, String> properties;
-        private Map<String, String> preparedStatements;
-        private Map<String, ClientSelectedRole> roles;
-        private Map<String, String> credentials;
+        private Map<String, String> resourceEstimates = ImmutableMap.of();
+        private Map<String, String> properties = ImmutableMap.of();
+        private Map<String, String> preparedStatements = ImmutableMap.of();
+        private Map<String, ClientSelectedRole> roles = ImmutableMap.of();
+        private Map<String, String> credentials = ImmutableMap.of();
         private String transactionId;
         private Duration clientRequestTimeout;
         private boolean compressionDisabled;
+
+        private Builder() {}
 
         private Builder(ClientSession clientSession)
         {
@@ -315,61 +322,121 @@ public class ClientSession
             compressionDisabled = clientSession.isCompressionDisabled();
         }
 
-        public Builder withCatalog(String catalog)
+        public Builder server(URI server)
         {
-            this.catalog = requireNonNull(catalog, "catalog is null");
+            this.server = server;
             return this;
         }
 
-        public Builder withSchema(String schema)
+        public Builder user(Optional<String> user)
         {
-            this.schema = requireNonNull(schema, "schema is null");
+            this.user = user;
             return this;
         }
 
-        public Builder withPath(String path)
+        public Builder principal(Optional<String> principal)
         {
-            this.path = requireNonNull(path, "path is null");
+            this.principal = principal;
             return this;
         }
 
-        public Builder withProperties(Map<String, String> properties)
+        public Builder source(String source)
         {
-            this.properties = requireNonNull(properties, "properties is null");
+            this.source = source;
             return this;
         }
 
-        public Builder withRoles(Map<String, ClientSelectedRole> roles)
+        public Builder traceToken(Optional<String> traceToken)
+        {
+            this.traceToken = traceToken;
+            return this;
+        }
+
+        public Builder clientTags(Set<String> clientTags)
+        {
+            this.clientTags = clientTags;
+            return this;
+        }
+
+        public Builder clientInfo(String clientInfo)
+        {
+            this.clientInfo = clientInfo;
+            return this;
+        }
+
+        public Builder catalog(String catalog)
+        {
+            this.catalog = catalog;
+            return this;
+        }
+
+        public Builder schema(String schema)
+        {
+            this.schema = schema;
+            return this;
+        }
+
+        public Builder path(String path)
+        {
+            this.path = path;
+            return this;
+        }
+
+        public Builder timeZone(ZoneId timeZone)
+        {
+            this.timeZone = timeZone;
+            return this;
+        }
+
+        public Builder locale(Locale locale)
+        {
+            this.locale = locale;
+            return this;
+        }
+
+        public Builder resourceEstimates(Map<String, String> resourceEstimates)
+        {
+            this.resourceEstimates = resourceEstimates;
+            return this;
+        }
+
+        public Builder properties(Map<String, String> properties)
+        {
+            this.properties = properties;
+            return this;
+        }
+
+        public Builder roles(Map<String, ClientSelectedRole> roles)
         {
             this.roles = roles;
             return this;
         }
 
-        public Builder withCredentials(Map<String, String> credentials)
+        public Builder credentials(Map<String, String> credentials)
         {
-            this.credentials = requireNonNull(credentials, "credentials is null");
+            this.credentials = credentials;
             return this;
         }
 
-        public Builder withPreparedStatements(Map<String, String> preparedStatements)
+        public Builder preparedStatements(Map<String, String> preparedStatements)
         {
-            this.preparedStatements = requireNonNull(preparedStatements, "preparedStatements is null");
+            this.preparedStatements = preparedStatements;
             return this;
         }
 
-        public Builder withTransactionId(String transactionId)
+        public Builder transactionId(String transactionId)
         {
-            this.transactionId = requireNonNull(transactionId, "transactionId is null");
+            this.transactionId = transactionId;
             return this;
         }
 
-        public Builder withoutTransactionId()
+        public Builder clientRequestTimeout(Duration clientRequestTimeout)
         {
-            this.transactionId = null;
+            this.clientRequestTimeout = clientRequestTimeout;
             return this;
         }
 
-        public Builder withCompressionDisabled(boolean compressionDisabled)
+        public Builder compressionDisabled(boolean compressionDisabled)
         {
             this.compressionDisabled = compressionDisabled;
             return this;

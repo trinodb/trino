@@ -13,24 +13,23 @@
  */
 package io.trino.plugin.hive;
 
-import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.operator.OperatorStats;
 import io.trino.testing.AbstractTestJoinQueries;
-import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.ResultWithQueryId;
 import org.testng.annotations.Test;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
+import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static org.testng.Assert.assertEquals;
 
 /**
- * @see TestHiveDistributedJoinQueriesWithoutDynamicFiltering for tests with dynamic filtering enabled
+ * @see TestHiveDistributedJoinQueriesWithoutDynamicFiltering for tests with dynamic filtering disabled
  */
 public class TestHiveDistributedJoinQueries
         extends AbstractTestJoinQueries
@@ -41,6 +40,8 @@ public class TestHiveDistributedJoinQueries
     {
         verify(new DynamicFilterConfig().isEnableDynamicFiltering(), "this class assumes dynamic filtering is enabled by default");
         return HiveQueryRunner.builder()
+                .addExtraProperty("retry-policy", "NONE") // See TestHiveFaultTolerantExecutionJoinQueries for tests with task retries enabled
+                .addHiveProperty("hive.dynamic-filtering.wait-timeout", "1h")
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
@@ -57,9 +58,9 @@ public class TestHiveDistributedJoinQueries
     public void testJoinWithEmptyBuildSide()
     {
         Session session = Session.builder(getSession())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
                 .build();
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
                 session,
                 "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice = 123.4567");
         assertEquals(result.getResult().getRowCount(), 0);

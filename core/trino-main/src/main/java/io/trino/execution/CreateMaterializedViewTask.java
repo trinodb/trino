@@ -15,7 +15,7 @@ package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.MaterializedViewPropertyManager;
@@ -41,7 +41,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
-import static io.trino.sql.NodeUtils.mapFromProperties;
 import static io.trino.sql.ParameterUtils.parameterExtractor;
 import static io.trino.sql.SqlFormatterUtil.getFormattedSql;
 import static java.util.Objects.requireNonNull;
@@ -94,16 +93,16 @@ public class CreateMaterializedViewTask
 
         List<ViewColumn> columns = analysis.getOutputDescriptor(statement.getQuery())
                 .getVisibleFields().stream()
-                .map(field -> new ViewColumn(field.getName().get(), field.getType().getTypeId()))
+                .map(field -> new ViewColumn(field.getName().get(), field.getType().getTypeId(), Optional.empty()))
                 .collect(toImmutableList());
 
-        CatalogName catalogName = getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, name.getCatalogName());
+        String catalogName = name.getCatalogName();
+        CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, catalogName);
 
-        Map<String, Expression> sqlProperties = mapFromProperties(statement.getProperties());
         Map<String, Object> properties = materializedViewPropertyManager.getProperties(
                 catalogName,
-                name.getCatalogName(),
-                sqlProperties,
+                catalogHandle,
+                statement.getProperties(),
                 session,
                 plannerContext,
                 accessControl,
@@ -120,6 +119,7 @@ public class CreateMaterializedViewTask
                 Optional.empty(),
                 properties);
 
+        accessControl.checkCanCreateMaterializedView(session.toSecurityContext(), name, properties);
         plannerContext.getMetadata().createMaterializedView(session, name, definition, statement.isReplace(), statement.isNotExists());
 
         stateMachine.setOutput(analysis.getTarget());

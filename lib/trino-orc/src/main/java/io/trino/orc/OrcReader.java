@@ -65,7 +65,7 @@ import static org.joda.time.DateTimeZone.UTC;
 
 public class OrcReader
 {
-    public static final int MAX_BATCH_SIZE = 1024;
+    public static final int MAX_BATCH_SIZE = 8196;
     public static final int INITIAL_BATCH_SIZE = 1;
     public static final int BATCH_SIZE_GROWTH_FACTOR = 2;
 
@@ -253,7 +253,7 @@ public class OrcReader
             List<Type> readTypes,
             OrcPredicate predicate,
             DateTimeZone legacyFileTimeZone,
-            AggregatedMemoryContext systemMemoryUsage,
+            AggregatedMemoryContext memoryUsage,
             int initialBatchSize,
             Function<Exception, RuntimeException> exceptionTransform)
             throws OrcCorruptionException
@@ -266,7 +266,7 @@ public class OrcReader
                 0,
                 orcDataSource.getEstimatedSize(),
                 legacyFileTimeZone,
-                systemMemoryUsage,
+                memoryUsage,
                 initialBatchSize,
                 exceptionTransform,
                 NameBasedFieldMapper::create);
@@ -280,7 +280,7 @@ public class OrcReader
             long offset,
             long length,
             DateTimeZone legacyFileTimeZone,
-            AggregatedMemoryContext systemMemoryUsage,
+            AggregatedMemoryContext memoryUsage,
             int initialBatchSize,
             Function<Exception, RuntimeException> exceptionTransform,
             FieldMapperFactory fieldMapperFactory)
@@ -306,7 +306,7 @@ public class OrcReader
                 metadataReader,
                 options,
                 footer.getUserMetadata(),
-                systemMemoryUsage,
+                memoryUsage,
                 writeValidation,
                 initialBatchSize,
                 exceptionTransform,
@@ -485,7 +485,7 @@ public class OrcReader
                 }
             }
 
-            return new NameBasedProjectedLayout(Optional.of(fieldLayouts.build()));
+            return new NameBasedProjectedLayout(Optional.of(fieldLayouts.buildOrThrow()));
         }
     }
 

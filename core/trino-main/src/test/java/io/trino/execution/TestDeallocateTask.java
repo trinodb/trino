@@ -82,6 +82,7 @@ public class TestDeallocateTask
         AccessControlManager accessControl = new AccessControlManager(transactionManager, emptyEventListenerManager(), new AccessControlConfig(), DefaultSystemAccessControl.NAME);
         accessControl.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
         QueryStateMachine stateMachine = QueryStateMachine.begin(
+                Optional.empty(),
                 sqlString,
                 Optional.empty(),
                 session,

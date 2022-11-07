@@ -110,9 +110,7 @@ public class TestAvroConfluentRowDecoder
         MockSchemaRegistryClient mockSchemaRegistryClient = new MockSchemaRegistryClient();
         Schema schema = Schema.create(Schema.Type.LONG);
         mockSchemaRegistryClient.register(format("%s-key", TOPIC), schema);
-        Set<DecoderColumnHandle> columnHandles = ImmutableSet.<DecoderColumnHandle>builder()
-                .add(new KafkaColumnHandle("col1", BIGINT, "col1", null, null, false, false, false))
-                .build();
+        Set<DecoderColumnHandle> columnHandles = ImmutableSet.of(new KafkaColumnHandle("col1", BIGINT, "col1", null, null, false, false, false));
         RowDecoder rowDecoder = getRowDecoder(mockSchemaRegistryClient, columnHandles, schema);
         testSingleValueRow(rowDecoder, 3L, schema, 1);
     }
@@ -120,14 +118,14 @@ public class TestAvroConfluentRowDecoder
     private static void testRow(RowDecoder rowDecoder, GenericRecord record, int schemaId)
     {
         byte[] serializedRecord = serializeRecord(record, record.getSchema(), schemaId);
-        Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedRow = rowDecoder.decodeRow(serializedRecord, null);
+        Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedRow = rowDecoder.decodeRow(serializedRecord);
         assertRowsAreEqual(decodedRow, record);
     }
 
     private static void testSingleValueRow(RowDecoder rowDecoder, Object value, Schema schema, int schemaId)
     {
         byte[] serializedRecord = serializeRecord(value, schema, schemaId);
-        Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedRow = rowDecoder.decodeRow(serializedRecord, null);
+        Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedRow = rowDecoder.decodeRow(serializedRecord);
         checkState(decodedRow.isPresent(), "decodedRow is not present");
         Map.Entry<DecoderColumnHandle, FieldValueProvider> entry = getOnlyElement(decodedRow.get().entrySet());
         assertValuesAreEqual(entry.getValue(), value, schema);
@@ -154,9 +152,7 @@ public class TestAvroConfluentRowDecoder
 
     private static RowDecoder getRowDecoder(SchemaRegistryClient schemaRegistryClient, Set<DecoderColumnHandle> columnHandles, Schema schema)
     {
-        ImmutableMap<String, String> decoderParams = ImmutableMap.<String, String>builder()
-                .put(DATA_SCHEMA, schema.toString())
-                .build();
+        ImmutableMap<String, String> decoderParams = ImmutableMap.of(DATA_SCHEMA, schema.toString());
         return getAvroRowDecoderyFactory(schemaRegistryClient).create(decoderParams, columnHandles);
     }
 

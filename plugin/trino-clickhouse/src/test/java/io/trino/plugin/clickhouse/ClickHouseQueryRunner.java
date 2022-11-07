@@ -16,7 +16,6 @@ package io.trino.plugin.clickhouse;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
@@ -33,7 +32,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class ClickHouseQueryRunner
 {
-    private static final String TPCH_SCHEMA = "tpch";
+    public static final String TPCH_SCHEMA = "tpch";
 
     private ClickHouseQueryRunner() {}
 
@@ -59,12 +58,13 @@ public final class ClickHouseQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
+            // note: additional copy via ImmutableList so that if fails on nulls
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("connection-url", server.getJdbcUrl());
 
             queryRunner.installPlugin(new ClickHousePlugin());
             queryRunner.createCatalog("clickhouse", "clickhouse", connectorProperties);
-            server.execute("CREATE DATABASE " + TPCH_SCHEMA);
+            queryRunner.execute("CREATE SCHEMA " + TPCH_SCHEMA);
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
             return queryRunner;
         }
@@ -85,8 +85,6 @@ public final class ClickHouseQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        Logging.initialize();
-
         DistributedQueryRunner queryRunner = createClickHouseQueryRunner(
                 new TestingClickHouseServer(),
                 ImmutableMap.of("http-server.http.port", "8080"),

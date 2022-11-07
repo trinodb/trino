@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.security;
 
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
@@ -31,7 +30,7 @@ public interface SqlStandardAccessControlMetastore
 {
     Set<RoleGrant> listRoleGrants(ConnectorSecurityContext context, HivePrincipal principal);
 
-    Set<HivePrivilegeInfo> listTablePrivileges(ConnectorSecurityContext context, HiveIdentity identity, String databaseName, String tableName, Optional<HivePrincipal> principal);
+    Set<HivePrivilegeInfo> listTablePrivileges(ConnectorSecurityContext context, String databaseName, String tableName, Optional<HivePrincipal> principal);
 
     Optional<Database> getDatabase(ConnectorSecurityContext context, String databaseName);
 }

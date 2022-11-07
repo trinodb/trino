@@ -34,9 +34,7 @@ public class TestCompilerConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("compiler.expression-cache-size", "52")
-                .build();
+        Map<String, String> properties = ImmutableMap.of("compiler.expression-cache-size", "52");
 
         CompilerConfig expected = new CompilerConfig()
                 .setExpressionCacheSize(52);

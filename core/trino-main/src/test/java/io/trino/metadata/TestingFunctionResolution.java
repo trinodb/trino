@@ -13,12 +13,12 @@
  */
 package io.trino.metadata;
 
-import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.PlannerContext;
@@ -38,7 +38,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.transaction.TransactionBuilder.transaction;
@@ -52,27 +51,29 @@ public class TestingFunctionResolution
 
     public TestingFunctionResolution()
     {
-        this.transactionManager = createTestTransactionManager();
-        this.metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
-        this.plannerContext = plannerContextBuilder().withMetadata(metadata).build();
+        this(new InternalFunctionBundle());
+    }
+
+    public TestingFunctionResolution(FunctionBundle functions)
+    {
+        transactionManager = createTestTransactionManager();
+        plannerContext = plannerContextBuilder()
+                .withTransactionManager(transactionManager)
+                .addFunctions(functions)
+                .build();
+        metadata = plannerContext.getMetadata();
     }
 
     public TestingFunctionResolution(LocalQueryRunner localQueryRunner)
     {
-        this(localQueryRunner.getTransactionManager(), localQueryRunner.getMetadata());
+        this(localQueryRunner.getTransactionManager(), localQueryRunner.getPlannerContext());
     }
 
-    public TestingFunctionResolution(TransactionManager transactionManager, Metadata metadata)
+    public TestingFunctionResolution(TransactionManager transactionManager, PlannerContext plannerContext)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
-        this.plannerContext = plannerContextBuilder().withMetadata(metadata).build();
-    }
-
-    public TestingFunctionResolution addFunctions(List<? extends SqlFunction> functions)
-    {
-        metadata.addFunctions(functions);
-        return this;
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.metadata = plannerContext.getMetadata();
     }
 
     public PlannerContext getPlannerContext()
@@ -87,7 +88,7 @@ public class TestingFunctionResolution
 
     public ExpressionCompiler getExpressionCompiler()
     {
-        return new ExpressionCompiler(metadata, getPageFunctionCompiler());
+        return new ExpressionCompiler(plannerContext.getFunctionManager(), getPageFunctionCompiler());
     }
 
     public PageFunctionCompiler getPageFunctionCompiler()
@@ -97,7 +98,7 @@ public class TestingFunctionResolution
 
     public PageFunctionCompiler getPageFunctionCompiler(int expressionCacheSize)
     {
-        return new PageFunctionCompiler(metadata, expressionCacheSize);
+        return new PageFunctionCompiler(plannerContext.getFunctionManager(), expressionCacheSize);
     }
 
     public ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
@@ -131,9 +132,9 @@ public class TestingFunctionResolution
         return inTransaction(session -> metadata.resolveFunction(session, name, parameterTypes));
     }
 
-    public FunctionInvoker getScalarFunctionInvoker(QualifiedName name, List<TypeSignatureProvider> parameterTypes, InvocationConvention invocationConvention)
+    public ScalarFunctionImplementation getScalarFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes, InvocationConvention invocationConvention)
     {
-        return inTransaction(session -> metadata.getScalarFunctionInvoker(metadata.resolveFunction(session, name, parameterTypes), invocationConvention));
+        return inTransaction(session -> plannerContext.getFunctionManager().getScalarFunctionImplementation(metadata.resolveFunction(session, name, parameterTypes), invocationConvention));
     }
 
     public TestingAggregationFunction getAggregateFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
@@ -143,7 +144,7 @@ public class TestingFunctionResolution
             return new TestingAggregationFunction(
                     resolvedFunction.getSignature(),
                     resolvedFunction.getFunctionNullability(),
-                    metadata.getAggregateFunctionImplementation(resolvedFunction));
+                    plannerContext.getFunctionManager().getAggregationImplementation(resolvedFunction));
         });
     }
 

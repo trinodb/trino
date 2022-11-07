@@ -17,10 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
-import io.trino.connector.CatalogName;
-import io.trino.execution.Lifespan;
+import io.trino.connector.CatalogHandle;
 import io.trino.execution.ScheduledSplit;
-import io.trino.execution.TaskSource;
+import io.trino.execution.SplitAssignment;
 import io.trino.metadata.Split;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverFactory;
@@ -52,12 +51,13 @@ import java.util.function.Predicate;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class IndexLoader
 {
-    private static final CatalogName INDEX_CONNECTOR_ID = new CatalogName("$index");
+    private static final CatalogHandle INDEX_CATALOG_HANDLE = createRootCatalogHandle("$index");
     private final BlockingQueue<UpdateRequest> updateRequests = new LinkedBlockingQueue<>();
 
     private final List<Type> outputTypes;
@@ -241,8 +241,8 @@ public class IndexLoader
 
         PageRecordSet pageRecordSet = new PageRecordSet(keyTypes, indexKeyTuple);
         PlanNodeId planNodeId = driverFactory.getSourceId().get();
-        ScheduledSplit split = new ScheduledSplit(0, planNodeId, new Split(INDEX_CONNECTOR_ID, new IndexSplit(pageRecordSet), Lifespan.taskWide()));
-        driver.updateSource(new TaskSource(planNodeId, ImmutableSet.of(split), true));
+        ScheduledSplit split = new ScheduledSplit(0, planNodeId, new Split(INDEX_CATALOG_HANDLE, new IndexSplit(pageRecordSet)));
+        driver.updateSplitAssignment(new SplitAssignment(planNodeId, ImmutableSet.of(split), true));
 
         return new StreamingIndexedData(outputTypes, keyEqualOperators, indexKeyTuple, pageBuffer, driver);
     }
@@ -337,10 +337,10 @@ public class IndexLoader
             // Drive index lookup to produce the output (landing in indexSnapshotBuilder)
             try (Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext())) {
                 PlanNodeId sourcePlanNodeId = driverFactory.getSourceId().get();
-                ScheduledSplit split = new ScheduledSplit(0, sourcePlanNodeId, new Split(INDEX_CONNECTOR_ID, new IndexSplit(recordSetForLookupSource), Lifespan.taskWide()));
-                driver.updateSource(new TaskSource(sourcePlanNodeId, ImmutableSet.of(split), true));
+                ScheduledSplit split = new ScheduledSplit(0, sourcePlanNodeId, new Split(INDEX_CATALOG_HANDLE, new IndexSplit(recordSetForLookupSource)));
+                driver.updateSplitAssignment(new SplitAssignment(sourcePlanNodeId, ImmutableSet.of(split), true));
                 while (!driver.isFinished()) {
-                    ListenableFuture<Void> process = driver.process();
+                    ListenableFuture<Void> process = driver.processUntilBlocked();
                     checkState(process.isDone(), "Driver should never block");
                 }
             }

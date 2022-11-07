@@ -32,6 +32,7 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.BigintType;
@@ -42,17 +43,16 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static com.google.common.base.Ticker.systemTicker;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -61,11 +61,10 @@ import static io.trino.plugin.raptor.legacy.DatabaseTesting.createTestingJdbi;
 import static io.trino.plugin.raptor.legacy.metadata.DatabaseShardManager.shardIndexTable;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.trino.plugin.raptor.legacy.metadata.TestDatabaseShardManager.shardInfo;
-import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
-import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
@@ -80,7 +79,7 @@ public class TestRaptorSplitManager
             .build();
 
     private Handle dummyHandle;
-    private File temporary;
+    private Path temporary;
     private RaptorMetadata metadata;
     private RaptorSplitManager raptorSplitManager;
     private ConnectorTableHandle tableHandle;
@@ -94,7 +93,7 @@ public class TestRaptorSplitManager
         Jdbi dbi = createTestingJdbi();
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
-        temporary = createTempDir();
+        temporary = createTempDirectory(null);
         AssignmentLimiter assignmentLimiter = new AssignmentLimiter(ImmutableSet::of, systemTicker(), new MetadataConfig());
         shardManager = new DatabaseShardManager(dbi, new DaoSupplier<>(dbi, ShardDao.class), ImmutableSet::of, assignmentLimiter, systemTicker(), new Duration(0, MINUTES));
         TestingNodeManager nodeManager = new TestingNodeManager();
@@ -134,7 +133,7 @@ public class TestRaptorSplitManager
             throws IOException
     {
         dummyHandle.close();
-        deleteRecursively(temporary.toPath(), ALLOW_INSECURE);
+        deleteRecursively(temporary, ALLOW_INSECURE);
     }
 
     @Test
@@ -194,11 +193,11 @@ public class TestRaptorSplitManager
     private static ConnectorSplitSource getSplits(RaptorSplitManager splitManager, ConnectorTableHandle table)
     {
         ConnectorTransactionHandle transaction = new RaptorTransactionHandle();
-        return splitManager.getSplits(transaction, SESSION, table, UNGROUPED_SCHEDULING, DynamicFilter.EMPTY);
+        return splitManager.getSplits(transaction, SESSION, table, DynamicFilter.EMPTY, Constraint.alwaysTrue());
     }
 
     private static List<ConnectorSplit> getSplits(ConnectorSplitSource source, int maxSize)
     {
-        return getFutureValue(source.getNextBatch(NOT_PARTITIONED, maxSize)).getSplits();
+        return getFutureValue(source.getNextBatch(maxSize)).getSplits();
     }
 }

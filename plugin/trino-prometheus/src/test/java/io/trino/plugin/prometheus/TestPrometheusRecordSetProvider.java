@@ -92,7 +92,7 @@ public class TestPrometheusRecordSetProvider
                 .put(ofEpochMilli(1565963014044L), ImmutableMap.of("instance",
                         "localhost:9090", "__name__", "up",
                         "job", "prometheus"))
-                .build();
+                .buildOrThrow();
         assertEquals(actual, expected);
     }
 }

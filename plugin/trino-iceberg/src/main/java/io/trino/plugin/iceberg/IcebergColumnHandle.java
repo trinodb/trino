@@ -19,17 +19,31 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_MODIFIED_TIME;
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.MetadataColumns.IS_DELETED;
+import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 
 public class IcebergColumnHandle
         implements ColumnHandle
 {
+    // Iceberg reserved row ids begin at INTEGER.MAX_VALUE and count down. Starting with MIN_VALUE here to avoid conflicts.
+    public static final int TRINO_UPDATE_ROW_ID = Integer.MIN_VALUE;
+    public static final int TRINO_MERGE_ROW_ID = Integer.MIN_VALUE + 1;
+    public static final String TRINO_ROW_ID_NAME = "$row_id";
+
+    public static final int TRINO_MERGE_FILE_RECORD_COUNT = Integer.MIN_VALUE + 2;
+    public static final int TRINO_MERGE_PARTITION_SPEC_ID = Integer.MIN_VALUE + 3;
+    public static final int TRINO_MERGE_PARTITION_DATA = Integer.MIN_VALUE + 4;
+
     private final ColumnIdentity baseColumnIdentity;
     private final Type baseType;
     // The list of field ids to indicate the projected part of the top-level column represented by baseColumnIdentity
@@ -133,9 +147,43 @@ public class IcebergColumnHandle
         return String.join(".", pathNames.build());
     }
 
+    @JsonIgnore
     public boolean isBaseColumn()
     {
         return path.isEmpty();
+    }
+
+    @JsonIgnore
+    public boolean isRowPositionColumn()
+    {
+        return id == ROW_POSITION.fieldId();
+    }
+
+    @JsonIgnore
+    public boolean isUpdateRowIdColumn()
+    {
+        return id == TRINO_UPDATE_ROW_ID;
+    }
+
+    @JsonIgnore
+    public boolean isMergeRowIdColumn()
+    {
+        return id == TRINO_MERGE_ROW_ID;
+    }
+
+    /**
+     * Marker column used by the Iceberg DeleteFilter to indicate rows which are deleted by equality deletes.
+     */
+    @JsonIgnore
+    public boolean isIsDeletedColumn()
+    {
+        return id == IS_DELETED.fieldId();
+    }
+
+    @JsonIgnore
+    public boolean isFileModifiedTimeColumn()
+    {
+        return id == FILE_MODIFIED_TIME.getId();
     }
 
     @Override
@@ -165,5 +213,53 @@ public class IcebergColumnHandle
     public String toString()
     {
         return getId() + ":" + getName() + ":" + type.getDisplayName();
+    }
+
+    public static IcebergColumnHandle pathColumnHandle()
+    {
+        return new IcebergColumnHandle(
+                columnIdentity(FILE_PATH),
+                FILE_PATH.getType(),
+                ImmutableList.of(),
+                FILE_PATH.getType(),
+                Optional.empty());
+    }
+
+    public static ColumnMetadata pathColumnMetadata()
+    {
+        return ColumnMetadata.builder()
+                .setName(FILE_PATH.getColumnName())
+                .setType(FILE_PATH.getType())
+                .setHidden(true)
+                .build();
+    }
+
+    public static IcebergColumnHandle fileModifiedTimeColumnHandle()
+    {
+        return new IcebergColumnHandle(
+                columnIdentity(FILE_MODIFIED_TIME),
+                FILE_MODIFIED_TIME.getType(),
+                ImmutableList.of(),
+                FILE_MODIFIED_TIME.getType(),
+                Optional.empty());
+    }
+
+    public static ColumnMetadata fileModifiedTimeColumnMetadata()
+    {
+        return ColumnMetadata.builder()
+                .setName(FILE_MODIFIED_TIME.getColumnName())
+                .setType(FILE_MODIFIED_TIME.getType())
+                .setHidden(true)
+                .build();
+    }
+
+    private static ColumnIdentity columnIdentity(IcebergMetadataColumn metadata)
+    {
+        return new ColumnIdentity(metadata.getId(), metadata.getColumnName(), metadata.getTypeCategory(), ImmutableList.of());
+    }
+
+    public boolean isPathColumn()
+    {
+        return getColumnIdentity().getId() == FILE_PATH.getId();
     }
 }

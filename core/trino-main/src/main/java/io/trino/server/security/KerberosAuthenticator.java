@@ -41,13 +41,11 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
+import static io.trino.plugin.base.util.SystemProperties.setJavaSecurityKrb5Conf;
 import static io.trino.server.security.UserMapping.createUserMapping;
-import static java.util.Objects.requireNonNull;
 import static javax.security.auth.login.AppConfigurationEntry.LoginModuleControlFlag.REQUIRED;
 import static org.ietf.jgss.GSSCredential.ACCEPT_ONLY;
 import static org.ietf.jgss.GSSCredential.INDEFINITE_LIFETIME;
@@ -67,17 +65,9 @@ public class KerberosAuthenticator
     @Inject
     public KerberosAuthenticator(KerberosConfig config)
     {
-        requireNonNull(config, "config is null");
         this.userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
 
-        String newValue = config.getKerberosConfig().getAbsolutePath();
-        String currentValue = System.getProperty("java.security.krb5.conf");
-        checkState(
-                currentValue == null || Objects.equals(currentValue, newValue),
-                "Refusing to set system property 'java.security.krb5.conf' to '%s', it is already set to '%s'",
-                newValue,
-                currentValue);
-        System.setProperty("java.security.krb5.conf", newValue);
+        setJavaSecurityKrb5Conf(config.getKerberosConfig().getAbsolutePath());
 
         try {
             String hostname = Optional.ofNullable(config.getPrincipalHostname())

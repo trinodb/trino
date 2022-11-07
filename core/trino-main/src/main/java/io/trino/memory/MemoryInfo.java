@@ -15,12 +15,7 @@ package io.trino.memory;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
-import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spi.memory.MemoryPoolInfo;
-
-import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -28,18 +23,15 @@ import static java.util.Objects.requireNonNull;
 public class MemoryInfo
 {
     private final int availableProcessors;
-    private final DataSize totalNodeMemory;
-    private final Map<MemoryPoolId, MemoryPoolInfo> pools;
+    private final MemoryPoolInfo pool;
 
     @JsonCreator
     public MemoryInfo(
             @JsonProperty("availableProcessors") int availableProcessors,
-            @JsonProperty("totalNodeMemory") DataSize totalNodeMemory,
-            @JsonProperty("pools") Map<MemoryPoolId, MemoryPoolInfo> pools)
+            @JsonProperty("pool") MemoryPoolInfo pool)
     {
-        this.totalNodeMemory = requireNonNull(totalNodeMemory, "totalNodeMemory is null");
-        this.pools = ImmutableMap.copyOf(requireNonNull(pools, "pools is null"));
         this.availableProcessors = availableProcessors;
+        this.pool = requireNonNull(pool, "pool is null");
     }
 
     @JsonProperty
@@ -49,15 +41,9 @@ public class MemoryInfo
     }
 
     @JsonProperty
-    public DataSize getTotalNodeMemory()
+    public MemoryPoolInfo getPool()
     {
-        return totalNodeMemory;
-    }
-
-    @JsonProperty
-    public Map<MemoryPoolId, MemoryPoolInfo> getPools()
-    {
-        return pools;
+        return pool;
     }
 
     @Override
@@ -65,8 +51,7 @@ public class MemoryInfo
     {
         return toStringHelper(this)
                 .add("availableProcessors", availableProcessors)
-                .add("totalNodeMemory", totalNodeMemory)
-                .add("pools", pools)
+                .add("pool", pool)
                 .toString();
     }
 }

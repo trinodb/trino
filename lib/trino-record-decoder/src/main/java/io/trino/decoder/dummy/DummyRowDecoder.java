@@ -39,8 +39,7 @@ public class DummyRowDecoder
     private static final Optional<Map<DecoderColumnHandle, FieldValueProvider>> ALL_NULLS = Optional.of(ImmutableMap.of());
 
     @Override
-    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data,
-            Map<String, String> dataMap)
+    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data)
     {
         return ALL_NULLS;
     }

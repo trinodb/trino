@@ -26,6 +26,7 @@ import io.trino.sql.tree.SymbolReference;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -140,26 +141,20 @@ public final class Partitioning
                 Set<Symbol> mappedColumns = leftToRightMappings.apply(leftArgument.getColumn());
                 return mappedColumns.contains(rightArgument.getColumn());
             }
-            else {
-                // variable == constant
-                // Normally, this would be a false condition, but if we happen to have an external
-                // mapping from the symbol to a constant value and that constant value matches the
-                // right value, then we are co-partitioned.
-                Optional<NullableValue> leftConstant = leftConstantMapping.apply(leftArgument.getColumn());
-                return leftConstant.isPresent() && leftConstant.get().equals(rightArgument.getConstant());
-            }
+            // variable == constant
+            // Normally, this would be a false condition, but if we happen to have an external
+            // mapping from the symbol to a constant value and that constant value matches the
+            // right value, then we are co-partitioned.
+            Optional<NullableValue> leftConstant = leftConstantMapping.apply(leftArgument.getColumn());
+            return leftConstant.isPresent() && leftConstant.get().equals(rightArgument.getConstant());
         }
-        else {
-            if (rightArgument.isConstant()) {
-                // constant == constant
-                return leftArgument.getConstant().equals(rightArgument.getConstant());
-            }
-            else {
-                // constant == variable
-                Optional<NullableValue> rightConstant = rightConstantMapping.apply(rightArgument.getColumn());
-                return rightConstant.isPresent() && rightConstant.get().equals(leftArgument.getConstant());
-            }
+        if (rightArgument.isConstant()) {
+            // constant == constant
+            return leftArgument.getConstant().equals(rightArgument.getConstant());
         }
+        // constant == variable
+        Optional<NullableValue> rightConstant = rightConstantMapping.apply(rightArgument.getColumn());
+        return rightConstant.isPresent() && rightConstant.get().equals(leftArgument.getConstant());
     }
 
     public boolean isPartitionedOn(Collection<Symbol> columns, Set<Symbol> knownConstants)
@@ -178,6 +173,26 @@ public final class Partitioning
             }
         }
         return true;
+    }
+
+    public boolean isPartitionedOnExactly(Collection<Symbol> columns, Set<Symbol> knownConstants)
+    {
+        Set<Symbol> toCheck = new HashSet<>();
+        for (ArgumentBinding argument : arguments) {
+            // partitioned on (k_1, k_2, ..., k_n) => partitioned on (k_1, k_2, ..., k_n, k_n+1, ...)
+            // can safely ignore all constant columns when comparing partition properties
+            if (argument.isConstant()) {
+                continue;
+            }
+            if (!argument.isVariable()) {
+                return false;
+            }
+            if (knownConstants.contains(argument.getColumn())) {
+                continue;
+            }
+            toCheck.add(argument.getColumn());
+        }
+        return ImmutableSet.copyOf(columns).equals(toCheck);
     }
 
     public boolean isEffectivelySinglePartition(Set<Symbol> knownConstants)
@@ -219,9 +234,9 @@ public final class Partitioning
         return Optional.of(new Partitioning(handle, newArguments.build()));
     }
 
-    public Partitioning withAlternativePartitiongingHandle(PartitioningHandle partitiongingHandle)
+    public Partitioning withAlternativePartitioningHandle(PartitioningHandle partitioningHandle)
     {
-        return new Partitioning(partitiongingHandle, this.arguments);
+        return new Partitioning(partitioningHandle, this.arguments);
     }
 
     @Override

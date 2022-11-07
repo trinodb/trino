@@ -13,20 +13,17 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.trino.metadata.FunctionKind.SCALAR;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
@@ -51,23 +48,19 @@ public final class ConcatFunction
 
     private ConcatFunction(TypeSignature type, String description)
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        "concat",
-                        ImmutableList.of(),
-                        ImmutableList.of(),
-                        type,
-                        ImmutableList.of(type),
-                        true),
-                new FunctionNullability(false, ImmutableList.of(false)),
-                false,
-                true,
-                description,
-                SCALAR));
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .name("concat")
+                        .returnType(type)
+                        .argumentType(type)
+                        .variableArity()
+                        .build())
+                .description(description)
+                .build());
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         int arity = boundSignature.getArity();
 
@@ -82,7 +75,7 @@ public final class ConcatFunction
         MethodHandle arrayMethodHandle = methodHandle(ConcatFunction.class, "concat", Slice[].class);
         MethodHandle customMethodHandle = arrayMethodHandle.asCollector(Slice[].class, arity);
 
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 nCopies(arity, NEVER_NULL),

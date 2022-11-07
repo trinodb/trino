@@ -140,20 +140,17 @@ public class ImplementFilteredAggregations
         newAssignments.putIdentities(aggregationNode.getSource().getOutputSymbols());
 
         return Result.ofPlanNode(
-                new AggregationNode(
-                        context.getIdAllocator().getNextId(),
-                        new FilterNode(
+                AggregationNode.builderFrom(aggregationNode)
+                        .setId(context.getIdAllocator().getNextId())
+                        .setSource(new FilterNode(
                                 context.getIdAllocator().getNextId(),
                                 new ProjectNode(
                                         context.getIdAllocator().getNextId(),
                                         aggregationNode.getSource(),
                                         newAssignments.build()),
-                                predicate),
-                        aggregations.build(),
-                        aggregationNode.getGroupingSets(),
-                        ImmutableList.of(),
-                        aggregationNode.getStep(),
-                        aggregationNode.getHashSymbol(),
-                        aggregationNode.getGroupIdSymbol()));
+                                predicate))
+                        .setAggregations(aggregations.buildOrThrow())
+                        .setPreGroupedSymbols(ImmutableList.of())
+                        .build());
     }
 }

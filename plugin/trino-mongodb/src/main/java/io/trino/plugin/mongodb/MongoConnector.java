@@ -13,16 +13,20 @@
  */
 package io.trino.plugin.mongodb;
 
+import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.ptf.ConnectorTableFunction;
 import io.trino.spi.transaction.IsolationLevel;
 
 import javax.inject.Inject;
 
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -38,6 +42,7 @@ public class MongoConnector
     private final MongoSplitManager splitManager;
     private final MongoPageSourceProvider pageSourceProvider;
     private final MongoPageSinkProvider pageSinkProvider;
+    private final Set<ConnectorTableFunction> connectorTableFunctions;
 
     private final ConcurrentMap<ConnectorTransactionHandle, MongoMetadata> transactions = new ConcurrentHashMap<>();
 
@@ -46,12 +51,14 @@ public class MongoConnector
             MongoSession mongoSession,
             MongoSplitManager splitManager,
             MongoPageSourceProvider pageSourceProvider,
-            MongoPageSinkProvider pageSinkProvider)
+            MongoPageSinkProvider pageSinkProvider,
+            Set<ConnectorTableFunction> connectorTableFunctions)
     {
         this.mongoSession = mongoSession;
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
+        this.connectorTableFunctions = ImmutableSet.copyOf(requireNonNull(connectorTableFunctions, "connectorTableFunctions is null"));
     }
 
     @Override
@@ -64,7 +71,7 @@ public class MongoConnector
     }
 
     @Override
-    public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
+    public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transaction)
     {
         MongoMetadata metadata = transactions.get(transaction);
         checkArgument(metadata != null, "no such transaction: %s", transaction);
@@ -101,6 +108,12 @@ public class MongoConnector
     public ConnectorPageSinkProvider getPageSinkProvider()
     {
         return pageSinkProvider;
+    }
+
+    @Override
+    public Set<ConnectorTableFunction> getTableFunctions()
+    {
+        return connectorTableFunctions;
     }
 
     @Override

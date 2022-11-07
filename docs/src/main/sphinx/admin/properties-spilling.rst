@@ -19,28 +19,6 @@ reduce memory usage required for other join types.
 
 This config property can be overridden by the ``spill_enabled`` session property.
 
-``spill-order-by``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-* **Type:** :ref:`prop-type-boolean`
-* **Default value:** ``true``
-
-Try spilling memory to disk to avoid exceeding memory limits for the query when running sorting operators.
-This property must be used in conjunction with the ``spill-enabled`` property.
-
-This config property can be overridden by the ``spill_order_by`` session property.
-
-``spill-window-operator``
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-* **Type:** :ref:`prop-type-boolean`
-* **Default value:** ``true``
-
-Try spilling memory to disk to avoid exceeding memory limits for the query when running window operators.
-This property must be used in conjunction with the ``spill-enabled`` property.
-
-This config property can be overridden by the ``spill_window_operator`` session property.
-
 ``spiller-spill-path``
 ^^^^^^^^^^^^^^^^^^^^^^
 

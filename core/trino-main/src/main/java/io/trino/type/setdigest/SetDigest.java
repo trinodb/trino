@@ -41,6 +41,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -53,8 +54,8 @@ public class SetDigest
     public static final int NUMBER_OF_BUCKETS = 2048;
     public static final int DEFAULT_MAX_HASHES = 8192;
     private static final int SIZE_OF_ENTRY = SIZE_OF_LONG + SIZE_OF_SHORT;
-    private static final int SIZE_OF_SETDIGEST = ClassLayout.parseClass(SetDigest.class).instanceSize();
-    private static final int SIZE_OF_RBTREEMAP = ClassLayout.parseClass(Long2ShortRBTreeMap.class).instanceSize();
+    private static final int SIZE_OF_SETDIGEST = toIntExact(ClassLayout.parseClass(SetDigest.class).instanceSize());
+    private static final int SIZE_OF_RBTREEMAP = toIntExact(ClassLayout.parseClass(Long2ShortRBTreeMap.class).instanceSize());
 
     private final HyperLogLog hll;
     private final Long2ShortSortedMap minhash;

@@ -28,11 +28,13 @@ import java.sql.ResultSet;
 import java.sql.RowIdLifetime;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Lists.newArrayList;
 import static io.trino.client.ClientTypeSignature.VARCHAR_UNBOUNDED_LENGTH;
@@ -50,11 +52,16 @@ public class TrinoDatabaseMetaData
 
     private final TrinoConnection connection;
     private final boolean assumeLiteralNamesInMetadataCallsForNonConformingClients;
+    private final boolean assumeLiteralUnderscoreInMetadataCallsForNonConformingClients;
 
-    TrinoDatabaseMetaData(TrinoConnection connection, boolean assumeLiteralNamesInMetadataCallsForNonConformingClients)
+    TrinoDatabaseMetaData(
+            TrinoConnection connection,
+            boolean assumeLiteralNamesInMetadataCallsForNonConformingClients,
+            boolean assumeLiteralUnderscoreInMetadataCallsForNonConformingClients)
     {
         this.connection = requireNonNull(connection, "connection is null");
         this.assumeLiteralNamesInMetadataCallsForNonConformingClients = assumeLiteralNamesInMetadataCallsForNonConformingClients;
+        this.assumeLiteralUnderscoreInMetadataCallsForNonConformingClients = assumeLiteralUnderscoreInMetadataCallsForNonConformingClients;
     }
 
     @Override
@@ -82,7 +89,10 @@ public class TrinoDatabaseMetaData
     public String getUserName()
             throws SQLException
     {
-        return connection.getUser();
+        try (ResultSet rs = select("SELECT current_user")) {
+            rs.next();
+            return rs.getString(1);
+        }
     }
 
     @Override
@@ -1063,7 +1073,23 @@ public class TrinoDatabaseMetaData
     public ResultSet getImportedKeys(String catalog, String schema, String table)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("imported keys not supported");
+        String query = "SELECT " +
+                " CAST(NULL AS varchar) PKTABLE_CAT, " +
+                " CAST(NULL AS varchar) PKTABLE_SCHEM, " +
+                " CAST(NULL AS varchar) PKTABLE_NAME, " +
+                " CAST(NULL AS varchar) PKCOLUMN_NAME, " +
+                " CAST(NULL AS varchar) FKTABLE_CAT, " +
+                " CAST(NULL AS varchar) FKTABLE_SCHEM, " +
+                " CAST(NULL AS varchar) FKTABLE_NAME, " +
+                " CAST(NULL AS varchar) FKCOLUMN_NAME, " +
+                " CAST(NULL AS smallint) KEY_SEQ, " +
+                " CAST(NULL AS smallint) UPDATE_RULE, " +
+                " CAST(NULL AS smallint) DELETE_RULE, " +
+                " CAST(NULL AS varchar) FK_NAME, " +
+                " CAST(NULL AS varchar) PK_NAME, " +
+                " CAST(NULL AS smallint) DEFERRABILITY " +
+                "WHERE false";
+        return select(query);
     }
 
     @Override
@@ -1488,7 +1514,24 @@ public class TrinoDatabaseMetaData
     private ResultSet select(String sql)
             throws SQLException
     {
-        return getConnection().createStatement().executeQuery(sql);
+        Statement statement = getConnection().createStatement();
+        TrinoResultSet resultSet;
+        try {
+            resultSet = (TrinoResultSet) statement.executeQuery(sql);
+            resultSet.setCloseStatementOnClose();
+        }
+        catch (Throwable e) {
+            try {
+                statement.close();
+            }
+            catch (Throwable closeException) {
+                if (closeException != e) {
+                    e.addSuppressed(closeException);
+                }
+            }
+            throw e;
+        }
+        return resultSet;
     }
 
     private static void buildFilters(StringBuilder out, List<String> filters)
@@ -1526,19 +1569,26 @@ public class TrinoDatabaseMetaData
 
     @Nullable
     private String escapeIfNecessary(@Nullable String namePattern)
+            throws SQLException
     {
-        return escapeIfNecessary(assumeLiteralNamesInMetadataCallsForNonConformingClients, namePattern);
+        return escapeIfNecessary(assumeLiteralNamesInMetadataCallsForNonConformingClients, assumeLiteralUnderscoreInMetadataCallsForNonConformingClients, namePattern);
     }
 
     @Nullable
-    static String escapeIfNecessary(boolean assumeLiteralNamesInMetadataCallsForNonConformingClients, @Nullable String namePattern)
+    static String escapeIfNecessary(
+            boolean assumeLiteralNamesInMetadataCallsForNonConformingClients,
+            boolean assumeLiteralUnderscoreInMetadataCallsForNonConformingClients,
+            @Nullable String namePattern)
     {
-        if (namePattern == null || !assumeLiteralNamesInMetadataCallsForNonConformingClients) {
+        checkArgument(
+                !assumeLiteralNamesInMetadataCallsForNonConformingClients || !assumeLiteralUnderscoreInMetadataCallsForNonConformingClients,
+                "assumeLiteralNamesInMetadataCallsForNonConformingClients and assumeLiteralUnderscoreInMetadataCallsForNonConformingClients cannot be both true");
+        if (namePattern == null || (!assumeLiteralNamesInMetadataCallsForNonConformingClients && !assumeLiteralUnderscoreInMetadataCallsForNonConformingClients)) {
             return namePattern;
         }
         //noinspection ConstantConditions
         verify(SEARCH_STRING_ESCAPE.equals("\\"));
-        return namePattern.replaceAll("[_%\\\\]", "\\\\$0");
+        return namePattern.replaceAll(assumeLiteralNamesInMetadataCallsForNonConformingClients ? "[_%\\\\]" : "[_\\\\]", "\\\\$0");
     }
 
     private static void optionalStringLikeFilter(List<String> filters, String columnName, String value)

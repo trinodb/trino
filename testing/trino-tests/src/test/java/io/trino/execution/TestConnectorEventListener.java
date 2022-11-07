@@ -14,7 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.Session;
+import com.google.common.io.Closer;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
@@ -23,61 +23,55 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.time.Duration;
+import java.io.IOException;
 
-import static io.trino.testing.TestingSession.testSessionBuilder;
-import static org.assertj.core.api.Assertions.assertThat;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 
-@Test(singleThreaded = true)
 public class TestConnectorEventListener
 {
     private final EventsCollector generatedEvents = new EventsCollector();
 
-    private DistributedQueryRunner queryRunner;
-    private Session session;
+    private Closer closer;
     private EventsAwaitingQueries queries;
 
     @BeforeClass
     public void setUp()
             throws Exception
     {
-        session = testSessionBuilder()
-                .setSystemProperty("task_concurrency", "1")
-                .setCatalog("tpch")
-                .setSchema("tiny")
-                .setClientInfo("{\"clientVersion\":\"testVersion\"}")
-                .build();
-        queryRunner = DistributedQueryRunner.builder(session).setNodeCount(1).build();
+        closer = Closer.create();
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(TEST_SESSION).setNodeCount(1).build();
+        closer.register(queryRunner);
+
         queryRunner.installPlugin(new Plugin()
         {
             @Override
             public Iterable<ConnectorFactory> getConnectorFactories()
             {
-                return ImmutableList.of(new MockConnectorFactory.Builder()
+                return ImmutableList.of(MockConnectorFactory.builder()
                         .withEventListener(new TestingEventListener(generatedEvents))
                         .build());
             }
         });
         queryRunner.createCatalog("mock-catalog", "mock");
-        queries = new EventsAwaitingQueries(generatedEvents, queryRunner, Duration.ofSeconds(1));
+
+        queryRunner.getCoordinator().addConnectorEventListeners();
+        queries = new EventsAwaitingQueries(generatedEvents, queryRunner);
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
+            throws IOException
     {
-        queryRunner.close();
-        queryRunner = null;
+        if (closer != null) {
+            closer.close();
+        }
+        closer = null;
     }
 
     @Test
     public void testConnectorEventHandlerReceivingEvents()
             throws Exception
     {
-        queries.runQueryAndWaitForEvents("SELECT 1", 3, session);
-
-        assertThat(generatedEvents.getQueryCreatedEvents())
-                .size().isEqualTo(1);
-        assertThat(generatedEvents.getQueryCompletedEvents())
-                .size().isEqualTo(1);
+        queries.runQueryAndWaitForEvents("SELECT 1", TEST_SESSION).getQueryEvents();
     }
 }

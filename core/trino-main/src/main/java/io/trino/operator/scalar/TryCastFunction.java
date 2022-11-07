@@ -14,23 +14,19 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionDependencies;
-import io.trino.metadata.FunctionDependencyDeclaration;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionDependencyDeclaration;
+import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
 import static com.google.common.primitives.Primitives.wrap;
-import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.castableToTypeParameter;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static java.lang.invoke.MethodHandles.catchException;
@@ -45,19 +41,18 @@ public class TryCastFunction
 
     public TryCastFunction()
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        "TRY_CAST",
-                        ImmutableList.of(castableToTypeParameter("F", new TypeSignature("T")), typeVariable("T")),
-                        ImmutableList.of(),
-                        new TypeSignature("T"),
-                        ImmutableList.of(new TypeSignature("F")),
-                        false),
-                new FunctionNullability(true, ImmutableList.of(false)),
-                true,
-                true,
-                "",
-                SCALAR));
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .name("TRY_CAST")
+                        .castableToTypeParameter("F", new TypeSignature("T"))
+                        .typeVariable("T")
+                        .returnType(new TypeSignature("T"))
+                        .argumentType(new TypeSignature("F"))
+                        .build())
+                .nullable()
+                .hidden()
+                .noDescription()
+                .build());
     }
 
     @Override
@@ -69,7 +64,7 @@ public class TryCastFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         Type fromType = boundSignature.getArgumentType(0);
         Type toType = boundSignature.getReturnType();
@@ -78,13 +73,13 @@ public class TryCastFunction
 
         // the resulting method needs to return a boxed type
         InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(NEVER_NULL), NULLABLE_RETURN, true, false);
-        MethodHandle coercion = functionDependencies.getCastInvoker(fromType, toType, invocationConvention).getMethodHandle();
+        MethodHandle coercion = functionDependencies.getCastImplementation(fromType, toType, invocationConvention).getMethodHandle();
         coercion = coercion.asType(methodType(returnType, coercion.type()));
 
         MethodHandle exceptionHandler = dropArguments(constant(returnType, null), 0, RuntimeException.class);
         MethodHandle tryCastHandle = catchException(coercion, RuntimeException.class, exceptionHandler);
 
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 NULLABLE_RETURN,
                 ImmutableList.of(NEVER_NULL),

@@ -18,7 +18,6 @@ import io.trino.tempto.AfterTestWithContext;
 import io.trino.tempto.BeforeTestWithContext;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.query.QueryExecutionException;
-import io.trino.tempto.query.QueryResult;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -193,8 +192,8 @@ public class TestAvroSchemaUrl
     {
         if (isOnHdp() && getHiveVersionMajor() < 3) {
             // HDP 2.6 won't allow to define a partitioned table with schema having a column with type definition over 2000 characters.
-            // It is possible to create table with simpler schema and then alter the schema, but that results in different end state on CDH.
-            // To retain proper test coverage on CDH, this test needs to be disabled on HDP.
+            // It is possible to create table with simpler schema and then alter the schema, but that results in different end state.
+            // To retain proper test coverage, this test needs to be disabled on HDP 2.
             throw new SkipException("Skipping on HDP 2");
         }
 
@@ -235,8 +234,7 @@ public class TestAvroSchemaUrl
     private boolean isOnHdp()
     {
         try {
-            QueryResult queryResult = onHive().executeQuery("SET system:hdp.version");
-            String hdpVersion = (String) queryResult.row(0).get(0);
+            String hdpVersion = (String) onHive().executeQuery("SET system:hdp.version").getOnlyValue();
             return !isNullOrEmpty(hdpVersion);
         }
         catch (QueryExecutionException e) {

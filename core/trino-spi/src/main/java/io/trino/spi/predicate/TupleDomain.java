@@ -41,6 +41,7 @@ import java.util.stream.Collector;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableList;
@@ -54,7 +55,7 @@ import static java.util.stream.Collectors.toUnmodifiableList;
  */
 public final class TupleDomain<T>
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TupleDomain.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TupleDomain.class).instanceSize());
 
     private static final TupleDomain<?> NONE = new TupleDomain<>(Optional.empty());
     private static final TupleDomain<?> ALL = new TupleDomain<>(Optional.of(emptyMap()));
@@ -240,15 +241,19 @@ public final class TupleDomain<T>
      * The resulting TupleDomain represents the set of tuples that would be valid
      * in both TupleDomains.
      */
-    public TupleDomain<T> intersect(TupleDomain<T> other)
+    public <U extends T> TupleDomain<T> intersect(TupleDomain<U> other)
     {
         return intersect(List.of(this, other));
     }
 
-    public static <T> TupleDomain<T> intersect(List<TupleDomain<T>> domains)
+    public static <T> TupleDomain<T> intersect(List<? extends TupleDomain<? extends T>> domains)
     {
-        if (domains.size() < 2) {
-            throw new IllegalArgumentException("Expected at least 2 elements");
+        if (domains.isEmpty()) {
+            return all();
+        }
+
+        if (domains.size() == 1) {
+            return upcast(domains.get(0));
         }
 
         if (domains.stream().anyMatch(TupleDomain::isNone)) {
@@ -256,10 +261,10 @@ public final class TupleDomain<T>
         }
 
         if (domains.stream().allMatch(domain -> domain.equals(domains.get(0)))) {
-            return domains.get(0);
+            return upcast(domains.get(0));
         }
 
-        List<TupleDomain<T>> candidates = domains.stream()
+        List<TupleDomain<? extends T>> candidates = domains.stream()
                 .filter(domain -> !domain.isAll())
                 .collect(toList());
 
@@ -268,12 +273,12 @@ public final class TupleDomain<T>
         }
 
         if (candidates.size() == 1) {
-            return candidates.get(0);
+            return upcast(candidates.get(0));
         }
 
         Map<T, Domain> intersected = new LinkedHashMap<>(candidates.get(0).getDomains().get());
         for (int i = 1; i < candidates.size(); i++) {
-            for (Map.Entry<T, Domain> entry : candidates.get(i).getDomains().get().entrySet()) {
+            for (Map.Entry<? extends T, Domain> entry : candidates.get(i).getDomains().get().entrySet()) {
                 Domain intersectionDomain = intersected.get(entry.getKey());
                 if (intersectionDomain == null) {
                     intersected.put(entry.getKey(), entry.getValue());
@@ -289,6 +294,13 @@ public final class TupleDomain<T>
         }
 
         return withColumnDomains(intersected);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> TupleDomain<T> upcast(TupleDomain<? extends T> domain)
+    {
+        // TupleDomain<T> is covariant with respect to T (because it's immutable), so it's a safe operation
+        return (TupleDomain<T>) domain;
     }
 
     @SafeVarargs

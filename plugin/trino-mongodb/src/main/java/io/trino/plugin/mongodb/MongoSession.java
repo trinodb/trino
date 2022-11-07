@@ -14,9 +14,7 @@
 package io.trino.plugin.mongodb;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
+import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -25,6 +23,7 @@ import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.mongodb.DBRef;
+import com.mongodb.MongoNamespace;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
@@ -34,6 +33,7 @@ import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.result.DeleteResult;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.collect.cache.EvictableCacheBuilder;
 import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -54,8 +54,13 @@ import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
 import org.bson.Document;
+import org.bson.types.Binary;
 import org.bson.types.ObjectId;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -64,6 +69,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -76,17 +82,28 @@ import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static io.trino.spi.HostAddress.fromParts;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.trino.spi.type.Timestamps.roundDiv;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -97,11 +114,13 @@ public class MongoSession
     private static final List<String> SYSTEM_TABLES = Arrays.asList("system.indexes", "system.users", "system.version");
 
     private static final String TABLE_NAME_KEY = "table";
+    private static final String COMMENT_KEY = "comment";
     private static final String FIELDS_KEY = "fields";
     private static final String FIELDS_NAME_KEY = "name";
     private static final String FIELDS_TYPE_KEY = "type";
     private static final String FIELDS_HIDDEN_KEY = "hidden";
 
+    private static final String AND_OP = "$and";
     private static final String OR_OP = "$or";
 
     private static final String EQ_OP = "$eq";
@@ -123,7 +142,7 @@ public class MongoSession
     private final boolean caseInsensitiveNameMatching;
     private final int cursorBatchSize;
 
-    private final LoadingCache<SchemaTableName, MongoTable> tableCache;
+    private final Cache<SchemaTableName, MongoTable> tableCache;
     private final String implicitPrefix;
 
     public MongoSession(TypeManager typeManager, MongoClient client, MongoClientConfig config)
@@ -135,10 +154,9 @@ public class MongoSession
         this.cursorBatchSize = config.getCursorBatchSize();
         this.implicitPrefix = requireNonNull(config.getImplicitRowFieldPrefix(), "config.getImplicitRowFieldPrefix() is null");
 
-        this.tableCache = CacheBuilder.newBuilder()
-                .expireAfterWrite(1, HOURS)  // TODO: Configure
-                .refreshAfterWrite(1, MINUTES)
-                .build(CacheLoader.from(this::loadTableSchema));
+        this.tableCache = EvictableCacheBuilder.newBuilder()
+                .expireAfterWrite(1, MINUTES)  // TODO: Configure
+                .build();
     }
 
     public void shutdown()
@@ -160,6 +178,17 @@ public class MongoSession
                 .collect(toImmutableList());
     }
 
+    public void createSchema(String schemaName)
+    {
+        // Put an empty schema collection because MongoDB doesn't support a database without collections
+        client.getDatabase(schemaName).createCollection(schemaCollection);
+    }
+
+    public void dropSchema(String schemaName)
+    {
+        client.getDatabase(schemaName).drop();
+    }
+
     public Set<String> getAllTables(String schema)
             throws SchemaNotFoundException
     {
@@ -179,18 +208,21 @@ public class MongoSession
             throws TableNotFoundException
     {
         try {
-            return tableCache.getUnchecked(tableName);
+            return tableCache.get(tableName, () -> loadTableSchema(tableName));
         }
-        catch (UncheckedExecutionException e) {
+        catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), TrinoException.class);
-            throw e;
+            throw new RuntimeException(e);
         }
     }
 
-    public void createTable(SchemaTableName name, List<MongoColumnHandle> columns)
+    public void createTable(SchemaTableName name, List<MongoColumnHandle> columns, Optional<String> comment)
     {
-        createTableMetadata(name, columns);
-        // collection is created implicitly
+        if (!getAllSchemas().contains(name.getSchemaName())) {
+            throw new SchemaNotFoundException(name.getSchemaName());
+        }
+        createTableMetadata(name, columns, comment);
+        client.getDatabase(name.getSchemaName()).createCollection(name.getTableName());
     }
 
     public void dropTable(SchemaTableName tableName)
@@ -199,6 +231,66 @@ public class MongoSession
         getCollection(tableName).drop();
 
         tableCache.invalidate(tableName);
+    }
+
+    public void setTableComment(SchemaTableName schemaTableName, Optional<String> comment)
+    {
+        String schemaName = toRemoteSchemaName(schemaTableName.getSchemaName());
+        String tableName = toRemoteTableName(schemaName, schemaTableName.getTableName());
+
+        Document metadata = getTableMetadata(schemaName, tableName);
+        metadata.append(COMMENT_KEY, comment.orElse(null));
+
+        client.getDatabase(schemaName).getCollection(schemaCollection)
+                .findOneAndReplace(new Document(TABLE_NAME_KEY, tableName), metadata);
+
+        tableCache.invalidate(schemaTableName);
+    }
+
+    public void setColumnComment(SchemaTableName schemaTableName, String columnName, Optional<String> comment)
+    {
+        String remoteSchemaName = toRemoteSchemaName(schemaTableName.getSchemaName());
+        String remoteTableName = toRemoteTableName(remoteSchemaName, schemaTableName.getTableName());
+
+        Document metadata = getTableMetadata(remoteSchemaName, remoteTableName);
+
+        ImmutableList.Builder<Document> columns = ImmutableList.builder();
+        for (Document column : getColumnMetadata(metadata)) {
+            if (column.getString(FIELDS_NAME_KEY).equals(columnName)) {
+                column.append(COMMENT_KEY, comment.orElse(null));
+            }
+            columns.add(column);
+        }
+
+        metadata.append(FIELDS_KEY, columns.build());
+
+        client.getDatabase(remoteSchemaName).getCollection(schemaCollection)
+                .findOneAndReplace(new Document(TABLE_NAME_KEY, remoteTableName), metadata);
+
+        tableCache.invalidate(schemaTableName);
+    }
+
+    public void renameTable(SchemaTableName oldName, SchemaTableName newName)
+    {
+        String oldSchemaName = toRemoteSchemaName(oldName.getSchemaName());
+        String oldTableName = toRemoteTableName(oldSchemaName, oldName.getTableName());
+        String newSchemaName = toRemoteSchemaName(newName.getSchemaName());
+
+        // Schema collection should always have the source table definition
+        MongoCollection<Document> oldSchema = client.getDatabase(oldSchemaName).getCollection(schemaCollection);
+        Document tableDefinition = oldSchema.findOneAndDelete(new Document(TABLE_NAME_KEY, oldTableName));
+        requireNonNull(tableDefinition, "Table definition not found in schema collection: " + oldTableName);
+
+        MongoCollection<Document> newSchema = client.getDatabase(newSchemaName).getCollection(schemaCollection);
+        tableDefinition.append(TABLE_NAME_KEY, newName.getTableName());
+        newSchema.insertOne(tableDefinition);
+
+        // Need to check explicitly because the old collection may not exist when it doesn't have any data
+        if (collectionExists(client.getDatabase(oldSchemaName), oldTableName)) {
+            getCollection(oldName).renameCollection(new MongoNamespace(newSchemaName, newName.getTableName()));
+        }
+
+        tableCache.invalidate(oldName);
     }
 
     public void addColumn(SchemaTableName schemaTableName, ColumnMetadata columnMetadata)
@@ -213,6 +305,7 @@ public class MongoSession
         Document newColumn = new Document();
         newColumn.append(FIELDS_NAME_KEY, columnMetadata.getName());
         newColumn.append(FIELDS_TYPE_KEY, columnMetadata.getType().getTypeSignature().toString());
+        newColumn.append(COMMENT_KEY, columnMetadata.getComment());
         newColumn.append(FIELDS_HIDDEN_KEY, false);
         columns.add(newColumn);
 
@@ -260,8 +353,8 @@ public class MongoSession
             columnHandles.add(columnHandle);
         }
 
-        MongoTableHandle tableHandle = new MongoTableHandle(schemaTableName);
-        return new MongoTable(tableHandle, columnHandles.build(), getIndexes(schemaName, tableName));
+        MongoTableHandle tableHandle = new MongoTableHandle(schemaTableName, Optional.empty());
+        return new MongoTable(tableHandle, columnHandles.build(), getIndexes(schemaName, tableName), getComment(tableMeta));
     }
 
     private MongoColumnHandle buildColumnHandle(Document columnMeta)
@@ -269,10 +362,11 @@ public class MongoSession
         String name = columnMeta.getString(FIELDS_NAME_KEY);
         String typeString = columnMeta.getString(FIELDS_TYPE_KEY);
         boolean hidden = columnMeta.getBoolean(FIELDS_HIDDEN_KEY, false);
+        String comment = columnMeta.getString(COMMENT_KEY);
 
         Type type = typeManager.fromSqlType(typeString);
 
-        return new MongoColumnHandle(name, type, hidden);
+        return new MongoColumnHandle(name, type, hidden, Optional.ofNullable(comment));
     }
 
     private List<Document> getColumnMetadata(Document doc)
@@ -282,6 +376,11 @@ public class MongoSession
         }
 
         return (List<Document>) doc.get(FIELDS_KEY);
+    }
+
+    private static Optional<String> getComment(Document doc)
+    {
+        return Optional.ofNullable(doc.getString(COMMENT_KEY));
     }
 
     public MongoCollection<Document> getCollection(SchemaTableName tableName)
@@ -312,16 +411,25 @@ public class MongoSession
             output.append(column.getName(), 1);
         }
         MongoCollection<Document> collection = getCollection(tableHandle.getSchemaTableName());
-        Document query = buildQuery(tableHandle.getConstraint());
-        FindIterable<Document> iterable = collection.find(query).projection(output);
+        Document filter = buildFilter(tableHandle);
+        FindIterable<Document> iterable = collection.find(filter).projection(output);
         tableHandle.getLimit().ifPresent(iterable::limit);
-        log.debug("Find documents: collection: %s, filter: %s, projection: %s", tableHandle.getSchemaTableName(), query.toJson(), output.toJson());
+        log.debug("Find documents: collection: %s, filter: %s, projection: %s", tableHandle.getSchemaTableName(), filter, output);
 
         if (cursorBatchSize != 0) {
             iterable.batchSize(cursorBatchSize);
         }
 
         return iterable.iterator();
+    }
+
+    static Document buildFilter(MongoTableHandle table)
+    {
+        // Use $and operator because Document.putAll method overwrites existing entries where the key already exists
+        ImmutableList.Builder<Document> filter = ImmutableList.builder();
+        table.getFilter().ifPresent(filter::add);
+        filter.add(buildQuery(table.getConstraint()));
+        return andPredicate(filter.build());
     }
 
     @VisibleForTesting
@@ -405,6 +513,10 @@ public class MongoSession
         requireNonNull(type, "type is null");
         checkArgument(Primitives.wrap(type.getJavaType()).isInstance(trinoNativeValue), "%s (%s) is not a valid representation for %s", trinoNativeValue, trinoNativeValue.getClass(), type);
 
+        if (type == BOOLEAN) {
+            return Optional.of(trinoNativeValue);
+        }
+
         if (type == TINYINT) {
             return Optional.of((long) SignedBytes.checkedCast(((Long) trinoNativeValue)));
         }
@@ -429,6 +541,30 @@ public class MongoSession
             return Optional.of(((Slice) trinoNativeValue).toStringUtf8());
         }
 
+        if (type == DATE) {
+            long days = (long) trinoNativeValue;
+            return Optional.of(LocalDate.ofEpochDay(days));
+        }
+
+        if (type == TIME_MILLIS) {
+            long picos = (long) trinoNativeValue;
+            return Optional.of(LocalTime.ofNanoOfDay(roundDiv(picos, PICOSECONDS_PER_NANOSECOND)));
+        }
+
+        if (type == TIMESTAMP_MILLIS) {
+            long epochMicros = (long) trinoNativeValue;
+            long epochSecond = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
+            int nanoFraction = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
+            Instant instant = Instant.ofEpochSecond(epochSecond, nanoFraction);
+            return Optional.of(LocalDateTime.ofInstant(instant, UTC));
+        }
+
+        if (type == TIMESTAMP_TZ_MILLIS) {
+            long millisUtc = unpackMillisUtc((long) trinoNativeValue);
+            Instant instant = Instant.ofEpochMilli(millisUtc);
+            return Optional.of(LocalDateTime.ofInstant(instant, UTC));
+        }
+
         return Optional.empty();
     }
 
@@ -444,6 +580,15 @@ public class MongoSession
             return values.get(0);
         }
         return new Document(OR_OP, values);
+    }
+
+    private static Document andPredicate(List<Document> values)
+    {
+        checkState(!values.isEmpty());
+        if (values.size() == 1) {
+            return values.get(0);
+        }
+        return new Document(AND_OP, values);
     }
 
     private static Document isNullPredicate()
@@ -470,17 +615,15 @@ public class MongoSession
             if (!collectionExists(db, tableName)) {
                 throw new TableNotFoundException(new SchemaTableName(schemaName, tableName), format("Table '%s.%s' not found", schemaName, tableName), null);
             }
-            else {
-                Document metadata = new Document(TABLE_NAME_KEY, tableName);
-                metadata.append(FIELDS_KEY, guessTableFields(schemaName, tableName));
-                if (!indexExists(schema)) {
-                    schema.createIndex(new Document(TABLE_NAME_KEY, 1), new IndexOptions().unique(true));
-                }
-
-                schema.insertOne(metadata);
-
-                return metadata;
+            Document metadata = new Document(TABLE_NAME_KEY, tableName);
+            metadata.append(FIELDS_KEY, guessTableFields(schemaName, tableName));
+            if (!indexExists(schema)) {
+                schema.createIndex(new Document(TABLE_NAME_KEY, 1), new IndexOptions().unique(true));
             }
+
+            schema.insertOne(metadata);
+
+            return metadata;
         }
 
         return doc;
@@ -517,7 +660,7 @@ public class MongoSession
         return names;
     }
 
-    private void createTableMetadata(SchemaTableName schemaTableName, List<MongoColumnHandle> columns)
+    private void createTableMetadata(SchemaTableName schemaTableName, List<MongoColumnHandle> columns, Optional<String> tableComment)
     {
         String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
@@ -527,7 +670,7 @@ public class MongoSession
 
         ArrayList<Document> fields = new ArrayList<>();
         if (!columns.stream().anyMatch(c -> c.getName().equals("_id"))) {
-            fields.add(new MongoColumnHandle("_id", OBJECT_ID, true).getDocument());
+            fields.add(new MongoColumnHandle("_id", OBJECT_ID, true, Optional.empty()).getDocument());
         }
 
         fields.addAll(columns.stream()
@@ -535,6 +678,7 @@ public class MongoSession
                 .collect(toList()));
 
         metadata.append(FIELDS_KEY, fields);
+        tableComment.ifPresent(comment -> metadata.append(COMMENT_KEY, comment));
 
         MongoCollection<Document> schema = db.getCollection(schemaCollection);
         if (!indexExists(schema)) {
@@ -601,6 +745,9 @@ public class MongoSession
         TypeSignature typeSignature = null;
         if (value instanceof String) {
             typeSignature = createUnboundedVarcharType().getTypeSignature();
+        }
+        if (value instanceof Binary) {
+            typeSignature = VARBINARY.getTypeSignature();
         }
         else if (value instanceof Integer || value instanceof Long) {
             typeSignature = BIGINT.getTypeSignature();
@@ -700,11 +847,11 @@ public class MongoSession
 
     private boolean isView(String schemaName, String tableName)
     {
-        Document listCollectionsCommand = new Document(new ImmutableMap.Builder<String, Object>()
+        Document listCollectionsCommand = new Document(ImmutableMap.<String, Object>builder()
                 .put("listCollections", 1.0)
                 .put("filter", documentOf("name", tableName))
                 .put("nameOnly", true)
-                .build());
+                .buildOrThrow());
         Document cursor = client.getDatabase(schemaName).runCommand(listCollectionsCommand).get("cursor", Document.class);
         List<Document> firstBatch = cursor.get("firstBatch", List.class);
         if (firstBatch.isEmpty()) {

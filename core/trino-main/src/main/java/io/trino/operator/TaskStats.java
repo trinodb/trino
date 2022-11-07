@@ -52,10 +52,9 @@ public class TaskStats
     private final int completedDrivers;
 
     private final double cumulativeUserMemory;
-    private final double cumulativeSystemMemory;
     private final DataSize userMemoryReservation;
+    private final DataSize peakUserMemoryReservation;
     private final DataSize revocableMemoryReservation;
-    private final DataSize systemMemoryReservation;
 
     private final Duration totalScheduledTime;
     private final Duration totalCpuTime;
@@ -76,8 +75,12 @@ public class TaskStats
     private final DataSize processedInputDataSize;
     private final long processedInputPositions;
 
+    private final Duration inputBlockedTime;
+
     private final DataSize outputDataSize;
     private final long outputPositions;
+
+    private final Duration outputBlockedTime;
 
     private final DataSize physicalWrittenDataSize;
 
@@ -105,7 +108,6 @@ public class TaskStats
                 0,
                 0,
                 0.0,
-                0.0,
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
@@ -123,8 +125,10 @@ public class TaskStats
                 0,
                 DataSize.ofBytes(0),
                 0,
+                new Duration(0, MILLISECONDS),
                 DataSize.ofBytes(0),
                 0,
+                new Duration(0, MILLISECONDS),
                 DataSize.ofBytes(0),
                 0,
                 new Duration(0, MILLISECONDS),
@@ -152,10 +156,9 @@ public class TaskStats
             @JsonProperty("completedDrivers") int completedDrivers,
 
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
-            @JsonProperty("cumulativeSystemMemory") double cumulativeSystemMemory,
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
+            @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
-            @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
 
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
@@ -176,8 +179,12 @@ public class TaskStats
             @JsonProperty("processedInputDataSize") DataSize processedInputDataSize,
             @JsonProperty("processedInputPositions") long processedInputPositions,
 
+            @JsonProperty("inputBlockedTime") Duration inputBlockedTime,
+
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
+
+            @JsonProperty("outputBlockedTime") Duration outputBlockedTime,
 
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
 
@@ -217,10 +224,9 @@ public class TaskStats
         this.completedDrivers = completedDrivers;
 
         this.cumulativeUserMemory = cumulativeUserMemory;
-        this.cumulativeSystemMemory = cumulativeSystemMemory;
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
+        this.peakUserMemoryReservation = requireNonNull(peakUserMemoryReservation, "peakUserMemoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
-        this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
 
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
@@ -245,9 +251,13 @@ public class TaskStats
         checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
         this.processedInputPositions = processedInputPositions;
 
+        this.inputBlockedTime = requireNonNull(inputBlockedTime, "inputBlockedTime is null");
+
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
+
+        this.outputBlockedTime = requireNonNull(outputBlockedTime, "outputBlockedTime is null");
 
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
 
@@ -341,27 +351,21 @@ public class TaskStats
     }
 
     @JsonProperty
-    public double getCumulativeSystemMemory()
-    {
-        return cumulativeSystemMemory;
-    }
-
-    @JsonProperty
     public DataSize getUserMemoryReservation()
     {
         return userMemoryReservation;
     }
 
     @JsonProperty
-    public DataSize getRevocableMemoryReservation()
+    public DataSize getPeakUserMemoryReservation()
     {
-        return revocableMemoryReservation;
+        return peakUserMemoryReservation;
     }
 
     @JsonProperty
-    public DataSize getSystemMemoryReservation()
+    public DataSize getRevocableMemoryReservation()
     {
-        return systemMemoryReservation;
+        return revocableMemoryReservation;
     }
 
     @JsonProperty
@@ -449,6 +453,12 @@ public class TaskStats
     }
 
     @JsonProperty
+    public Duration getInputBlockedTime()
+    {
+        return inputBlockedTime;
+    }
+
+    @JsonProperty
     public DataSize getOutputDataSize()
     {
         return outputDataSize;
@@ -458,6 +468,12 @@ public class TaskStats
     public long getOutputPositions()
     {
         return outputPositions;
+    }
+
+    @JsonProperty
+    public Duration getOutputBlockedTime()
+    {
+        return outputBlockedTime;
     }
 
     @JsonProperty
@@ -528,10 +544,9 @@ public class TaskStats
                 blockedDrivers,
                 completedDrivers,
                 cumulativeUserMemory,
-                cumulativeSystemMemory,
                 userMemoryReservation,
+                peakUserMemoryReservation,
                 revocableMemoryReservation,
-                systemMemoryReservation,
                 totalScheduledTime,
                 totalCpuTime,
                 totalBlockedTime,
@@ -546,8 +561,10 @@ public class TaskStats
                 rawInputPositions,
                 processedInputDataSize,
                 processedInputPositions,
+                inputBlockedTime,
                 outputDataSize,
                 outputPositions,
+                outputBlockedTime,
                 physicalWrittenDataSize,
                 fullGcCount,
                 fullGcTime,
@@ -574,10 +591,9 @@ public class TaskStats
                 blockedDrivers,
                 completedDrivers,
                 cumulativeUserMemory,
-                cumulativeSystemMemory,
                 userMemoryReservation,
+                peakUserMemoryReservation,
                 revocableMemoryReservation,
-                systemMemoryReservation,
                 totalScheduledTime,
                 totalCpuTime,
                 totalBlockedTime,
@@ -592,8 +608,10 @@ public class TaskStats
                 rawInputPositions,
                 processedInputDataSize,
                 processedInputPositions,
+                inputBlockedTime,
                 outputDataSize,
                 outputPositions,
+                outputBlockedTime,
                 physicalWrittenDataSize,
                 fullGcCount,
                 fullGcTime,

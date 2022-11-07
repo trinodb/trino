@@ -56,7 +56,7 @@ import static java.util.Objects.requireNonNull;
 public class SliceDictionaryColumnReader
         implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDictionaryColumnReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SliceDictionaryColumnReader.class).instanceSize());
 
     private static final byte[] EMPTY_DICTIONARY_DATA = new byte[0];
     // add one extra entry for null after strip/rowGroup dictionary
@@ -94,14 +94,14 @@ public class SliceDictionaryColumnReader
     private int[] nonNullValueTemp = new int[0];
     private int[] nonNullPositionList = new int[0];
 
-    private final LocalMemoryContext systemMemoryContext;
+    private final LocalMemoryContext memoryContext;
 
-    public SliceDictionaryColumnReader(OrcColumn column, LocalMemoryContext systemMemoryContext, int maxCodePointCount, boolean isCharType)
+    public SliceDictionaryColumnReader(OrcColumn column, LocalMemoryContext memoryContext, int maxCodePointCount, boolean isCharType)
     {
         this.maxCodePointCount = maxCodePointCount;
         this.isCharType = isCharType;
         this.column = requireNonNull(column, "column is null");
-        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
     }
 
     @Override
@@ -163,9 +163,9 @@ public class SliceDictionaryColumnReader
         return block;
     }
 
-    private RunLengthEncodedBlock readAllNullsBlock()
+    private Block readAllNullsBlock()
     {
-        return new RunLengthEncodedBlock(new VariableWidthBlock(1, EMPTY_SLICE, new int[2], Optional.of(new boolean[] {true})), nextBatchSize);
+        return RunLengthEncodedBlock.create(new VariableWidthBlock(1, EMPTY_SLICE, new int[2], Optional.of(new boolean[] {true})), nextBatchSize);
     }
 
     private Block readNonNullBlock()
@@ -174,7 +174,7 @@ public class SliceDictionaryColumnReader
         verifyNotNull(dataStream);
         int[] values = new int[nextBatchSize];
         dataStream.next(values, nextBatchSize);
-        return new DictionaryBlock(nextBatchSize, dictionaryBlock, values);
+        return DictionaryBlock.create(nextBatchSize, dictionaryBlock, values);
     }
 
     private Block readNullBlock(boolean[] isNull, int nonNullCount)
@@ -185,7 +185,7 @@ public class SliceDictionaryColumnReader
         if (nonNullValueTemp.length < minNonNullValueSize) {
             nonNullValueTemp = new int[minNonNullValueSize];
             nonNullPositionList = new int[minNonNullValueSize];
-            systemMemoryContext.setBytes(sizeOf(nonNullValueTemp) + sizeOf(nonNullPositionList));
+            memoryContext.setBytes(getRetainedSizeInBytes());
         }
 
         dataStream.next(nonNullValueTemp, nonNullCount);
@@ -205,7 +205,7 @@ public class SliceDictionaryColumnReader
             result[nonNullPositionList[i]] = nonNullValueTemp[i];
         }
 
-        return new DictionaryBlock(nextBatchSize, dictionaryBlock, result);
+        return DictionaryBlock.create(nextBatchSize, dictionaryBlock, result);
     }
 
     private void setDictionaryBlockData(byte[] dictionaryData, int[] dictionaryOffsets, int positionCount)
@@ -219,6 +219,7 @@ public class SliceDictionaryColumnReader
             dictionaryOffsets[positionCount] = dictionaryOffsets[positionCount - 1];
             dictionaryBlock = new VariableWidthBlock(positionCount, wrappedBuffer(dictionaryData), dictionaryOffsets, Optional.of(isNullVector));
             currentDictionaryData = dictionaryData;
+            memoryContext.setBytes(getRetainedSizeInBytes());
         }
     }
 
@@ -357,12 +358,14 @@ public class SliceDictionaryColumnReader
     @Override
     public void close()
     {
-        systemMemoryContext.close();
+        memoryContext.close();
     }
 
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE;
+        return INSTANCE_SIZE + sizeOf(nonNullValueTemp) + sizeOf(nonNullPositionList) + sizeOf(dictionaryData)
+                + sizeOf(dictionaryLength) + sizeOf(dictionaryOffsetVector)
+                + (currentDictionaryData == dictionaryData ? 0 : sizeOf(currentDictionaryData));
     }
 }

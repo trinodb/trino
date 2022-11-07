@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 
-# Download maven wrapper if it is not present so next command can have clean output
-./mvnw --version >/dev/null
-
 DEFAULT_DOCKER_VERSION=$(./mvnw help:evaluate -Dexpression=dep.docker.images.version -q -DforceStdout)
 
 if [ -z "$DEFAULT_DOCKER_VERSION" ];
@@ -12,4 +9,3 @@ then
 fi
 
 export DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION:-$DEFAULT_DOCKER_VERSION}
-export HADOOP_BASE_IMAGE="${HADOOP_BASE_IMAGE:-ghcr.io/trinodb/testing/hdp2.6-hive}"

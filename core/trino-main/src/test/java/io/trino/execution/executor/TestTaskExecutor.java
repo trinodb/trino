@@ -14,6 +14,7 @@
 package io.trino.execution.executor;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.testing.TestingTicker;
@@ -29,6 +30,7 @@ import java.util.List;
 import java.util.OptionalInt;
 import java.util.concurrent.Future;
 import java.util.concurrent.Phaser;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -52,6 +54,8 @@ public class TestTaskExecutor
             throws Exception
     {
         TestingTicker ticker = new TestingTicker();
+        Duration splitProcessingDurationThreshold = new Duration(10, MINUTES);
+
         TaskExecutor taskExecutor = new TaskExecutor(4, 8, 3, 4, ticker);
         taskExecutor.start();
         ticker.increment(20, MILLISECONDS);
@@ -78,9 +82,12 @@ public class TestTaskExecutor
             assertEquals(driver1.getCompletedPhases(), 0);
             assertEquals(driver2.getCompletedPhases(), 0);
             ticker.increment(60, SECONDS);
+            assertTrue(taskExecutor.getStuckSplitTaskIds(splitProcessingDurationThreshold, runningSplitInfo -> true).isEmpty());
             assertEquals(taskExecutor.getRunAwaySplitCount(), 0);
             ticker.increment(600, SECONDS);
             assertEquals(taskExecutor.getRunAwaySplitCount(), 2);
+            assertEquals(taskExecutor.getStuckSplitTaskIds(splitProcessingDurationThreshold, runningSplitInfo -> true), ImmutableSet.of(taskId));
+
             verificationComplete.arriveAndAwaitAdvance();
 
             // advance one phase and verify
@@ -135,6 +142,7 @@ public class TestTaskExecutor
 
             // no splits remaining
             ticker.increment(610, SECONDS);
+            assertTrue(taskExecutor.getStuckSplitTaskIds(splitProcessingDurationThreshold, runningSplitInfo -> true).isEmpty());
             assertEquals(taskExecutor.getRunAwaySplitCount(), 0);
         }
         finally {
@@ -489,6 +497,30 @@ public class TestTaskExecutor
         finally {
             taskExecutor.stop();
         }
+    }
+
+    @Test
+    public void testLeafSplitsSize()
+    {
+        MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);
+        TestingTicker ticker = new TestingTicker();
+        TaskExecutor taskExecutor = new TaskExecutor(4, 1, 2, 2, splitQueue, ticker);
+
+        TaskHandle testTaskHandle = taskExecutor.addTask(new TaskId(new StageId("test", 0), 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+        TestingJob driver1 = new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, 500);
+        TestingJob driver2 = new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, 1000 / 500);
+
+        ticker.increment(1, TimeUnit.SECONDS);
+        taskExecutor.enqueueSplits(testTaskHandle, false, ImmutableList.of(driver1, driver2));
+        assertEquals(taskExecutor.getLeafSplitsSize().getAllTime().getMax(), 0.0);
+
+        ticker.increment(1, TimeUnit.SECONDS);
+        taskExecutor.enqueueSplits(testTaskHandle, false, ImmutableList.of(driver1));
+        assertEquals(taskExecutor.getLeafSplitsSize().getAllTime().getMax(), 2.0);
+
+        ticker.increment(1, TimeUnit.SECONDS);
+        taskExecutor.enqueueSplits(testTaskHandle, true, ImmutableList.of(driver1));
+        assertEquals(taskExecutor.getLeafSplitsSize().getAllTime().getMax(), 2.0);
     }
 
     private void assertSplitStates(int endIndex, TestingJob[] splits)

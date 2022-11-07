@@ -21,8 +21,10 @@ import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.type.TypeManager;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorContextInstance
@@ -35,6 +37,7 @@ public class ConnectorContextInstance
     private final PageSorter pageSorter;
     private final PageIndexerFactory pageIndexerFactory;
     private final Supplier<ClassLoader> duplicatePluginClassLoaderFactory;
+    private final AtomicBoolean pluginClassLoaderDuplicated = new AtomicBoolean();
 
     public ConnectorContextInstance(
             NodeManager nodeManager,
@@ -93,6 +96,7 @@ public class ConnectorContextInstance
     @Override
     public ClassLoader duplicatePluginClassLoader()
     {
+        checkState(!pluginClassLoaderDuplicated.getAndSet(true), "plugin class loader already duplicated");
         return duplicatePluginClassLoaderFactory.get();
     }
 }

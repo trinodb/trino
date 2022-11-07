@@ -54,7 +54,7 @@ import static java.util.Objects.requireNonNull;
 public class MapColumnReader
         implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapColumnReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(MapColumnReader.class).instanceSize());
 
     private final MapType type;
     private final OrcColumn column;
@@ -78,7 +78,7 @@ public class MapColumnReader
 
     private boolean rowGroupOpen;
 
-    public MapColumnReader(Type type, OrcColumn column, AggregatedMemoryContext systemMemoryContext, OrcBlockFactory blockFactory, FieldMapperFactory fieldMapperFactory)
+    public MapColumnReader(Type type, OrcColumn column, AggregatedMemoryContext memoryContext, OrcBlockFactory blockFactory, FieldMapperFactory fieldMapperFactory)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
@@ -91,14 +91,14 @@ public class MapColumnReader
                 this.type.getKeyType(),
                 column.getNestedColumns().get(0),
                 fullyProjectedLayout(),
-                systemMemoryContext,
+                memoryContext,
                 blockFactory,
                 fieldMapperFactory);
         this.valueColumnReader = createColumnReader(
                 this.type.getValueType(),
                 column.getNestedColumns().get(1),
                 fullyProjectedLayout(),
-                systemMemoryContext,
+                memoryContext,
                 blockFactory,
                 fieldMapperFactory);
     }

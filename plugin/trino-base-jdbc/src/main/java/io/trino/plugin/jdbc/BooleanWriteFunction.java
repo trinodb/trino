@@ -16,6 +16,8 @@ package io.trino.plugin.jdbc;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
+import static java.util.Objects.requireNonNull;
+
 public interface BooleanWriteFunction
         extends WriteFunction
 {
@@ -27,4 +29,32 @@ public interface BooleanWriteFunction
 
     void set(PreparedStatement statement, int index, boolean value)
             throws SQLException;
+
+    static BooleanWriteFunction of(int nullJdbcType, BooleanWriteFunctionImplementation implementation)
+    {
+        requireNonNull(implementation, "implementation is null");
+
+        return new BooleanWriteFunction() {
+            @Override
+            public void set(PreparedStatement statement, int index, boolean value)
+                    throws SQLException
+            {
+                implementation.set(statement, index, value);
+            }
+
+            @Override
+            public void setNull(PreparedStatement statement, int index)
+                    throws SQLException
+            {
+                statement.setNull(index, nullJdbcType);
+            }
+        };
+    }
+
+    @FunctionalInterface
+    interface BooleanWriteFunctionImplementation
+    {
+        void set(PreparedStatement statement, int index, boolean value)
+                throws SQLException;
+    }
 }

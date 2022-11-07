@@ -20,10 +20,10 @@ import io.trino.plugin.base.TypeDeserializerModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 
 import java.util.Map;
 
+import static io.trino.plugin.base.Versions.checkSpiVersion;
 import static java.util.Objects.requireNonNull;
 
 public class AccumuloConnectorFactory
@@ -43,6 +43,7 @@ public class AccumuloConnectorFactory
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(config, "config is null");
         requireNonNull(context, "context is null");
+        checkSpiVersion(context, this);
 
         Bootstrap app = new Bootstrap(
                 new JsonModule(),
@@ -55,11 +56,5 @@ public class AccumuloConnectorFactory
                 .initialize();
 
         return injector.getInstance(AccumuloConnector.class);
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new AccumuloHandleResolver();
     }
 }

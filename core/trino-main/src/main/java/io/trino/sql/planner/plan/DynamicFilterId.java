@@ -15,14 +15,19 @@ package io.trino.sql.planner.plan;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.concurrent.Immutable;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class DynamicFilterId
 {
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(DynamicFilterId.class).instanceSize());
+
     private final String id;
 
     @JsonCreator
@@ -57,5 +62,10 @@ public class DynamicFilterId
     public int hashCode()
     {
         return id.hashCode();
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + estimatedSizeOf(id);
     }
 }

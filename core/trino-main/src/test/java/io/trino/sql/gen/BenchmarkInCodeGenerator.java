@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.jmh.Benchmarks;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.DriverYieldSignal;
@@ -49,6 +50,7 @@ import java.util.concurrent.TimeUnit;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -178,7 +180,8 @@ public class BenchmarkInCodeGenerator
                     metadata.resolveOperator(TEST_SESSION, OperatorType.INDETERMINATE, ImmutableList.of(trinoType)));
             RowExpression filter = new SpecialForm(IN, BOOLEAN, arguments, functionalDependencies);
 
-            processor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0)).compilePageProcessor(Optional.of(filter), ImmutableList.of(project)).get();
+            FunctionManager functionManager = createTestingFunctionManager();
+            processor = new ExpressionCompiler(functionManager, new PageFunctionCompiler(functionManager, 0)).compilePageProcessor(Optional.of(filter), ImmutableList.of(project)).get();
         }
     }
 

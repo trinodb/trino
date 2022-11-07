@@ -51,10 +51,10 @@ public interface ThriftMetastoreClient
     List<String> getAllTables(String databaseName)
             throws TException;
 
-    List<String> getTableNamesByFilter(String databaseName, String filter)
+    List<String> getAllViews(String databaseName)
             throws TException;
 
-    List<String> getTableNamesByType(String databaseName, String tableType)
+    List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
             throws TException;
 
     void createDatabase(Database database)
@@ -76,9 +76,6 @@ public interface ThriftMetastoreClient
             throws TException;
 
     Table getTable(String databaseName, String tableName)
-            throws TException;
-
-    Table getTableWithCapabilities(String databaseName, String tableName)
             throws TException;
 
     List<FieldSchema> getFields(String databaseName, String tableName)

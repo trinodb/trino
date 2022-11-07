@@ -15,10 +15,9 @@ package io.trino.testing;
 
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
-import io.trino.spi.connector.ConnectorTableLayoutHandle;
 
 public enum TestingHandle
-        implements ConnectorOutputTableHandle, ConnectorInsertTableHandle, ConnectorTableLayoutHandle
+        implements ConnectorOutputTableHandle, ConnectorInsertTableHandle
 {
     INSTANCE
 }

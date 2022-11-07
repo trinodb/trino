@@ -66,10 +66,9 @@ public class TestBlockBuilder
         for (int i = 0; i < 100; i++) {
             BIGINT.writeLong(bigintBlockBuilder, i);
             VARCHAR.writeSlice(varcharBlockBuilder, Slices.utf8Slice("test" + i));
-            Block longArrayBlock = new ArrayType(BIGINT)
-                    .createBlockBuilder(null, 1)
-                    .appendStructure(BIGINT.createBlockBuilder(null, 2).writeLong(i).closeEntry().writeLong(i * 2).closeEntry().build());
-            arrayBlockBuilder.appendStructure(longArrayBlock);
+            BlockBuilder blockBuilder = longArrayType.createBlockBuilder(null, 1);
+            longArrayType.writeObject(blockBuilder, BIGINT.createBlockBuilder(null, 2).writeLong(i).writeLong(i * 2).build());
+            arrayType.writeObject(arrayBlockBuilder, blockBuilder);
             pageBuilder.declarePosition();
         }
 
@@ -97,11 +96,11 @@ public class TestBlockBuilder
         assertBlockEquals(BIGINT, blockBuilder.getPositions(positions, 1, 0), BIGINT.createFixedSizeBlockBuilder(5).build());
 
         // out of range
-        assertInvalidGetPositions(blockBuilder, new int[] {-1}, 0, 1);
-        assertInvalidGetPositions(blockBuilder, new int[] {6}, 0, 1);
-        assertInvalidGetPositions(blockBuilder, new int[] {6}, 1, 1);
-        assertInvalidGetPositions(blockBuilder, new int[] {6}, -1, 1);
-        assertInvalidGetPositions(blockBuilder, new int[] {6}, 2, -1);
+        assertInvalidPosition(blockBuilder, new int[] {-1}, 0, 1);
+        assertInvalidPosition(blockBuilder, new int[] {6}, 0, 1);
+        assertInvalidOffset(blockBuilder, new int[] {6}, 1, 1);
+        assertInvalidOffset(blockBuilder, new int[] {6}, -1, 1);
+        assertInvalidOffset(blockBuilder, new int[] {6}, 2, -1);
 
         // test getPositions for block
         Block block = blockBuilder.build();
@@ -112,11 +111,11 @@ public class TestBlockBuilder
         assertBlockEquals(BIGINT, block.getPositions(positions, 1, 0), BIGINT.createFixedSizeBlockBuilder(5).build());
 
         // out of range
-        assertInvalidGetPositions(block, new int[] {-1}, 0, 1);
-        assertInvalidGetPositions(block, new int[] {6}, 0, 1);
-        assertInvalidGetPositions(block, new int[] {6}, 1, 1);
-        assertInvalidGetPositions(block, new int[] {6}, -1, 1);
-        assertInvalidGetPositions(block, new int[] {6}, 2, -1);
+        assertInvalidPosition(block, new int[] {-1}, 0, 1);
+        assertInvalidPosition(block, new int[] {6}, 0, 1);
+        assertInvalidOffset(block, new int[] {6}, 1, 1);
+        assertInvalidOffset(block, new int[] {6}, -1, 1);
+        assertInvalidOffset(block, new int[] {6}, 2, -1);
 
         // assert we should not copy ids
         AtomicBoolean isIdentical = new AtomicBoolean(false);
@@ -128,10 +127,17 @@ public class TestBlockBuilder
         assertTrue(isIdentical.get());
     }
 
-    private static void assertInvalidGetPositions(Block block, int[] positions, int offset, int length)
+    private static void assertInvalidPosition(Block block, int[] positions, int offset, int length)
     {
         assertThatThrownBy(() -> block.getPositions(positions, offset, length).getLong(0, 0))
                 .isInstanceOfAny(IllegalArgumentException.class, IndexOutOfBoundsException.class)
-                .hasMessageMatching(format("(position is not valid|Invalid offset %d and length %d in array with %d elements)", offset, length, positions.length));
+                .hasMessage("Invalid position %d in block with %d positions", positions[0], block.getPositionCount());
+    }
+
+    private static void assertInvalidOffset(Block block, int[] positions, int offset, int length)
+    {
+        assertThatThrownBy(() -> block.getPositions(positions, offset, length).getLong(0, 0))
+                .isInstanceOfAny(IllegalArgumentException.class, IndexOutOfBoundsException.class)
+                .hasMessage(format("Invalid offset %d and length %d in array with %d elements", offset, length, positions.length));
     }
 }

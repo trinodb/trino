@@ -14,8 +14,9 @@
 package io.trino.plugin.hive.s3;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import io.trino.plugin.base.util.JsonUtils;
 
+import static io.trino.plugin.base.util.JsonUtils.jsonTreeToValue;
+import static io.trino.plugin.base.util.JsonUtils.parseJson;
 import static java.util.Objects.requireNonNull;
 
 public class S3SecurityMappingsParser
@@ -29,8 +30,8 @@ public class S3SecurityMappingsParser
 
     public S3SecurityMappings parseJSONString(String jsonString)
     {
-        JsonNode node = JsonUtils.parseJson(jsonString);
+        JsonNode node = parseJson(jsonString, JsonNode.class);
         JsonNode mappingsNode = node.at(this.jsonPointer);
-        return JsonUtils.jsonTreeToValue(mappingsNode, S3SecurityMappings.class);
+        return jsonTreeToValue(mappingsNode, S3SecurityMappings.class);
     }
 }

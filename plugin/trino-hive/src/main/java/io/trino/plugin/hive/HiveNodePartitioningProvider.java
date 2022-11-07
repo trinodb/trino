@@ -13,13 +13,10 @@
  */
 package io.trino.plugin.hive;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
-import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
@@ -30,15 +27,10 @@ import io.trino.spi.type.TypeOperators;
 
 import javax.inject.Inject;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.ToIntFunction;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static java.util.Objects.requireNonNull;
 
@@ -54,7 +46,7 @@ public class HiveNodePartitioningProvider
     public HiveNodePartitioningProvider(NodeManager nodeManager, TypeManager typeManager)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.typeOperators = requireNonNull(typeManager, "typeManager is null").getTypeOperators();
+        this.typeOperators = typeManager.getTypeOperators();
     }
 
     @Override
@@ -65,6 +57,9 @@ public class HiveNodePartitioningProvider
             List<Type> partitionChannelTypes,
             int bucketCount)
     {
+        if (partitioningHandle instanceof HiveUpdateHandle) {
+            return new HiveUpdateBucketFunction(bucketCount);
+        }
         HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
         List<HiveType> hiveBucketTypes = handle.getHiveTypes();
         if (!handle.isUsePartitionedBucketing()) {
@@ -80,40 +75,24 @@ public class HiveNodePartitioningProvider
     }
 
     @Override
-    public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+    public Optional<ConnectorBucketNodeMap> getBucketNodeMapping(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
     {
         HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
         if (!handle.isUsePartitionedBucketing()) {
-            return createBucketNodeMap(handle.getBucketCount());
+            return Optional.of(createBucketNodeMap(handle.getBucketCount()));
         }
 
-        // Create a bucket to node mapping. Consecutive buckets are assigned
-        // to shuffled nodes (e.g "1 -> node2, 2 -> node1, 3 -> node2, 4 -> node1, ...").
+        // Allocate a fixed number of buckets. Trino will assign consecutive buckets
+        // to shuffled nodes (e.g. "1 -> node2, 2 -> node1, 3 -> node2, 4 -> node1, ...").
         // Hash function generates consecutive bucket numbers within a partition
-        // (e.g "(part1, bucket1) -> 1234, (part1, bucket2) -> 1235, ...").
+        // (e.g. "(part1, bucket1) -> 1234, (part1, bucket2) -> 1235, ...").
         // Thus single partition insert will be distributed across all worker nodes
         // (if number of workers is greater or equal to number of buckets within a partition).
         // We can write to (number of partitions P) * (number of buckets B) in parallel.
         // However, number of partitions is not known here
         // If number of workers < ( P * B), we need multiple writers per node to fully
         // parallelize the write within a worker
-        return createBucketNodeMap(createArbitraryBucketToNode(
-                ImmutableList.copyOf(nodeManager.getRequiredWorkerNodes()),
-                nodeManager.getRequiredWorkerNodes().size() * PARTITIONED_BUCKETS_PER_NODE));
-    }
-
-    private static List<Node> createArbitraryBucketToNode(List<Node> nodes, int bucketCount)
-    {
-        return cyclingShuffledStream(nodes)
-                .limit(bucketCount)
-                .collect(toImmutableList());
-    }
-
-    private static <T> Stream<T> cyclingShuffledStream(Collection<T> collection)
-    {
-        List<T> list = new ArrayList<>(collection);
-        Collections.shuffle(list);
-        return Stream.generate(() -> list).flatMap(List::stream);
+        return Optional.of(createBucketNodeMap(nodeManager.getRequiredWorkerNodes().size() * PARTITIONED_BUCKETS_PER_NODE));
     }
 
     @Override
@@ -122,15 +101,7 @@ public class HiveNodePartitioningProvider
             ConnectorSession session,
             ConnectorPartitioningHandle partitioningHandle)
     {
-        return value -> ((HiveSplit) value).getBucketNumber()
+        return value -> ((HiveSplit) value).getReadBucketNumber()
                 .orElseThrow(() -> new IllegalArgumentException("Bucket number not set in split"));
-    }
-
-    @Override
-    public List<ConnectorPartitionHandle> listPartitionHandles(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
-    {
-        HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
-        int bucketCount = handle.getBucketCount();
-        return IntStream.range(0, bucketCount).mapToObj(HivePartitionHandle::new).collect(toImmutableList());
     }
 }

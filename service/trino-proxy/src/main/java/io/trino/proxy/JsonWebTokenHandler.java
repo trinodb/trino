@@ -15,7 +15,8 @@ package io.trino.proxy;
 
 import io.airlift.security.pem.PemReader;
 import io.jsonwebtoken.JwtBuilder;
-import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.impl.DefaultJwtBuilder;
+import io.jsonwebtoken.jackson.io.JacksonSerializer;
 import io.jsonwebtoken.security.Keys;
 
 import javax.inject.Inject;
@@ -61,7 +62,8 @@ public class JsonWebTokenHandler
     {
         checkState(jwtSigner.isPresent(), "not configured");
 
-        JwtBuilder jwt = Jwts.builder()
+        JwtBuilder jwt = new DefaultJwtBuilder()
+                .serializeToJsonWith(new JacksonSerializer<>())
                 .setSubject(subject)
                 .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()));
 

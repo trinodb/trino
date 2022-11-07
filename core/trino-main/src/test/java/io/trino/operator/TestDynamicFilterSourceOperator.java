@@ -24,6 +24,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
+import io.trino.sql.planner.DynamicFilterSourceConsumer;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
@@ -132,17 +133,27 @@ public class TestDynamicFilterSourceOperator
         return new DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory(
                 0,
                 new PlanNodeId("PLAN_NODE_ID"),
-                this::consumePredicate,
+                new DynamicFilterSourceConsumer() {
+                    @Override
+                    public void addPartition(TupleDomain<DynamicFilterId> tupleDomain)
+                    {
+                        partitions.add(tupleDomain);
+                    }
+
+                    @Override
+                    public void setPartitionCount(int partitionCount) {}
+
+                    @Override
+                    public boolean isDomainCollectionComplete()
+                    {
+                        return false;
+                    }
+                },
                 ImmutableList.copyOf(buildChannels),
                 maxFilterDistinctValues,
                 maxFilterSize,
                 minMaxCollectionLimit,
                 blockTypeOperators);
-    }
-
-    private void consumePredicate(TupleDomain<DynamicFilterId> partitionPredicate)
-    {
-        partitions.add(partitionPredicate);
     }
 
     private Operator createOperator(OperatorFactory operatorFactory)

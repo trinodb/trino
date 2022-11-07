@@ -38,6 +38,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.google.common.io.Resources.getResource;
 import static io.trino.jmh.Benchmarks.benchmark;
@@ -82,10 +83,13 @@ public class BenchmarkSpatialJoin
             queryRunner.createCatalog("memory", new MemoryConnectorFactory(), ImmutableMap.of());
 
             Path path = new File(getResource("us-states.tsv").toURI()).toPath();
-            String polygonValues = Files.lines(path)
-                    .map(line -> line.split("\t"))
-                    .map(parts -> format("('%s', '%s')", parts[0], parts[1]))
-                    .collect(Collectors.joining(","));
+            String polygonValues;
+            try (Stream<String> lines = Files.lines(path)) {
+                polygonValues = lines
+                        .map(line -> line.split("\t"))
+                        .map(parts -> format("('%s', '%s')", parts[0], parts[1]))
+                        .collect(Collectors.joining(","));
+            }
             queryRunner.execute(format("CREATE TABLE memory.default.polygons AS SELECT * FROM (VALUES %s) as t (name, wkt)", polygonValues));
         }
 

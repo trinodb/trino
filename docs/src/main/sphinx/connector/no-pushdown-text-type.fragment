@@ -1,5 +1,5 @@
 Predicate pushdown support
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""""
 
 The connector does not support pushdown of any predicates on columns with
 :ref:`textual types <string-data-types>` like ``CHAR`` or ``VARCHAR``.

@@ -86,6 +86,7 @@ public class TestIcebergHiveMetadataListing
                             .add(row("iceberg_materialized_view"))
                             .add(row(storageTable))
                             .add(row("iceberg_view"))
+                            .add(row("hive_table"))
                             // Iceberg connector supports Trino views created via Hive connector
                             .add(row("hive_view"))
                             .build());

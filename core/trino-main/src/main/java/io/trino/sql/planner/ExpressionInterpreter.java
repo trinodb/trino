@@ -18,11 +18,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.FunctionNullability;
+import io.trino.likematcher.LikeMatcher;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.operator.scalar.ArrayConstructor;
 import io.trino.operator.scalar.ArraySubscriptOperator;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
@@ -31,6 +33,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.SingleRowBlock;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
@@ -47,7 +50,7 @@ import io.trino.sql.planner.iterative.rule.DesugarCurrentPath;
 import io.trino.sql.planner.iterative.rule.DesugarCurrentUser;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
-import io.trino.sql.tree.ArrayConstructor;
+import io.trino.sql.tree.Array;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BindExpression;
@@ -93,7 +96,6 @@ import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.WhenClause;
 import io.trino.type.FunctionType;
-import io.trino.type.JoniRegexp;
 import io.trino.type.LikeFunctions;
 import io.trino.type.TypeCoercion;
 import io.trino.util.FastutilSetHelper;
@@ -134,6 +136,7 @@ import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
+import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
@@ -159,6 +162,7 @@ public class ExpressionInterpreter
     private final Expression expression;
     private final PlannerContext plannerContext;
     private final Metadata metadata;
+    private final LiteralInterpreter literalInterpreter;
     private final LiteralEncoder literalEncoder;
     private final Session session;
     private final ConnectorSession connectorSession;
@@ -167,7 +171,7 @@ public class ExpressionInterpreter
     private final TypeCoercion typeCoercion;
 
     // identity-based cache for LIKE expressions with constant pattern and escape char
-    private final IdentityHashMap<LikePredicate, JoniRegexp> likePatternCache = new IdentityHashMap<>();
+    private final IdentityHashMap<LikePredicate, LikeMatcher> likePatternCache = new IdentityHashMap<>();
     private final IdentityHashMap<InListExpression, Set<?>> inListCache = new IdentityHashMap<>();
 
     public ExpressionInterpreter(Expression expression, PlannerContext plannerContext, Session session, Map<NodeRef<Expression>, Type> expressionTypes)
@@ -175,12 +179,13 @@ public class ExpressionInterpreter
         this.expression = requireNonNull(expression, "expression is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.metadata = plannerContext.getMetadata();
+        this.literalInterpreter = new LiteralInterpreter(plannerContext, session);
         this.literalEncoder = new LiteralEncoder(plannerContext);
         this.session = requireNonNull(session, "session is null");
         this.connectorSession = session.toConnectorSession();
         this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
         verify((expressionTypes.containsKey(NodeRef.of(expression))));
-        this.functionInvoker = new InterpretedFunctionInvoker(metadata);
+        this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
         this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
     }
 
@@ -203,7 +208,7 @@ public class ExpressionInterpreter
         Map<NodeRef<Expression>, Type> coercions = ImmutableMap.<NodeRef<Expression>, Type>builder()
                 .putAll(analyzer.getExpressionCoercions())
                 .put(NodeRef.of(expression), expectedType)
-                .build();
+                .buildOrThrow();
         return evaluateConstantExpression(expression, coercions, analyzer.getTypeOnlyCoercions(), plannerContext, session, accessControl, ImmutableSet.of(), parameters);
     }
 
@@ -238,7 +243,7 @@ public class ExpressionInterpreter
 
         // expressionInterpreter/optimizer only understands a subset of expression types
         // TODO: remove this when the new expression tree is implemented
-        Expression canonicalized = canonicalizeExpression(rewrite, analyzer.getExpressionTypes(), plannerContext.getMetadata(), session);
+        Expression canonicalized = canonicalizeExpression(rewrite, analyzer.getExpressionTypes(), plannerContext, session);
 
         // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
         // to re-analyze coercions that might be necessary
@@ -385,7 +390,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitLiteral(Literal node, Object context)
         {
-            return LiteralInterpreter.evaluate(plannerContext, session, expressionTypes, node);
+            return literalInterpreter.evaluate(node, type(node));
         }
 
         @Override
@@ -546,7 +551,6 @@ public class ExpressionInterpreter
 
         private List<Object> processOperands(CoalesceExpression node, Object context)
         {
-            Type type = type(node);
             List<Object> newOperands = new ArrayList<>();
             Set<Expression> uniqueNewOperands = new HashSet<>();
             for (Expression operand : node.getOperands()) {
@@ -559,14 +563,18 @@ public class ExpressionInterpreter
                             newOperands.add(nestedOperand);
                         }
                         // This operand can be evaluated to a non-null value. Remaining operands can be skipped.
-                        if (nestedOperand instanceof Literal) {
+                        if (isEffectivelyLiteral(plannerContext, session, nestedOperand)) {
+                            verify(
+                                    !(nestedOperand instanceof NullLiteral) && !(nestedOperand instanceof Cast && ((Cast) nestedOperand).getExpression() instanceof NullLiteral),
+                                    "Null operand should have been removed by recursive coalesce processing");
                             return newOperands;
                         }
                     }
                 }
                 else if (value instanceof Expression) {
+                    verify(!(value instanceof NullLiteral), "Null value is expected to be represented as null, not NullLiteral");
                     // Skip duplicates unless they are non-deterministic.
-                    Expression expression = toExpression(value, type);
+                    Expression expression = (Expression) value;
                     if (!isDeterministic(expression, metadata) || uniqueNewOperands.add(expression)) {
                         newOperands.add(expression);
                     }
@@ -598,27 +606,29 @@ public class ExpressionInterpreter
                 return null;
             }
 
-            Set<?> set = inListCache.get(valueList);
+            if (!(value instanceof Expression)) {
+                Set<?> set = inListCache.get(valueList);
 
-            // We use the presence of the node in the map to indicate that we've already done
-            // the analysis below. If the value is null, it means that we can't apply the HashSet
-            // optimization
-            if (!inListCache.containsKey(valueList)) {
-                if (valueList.getValues().stream().allMatch(Literal.class::isInstance) &&
-                        valueList.getValues().stream().noneMatch(NullLiteral.class::isInstance)) {
-                    Set<Object> objectSet = valueList.getValues().stream().map(expression -> processWithExceptionHandling(expression, context)).collect(Collectors.toSet());
-                    Type type = type(node.getValue());
-                    set = FastutilSetHelper.toFastutilHashSet(
-                            objectSet,
-                            type,
-                            metadata.getScalarFunctionInvoker(metadata.resolveOperator(session, HASH_CODE, ImmutableList.of(type)), simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle(),
-                            metadata.getScalarFunctionInvoker(metadata.resolveOperator(session, EQUAL, ImmutableList.of(type, type)), simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL)).getMethodHandle());
+                // We use the presence of the node in the map to indicate that we've already done
+                // the analysis below. If the value is null, it means that we can't apply the HashSet
+                // optimization
+                if (!inListCache.containsKey(valueList)) {
+                    if (valueList.getValues().stream().allMatch(Literal.class::isInstance) &&
+                            valueList.getValues().stream().noneMatch(NullLiteral.class::isInstance)) {
+                        Set<Object> objectSet = valueList.getValues().stream().map(expression -> processWithExceptionHandling(expression, context)).collect(Collectors.toSet());
+                        Type type = type(node.getValue());
+                        set = FastutilSetHelper.toFastutilHashSet(
+                                objectSet,
+                                type,
+                                plannerContext.getFunctionManager().getScalarFunctionImplementation(metadata.resolveOperator(session, HASH_CODE, ImmutableList.of(type)), simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle(),
+                                plannerContext.getFunctionManager().getScalarFunctionImplementation(metadata.resolveOperator(session, EQUAL, ImmutableList.of(type, type)), simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL)).getMethodHandle());
+                    }
+                    inListCache.put(valueList, set);
                 }
-                inListCache.put(valueList, set);
-            }
 
-            if (set != null && !(value instanceof Expression)) {
-                return set.contains(value);
+                if (set != null) {
+                    return set.contains(value);
+                }
             }
 
             boolean hasUnresolvedValue = value instanceof Expression;
@@ -629,6 +639,14 @@ public class ExpressionInterpreter
 
             ResolvedFunction equalsOperator = metadata.resolveOperator(session, OperatorType.EQUAL, types(node.getValue(), valueList));
             for (Expression expression : valueList.getValues()) {
+                if (value instanceof Expression && expression instanceof Literal) {
+                    // skip interpreting of literal IN term since it cannot be compared
+                    // with unresolved "value" and it cannot be simplified further
+                    values.add(expression);
+                    types.add(type(expression));
+                    continue;
+                }
+
                 // Use process() instead of processWithExceptionHandling() for processing in-list items.
                 // Do not handle exceptions thrown while processing a single in-list expression,
                 // but fail the whole in-predicate evaluation.
@@ -664,11 +682,11 @@ public class ExpressionInterpreter
                 Type type = type(node.getValue());
                 List<Expression> expressionValues = toExpressions(values, types);
                 List<Expression> simplifiedExpressionValues = Stream.concat(
-                        expressionValues.stream()
-                                .filter(expression -> isDeterministic(expression, metadata))
-                                .distinct(),
-                        expressionValues.stream()
-                                .filter((expression -> !isDeterministic(expression, metadata))))
+                                expressionValues.stream()
+                                        .filter(expression -> isDeterministic(expression, metadata))
+                                        .distinct(),
+                                expressionValues.stream()
+                                        .filter((expression -> !isDeterministic(expression, metadata))))
                         .collect(toImmutableList());
 
                 if (simplifiedExpressionValues.size() == 1) {
@@ -710,41 +728,37 @@ public class ExpressionInterpreter
             }
             if (value instanceof Expression) {
                 Expression valueExpression = toExpression(value, type(node.getValue()));
-                switch (node.getSign()) {
-                    case PLUS:
-                        return valueExpression;
-                    case MINUS:
+                return switch (node.getSign()) {
+                    case PLUS -> valueExpression;
+                    case MINUS -> {
                         if (valueExpression instanceof ArithmeticUnaryExpression && ((ArithmeticUnaryExpression) valueExpression).getSign().equals(MINUS)) {
-                            return ((ArithmeticUnaryExpression) valueExpression).getValue();
+                            yield ((ArithmeticUnaryExpression) valueExpression).getValue();
                         }
-                        return new ArithmeticUnaryExpression(MINUS, valueExpression);
-                    default:
-                        throw new UnsupportedOperationException("Unsupported unary operator: " + node.getSign());
-                }
+                        yield new ArithmeticUnaryExpression(MINUS, valueExpression);
+                    }
+                };
             }
 
-            switch (node.getSign()) {
-                case PLUS:
-                    return value;
-                case MINUS:
+            return switch (node.getSign()) {
+                case PLUS -> value;
+                case MINUS -> {
                     ResolvedFunction resolvedOperator = metadata.resolveOperator(session, OperatorType.NEGATION, types(node.getValue()));
                     InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(NEVER_NULL), FAIL_ON_NULL, true, false);
-                    MethodHandle handle = metadata.getScalarFunctionInvoker(resolvedOperator, invocationConvention).getMethodHandle();
+                    MethodHandle handle = plannerContext.getFunctionManager().getScalarFunctionImplementation(resolvedOperator, invocationConvention).getMethodHandle();
 
                     if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == ConnectorSession.class) {
                         handle = handle.bindTo(connectorSession);
                     }
                     try {
-                        return handle.invokeWithArguments(value);
+                        yield handle.invokeWithArguments(value);
                     }
                     catch (Throwable throwable) {
                         throwIfInstanceOf(throwable, RuntimeException.class);
                         throwIfInstanceOf(throwable, Error.class);
                         throw new RuntimeException(throwable.getMessage(), throwable);
                     }
-            }
-
-            throw new UnsupportedOperationException("Unsupported unary operator: " + node.getSign());
+                }
+            };
         }
 
         @Override
@@ -842,23 +856,15 @@ public class ExpressionInterpreter
         // TODO define method contract or split into separate methods, as flip(EQUAL) is a negation, while flip(LESS_THAN) is just flipping sides
         private ComparisonExpression flipComparison(ComparisonExpression comparisonExpression)
         {
-            switch (comparisonExpression.getOperator()) {
-                case EQUAL:
-                    return new ComparisonExpression(Operator.NOT_EQUAL, comparisonExpression.getLeft(), comparisonExpression.getRight());
-                case NOT_EQUAL:
-                    return new ComparisonExpression(Operator.EQUAL, comparisonExpression.getLeft(), comparisonExpression.getRight());
-                case LESS_THAN:
-                    return new ComparisonExpression(Operator.GREATER_THAN, comparisonExpression.getRight(), comparisonExpression.getLeft());
-                case LESS_THAN_OR_EQUAL:
-                    return new ComparisonExpression(Operator.GREATER_THAN_OR_EQUAL, comparisonExpression.getRight(), comparisonExpression.getLeft());
-                case GREATER_THAN:
-                    return new ComparisonExpression(Operator.LESS_THAN, comparisonExpression.getRight(), comparisonExpression.getLeft());
-                case GREATER_THAN_OR_EQUAL:
-                    return new ComparisonExpression(Operator.LESS_THAN_OR_EQUAL, comparisonExpression.getRight(), comparisonExpression.getLeft());
-                case IS_DISTINCT_FROM:
-                    // not expected here
-            }
-            throw new IllegalArgumentException("Unsupported comparison type: " + comparisonExpression.getOperator());
+            return switch (comparisonExpression.getOperator()) {
+                case EQUAL -> new ComparisonExpression(Operator.NOT_EQUAL, comparisonExpression.getLeft(), comparisonExpression.getRight());
+                case NOT_EQUAL -> new ComparisonExpression(Operator.EQUAL, comparisonExpression.getLeft(), comparisonExpression.getRight());
+                case LESS_THAN -> new ComparisonExpression(Operator.GREATER_THAN, comparisonExpression.getRight(), comparisonExpression.getLeft());
+                case LESS_THAN_OR_EQUAL -> new ComparisonExpression(Operator.GREATER_THAN_OR_EQUAL, comparisonExpression.getRight(), comparisonExpression.getLeft());
+                case GREATER_THAN -> new ComparisonExpression(Operator.LESS_THAN, comparisonExpression.getRight(), comparisonExpression.getLeft());
+                case GREATER_THAN_OR_EQUAL -> new ComparisonExpression(Operator.LESS_THAN_OR_EQUAL, comparisonExpression.getRight(), comparisonExpression.getLeft());
+                default -> throw new IllegalStateException("Unexpected value: " + comparisonExpression.getOperator());
+            };
         }
 
         @Override
@@ -959,39 +965,32 @@ public class ExpressionInterpreter
                 Object processed = processWithExceptionHandling(term, context);
 
                 switch (node.getOperator()) {
-                    case AND:
+                    case AND -> {
                         if (Boolean.FALSE.equals(processed)) {
                             return false;
                         }
-
                         if (!Boolean.TRUE.equals(processed)) {
                             terms.add(processed);
                             types.add(type(term));
                         }
-
-                        break;
-                    case OR:
+                    }
+                    case OR -> {
                         if (Boolean.TRUE.equals(processed)) {
                             return true;
                         }
-
                         if (!Boolean.FALSE.equals(processed)) {
                             terms.add(processed);
                             types.add(type(term));
                         }
-                        break;
+                    }
                 }
             }
 
             if (terms.isEmpty()) {
-                switch (node.getOperator()) {
-                    case AND:
-                        // terms are true
-                        return true;
-                    case OR:
-                        // all terms are false
-                        return false;
-                }
+                return switch (node.getOperator()) {
+                    case AND -> true; // terms are true
+                    case OR -> false; // all terms are false
+                };
             }
 
             if (terms.size() == 1) {
@@ -1037,7 +1036,7 @@ public class ExpressionInterpreter
             }
 
             // do not optimize non-deterministic functions
-            if (optimize && (!metadata.getFunctionMetadata(resolvedFunction).isDeterministic() ||
+            if (optimize && (!metadata.getFunctionMetadata(session, resolvedFunction).isDeterministic() ||
                     hasUnresolvedValue(argumentValues) ||
                     isDynamicFilter(node) ||
                     resolvedFunction.getSignature().getName().equals("fail"))) {
@@ -1136,15 +1135,15 @@ public class ExpressionInterpreter
             if (value instanceof Slice &&
                     pattern instanceof Slice &&
                     (escape == null || escape instanceof Slice)) {
-                JoniRegexp regex;
+                LikeMatcher matcher;
                 if (escape == null) {
-                    regex = LikeFunctions.compileLikePattern((Slice) pattern);
+                    matcher = LikeMatcher.compile(((Slice) pattern).toStringUtf8(), Optional.empty());
                 }
                 else {
-                    regex = LikeFunctions.likePattern((Slice) pattern, (Slice) escape);
+                    matcher = LikeFunctions.likePattern((Slice) pattern, (Slice) escape);
                 }
 
-                return evaluateLikePredicate(node, (Slice) value, regex);
+                return evaluateLikePredicate(node, (Slice) value, matcher);
             }
 
             // if pattern is a constant without % or _ replace with a comparison
@@ -1188,30 +1187,30 @@ public class ExpressionInterpreter
                     optimizedEscape);
         }
 
-        private boolean evaluateLikePredicate(LikePredicate node, Slice value, JoniRegexp regex)
+        private boolean evaluateLikePredicate(LikePredicate node, Slice value, LikeMatcher matcher)
         {
             if (type(node.getValue()) instanceof VarcharType) {
-                return LikeFunctions.likeVarchar(value, regex);
+                return LikeFunctions.likeVarchar(value, matcher);
             }
 
             Type type = type(node.getValue());
             checkState(type instanceof CharType, "LIKE value is neither VARCHAR or CHAR");
-            return LikeFunctions.likeChar((long) ((CharType) type).getLength(), value, regex);
+            return LikeFunctions.likeChar((long) ((CharType) type).getLength(), value, matcher);
         }
 
-        private JoniRegexp getConstantPattern(LikePredicate node)
+        private LikeMatcher getConstantPattern(LikePredicate node)
         {
-            JoniRegexp result = likePatternCache.get(node);
+            LikeMatcher result = likePatternCache.get(node);
 
             if (result == null) {
                 StringLiteral pattern = (StringLiteral) node.getPattern();
 
                 if (node.getEscape().isPresent()) {
-                    Slice escape = ((StringLiteral) node.getEscape().get()).getSlice();
-                    result = LikeFunctions.likePattern(pattern.getSlice(), escape);
+                    Slice escape = Slices.utf8Slice(((StringLiteral) node.getEscape().get()).getValue());
+                    result = LikeFunctions.likePattern(Slices.utf8Slice(pattern.getValue()), escape);
                 }
                 else {
-                    result = LikeFunctions.compileLikePattern(pattern.getSlice());
+                    result = LikeMatcher.compile(pattern.getValue(), Optional.empty());
                 }
 
                 likePatternCache.put(node, result);
@@ -1256,7 +1255,7 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitArrayConstructor(ArrayConstructor node, Object context)
+        protected Object visitArray(Array node, Object context)
         {
             Type elementType = ((ArrayType) type(node)).getElementType();
             BlockBuilder arrayBlockBuilder = elementType.createBlockBuilder(null, node.getValues().size());
@@ -1267,7 +1266,7 @@ public class ExpressionInterpreter
                     checkCondition(node.getValues().size() <= 254, NOT_SUPPORTED, "Too many arguments for array constructor");
                     return visitFunctionCall(
                             FunctionCallBuilder.resolve(session, metadata)
-                                    .setName(QualifiedName.of(ArrayConstructor.ARRAY_CONSTRUCTOR))
+                                    .setName(QualifiedName.of(ArrayConstructor.NAME))
                                     .setArguments(types(node.getValues()), node.getValues())
                                     .build(),
                             context);
@@ -1293,7 +1292,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitCurrentUser(CurrentUser node, Object context)
         {
-            return visitFunctionCall(DesugarCurrentUser.getCall(node, metadata, session), context);
+            return visitFunctionCall(DesugarCurrentUser.getCall(metadata, session), context);
         }
 
         @Override

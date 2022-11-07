@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.LittleEndianDataInputStream;
 import com.google.common.net.MediaType;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -27,9 +28,7 @@ import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
 import io.airlift.http.client.ResponseTooLargeException;
 import io.airlift.log.Logger;
-import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceInput;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
@@ -268,10 +267,10 @@ public final class HttpPageBufferClient
     @Override
     public void close()
     {
-        boolean shouldSendDelete;
+        boolean shouldDestroyTaskResults;
         Future<?> future;
         synchronized (this) {
-            shouldSendDelete = !closed;
+            shouldDestroyTaskResults = !closed;
 
             closed = true;
 
@@ -286,9 +285,9 @@ public final class HttpPageBufferClient
             future.cancel(true);
         }
 
-        // abort the output buffer on the remote node; response of delete is ignored
-        if (shouldSendDelete) {
-            sendDelete();
+        // destroy task results on the remote node; response is ignored
+        if (shouldDestroyTaskResults) {
+            destroyTaskResults();
         }
     }
 
@@ -325,7 +324,7 @@ public final class HttpPageBufferClient
         }
 
         if (completed) {
-            sendDelete();
+            destroyTaskResults();
         }
         else {
             sendGetResults();
@@ -354,6 +353,7 @@ public final class HttpPageBufferClient
                 backoff.success();
 
                 List<Slice> pages;
+                boolean pagesAccepted;
                 try {
                     if (result.isTaskFailed()) {
                         throw new TrinoException(REMOTE_TASK_FAILED, format("Remote task failed: %s", remoteTaskId));
@@ -413,19 +413,27 @@ public final class HttpPageBufferClient
                     // clientCallback can keep stats of requests and responses. For example, it may
                     // keep track of how often a client returns empty response and adjust request
                     // frequency or buffer size.
-                    if (clientCallback.addPages(HttpPageBufferClient.this, pages)) {
-                        pagesReceived.addAndGet(pages.size());
-                        rowsReceived.addAndGet(pages.stream().mapToLong(PagesSerde::getSerializedPagePositionCount).sum());
-                    }
-                    else {
-                        pagesRejected.addAndGet(pages.size());
-                        rowsRejected.addAndGet(pages.stream().mapToLong(PagesSerde::getSerializedPagePositionCount).sum());
-                    }
+                    pagesAccepted = clientCallback.addPages(HttpPageBufferClient.this, pages);
                 }
                 catch (TrinoException e) {
                     handleFailure(e, resultFuture);
                     return;
                 }
+
+                // update client stats
+                if (!pages.isEmpty()) {
+                    int pageCount = pages.size();
+                    long rowCount = pages.stream().mapToLong(PagesSerde::getSerializedPagePositionCount).sum();
+                    if (pagesAccepted) {
+                        pagesReceived.addAndGet(pageCount);
+                        rowsReceived.addAndGet(rowCount);
+                    }
+                    else {
+                        pagesRejected.addAndGet(pageCount);
+                        rowsRejected.addAndGet(rowCount);
+                    }
+                }
+                requestsCompleted.incrementAndGet();
 
                 synchronized (HttpPageBufferClient.this) {
                     // client is complete, acknowledge it by sending it a delete in the next request
@@ -437,7 +445,6 @@ public final class HttpPageBufferClient
                     }
                     lastUpdate = DateTime.now();
                 }
-                requestsCompleted.incrementAndGet();
                 clientCallback.requestComplete(HttpPageBufferClient.this);
             }
 
@@ -478,7 +485,7 @@ public final class HttpPageBufferClient
         }, pageBufferClientCallbackExecutor);
     }
 
-    private synchronized void sendDelete()
+    private synchronized void destroyTaskResults()
     {
         HttpResponseFuture<StatusResponse> resultFuture = httpClient.executeAsync(prepareDelete().setUri(location).build(), createStatusResponseHandler());
         future = resultFuture;
@@ -676,7 +683,7 @@ public final class HttpPageBufferClient
                 boolean complete = getComplete(response, uri);
                 boolean remoteTaskFailed = getTaskFailed(response, uri);
 
-                try (SliceInput input = new InputStreamSliceInput(response.getInputStream())) {
+                try (LittleEndianDataInputStream input = new LittleEndianDataInputStream(response.getInputStream())) {
                     int magic = input.readInt();
                     if (magic != SERIALIZED_PAGES_MAGIC) {
                         throw new IllegalStateException(format("Invalid stream header, expected 0x%08x, but was 0x%08x", SERIALIZED_PAGES_MAGIC, magic));

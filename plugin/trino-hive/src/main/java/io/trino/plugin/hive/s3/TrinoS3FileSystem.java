@@ -18,6 +18,7 @@ import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.Protocol;
+import com.amazonaws.SdkClientException;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
@@ -32,18 +33,24 @@ import com.amazonaws.event.ProgressEvent;
 import com.amazonaws.event.ProgressEventType;
 import com.amazonaws.event.ProgressListener;
 import com.amazonaws.metrics.RequestMetricCollector;
+import com.amazonaws.regions.DefaultAwsRegionProviderChain;
+import com.amazonaws.regions.Region;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Builder;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.AmazonS3Encryption;
 import com.amazonaws.services.s3.AmazonS3EncryptionClient;
+import com.amazonaws.services.s3.AmazonS3EncryptionClientBuilder;
 import com.amazonaws.services.s3.Headers;
 import com.amazonaws.services.s3.internal.Constants;
 import com.amazonaws.services.s3.model.AbortMultipartUploadRequest;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.CompleteMultipartUploadRequest;
 import com.amazonaws.services.s3.model.CopyObjectRequest;
+import com.amazonaws.services.s3.model.CryptoConfiguration;
 import com.amazonaws.services.s3.model.DeleteObjectRequest;
+import com.amazonaws.services.s3.model.DeleteObjectsRequest;
+import com.amazonaws.services.s3.model.DeleteObjectsRequest.KeyVersion;
 import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
 import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
 import com.amazonaws.services.s3.model.GetObjectRequest;
@@ -64,18 +71,21 @@ import com.amazonaws.services.s3.transfer.Transfer;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
 import com.amazonaws.services.s3.transfer.Upload;
+import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClientBuilder;
 import com.amazonaws.services.securitytoken.model.AWSSecurityTokenServiceException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.io.Closer;
 import com.google.common.net.MediaType;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.plugin.hive.util.FSDataInputStreamTail;
+import io.trino.hdfs.FSDataInputStreamTail;
+import io.trino.hdfs.FileSystemWithBatchDelete;
 import org.apache.hadoop.conf.Configurable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
@@ -90,6 +100,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.util.Progressable;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
@@ -107,7 +118,9 @@ import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collection;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
@@ -135,6 +148,7 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.toArray;
 import static com.google.common.hash.Hashing.md5;
 import static io.airlift.concurrent.Threads.threadsNamed;
@@ -151,6 +165,7 @@ import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createTempFile;
+import static java.util.Objects.nonNull;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -161,6 +176,7 @@ import static org.apache.hadoop.fs.FSExceptionMessages.STREAM_IS_CLOSED;
 
 public class TrinoS3FileSystem
         extends FileSystem
+        implements FileSystemWithBatchDelete
 {
     public static final String S3_USER_AGENT_PREFIX = "trino.s3.user-agent-prefix";
     public static final String S3_CREDENTIALS_PROVIDER = "trino.s3.credentials-provider";
@@ -185,6 +201,7 @@ public class TrinoS3FileSystem
     public static final String S3_SIGNER_TYPE = "trino.s3.signer-type";
     public static final String S3_SIGNER_CLASS = "trino.s3.signer-class";
     public static final String S3_ENDPOINT = "trino.s3.endpoint";
+    public static final String S3_REGION = "trino.s3.region";
     public static final String S3_SECRET_KEY = "trino.s3.secret-key";
     public static final String S3_ACCESS_KEY = "trino.s3.access-key";
     public static final String S3_SESSION_TOKEN = "trino.s3.session-token";
@@ -196,10 +213,21 @@ public class TrinoS3FileSystem
     public static final String S3_STREAMING_UPLOAD_ENABLED = "trino.s3.streaming.enabled";
     public static final String S3_STREAMING_UPLOAD_PART_SIZE = "trino.s3.streaming.part-size";
     public static final String S3_STORAGE_CLASS = "trino.s3.storage-class";
+    public static final String S3_ROLE_SESSION_NAME = "trino.s3.role-session-name";
+    public static final String S3_PROXY_HOST = "trino.s3.proxy.host";
+    public static final String S3_PROXY_PORT = "trino.s3.proxy.port";
+    public static final String S3_PROXY_PROTOCOL = "trino.s3.proxy.protocol";
+    public static final String S3_NON_PROXY_HOSTS = "trino.s3.proxy.non-proxy-hosts";
+    public static final String S3_PROXY_USERNAME = "trino.s3.proxy.username";
+    public static final String S3_PROXY_PASSWORD = "trino.s3.proxy.password";
+    public static final String S3_PREEMPTIVE_BASIC_PROXY_AUTH = "trino.s3.proxy.preemptive-basic-auth";
+
+    public static final String S3_STS_ENDPOINT = "trino.s3.sts.endpoint";
+    public static final String S3_STS_REGION = "trino.s3.sts.region";
 
     private static final Logger log = Logger.get(TrinoS3FileSystem.class);
     private static final TrinoS3FileSystemStats STATS = new TrinoS3FileSystemStats();
-    private static final RequestMetricCollector METRIC_COLLECTOR = new TrinoS3FileSystemMetricCollector(STATS);
+    private static final RequestMetricCollector METRIC_COLLECTOR = STATS.newRequestMetricCollector();
     private static final String DIRECTORY_SUFFIX = "_$folder$";
     private static final DataSize BLOCK_SIZE = DataSize.of(32, MEGABYTE);
     private static final DataSize MAX_SKIP_SIZE = DataSize.of(1, MEGABYTE);
@@ -209,6 +237,8 @@ public class TrinoS3FileSystem
     private static final String S3_CUSTOM_SIGNER = "TrinoS3CustomSigner";
     private static final Set<String> GLACIER_STORAGE_CLASSES = ImmutableSet.of(Glacier.toString(), DeepArchive.toString());
     private static final MediaType DIRECTORY_MEDIA_TYPE = MediaType.create("application", "x-directory");
+    private static final String S3_DEFAULT_ROLE_SESSION_NAME = "trino-session";
+    public static final int DELETE_BATCH_SIZE = 1000;
 
     private URI uri;
     private Path workingDirectory;
@@ -233,6 +263,7 @@ public class TrinoS3FileSystem
     private boolean streamingUploadEnabled;
     private int streamingUploadPartSize;
     private TrinoS3StorageClass s3StorageClass;
+    private String s3RoleSessionName;
 
     private final ExecutorService uploadExecutor = newCachedThreadPool(threadsNamed("s3-upload-%s"));
 
@@ -281,6 +312,7 @@ public class TrinoS3FileSystem
         this.streamingUploadEnabled = conf.getBoolean(S3_STREAMING_UPLOAD_ENABLED, defaults.isS3StreamingUploadEnabled());
         this.streamingUploadPartSize = toIntExact(conf.getLong(S3_STREAMING_UPLOAD_PART_SIZE, defaults.getS3StreamingPartSize().toBytes()));
         this.s3StorageClass = conf.getEnum(S3_STORAGE_CLASS, defaults.getS3StorageClass());
+        this.s3RoleSessionName = conf.get(S3_ROLE_SESSION_NAME, S3_DEFAULT_ROLE_SESSION_NAME);
 
         ClientConfiguration configuration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
@@ -291,6 +323,30 @@ public class TrinoS3FileSystem
                 .withUserAgentPrefix(userAgentPrefix)
                 .withUserAgentSuffix("Trino");
 
+        String proxyHost = conf.get(S3_PROXY_HOST);
+        if (nonNull(proxyHost)) {
+            configuration.setProxyHost(proxyHost);
+            configuration.setProxyPort(conf.getInt(S3_PROXY_PORT, defaults.getS3ProxyPort()));
+            String proxyProtocol = conf.get(S3_PROXY_PROTOCOL);
+            if (proxyProtocol != null) {
+                configuration.setProxyProtocol(TrinoS3Protocol.valueOf(proxyProtocol).getProtocol());
+            }
+            String nonProxyHosts = conf.get(S3_NON_PROXY_HOSTS);
+            if (nonProxyHosts != null) {
+                configuration.setNonProxyHosts(nonProxyHosts);
+            }
+            String proxyUsername = conf.get(S3_PROXY_USERNAME);
+            if (proxyUsername != null) {
+                configuration.setProxyUsername(proxyUsername);
+            }
+            String proxyPassword = conf.get(S3_PROXY_PASSWORD);
+            if (proxyPassword != null) {
+                configuration.setProxyPassword(proxyPassword);
+            }
+            configuration.setPreemptiveBasicProxyAuth(
+                    conf.getBoolean(S3_PREEMPTIVE_BASIC_PROXY_AUTH, defaults.getS3PreemptiveBasicProxyAuth()));
+        }
+
         this.credentialsProvider = createAwsCredentialsProvider(uri, conf);
         this.s3 = createAmazonS3Client(conf, configuration);
     }
@@ -300,13 +356,26 @@ public class TrinoS3FileSystem
             throws IOException
     {
         try (Closer closer = Closer.create()) {
-            closer.register(super::close);
+            closer.register(this::closeSuper);
             if (credentialsProvider instanceof Closeable) {
                 closer.register((Closeable) credentialsProvider);
             }
             closer.register(uploadExecutor::shutdown);
             closer.register(s3::shutdown);
         }
+    }
+
+    @SuppressModernizer
+    private void closeSuper()
+            throws IOException
+    {
+        super.close();
+    }
+
+    @Override
+    public String getScheme()
+    {
+        return uri.getScheme();
     }
 
     @Override
@@ -346,13 +415,6 @@ public class TrinoS3FileSystem
         // Either a single level or full listing, depending on the recursive flag, no "directories"
         // included in either path
         return new S3ObjectsV2RemoteIterator(listPath(path, OptionalInt.empty(), recursive ? ListingMode.RECURSIVE_FILES_ONLY : ListingMode.SHALLOW_FILES_ONLY));
-    }
-
-    public RemoteIterator<LocatedFileStatus> listFilesByPrefix(Path prefix, boolean recursive)
-    {
-        // Either a single level or full listing, depending on the recursive flag, no "directories"
-        // included in either path
-        return new S3ObjectsV2RemoteIterator(listPrefix(keyFromPath(prefix), OptionalInt.empty(), recursive ? ListingMode.RECURSIVE_FILES_ONLY : ListingMode.SHALLOW_FILES_ONLY));
     }
 
     @Override
@@ -591,6 +653,35 @@ public class TrinoS3FileSystem
     }
 
     @Override
+    public void deleteFiles(Collection<Path> paths)
+            throws IOException
+    {
+        try {
+            Iterable<List<Path>> partitions = Iterables.partition(paths, DELETE_BATCH_SIZE);
+            for (List<Path> currentBatch : partitions) {
+                deletePaths(currentBatch);
+            }
+        }
+        catch (AmazonClientException e) {
+            throw new IOException("Exception while batch deleting paths", e);
+        }
+    }
+
+    private void deletePaths(List<Path> paths)
+    {
+        List<KeyVersion> keys = paths.stream()
+                .map(TrinoS3FileSystem::keyFromPath)
+                .map(KeyVersion::new)
+                .collect(toImmutableList());
+        DeleteObjectsRequest deleteObjectsRequest = new DeleteObjectsRequest(getBucketName(uri))
+                .withRequesterPays(requesterPaysEnabled)
+                .withKeys(keys)
+                .withQuiet(true);
+
+        s3.deleteObjects(deleteObjectsRequest);
+    }
+
+    @Override
     public boolean mkdirs(Path f, FsPermission permission)
     {
         // no need to do anything for S3
@@ -623,17 +714,9 @@ public class TrinoS3FileSystem
             key += PATH_SEPARATOR;
         }
 
-        return listPrefix(key, initialMaxKeys, mode);
-    }
-
-    /**
-     * List all objects whose absolute path matches the provided prefix.
-     */
-    private Iterator<LocatedFileStatus> listPrefix(String prefix, OptionalInt initialMaxKeys, ListingMode mode)
-    {
         ListObjectsV2Request request = new ListObjectsV2Request()
                 .withBucketName(getBucketName(uri))
-                .withPrefix(prefix)
+                .withPrefix(key)
                 .withDelimiter(mode == ListingMode.RECURSIVE_FILES_ONLY ? null : PATH_SEPARATOR)
                 .withMaxKeys(initialMaxKeys.isPresent() ? initialMaxKeys.getAsInt() : null)
                 .withRequesterPays(requesterPaysEnabled);
@@ -721,8 +804,7 @@ public class TrinoS3FileSystem
      * This exception is for stopping retries for S3 calls that shouldn't be retried.
      * For example, "Caused by: com.amazonaws.services.s3.model.AmazonS3Exception: Forbidden (Service: Amazon S3; Status Code: 403 ..."
      */
-    @VisibleForTesting
-    static class UnrecoverableS3OperationException
+    public static class UnrecoverableS3OperationException
             extends IOException
     {
         public UnrecoverableS3OperationException(Path path, Throwable cause)
@@ -825,7 +907,10 @@ public class TrinoS3FileSystem
     public static String keyFromPath(Path path)
     {
         checkArgument(path.isAbsolute(), "Path is not absolute: %s", path);
-        String key = nullToEmpty(path.toUri().getPath());
+        // hack to use path from fragment -- see IcebergSplitSource#hadoopPath()
+        String key = Optional.ofNullable(path.toUri().getFragment())
+                .or(() -> Optional.ofNullable(path.toUri().getPath()))
+                .orElse("");
         if (key.startsWith(PATH_SEPARATOR)) {
             key = key.substring(PATH_SEPARATOR.length());
         }
@@ -876,13 +961,24 @@ public class TrinoS3FileSystem
 
         // use local region when running inside of EC2
         if (pinS3ClientToCurrentRegion) {
-            clientBuilder.setRegion(getCurrentRegionFromEC2Metadata().getName());
+            Region region = getCurrentRegionFromEC2Metadata();
+            clientBuilder.setRegion(region.getName());
+            if (encryptionMaterialsProvider.isPresent()) {
+                CryptoConfiguration cryptoConfiguration = new CryptoConfiguration();
+                cryptoConfiguration.setAwsKmsRegion(region);
+                ((AmazonS3EncryptionClientBuilder) clientBuilder).withCryptoConfiguration(cryptoConfiguration);
+            }
             regionOrEndpointSet = true;
         }
 
         String endpoint = hadoopConfig.get(S3_ENDPOINT);
+        String region = hadoopConfig.get(S3_REGION);
         if (endpoint != null) {
-            clientBuilder.setEndpointConfiguration(new EndpointConfiguration(endpoint, null));
+            clientBuilder.setEndpointConfiguration(new EndpointConfiguration(endpoint, region));
+            regionOrEndpointSet = true;
+        }
+        else if (region != null) {
+            clientBuilder.setRegion(region);
             regionOrEndpointSet = true;
         }
 
@@ -946,9 +1042,37 @@ public class TrinoS3FileSystem
                 .orElseGet(DefaultAWSCredentialsProviderChain::getInstance);
 
         if (iamRole != null) {
-            provider = new STSAssumeRoleSessionCredentialsProvider.Builder(iamRole, "trino-session")
+            String stsEndpointOverride = conf.get(S3_STS_ENDPOINT);
+            String stsRegionOverride = conf.get(S3_STS_REGION);
+
+            AWSSecurityTokenServiceClientBuilder stsClientBuilder = AWSSecurityTokenServiceClientBuilder.standard()
+                    .withCredentials(provider);
+
+            String region;
+            if (!isNullOrEmpty(stsRegionOverride)) {
+                region = stsRegionOverride;
+            }
+            else {
+                DefaultAwsRegionProviderChain regionProviderChain = new DefaultAwsRegionProviderChain();
+                try {
+                    region = regionProviderChain.getRegion();
+                }
+                catch (SdkClientException ex) {
+                    log.warn("Falling back to default AWS region " + US_EAST_1);
+                    region = US_EAST_1.getName();
+                }
+            }
+
+            if (!isNullOrEmpty(stsEndpointOverride)) {
+                stsClientBuilder.withEndpointConfiguration(new EndpointConfiguration(stsEndpointOverride, region));
+            }
+            else {
+                stsClientBuilder.withRegion(region);
+            }
+
+            provider = new STSAssumeRoleSessionCredentialsProvider.Builder(iamRole, s3RoleSessionName)
                     .withExternalId(externalId)
-                    .withLongLivedCredentialsProvider(provider)
+                    .withStsClient(stsClientBuilder.build())
                     .build();
         }
 
@@ -1500,10 +1624,17 @@ public class TrinoS3FileSystem
         private byte[] buffer;
         private int bufferSize;
 
+        private boolean closed;
         private boolean failed;
+        // Mutated and read by main thread; mutated just before scheduling upload to background thread (access does not need to be thread safe)
+        private boolean multipartUploadStarted;
+        // Mutated by background thread which does the multipart upload; read by both main thread and background thread;
+        // Visibility ensured by memory barrier via inProgressUploadFuture
         private Optional<String> uploadId = Optional.empty();
         private Future<UploadPartResult> inProgressUploadFuture;
         private final List<UploadPartResult> parts = new ArrayList<>();
+        private final int partSize;
+        private int initialBufferSize;
 
         public TrinoS3StreamingOutputStream(
                 AmazonS3 s3,
@@ -1517,20 +1648,21 @@ public class TrinoS3FileSystem
             STATS.uploadStarted();
 
             this.s3 = requireNonNull(s3, "s3 is null");
-
-            this.buffer = new byte[partSize];
-
+            this.partSize = partSize;
             this.bucketName = requireNonNull(bucketName, "bucketName is null");
             this.key = requireNonNull(key, "key is null");
             this.requestCustomizer = requireNonNull(requestCustomizer, "requestCustomizer is null");
             this.uploadIdFactory = requireNonNull(uploadIdFactory, "uploadIdFactory is null");
             this.uploadExecutor = requireNonNull(uploadExecutor, "uploadExecutor is null");
+            this.buffer = new byte[0];
+            this.initialBufferSize = 64;
         }
 
         @Override
         public void write(int b)
                 throws IOException
         {
+            ensureExtraBytesCapacity(1);
             flushBuffer(false);
             buffer[bufferSize] = (byte) b;
             bufferSize++;
@@ -1541,6 +1673,7 @@ public class TrinoS3FileSystem
                 throws IOException
         {
             while (length > 0) {
+                ensureExtraBytesCapacity(min(partSize - bufferSize, length));
                 int copied = min(buffer.length - bufferSize, length);
                 arraycopy(bytes, offset, buffer, bufferSize, copied);
                 bufferSize += copied;
@@ -1563,6 +1696,11 @@ public class TrinoS3FileSystem
         public void close()
                 throws IOException
         {
+            if (closed) {
+                return;
+            }
+            closed = true;
+
             if (failed) {
                 try {
                     abortUpload();
@@ -1591,11 +1729,27 @@ public class TrinoS3FileSystem
             }
         }
 
+        private void ensureExtraBytesCapacity(int extraBytesCapacity)
+        {
+            int totalBytesCapacity = bufferSize + extraBytesCapacity;
+            checkArgument(totalBytesCapacity <= partSize);
+            if (buffer.length < totalBytesCapacity) {
+                // buffer length might be 0
+                int newBytesLength = max(buffer.length, initialBufferSize);
+                if (totalBytesCapacity > newBytesLength) {
+                    // grow array by 50%
+                    newBytesLength = max(newBytesLength + (newBytesLength >> 1), totalBytesCapacity);
+                    newBytesLength = min(newBytesLength, partSize);
+                }
+                buffer = Arrays.copyOf(buffer, newBytesLength);
+            }
+        }
+
         private void flushBuffer(boolean finished)
                 throws IOException
         {
-            // skip multipart upload if there would only be one part
-            if (finished && uploadId.isEmpty()) {
+            // Skip multipart upload if there would only be one part
+            if (finished && !multipartUploadStarted) {
                 InputStream in = new ByteArrayInputStream(buffer, 0, bufferSize);
 
                 ObjectMetadata metadata = new ObjectMetadata();
@@ -1616,7 +1770,7 @@ public class TrinoS3FileSystem
             }
 
             // The multipart upload API only accept the last part to be less than 5MB
-            if (bufferSize == buffer.length || (finished && bufferSize > 0)) {
+            if (bufferSize == partSize || (finished && bufferSize > 0)) {
                 byte[] data = buffer;
                 int length = bufferSize;
 
@@ -1624,7 +1778,8 @@ public class TrinoS3FileSystem
                     this.buffer = null;
                 }
                 else {
-                    this.buffer = new byte[buffer.length];
+                    this.buffer = new byte[0];
+                    this.initialBufferSize = partSize;
                     bufferSize = 0;
                 }
 
@@ -1636,7 +1791,7 @@ public class TrinoS3FileSystem
                     abortUploadSuppressed(e);
                     throw e;
                 }
-
+                multipartUploadStarted = true;
                 inProgressUploadFuture = uploadExecutor.submit(() -> uploadPage(data, length));
             }
         }

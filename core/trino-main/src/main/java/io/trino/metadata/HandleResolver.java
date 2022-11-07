@@ -13,296 +13,81 @@
  */
 package io.trino.metadata;
 
-import io.trino.connector.informationschema.InformationSchemaHandleResolver;
-import io.trino.connector.system.SystemHandleResolver;
-import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.ConnectorHandleResolver;
-import io.trino.spi.connector.ConnectorIndexHandle;
-import io.trino.spi.connector.ConnectorInsertTableHandle;
-import io.trino.spi.connector.ConnectorOutputTableHandle;
-import io.trino.spi.connector.ConnectorPartitioningHandle;
-import io.trino.spi.connector.ConnectorSplit;
-import io.trino.spi.connector.ConnectorTableExecuteHandle;
-import io.trino.spi.connector.ConnectorTableHandle;
-import io.trino.spi.connector.ConnectorTableLayoutHandle;
-import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.split.EmptySplitHandleResolver;
+import io.trino.server.PluginClassLoader;
 
+import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
-import java.util.Map.Entry;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.function.Function;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
-import static java.util.Objects.requireNonNull;
 
+@ThreadSafe
 public final class HandleResolver
 {
-    private final ConcurrentMap<String, MaterializedHandleResolver> handleResolvers = new ConcurrentHashMap<>();
+    private final Map<String, ClassLoader> classLoaders = new ConcurrentHashMap<>();
 
     @Inject
     public HandleResolver()
     {
-        addCatalogHandleResolver(REMOTE_CONNECTOR_ID.toString(), new RemoteHandleResolver());
-        addCatalogHandleResolver("$system", new SystemHandleResolver());
-        addCatalogHandleResolver("$info_schema", new InformationSchemaHandleResolver());
-        addCatalogHandleResolver("$empty", new EmptySplitHandleResolver());
+        classLoaders.put("system", getClass().getClassLoader());
     }
 
-    public void addCatalogHandleResolver(String catalogName, ConnectorHandleResolver resolver)
+    public void registerClassLoader(PluginClassLoader classLoader)
     {
-        requireNonNull(catalogName, "catalogName is null");
-        requireNonNull(resolver, "resolver is null");
-        MaterializedHandleResolver existingResolver = handleResolvers.putIfAbsent(catalogName, new MaterializedHandleResolver(resolver));
-        checkState(existingResolver == null, "Catalog '%s' is already assigned to resolver: %s", catalogName, existingResolver);
+        ClassLoader existingClassLoader = classLoaders.putIfAbsent(classLoader.getId(), classLoader);
+        checkState(existingClassLoader == null, "Class loader already registered: %s", classLoader.getId());
     }
 
-    public void removeCatalogHandleResolver(String catalogName)
+    public void unregisterClassLoader(PluginClassLoader classLoader)
     {
-        handleResolvers.remove(catalogName);
+        boolean result = classLoaders.remove(classLoader.getId(), classLoader);
+        checkState(result, "Class loader not registered: %s", classLoader.getId());
     }
 
-    public String getId(ConnectorTableHandle tableHandle)
+    @SuppressWarnings("MethodMayBeStatic")
+    public String getId(Object tableHandle)
     {
-        return getId(tableHandle, MaterializedHandleResolver::getTableHandleClass);
+        Class<?> handleClass = tableHandle.getClass();
+        return classId(handleClass);
     }
 
-    public String getId(ConnectorTableLayoutHandle handle)
+    public Class<?> getHandleClass(String id)
     {
-        return getId(handle, MaterializedHandleResolver::getTableLayoutHandleClass);
-    }
+        int splitPoint = id.lastIndexOf(':');
+        checkArgument(splitPoint > 1, "Invalid handle id: %s", id);
+        String classLoaderId = id.substring(0, splitPoint);
+        String className = id.substring(splitPoint + 1);
 
-    public String getId(ColumnHandle columnHandle)
-    {
-        return getId(columnHandle, MaterializedHandleResolver::getColumnHandleClass);
-    }
+        ClassLoader classLoader = classLoaders.get(classLoaderId);
+        checkArgument(classLoader != null, "Unknown handle id: %s", id);
 
-    public String getId(ConnectorSplit split)
-    {
-        return getId(split, MaterializedHandleResolver::getSplitClass);
-    }
-
-    public String getId(ConnectorIndexHandle indexHandle)
-    {
-        return getId(indexHandle, MaterializedHandleResolver::getIndexHandleClass);
-    }
-
-    public String getId(ConnectorOutputTableHandle outputHandle)
-    {
-        return getId(outputHandle, MaterializedHandleResolver::getOutputTableHandleClass);
-    }
-
-    public String getId(ConnectorInsertTableHandle insertHandle)
-    {
-        return getId(insertHandle, MaterializedHandleResolver::getInsertTableHandleClass);
-    }
-
-    public String getId(ConnectorTableExecuteHandle tableExecuteHandle)
-    {
-        return getId(tableExecuteHandle, MaterializedHandleResolver::getTableExecuteHandleClass);
-    }
-
-    public String getId(ConnectorPartitioningHandle partitioningHandle)
-    {
-        return getId(partitioningHandle, MaterializedHandleResolver::getPartitioningHandleClass);
-    }
-
-    public String getId(ConnectorTransactionHandle transactionHandle)
-    {
-        return getId(transactionHandle, MaterializedHandleResolver::getTransactionHandleClass);
-    }
-
-    public Class<? extends ConnectorTableHandle> getTableHandleClass(String id)
-    {
-        return resolverFor(id).getTableHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
-    }
-
-    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass(String id)
-    {
-        return resolverFor(id).getTableLayoutHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
-    }
-
-    public Class<? extends ColumnHandle> getColumnHandleClass(String id)
-    {
-        return resolverFor(id).getColumnHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
-    }
-
-    public Class<? extends ConnectorSplit> getSplitClass(String id)
-    {
-        return resolverFor(id).getSplitClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
-    }
-
-    public Class<? extends ConnectorIndexHandle> getIndexHandleClass(String id)
-    {
-        return resolverFor(id).getIndexHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
-    }
-
-    public Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass(String id)
-    {
-        return resolverFor(id).getOutputTableHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
-    }
-
-    public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass(String id)
-    {
-        return resolverFor(id).getInsertTableHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
-    }
-
-    public Class<? extends ConnectorTableExecuteHandle> getTableExecuteHandleClass(String id)
-    {
-        return resolverFor(id).getTableExecuteHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
-    }
-
-    public Class<? extends ConnectorPartitioningHandle> getPartitioningHandleClass(String id)
-    {
-        return resolverFor(id).getPartitioningHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
-    }
-
-    public Class<? extends ConnectorTransactionHandle> getTransactionHandleClass(String id)
-    {
-        return resolverFor(id).getTransactionHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
-    }
-
-    private MaterializedHandleResolver resolverFor(String id)
-    {
-        MaterializedHandleResolver resolver = handleResolvers.get(id);
-        checkArgument(resolver != null, "No handle resolver for connector: %s", id);
-        return resolver;
-    }
-
-    private <T> String getId(T handle, Function<MaterializedHandleResolver, Optional<Class<? extends T>>> getter)
-    {
-        for (Entry<String, MaterializedHandleResolver> entry : handleResolvers.entrySet()) {
-            try {
-                if (getter.apply(entry.getValue()).map(clazz -> clazz.isInstance(handle)).orElse(false)) {
-                    return entry.getKey();
-                }
-            }
-            catch (UnsupportedOperationException ignored) {
-            }
+        try {
+            return classLoader.loadClass(className);
         }
-        throw new IllegalArgumentException("No connector for handle: " + handle);
+        catch (ClassNotFoundException ignored) {
+            throw new IllegalArgumentException("Handle ID not found: " + id);
+        }
     }
 
-    private static class MaterializedHandleResolver
+    private static String classId(Class<?> handleClass)
     {
-        private final Optional<Class<? extends ConnectorTableHandle>> tableHandle;
-        private final Optional<Class<? extends ConnectorTableLayoutHandle>> layoutHandle;
-        private final Optional<Class<? extends ColumnHandle>> columnHandle;
-        private final Optional<Class<? extends ConnectorSplit>> split;
-        private final Optional<Class<? extends ConnectorIndexHandle>> indexHandle;
-        private final Optional<Class<? extends ConnectorOutputTableHandle>> outputTableHandle;
-        private final Optional<Class<? extends ConnectorInsertTableHandle>> insertTableHandle;
-        private final Optional<Class<? extends ConnectorTableExecuteHandle>> tableExecuteHandle;
-        private final Optional<Class<? extends ConnectorPartitioningHandle>> partitioningHandle;
-        private final Optional<Class<? extends ConnectorTransactionHandle>> transactionHandle;
+        return classLoaderId(handleClass) + ":" + handleClass.getName();
+    }
 
-        public MaterializedHandleResolver(ConnectorHandleResolver resolver)
-        {
-            tableHandle = getHandleClass(resolver::getTableHandleClass);
-            layoutHandle = getHandleClass(resolver::getTableLayoutHandleClass);
-            columnHandle = getHandleClass(resolver::getColumnHandleClass);
-            split = getHandleClass(resolver::getSplitClass);
-            indexHandle = getHandleClass(resolver::getIndexHandleClass);
-            outputTableHandle = getHandleClass(resolver::getOutputTableHandleClass);
-            insertTableHandle = getHandleClass(resolver::getInsertTableHandleClass);
-            tableExecuteHandle = getHandleClass(resolver::getTableExecuteHandleClass);
-            partitioningHandle = getHandleClass(resolver::getPartitioningHandleClass);
-            transactionHandle = getHandleClass(resolver::getTransactionHandleClass);
+    @SuppressWarnings("ObjectEquality")
+    private static String classLoaderId(Class<?> handleClass)
+    {
+        ClassLoader classLoader = handleClass.getClassLoader();
+        if (classLoader instanceof PluginClassLoader) {
+            return ((PluginClassLoader) classLoader).getId();
         }
-
-        private static <T> Optional<Class<? extends T>> getHandleClass(Supplier<Class<? extends T>> callable)
-        {
-            try {
-                return Optional.of(callable.get());
-            }
-            catch (UnsupportedOperationException e) {
-                return Optional.empty();
-            }
-        }
-
-        public Optional<Class<? extends ConnectorTableHandle>> getTableHandleClass()
-        {
-            return tableHandle;
-        }
-
-        public Optional<Class<? extends ConnectorTableLayoutHandle>> getTableLayoutHandleClass()
-        {
-            return layoutHandle;
-        }
-
-        public Optional<Class<? extends ColumnHandle>> getColumnHandleClass()
-        {
-            return columnHandle;
-        }
-
-        public Optional<Class<? extends ConnectorSplit>> getSplitClass()
-        {
-            return split;
-        }
-
-        public Optional<Class<? extends ConnectorIndexHandle>> getIndexHandleClass()
-        {
-            return indexHandle;
-        }
-
-        public Optional<Class<? extends ConnectorOutputTableHandle>> getOutputTableHandleClass()
-        {
-            return outputTableHandle;
-        }
-
-        public Optional<Class<? extends ConnectorInsertTableHandle>> getInsertTableHandleClass()
-        {
-            return insertTableHandle;
-        }
-
-        public Optional<Class<? extends ConnectorTableExecuteHandle>> getTableExecuteHandleClass()
-        {
-            return tableExecuteHandle;
-        }
-
-        public Optional<Class<? extends ConnectorPartitioningHandle>> getPartitioningHandleClass()
-        {
-            return partitioningHandle;
-        }
-
-        public Optional<Class<? extends ConnectorTransactionHandle>> getTransactionHandleClass()
-        {
-            return transactionHandle;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            MaterializedHandleResolver that = (MaterializedHandleResolver) o;
-            return Objects.equals(tableHandle, that.tableHandle) &&
-                    Objects.equals(layoutHandle, that.layoutHandle) &&
-                    Objects.equals(columnHandle, that.columnHandle) &&
-                    Objects.equals(split, that.split) &&
-                    Objects.equals(indexHandle, that.indexHandle) &&
-                    Objects.equals(outputTableHandle, that.outputTableHandle) &&
-                    Objects.equals(insertTableHandle, that.insertTableHandle) &&
-                    Objects.equals(tableExecuteHandle, that.tableExecuteHandle) &&
-                    Objects.equals(partitioningHandle, that.partitioningHandle) &&
-                    Objects.equals(transactionHandle, that.transactionHandle);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(tableHandle, layoutHandle, columnHandle, split, indexHandle, outputTableHandle, insertTableHandle, tableExecuteHandle, partitioningHandle, transactionHandle);
-        }
+        checkArgument(classLoader == HandleResolver.class.getClassLoader(),
+                "Handle [%s] has unknown class loader [%s]",
+                handleClass.getName(),
+                classLoader.getClass().getName());
+        return "system";
     }
 }

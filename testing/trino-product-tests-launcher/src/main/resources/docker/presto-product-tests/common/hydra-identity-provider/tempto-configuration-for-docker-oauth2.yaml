@@ -10,5 +10,5 @@ databases:
       SSLTrustStorePath=${databases.presto.https_keystore_path}&\
       SSLTrustStorePassword=${databases.presto.https_keystore_password}&\
       externalAuthentication=true"
-    https_keystore_path: /docker/presto-product-tests/conf/presto/etc/presto-master.jks
+    https_keystore_path: /docker/presto-product-tests/truststore.jks
     https_keystore_password: '123456'

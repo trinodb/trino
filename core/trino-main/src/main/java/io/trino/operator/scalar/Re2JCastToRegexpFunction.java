@@ -17,9 +17,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.SqlOperator;
+import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.type.Re2JRegexp;
 
@@ -34,10 +36,9 @@ import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 import static io.trino.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.invoke.MethodHandles.insertArguments;
-import static java.util.Collections.emptyList;
 
 public class Re2JCastToRegexpFunction
-        extends SqlOperator
+        extends SqlScalarFunction
 {
     private static final MethodHandle METHOD_HANDLE = methodHandle(Re2JCastToRegexpFunction.class, "castToRegexp", int.class, int.class, boolean.class, long.class, Slice.class);
 
@@ -45,30 +46,36 @@ public class Re2JCastToRegexpFunction
     private final int dfaRetries;
     private final boolean padSpaces;
 
-    public static SqlOperator castVarcharToRe2JRegexp(int dfaStatesLimit, int dfaRetries)
+    public static SqlScalarFunction castVarcharToRe2JRegexp(int dfaStatesLimit, int dfaRetries)
     {
         return new Re2JCastToRegexpFunction("varchar(x)", dfaStatesLimit, dfaRetries, false);
     }
 
-    public static SqlOperator castCharToRe2JRegexp(int dfaStatesLimit, int dfaRetries)
+    public static SqlScalarFunction castCharToRe2JRegexp(int dfaStatesLimit, int dfaRetries)
     {
         return new Re2JCastToRegexpFunction("char(x)", dfaStatesLimit, dfaRetries, true);
     }
 
     private Re2JCastToRegexpFunction(String sourceType, int dfaStatesLimit, int dfaRetries, boolean padSpaces)
     {
-        super(CAST, emptyList(), emptyList(), RE2J_REGEXP_SIGNATURE, ImmutableList.of(parseTypeSignature(sourceType, ImmutableSet.of("x"))), false);
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .operatorType(CAST)
+                        .returnType(RE2J_REGEXP_SIGNATURE)
+                        .argumentType(parseTypeSignature(sourceType, ImmutableSet.of("x")))
+                        .build())
+                .build());
         this.dfaStatesLimit = dfaStatesLimit;
         this.dfaRetries = dfaRetries;
         this.padSpaces = padSpaces;
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         Type inputType = boundSignature.getArgumentType(0);
         Long typeLength = inputType.getTypeSignature().getParameters().get(0).getLongLiteral();
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),

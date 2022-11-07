@@ -85,7 +85,7 @@ public final class ColumnarRow
         ColumnarRow columnarRow = toColumnarRow(dictionaryBlock.getDictionary());
         Block[] fields = new Block[columnarRow.getFieldCount()];
         for (int i = 0; i < columnarRow.getFieldCount(); i++) {
-            fields[i] = new DictionaryBlock(nonNullPositionCount, columnarRow.getField(i), dictionaryIds);
+            fields[i] = DictionaryBlock.create(nonNullPositionCount, columnarRow.getField(i), dictionaryIds);
         }
 
         int positionCount = dictionaryBlock.getPositionCount();
@@ -106,9 +106,7 @@ public final class ColumnarRow
                     dictionaryBlock.getRawIdsOffset(),
                     dictionaryBlock.getPositionCount(),
                     columnarRow.getField(i),
-                    dictionaryBlock.getRawIds(),
-                    false,
-                    DictionaryId.randomDictionaryId());
+                    dictionaryBlock.getRawIds());
         }
         return new ColumnarRow(dictionaryBlock.getPositionCount(), null, fields);
     }
@@ -129,7 +127,7 @@ public final class ColumnarRow
                 fields[i] = nullSuppressedField;
             }
             else {
-                fields[i] = new RunLengthEncodedBlock(nullSuppressedField, rleBlock.getPositionCount());
+                fields[i] = RunLengthEncodedBlock.create(nullSuppressedField, rleBlock.getPositionCount());
             }
         }
         return new ColumnarRow(rleBlock.getPositionCount(), rleBlock, fields);
@@ -172,5 +170,10 @@ public final class ColumnarRow
     public Block getField(int index)
     {
         return fields[index];
+    }
+
+    public Block getNullCheckBlock()
+    {
+        return nullCheckBlock;
     }
 }

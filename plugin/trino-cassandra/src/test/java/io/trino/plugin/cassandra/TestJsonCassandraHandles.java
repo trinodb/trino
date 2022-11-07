@@ -63,7 +63,7 @@ public class TestJsonCassandraHandles
             .put("clusteringKey", true)
             .put("indexed", false)
             .put("hidden", false)
-            .build();
+            .buildOrThrow();
 
     private static final Map<String, Object> COLUMN2_HANDLE_AS_MAP = ImmutableMap.<String, Object>builder()
             .put("name", "column2")
@@ -76,7 +76,7 @@ public class TestJsonCassandraHandles
             .put("clusteringKey", false)
             .put("indexed", false)
             .put("hidden", false)
-            .build();
+            .buildOrThrow();
 
     private static final Optional<List<CassandraPartition>> PARTITIONS = Optional.of(List.of(
             new CassandraPartition(

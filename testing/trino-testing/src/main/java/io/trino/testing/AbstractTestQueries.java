@@ -15,8 +15,8 @@ package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.trino.metadata.FunctionListBuilder;
-import io.trino.metadata.SqlFunction;
+import io.trino.metadata.FunctionBundle;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.tpch.TpchTable;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.testng.annotations.DataProvider;
@@ -53,13 +53,13 @@ public abstract class AbstractTestQueries
     protected static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION);
 
     // We can just use the default type registry, since we don't use any parametric types
-    protected static final List<SqlFunction> CUSTOM_FUNCTIONS = new FunctionListBuilder()
+    protected static final FunctionBundle CUSTOM_FUNCTIONS = InternalFunctionBundle.builder()
             .aggregates(CustomSum.class)
             .window(CustomRank.class)
             .scalars(CustomAdd.class)
             .scalars(CreateHll.class)
             .functions(APPLY_FUNCTION, INVOKE_FUNCTION, STATEFUL_SLEEPING_SUM)
-            .getFunctions();
+            .build();
 
     @Test
     public void testAggregationOverUnknown()
@@ -225,7 +225,8 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT COUNT(1) FROM orders");
 
         assertQuery("SELECT COUNT(NULLIF(orderstatus, 'F')) FROM orders");
-        assertQuery("SELECT COUNT(CAST(NULL AS BIGINT)) FROM orders"); // todo: make COUNT(null) work
+        assertQuery("SELECT COUNT(NULL) FROM orders", "VALUES 0");
+        assertQuery("SELECT COUNT(CAST(NULL AS BIGINT)) FROM orders", "VALUES 0");
     }
 
     @Test

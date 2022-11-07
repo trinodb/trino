@@ -13,12 +13,12 @@
  */
 package io.trino.operator.scalar;
 
+import com.google.common.math.DoubleMath;
 import com.google.common.math.LongMath;
 import com.google.common.primitives.Doubles;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.aggregation.TypedSet;
 import io.trino.spi.TrinoException;
@@ -29,6 +29,7 @@ import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.Signature;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.Decimals;
@@ -815,9 +816,9 @@ public final class MathFunctions
     @Description("Round to given number of decimal places")
     @ScalarFunction("round")
     @SqlType(StandardTypes.REAL)
-    public static long roundFloat(@SqlType(StandardTypes.REAL) long num)
+    public static long roundReal(@SqlType(StandardTypes.REAL) long num)
     {
-        return roundFloat(num, 0);
+        return roundReal(num, 0);
     }
 
     @Description("Round to given number of decimal places")
@@ -830,17 +831,19 @@ public final class MathFunctions
         }
 
         double factor = Math.pow(10, decimals);
-        if (num < 0) {
-            return -(Math.round(-num * factor) / factor);
+        int sign = (num < 0) ? -1 : 1;
+        double rescaled = sign * num * factor;
+        long rescaledRound = Math.round(rescaled);
+        if (rescaledRound != Long.MAX_VALUE) {
+            return sign * (rescaledRound / factor);
         }
-
-        return Math.round(num * factor) / factor;
+        return sign * DoubleMath.roundToBigInteger(rescaled, RoundingMode.HALF_UP).doubleValue() / factor;
     }
 
     @Description("Round to given number of decimal places")
     @ScalarFunction("round")
     @SqlType(StandardTypes.REAL)
-    public static long roundFloat(@SqlType(StandardTypes.REAL) long num, @SqlType(StandardTypes.INTEGER) long decimals)
+    public static long roundReal(@SqlType(StandardTypes.REAL) long num, @SqlType(StandardTypes.INTEGER) long decimals)
     {
         float numInFloat = intBitsToFloat((int) num);
         if (Float.isNaN(numInFloat) || Float.isInfinite(numInFloat)) {
@@ -848,11 +851,19 @@ public final class MathFunctions
         }
 
         double factor = Math.pow(10, decimals);
-        if (numInFloat < 0) {
-            return floatToRawIntBits((float) -(Math.round(-numInFloat * factor) / factor));
+        int sign = (numInFloat < 0) ? -1 : 1;
+        double result;
+        double rescaled = sign * numInFloat * factor;
+        long rescaledRound = Math.round(rescaled);
+        if (rescaledRound != Long.MAX_VALUE) {
+            result = sign * (rescaledRound / factor);
         }
-
-        return floatToRawIntBits((float) (Math.round(numInFloat * factor) / factor));
+        else {
+            result = sign * (DoubleMath.roundToBigInteger(rescaled, RoundingMode.HALF_UP).doubleValue() / factor);
+        }
+        @SuppressWarnings("NumericCastThatLosesPrecision")
+        float resultAsFloat = (float) result;
+        return floatToRawIntBits(resultAsFloat);
     }
 
     @ScalarFunction("round")
@@ -1174,6 +1185,15 @@ public final class MathFunctions
     public static boolean isNaN(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Double.isNaN(num);
+    }
+
+    @Description("Test if value is not-a-number")
+    @ScalarFunction("is_nan")
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isNaNReal(@SqlType(StandardTypes.REAL) long value)
+    {
+        float floatValue = intBitsToFloat(toIntExact(value));
+        return Float.isNaN(floatValue);
     }
 
     @Description("Test if value is finite")

@@ -134,15 +134,17 @@ public class TestExampleMetadata
         // directly.
     }
 
-    @Test(expectedExceptions = TrinoException.class)
+    @Test
     public void testCreateTable()
     {
-        metadata.createTable(
+        assertThatThrownBy(() -> metadata.createTable(
                 SESSION,
                 new ConnectorTableMetadata(
                         new SchemaTableName("example", "foo"),
                         ImmutableList.of(new ColumnMetadata("text", createUnboundedVarcharType()))),
-                false);
+                false))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("This connector does not support creating tables");
     }
 
     @Test(expectedExceptions = TrinoException.class)

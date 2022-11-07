@@ -15,7 +15,6 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.Ordering;
 import io.airlift.units.DataSize;
-import io.trino.FeaturesConfig.JoinDistributionType;
 import io.trino.cost.CostComparator;
 import io.trino.cost.LocalCostEstimate;
 import io.trino.cost.PlanNodeStatsEstimate;
@@ -23,6 +22,7 @@ import io.trino.cost.StatsProvider;
 import io.trino.cost.TaskCountEstimator;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.PlanNode;
@@ -69,15 +69,11 @@ public class DetermineSemiJoinDistributionType
     public Result apply(SemiJoinNode semiJoinNode, Captures captures, Context context)
     {
         JoinDistributionType joinDistributionType = getJoinDistributionType(context.getSession());
-        switch (joinDistributionType) {
-            case AUTOMATIC:
-                return Result.ofPlanNode(getCostBasedDistributionType(semiJoinNode, context));
-            case PARTITIONED:
-                return Result.ofPlanNode(semiJoinNode.withDistributionType(PARTITIONED));
-            case BROADCAST:
-                return Result.ofPlanNode(semiJoinNode.withDistributionType(REPLICATED));
-        }
-        throw new IllegalArgumentException("Unknown join_distribution_type: " + joinDistributionType);
+        return switch (joinDistributionType) {
+            case AUTOMATIC -> Result.ofPlanNode(getCostBasedDistributionType(semiJoinNode, context));
+            case PARTITIONED -> Result.ofPlanNode(semiJoinNode.withDistributionType(PARTITIONED));
+            case BROADCAST -> Result.ofPlanNode(semiJoinNode.withDistributionType(REPLICATED));
+        };
     }
 
     private PlanNode getCostBasedDistributionType(SemiJoinNode node, Context context)

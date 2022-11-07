@@ -23,7 +23,7 @@ import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 /**
- * @deprecated Use of this is strongly discouraged
+ * @deprecated Use of this is strongly discouraged. Instead prefer to find the cause of the issue and either fix the test or rewrite it to not be flaky.
  */
 @Deprecated
 @Retention(RUNTIME)

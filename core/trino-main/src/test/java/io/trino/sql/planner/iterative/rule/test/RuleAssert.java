@@ -17,16 +17,19 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.cost.CachingCostProvider;
 import io.trino.cost.CachingStatsProvider;
+import io.trino.cost.CachingTableStatsProvider;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.CostProvider;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.StatsAndCosts;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
+import io.trino.cost.TableStatsProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.matching.Capture;
 import io.trino.matching.Match;
 import io.trino.matching.Pattern;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.sql.planner.Plan;
@@ -60,6 +63,7 @@ import static org.testng.Assert.fail;
 public class RuleAssert
 {
     private final Metadata metadata;
+    private final FunctionManager functionManager;
     private final TestingStatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
     private Session session;
@@ -72,9 +76,18 @@ public class RuleAssert
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
 
-    public RuleAssert(Metadata metadata, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, Rule<?> rule, TransactionManager transactionManager, AccessControl accessControl)
+    public RuleAssert(
+            Metadata metadata,
+            FunctionManager functionManager,
+            StatsCalculator statsCalculator,
+            CostCalculator costCalculator,
+            Session session,
+            Rule<?> rule,
+            TransactionManager transactionManager,
+            AccessControl accessControl)
     {
         this.metadata = metadata;
+        this.functionManager = functionManager;
         this.statsCalculator = new TestingStatsCalculator(statsCalculator);
         this.costCalculator = costCalculator;
         this.session = session;
@@ -120,7 +133,7 @@ public class RuleAssert
             fail(format(
                     "Expected %s to not fire for:\n%s",
                     rule,
-                    inTransaction(session -> textLogicalPlan(plan, ruleApplication.types, metadata, StatsAndCosts.empty(), session, 2, false))));
+                    inTransaction(session -> textLogicalPlan(plan, ruleApplication.types, metadata, functionManager, StatsAndCosts.empty(), session, 2, false))));
         }
     }
 
@@ -156,7 +169,7 @@ public class RuleAssert
         }
 
         inTransaction(session -> {
-            assertPlan(session, metadata, ruleApplication.statsProvider, new Plan(actual, types, StatsAndCosts.empty()), ruleApplication.lookup, pattern);
+            assertPlan(session, metadata, functionManager, ruleApplication.statsProvider, new Plan(actual, types, StatsAndCosts.empty()), ruleApplication.lookup, pattern);
             return null;
         });
     }
@@ -193,9 +206,9 @@ public class RuleAssert
     private String formatPlan(PlanNode plan, TypeProvider types)
     {
         return inTransaction(session -> {
-            StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
+            StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types, new CachingTableStatsProvider(metadata, session));
             CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, session, types);
-            return textLogicalPlan(plan, types, metadata, StatsAndCosts.create(plan, statsProvider, costProvider), session, 2, false);
+            return textLogicalPlan(plan, types, metadata, functionManager, StatsAndCosts.create(plan, statsProvider, costProvider), session, 2, false);
         });
     }
 
@@ -212,7 +225,7 @@ public class RuleAssert
 
     private Rule.Context ruleContext(StatsCalculator statsCalculator, CostCalculator costCalculator, SymbolAllocator symbolAllocator, Memo memo, Lookup lookup, Session session)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, symbolAllocator.getTypes());
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, symbolAllocator.getTypes(), new CachingTableStatsProvider(metadata, session));
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), session, symbolAllocator.getTypes());
 
         return new Rule.Context()
@@ -302,12 +315,12 @@ public class RuleAssert
         }
 
         @Override
-        public PlanNodeStatsEstimate calculateStats(PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
+        public PlanNodeStatsEstimate calculateStats(PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
         {
             if (stats.containsKey(node.getId())) {
                 return stats.get(node.getId());
             }
-            return delegate.calculateStats(node, sourceStats, lookup, session, types);
+            return delegate.calculateStats(node, sourceStats, lookup, session, types, tableStatsProvider);
         }
 
         public void setNodeStats(PlanNodeId nodeId, PlanNodeStatsEstimate nodeStats)

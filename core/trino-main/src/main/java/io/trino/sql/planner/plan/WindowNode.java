@@ -69,13 +69,18 @@ public class WindowNode
         requireNonNull(specification, "specification is null");
         requireNonNull(windowFunctions, "windowFunctions is null");
         requireNonNull(hashSymbol, "hashSymbol is null");
-        checkArgument(specification.getPartitionBy().containsAll(prePartitionedInputs), "prePartitionedInputs must be contained in partitionBy");
+        requireNonNull(prePartitionedInputs, "prePartitionedInputs is null");
+        // Make the defensive copy eagerly, so it can be used for both the validation checks and assigned directly to the field afterwards
+        prePartitionedInputs = ImmutableSet.copyOf(prePartitionedInputs);
+
+        ImmutableSet<Symbol> partitionBy = ImmutableSet.copyOf(specification.getPartitionBy());
         Optional<OrderingScheme> orderingScheme = specification.getOrderingScheme();
+        checkArgument(partitionBy.containsAll(prePartitionedInputs), "prePartitionedInputs must be contained in partitionBy");
         checkArgument(preSortedOrderPrefix == 0 || (orderingScheme.isPresent() && preSortedOrderPrefix <= orderingScheme.get().getOrderBy().size()), "Cannot have sorted more symbols than those requested");
-        checkArgument(preSortedOrderPrefix == 0 || ImmutableSet.copyOf(prePartitionedInputs).equals(ImmutableSet.copyOf(specification.getPartitionBy())), "preSortedOrderPrefix can only be greater than zero if all partition symbols are pre-partitioned");
+        checkArgument(preSortedOrderPrefix == 0 || partitionBy.equals(prePartitionedInputs), "preSortedOrderPrefix can only be greater than zero if all partition symbols are pre-partitioned");
 
         this.source = source;
-        this.prePartitionedInputs = ImmutableSet.copyOf(prePartitionedInputs);
+        this.prePartitionedInputs = prePartitionedInputs;
         this.specification = specification;
         this.windowFunctions = ImmutableMap.copyOf(windowFunctions);
         this.hashSymbol = hashSymbol;

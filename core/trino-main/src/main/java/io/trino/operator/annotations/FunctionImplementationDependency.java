@@ -14,12 +14,12 @@
 package io.trino.operator.annotations;
 
 import io.trino.metadata.FunctionBinding;
-import io.trino.metadata.FunctionDependencies;
-import io.trino.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
-import io.trino.metadata.FunctionInvoker;
+import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.function.QualifiedFunctionName;
+import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.type.TypeSignature;
-import io.trino.sql.tree.QualifiedName;
 
 import java.util.List;
 import java.util.Objects;
@@ -30,27 +30,37 @@ import static java.util.Objects.requireNonNull;
 public final class FunctionImplementationDependency
         extends ScalarImplementationDependency
 {
-    private final QualifiedName fullyQualifiedName;
+    private final QualifiedFunctionName fullyQualifiedFunctionName;
     private final List<TypeSignature> argumentTypes;
 
-    public FunctionImplementationDependency(QualifiedName fullyQualifiedName, List<TypeSignature> argumentTypes, InvocationConvention invocationConvention, Class<?> type)
+    public FunctionImplementationDependency(QualifiedFunctionName fullyQualifiedFunctionName, List<TypeSignature> argumentTypes, InvocationConvention invocationConvention, Class<?> type)
     {
         super(invocationConvention, type);
-        this.fullyQualifiedName = requireNonNull(fullyQualifiedName, "fullyQualifiedName is null");
+        this.fullyQualifiedFunctionName = requireNonNull(fullyQualifiedFunctionName, "fullyQualifiedFunctionName is null");
         this.argumentTypes = requireNonNull(argumentTypes, "argumentTypes is null");
+    }
+
+    public QualifiedFunctionName getFullyQualifiedName()
+    {
+        return fullyQualifiedFunctionName;
+    }
+
+    public List<TypeSignature> getArgumentTypes()
+    {
+        return argumentTypes;
     }
 
     @Override
     public void declareDependencies(FunctionDependencyDeclarationBuilder builder)
     {
-        builder.addFunctionSignature(fullyQualifiedName, argumentTypes);
+        builder.addFunctionSignature(fullyQualifiedFunctionName, argumentTypes);
     }
 
     @Override
-    protected FunctionInvoker getInvoker(FunctionBinding functionBinding, FunctionDependencies functionDependencies, InvocationConvention invocationConvention)
+    protected ScalarFunctionImplementation getImplementation(FunctionBinding functionBinding, FunctionDependencies functionDependencies, InvocationConvention invocationConvention)
     {
         List<TypeSignature> types = applyBoundVariables(argumentTypes, functionBinding);
-        return functionDependencies.getFunctionSignatureInvoker(fullyQualifiedName, types, invocationConvention);
+        return functionDependencies.getScalarFunctionImplementationSignature(fullyQualifiedFunctionName, types, invocationConvention);
     }
 
     @Override
@@ -63,13 +73,13 @@ public final class FunctionImplementationDependency
             return false;
         }
         FunctionImplementationDependency that = (FunctionImplementationDependency) o;
-        return Objects.equals(fullyQualifiedName, that.fullyQualifiedName) &&
+        return Objects.equals(fullyQualifiedFunctionName, that.fullyQualifiedFunctionName) &&
                 Objects.equals(argumentTypes, that.argumentTypes);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(fullyQualifiedName, argumentTypes);
+        return Objects.hash(fullyQualifiedFunctionName, argumentTypes);
     }
 }

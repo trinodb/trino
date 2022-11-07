@@ -27,6 +27,7 @@ import java.io.File;
 
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.tpch.TpchTable.NATION;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestHiveFileBasedSecurity
@@ -67,6 +68,14 @@ public class TestHiveFileBasedSecurity
         assertThatThrownBy(() -> queryRunner.execute(bob, "SELECT * FROM nation"))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageMatching(".*Access Denied: Cannot select from table tpch.nation.*");
+    }
+
+    @Test
+    public void testShowCreateSchemaDoesNotContainAuthorization()
+    {
+        Session admin = getSession("hive");
+        assertThat((String) queryRunner.execute(admin, "SHOW CREATE SCHEMA tpch").getOnlyValue())
+                .doesNotContain("AUTHORIZATION");
     }
 
     private Session getSession(String user)

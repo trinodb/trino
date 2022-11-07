@@ -22,28 +22,33 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static io.trino.spi.type.DecimalType.createDecimalType;
-import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
 
 public class TestShortDecimalSumAggregation
         extends AbstractTestDecimalSumAggregation
 {
-    DecimalType shortDecimalType = createDecimalType(MAX_SHORT_PRECISION - 1);
+    private static final DecimalType SHORT_DECIMAL_TYPE = createDecimalType(16, 2);
 
     @Override
     protected DecimalType getDecimalType()
     {
-        return shortDecimalType;
+        return SHORT_DECIMAL_TYPE;
+    }
+
+    @Override
+    protected DecimalType getExpectedType()
+    {
+        return DecimalType.createDecimalType(38, 2);
     }
 
     @Override
     protected void writeDecimalToBlock(BigDecimal decimal, BlockBuilder blockBuilder)
     {
-        shortDecimalType.writeLong(blockBuilder, decimal.unscaledValue().longValue());
+        SHORT_DECIMAL_TYPE.writeLong(blockBuilder, decimal.unscaledValue().longValue());
     }
 
     @Override
     protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of(createDecimalType(16, 2));
+        return ImmutableList.of(SHORT_DECIMAL_TYPE);
     }
 }

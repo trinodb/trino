@@ -33,6 +33,7 @@ import io.trino.server.protocol.Slug;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.tree.Statement;
+import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 
 import javax.inject.Inject;
@@ -84,15 +85,14 @@ public class LocalDispatchQueryFactory
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
         this.executionFactories = requireNonNull(executionFactories, "executionFactories is null");
         this.warningCollectorFactory = requireNonNull(warningCollectorFactory, "warningCollectorFactory is null");
-
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
-
-        this.executor = requireNonNull(dispatchExecutor, "dispatchExecutor is null").getExecutor();
+        this.executor = dispatchExecutor.getExecutor();
     }
 
     @Override
     public DispatchQuery createDispatchQuery(
             Session session,
+            Optional<TransactionId> existingTransactionId,
             String query,
             PreparedQuery preparedQuery,
             Slug slug,
@@ -100,6 +100,7 @@ public class LocalDispatchQueryFactory
     {
         WarningCollector warningCollector = warningCollectorFactory.create();
         QueryStateMachine stateMachine = QueryStateMachine.begin(
+                existingTransactionId,
                 query,
                 preparedQuery.getPrepareSql(),
                 session,

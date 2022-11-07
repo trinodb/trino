@@ -15,18 +15,26 @@ package io.trino.operator.aggregation.listagg;
 
 import io.airlift.slice.Slice;
 import io.trino.block.BlockAssertions;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlockBuilder;
-import org.testcontainers.shaded.org.apache.commons.lang.StringUtils;
+import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
+import java.util.List;
+
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.block.BlockAssertions.createBooleansBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
+import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -34,16 +42,18 @@ import static org.testng.Assert.assertTrue;
 
 public class TestListaggAggregationFunction
 {
+    private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
+
     @Test
     public void testInputEmptyState()
     {
-        SingleListaggAggregationState state = new SingleListaggAggregationState(VARCHAR);
+        SingleListaggAggregationState state = new SingleListaggAggregationState();
 
         String s = "value1";
         Block value = createStringsBlock(s);
         Slice separator = utf8Slice(",");
         Slice overflowFiller = utf8Slice("...");
-        ListaggAggregationFunction.input(VARCHAR,
+        ListaggAggregationFunction.input(
                 state,
                 value,
                 separator,
@@ -71,11 +81,11 @@ public class TestListaggAggregationFunction
     @Test
     public void testInputOverflowOverflowFillerTooLong()
     {
-        String overflowFillerTooLong = StringUtils.repeat(".", 65_537);
+        String overflowFillerTooLong = ".".repeat(65_537);
 
-        SingleListaggAggregationState state = new SingleListaggAggregationState(VARCHAR);
+        SingleListaggAggregationState state = new SingleListaggAggregationState();
 
-        assertThatThrownBy(() -> ListaggAggregationFunction.input(VARCHAR,
+        assertThatThrownBy(() -> ListaggAggregationFunction.input(
                 state,
                 createStringsBlock("value1"),
                 utf8Slice(","),
@@ -206,6 +216,32 @@ public class TestListaggAggregationFunction
         assertEquals(getOutputStateOnlyValue(state, 21), "a###b###c###dd###e###...(7)");
     }
 
+    @Test
+    public void testExecute()
+    {
+        List<TypeSignatureProvider> parameterTypes = fromTypes(VARCHAR, VARCHAR, BOOLEAN, VARCHAR, BOOLEAN);
+        assertAggregation(
+                FUNCTION_RESOLUTION,
+                QualifiedName.of("listagg"),
+                parameterTypes,
+                null,
+                createStringsBlock(null, null, null),
+                createStringsBlock(",", ",", ","),
+                createBooleansBlock(false, false, false),
+                createStringsBlock("", "", ""),
+                createBooleansBlock(false, false, false));
+        assertAggregation(
+                FUNCTION_RESOLUTION,
+                QualifiedName.of("listagg"),
+                parameterTypes,
+                "a,c",
+                createStringsBlock("a", null, "c"),
+                createStringsBlock(",", ",", ","),
+                createBooleansBlock(false, false, false),
+                createStringsBlock("", "", ""),
+                createBooleansBlock(false, false, false));
+    }
+
     private static String getOutputStateOnlyValue(SingleListaggAggregationState state, int maxOutputLengthInBytes)
     {
         BlockBuilder out = new VariableWidthBlockBuilder(null, 32, 256);
@@ -215,7 +251,7 @@ public class TestListaggAggregationFunction
 
     private static SingleListaggAggregationState createListaggAggregationState(String separator, boolean overflowError, String overflowFiller, boolean showOverflowEntryCount, String... values)
     {
-        SingleListaggAggregationState state = new SingleListaggAggregationState(VARCHAR);
+        SingleListaggAggregationState state = new SingleListaggAggregationState();
         state.setSeparator(utf8Slice(separator));
         state.setOverflowError(overflowError);
         state.setOverflowFiller(utf8Slice(overflowFiller));

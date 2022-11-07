@@ -31,6 +31,7 @@ public class TestElasticsearchBackpressure
 {
     private static final String image = "elasticsearch:7.0.0";
 
+    private Network network;
     private ElasticsearchServer elasticsearch;
     private ElasticsearchNginxProxy elasticsearchNginxProxy;
 
@@ -38,7 +39,7 @@ public class TestElasticsearchBackpressure
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        Network network = Network.newNetwork();
+        network = Network.newNetwork();
         elasticsearch = new ElasticsearchServer(network, image, ImmutableMap.of());
         elasticsearchNginxProxy = new ElasticsearchNginxProxy(network, 1);
 
@@ -49,7 +50,9 @@ public class TestElasticsearchBackpressure
                 ImmutableMap.of(),
                 // This test can only run on a single node, otherwise each node exports its own stats beans and they override each other
                 // You can only bind one such bean per JVM, so this causes problems with statistics being 0 despite backpressure handling
-                1);
+                1,
+                // Use a unique catalog name to make sure JMX stats beans are unique and not affected by other tests
+                "elasticsearch-backpressure");
     }
 
     @AfterClass(alwaysRun = true)
@@ -58,6 +61,7 @@ public class TestElasticsearchBackpressure
     {
         elasticsearchNginxProxy.stop();
         elasticsearch.stop();
+        network.close();
     }
 
     @Test

@@ -21,6 +21,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Sets;
 import io.trino.Session;
 import io.trino.cost.PlanNodeStatsEstimate;
+import io.trino.cost.TableStatsProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.spi.connector.ColumnHandle;
@@ -53,6 +54,8 @@ import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.MergeProcessorNode;
+import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.OffsetNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
@@ -65,12 +68,14 @@ import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
+import io.trino.sql.planner.plan.SimpleTableExecuteNode;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
+import io.trino.sql.planner.plan.TableFunctionNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
@@ -133,7 +138,7 @@ public class UnaliasSymbolReferences
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, TableStatsProvider tableStatsProvider)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -311,6 +316,27 @@ public class UnaliasSymbolReferences
             PatternRecognitionNode rewrittenPatternRecognition = mapper.map(node, rewrittenSource.getRoot());
 
             return new PlanAndMappings(rewrittenPatternRecognition, mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitTableFunction(TableFunctionNode node, UnaliasContext context)
+        {
+            // TODO rewrite sources, and tableArgumentProperties when we add support for input tables
+            Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            List<Symbol> newProperOutputs = mapper.map(node.getProperOutputs());
+
+            return new PlanAndMappings(
+                    new TableFunctionNode(
+                            node.getId(),
+                            node.getName(),
+                            node.getArguments(),
+                            newProperOutputs,
+                            node.getSources(),
+                            node.getTableArgumentProperties(),
+                            node.getHandle()),
+                    mapping);
         }
 
         @Override
@@ -556,8 +582,7 @@ public class UnaliasSymbolReferences
                         return previous;
                     }));
 
-            List<Symbol> newOutputs = deduplicateAssignments.keySet().stream()
-                    .collect(toImmutableList());
+            List<Symbol> newOutputs = ImmutableList.copyOf(deduplicateAssignments.keySet());
 
             List<ImmutableList.Builder<Expression>> newRows = new ArrayList<>(node.getRowCount());
             for (int i = 0; i < node.getRowCount(); i++) {
@@ -645,6 +670,45 @@ public class UnaliasSymbolReferences
             TableExecuteNode rewrittenTableExecute = mapper.map(node, rewrittenSource.getRoot());
 
             return new PlanAndMappings(rewrittenTableExecute, mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitSimpleTableExecuteNode(SimpleTableExecuteNode node, UnaliasContext context)
+        {
+            Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
+            SymbolMapper mapper = symbolMapper(mapping);
+            Symbol newOutput = mapper.map(node.getOutput());
+
+            return new PlanAndMappings(
+                    new SimpleTableExecuteNode(
+                            node.getId(),
+                            newOutput,
+                            node.getExecuteHandle()),
+                    mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitMergeWriter(MergeWriterNode node, UnaliasContext context)
+        {
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            MergeWriterNode rewrittenMerge = mapper.map(node, rewrittenSource.getRoot());
+
+            return new PlanAndMappings(rewrittenMerge, mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitMergeProcessor(MergeProcessorNode node, UnaliasContext context)
+        {
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            MergeProcessorNode mergeProcessorNode = mapper.map(node, rewrittenSource.getRoot());
+
+            return new PlanAndMappings(mergeProcessorNode, mapping);
         }
 
         @Override
@@ -1034,7 +1098,7 @@ public class UnaliasSymbolReferences
                     dynamicFilterIdMap.put(entry.getKey(), canonicalDynamicFilterId);
                 }
             }
-            Map<DynamicFilterId, Symbol> newDynamicFilters = filtersBuilder.build();
+            Map<DynamicFilterId, Symbol> newDynamicFilters = filtersBuilder.buildOrThrow();
 
             // derive new mappings from inner join equi criteria
             Map<Symbol, Symbol> newMapping = new HashMap<>();

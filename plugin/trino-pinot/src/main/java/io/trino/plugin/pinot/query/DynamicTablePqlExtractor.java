@@ -17,7 +17,6 @@ import io.trino.plugin.pinot.PinotColumnHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.TupleDomain;
 
-import java.util.List;
 import java.util.Optional;
 
 import static io.trino.plugin.pinot.query.PinotQueryBuilder.getFilterClause;
@@ -31,7 +30,7 @@ public final class DynamicTablePqlExtractor
     {
     }
 
-    public static String extractPql(DynamicTable table, TupleDomain<ColumnHandle> tupleDomain, List<PinotColumnHandle> columnHandles)
+    public static String extractPql(DynamicTable table, TupleDomain<ColumnHandle> tupleDomain)
     {
         StringBuilder builder = new StringBuilder();
         builder.append("select ");
@@ -54,7 +53,7 @@ public final class DynamicTablePqlExtractor
         builder.append(table.getTableName());
         builder.append(table.getSuffix().orElse(""));
 
-        Optional<String> filter = getFilter(table.getFilter(), tupleDomain, columnHandles);
+        Optional<String> filter = getFilter(table.getFilter(), tupleDomain, false);
         if (filter.isPresent()) {
             builder.append(" where ")
                     .append(filter.get());
@@ -64,6 +63,11 @@ public final class DynamicTablePqlExtractor
             builder.append(table.getGroupingColumns().stream()
                     .map(PinotColumnHandle::getExpression)
                     .collect(joining(", ")));
+        }
+        Optional<String> havingClause = getFilter(table.getHavingExpression(), tupleDomain, true);
+        if (havingClause.isPresent()) {
+            builder.append(" having ")
+                    .append(havingClause.get());
         }
         if (!table.getOrderBy().isEmpty()) {
             builder.append(" order by ")
@@ -82,22 +86,20 @@ public final class DynamicTablePqlExtractor
         return builder.toString();
     }
 
-    private static Optional<String> getFilter(Optional<String> filter, TupleDomain<ColumnHandle> tupleDomain, List<PinotColumnHandle> columnHandles)
+    private static Optional<String> getFilter(Optional<String> filter, TupleDomain<ColumnHandle> tupleDomain, boolean forHavingClause)
     {
-        Optional<String> tupleFilter = getFilterClause(tupleDomain, Optional.empty(), columnHandles);
+        Optional<String> tupleFilter = getFilterClause(tupleDomain, Optional.empty(), forHavingClause);
 
         if (tupleFilter.isPresent() && filter.isPresent()) {
             return Optional.of(format("%s AND %s", encloseInParentheses(tupleFilter.get()), encloseInParentheses(filter.get())));
         }
-        else if (filter.isPresent()) {
+        if (filter.isPresent()) {
             return filter;
         }
-        else if (tupleFilter.isPresent()) {
+        if (tupleFilter.isPresent()) {
             return tupleFilter;
         }
-        else {
-            return Optional.empty();
-        }
+        return Optional.empty();
     }
 
     private static String convertOrderByExpressionToPql(OrderByExpression orderByExpression)

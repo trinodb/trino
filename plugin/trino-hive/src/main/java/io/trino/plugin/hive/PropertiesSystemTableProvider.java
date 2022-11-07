@@ -15,9 +15,7 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -33,11 +31,10 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.trino.plugin.hive.SystemTableHandler.PROPERTIES;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
+import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.hive.util.SystemTables.createSystemTable;
-import static java.lang.String.format;
 
 public class PropertiesSystemTableProvider
         implements SystemTableProvider
@@ -61,11 +58,11 @@ public class PropertiesSystemTableProvider
 
         SchemaTableName sourceTableName = PROPERTIES.getSourceTableName(tableName);
         Table table = metadata.getMetastore()
-                .getTable(new HiveIdentity(session), sourceTableName.getSchemaName(), sourceTableName.getTableName())
+                .getTable(sourceTableName.getSchemaName(), sourceTableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
-        if (isDeltaLakeTable(table)) {
-            throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, format("Cannot query Delta Lake table '%s'", sourceTableName));
+        if (isDeltaLakeTable(table) || isIcebergTable(table)) {
+            return Optional.empty();
         }
         Map<String, String> sortedTableParameters = ImmutableSortedMap.copyOf(table.getParameters());
         List<ColumnMetadata> columns = sortedTableParameters.keySet().stream()

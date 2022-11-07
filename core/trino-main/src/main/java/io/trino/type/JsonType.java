@@ -43,7 +43,7 @@ public class JsonType
 
     public static final JsonType JSON = new JsonType();
 
-    public JsonType()
+    private JsonType()
     {
         super(new TypeSignature(StandardTypes.JSON), Slice.class);
     }

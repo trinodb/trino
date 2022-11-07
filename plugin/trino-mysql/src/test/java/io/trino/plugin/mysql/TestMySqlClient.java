@@ -15,9 +15,11 @@ package io.trino.plugin.mysql;
 
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
+import io.trino.plugin.jdbc.DefaultQueryBuilder;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
+import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.mapping.DefaultIdentifierMapping;
 import io.trino.spi.connector.AggregateFunction;
@@ -58,9 +60,11 @@ public class TestMySqlClient
 
     private static final JdbcClient JDBC_CLIENT = new MySqlClient(
             new BaseJdbcConfig(),
+            new JdbcStatisticsConfig(),
             session -> {
                 throw new UnsupportedOperationException();
             },
+            new DefaultQueryBuilder(),
             TESTING_TYPE_MANAGER,
             new DefaultIdentifierMapping());
 

@@ -16,14 +16,18 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.RowType;
+import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.tree.Literal;
 import org.testng.annotations.Test;
 
+import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -37,7 +41,7 @@ public class TestInlineProjections
     @Test
     public void test()
     {
-        tester().assertThat(new InlineProjections(tester().getTypeAnalyzer()))
+        tester().assertThat(new InlineProjections(tester().getPlannerContext(), tester().getTypeAnalyzer()))
                 .on(p ->
                         p.project(
                                 Assignments.builder()
@@ -74,7 +78,7 @@ public class TestInlineProjections
                                         .put("out8", PlanMatchPattern.expression("z + 1"))
                                         .put("out9", PlanMatchPattern.expression("try(2 * x)"))
                                         .put("out10", PlanMatchPattern.expression("x + x"))
-                                        .build(),
+                                        .buildOrThrow(),
                                 project(
                                         ImmutableMap.of(
                                                 "x", PlanMatchPattern.expression("x"),
@@ -83,10 +87,38 @@ public class TestInlineProjections
                                         values(ImmutableMap.of("x", 0, "msg", 1)))));
     }
 
+    /**
+     * Verify that non-{@link Literal} but literal-like constant expression gets inlined.
+     *
+     * @implNote The test uses decimals, as decimals values do not have direct literal form (see {@link LiteralEncoder}).
+     */
+    @Test
+    public void testInlineEffectivelyLiteral()
+    {
+        tester().assertThat(new InlineProjections(tester().getPlannerContext(), tester().getTypeAnalyzer()))
+                .on(p ->
+                        p.project(
+                                Assignments.builder()
+                                        // Use the literal-like expression multiple times. Single-use expression may be inlined regardless of whether it's a literal
+                                        .put(p.symbol("decimal_multiplication"), expression("decimal_literal * decimal_literal"))
+                                        .put(p.symbol("decimal_addition"), expression("decimal_literal + decimal_literal"))
+                                        .build(),
+                                p.project(Assignments.builder()
+                                                .put(p.symbol("decimal_literal", createDecimalType(8, 4)), expression("CAST(DECIMAL '12.5' AS decimal(8,4))"))
+                                                .build(),
+                                        p.values(p.symbol("x")))))
+                .matches(
+                        project(
+                                Map.of(
+                                        "decimal_multiplication", PlanMatchPattern.expression("CAST(DECIMAL '12.5' AS decimal(8, 4)) * CAST(DECIMAL '12.5' AS decimal(8, 4))"),
+                                        "decimal_addition", PlanMatchPattern.expression("CAST(DECIMAL '12.5' AS decimal(8, 4)) + CAST(DECIMAL '12.5' AS decimal(8, 4))")),
+                                values(Map.of("x", 0))));
+    }
+
     @Test
     public void testEliminatesIdentityProjection()
     {
-        tester().assertThat(new InlineProjections(tester().getTypeAnalyzer()))
+        tester().assertThat(new InlineProjections(tester().getPlannerContext(), tester().getTypeAnalyzer()))
                 .on(p ->
                         p.project(
                                 Assignments.builder()
@@ -98,9 +130,7 @@ public class TestInlineProjections
                                         p.values(p.symbol("x")))))
                 .matches(
                         project(
-                                ImmutableMap.<String, ExpressionMatcher>builder()
-                                        .put("out1", PlanMatchPattern.expression("x - 1 + 2"))
-                                        .build(),
+                                ImmutableMap.of("out1", PlanMatchPattern.expression("x - 1 + 2")),
                                 values(ImmutableMap.of("x", 0))));
     }
 
@@ -108,7 +138,7 @@ public class TestInlineProjections
     public void testIdentityProjections()
     {
         // projection renaming symbol
-        tester().assertThat(new InlineProjections(tester().getTypeAnalyzer()))
+        tester().assertThat(new InlineProjections(tester().getPlannerContext(), tester().getTypeAnalyzer()))
                 .on(p ->
                         p.project(
                                 Assignments.of(p.symbol("output"), expression("value")),
@@ -118,7 +148,7 @@ public class TestInlineProjections
                 .doesNotFire();
 
         // identity projection
-        tester().assertThat(new InlineProjections(tester().getTypeAnalyzer()))
+        tester().assertThat(new InlineProjections(tester().getPlannerContext(), tester().getTypeAnalyzer()))
                 .on(p ->
                         p.project(
                                 Assignments.identity(p.symbol("x")),
@@ -134,7 +164,7 @@ public class TestInlineProjections
     @Test
     public void testSubqueryProjections()
     {
-        tester().assertThat(new InlineProjections(tester().getTypeAnalyzer()))
+        tester().assertThat(new InlineProjections(tester().getPlannerContext(), tester().getTypeAnalyzer()))
                 .on(p ->
                         p.project(
                                 Assignments.identity(p.symbol("fromOuterScope"), p.symbol("value")),
@@ -147,7 +177,7 @@ public class TestInlineProjections
                                 // ImmutableMap.of("fromOuterScope", PlanMatchPattern.expression("fromOuterScope"), "value", PlanMatchPattern.expression("value")),
                                 values(ImmutableMap.of("value", 0))));
 
-        tester().assertThat(new InlineProjections(tester().getTypeAnalyzer()))
+        tester().assertThat(new InlineProjections(tester().getPlannerContext(), tester().getTypeAnalyzer()))
                 .on(p ->
                         p.project(
                                 Assignments.identity(p.symbol("fromOuterScope"), p.symbol("value_1")),

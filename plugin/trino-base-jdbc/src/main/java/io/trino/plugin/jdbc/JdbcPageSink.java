@@ -15,10 +15,12 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSink;
+import io.trino.spi.connector.ConnectorPageSinkId;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 
@@ -33,6 +35,7 @@ import java.util.concurrent.CompletableFuture;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.getWriteBatchSize;
@@ -50,7 +53,11 @@ public class JdbcPageSink
     private final int maxBatchSize;
     private int batchSize;
 
-    public JdbcPageSink(ConnectorSession session, JdbcOutputTableHandle handle, JdbcClient jdbcClient)
+    private final ConnectorPageSinkId pageSinkId;
+    private final LongWriteFunction pageSinkIdWriteFunction;
+    private final boolean includePageSinkIdColumn;
+
+    public JdbcPageSink(ConnectorSession session, JdbcOutputTableHandle handle, JdbcClient jdbcClient, ConnectorPageSinkId pageSinkId)
     {
         try {
             connection = jdbcClient.getConnection(session, handle);
@@ -60,17 +67,22 @@ public class JdbcPageSink
         }
 
         try {
-            // According to JDBC javaodcs "If a connection is in auto-commit mode, then all its SQL statements will be
+            // According to JDBC javadocs "If a connection is in auto-commit mode, then all its SQL statements will be
             // executed and committed as individual transactions." Notably MySQL and SQL Server respect this which
             // leads to multiple commits when we close the connection leading to slow performance. Explicit commits
-            // where needed ensure that all of the submitted statements are committed as a single transaction and
+            // where needed to ensure that all the submitted statements are committed as a single transaction and
             // performs better.
             connection.setAutoCommit(false);
         }
         catch (SQLException e) {
-            closeWithSuppression(connection, e);
+            closeAllSuppress(e, connection);
             throw new TrinoException(JDBC_ERROR, e);
         }
+
+        this.pageSinkId = pageSinkId;
+
+        pageSinkIdWriteFunction = (LongWriteFunction) jdbcClient.toWriteMapping(session, BaseJdbcClient.TRINO_PAGE_SINK_ID_COLUMN_TYPE).getWriteFunction();
+        includePageSinkIdColumn = handle.getPageSinkIdColumnName().isPresent();
 
         columnTypes = handle.getColumnTypes();
 
@@ -98,11 +110,12 @@ public class JdbcPageSink
                     .collect(toImmutableList());
         }
 
+        String insertSql = jdbcClient.buildInsertSql(handle, columnWriters);
         try {
-            statement = connection.prepareStatement(jdbcClient.buildInsertSql(handle, columnWriters));
+            statement = connection.prepareStatement(insertSql);
         }
         catch (SQLException e) {
-            closeWithSuppression(connection, e);
+            closeAllSuppress(e, connection);
             throw new TrinoException(JDBC_ERROR, e);
         }
 
@@ -115,6 +128,10 @@ public class JdbcPageSink
     {
         try {
             for (int position = 0; position < page.getPositionCount(); position++) {
+                if (includePageSinkIdColumn) {
+                    pageSinkIdWriteFunction.set(statement, page.getChannelCount() + 1, pageSinkId.getId());
+                }
+
                 for (int channel = 0; channel < page.getChannelCount(); channel++) {
                     appendColumn(page, position, channel);
                 }
@@ -182,7 +199,7 @@ public class JdbcPageSink
             throw new TrinoException(JDBC_NON_TRANSIENT_ERROR, e);
         }
         catch (SQLException e) {
-            // Convert chained SQLExceptions to suppressed exceptions so they are visible in the stack trace
+            // Convert chained SQLExceptions to suppressed exceptions, so they are visible in the stack trace
             SQLException nextException = e.getNextException();
             while (nextException != null) {
                 if (e != nextException) {
@@ -192,8 +209,8 @@ public class JdbcPageSink
             }
             throw new TrinoException(JDBC_ERROR, "Failed to insert data: " + firstNonNull(e.getMessage(), e), e);
         }
-        // the committer does not need any additional info
-        return completedFuture(ImmutableList.of());
+        // pass the successful page sink id
+        return completedFuture(ImmutableList.of(Slices.wrappedLongArray(pageSinkId.getId())));
     }
 
     @SuppressWarnings("unused")
@@ -210,20 +227,6 @@ public class JdbcPageSink
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
-        }
-    }
-
-    @SuppressWarnings("ObjectEquality")
-    private static void closeWithSuppression(Connection connection, Throwable throwable)
-    {
-        try {
-            connection.close();
-        }
-        catch (Throwable t) {
-            // Self-suppression not permitted
-            if (throwable != t) {
-                throwable.addSuppressed(t);
-            }
         }
     }
 }

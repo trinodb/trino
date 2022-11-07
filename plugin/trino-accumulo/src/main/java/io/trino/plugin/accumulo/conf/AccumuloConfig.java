@@ -40,7 +40,7 @@ public class AccumuloConfig
     private String zooKeepers;
     private String username;
     private String password;
-    private String zkMetadataRoot = "/presto-accumulo";
+    private String zkMetadataRoot = "/trino-accumulo";
     private int cardinalityCacheSize = 100_000;
     private Duration cardinalityCacheExpiration = new Duration(5, TimeUnit.MINUTES);
 

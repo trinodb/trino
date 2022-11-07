@@ -13,17 +13,13 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
-import io.trino.metadata.FunctionListBuilder;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.Plugin;
 import io.trino.spi.function.OperatorType;
-import io.trino.spi.type.DecimalParseResult;
-import io.trino.spi.type.Decimals;
-import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.SqlTimestamp;
@@ -32,19 +28,17 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
-import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.Signature.mangleOperatorName;
+import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.operator.scalar.timestamp.VarcharToTimestampCast.castToLongTimestamp;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.DecimalType.createDecimalType;
-import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.fail;
@@ -89,11 +83,19 @@ public abstract class AbstractTestFunctions
         functionAssertions = null;
     }
 
+    /**
+     * @deprecated Use {@link io.trino.sql.query.QueryAssertions#function(String, String...)}
+     */
+    @Deprecated
     protected void assertFunction(@Language("SQL") String projection, Type expectedType, Object expected)
     {
         functionAssertions.assertFunction(projection, expectedType, expected);
     }
 
+    /**
+     * @deprecated Use {@link io.trino.sql.query.QueryAssertions#operator(OperatorType, String...)}
+     */
+    @Deprecated
     protected void assertOperator(OperatorType operator, String value, Type expectedType, Object expected)
     {
         functionAssertions.assertFunction(format("\"%s\"(%s)", mangleOperatorName(operator), value), expectedType, expected);
@@ -105,6 +107,11 @@ public abstract class AbstractTestFunctions
                 statement,
                 createDecimalType(expectedResult.getPrecision(), expectedResult.getScale()),
                 expectedResult);
+    }
+
+    protected void assertAmbiguousFunction(@Language("SQL") String projection, Type expectedType, Set<Object> expected)
+    {
+        functionAssertions.assertAmbiguousFunction(projection, expectedType, expected);
     }
 
     protected void assertInvalidFunction(@Language("SQL") String projection, ErrorCodeSupplier errorCode, String message)
@@ -120,11 +127,6 @@ public abstract class AbstractTestFunctions
     protected void assertInvalidFunction(@Language("SQL") String projection, ErrorCodeSupplier expectedErrorCode)
     {
         functionAssertions.assertInvalidFunction(projection, expectedErrorCode);
-    }
-
-    protected void assertFunctionThrowsIncorrectly(@Language("SQL") String projection, Class<? extends Throwable> throwableClass, @Language("RegExp") String message)
-    {
-        functionAssertions.assertFunctionThrowsIncorrectly(projection, throwableClass, message);
     }
 
     protected void assertNumericOverflow(String projection, String message)
@@ -147,13 +149,6 @@ public abstract class AbstractTestFunctions
         functionAssertions.assertCachedInstanceHasBoundedRetainedSize(projection);
     }
 
-    protected void assertNotSupported(String projection, String message)
-    {
-        assertTrinoExceptionThrownBy(() -> functionAssertions.executeProjectionWithFullEngine(projection))
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage(message);
-    }
-
     protected void tryEvaluateWithAll(String projection, Type expectedType)
     {
         functionAssertions.tryEvaluateWithAll(projection, expectedType);
@@ -161,39 +156,26 @@ public abstract class AbstractTestFunctions
 
     protected void registerScalarFunction(SqlScalarFunction sqlScalarFunction)
     {
-        functionAssertions.getMetadata().addFunctions(ImmutableList.of(sqlScalarFunction));
+        functionAssertions.addFunctions(new InternalFunctionBundle(sqlScalarFunction));
     }
 
     protected void registerScalar(Class<?> clazz)
     {
-        functionAssertions.getMetadata().addFunctions(new FunctionListBuilder()
+        functionAssertions.addFunctions(InternalFunctionBundle.builder()
                 .scalars(clazz)
-                .getFunctions());
+                .build());
     }
 
     protected void registerParametricScalar(Class<?> clazz)
     {
-        functionAssertions.getMetadata().addFunctions(new FunctionListBuilder()
+        functionAssertions.addFunctions(InternalFunctionBundle.builder()
                 .scalar(clazz)
-                .getFunctions());
+                .build());
     }
 
     protected void installPlugin(Plugin plugin)
     {
         functionAssertions.installPlugin(plugin);
-    }
-
-    protected static SqlDecimal decimal(String decimalString)
-    {
-        DecimalParseResult parseResult = Decimals.parseIncludeLeadingZerosInPrecision(decimalString);
-        BigInteger unscaledValue;
-        if (parseResult.getType().isShort()) {
-            unscaledValue = BigInteger.valueOf((Long) parseResult.getObject());
-        }
-        else {
-            unscaledValue = ((Int128) parseResult.getObject()).toBigInteger();
-        }
-        return new SqlDecimal(unscaledValue, parseResult.getType().getPrecision(), parseResult.getType().getScale());
     }
 
     protected static SqlTimestamp timestamp(int precision, String timestampValue)
@@ -202,15 +184,9 @@ public abstract class AbstractTestFunctions
         return SqlTimestamp.newInstance(precision, longTimestamp.getEpochMicros(), longTimestamp.getPicosOfMicro());
     }
 
-    protected static SqlDecimal maxPrecisionDecimal(long value)
-    {
-        String maxPrecisionFormat = "%0" + (Decimals.MAX_PRECISION + (value < 0 ? 1 : 0)) + "d";
-        return decimal(format(maxPrecisionFormat, value));
-    }
-
     // this help function should only be used when the map contains null value
     // otherwise, use ImmutableMap.of()
-    protected static <K, V> Map<K, V> asMap(List<K> keyList, List<V> valueList)
+    public static <K, V> Map<K, V> asMap(List<K> keyList, List<V> valueList)
     {
         if (keyList.size() != valueList.size()) {
             fail("keyList should have same size with valueList");

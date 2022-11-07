@@ -36,7 +36,7 @@ public class KafkaSecurityModule
     {
         install(conditionalModule(
                 KafkaSecurityConfig.class,
-                config -> config.getSecurityProtocol().equals(securityProtocol),
+                config -> config.getSecurityProtocol().isPresent() && config.getSecurityProtocol().get().equals(securityProtocol),
                 module));
     }
 }

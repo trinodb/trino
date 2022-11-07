@@ -14,21 +14,18 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.TypeSignature.arrayType;
@@ -44,29 +41,25 @@ public class ArrayFlattenFunction
 
     private ArrayFlattenFunction()
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        FUNCTION_NAME,
-                        ImmutableList.of(typeVariable("E")),
-                        ImmutableList.of(),
-                        arrayType(new TypeSignature("E")),
-                        ImmutableList.of(arrayType(arrayType(new TypeSignature("E")))),
-                        false),
-                new FunctionNullability(false, ImmutableList.of(false)),
-                false,
-                true,
-                "Flattens the given array",
-                SCALAR));
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .name(FUNCTION_NAME)
+                        .typeVariable("E")
+                        .returnType(arrayType(new TypeSignature("E")))
+                        .argumentType(arrayType(arrayType(new TypeSignature("E"))))
+                        .build())
+                .description("Flattens the given array")
+                .build());
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         ArrayType arrayType = (ArrayType) boundSignature.getReturnType();
         MethodHandle methodHandle = METHOD_HANDLE
                 .bindTo(arrayType.getElementType())
                 .bindTo(arrayType);
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),

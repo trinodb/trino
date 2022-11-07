@@ -50,7 +50,7 @@ public class TestBigQueryInstanceCleaner
             .collect(toUnmodifiableSet());
 
     // see https://cloud.google.com/bigquery/docs/information-schema-tables#tables_view for possible values
-    public static final Collection<String> tableTypesToDrop = ImmutableList.of("BASE TABLE", "VIEW", "MATERIALIZED VIEW");
+    public static final Collection<String> tableTypesToDrop = ImmutableList.of("BASE TABLE", "VIEW", "MATERIALIZED VIEW", "SNAPSHOT");
 
     private BigQuerySqlExecutor bigQuerySqlExecutor;
 
@@ -160,6 +160,8 @@ public class TestBigQueryInstanceCleaner
                 return format("DROP VIEW IF EXISTS %s.%s", quoted(schemaName), quoted(objectName));
             case "MATERIALIZED VIEW":
                 return format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", quoted(schemaName), quoted(objectName));
+            case "SNAPSHOT":
+                return format("DROP SNAPSHOT TABLE IF EXISTS %s.%s", quoted(schemaName), quoted(objectName));
             default:
                 throw new IllegalArgumentException("Unexpected object type " + objectType);
         }

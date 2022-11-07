@@ -34,7 +34,7 @@ public class PassthroughExchanger
         this.localExchangeSource = requireNonNull(localExchangeSource, "localExchangeSource is null");
         this.memoryTracker = requireNonNull(memoryTracker, "memoryTracker is null");
         bufferMemoryManager = new LocalExchangeMemoryManager(bufferMaxMemory);
-        onPageReleased = (releasedSizeInBytes) -> {
+        onPageReleased = releasedSizeInBytes -> {
             this.bufferMemoryManager.updateMemoryUsage(-releasedSizeInBytes);
             this.memoryTracker.accept(-releasedSizeInBytes);
         };

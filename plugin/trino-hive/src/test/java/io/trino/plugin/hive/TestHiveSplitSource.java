@@ -36,7 +36,6 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_EXCEEDED_SPLIT_BUFFERING_LIMIT;
 import static io.trino.plugin.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
-import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -303,42 +302,9 @@ public class TestHiveSplitSource
                 .hasMessageContaining("Split buffering for database.table exceeded memory limit");
     }
 
-    @Test
-    public void testEmptyBucket()
-    {
-        HiveSplitSource hiveSplitSource = HiveSplitSource.bucketed(
-                SESSION,
-                "database",
-                "table",
-                10,
-                10,
-                DataSize.of(1, MEGABYTE),
-                Integer.MAX_VALUE,
-                new TestingHiveSplitLoader(),
-                Executors.newFixedThreadPool(5),
-                new CounterStat(),
-                false);
-        hiveSplitSource.addToQueue(new TestSplit(0, OptionalInt.of(2)));
-        hiveSplitSource.noMoreSplits();
-        assertEquals(getSplits(hiveSplitSource, OptionalInt.of(0), 10).size(), 0);
-        assertEquals(getSplits(hiveSplitSource, OptionalInt.of(1), 10).size(), 0);
-        assertEquals(getSplits(hiveSplitSource, OptionalInt.of(2), 10).size(), 1);
-        assertEquals(getSplits(hiveSplitSource, OptionalInt.of(3), 10).size(), 0);
-    }
-
     private static List<ConnectorSplit> getSplits(ConnectorSplitSource source, int maxSize)
     {
-        return getSplits(source, OptionalInt.empty(), maxSize);
-    }
-
-    private static List<ConnectorSplit> getSplits(ConnectorSplitSource source, OptionalInt bucketNumber, int maxSize)
-    {
-        if (bucketNumber.isPresent()) {
-            return getFutureValue(source.getNextBatch(new HivePartitionHandle(bucketNumber.getAsInt()), maxSize)).getSplits();
-        }
-        else {
-            return getFutureValue(source.getNextBatch(NOT_PARTITIONED, maxSize)).getSplits();
-        }
+        return getFutureValue(source.getNextBatch(maxSize)).getSplits();
     }
 
     private static class TestingHiveSplitLoader
@@ -390,6 +356,7 @@ public class TestHiveSplitSource
                     properties("id", String.valueOf(id)),
                     ImmutableList.of(),
                     ImmutableList.of(new InternalHiveBlock(0, fileSize.toBytes(), ImmutableList.of())),
+                    bucketNumber,
                     bucketNumber,
                     () -> 0,
                     true,

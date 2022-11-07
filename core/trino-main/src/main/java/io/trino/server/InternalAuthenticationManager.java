@@ -13,14 +13,16 @@
  */
 package io.trino.server;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.hash.Hashing;
 import io.airlift.http.client.HttpRequestFilter;
 import io.airlift.http.client.Request;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.jsonwebtoken.JwtException;
-import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.JwtParser;
 import io.trino.server.security.InternalPrincipal;
+import io.trino.server.security.SecurityConfig;
 import io.trino.spi.security.Identity;
 
 import javax.inject.Inject;
@@ -34,6 +36,8 @@ import java.util.Date;
 import static io.airlift.http.client.Request.Builder.fromRequest;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.server.ServletSecurityUtils.setAuthenticatedIdentity;
+import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
+import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
@@ -48,22 +52,26 @@ public class InternalAuthenticationManager
 
     private final Key hmac;
     private final String nodeId;
+    private final JwtParser jwtParser;
 
     @Inject
-    public InternalAuthenticationManager(InternalCommunicationConfig internalCommunicationConfig, NodeInfo nodeInfo)
+    public InternalAuthenticationManager(InternalCommunicationConfig internalCommunicationConfig, SecurityConfig securityConfig, NodeInfo nodeInfo)
     {
-        this(getSharedSecret(internalCommunicationConfig, nodeInfo), nodeInfo.getNodeId());
+        this(getSharedSecret(internalCommunicationConfig, nodeInfo, !securityConfig.getAuthenticationTypes().equals(ImmutableList.of("insecure"))), nodeInfo.getNodeId());
     }
 
-    private static String getSharedSecret(InternalCommunicationConfig internalCommunicationConfig, NodeInfo nodeInfo)
+    private static String getSharedSecret(InternalCommunicationConfig internalCommunicationConfig, NodeInfo nodeInfo, boolean authenticationEnabled)
     {
-        requireNonNull(internalCommunicationConfig, "internalCommunicationConfig is null");
         requireNonNull(nodeInfo, "nodeInfo is null");
 
         // This check should not be required (as bean validation already checked it),
         // but be extra careful to not use a known secret for authentication.
         if (!internalCommunicationConfig.isRequiredSharedSecretSet()) {
-            throw new IllegalArgumentException("Shared secret is required when internal communications uses https");
+            throw new IllegalArgumentException("Shared secret (internal-communication.shared-secret) is required when internal communications uses HTTPS");
+        }
+
+        if (internalCommunicationConfig.getSharedSecret().isEmpty() && authenticationEnabled) {
+            throw new IllegalArgumentException("Shared secret (internal-communication.shared-secret) is required when authentication is enabled");
         }
 
         return internalCommunicationConfig.getSharedSecret().orElseGet(nodeInfo::getEnvironment);
@@ -75,6 +83,7 @@ public class InternalAuthenticationManager
         requireNonNull(nodeId, "nodeId is null");
         this.hmac = hmacShaKeyFor(Hashing.sha256().hashString(sharedSecret, UTF_8).asBytes());
         this.nodeId = nodeId;
+        this.jwtParser = newJwtParserBuilder().setSigningKey(hmac).build();
     }
 
     public static boolean isInternalRequest(ContainerRequestContext request)
@@ -115,7 +124,7 @@ public class InternalAuthenticationManager
 
     private String generateJwt()
     {
-        return Jwts.builder()
+        return newJwtBuilder()
                 .signWith(hmac)
                 .setSubject(nodeId)
                 .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
@@ -124,9 +133,7 @@ public class InternalAuthenticationManager
 
     private String parseJwt(String jwt)
     {
-        return Jwts.parserBuilder()
-                .setSigningKey(hmac)
-                .build()
+        return jwtParser
                 .parseClaimsJws(jwt)
                 .getBody()
                 .getSubject();

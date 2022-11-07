@@ -18,10 +18,12 @@ import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.eventlistener.EventListener;
+import io.trino.spi.function.FunctionKind;
 import io.trino.spi.type.Type;
 
 import java.security.Principal;
 import java.util.Collection;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -32,6 +34,7 @@ import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCatalogAccess;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
+import static io.trino.spi.security.AccessDeniedException.denyCommentView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateRole;
 import static io.trino.spi.security.AccessDeniedException.denyCreateSchema;
@@ -68,6 +71,7 @@ import static io.trino.spi.security.AccessDeniedException.denyRevokeSchemaPrivil
 import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denySelectColumns;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.trino.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static io.trino.spi.security.AccessDeniedException.denySetTableAuthorization;
@@ -332,18 +336,6 @@ public interface SystemAccessControl
     }
 
     /**
-     * Check if identity is allowed to create the specified table in a catalog.
-     *
-     * @throws AccessDeniedException if not allowed
-     * @deprecated use {@link #checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table, Map properties)} instead
-     */
-    @Deprecated
-    default void checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table)
-    {
-        denyCreateTable(table.toString());
-    }
-
-    /**
      * Check if identity is allowed to create the specified table with properties in a catalog.
      *
      * @throws AccessDeniedException if not allowed
@@ -378,7 +370,7 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    default void checkCanSetTableProperties(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Object> properties)
+    default void checkCanSetTableProperties(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Optional<Object>> properties)
     {
         denySetTableProperties(table.toString());
     }
@@ -391,6 +383,16 @@ public interface SystemAccessControl
     default void checkCanSetTableComment(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         denyCommentTable(table.toString());
+    }
+
+    /**
+     * Check if identity is allowed to comment the specified view in a catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanSetViewComment(SystemSecurityContext context, CatalogSchemaTableName view)
+    {
+        denyCommentView(view.toString());
     }
 
     /**
@@ -592,7 +594,7 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    default void checkCanCreateMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
+    default void checkCanCreateMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView, Map<String, Object> properties)
     {
         denyCreateMaterializedView(materializedView.toString());
     }
@@ -605,6 +607,16 @@ public interface SystemAccessControl
     default void checkCanRefreshMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
     {
         denyRefreshMaterializedView(materializedView.toString());
+    }
+
+    /**
+     * Check if identity is allowed to set the properties of the specified materialized view in a catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanSetMaterializedViewProperties(SystemSecurityContext context, CatalogSchemaTableName materializedView, Map<String, Optional<Object>> properties)
+    {
+        denySetMaterializedViewProperties(materializedView.toString());
     }
 
     /**
@@ -636,6 +648,17 @@ public interface SystemAccessControl
     {
         String granteeAsString = format("%s '%s'", grantee.getType().name().toLowerCase(Locale.ENGLISH), grantee.getName());
         denyGrantExecuteFunctionPrivilege(functionName, context.getIdentity(), granteeAsString);
+    }
+
+    /**
+     * Check if identity is allowed to grant an access to the function execution to grantee.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, FunctionKind functionKind, CatalogSchemaRoutineName functionName, TrinoPrincipal grantee, boolean grantOption)
+    {
+        String granteeAsString = format("%s '%s'", grantee.getType().name().toLowerCase(Locale.ENGLISH), grantee.getName());
+        denyGrantExecuteFunctionPrivilege(functionName.toString(), context.getIdentity(), granteeAsString);
     }
 
     /**
@@ -809,6 +832,16 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if identity is allowed to execute the specified function
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
+    {
+        denyExecuteFunction(functionName.toString());
+    }
+
+    /**
      * Check if identity is allowed to execute the specified table procedure on specified table
      *
      * @throws AccessDeniedException if not allowed
@@ -819,28 +852,28 @@ public interface SystemAccessControl
     }
 
     /**
-     * Get a row filter associated with the given table and identity.
+     * Get row filters associated with the given table and identity.
      * <p>
-     * The filter must be a scalar SQL expression of boolean type over the columns in the table.
+     * Each filter must be a scalar SQL expression of boolean type over the columns in the table.
      *
-     * @return the filter, or {@link Optional#empty()} if not applicable
+     * @return the list of filters, or empty list if not applicable
      */
-    default Optional<ViewExpression> getRowFilter(SystemSecurityContext context, CatalogSchemaTableName tableName)
+    default List<ViewExpression> getRowFilters(SystemSecurityContext context, CatalogSchemaTableName tableName)
     {
-        return Optional.empty();
+        return List.of();
     }
 
     /**
-     * Get a column mask associated with the given table, column and identity.
+     * Get column masks associated with the given table, column and identity.
      * <p>
-     * The mask must be a scalar SQL expression of a type coercible to the type of the column being masked. The expression
+     * Each mask must be a scalar SQL expression of a type coercible to the type of the column being masked. The expression
      * must be written in terms of columns in the table.
      *
-     * @return the mask, or {@link Optional#empty()} if not applicable
+     * @return the list of masks, or empty list if not applicable
      */
-    default Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
+    default List<ViewExpression> getColumnMasks(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
     {
-        return Optional.empty();
+        return List.of();
     }
 
     /**

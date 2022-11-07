@@ -17,21 +17,26 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class HiveInputInfo
 {
     private final List<String> partitionIds;
-    // Code that serialize HiveInputInfo into log would often need the ability to limit the length of log entries.
-    // This boolean field allows such code to mark the log entry as length limited.
-    private final boolean truncated;
+    private final boolean partitioned;
+    private final Optional<String> tableDefaultFileFormat;
 
     @JsonCreator
     public HiveInputInfo(
             @JsonProperty("partitionIds") List<String> partitionIds,
-            @JsonProperty("truncated") boolean truncated)
+            @JsonProperty("partitioned") boolean partitioned,
+            @JsonProperty("tableDefaultFileFormat") Optional<String> tableDefaultFileFormat)
     {
-        this.partitionIds = partitionIds;
-        this.truncated = truncated;
+        this.partitionIds = requireNonNull(partitionIds, "partitionIds is null");
+        this.partitioned = partitioned;
+        this.tableDefaultFileFormat = requireNonNull(tableDefaultFileFormat, "tableDefaultFileFormat is null");
     }
 
     @JsonProperty
@@ -41,8 +46,35 @@ public class HiveInputInfo
     }
 
     @JsonProperty
-    public boolean isTruncated()
+    public boolean isPartitioned()
     {
-        return truncated;
+        return partitioned;
+    }
+
+    @JsonProperty
+    public Optional<String> getTableDefaultFileFormat()
+    {
+        return tableDefaultFileFormat;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof HiveInputInfo)) {
+            return false;
+        }
+        HiveInputInfo that = (HiveInputInfo) o;
+        return partitionIds.equals(that.partitionIds)
+                && partitioned == that.partitioned
+                && tableDefaultFileFormat.equals(that.tableDefaultFileFormat);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(partitionIds, partitioned, tableDefaultFileFormat);
     }
 }

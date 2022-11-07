@@ -29,6 +29,7 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
@@ -37,24 +38,24 @@ import java.lang.management.ThreadMXBean;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class RcFileFileWriter
         implements FileWriter
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RcFileFileWriter.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(RcFileFileWriter.class).instanceSize());
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
     private final CountingOutputStream outputStream;
     private final RcFileWriter rcFileWriter;
-    private final Callable<Void> rollbackAction;
+    private final Closeable rollbackAction;
     private final int[] fileInputColumnIndexes;
     private final List<Block> nullBlocks;
     private final Optional<Supplier<RcFileDataSource>> validationInputFactory;
@@ -63,7 +64,7 @@ public class RcFileFileWriter
 
     public RcFileFileWriter(
             OutputStream outputStream,
-            Callable<Void> rollbackAction,
+            Closeable rollbackAction,
             RcFileEncoding rcFileEncoding,
             List<Type> fileColumnTypes,
             Optional<String> codecName,
@@ -102,7 +103,7 @@ public class RcFileFileWriter
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
         return INSTANCE_SIZE + rcFileWriter.getRetainedSizeInBytes();
     }
@@ -114,7 +115,7 @@ public class RcFileFileWriter
         for (int i = 0; i < fileInputColumnIndexes.length; i++) {
             int inputColumnIndex = fileInputColumnIndexes[i];
             if (inputColumnIndex < 0) {
-                blocks[i] = new RunLengthEncodedBlock(nullBlocks.get(i), dataPage.getPositionCount());
+                blocks[i] = RunLengthEncodedBlock.create(nullBlocks.get(i), dataPage.getPositionCount());
             }
             else {
                 blocks[i] = dataPage.getBlock(inputColumnIndex);
@@ -130,14 +131,14 @@ public class RcFileFileWriter
     }
 
     @Override
-    public void commit()
+    public Closeable commit()
     {
         try {
             rcFileWriter.close();
         }
         catch (IOException | UncheckedIOException e) {
             try {
-                rollbackAction.call();
+                rollbackAction.close();
             }
             catch (Exception ignored) {
                 // ignore
@@ -157,18 +158,15 @@ public class RcFileFileWriter
                 throw new TrinoException(HIVE_WRITE_VALIDATION_FAILED, e);
             }
         }
+
+        return rollbackAction;
     }
 
     @Override
     public void rollback()
     {
-        try {
-            try {
-                rcFileWriter.close();
-            }
-            finally {
-                rollbackAction.call();
-            }
+        try (rollbackAction) {
+            rcFileWriter.close();
         }
         catch (Exception e) {
             throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", e);

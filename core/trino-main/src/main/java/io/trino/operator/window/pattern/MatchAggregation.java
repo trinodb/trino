@@ -15,23 +15,19 @@ package io.trino.operator.window.pattern;
 
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionNullability;
-import io.trino.operator.aggregation.AggregationMetadata;
-import io.trino.operator.aggregation.LambdaProvider;
 import io.trino.operator.aggregation.WindowAccumulator;
+import io.trino.operator.window.AggregationWindowFunctionSupplier;
 import io.trino.operator.window.MappedWindowIndex;
 import io.trino.operator.window.matcher.ArrayView;
 import io.trino.operator.window.pattern.SetEvaluator.SetEvaluatorSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.BoundSignature;
 
-import java.lang.reflect.Constructor;
 import java.util.List;
 import java.util.function.Supplier;
 
-import static io.trino.operator.aggregation.AccumulatorCompiler.generateWindowAccumulatorClass;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -194,34 +190,22 @@ public class MatchAggregation
 
         public MatchAggregationInstantiator(
                 BoundSignature boundSignature,
-                AggregationMetadata aggregationMetadata,
-                FunctionNullability functionNullability,
+                AggregationWindowFunctionSupplier aggregationWindowFunctionSupplier,
                 List<Integer> argumentChannels,
-                List<LambdaProvider> lambdaProviders,
+                List<Supplier<Object>> lambdaProviders,
                 SetEvaluatorSupplier setEvaluatorSupplier)
         {
             this.boundSignature = boundSignature;
             this.argumentChannels = requireNonNull(argumentChannels, "argumentChannels is null");
             this.setEvaluatorSupplier = requireNonNull(setEvaluatorSupplier, "setEvaluatorSupplier is null");
 
-            Constructor<? extends WindowAccumulator> constructor = generateWindowAccumulatorClass(boundSignature, aggregationMetadata, functionNullability);
-            this.accumulatorFactory = () -> createWindowAccumulator(constructor, lambdaProviders);
+            this.accumulatorFactory = () -> aggregationWindowFunctionSupplier.createWindowAccumulator(lambdaProviders);
         }
 
         public MatchAggregation get(AggregatedMemoryContext memoryContextSupplier)
         {
             requireNonNull(memoryContextSupplier, "memoryContextSupplier is null");
             return new MatchAggregation(boundSignature, accumulatorFactory, argumentChannels, setEvaluatorSupplier.get(), memoryContextSupplier);
-        }
-
-        private static WindowAccumulator createWindowAccumulator(Constructor<? extends WindowAccumulator> constructor, List<LambdaProvider> lambdaProviders)
-        {
-            try {
-                return constructor.newInstance(lambdaProviders);
-            }
-            catch (ReflectiveOperationException e) {
-                throw new RuntimeException(e);
-            }
         }
     }
 }

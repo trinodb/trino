@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.hive;
 
+import io.trino.spi.security.ConnectorIdentity;
+
 public interface TransactionalMetadataFactory
 {
-    TransactionalMetadata create(boolean autoCommit);
+    TransactionalMetadata create(ConnectorIdentity identity, boolean autoCommit);
 }

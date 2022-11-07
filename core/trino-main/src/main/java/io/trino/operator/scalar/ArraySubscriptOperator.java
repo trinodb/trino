@@ -16,16 +16,17 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.SqlOperator;
+import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -38,7 +39,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ArraySubscriptOperator
-        extends SqlOperator
+        extends SqlScalarFunction
 {
     public static final ArraySubscriptOperator ARRAY_SUBSCRIPT = new ArraySubscriptOperator();
 
@@ -50,16 +51,20 @@ public class ArraySubscriptOperator
 
     protected ArraySubscriptOperator()
     {
-        super(SUBSCRIPT,
-                ImmutableList.of(typeVariable("E")),
-                ImmutableList.of(),
-                new TypeSignature("E"),
-                ImmutableList.of(arrayType(new TypeSignature("E")), BIGINT.getTypeSignature()),
-                true);
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .operatorType(SUBSCRIPT)
+                        .typeVariable("E")
+                        .returnType(new TypeSignature("E"))
+                        .argumentType(arrayType(new TypeSignature("E")))
+                        .argumentType(BIGINT)
+                        .build())
+                .nullable()
+                .build());
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         Type elementType = boundSignature.getReturnType();
 
@@ -82,7 +87,7 @@ public class ArraySubscriptOperator
         }
         methodHandle = methodHandle.bindTo(elementType);
         requireNonNull(methodHandle, "methodHandle is null");
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 NULLABLE_RETURN,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),

@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -54,7 +55,8 @@ public class ServerPluginsProvider
                 listFiles(installedPluginsDir).stream()
                         .filter(File::isDirectory)
                         .map(file -> (Callable<?>) () -> {
-                            loader.load(file.getAbsolutePath(), () -> createClassLoader.create(buildClassPath(file)));
+                            loader.load(file.getAbsolutePath(), () ->
+                                    createClassLoader.create(file.getName(), buildClassPath(file)));
                             return null;
                         })
                         .collect(toImmutableList()));
@@ -70,10 +72,12 @@ public class ServerPluginsProvider
     private static List<File> listFiles(File path)
     {
         try {
-            return stream(newDirectoryStream(path.toPath()))
-                    .map(Path::toFile)
-                    .sorted()
-                    .collect(toImmutableList());
+            try (DirectoryStream<Path> directoryStream = newDirectoryStream(path.toPath())) {
+                return stream(directoryStream)
+                        .map(Path::toFile)
+                        .sorted()
+                        .collect(toImmutableList());
+            }
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

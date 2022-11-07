@@ -14,13 +14,13 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.OptionalBinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.plugin.hive.ForRecordingHiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.RecordingHiveMetastoreModule;
-import io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreModule;
+import io.trino.plugin.hive.AllowHiveTableRename;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -33,21 +33,20 @@ public class ThriftMetastoreModule
     {
         OptionalBinder.newOptionalBinder(binder, ThriftMetastoreClientFactory.class)
                 .setDefault().to(DefaultThriftMetastoreClientFactory.class).in(Scopes.SINGLETON);
-        binder.bind(MetastoreLocator.class).to(StaticMetastoreLocator.class).in(Scopes.SINGLETON);
+        binder.bind(TokenAwareMetastoreClientFactory.class).to(StaticTokenAwareMetastoreClientFactory.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(StaticMetastoreConfig.class);
         configBinder(binder).bindConfig(ThriftMetastoreConfig.class);
 
-        binder.bind(ThriftMetastore.class).to(ThriftHiveMetastore.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(ThriftMetastore.class)
+        binder.bind(ThriftMetastoreFactory.class).to(ThriftHiveMetastoreFactory.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(ThriftMetastoreFactory.class)
                 .as(generator -> generator.generatedNameOf(ThriftHiveMetastore.class));
 
-        binder.bind(HiveMetastore.class)
-                .annotatedWith(ForRecordingHiveMetastore.class)
-                .to(BridgingHiveMetastore.class)
+        binder.bind(HiveMetastoreFactory.class)
+                .annotatedWith(RawHiveMetastoreFactory.class)
+                .to(BridgingHiveMetastoreFactory.class)
                 .in(Scopes.SINGLETON);
 
-        install(new RecordingHiveMetastoreModule());
-        install(new CachingHiveMetastoreModule());
+        binder.bind(Key.get(boolean.class, AllowHiveTableRename.class)).toInstance(true);
 
         install(new ThriftMetastoreAuthenticationModule());
     }

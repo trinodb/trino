@@ -18,18 +18,18 @@ import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.ResultWithQueryId;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import static io.trino.FeaturesConfig.JoinDistributionType.BROADCAST;
-import static io.trino.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.SystemSessionProperties.LATE_MATERIALIZATION;
+import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
+import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.NONE;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertTrue;
 
@@ -87,10 +87,10 @@ public class TestLateMaterializationQueries
     {
         QueryManager queryManager = getDistributedQueryRunner().getCoordinator().getQueryManager();
 
-        ResultWithQueryId<MaterializedResult> workProcessorResultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(lateMaterialization(), sql);
+        MaterializedResultWithQueryId workProcessorResultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(lateMaterialization(), sql);
         QueryInfo workProcessorQueryInfo = queryManager.getFullQueryInfo(workProcessorResultResultWithQueryId.getQueryId());
 
-        ResultWithQueryId<MaterializedResult> noWorkProcessorResultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(noLateMaterialization(), sql);
+        MaterializedResultWithQueryId noWorkProcessorResultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(noLateMaterialization(), sql);
         QueryInfo noWorkProcessorQueryInfo = queryManager.getFullQueryInfo(noWorkProcessorResultResultWithQueryId.getQueryId());
 
         // ensure results are correct

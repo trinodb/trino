@@ -14,11 +14,11 @@
 package io.trino.benchmark;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.BoundSignature;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.aggregation.AccumulatorFactory;
-import io.trino.operator.aggregation.AggregationMetadata;
 import io.trino.operator.aggregation.AggregatorFactory;
+import io.trino.spi.function.AggregationImplementation;
+import io.trino.spi.function.BoundSignature;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.AggregationNode.Step;
 
@@ -34,16 +34,12 @@ public class BenchmarkAggregationFunction
     private final AccumulatorFactory accumulatorFactory;
     private final Type finalType;
 
-    public BenchmarkAggregationFunction(ResolvedFunction resolvedFunction, AggregationMetadata aggregationMetadata)
+    public BenchmarkAggregationFunction(ResolvedFunction resolvedFunction, AggregationImplementation aggregationImplementation)
     {
         BoundSignature signature = resolvedFunction.getSignature();
-        intermediateType = getOnlyElement(aggregationMetadata.getAccumulatorStateDescriptors()).getSerializer().getSerializedType();
+        intermediateType = getOnlyElement(aggregationImplementation.getAccumulatorStateDescriptors()).getSerializer().getSerializedType();
         finalType = signature.getReturnType();
-        accumulatorFactory = generateAccumulatorFactory(
-                signature,
-                aggregationMetadata,
-                resolvedFunction.getFunctionNullability(),
-                ImmutableList.of());
+        accumulatorFactory = generateAccumulatorFactory(signature, aggregationImplementation, resolvedFunction.getFunctionNullability());
     }
 
     public AggregatorFactory bind(List<Integer> inputChannels)
@@ -55,6 +51,7 @@ public class BenchmarkAggregationFunction
                 finalType,
                 inputChannels,
                 OptionalInt.empty(),
-                true);
+                true,
+                ImmutableList.of());
     }
 }

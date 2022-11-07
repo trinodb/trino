@@ -134,12 +134,12 @@ public class TestDecimalSumAggregation
 
     private static void addToState(LongDecimalWithOverflowState state, BigInteger value)
     {
-        BlockBuilder blockBuilder = TYPE.createFixedSizeBlockBuilder(1);
-        TYPE.writeObject(blockBuilder, Int128.valueOf(value));
         if (TYPE.isShort()) {
-            DecimalSumAggregation.inputShortDecimal(state, blockBuilder.build(), 0);
+            DecimalSumAggregation.inputShortDecimal(state, Int128.valueOf(value).toLongExact());
         }
         else {
+            BlockBuilder blockBuilder = TYPE.createFixedSizeBlockBuilder(1);
+            TYPE.writeObject(blockBuilder, Int128.valueOf(value));
             DecimalSumAggregation.inputLongDecimal(state, blockBuilder.build(), 0);
         }
     }

@@ -26,8 +26,8 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
-import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
-import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
+import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
+import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -166,7 +166,7 @@ public class TestCsv
     {
         QueryResult expected = onTrino().executeQuery(format(query, "tpch.tiny.nation"));
         List<Row> expectedRows = expected.rows().stream()
-                .map((columns) -> row(columns.toArray()))
+                .map(columns -> row(columns.toArray()))
                 .collect(toImmutableList());
         QueryResult actual = onTrino().executeQuery(format(query, tableName));
         assertThat(actual)

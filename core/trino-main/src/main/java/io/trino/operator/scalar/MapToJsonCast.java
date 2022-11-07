@@ -19,10 +19,11 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.SqlOperator;
+import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.block.Block;
-import io.trino.spi.function.OperatorType;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -32,11 +33,11 @@ import java.lang.invoke.MethodHandle;
 import java.util.Map;
 import java.util.TreeMap;
 
-import static io.trino.metadata.Signature.castableToTypeParameter;
 import static io.trino.operator.scalar.JsonOperators.JSON_FACTORY;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.JsonType.JSON;
@@ -48,30 +49,26 @@ import static io.trino.util.JsonUtil.createJsonGenerator;
 import static io.trino.util.Reflection.methodHandle;
 
 public class MapToJsonCast
-        extends SqlOperator
+        extends SqlScalarFunction
 {
-    public static final MapToJsonCast MAP_TO_JSON = new MapToJsonCast(false);
-    public static final MapToJsonCast LEGACY_MAP_TO_JSON = new MapToJsonCast(true);
-
+    public static final MapToJsonCast MAP_TO_JSON = new MapToJsonCast();
     private static final MethodHandle METHOD_HANDLE = methodHandle(MapToJsonCast.class, "toJson", ObjectKeyProvider.class, JsonGeneratorWriter.class, Block.class);
 
-    private final boolean legacyRowToJson;
-
-    private MapToJsonCast(boolean legacyRowToJson)
+    private MapToJsonCast()
     {
-        super(OperatorType.CAST,
-                ImmutableList.of(
-                        castableToTypeParameter("K", VARCHAR.getTypeSignature()),
-                        castableToTypeParameter("V", JSON.getTypeSignature())),
-                ImmutableList.of(),
-                JSON.getTypeSignature(),
-                ImmutableList.of(mapType(new TypeSignature("K"), new TypeSignature("V"))),
-                false);
-        this.legacyRowToJson = legacyRowToJson;
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .operatorType(CAST)
+                        .castableToTypeParameter("K", VARCHAR.getTypeSignature())
+                        .castableToTypeParameter("V", JSON.getTypeSignature())
+                        .returnType(JSON)
+                        .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V")))
+                        .build())
+                .build());
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         MapType mapType = (MapType) boundSignature.getArgumentType(0);
         Type keyType = mapType.getKeyType();
@@ -79,10 +76,10 @@ public class MapToJsonCast
         checkCondition(canCastToJson(mapType), INVALID_CAST_ARGUMENT, "Cannot cast %s to JSON", mapType);
 
         ObjectKeyProvider provider = ObjectKeyProvider.createObjectKeyProvider(keyType);
-        JsonGeneratorWriter writer = JsonGeneratorWriter.createJsonGeneratorWriter(valueType, legacyRowToJson);
+        JsonGeneratorWriter writer = JsonGeneratorWriter.createJsonGeneratorWriter(valueType);
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(provider).bindTo(writer);
 
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),

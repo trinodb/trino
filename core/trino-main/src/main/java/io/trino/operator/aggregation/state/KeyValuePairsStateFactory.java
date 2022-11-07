@@ -17,9 +17,11 @@ import io.trino.array.ObjectBigArray;
 import io.trino.operator.aggregation.KeyValuePairs;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
+import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class KeyValuePairsStateFactory
@@ -28,7 +30,7 @@ public class KeyValuePairsStateFactory
     private final Type keyType;
     private final Type valueType;
 
-    public KeyValuePairsStateFactory(Type keyType, Type valueType)
+    public KeyValuePairsStateFactory(@TypeParameter("K") Type keyType, @TypeParameter("V") Type valueType)
     {
         this.keyType = keyType;
         this.valueType = valueType;
@@ -50,7 +52,7 @@ public class KeyValuePairsStateFactory
             extends AbstractGroupedAccumulatorState
             implements KeyValuePairsState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedState.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(GroupedState.class).instanceSize());
         private final Type keyType;
         private final Type valueType;
         private final ObjectBigArray<KeyValuePairs> pairs = new ObjectBigArray<>();
@@ -116,7 +118,7 @@ public class KeyValuePairsStateFactory
     public static class SingleState
             implements KeyValuePairsState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleState.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SingleState.class).instanceSize());
         private final Type keyType;
         private final Type valueType;
         private KeyValuePairs pair;

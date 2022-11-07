@@ -50,7 +50,7 @@ public class TestMapAggAggregation
     {
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of(MapAggregationFunction.NAME),
+                QualifiedName.of("map_agg"),
                 fromTypes(DOUBLE, VARCHAR),
                 ImmutableMap.of(1.0, "a"),
                 createDoublesBlock(1.0, 1.0, 1.0),
@@ -58,7 +58,7 @@ public class TestMapAggAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of(MapAggregationFunction.NAME),
+                QualifiedName.of("map_agg"),
                 fromTypes(DOUBLE, INTEGER),
                 ImmutableMap.of(1.0, 99, 2.0, 99, 3.0, 99),
                 createDoublesBlock(1.0, 2.0, 3.0),
@@ -70,7 +70,7 @@ public class TestMapAggAggregation
     {
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of(MapAggregationFunction.NAME),
+                QualifiedName.of("map_agg"),
                 fromTypes(DOUBLE, VARCHAR),
                 ImmutableMap.of(1.0, "a", 2.0, "b", 3.0, "c"),
                 createDoublesBlock(1.0, 2.0, 3.0),
@@ -78,7 +78,7 @@ public class TestMapAggAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of(MapAggregationFunction.NAME),
+                QualifiedName.of("map_agg"),
                 fromTypes(DOUBLE, INTEGER),
                 ImmutableMap.of(1.0, 3, 2.0, 2, 3.0, 1),
                 createDoublesBlock(1.0, 2.0, 3.0),
@@ -86,7 +86,7 @@ public class TestMapAggAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of(MapAggregationFunction.NAME),
+                QualifiedName.of("map_agg"),
                 fromTypes(DOUBLE, BOOLEAN),
                 ImmutableMap.of(1.0, true, 2.0, false, 3.0, false),
                 createDoublesBlock(1.0, 2.0, 3.0),
@@ -98,7 +98,7 @@ public class TestMapAggAggregation
     {
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of(MapAggregationFunction.NAME),
+                QualifiedName.of("map_agg"),
                 fromTypes(DOUBLE, DOUBLE),
                 ImmutableMap.of(1.0, 2.0),
                 createDoublesBlock(1.0, null, null),
@@ -106,7 +106,7 @@ public class TestMapAggAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of(MapAggregationFunction.NAME),
+                QualifiedName.of("map_agg"),
                 fromTypes(DOUBLE, DOUBLE),
                 null,
                 createDoublesBlock(null, null, null),
@@ -118,7 +118,7 @@ public class TestMapAggAggregation
         expected.put(3.0, null);
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of(MapAggregationFunction.NAME),
+                QualifiedName.of("map_agg"),
                 fromTypes(DOUBLE, DOUBLE),
                 expected,
                 createDoublesBlock(1.0, 2.0, 3.0),
@@ -132,7 +132,7 @@ public class TestMapAggAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of(MapAggregationFunction.NAME),
+                QualifiedName.of("map_agg"),
                 fromTypes(DOUBLE, arrayType),
                 ImmutableMap.of(1.0, ImmutableList.of("a", "b"),
                         2.0, ImmutableList.of("c", "d"),
@@ -153,7 +153,7 @@ public class TestMapAggAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of(MapAggregationFunction.NAME),
+                QualifiedName.of("map_agg"),
                 fromTypes(DOUBLE, innerMapType),
                 ImmutableMap.of(1.0, ImmutableMap.of("a", "b"),
                         2.0, ImmutableMap.of("c", "d"),
@@ -176,7 +176,7 @@ public class TestMapAggAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of(MapAggregationFunction.NAME),
+                QualifiedName.of("map_agg"),
                 fromTypes(DOUBLE, innerRowType),
                 ImmutableMap.of(1.0, ImmutableList.of(1, 1.0),
                         2.0, ImmutableList.of(2, 2.0),
@@ -192,7 +192,7 @@ public class TestMapAggAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of(MapAggregationFunction.NAME),
+                QualifiedName.of("map_agg"),
                 fromTypes(arrayType, DOUBLE),
                 ImmutableMap.of(
                         ImmutableList.of("a", "b"), 1.0,

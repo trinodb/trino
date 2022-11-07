@@ -13,9 +13,10 @@
  */
 package io.trino.plugin.cassandra;
 
-import com.datastax.driver.core.ConsistencyLevel;
-import com.datastax.driver.core.ProtocolVersion;
-import com.datastax.driver.core.SocketOptions;
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
+import com.datastax.oss.driver.api.core.DefaultProtocolVersion;
+import com.datastax.oss.driver.api.core.ProtocolVersion;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
@@ -42,7 +43,8 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({"cassandra.thrift-port", "cassandra.partitioner", "cassandra.thrift-connection-factory-class", "cassandra.transport-factory-options",
         "cassandra.no-host-available-retry-count", "cassandra.max-schema-refresh-threads", "cassandra.schema-cache-ttl",
-        "cassandra.schema-refresh-interval", "cassandra.load-policy.use-white-list", "cassandra.load-policy.white-list.addresses"})
+        "cassandra.schema-refresh-interval", "cassandra.load-policy.use-white-list", "cassandra.load-policy.white-list.addresses",
+        "cassandra.load-policy.use-token-aware", "cassandra.load-policy.token-aware.shuffle-replicas", "cassandra.load-policy.allowed-addresses"})
 public class CassandraClientConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
@@ -58,17 +60,14 @@ public class CassandraClientConfig
     private boolean allowDropTable;
     private String username;
     private String password;
-    private Duration clientReadTimeout = new Duration(SocketOptions.DEFAULT_READ_TIMEOUT_MILLIS, MILLISECONDS);
-    private Duration clientConnectTimeout = new Duration(SocketOptions.DEFAULT_CONNECT_TIMEOUT_MILLIS, MILLISECONDS);
+    private Duration clientReadTimeout = new Duration(12_000, MILLISECONDS);
+    private Duration clientConnectTimeout = new Duration(5_000, MILLISECONDS);
     private Integer clientSoLinger;
     private RetryPolicyType retryPolicy = RetryPolicyType.DEFAULT;
-    private boolean useDCAware;
+    private boolean useDCAware = true;
     private String dcAwareLocalDC;
     private int dcAwareUsedHostsPerRemoteDc;
     private boolean dcAwareAllowRemoteDCsForLocal;
-    private boolean useTokenAware;
-    private boolean tokenAwareShuffleReplicas;
-    private List<String> allowedAddresses = ImmutableList.of();
     private Duration noHostAvailableRetryTimeout = new Duration(1, MINUTES);
     private Optional<Integer> speculativeExecutionLimit = Optional.empty();
     private Duration speculativeExecutionDelay = new Duration(500, MILLISECONDS);
@@ -119,7 +118,7 @@ public class CassandraClientConfig
     }
 
     @Config("cassandra.consistency-level")
-    public CassandraClientConfig setConsistencyLevel(ConsistencyLevel level)
+    public CassandraClientConfig setConsistencyLevel(DefaultConsistencyLevel level)
     {
         this.consistencyLevel = level;
         return this;
@@ -330,42 +329,6 @@ public class CassandraClientConfig
         return this;
     }
 
-    public boolean isUseTokenAware()
-    {
-        return this.useTokenAware;
-    }
-
-    @Config("cassandra.load-policy.use-token-aware")
-    public CassandraClientConfig setUseTokenAware(boolean useTokenAware)
-    {
-        this.useTokenAware = useTokenAware;
-        return this;
-    }
-
-    public boolean isTokenAwareShuffleReplicas()
-    {
-        return this.tokenAwareShuffleReplicas;
-    }
-
-    @Config("cassandra.load-policy.token-aware.shuffle-replicas")
-    public CassandraClientConfig setTokenAwareShuffleReplicas(boolean tokenAwareShuffleReplicas)
-    {
-        this.tokenAwareShuffleReplicas = tokenAwareShuffleReplicas;
-        return this;
-    }
-
-    @Config("cassandra.load-policy.allowed-addresses")
-    public CassandraClientConfig setAllowedAddresses(String allowedAddresses)
-    {
-        this.allowedAddresses = SPLITTER.splitToList(allowedAddresses);
-        return this;
-    }
-
-    public List<String> getAllowedAddresses()
-    {
-        return allowedAddresses;
-    }
-
     @NotNull
     public Duration getNoHostAvailableRetryTimeout()
     {
@@ -411,7 +374,7 @@ public class CassandraClientConfig
     }
 
     @Config("cassandra.protocol-version")
-    public CassandraClientConfig setProtocolVersion(ProtocolVersion version)
+    public CassandraClientConfig setProtocolVersion(DefaultProtocolVersion version)
     {
         this.protocolVersion = version;
         return this;

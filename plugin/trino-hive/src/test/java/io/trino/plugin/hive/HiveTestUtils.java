@@ -15,10 +15,17 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.net.HostAndPort;
 import io.airlift.units.DataSize;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.hdfs.DynamicHdfsConfiguration;
+import io.trino.hdfs.HdfsConfig;
+import io.trino.hdfs.HdfsConfigurationInitializer;
+import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
-import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.azure.HiveAzureConfig;
 import io.trino.plugin.hive.azure.TrinoAzureConfigurationInitializer;
 import io.trino.plugin.hive.gcs.GoogleGcsConfigurationInitializer;
@@ -57,6 +64,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -72,7 +80,25 @@ public final class HiveTestUtils
 
     public static final ConnectorSession SESSION = getHiveSession(new HiveConfig());
 
-    public static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment();
+    public static final Optional<HostAndPort> SOCKS_PROXY = Optional.ofNullable(System.getProperty("hive.metastore.thrift.client.socks-proxy"))
+            .map(HostAndPort::fromString);
+
+    public static final DynamicHdfsConfiguration HDFS_CONFIGURATION = new DynamicHdfsConfiguration(
+            new HdfsConfigurationInitializer(
+                    new HdfsConfig()
+                            .setSocksProxy(SOCKS_PROXY.orElse(null)),
+                    ImmutableSet.of(
+                            new TrinoS3ConfigurationInitializer(new HiveS3Config()),
+                            new GoogleGcsConfigurationInitializer(new HiveGcsConfig()),
+                            new TrinoAzureConfigurationInitializer(new HiveAzureConfig()))),
+            ImmutableSet.of());
+
+    public static final HdfsEnvironment HDFS_ENVIRONMENT = new HdfsEnvironment(
+            HDFS_CONFIGURATION,
+            new HdfsConfig(),
+            new NoHdfsAuthentication());
+
+    public static final HdfsFileSystemFactory HDFS_FILE_SYSTEM_FACTORY = new HdfsFileSystemFactory(HDFS_ENVIRONMENT);
 
     public static final PageSorter PAGE_SORTER = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
 
@@ -127,19 +153,18 @@ public final class HiveTestUtils
 
     public static Set<HivePageSourceFactory> getDefaultHivePageSourceFactories(HdfsEnvironment hdfsEnvironment, HiveConfig hiveConfig)
     {
+        TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(hdfsEnvironment);
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
         return ImmutableSet.<HivePageSourceFactory>builder()
                 .add(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, hdfsEnvironment, stats, hiveConfig))
-                .add(new OrcPageSourceFactory(new OrcReaderConfig(), hdfsEnvironment, stats, hiveConfig))
-                .add(new ParquetPageSourceFactory(hdfsEnvironment, stats, new ParquetReaderConfig(), hiveConfig))
+                .add(new OrcPageSourceFactory(new OrcReaderConfig(), hdfsEnvironment, fileSystemFactory, stats, hiveConfig))
+                .add(new ParquetPageSourceFactory(fileSystemFactory, stats, new ParquetReaderConfig(), hiveConfig))
                 .build();
     }
 
     public static Set<HiveRecordCursorProvider> getDefaultHiveRecordCursorProviders(HiveConfig hiveConfig, HdfsEnvironment hdfsEnvironment)
     {
-        return ImmutableSet.<HiveRecordCursorProvider>builder()
-                .add(new S3SelectRecordCursorProvider(hdfsEnvironment, new TrinoS3ClientFactory(hiveConfig)))
-                .build();
+        return ImmutableSet.of(new S3SelectRecordCursorProvider(hdfsEnvironment, new TrinoS3ClientFactory(hiveConfig)));
     }
 
     public static Set<HiveFileWriterFactory> getDefaultHiveFileWriterFactories(HiveConfig hiveConfig, HdfsEnvironment hdfsEnvironment)
@@ -153,7 +178,7 @@ public final class HiveTestUtils
     private static OrcFileWriterFactory getDefaultOrcFileWriterFactory(HdfsEnvironment hdfsEnvironment)
     {
         return new OrcFileWriterFactory(
-                hdfsEnvironment,
+                new HdfsFileSystemFactory(hdfsEnvironment),
                 TESTING_TYPE_MANAGER,
                 new NodeVersion("test_version"),
                 new FileFormatDataSourceStats(),
@@ -174,19 +199,6 @@ public final class HiveTestUtils
         return new GenericHiveRecordCursorProvider(hdfsEnvironment, DataSize.of(100, MEGABYTE));
     }
 
-    private static HdfsEnvironment createTestHdfsEnvironment()
-    {
-        HdfsConfiguration hdfsConfig = new HiveHdfsConfiguration(
-                new HdfsConfigurationInitializer(
-                        new HdfsConfig(),
-                        ImmutableSet.of(
-                                new TrinoS3ConfigurationInitializer(new HiveS3Config()),
-                                new GoogleGcsConfigurationInitializer(new HiveGcsConfig()),
-                                new TrinoAzureConfigurationInitializer(new HiveAzureConfig()))),
-                ImmutableSet.of());
-        return new HdfsEnvironment(hdfsConfig, new HdfsConfig(), new NoHdfsAuthentication());
-    }
-
     public static MapType mapType(Type keyType, Type valueType)
     {
         return (MapType) TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
@@ -205,9 +217,9 @@ public final class HiveTestUtils
     {
         return (RowType) TESTING_TYPE_MANAGER.getParameterizedType(
                 StandardTypes.ROW,
-                ImmutableList.copyOf(elementTypeSignatures.stream()
+                elementTypeSignatures.stream()
                         .map(TypeSignatureParameter::namedTypeParameter)
-                        .collect(toImmutableList())));
+                        .collect(toImmutableList()));
     }
 
     public static Long shortDecimal(String value)

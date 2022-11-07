@@ -41,6 +41,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 @Description("Remove duplicate values from the given array")
 public final class ArrayDistinctFunction
 {
+    public static final String NAME = "array_distinct";
     private final PageBuilder pageBuilder;
 
     @TypeParameter("E")

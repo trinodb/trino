@@ -31,7 +31,7 @@ public class SuiteTpcds
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinode.class)
-                        .withGroups("tpcds")
+                        .withGroups("configured_features", "tpcds")
                         // TODO: Results for q72 need to be fixed. https://github.com/trinodb/trino/issues/4564
                         .withExcludedTests("sql_tests.testcases.tpcds.q72")
                         .build());

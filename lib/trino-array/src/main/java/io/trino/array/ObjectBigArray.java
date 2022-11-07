@@ -23,12 +23,13 @@ import static io.trino.array.BigArrays.INITIAL_SEGMENTS;
 import static io.trino.array.BigArrays.SEGMENT_SIZE;
 import static io.trino.array.BigArrays.offset;
 import static io.trino.array.BigArrays.segment;
+import static java.lang.Math.toIntExact;
 
 // Note: this code was forked from fastutil (http://fastutil.di.unimi.it/)
 // Copyright (C) 2010-2013 Sebastiano Vigna
 public final class ObjectBigArray<T>
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ObjectBigArray.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ObjectBigArray.class).instanceSize());
     private static final long SIZE_OF_SEGMENT = sizeOfObjectArray(SEGMENT_SIZE);
 
     private final Object initialValue;
@@ -84,7 +85,6 @@ public final class ObjectBigArray<T>
      * Sets the element of this big array at specified index.
      *
      * @param index a position in this big array.
-     * @return true if the previous value was null
      */
     public void set(long index, T value)
     {

@@ -57,6 +57,7 @@ public class QueryStats
     private final int totalTasks;
     private final int runningTasks;
     private final int completedTasks;
+    private final int failedTasks;
 
     private final int totalDrivers;
     private final int queuedDrivers;
@@ -65,13 +66,12 @@ public class QueryStats
     private final int completedDrivers;
 
     private final double cumulativeUserMemory;
-    private final double cumulativeSystemMemory;
+    private final double failedCumulativeUserMemory;
     private final DataSize userMemoryReservation;
     private final DataSize revocableMemoryReservation;
     private final DataSize totalMemoryReservation;
     private final DataSize peakUserMemoryReservation;
     private final DataSize peakRevocableMemoryReservation;
-    private final DataSize peakNonRevocableMemoryReservation;
     private final DataSize peakTotalMemoryReservation;
     private final DataSize peakTaskUserMemory;
     private final DataSize peakTaskRevocableMemory;
@@ -79,28 +79,48 @@ public class QueryStats
 
     private final boolean scheduled;
     private final Duration totalScheduledTime;
+    private final Duration failedScheduledTime;
     private final Duration totalCpuTime;
+    private final Duration failedCpuTime;
     private final Duration totalBlockedTime;
     private final boolean fullyBlocked;
     private final Set<BlockedReason> blockedReasons;
 
     private final DataSize physicalInputDataSize;
+    private final DataSize failedPhysicalInputDataSize;
     private final long physicalInputPositions;
+    private final long failedPhysicalInputPositions;
     private final Duration physicalInputReadTime;
+    private final Duration failedPhysicalInputReadTime;
 
     private final DataSize internalNetworkInputDataSize;
+    private final DataSize failedInternalNetworkInputDataSize;
     private final long internalNetworkInputPositions;
+    private final long failedInternalNetworkInputPositions;
 
     private final DataSize rawInputDataSize;
+    private final DataSize failedRawInputDataSize;
     private final long rawInputPositions;
+    private final long failedRawInputPositions;
 
     private final DataSize processedInputDataSize;
+    private final DataSize failedProcessedInputDataSize;
     private final long processedInputPositions;
+    private final long failedProcessedInputPositions;
+
+    private final Duration inputBlockedTime;
+    private final Duration failedInputBlockedTime;
 
     private final DataSize outputDataSize;
+    private final DataSize failedOutputDataSize;
     private final long outputPositions;
+    private final long failedOutputPositions;
+
+    private final Duration outputBlockedTime;
+    private final Duration failedOutputBlockedTime;
 
     private final DataSize physicalWrittenDataSize;
+    private final DataSize failedPhysicalWrittenDataSize;
 
     private final List<StageGcStatistics> stageGcStatistics;
 
@@ -127,6 +147,7 @@ public class QueryStats
             @JsonProperty("totalTasks") int totalTasks,
             @JsonProperty("runningTasks") int runningTasks,
             @JsonProperty("completedTasks") int completedTasks,
+            @JsonProperty("failedTasks") int failedTasks,
 
             @JsonProperty("totalDrivers") int totalDrivers,
             @JsonProperty("queuedDrivers") int queuedDrivers,
@@ -135,13 +156,12 @@ public class QueryStats
             @JsonProperty("completedDrivers") int completedDrivers,
 
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
-            @JsonProperty("cumulativeSystemMemory") double cumulativeSystemMemory,
+            @JsonProperty("failedCumulativeUserMemory") double failedCumulativeUserMemory,
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
             @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
             @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
             @JsonProperty("peakRevocableMemoryReservation") DataSize peakRevocableMemoryReservation,
-            @JsonProperty("peakNonRevocableMemoryReservation") DataSize peakNonRevocableMemoryReservation,
             @JsonProperty("peakTotalMemoryReservation") DataSize peakTotalMemoryReservation,
             @JsonProperty("peakTaskUserMemory") DataSize peakTaskUserMemory,
             @JsonProperty("peakTaskRevocableMemory") DataSize peakTaskRevocableMemory,
@@ -149,28 +169,48 @@ public class QueryStats
 
             @JsonProperty("scheduled") boolean scheduled,
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
+            @JsonProperty("failedScheduledTime") Duration failedScheduledTime,
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
+            @JsonProperty("failedCpuTime") Duration failedCpuTime,
             @JsonProperty("totalBlockedTime") Duration totalBlockedTime,
             @JsonProperty("fullyBlocked") boolean fullyBlocked,
             @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
 
             @JsonProperty("physicalInputDataSize") DataSize physicalInputDataSize,
+            @JsonProperty("failedPhysicalInputDataSize") DataSize failedPhysicalInputDataSize,
             @JsonProperty("physicalInputPositions") long physicalInputPositions,
+            @JsonProperty("failedPhysicalInputPositions") long failedPhysicalInputPositions,
             @JsonProperty("physicalInputReadTime") Duration physicalInputReadTime,
+            @JsonProperty("failedPhysicalInputReadTime") Duration failedPhysicalInputReadTime,
 
             @JsonProperty("internalNetworkInputDataSize") DataSize internalNetworkInputDataSize,
+            @JsonProperty("failedInternalNetworkInputDataSize") DataSize failedInternalNetworkInputDataSize,
             @JsonProperty("internalNetworkInputPositions") long internalNetworkInputPositions,
+            @JsonProperty("failedInternalNetworkInputPositions") long failedInternalNetworkInputPositions,
 
             @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
+            @JsonProperty("failedRawInputDataSize") DataSize failedRawInputDataSize,
             @JsonProperty("rawInputPositions") long rawInputPositions,
+            @JsonProperty("failedRawInputPositions") long failedRawInputPositions,
 
             @JsonProperty("processedInputDataSize") DataSize processedInputDataSize,
+            @JsonProperty("failedProcessedInputDataSize") DataSize failedProcessedInputDataSize,
             @JsonProperty("processedInputPositions") long processedInputPositions,
+            @JsonProperty("failedProcessedInputPositions") long failedProcessedInputPositions,
+
+            @JsonProperty("inputBlockedTime") Duration inputBlockedTime,
+            @JsonProperty("failedInputBlockedTime") Duration failedInputBlockedTime,
 
             @JsonProperty("outputDataSize") DataSize outputDataSize,
+            @JsonProperty("failedOutputDataSize") DataSize failedOutputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
+            @JsonProperty("failedOutputPositions") long failedOutputPositions,
+
+            @JsonProperty("outputBlockedTime") Duration outputBlockedTime,
+            @JsonProperty("failedOutputBlockedTime") Duration failedOutputBlockedTime,
 
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
+            @JsonProperty("failedPhysicalWrittenDataSize") DataSize failedPhysicalWrittenDataSize,
 
             @JsonProperty("stageGcStatistics") List<StageGcStatistics> stageGcStatistics,
 
@@ -198,6 +238,8 @@ public class QueryStats
         this.runningTasks = runningTasks;
         checkArgument(completedTasks >= 0, "completedTasks is negative");
         this.completedTasks = completedTasks;
+        checkArgument(failedTasks >= 0, "failedTasks is negative");
+        this.failedTasks = failedTasks;
 
         checkArgument(totalDrivers >= 0, "totalDrivers is negative");
         this.totalDrivers = totalDrivers;
@@ -211,47 +253,70 @@ public class QueryStats
         this.completedDrivers = completedDrivers;
         checkArgument(cumulativeUserMemory >= 0, "cumulativeUserMemory is negative");
         this.cumulativeUserMemory = cumulativeUserMemory;
-        checkArgument(cumulativeSystemMemory >= 0, "cumulativeSystemMemory is negative");
-        this.cumulativeSystemMemory = cumulativeSystemMemory;
+        this.failedCumulativeUserMemory = failedCumulativeUserMemory;
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
         this.totalMemoryReservation = requireNonNull(totalMemoryReservation, "totalMemoryReservation is null");
         this.peakUserMemoryReservation = requireNonNull(peakUserMemoryReservation, "peakUserMemoryReservation is null");
         this.peakRevocableMemoryReservation = requireNonNull(peakRevocableMemoryReservation, "peakRevocableMemoryReservation is null");
-        this.peakNonRevocableMemoryReservation = requireNonNull(peakNonRevocableMemoryReservation, "peakNonRevocableMemoryReservation is null");
         this.peakTotalMemoryReservation = requireNonNull(peakTotalMemoryReservation, "peakTotalMemoryReservation is null");
         this.peakTaskUserMemory = requireNonNull(peakTaskUserMemory, "peakTaskUserMemory is null");
         this.peakTaskRevocableMemory = requireNonNull(peakTaskRevocableMemory, "peakTaskRevocableMemory is null");
         this.peakTaskTotalMemory = requireNonNull(peakTaskTotalMemory, "peakTaskTotalMemory is null");
         this.scheduled = scheduled;
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
+        this.failedScheduledTime = requireNonNull(failedScheduledTime, "failedScheduledTime is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
+        this.failedCpuTime = requireNonNull(failedCpuTime, "failedCpuTime is null");
         this.totalBlockedTime = requireNonNull(totalBlockedTime, "totalBlockedTime is null");
         this.fullyBlocked = fullyBlocked;
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
 
         this.physicalInputDataSize = requireNonNull(physicalInputDataSize, "physicalInputDataSize is null");
+        this.failedPhysicalInputDataSize = requireNonNull(failedPhysicalInputDataSize, "failedPhysicalInputDataSize is null");
         checkArgument(physicalInputPositions >= 0, "physicalInputPositions is negative");
         this.physicalInputPositions = physicalInputPositions;
+        checkArgument(failedPhysicalInputPositions >= 0, "failedPhysicalInputPositions is negative");
+        this.failedPhysicalInputPositions = failedPhysicalInputPositions;
         this.physicalInputReadTime = requireNonNull(physicalInputReadTime, "physicalInputReadTime is null");
+        this.failedPhysicalInputReadTime = requireNonNull(failedPhysicalInputReadTime, "failedPhysicalInputReadTime is null");
 
         this.internalNetworkInputDataSize = requireNonNull(internalNetworkInputDataSize, "internalNetworkInputDataSize is null");
+        this.failedInternalNetworkInputDataSize = requireNonNull(failedInternalNetworkInputDataSize, "failedInternalNetworkInputDataSize is null");
         checkArgument(internalNetworkInputPositions >= 0, "internalNetworkInputPositions is negative");
         this.internalNetworkInputPositions = internalNetworkInputPositions;
+        checkArgument(failedInternalNetworkInputPositions >= 0, "failedInternalNetworkInputPositions is negative");
+        this.failedInternalNetworkInputPositions = failedInternalNetworkInputPositions;
 
         this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
+        this.failedRawInputDataSize = requireNonNull(failedRawInputDataSize, "failedRawInputDataSize is null");
         checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
         this.rawInputPositions = rawInputPositions;
+        checkArgument(failedRawInputPositions >= 0, "failedRawInputPositions is negative");
+        this.failedRawInputPositions = failedRawInputPositions;
 
         this.processedInputDataSize = requireNonNull(processedInputDataSize, "processedInputDataSize is null");
+        this.failedProcessedInputDataSize = requireNonNull(failedProcessedInputDataSize, "failedProcessedInputDataSize is null");
         checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
         this.processedInputPositions = processedInputPositions;
+        checkArgument(failedProcessedInputPositions >= 0, "failedProcessedInputPositions is negative");
+        this.failedProcessedInputPositions = failedProcessedInputPositions;
+
+        this.inputBlockedTime = requireNonNull(inputBlockedTime, "inputBlockedTime is null");
+        this.failedInputBlockedTime = requireNonNull(failedInputBlockedTime, "failedInputBlockedTime is null");
 
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
+        this.failedOutputDataSize = requireNonNull(failedOutputDataSize, "failedOutputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
+        checkArgument(failedOutputPositions >= 0, "failedOutputPositions is negative");
+        this.failedOutputPositions = failedOutputPositions;
+
+        this.outputBlockedTime = requireNonNull(outputBlockedTime, "outputBlockedTime is null");
+        this.failedOutputBlockedTime = requireNonNull(failedOutputBlockedTime, "failedOutputBlockedTime is null");
 
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
+        this.failedPhysicalWrittenDataSize = requireNonNull(failedPhysicalWrittenDataSize, "failedPhysicalWrittenDataSize is null");
 
         this.stageGcStatistics = ImmutableList.copyOf(requireNonNull(stageGcStatistics, "stageGcStatistics is null"));
 
@@ -340,6 +405,12 @@ public class QueryStats
     }
 
     @JsonProperty
+    public int getFailedTasks()
+    {
+        return failedTasks;
+    }
+
+    @JsonProperty
     public int getRunningTasks()
     {
         return runningTasks;
@@ -388,9 +459,9 @@ public class QueryStats
     }
 
     @JsonProperty
-    public double getCumulativeSystemMemory()
+    public double getFailedCumulativeUserMemory()
     {
-        return cumulativeSystemMemory;
+        return failedCumulativeUserMemory;
     }
 
     @JsonProperty
@@ -421,12 +492,6 @@ public class QueryStats
     public DataSize getPeakRevocableMemoryReservation()
     {
         return peakRevocableMemoryReservation;
-    }
-
-    @JsonProperty
-    public DataSize getPeakNonRevocableMemoryReservation()
-    {
-        return peakNonRevocableMemoryReservation;
     }
 
     @JsonProperty
@@ -466,9 +531,21 @@ public class QueryStats
     }
 
     @JsonProperty
+    public Duration getFailedScheduledTime()
+    {
+        return failedScheduledTime;
+    }
+
+    @JsonProperty
     public Duration getTotalCpuTime()
     {
         return totalCpuTime;
+    }
+
+    @JsonProperty
+    public Duration getFailedCpuTime()
+    {
+        return failedCpuTime;
     }
 
     @JsonProperty
@@ -496,9 +573,21 @@ public class QueryStats
     }
 
     @JsonProperty
+    public DataSize getFailedPhysicalInputDataSize()
+    {
+        return failedPhysicalInputDataSize;
+    }
+
+    @JsonProperty
     public long getPhysicalInputPositions()
     {
         return physicalInputPositions;
+    }
+
+    @JsonProperty
+    public long getFailedPhysicalInputPositions()
+    {
+        return failedPhysicalInputPositions;
     }
 
     @JsonProperty
@@ -508,9 +597,21 @@ public class QueryStats
     }
 
     @JsonProperty
+    public Duration getFailedPhysicalInputReadTime()
+    {
+        return failedPhysicalInputReadTime;
+    }
+
+    @JsonProperty
     public DataSize getInternalNetworkInputDataSize()
     {
         return internalNetworkInputDataSize;
+    }
+
+    @JsonProperty
+    public DataSize getFailedInternalNetworkInputDataSize()
+    {
+        return failedInternalNetworkInputDataSize;
     }
 
     @JsonProperty
@@ -520,9 +621,21 @@ public class QueryStats
     }
 
     @JsonProperty
+    public long getFailedInternalNetworkInputPositions()
+    {
+        return failedInternalNetworkInputPositions;
+    }
+
+    @JsonProperty
     public DataSize getRawInputDataSize()
     {
         return rawInputDataSize;
+    }
+
+    @JsonProperty
+    public DataSize getFailedRawInputDataSize()
+    {
+        return failedRawInputDataSize;
     }
 
     @JsonProperty
@@ -532,9 +645,21 @@ public class QueryStats
     }
 
     @JsonProperty
+    public long getFailedRawInputPositions()
+    {
+        return failedRawInputPositions;
+    }
+
+    @JsonProperty
     public DataSize getProcessedInputDataSize()
     {
         return processedInputDataSize;
+    }
+
+    @JsonProperty
+    public DataSize getFailedProcessedInputDataSize()
+    {
+        return failedProcessedInputDataSize;
     }
 
     @JsonProperty
@@ -544,9 +669,33 @@ public class QueryStats
     }
 
     @JsonProperty
+    public long getFailedProcessedInputPositions()
+    {
+        return failedProcessedInputPositions;
+    }
+
+    @JsonProperty
+    public Duration getInputBlockedTime()
+    {
+        return inputBlockedTime;
+    }
+
+    @JsonProperty
+    public Duration getFailedInputBlockedTime()
+    {
+        return failedInputBlockedTime;
+    }
+
+    @JsonProperty
     public DataSize getOutputDataSize()
     {
         return outputDataSize;
+    }
+
+    @JsonProperty
+    public DataSize getFailedOutputDataSize()
+    {
+        return failedOutputDataSize;
     }
 
     @JsonProperty
@@ -556,9 +705,33 @@ public class QueryStats
     }
 
     @JsonProperty
+    public long getFailedOutputPositions()
+    {
+        return failedOutputPositions;
+    }
+
+    @JsonProperty
+    public Duration getOutputBlockedTime()
+    {
+        return outputBlockedTime;
+    }
+
+    @JsonProperty
+    public Duration getFailedOutputBlockedTime()
+    {
+        return failedOutputBlockedTime;
+    }
+
+    @JsonProperty
     public DataSize getPhysicalWrittenDataSize()
     {
         return physicalWrittenDataSize;
+    }
+
+    @JsonProperty
+    public DataSize getFailedPhysicalWrittenDataSize()
+    {
+        return failedPhysicalWrittenDataSize;
     }
 
     @JsonProperty

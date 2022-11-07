@@ -14,20 +14,20 @@
 package io.trino.plugin.postgresql;
 
 import com.google.inject.Binder;
-import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.plugin.jdbc.BaseJdbcConfig;
-import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DecimalModule;
-import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
+import io.trino.plugin.jdbc.JdbcStatisticsConfig;
+import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteQueryCancellationModule;
-import io.trino.plugin.jdbc.credential.CredentialProvider;
-import org.postgresql.Driver;
+import io.trino.plugin.jdbc.ptf.Query;
+import io.trino.spi.ptf.ConnectorTableFunction;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 
@@ -39,16 +39,12 @@ public class PostgreSqlClientModule
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(PostgreSqlClient.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(PostgreSqlConfig.class);
+        configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
         bindSessionPropertiesProvider(binder, PostgreSqlSessionProperties.class);
+        newOptionalBinder(binder, QueryBuilder.class).setBinding().to(CollationAwareQueryBuilder.class).in(Scopes.SINGLETON);
         install(new DecimalModule());
+        install(new JdbcJoinPushdownSupportModule());
         install(new RemoteQueryCancellationModule());
-    }
-
-    @Provides
-    @Singleton
-    @ForBaseJdbc
-    public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
-    {
-        return new DriverConnectionFactory(new Driver(), config, credentialProvider);
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 }

@@ -28,8 +28,7 @@ import javax.inject.Inject;
 import java.time.Duration;
 
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -40,7 +39,7 @@ public final class EnvSinglenodeCassandra
     private final DockerFiles dockerFiles;
     private final PortBinder portBinder;
 
-    public static final String CONTAINER_PRESTO_CASSANDRA_PROPERTIES = CONTAINER_PRESTO_ETC + "/catalog/cassandra.properties";
+    public static final String CONTAINER_TRINO_CASSANDRA_PROPERTIES = CONTAINER_TRINO_ETC + "/catalog/cassandra.properties";
     public static final int CASSANDRA_PORT = 9042;
 
     @Inject
@@ -55,9 +54,7 @@ public final class EnvSinglenodeCassandra
     public void extendEnvironment(Environment.Builder builder)
     {
         builder.addContainer(createCassandra());
-
-        builder.configureContainer(COORDINATOR, container -> container
-                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-cassandra/cassandra.properties")), CONTAINER_PRESTO_CASSANDRA_PROPERTIES));
+        builder.addConnector("cassandra", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-cassandra/cassandra.properties")));
     }
 
     private DockerContainer createCassandra()

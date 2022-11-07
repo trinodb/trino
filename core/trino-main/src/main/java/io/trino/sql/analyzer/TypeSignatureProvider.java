@@ -90,7 +90,7 @@ public final class TypeSignatureProvider
     public String toString()
     {
         if (hasDependency) {
-            return super.toString();
+            return "<function>";
         }
         return getTypeSignature().toString();
     }

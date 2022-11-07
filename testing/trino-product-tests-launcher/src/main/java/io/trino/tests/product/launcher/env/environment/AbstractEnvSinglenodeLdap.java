@@ -29,9 +29,8 @@ import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPo
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.LDAP;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_CONFIG_PROPERTIES;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -50,7 +49,7 @@ public abstract class AbstractEnvSinglenodeLdap
         super(bases);
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
-        this.imagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getImagesVersion();
+        this.imagesVersion = environmentConfig.getImagesVersion();
     }
 
     @Override
@@ -58,16 +57,13 @@ public abstract class AbstractEnvSinglenodeLdap
     {
         String baseImage = format("ghcr.io/trinodb/testing/%s:%s", getBaseImage(), imagesVersion);
 
+        builder.addPasswordAuthenticator("ldap", forHostPath(dockerFiles.getDockerFilesHostPath(getPasswordAuthenticatorConfigPath())));
         builder.configureContainer(COORDINATOR, dockerContainer -> {
             dockerContainer.setDockerImageName(baseImage);
 
             dockerContainer.withCopyFileToContainer(
-                    forHostPath(dockerFiles.getDockerFilesHostPath(getPasswordAuthenticatorConfigPath())),
-                    CONTAINER_PRESTO_ETC + "/password-authenticator.properties");
-
-            dockerContainer.withCopyFileToContainer(
                     forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-ldap/config.properties")),
-                    CONTAINER_PRESTO_CONFIG_PROPERTIES);
+                    CONTAINER_TRINO_CONFIG_PROPERTIES);
 
             portBinder.exposePort(dockerContainer, 8443);
         });
@@ -90,7 +86,7 @@ public abstract class AbstractEnvSinglenodeLdap
 
     protected String getBaseImage()
     {
-        return "centos7-oj11-openldap";
+        return "centos7-oj17-openldap";
     }
 
     protected abstract String getPasswordAuthenticatorConfigPath();

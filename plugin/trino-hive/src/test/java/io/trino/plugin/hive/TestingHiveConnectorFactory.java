@@ -14,11 +14,11 @@
 package io.trino.plugin.hive;
 
 import com.google.inject.Module;
+import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 
 import java.util.Map;
 import java.util.Optional;
@@ -30,18 +30,20 @@ import static java.util.Objects.requireNonNull;
 public class TestingHiveConnectorFactory
         implements ConnectorFactory
 {
-    private final HiveMetastore metastore;
+    private final Optional<HiveMetastore> metastore;
     private final Module module;
+    private final Optional<DirectoryLister> directoryLister;
 
     public TestingHiveConnectorFactory(HiveMetastore metastore)
     {
-        this(metastore, EMPTY_MODULE);
+        this(Optional.of(metastore), EMPTY_MODULE, Optional.empty());
     }
 
-    public TestingHiveConnectorFactory(HiveMetastore metastore, Module module)
+    public TestingHiveConnectorFactory(Optional<HiveMetastore> metastore, Module module, Optional<DirectoryLister> directoryLister)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.module = requireNonNull(module, "module is null");
+        this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
     }
 
     @Override
@@ -51,14 +53,8 @@ public class TestingHiveConnectorFactory
     }
 
     @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new HiveHandleResolver();
-    }
-
-    @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        return createConnector(catalogName, config, context, module, Optional.of(metastore));
+        return createConnector(catalogName, config, context, module, metastore, directoryLister);
     }
 }

@@ -17,8 +17,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
+import io.trino.collect.cache.NonEvictableLoadingCache;
 import io.trino.plugin.password.Credential;
 import io.trino.spi.TrinoException;
 
@@ -29,6 +29,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.password.file.EncryptionUtil.doesBCryptPasswordMatch;
 import static io.trino.plugin.password.file.EncryptionUtil.doesPBKDF2PasswordMatch;
 import static io.trino.plugin.password.file.EncryptionUtil.getHashingAlgorithm;
@@ -41,7 +42,7 @@ public class PasswordStore
     private static final Splitter LINE_SPLITTER = Splitter.on(":").limit(2);
 
     private final Map<String, HashedPassword> credentials;
-    private final LoadingCache<Credential, Boolean> cache;
+    private final NonEvictableLoadingCache<Credential, Boolean> cache;
 
     public PasswordStore(File file, int cacheMaxSize)
     {
@@ -52,9 +53,9 @@ public class PasswordStore
     public PasswordStore(List<String> lines, int cacheMaxSize)
     {
         credentials = loadPasswordFile(lines);
-        cache = CacheBuilder.newBuilder()
-                .maximumSize(cacheMaxSize)
-                .build(CacheLoader.from(this::matches));
+        cache = buildNonEvictableCache(
+                CacheBuilder.newBuilder().maximumSize(cacheMaxSize),
+                CacheLoader.from(this::matches));
     }
 
     public boolean authenticate(String user, String password)

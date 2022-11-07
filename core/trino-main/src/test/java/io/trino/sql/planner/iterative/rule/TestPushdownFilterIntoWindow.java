@@ -106,13 +106,13 @@ public class TestPushdownFilterIntoWindow
                     OrderingScheme orderingScheme = new OrderingScheme(
                             ImmutableList.of(a),
                             ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST));
-                    return p.filter(expression("row_number_1 < cast(100 as bigint) and a = 1"), p.window(
+                    return p.filter(expression("row_number_1 < cast(100 as bigint) and a = BIGINT '1'"), p.window(
                             new WindowNode.Specification(ImmutableList.of(a), Optional.of(orderingScheme)),
                             ImmutableMap.of(rowNumberSymbol, newWindowNodeFunction(ranking, a)),
                             p.values(p.symbol("a"))));
                 })
                 .matches(filter(
-                        "a = 1",
+                        "a = BIGINT '1'",
                         topNRanking(pattern -> pattern
                                         .partial(false)
                                         .maxRankingPerPartition(99)

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
+import io.trino.hive.orc.util.Murmur3;
 import io.trino.orc.OrcWriterOptions.WriterIdentification;
 import io.trino.orc.metadata.ColumnMetadata;
 import io.trino.orc.metadata.CompressedMetadataWriter;
@@ -30,9 +31,10 @@ import io.trino.orc.metadata.statistics.Utf8BloomFilterBuilder;
 import io.trino.orc.proto.OrcProto;
 import io.trino.orc.protobuf.CodedInputStream;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.Type;
-import org.apache.orc.util.Murmur3;
 import org.testng.annotations.Test;
 
 import java.io.InputStream;
@@ -81,7 +83,7 @@ public class TestOrcBloomFilters
             .put(987654L, TIMESTAMP_MILLIS)
             .put(234.567, DOUBLE)
             .put((long) floatToIntBits(987.654f), REAL)
-            .build();
+            .buildOrThrow();
 
     @Test
     public void testHiveBloomFilterSerde()
@@ -219,7 +221,7 @@ public class TestOrcBloomFilters
     }
 
     @Test
-    // simulate query on a 2 columns where 1 is used as part of the where, with and without bloom filter
+    // simulate query on 2 columns where 1 is used as part of the where, with and without bloom filter
     public void testMatches()
     {
         TupleDomainOrcPredicate predicate = TupleDomainOrcPredicate.builder()
@@ -233,6 +235,7 @@ public class TestOrcBloomFilters
                 0,
                 null,
                 new IntegerStatistics(10L, 2000L, null),
+                null,
                 null,
                 null,
                 null,
@@ -254,6 +257,7 @@ public class TestOrcBloomFilters
                 null,
                 null,
                 null,
+                null,
                 new Utf8BloomFilterBuilder(1000, 0.01)
                         .buildBloomFilter())));
 
@@ -262,6 +266,7 @@ public class TestOrcBloomFilters
                 0,
                 null,
                 new IntegerStatistics(10L, 2000L, null),
+                null,
                 null,
                 null,
                 null,
@@ -277,6 +282,81 @@ public class TestOrcBloomFilters
     }
 
     @Test
+    public void testMatchesExpandedRange()
+    {
+        Range range = Range.range(BIGINT, 1233L, true, 1235L, true);
+        TupleDomainOrcPredicate predicate = TupleDomainOrcPredicate.builder()
+                .setBloomFiltersEnabled(true)
+                .addColumn(ROOT_COLUMN, Domain.create(ValueSet.ofRanges(range), false))
+                .setDomainCompactionThreshold(100)
+                .build();
+
+        ColumnMetadata<ColumnStatistics> matchingStatisticsByColumnIndex = new ColumnMetadata<>(ImmutableList.of(new ColumnStatistics(
+                null,
+                0,
+                null,
+                new IntegerStatistics(10L, 2000L, null),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                new Utf8BloomFilterBuilder(1000, 0.01)
+                        .addLong(1234L)
+                        .buildBloomFilter())));
+
+        ColumnMetadata<ColumnStatistics> nonMatchingStatisticsByColumnIndex = new ColumnMetadata<>(ImmutableList.of(new ColumnStatistics(
+                null,
+                0,
+                null,
+                new IntegerStatistics(10L, 2000L, null),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                new Utf8BloomFilterBuilder(1000, 0.01)
+                        .addLong(9876L)
+                        .buildBloomFilter())));
+
+        assertTrue(predicate.matches(1L, matchingStatisticsByColumnIndex));
+        assertFalse(predicate.matches(1L, nonMatchingStatisticsByColumnIndex));
+    }
+
+    @Test
+    public void testMatchesNonExpandedRange()
+    {
+        ColumnMetadata<ColumnStatistics> matchingStatisticsByColumnIndex = new ColumnMetadata<>(ImmutableList.of(new ColumnStatistics(
+                null,
+                0,
+                null,
+                new IntegerStatistics(10L, 2000L, null),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                new Utf8BloomFilterBuilder(1000, 0.01)
+                        .addLong(1500L)
+                        .buildBloomFilter())));
+
+        Range range = Range.range(BIGINT, 1233L, true, 1235L, true);
+        TupleDomainOrcPredicate.TupleDomainOrcPredicateBuilder builder = TupleDomainOrcPredicate.builder()
+                .setBloomFiltersEnabled(true)
+                .addColumn(ROOT_COLUMN, Domain.create(ValueSet.ofRanges(range), false));
+
+        // Domain expansion doesn't take place -> no bloom filtering -> ranges overlap
+        assertTrue(builder.setDomainCompactionThreshold(1).build().matches(1L, matchingStatisticsByColumnIndex));
+        assertFalse(builder.setDomainCompactionThreshold(100).build().matches(1L, matchingStatisticsByColumnIndex));
+    }
+
+    @Test
     public void testBloomFilterCompatibility()
     {
         for (int n = 0; n < 200; n++) {
@@ -285,7 +365,7 @@ public class TestOrcBloomFilters
             int entries = ThreadLocalRandom.current().nextInt(size / 2, size);
 
             BloomFilter actual = new BloomFilter(size, fpp);
-            org.apache.orc.util.BloomFilter expected = new org.apache.orc.util.BloomFilter(size, fpp);
+            io.trino.hive.orc.util.BloomFilter expected = new io.trino.hive.orc.util.BloomFilter(size, fpp);
 
             assertFalse(actual.test(null));
             assertFalse(expected.test(null));

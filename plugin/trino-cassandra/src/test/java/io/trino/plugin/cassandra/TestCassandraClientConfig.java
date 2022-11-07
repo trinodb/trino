@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.cassandra;
 
-import com.datastax.driver.core.ConsistencyLevel;
-import com.datastax.driver.core.SocketOptions;
+import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
+import com.datastax.oss.driver.api.core.DefaultProtocolVersion;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
@@ -24,7 +24,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
-import static com.datastax.driver.core.ProtocolVersion.V2;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
@@ -39,7 +38,7 @@ public class TestCassandraClientConfig
     {
         assertRecordedDefaults(recordDefaults(CassandraClientConfig.class)
                 .setFetchSize(5_000)
-                .setConsistencyLevel(ConsistencyLevel.ONE)
+                .setConsistencyLevel(DefaultConsistencyLevel.ONE)
                 .setContactPoints("")
                 .setNativeProtocolPort(9042)
                 .setPartitionSizeForBatchSelect(100)
@@ -49,17 +48,14 @@ public class TestCassandraClientConfig
                 .setAllowDropTable(false)
                 .setUsername(null)
                 .setPassword(null)
-                .setClientReadTimeout(new Duration(SocketOptions.DEFAULT_READ_TIMEOUT_MILLIS, MILLISECONDS))
-                .setClientConnectTimeout(new Duration(SocketOptions.DEFAULT_CONNECT_TIMEOUT_MILLIS, MILLISECONDS))
+                .setClientReadTimeout(new Duration(12_000, MILLISECONDS))
+                .setClientConnectTimeout(new Duration(5_000, MILLISECONDS))
                 .setClientSoLinger(null)
                 .setRetryPolicy(RetryPolicyType.DEFAULT)
-                .setUseDCAware(false)
+                .setUseDCAware(true)
                 .setDcAwareLocalDC(null)
                 .setDcAwareUsedHostsPerRemoteDc(0)
                 .setDcAwareAllowRemoteDCsForLocal(false)
-                .setUseTokenAware(false)
-                .setTokenAwareShuffleReplicas(false)
-                .setAllowedAddresses("")
                 .setNoHostAvailableRetryTimeout(new Duration(1, MINUTES))
                 .setSpeculativeExecutionLimit(null)
                 .setSpeculativeExecutionDelay(new Duration(500, MILLISECONDS))
@@ -78,7 +74,7 @@ public class TestCassandraClientConfig
         Path keystoreFile = Files.createTempFile(null, null);
         Path truststoreFile = Files.createTempFile(null, null);
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("cassandra.contact-points", "host1,host2")
                 .put("cassandra.native-protocol-port", "9999")
                 .put("cassandra.fetch-size", "10000")
@@ -93,30 +89,27 @@ public class TestCassandraClientConfig
                 .put("cassandra.client.read-timeout", "11ms")
                 .put("cassandra.client.connect-timeout", "22ms")
                 .put("cassandra.client.so-linger", "33")
-                .put("cassandra.retry-policy", "BACKOFF")
-                .put("cassandra.load-policy.use-dc-aware", "true")
+                .put("cassandra.retry-policy", "DOWNGRADING_CONSISTENCY")
+                .put("cassandra.load-policy.use-dc-aware", "false")
                 .put("cassandra.load-policy.dc-aware.local-dc", "dc1")
                 .put("cassandra.load-policy.dc-aware.used-hosts-per-remote-dc", "1")
                 .put("cassandra.load-policy.dc-aware.allow-remote-dc-for-local", "true")
-                .put("cassandra.load-policy.use-token-aware", "true")
-                .put("cassandra.load-policy.token-aware.shuffle-replicas", "true")
-                .put("cassandra.load-policy.allowed-addresses", "host1,host2")
                 .put("cassandra.no-host-available-retry-timeout", "3m")
                 .put("cassandra.speculative-execution.limit", "10")
                 .put("cassandra.speculative-execution.delay", "101s")
-                .put("cassandra.protocol-version", "V2")
+                .put("cassandra.protocol-version", "V3")
                 .put("cassandra.tls.enabled", "true")
                 .put("cassandra.tls.keystore-path", keystoreFile.toString())
                 .put("cassandra.tls.keystore-password", "keystore-password")
                 .put("cassandra.tls.truststore-path", truststoreFile.toString())
                 .put("cassandra.tls.truststore-password", "truststore-password")
-                .build();
+                .buildOrThrow();
 
         CassandraClientConfig expected = new CassandraClientConfig()
                 .setContactPoints("host1", "host2")
                 .setNativeProtocolPort(9999)
                 .setFetchSize(10_000)
-                .setConsistencyLevel(ConsistencyLevel.TWO)
+                .setConsistencyLevel(DefaultConsistencyLevel.TWO)
                 .setPartitionSizeForBatchSelect(77)
                 .setSplitSize(1_025)
                 .setBatchSize(999)
@@ -127,18 +120,15 @@ public class TestCassandraClientConfig
                 .setClientReadTimeout(new Duration(11, MILLISECONDS))
                 .setClientConnectTimeout(new Duration(22, MILLISECONDS))
                 .setClientSoLinger(33)
-                .setRetryPolicy(RetryPolicyType.BACKOFF)
-                .setUseDCAware(true)
+                .setRetryPolicy(RetryPolicyType.DOWNGRADING_CONSISTENCY)
+                .setUseDCAware(false)
                 .setDcAwareLocalDC("dc1")
                 .setDcAwareUsedHostsPerRemoteDc(1)
                 .setDcAwareAllowRemoteDCsForLocal(true)
-                .setUseTokenAware(true)
-                .setTokenAwareShuffleReplicas(true)
-                .setAllowedAddresses("host1, host2")
                 .setNoHostAvailableRetryTimeout(new Duration(3, MINUTES))
                 .setSpeculativeExecutionLimit(10)
                 .setSpeculativeExecutionDelay(new Duration(101, SECONDS))
-                .setProtocolVersion(V2)
+                .setProtocolVersion(DefaultProtocolVersion.V3)
                 .setTlsEnabled(true)
                 .setKeystorePath(keystoreFile.toFile())
                 .setKeystorePassword("keystore-password")

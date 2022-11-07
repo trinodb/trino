@@ -99,23 +99,29 @@ public class ActualProperties
         return global.isNullsAndAnyReplicated();
     }
 
-    public boolean isStreamPartitionedOn(Collection<Symbol> columns)
+    public boolean isStreamPartitionedOn(Collection<Symbol> columns, boolean exactly)
     {
-        return isStreamPartitionedOn(columns, false);
+        return isStreamPartitionedOn(columns, false, exactly);
     }
 
-    public boolean isStreamPartitionedOn(Collection<Symbol> columns, boolean nullsAndAnyReplicated)
+    public boolean isStreamPartitionedOn(Collection<Symbol> columns, boolean nullsAndAnyReplicated, boolean exactly)
     {
+        if (exactly) {
+            return global.isStreamPartitionedOnExactly(columns, constants.keySet(), nullsAndAnyReplicated);
+        }
         return global.isStreamPartitionedOn(columns, constants.keySet(), nullsAndAnyReplicated);
     }
 
-    public boolean isNodePartitionedOn(Collection<Symbol> columns)
+    public boolean isNodePartitionedOn(Collection<Symbol> columns, boolean exactly)
     {
-        return isNodePartitionedOn(columns, false);
+        return isNodePartitionedOn(columns, false, exactly);
     }
 
-    public boolean isNodePartitionedOn(Collection<Symbol> columns, boolean nullsAndAnyReplicated)
+    public boolean isNodePartitionedOn(Collection<Symbol> columns, boolean nullsAndAnyReplicated, boolean exactly)
     {
+        if (exactly) {
+            return global.isNodePartitionedOnExactly(columns, constants.keySet(), nullsAndAnyReplicated);
+        }
         return global.isNodePartitionedOn(columns, constants.keySet(), nullsAndAnyReplicated);
     }
 
@@ -411,6 +417,11 @@ public class ActualProperties
             return nodePartitioning.isPresent() && nodePartitioning.get().isPartitionedOn(columns, constants) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
         }
 
+        private boolean isNodePartitionedOnExactly(Collection<Symbol> columns, Set<Symbol> constants, boolean nullsAndAnyReplicated)
+        {
+            return nodePartitioning.isPresent() && nodePartitioning.get().isPartitionedOnExactly(columns, constants) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
+        }
+
         private boolean isCompatibleTablePartitioningWith(Partitioning partitioning, boolean nullsAndAnyReplicated, Metadata metadata, Session session)
         {
             return nodePartitioning.isPresent() && nodePartitioning.get().isCompatibleWith(partitioning, metadata, session) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
@@ -444,6 +455,11 @@ public class ActualProperties
         private boolean isStreamPartitionedOn(Collection<Symbol> columns, Set<Symbol> constants, boolean nullsAndAnyReplicated)
         {
             return streamPartitioning.isPresent() && streamPartitioning.get().isPartitionedOn(columns, constants) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
+        }
+
+        private boolean isStreamPartitionedOnExactly(Collection<Symbol> columns, Set<Symbol> constants, boolean nullsAndAnyReplicated)
+        {
+            return streamPartitioning.isPresent() && streamPartitioning.get().isPartitionedOnExactly(columns, constants) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
         }
 
         /**

@@ -20,16 +20,19 @@ import java.lang.invoke.VarHandle;
 import java.math.BigInteger;
 import java.nio.ByteOrder;
 
+import static java.lang.Math.toIntExact;
+
 public class Int128
         implements Comparable<Int128>
 {
     private static final VarHandle BIG_ENDIAN_LONG_VIEW = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.BIG_ENDIAN);
 
     public static final int SIZE = 2 * Long.BYTES;
-    public static final int INSTANCE_SIZE = ClassLayout.parseClass(Int128.class).instanceSize();
+    public static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(Int128.class).instanceSize());
 
     public static final Int128 MAX_VALUE = Int128.valueOf(0x7FFF_FFFF_FFFF_FFFFL, 0xFFFF_FFFF_FFFF_FFFFL);
     public static final Int128 MIN_VALUE = Int128.valueOf(0x8000_0000_0000_0000L, 0x0000_0000_0000_0000L);
+    public static final Int128 ONE = Int128.valueOf(0, 1);
     public static final Int128 ZERO = Int128.valueOf(0, 0);
 
     private final long high;
@@ -65,7 +68,7 @@ public class Int128
 
             return Int128.valueOf(high, low);
         }
-        else if (bytes.length > 8) {
+        if (bytes.length > 8) {
             // read the last 8 bytes into low
             int offset = bytes.length - Long.BYTES;
             long low = (long) BIG_ENDIAN_LONG_VIEW.get(bytes, offset);
@@ -79,21 +82,19 @@ public class Int128
 
             return Int128.valueOf(high, low);
         }
-        else if (bytes.length == 8) {
+        if (bytes.length == 8) {
             long low = (long) BIG_ENDIAN_LONG_VIEW.get(bytes, 0);
             long high = (low >> 63);
 
             return Int128.valueOf(high, low);
         }
-        else {
-            long high = (bytes[0] >> 7);
-            long low = high;
-            for (int i = 0; i < bytes.length; i++) {
-                low = (low << 8) | (bytes[i] & 0xFF);
-            }
-
-            return Int128.valueOf(high, low);
+        long high = (bytes[0] >> 7);
+        long low = high;
+        for (int i = 0; i < bytes.length; i++) {
+            low = (low << 8) | (bytes[i] & 0xFF);
         }
+
+        return Int128.valueOf(high, low);
     }
 
     public static Int128 valueOf(long[] value)
@@ -120,7 +121,7 @@ public class Int128
     public static Int128 valueOf(BigInteger value)
     {
         long low = value.longValue();
-        long high = 0;
+        long high;
         try {
             high = value.shiftRight(64).longValueExact();
         }

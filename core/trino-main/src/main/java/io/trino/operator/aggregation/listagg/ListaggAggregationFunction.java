@@ -14,121 +14,44 @@
 package io.trino.operator.aggregation.listagg;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.metadata.AggregationFunctionMetadata;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
-import io.trino.metadata.Signature;
-import io.trino.metadata.SqlAggregationFunction;
-import io.trino.operator.aggregation.AggregationMetadata;
-import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.function.AccumulatorStateFactory;
-import io.trino.spi.function.AccumulatorStateSerializer;
-import io.trino.spi.type.StandardTypes;
-import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.function.AggregationFunction;
+import io.trino.spi.function.AggregationState;
+import io.trino.spi.function.BlockIndex;
+import io.trino.spi.function.BlockPosition;
+import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.InputFunction;
+import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlType;
 
-import java.lang.invoke.MethodHandle;
-import java.util.Optional;
-
-import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.NULLABLE_BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.STATE;
-import static io.trino.operator.aggregation.AggregationFunctionAdapter.normalizeInputMethod;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.TypeSignature.arrayType;
-import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.util.Reflection.methodHandle;
 import static java.lang.String.format;
 
-public class ListaggAggregationFunction
-        extends SqlAggregationFunction
+@AggregationFunction(value = "listagg", isOrderSensitive = true)
+@Description("concatenates the input values with the specified separator")
+public final class ListaggAggregationFunction
 {
-    public static final ListaggAggregationFunction LISTAGG = new ListaggAggregationFunction();
-    public static final String NAME = "listagg";
-    private static final MethodHandle INPUT_FUNCTION = methodHandle(ListaggAggregationFunction.class, "input", Type.class, ListaggAggregationState.class, Block.class, Slice.class, boolean.class, Slice.class, boolean.class, int.class);
-    private static final MethodHandle COMBINE_FUNCTION = methodHandle(ListaggAggregationFunction.class, "combine", Type.class, ListaggAggregationState.class, ListaggAggregationState.class);
-    private static final MethodHandle OUTPUT_FUNCTION = methodHandle(ListaggAggregationFunction.class, "output", Type.class, ListaggAggregationState.class, BlockBuilder.class);
-
     private static final int MAX_OUTPUT_LENGTH = DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
     private static final int MAX_OVERFLOW_FILLER_LENGTH = 65_536;
 
-    private ListaggAggregationFunction()
-    {
-        super(
-                new FunctionMetadata(
-                        new Signature(
-                                NAME,
-                                ImmutableList.of(),
-                                ImmutableList.of(),
-                                VARCHAR.getTypeSignature(),
-                                ImmutableList.of(
-                                        new TypeSignature(StandardTypes.VARCHAR, TypeSignatureParameter.typeVariable("v")),
-                                        new TypeSignature(StandardTypes.VARCHAR, TypeSignatureParameter.typeVariable("d")),
-                                        BOOLEAN.getTypeSignature(),
-                                        new TypeSignature(StandardTypes.VARCHAR, TypeSignatureParameter.typeVariable("f")),
-                                        BOOLEAN.getTypeSignature()),
-                                false),
-                        new FunctionNullability(
-                        true,
-                        ImmutableList.of(true, false, false, false, false)),
-                        false,
-                        true,
-                        "concatenates the input values with the specified separator",
-                        AGGREGATE),
-                new AggregationFunctionMetadata(
-                        true,
-                        VARCHAR.getTypeSignature(),
-                        BOOLEAN.getTypeSignature(),
-                        VARCHAR.getTypeSignature(),
-                        BOOLEAN.getTypeSignature(),
-                        arrayType(VARCHAR.getTypeSignature())));
-    }
+    private ListaggAggregationFunction() {}
 
-    @Override
-    public AggregationMetadata specialize(BoundSignature boundSignature)
-    {
-        Type type = VARCHAR;
-        AccumulatorStateSerializer<ListaggAggregationState> stateSerializer = new ListaggAggregationStateSerializer(type);
-        AccumulatorStateFactory<ListaggAggregationState> stateFactory = new ListaggAggregationStateFactory(type);
-
-        MethodHandle inputFunction = normalizeInputMethod(
-                INPUT_FUNCTION.bindTo(type),
-                boundSignature,
-                STATE,
-                NULLABLE_BLOCK_INPUT_CHANNEL,
-                INPUT_CHANNEL,
-                INPUT_CHANNEL,
-                INPUT_CHANNEL,
-                INPUT_CHANNEL,
-                BLOCK_INDEX);
-        MethodHandle combineFunction = COMBINE_FUNCTION.bindTo(type);
-        MethodHandle outputFunction = OUTPUT_FUNCTION.bindTo(type);
-
-        return new AggregationMetadata(
-                inputFunction,
-                Optional.empty(),
-                Optional.of(combineFunction),
-                outputFunction,
-                ImmutableList.of(new AccumulatorStateDescriptor<>(
-                        ListaggAggregationState.class,
-                        stateSerializer,
-                        stateFactory)));
-    }
-
-    public static void input(Type type, ListaggAggregationState state, Block value, Slice separator, boolean overflowError, Slice overflowFiller, boolean showOverflowEntryCount, int position)
+    @InputFunction
+    public static void input(
+            @AggregationState ListaggAggregationState state,
+            @BlockPosition @SqlType("VARCHAR") Block value,
+            @SqlType("VARCHAR") Slice separator,
+            @SqlType("BOOLEAN") boolean overflowError,
+            @SqlType("VARCHAR") Slice overflowFiller,
+            @SqlType("BOOLEAN") boolean showOverflowEntryCount,
+            @BlockIndex int position)
     {
         if (state.isEmpty()) {
             if (overflowFiller.length() > MAX_OVERFLOW_FILLER_LENGTH) {
@@ -141,12 +64,11 @@ public class ListaggAggregationFunction
             state.setOverflowFiller(overflowFiller);
             state.setShowOverflowEntryCount(showOverflowEntryCount);
         }
-        if (!value.isNull(position)) {
-            state.add(value, position);
-        }
+        state.add(value, position);
     }
 
-    public static void combine(Type type, ListaggAggregationState state, ListaggAggregationState otherState)
+    @CombineFunction
+    public static void combine(@AggregationState ListaggAggregationState state, @AggregationState ListaggAggregationState otherState)
     {
         Slice previousSeparator = state.getSeparator();
         if (previousSeparator == null) {
@@ -159,7 +81,8 @@ public class ListaggAggregationFunction
         state.merge(otherState);
     }
 
-    public static void output(Type type, ListaggAggregationState state, BlockBuilder out)
+    @OutputFunction("VARCHAR")
+    public static void output(ListaggAggregationState state, BlockBuilder out)
     {
         if (state.isEmpty()) {
             out.appendNull();
@@ -170,7 +93,7 @@ public class ListaggAggregationFunction
     }
 
     @VisibleForTesting
-    protected static void outputState(ListaggAggregationState state, BlockBuilder out, int maxOutputLength)
+    public static void outputState(ListaggAggregationState state, BlockBuilder out, int maxOutputLength)
     {
         Slice separator = state.getSeparator();
         int separatorLength = separator.length();

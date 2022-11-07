@@ -3,14 +3,14 @@ Kerberos authentication
 =======================
 
 Trino can be configured to enable Kerberos authentication over HTTPS for
-clients, such as the :doc:`Trino CLI </security/cli>`, or the JDBC and ODBC
+clients, such as the :doc:`Trino CLI </client/cli>`, or the JDBC and ODBC
 drivers.
 
-To enable Kerberos authentication for Trino, configuration changes are made on
-the Trino coordinator. No changes are required to the worker configuration.
-The worker nodes continue to connect to the coordinator over
-unauthenticated HTTP. However, if you want to secure the communication between
-Trino nodes with SSL/TLS, configure :doc:`/security/internal-communication`.
+To enable Kerberos authentication for Trino, Kerberos-related configuration
+changes are made on the Trino coordinator.
+
+Using :doc:`TLS <tls>` and :doc:`a configured shared secret
+</security/internal-communication>` is required for Kerberos authentication.
 
 Environment configuration
 -------------------------
@@ -29,12 +29,13 @@ Kerberos principals and keytab files
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The Trino coordinator needs a Kerberos principal, as do users who are going to
-connect to the Trino coordinator. You need to create these users in
-Kerberos using `kadmin
+connect to the Trino coordinator. You need to create these users in Kerberos
+using `kadmin
 <http://web.mit.edu/kerberos/krb5-latest/doc/admin/admin_commands/kadmin_local.html>`_.
 
 In addition, the Trino coordinator needs a `keytab file
-<http://web.mit.edu/kerberos/krb5-devel/doc/basic/keytab_def.html>`_. After you create the principal, you can create the keytab file using :command:`kadmin`
+<http://web.mit.edu/kerberos/krb5-devel/doc/basic/keytab_def.html>`_. After you
+create the principal, you can create the keytab file using :command:`kadmin`
 
 .. code-block:: text
 
@@ -50,14 +51,14 @@ Configuration for TLS
 ^^^^^^^^^^^^^^^^^^^^^
 
 When using Kerberos authentication, access to the Trino coordinator must be
-through :doc:`HTTPS and TLS </security/tls>`.
+through :doc:`TLS and HTTPS </security/tls>`.
 
 System access control plugin
 ----------------------------
 
 A Trino coordinator with Kerberos enabled probably needs a
-:doc:`/develop/system-access-control` plugin to achieve
-the desired level of security.
+:doc:`/develop/system-access-control` plugin to achieve the desired level of
+security.
 
 Trino coordinator node configuration
 ------------------------------------
@@ -77,7 +78,8 @@ config.properties
 ^^^^^^^^^^^^^^^^^
 
 Kerberos authentication is configured in the coordinator node's
-:file:`config.properties` file. The entries that need to be added are listed below.
+:file:`config.properties` file. The entries that need to be added are listed
+below.
 
 .. code-block:: text
 
@@ -128,59 +130,45 @@ Property                                                  Description
                                                           operation and usage of valid DNS host names.
 ========================================================= ======================================================
 
-.. note::
-
-    Monitor the CPU usage on the Trino coordinator after enabling HTTPS. Java
-    prefers the more CPU-intensive cipher suites, if you allow it to choose from
-    a big list. If the CPU usage is unacceptably high after enabling HTTPS,
-    you can configure Java to use specific cipher suites by setting
-    the ``http-server.https.included-cipher`` property to only allow
-    cheap ciphers. Non forward secrecy (FS) ciphers are disabled by default.
-    As a result, if you want to choose non FS ciphers, you need to set the
-    ``http-server.https.excluded-cipher`` property to an empty list in order to
-    override the default exclusions.
-
-    .. code-block:: text
-
-        http-server.https.included-cipher=TLS_RSA_WITH_AES_128_CBC_SHA,TLS_RSA_WITH_AES_128_CBC_SHA256
-        http-server.https.excluded-cipher=
-
-    The Java documentation lists the `supported cipher suites
-    <https://docs.oracle.com/en/java/javase/11/security/oracle-providers.html#GUID-7093246A-31A3-4304-AC5F-5FB6400405E2__SUNJSSE_CIPHER_SUITES>`_.
+See :ref:`Standards supported <tls-version-and-ciphers>` for a discussion of the
+supported TLS versions and cipher suites.
 
 access-controls.properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 At a minimum, an :file:`access-control.properties` file must contain an
-``access-control.name`` property.  All other configuration is specific
-for the implementation being configured.
-See :doc:`/develop/system-access-control` for details.
+``access-control.name`` property.  All other configuration is specific for the
+implementation being configured. See :doc:`/develop/system-access-control` for
+details.
 
 .. _coordinator-troubleshooting:
 
 User mapping
 ------------
 
-After authenticating with Kerberos, the Trino server receives the user's principal which is typically similar to
-an email address.  For example, when ``alice`` logs in Trino might receive ``alice@example.com``.  By default,
-Trino will use the full Kerberos principal name, but this can be mapped to a shorter name using a user-mapping
-pattern.  For simple mapping rules, the  ``http-server.authentication.krb5.user-mapping.pattern`` configuration
-property can be set to a Java regular expression, and Trino will use the value of the first matcher group.  If the
-regular expression does not match, the authentication is denied.  For more complex user-mapping rules, see
+After authenticating with Kerberos, the Trino server receives the user's
+principal which is typically similar to an email address. For example, when
+``alice`` logs in Trino might receive ``alice@example.com``. By default, Trino
+uses the full Kerberos principal name, but this can be mapped to a shorter
+name using a user-mapping pattern. For simple mapping rules, the
+``http-server.authentication.krb5.user-mapping.pattern`` configuration property
+can be set to a Java regular expression, and Trino uses the value of the
+first matcher group. If the regular expression does not match, the
+authentication is denied. For more complex user-mapping rules, see
 :doc:`/security/user-mapping`.
 
 Troubleshooting
 ---------------
 
 Getting Kerberos authentication working can be challenging. You can
-independently verify some of the configuration outside of Trino, to help narrow
+independently verify some of the configuration outside of Trino to help narrow
 your focus when trying to solve a problem.
 
 Kerberos verification
 ^^^^^^^^^^^^^^^^^^^^^
 
 Ensure that you can connect to the KDC from the Trino coordinator using
-:command:`telnet`.
+:command:`telnet`:
 
 .. code-block:: text
 
@@ -201,14 +189,16 @@ Java keystore file verification
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Verify the password for a keystore file and view its contents using
-:ref:`troubleshooting_keystore`
+:ref:`troubleshooting_keystore`.
+
+.. _kerberos-debug:
 
 Additional Kerberos debugging information
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can enable additional Kerberos debugging information for the Trino
 coordinator process by adding the following lines to the Trino ``jvm.config``
-file
+file:
 
 .. code-block:: text
 
@@ -224,6 +214,13 @@ The amount and usefulness of the information the Kerberos debugging output
 sends to the logs varies depending on where the authentication is failing.
 Exception messages and stack traces can provide useful clues about the
 nature of the problem.
+
+See `Troubleshooting Security
+<https://docs.oracle.com/en/java/javase/11/security/troubleshooting-security.html>`_
+in the Java documentation for more details about the ``-Djava.security.debug``
+flag, and `Troubleshooting
+<https://docs.oracle.com/en/java/javase/11/security/troubleshooting.html>`_ for
+more details about the Java GSS-API and Kerberos issues.
 
 .. _server_additional_resources:
 

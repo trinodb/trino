@@ -16,35 +16,33 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionDependencies;
-import io.trino.metadata.FunctionDependencyDeclaration;
-import io.trino.metadata.FunctionNullability;
-import io.trino.metadata.SqlOperator;
+import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.aggregation.TypedSet;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionDependencyDeclaration;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.type.BlockTypeOperators;
-import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
+import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.metadata.Signature.castableToTypeParameter;
-import static io.trino.metadata.Signature.typeVariable;
-import static io.trino.operator.aggregation.TypedSet.createEqualityTypedSet;
+import static io.trino.operator.aggregation.TypedSet.createDistinctTypedSet;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static io.trino.spi.block.MethodHandleUtil.compose;
-import static io.trino.spi.block.MethodHandleUtil.nativeValueWriter;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -53,12 +51,14 @@ import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.util.Failures.internalError;
 import static io.trino.util.Reflection.methodHandle;
+import static java.lang.invoke.MethodHandles.dropArguments;
+import static java.lang.invoke.MethodHandles.foldArguments;
 import static java.lang.invoke.MethodHandles.permuteArguments;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Objects.requireNonNull;
 
 public final class MapToMapCast
-        extends SqlOperator
+        extends SqlScalarFunction
 {
     private static final MethodHandle METHOD_HANDLE = methodHandle(
             MapToMapCast.class,
@@ -66,7 +66,7 @@ public final class MapToMapCast
             MethodHandle.class,
             MethodHandle.class,
             Type.class,
-            BlockPositionEqual.class,
+            BlockPositionIsDistinctFrom.class,
             BlockPositionHashCode.class,
             ConnectorSession.class,
             Block.class);
@@ -77,20 +77,27 @@ public final class MapToMapCast
     private static final MethodHandle CHECK_SLICE_IS_NOT_NULL = methodHandle(MapToMapCast.class, "checkSliceIsNotNull", Slice.class);
     private static final MethodHandle CHECK_BLOCK_IS_NOT_NULL = methodHandle(MapToMapCast.class, "checkBlockIsNotNull", Block.class);
 
+    private static final MethodHandle WRITE_LONG = methodHandle(Type.class, "writeLong", BlockBuilder.class, long.class);
+    private static final MethodHandle WRITE_DOUBLE = methodHandle(Type.class, "writeDouble", BlockBuilder.class, double.class);
+    private static final MethodHandle WRITE_BOOLEAN = methodHandle(Type.class, "writeBoolean", BlockBuilder.class, boolean.class);
+    private static final MethodHandle WRITE_OBJECT = methodHandle(Type.class, "writeObject", BlockBuilder.class, Object.class);
+
     private final BlockTypeOperators blockTypeOperators;
 
     public MapToMapCast(BlockTypeOperators blockTypeOperators)
     {
-        super(CAST,
-                ImmutableList.of(
-                        castableToTypeParameter("FK", new TypeSignature("TK")),
-                        castableToTypeParameter("FV", new TypeSignature("TV")),
-                        typeVariable("TK"),
-                        typeVariable("TV")),
-                ImmutableList.of(),
-                mapType(new TypeSignature("TK"), new TypeSignature("TV")),
-                ImmutableList.of(mapType(new TypeSignature("FK"), new TypeSignature("FV"))),
-                true);
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .operatorType(CAST)
+                        .castableToTypeParameter("FK", new TypeSignature("TK"))
+                        .castableToTypeParameter("FV", new TypeSignature("TV"))
+                        .typeVariable("TK")
+                        .typeVariable("TV")
+                        .returnType(mapType(new TypeSignature("TK"), new TypeSignature("TV")))
+                        .argumentType(mapType(new TypeSignature("FK"), new TypeSignature("FV")))
+                        .build())
+                .nullable()
+                .build());
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
     }
 
@@ -104,7 +111,7 @@ public final class MapToMapCast
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         checkArgument(boundSignature.getArity() == 1, "Expected arity to be 1");
         MapType fromMapType = (MapType) boundSignature.getArgumentType(0);
@@ -116,10 +123,10 @@ public final class MapToMapCast
 
         MethodHandle keyProcessor = buildProcessor(functionDependencies, fromKeyType, toKeyType, true);
         MethodHandle valueProcessor = buildProcessor(functionDependencies, fromValueType, toValueType, false);
-        BlockPositionEqual keyEqual = blockTypeOperators.getEqualOperator(toKeyType);
+        BlockPositionIsDistinctFrom keyEqual = blockTypeOperators.getDistinctFromOperator(toKeyType);
         BlockPositionHashCode keyHashCode = blockTypeOperators.getHashCodeOperator(toKeyType);
         MethodHandle target = MethodHandles.insertArguments(METHOD_HANDLE, 0, keyProcessor, valueProcessor, toMapType, keyEqual, keyHashCode);
-        return new ChoicesScalarFunctionImplementation(boundSignature, NULLABLE_RETURN, ImmutableList.of(NEVER_NULL), target);
+        return new ChoicesSpecializedSqlScalarFunction(boundSignature, NULLABLE_RETURN, ImmutableList.of(NEVER_NULL), target);
     }
 
     /**
@@ -131,17 +138,18 @@ public final class MapToMapCast
         // Get block position cast, with optional connector session
         FunctionNullability functionNullability = functionDependencies.getCastNullability(fromType, toType);
         InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(BLOCK_POSITION), functionNullability.isReturnNullable() ? NULLABLE_RETURN : FAIL_ON_NULL, true, false);
-        MethodHandle cast = functionDependencies.getCastInvoker(fromType, toType, invocationConvention).getMethodHandle();
+        MethodHandle cast = functionDependencies.getCastImplementation(fromType, toType, invocationConvention).getMethodHandle();
         // Normalize cast to have connector session as first argument
         if (cast.type().parameterArray()[0] != ConnectorSession.class) {
-            cast = MethodHandles.dropArguments(cast, 0, ConnectorSession.class);
+            cast = dropArguments(cast, 0, ConnectorSession.class);
         }
         // Change cast signature to (Block.class, int.class, ConnectorSession.class):T
         cast = permuteArguments(cast, methodType(cast.type().returnType(), Block.class, int.class, ConnectorSession.class), 2, 0, 1);
 
         // If the key cast function is nullable, check the result is not null
         if (isKey && functionNullability.isReturnNullable()) {
-            cast = compose(nullChecker(cast.type().returnType()), cast);
+            MethodHandle target = nullChecker(cast.type().returnType());
+            cast = foldArguments(dropArguments(target, 1, cast.type().parameterList()), cast);
         }
 
         // get write method with signature: (T, BlockBuilder.class):void
@@ -151,7 +159,7 @@ public final class MapToMapCast
         // ensure cast returns type expected by the writer
         cast = cast.asType(methodType(writer.type().parameterType(0), cast.type().parameterArray()));
 
-        return compose(writer, cast);
+        return foldArguments(dropArguments(writer, 1, cast.type().parameterList()), cast);
     }
 
     /**
@@ -171,21 +179,19 @@ public final class MapToMapCast
         if (javaType == Long.class) {
             return CHECK_LONG_IS_NOT_NULL;
         }
-        else if (javaType == Double.class) {
+        if (javaType == Double.class) {
             return CHECK_DOUBLE_IS_NOT_NULL;
         }
-        else if (javaType == Boolean.class) {
+        if (javaType == Boolean.class) {
             return CHECK_BOOLEAN_IS_NOT_NULL;
         }
-        else if (javaType == Slice.class) {
+        if (javaType == Slice.class) {
             return CHECK_SLICE_IS_NOT_NULL;
         }
-        else if (javaType == Block.class) {
+        if (javaType == Block.class) {
             return CHECK_BLOCK_IS_NOT_NULL;
         }
-        else {
-            throw new IllegalArgumentException("Unknown java type " + javaType);
-        }
+        throw new IllegalArgumentException("Unknown java type " + javaType);
     }
 
     @UsedByGeneratedCode
@@ -238,14 +244,14 @@ public final class MapToMapCast
             MethodHandle keyProcessFunction,
             MethodHandle valueProcessFunction,
             Type targetType,
-            BlockPositionEqual keyEqual,
+            BlockPositionIsDistinctFrom keyDistinctOperator,
             BlockPositionHashCode keyHashCode,
             ConnectorSession session,
             Block fromMap)
     {
         checkState(targetType.getTypeParameters().size() == 2, "Expect two type parameters for targetType");
         Type toKeyType = targetType.getTypeParameters().get(0);
-        TypedSet resultKeys = createEqualityTypedSet(toKeyType, keyEqual, keyHashCode, fromMap.getPositionCount() / 2, "map-to-map cast");
+        TypedSet resultKeys = createDistinctTypedSet(toKeyType, keyDistinctOperator, keyHashCode, fromMap.getPositionCount() / 2, "map-to-map cast");
 
         // Cast the keys into a new block
         BlockBuilder keyBlockBuilder = toKeyType.createBlockBuilder(null, fromMap.getPositionCount() / 2);
@@ -284,5 +290,29 @@ public final class MapToMapCast
 
         mapBlockBuilder.closeEntry();
         return (Block) targetType.getObject(mapBlockBuilder, mapBlockBuilder.getPositionCount() - 1);
+    }
+
+    public static MethodHandle nativeValueWriter(Type type)
+    {
+        Class<?> javaType = type.getJavaType();
+
+        MethodHandle methodHandle;
+        if (javaType == long.class) {
+            methodHandle = WRITE_LONG;
+        }
+        else if (javaType == double.class) {
+            methodHandle = WRITE_DOUBLE;
+        }
+        else if (javaType == boolean.class) {
+            methodHandle = WRITE_BOOLEAN;
+        }
+        else if (!javaType.isPrimitive()) {
+            methodHandle = WRITE_OBJECT;
+        }
+        else {
+            throw new IllegalArgumentException("Unknown java type " + javaType + " from type " + type);
+        }
+
+        return methodHandle.bindTo(type);
     }
 }

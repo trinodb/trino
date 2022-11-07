@@ -11,6 +11,10 @@ Password file authentication is very similar to :doc:`ldap`. Please see
 the LDAP documentation for generic instructions on configuring the server
 and clients to use TLS and authenticate with a username and password.
 
+Using :doc:`TLS <tls>` and :doc:`a configured shared secret
+</security/internal-communication>` is required for password file
+authentication.
+
 Password authenticator configuration
 ------------------------------------
 

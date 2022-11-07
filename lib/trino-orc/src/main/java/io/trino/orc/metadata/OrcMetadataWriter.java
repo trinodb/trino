@@ -56,8 +56,6 @@ public class OrcMetadataWriter
 
     // see https://github.com/trinodb/orc-protobuf/blob/master/src/main/protobuf/orc_proto.proto
     public static final int PRESTO_WRITER_ID = 2;
-    // in order to change this value, the master Apache ORC proto file must be updated
-    private static final int PRESTO_WRITER_VERSION = 6;
 
     // maximum version readable by Hive 2.x before the ORC-125 fix
     private static final int HIVE_LEGACY_WRITER_VERSION = 4;
@@ -99,8 +97,6 @@ public class OrcMetadataWriter
         switch (writerIdentification) {
             case LEGACY_HIVE_COMPATIBLE:
                 return HIVE_LEGACY_WRITER_VERSION;
-            case PRESTO:
-                return PRESTO_WRITER_VERSION;
             case TRINO:
                 return TRINO_WRITER_VERSION;
         }
@@ -160,11 +156,6 @@ public class OrcMetadataWriter
         switch (writerIdentification) {
             case LEGACY_HIVE_COMPATIBLE:
                 return;
-
-            case PRESTO:
-                builder.setWriter(PRESTO_WRITER_ID);
-                return;
-
             case TRINO:
                 builder.setWriter(TRINO_WRITER_ID);
                 return;

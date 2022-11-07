@@ -38,11 +38,11 @@ public class TestDevelopmentLoaderConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("plugin.bundles", "a,b,c")
                 .put("maven.repo.local", "local-repo")
                 .put("maven.repo.remote", "remote-a,remote-b")
-                .build();
+                .buildOrThrow();
 
         DevelopmentLoaderConfig expected = new DevelopmentLoaderConfig()
                 .setPlugins(ImmutableList.of("a", "b", "c"))

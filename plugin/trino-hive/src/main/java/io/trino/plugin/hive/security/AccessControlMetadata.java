@@ -23,7 +23,6 @@ import io.trino.spi.security.RoleGrant;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.Set;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -65,14 +64,6 @@ public interface AccessControlMetadata
      * List available roles.
      */
     default Set<String> listRoles(ConnectorSession session)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support roles");
-    }
-
-    /**
-     * List principals for a given role, not recursively.
-     */
-    default Set<RoleGrant> listAllRoleGrants(ConnectorSession session, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support roles");
     }
@@ -127,6 +118,14 @@ public interface AccessControlMetadata
     default void grantSchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, HivePrincipal grantee, boolean grantOption)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support grants on schemas");
+    }
+
+    /**
+     * Get the owner on the specified schema
+     */
+    default Optional<HivePrincipal> getSchemaOwner(ConnectorSession session, String schemaName)
+    {
+        return Optional.empty();
     }
 
     /**

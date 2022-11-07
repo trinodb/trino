@@ -13,14 +13,47 @@
  */
 package io.trino.spi.connector;
 
+import io.trino.spi.TrinoException;
+
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+
 public interface ConnectorPageSinkProvider
 {
+    @Deprecated // TODO(Issue #14705): Remove
     ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle);
 
+    default ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, ConnectorPageSinkId pageSinkId)
+    {
+        return createPageSink(transactionHandle, session, outputTableHandle);
+    }
+
+    @Deprecated // TODO(Issue #14705): Remove
     ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle);
 
+    default ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, ConnectorPageSinkId pageSinkId)
+    {
+        return createPageSink(transactionHandle, session, insertTableHandle);
+    }
+
+    @Deprecated // TODO(Issue #14705): Remove
     default ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
     {
         throw new IllegalArgumentException("createPageSink not supported for tableExecuteHandle");
+    }
+
+    default ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, ConnectorPageSinkId pageSinkId)
+    {
+        return createPageSink(transactionHandle, session, tableExecuteHandle);
+    }
+
+    @Deprecated // TODO(Issue #14705): Remove
+    default ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support SQL MERGE operations");
+    }
+
+    default ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle, ConnectorPageSinkId pageSinkId)
+    {
+        return createMergeSink(transactionHandle, session, mergeHandle);
     }
 }

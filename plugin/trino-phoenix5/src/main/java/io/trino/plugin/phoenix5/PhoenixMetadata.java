@@ -17,8 +17,10 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.plugin.jdbc.DefaultJdbcMetadata;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
-import io.trino.plugin.jdbc.JdbcMetadataConfig;
+import io.trino.plugin.jdbc.JdbcNamedRelationHandle;
+import io.trino.plugin.jdbc.JdbcQueryEventListener;
 import io.trino.plugin.jdbc.JdbcTableHandle;
+import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -26,15 +28,16 @@ import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
-import io.trino.spi.connector.ConnectorNewTableLayout;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.LocalProperty;
+import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SortingProperty;
 import io.trino.spi.predicate.TupleDomain;
@@ -49,6 +52,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -56,6 +60,7 @@ import static io.trino.plugin.phoenix5.MetadataUtil.getEscapedTableName;
 import static io.trino.plugin.phoenix5.MetadataUtil.toTrinoSchemaName;
 import static io.trino.plugin.phoenix5.PhoenixErrorCode.PHOENIX_METADATA_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.phoenix.util.SchemaUtil.getEscapedArgument;
@@ -71,9 +76,9 @@ public class PhoenixMetadata
     private final IdentifierMapping identifierMapping;
 
     @Inject
-    public PhoenixMetadata(PhoenixClient phoenixClient, JdbcMetadataConfig metadataConfig, IdentifierMapping identifierMapping)
+    public PhoenixMetadata(PhoenixClient phoenixClient, IdentifierMapping identifierMapping, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
     {
-        super(phoenixClient, metadataConfig.isAllowDropTable());
+        super(phoenixClient, false, jdbcQueryEventListeners);
         this.phoenixClient = requireNonNull(phoenixClient, "phoenixClient is null");
         this.identifierMapping = requireNonNull(identifierMapping, "identifierMapping is null");
     }
@@ -82,11 +87,12 @@ public class PhoenixMetadata
     public JdbcTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
     {
         return phoenixClient.getTableHandle(session, schemaTableName)
-                .map(tableHandle -> new JdbcTableHandle(
+                .map(JdbcTableHandle::asPlainTable)
+                .map(JdbcNamedRelationHandle::getRemoteTableName)
+                .map(remoteTableName -> new JdbcTableHandle(
                         schemaTableName,
-                        tableHandle.getCatalogName(),
-                        toTrinoSchemaName(tableHandle.getSchemaName()),
-                        tableHandle.getTableName()))
+                        new RemoteTableName(remoteTableName.getCatalogName(), Optional.ofNullable(toTrinoSchemaName(remoteTableName.getSchemaName().orElse(null))), remoteTableName.getTableName()),
+                        Optional.empty()))
                 .orElse(null);
     }
 
@@ -171,8 +177,11 @@ public class PhoenixMetadata
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
     {
+        if (retryMode != NO_RETRIES) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
+        }
         return phoenixClient.beginCreateTable(session, tableMetadata);
     }
 
@@ -189,8 +198,11 @@ public class PhoenixMetadata
     }
 
     @Override
-    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns)
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns, RetryMode retryMode)
     {
+        if (retryMode != NO_RETRIES) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
+        }
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
         Optional<String> rowkeyColumn = phoenixClient.getColumns(session, handle).stream()
                 .map(JdbcColumnHandle::getColumnName)
@@ -201,9 +213,10 @@ public class PhoenixMetadata
                 .map(JdbcColumnHandle.class::cast)
                 .collect(toImmutableList());
 
+        RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
         return new PhoenixOutputTableHandle(
-                handle.getSchemaName(),
-                handle.getTableName(),
+                remoteTableName.getSchemaName().orElse(null),
+                remoteTableName.getTableName(),
                 columnHandles.stream().map(JdbcColumnHandle::getColumnName).collect(toImmutableList()),
                 columnHandles.stream().map(JdbcColumnHandle::getColumnType).collect(toImmutableList()),
                 Optional.of(columnHandles.stream().map(JdbcColumnHandle::getJdbcTypeHandle).collect(toImmutableList())),
@@ -219,11 +232,16 @@ public class PhoenixMetadata
     @Override
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
+        if (column.getComment() != null) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with comments");
+        }
+
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
+        RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
         phoenixClient.execute(session, format(
                 "ALTER TABLE %s ADD %s %s",
-                getEscapedTableName(handle.getSchemaName(), handle.getTableName()),
-                column.getName(),
+                getEscapedTableName(remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()),
+                phoenixClient.quoted(column.getName()),
                 phoenixClient.toWriteMapping(session, column.getType()).getDataType()));
     }
 
@@ -232,10 +250,11 @@ public class PhoenixMetadata
     {
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
+        RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
         phoenixClient.execute(session, format(
                 "ALTER TABLE %s DROP COLUMN %s",
-                getEscapedTableName(handle.getSchemaName(), handle.getTableName()),
-                columnHandle.getColumnName()));
+                getEscapedTableName(remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()),
+                phoenixClient.quoted(columnHandle.getColumnName())));
     }
 
     @Override
@@ -248,7 +267,8 @@ public class PhoenixMetadata
                 .anyMatch(ROWKEY::equals);
         if (hasRowkey) {
             JdbcTableHandle jdbcHandle = (JdbcTableHandle) tableHandle;
-            phoenixClient.execute(session, format("DROP SEQUENCE %s", getEscapedTableName(jdbcHandle.getSchemaName(), jdbcHandle.getTableName() + "_sequence")));
+            RemoteTableName remoteTableName = jdbcHandle.asPlainTable().getRemoteTableName();
+            phoenixClient.execute(session, format("DROP SEQUENCE %s", getEscapedTableName(remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName() + "_sequence")));
         }
         phoenixClient.dropTable(session, (JdbcTableHandle) tableHandle);
     }

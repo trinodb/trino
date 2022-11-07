@@ -15,7 +15,6 @@ package io.trino.benchmark;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import io.trino.execution.Lifespan;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
 import io.trino.operator.DriverFactory;
@@ -44,8 +43,9 @@ import java.util.concurrent.Future;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
+import static io.trino.execution.executor.PrioritizedSplitRunner.SPLIT_RUN_QUANTA;
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
-import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
+import static io.trino.operator.OperatorFactories.JoinOperatorType.innerJoin;
 import static io.trino.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
 import static java.util.Objects.requireNonNull;
 
@@ -106,16 +106,15 @@ public class HashJoinBenchmark
                     incrementalLoadFactorHashArraySizeSupplier(session));
 
             DriverContext driverContext = taskContext.addPipelineContext(0, false, false, false).addDriverContext();
-            DriverFactory buildDriverFactory = new DriverFactory(0, false, false, ImmutableList.of(ordersTableScan, hashBuilder), OptionalInt.empty(), UNGROUPED_EXECUTION);
+            DriverFactory buildDriverFactory = new DriverFactory(0, false, false, ImmutableList.of(ordersTableScan, hashBuilder), OptionalInt.empty());
 
             List<Type> lineItemTypes = getColumnTypes("lineitem", "orderkey", "quantity");
             OperatorFactory lineItemTableScan = createTableScanOperator(0, new PlanNodeId("test"), "lineitem", "orderkey", "quantity");
-            OperatorFactory joinOperator = operatorFactories.innerJoin(
+            OperatorFactory joinOperator = operatorFactories.spillingJoin(
+                    innerJoin(false, false),
                     1,
                     new PlanNodeId("test"),
                     lookupSourceFactoryManager,
-                    false,
-                    false,
                     false,
                     lineItemTypes,
                     Ints.asList(0),
@@ -125,12 +124,12 @@ public class HashJoinBenchmark
                     unsupportedPartitioningSpillerFactory(),
                     blockTypeOperators);
             NullOutputOperatorFactory output = new NullOutputOperatorFactory(2, new PlanNodeId("test"));
-            this.probeDriverFactory = new DriverFactory(1, true, true, ImmutableList.of(lineItemTableScan, joinOperator, output), OptionalInt.empty(), UNGROUPED_EXECUTION);
+            this.probeDriverFactory = new DriverFactory(1, true, true, ImmutableList.of(lineItemTableScan, joinOperator, output), OptionalInt.empty());
 
             Driver driver = buildDriverFactory.createDriver(driverContext);
-            Future<LookupSourceProvider> lookupSourceProvider = lookupSourceFactoryManager.getJoinBridge(Lifespan.taskWide()).createLookupSourceProvider();
+            Future<LookupSourceProvider> lookupSourceProvider = lookupSourceFactoryManager.getJoinBridge().createLookupSourceProvider();
             while (!lookupSourceProvider.isDone()) {
-                driver.process();
+                driver.processForDuration(SPLIT_RUN_QUANTA);
             }
             getFutureValue(lookupSourceProvider).close();
         }

@@ -18,10 +18,12 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 
 import javax.inject.Inject;
 
+import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.dynamicFilteringEnabled;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcSplitManager
@@ -40,9 +42,14 @@ public class JdbcSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle table,
-            SplitSchedulingStrategy splitSchedulingStrategy,
-            DynamicFilter dynamicFilter)
+            DynamicFilter dynamicFilter,
+            Constraint constraint)
     {
-        return jdbcClient.getSplits(session, (JdbcTableHandle) table);
+        JdbcTableHandle tableHandle = (JdbcTableHandle) table;
+        ConnectorSplitSource jdbcSplitSource = jdbcClient.getSplits(session, tableHandle);
+        if (dynamicFilteringEnabled(session)) {
+            return new DynamicFilteringJdbcSplitSource(jdbcSplitSource, dynamicFilter, tableHandle);
+        }
+        return jdbcSplitSource;
     }
 }

@@ -43,9 +43,7 @@ public class TestStaticCredentialsConfig
     @Test
     public void testExplicitPropertyMappingsWithCredentialsKey()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("bigquery.credentials-key", "key")
-                .build();
+        Map<String, String> properties = ImmutableMap.of("bigquery.credentials-key", "key");
 
         ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
         StaticCredentialsConfig config = configurationFactory.build(StaticCredentialsConfig.class);
@@ -60,9 +58,7 @@ public class TestStaticCredentialsConfig
         try {
             Path file = Files.createTempFile("config", ".json");
 
-            Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                    .put("bigquery.credentials-file", file.toString())
-                    .build();
+            Map<String, String> properties = ImmutableMap.of("bigquery.credentials-file", file.toString());
 
             ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
             StaticCredentialsConfig config = configurationFactory.build(StaticCredentialsConfig.class);
@@ -78,10 +74,10 @@ public class TestStaticCredentialsConfig
     @Test
     public void testExplicitPropertyMappingsValidation()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("bigquery.credentials-key", "key")
                 .put("bigquery.credentials-file", "file")
-                .build();
+                .buildOrThrow();
 
         ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
         assertThatThrownBy(() -> configurationFactory.build(StaticCredentialsConfig.class))

@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import io.airlift.log.Logger;
-import io.trino.plugin.hive.DynamicConfigurationProvider;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.hdfs.DynamicConfigurationProvider;
+import io.trino.hdfs.HdfsContext;
 import io.trino.spi.security.AccessDeniedException;
 import org.apache.hadoop.conf.Configuration;
 
@@ -31,11 +31,12 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.plugin.hive.DynamicConfigurationProvider.setCacheKey;
+import static io.trino.hdfs.DynamicConfigurationProvider.setCacheKey;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ACCESS_KEY;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ENDPOINT;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_IAM_ROLE;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_KMS_KEY_ID;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ROLE_SESSION_NAME;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SECRET_KEY;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -118,6 +119,11 @@ public class S3SecurityMappingConfigurationProvider
         mapping.getEndpoint().ifPresent(endpoint -> {
             configuration.set(S3_ENDPOINT, endpoint);
             hasher.putString(endpoint, UTF_8);
+        });
+
+        mapping.getRoleSessionName().ifPresent(roleSessionName -> {
+            configuration.set(S3_ROLE_SESSION_NAME, roleSessionName.replace("${USER}", context.getIdentity().getUser()));
+            hasher.putString(roleSessionName, UTF_8);
         });
 
         setCacheKey(configuration, hasher.hash().toString());

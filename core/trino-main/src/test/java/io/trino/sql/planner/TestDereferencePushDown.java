@@ -52,9 +52,10 @@ public class TestDereferencePushDown
                                         "a_msg_x", PlanMatchPattern.expression("a_msg[1]"),
                                         "a_msg", PlanMatchPattern.expression("a_msg"),
                                         "b_msg_y", PlanMatchPattern.expression("b_msg_y")),
-                                join(INNER, ImmutableList.of(),
-                                        values("a_msg"),
-                                        values(ImmutableList.of("b_msg_y"), ImmutableList.of(ImmutableList.of(new DoubleLiteral("2e0")), ImmutableList.of(new DoubleLiteral("4e0"))))))));
+                                join(INNER, builder -> builder
+                                        .left(values("a_msg"))
+                                        .right(
+                                                values(ImmutableList.of("b_msg_y"), ImmutableList.of(ImmutableList.of(new DoubleLiteral("2e0")), ImmutableList.of(new DoubleLiteral("4e0")))))))));
     }
 
     @Test
@@ -82,24 +83,24 @@ public class TestDereferencePushDown
                         "FROM t a JOIN t b ON a.msg.y = b.msg.y " +
                         "WHERE a.msg.x > BIGINT '5'",
                 output(ImmutableList.of("a_y"),
-                        join(INNER, ImmutableList.of(),
-                                values("a_y"),
-                                values())));
+                        values("a_y")));
 
         assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
                         "SELECT b.msg.x " +
                         "FROM t a JOIN t b ON a.msg.y = b.msg.y " +
                         "WHERE a.msg.x + b.msg.x < BIGINT '10'",
                 output(ImmutableList.of("b_x"),
-                        join(INNER, ImmutableList.of(),
-                                project(filter(
-                                        "a_y = 2e0",
-                                        values(ImmutableList.of("a_y"), ImmutableList.of(ImmutableList.of(new DoubleLiteral("2e0")))))),
-                                project(filter(
-                                        "b_y = 2e0",
-                                        values(
-                                                ImmutableList.of("b_x", "b_y"),
-                                                ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"), new DoubleLiteral("2e0")))))))));
+                        join(INNER, builder -> builder
+                                .left(
+                                        project(filter(
+                                                "a_y = 2e0",
+                                                values(ImmutableList.of("a_y"), ImmutableList.of(ImmutableList.of(new DoubleLiteral("2e0")))))))
+                                .right(
+                                        project(filter(
+                                                "b_y = 2e0",
+                                                values(
+                                                        ImmutableList.of("b_x", "b_y"),
+                                                        ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"), new DoubleLiteral("2e0"))))))))));
     }
 
     @Test
@@ -229,24 +230,25 @@ public class TestDereferencePushDown
                         "FROM t a JOIN t b ON a.msg.y = b.msg.y " +
                         "WHERE a.msg.x > BIGINT '5' " +
                         "LIMIT 100",
-                anyTree(join(INNER, ImmutableList.of(),
-                        values("a_y"),
-                        values())));
+                anyTree(limit(100, values("a_y"))));
 
         assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
                         "SELECT b.msg.x " +
                         "FROM t a JOIN t b ON a.msg.y = b.msg.y " +
                         "WHERE a.msg.x + b.msg.x < BIGINT '10' " +
                         "LIMIT 100",
-                anyTree(join(INNER, ImmutableList.of(),
-                        project(filter(
-                                "a_y = 2e0",
-                                values(ImmutableList.of("a_y"), ImmutableList.of(ImmutableList.of(new DoubleLiteral("2e0")))))),
-                        project(filter(
-                                "b_y = 2e0",
-                                values(
-                                        ImmutableList.of("b_x", "b_y"),
-                                        ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"), new DoubleLiteral("2e0")))))))));
+                anyTree(
+                        join(INNER, builder -> builder
+                                .left(
+                                        project(filter(
+                                                "a_y = 2e0",
+                                                values(ImmutableList.of("a_y"), ImmutableList.of(ImmutableList.of(new DoubleLiteral("2e0")))))))
+                                .right(
+                                        project(filter(
+                                                "b_y = 2e0",
+                                                values(
+                                                        ImmutableList.of("b_x", "b_y"),
+                                                        ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"), new DoubleLiteral("2e0"))))))))));
     }
 
     @Test
@@ -260,14 +262,16 @@ public class TestDereferencePushDown
                 output(ImmutableList.of("expr"),
                         strictProject(ImmutableMap.of("expr", expression("a_x")),
                                 unnest(
-                                        join(INNER, ImmutableList.of(),
-                                                project(
-                                                        filter(
-                                                                "a_y = 2e0",
-                                                                values("array", "a_x", "a_y"))),
-                                                project(
-                                                        filter(
-                                                                "b_y = 2e0",
-                                                                values(ImmutableList.of("b_y"), ImmutableList.of(ImmutableList.of(new DoubleLiteral("2e0")))))))))));
+                                        join(INNER, builder -> builder
+                                                .left(
+                                                        project(
+                                                                filter(
+                                                                        "a_y = 2e0",
+                                                                        values("array", "a_x", "a_y"))))
+                                                .right(
+                                                        project(
+                                                                filter(
+                                                                        "b_y = 2e0",
+                                                                        values(ImmutableList.of("b_y"), ImmutableList.of(ImmutableList.of(new DoubleLiteral("2e0"))))))))))));
     }
 }

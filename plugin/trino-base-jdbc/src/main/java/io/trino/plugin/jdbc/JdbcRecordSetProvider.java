@@ -57,11 +57,17 @@ public class JdbcRecordSetProvider
         jdbcTable.getColumns()
                 .ifPresent(tableColumns -> verify(ImmutableSet.copyOf(tableColumns).containsAll(columns)));
 
-        ImmutableList.Builder<JdbcColumnHandle> handles = ImmutableList.builder();
+        ImmutableList.Builder<JdbcColumnHandle> handles = ImmutableList.builderWithExpectedSize(columns.size());
         for (ColumnHandle handle : columns) {
             handles.add((JdbcColumnHandle) handle);
         }
 
-        return new JdbcRecordSet(jdbcClient, executor, session, jdbcSplit, jdbcTable, handles.build());
+        return new JdbcRecordSet(
+                jdbcClient,
+                executor,
+                session,
+                jdbcSplit,
+                jdbcTable.intersectedWithConstraint(jdbcSplit.getDynamicFilter().transformKeys(ColumnHandle.class::cast)),
+                handles.build());
     }
 }

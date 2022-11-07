@@ -27,6 +27,8 @@ import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -49,6 +51,7 @@ import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Boolean.TRUE;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Collections.unmodifiableList;
@@ -64,7 +67,7 @@ import static java.util.stream.Collectors.joining;
 public final class SortedRangeSet
         implements ValueSet
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SortedRangeSet.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SortedRangeSet.class).instanceSize());
 
     private final Type type;
     private final MethodHandle equalOperator;
@@ -221,10 +224,7 @@ public final class SortedRangeSet
         return new SortedRangeSet(
                 type,
                 inclusive,
-                new DictionaryBlock(
-                        dictionaryIndex,
-                        block,
-                        dictionary));
+                DictionaryBlock.create(dictionaryIndex, block, dictionary));
     }
 
     /**
@@ -257,7 +257,7 @@ public final class SortedRangeSet
         return new SortedRangeSet(
                 type,
                 new boolean[] {true, true},
-                new RunLengthEncodedBlock(block, 2));
+                RunLengthEncodedBlock.create(block, 2));
     }
 
     static SortedRangeSet copyOf(Type type, Collection<Range> ranges)
@@ -913,6 +913,48 @@ public final class SortedRangeSet
                 + sortedRanges.getRetainedSizeInBytes();
     }
 
+    @Override
+    public Optional<Collection<Object>> tryExpandRanges(int valuesLimit)
+    {
+        List<Range> ranges = getRanges().getOrderedRanges();
+        Type type = getType();
+
+        Range typeRange = type.getRange().map(range -> Range.range(type, range.getMin(), true, range.getMax(), true)).orElse(Range.all(type));
+
+        List<Object> result = new ArrayList<>();
+        for (Range range : ranges) {
+            if (range.isLowUnbounded() || range.isHighUnbounded()) {
+                // Try to restrict the current unbounded range with the type min-max values.
+                range = range.intersect(typeRange).orElse(range);
+                if (range.isLowUnbounded() || range.isHighUnbounded()) {
+                    return Optional.empty();
+                }
+            }
+            Optional<Stream<?>> discreteValues = type.getDiscreteValues(new Type.Range(range.getLowBoundedValue(), range.getHighBoundedValue()));
+            if (discreteValues.isEmpty()) {
+                return Optional.empty();
+            }
+            Iterator<?> iterator = discreteValues.get().iterator();
+            if (!iterator.hasNext()) {
+                throw new IllegalStateException("discreteValues iterator is empty");
+            }
+            if (!range.isLowInclusive()) {
+                iterator.next();
+            }
+            while (iterator.hasNext()) {
+                Object current = iterator.next();
+                // Don't add the highest value in the range (if it's not included).
+                if (range.isHighInclusive() || iterator.hasNext()) {
+                    if (result.size() >= valuesLimit) {
+                        return Optional.empty();
+                    }
+                    result.add(current);
+                }
+            }
+        }
+        return Optional.of(Collections.unmodifiableList(result));
+    }
+
     private String formatRanges(ConnectorSession session, int limit)
     {
         if (isNone()) {
@@ -1060,17 +1102,11 @@ public final class SortedRangeSet
         @Override
         public int compareTo(RangeView that)
         {
-            int compare;
-            compare = compareLowBound(that);
-            if (compare != 0) {
-                return compare;
+            int lowBoundCompare = compareLowBound(that);
+            if (lowBoundCompare != 0) {
+                return lowBoundCompare;
             }
-            compare = compareHighBound(that);
-            if (compare != 0) {
-                return compare;
-            }
-
-            return 0;
+            return compareHighBound(that);
         }
 
         private int compareLowBound(RangeView that)

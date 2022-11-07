@@ -209,6 +209,7 @@ public class TestStatementBuilder
 
         printStatement("alter table foo set properties a='1'");
         printStatement("alter table a.b.c set properties a=true, b=123, c='x'");
+        printStatement("alter table a.b.c set properties a=DEFAULT, b=123");
 
         printStatement("alter table a.b.c add column x bigint");
 
@@ -217,6 +218,10 @@ public class TestStatementBuilder
         printStatement("alter table a.b.c add column x bigint comment 'xtra' with (compression = 'LZ4', special = true)");
 
         printStatement("alter table a.b.c drop column x");
+
+        printStatement("alter materialized view foo set properties a='1'");
+        printStatement("alter materialized view a.b.c set properties a=true, b=123, c='x'");
+        printStatement("alter materialized view a.b.c set properties a=default, b=123");
 
         printStatement("create schema test");
         printStatement("create schema test authorization alice");
@@ -247,6 +252,7 @@ public class TestStatementBuilder
         printStatement("create table test (a boolean, b bigint) comment 'test' with (a = 'apple')");
         printStatement("create table test (a boolean with (a = 'apple', b = 'banana'), b bigint comment 'bla' with (c = 'cherry')) comment 'test' with (a = 'apple')");
         printStatement("comment on table test is 'test'");
+        printStatement("comment on view test is 'test'");
         printStatement("comment on column test.a is 'test'");
         printStatement("drop table test");
 

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.lang.reflect.Constructor;
 import java.util.List;
+import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 
@@ -25,20 +26,26 @@ public class CompiledAccumulatorFactory
 {
     private final Constructor<? extends Accumulator> accumulatorConstructor;
     private final Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor;
-    private final List<LambdaProvider> lambdaProviders;
+    private final List<Class<?>> lambdaInterfaces;
 
     public CompiledAccumulatorFactory(
             Constructor<? extends Accumulator> accumulatorConstructor,
             Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor,
-            List<LambdaProvider> lambdaProviders)
+            List<Class<?>> lambdaInterfaces)
     {
         this.accumulatorConstructor = requireNonNull(accumulatorConstructor, "accumulatorConstructor is null");
         this.groupedAccumulatorConstructor = requireNonNull(groupedAccumulatorConstructor, "groupedAccumulatorConstructor is null");
-        this.lambdaProviders = ImmutableList.copyOf(requireNonNull(lambdaProviders, "lambdaProviders is null"));
+        this.lambdaInterfaces = ImmutableList.copyOf(requireNonNull(lambdaInterfaces, "lambdaInterfaces is null"));
     }
 
     @Override
-    public Accumulator createAccumulator()
+    public List<Class<?>> getLambdaInterfaces()
+    {
+        return lambdaInterfaces;
+    }
+
+    @Override
+    public Accumulator createAccumulator(List<Supplier<Object>> lambdaProviders)
     {
         try {
             return accumulatorConstructor.newInstance(lambdaProviders);
@@ -49,7 +56,7 @@ public class CompiledAccumulatorFactory
     }
 
     @Override
-    public Accumulator createIntermediateAccumulator()
+    public Accumulator createIntermediateAccumulator(List<Supplier<Object>> lambdaProviders)
     {
         try {
             return accumulatorConstructor.newInstance(lambdaProviders);
@@ -60,7 +67,7 @@ public class CompiledAccumulatorFactory
     }
 
     @Override
-    public GroupedAccumulator createGroupedAccumulator()
+    public GroupedAccumulator createGroupedAccumulator(List<Supplier<Object>> lambdaProviders)
     {
         try {
             return groupedAccumulatorConstructor.newInstance(lambdaProviders);
@@ -71,7 +78,7 @@ public class CompiledAccumulatorFactory
     }
 
     @Override
-    public GroupedAccumulator createGroupedIntermediateAccumulator()
+    public GroupedAccumulator createGroupedIntermediateAccumulator(List<Supplier<Object>> lambdaProviders)
     {
         try {
             return groupedAccumulatorConstructor.newInstance(lambdaProviders);

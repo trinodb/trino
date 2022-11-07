@@ -14,7 +14,7 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.FunctionManager;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
@@ -29,7 +29,7 @@ import static com.google.common.collect.Iterators.getOnlyElement;
 import static io.trino.SequencePageBuilder.createSequencePage;
 import static io.trino.SequencePageBuilder.createSequencePageWithDictionaryBlocks;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.operator.project.PageProcessor.MAX_BATCH_SIZE;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -41,7 +41,7 @@ public class TestColumnarPageProcessor
 {
     private static final int POSITIONS = 100;
     private final List<Type> types = ImmutableList.of(BIGINT, VARCHAR);
-    private final Metadata metadata = createTestMetadataManager();
+    private final FunctionManager functionManager = createTestingFunctionManager();
 
     @Test
     public void testProcess()
@@ -80,7 +80,7 @@ public class TestColumnarPageProcessor
 
     private PageProcessor newPageProcessor()
     {
-        return new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))
+        return new ExpressionCompiler(functionManager, new PageFunctionCompiler(functionManager, 0))
                 .compilePageProcessor(Optional.empty(), ImmutableList.of(field(0, types.get(0)), field(1, types.get(1))), MAX_BATCH_SIZE).get();
     }
 }

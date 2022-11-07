@@ -49,6 +49,7 @@ public class OperatorStats
     private final Duration addInputCpu;
     private final DataSize physicalInputDataSize;
     private final long physicalInputPositions;
+    private final Duration physicalInputReadTime;
     private final DataSize internalNetworkInputDataSize;
     private final long internalNetworkInputPositions;
     private final DataSize rawInputDataSize;
@@ -76,9 +77,7 @@ public class OperatorStats
 
     private final DataSize userMemoryReservation;
     private final DataSize revocableMemoryReservation;
-    private final DataSize systemMemoryReservation;
     private final DataSize peakUserMemoryReservation;
-    private final DataSize peakSystemMemoryReservation;
     private final DataSize peakRevocableMemoryReservation;
     private final DataSize peakTotalMemoryReservation;
 
@@ -104,6 +103,7 @@ public class OperatorStats
             @JsonProperty("addInputCpu") Duration addInputCpu,
             @JsonProperty("physicalInputDataSize") DataSize physicalInputDataSize,
             @JsonProperty("physicalInputPositions") long physicalInputPositions,
+            @JsonProperty("physicalInputReadTime") Duration physicalInputReadTime,
             @JsonProperty("internalNetworkInputDataSize") DataSize internalNetworkInputDataSize,
             @JsonProperty("internalNetworkInputPositions") long internalNetworkInputPositions,
             @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
@@ -131,9 +131,7 @@ public class OperatorStats
 
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
-            @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
             @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
-            @JsonProperty("peakSystemMemoryReservation") DataSize peakSystemMemoryReservation,
             @JsonProperty("peakRevocableMemoryReservation") DataSize peakRevocableMemoryReservation,
             @JsonProperty("peakTotalMemoryReservation") DataSize peakTotalMemoryReservation,
 
@@ -159,6 +157,7 @@ public class OperatorStats
         this.addInputCpu = requireNonNull(addInputCpu, "addInputCpu is null");
         this.physicalInputDataSize = requireNonNull(physicalInputDataSize, "physicalInputDataSize is null");
         this.physicalInputPositions = physicalInputPositions;
+        this.physicalInputReadTime = requireNonNull(physicalInputReadTime, "physicalInputReadTime is null");
         this.internalNetworkInputDataSize = requireNonNull(internalNetworkInputDataSize, "internalNetworkInputDataSize is null");
         this.internalNetworkInputPositions = internalNetworkInputPositions;
         this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
@@ -188,10 +187,8 @@ public class OperatorStats
 
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
-        this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
 
         this.peakUserMemoryReservation = requireNonNull(peakUserMemoryReservation, "peakUserMemoryReservation is null");
-        this.peakSystemMemoryReservation = requireNonNull(peakSystemMemoryReservation, "peakSystemMemoryReservation is null");
         this.peakRevocableMemoryReservation = requireNonNull(peakRevocableMemoryReservation, "peakRevocableMemoryReservation is null");
         this.peakTotalMemoryReservation = requireNonNull(peakTotalMemoryReservation, "peakTotalMemoryReservation is null");
 
@@ -266,6 +263,12 @@ public class OperatorStats
     public long getPhysicalInputPositions()
     {
         return physicalInputPositions;
+    }
+
+    @JsonProperty
+    public Duration getPhysicalInputReadTime()
+    {
+        return physicalInputReadTime;
     }
 
     @JsonProperty
@@ -395,12 +398,6 @@ public class OperatorStats
     }
 
     @JsonProperty
-    public DataSize getSystemMemoryReservation()
-    {
-        return systemMemoryReservation;
-    }
-
-    @JsonProperty
     public DataSize getPeakUserMemoryReservation()
     {
         return peakUserMemoryReservation;
@@ -410,12 +407,6 @@ public class OperatorStats
     public DataSize getPeakRevocableMemoryReservation()
     {
         return peakRevocableMemoryReservation;
-    }
-
-    @JsonProperty
-    public DataSize getPeakSystemMemoryReservation()
-    {
-        return peakSystemMemoryReservation;
     }
 
     @JsonProperty
@@ -457,6 +448,7 @@ public class OperatorStats
         long addInputCpu = this.addInputCpu.roundTo(NANOSECONDS);
         long physicalInputDataSize = this.physicalInputDataSize.toBytes();
         long physicalInputPositions = this.physicalInputPositions;
+        long physicalInputReadTimeNanos = this.physicalInputReadTime.roundTo(NANOSECONDS);
         long internalNetworkInputDataSize = this.internalNetworkInputDataSize.toBytes();
         long internalNetworkInputPositions = this.internalNetworkInputPositions;
         long rawInputDataSize = this.rawInputDataSize.toBytes();
@@ -484,9 +476,7 @@ public class OperatorStats
 
         long memoryReservation = this.userMemoryReservation.toBytes();
         long revocableMemoryReservation = this.revocableMemoryReservation.toBytes();
-        long systemMemoryReservation = this.systemMemoryReservation.toBytes();
         long peakUserMemory = this.peakUserMemoryReservation.toBytes();
-        long peakSystemMemory = this.peakSystemMemoryReservation.toBytes();
         long peakRevocableMemory = this.peakRevocableMemoryReservation.toBytes();
         long peakTotalMemory = this.peakTotalMemoryReservation.toBytes();
 
@@ -506,6 +496,7 @@ public class OperatorStats
             addInputCpu += operator.getAddInputCpu().roundTo(NANOSECONDS);
             physicalInputDataSize += operator.getPhysicalInputDataSize().toBytes();
             physicalInputPositions += operator.getPhysicalInputPositions();
+            physicalInputReadTimeNanos += operator.getPhysicalInputReadTime().roundTo(NANOSECONDS);
             internalNetworkInputDataSize += operator.getInternalNetworkInputDataSize().toBytes();
             internalNetworkInputPositions += operator.getInternalNetworkInputPositions();
             rawInputDataSize += operator.getRawInputDataSize().toBytes();
@@ -533,10 +524,8 @@ public class OperatorStats
 
             memoryReservation += operator.getUserMemoryReservation().toBytes();
             revocableMemoryReservation += operator.getRevocableMemoryReservation().toBytes();
-            systemMemoryReservation += operator.getSystemMemoryReservation().toBytes();
 
             peakUserMemory = max(peakUserMemory, operator.getPeakUserMemoryReservation().toBytes());
-            peakSystemMemory = max(peakSystemMemory, operator.getPeakSystemMemoryReservation().toBytes());
             peakRevocableMemory = max(peakRevocableMemory, operator.getPeakRevocableMemoryReservation().toBytes());
             peakTotalMemory = max(peakTotalMemory, operator.getPeakTotalMemoryReservation().toBytes());
 
@@ -567,6 +556,7 @@ public class OperatorStats
                 new Duration(addInputCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 DataSize.ofBytes(physicalInputDataSize),
                 physicalInputPositions,
+                new Duration(physicalInputReadTimeNanos, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 DataSize.ofBytes(internalNetworkInputDataSize),
                 internalNetworkInputPositions,
                 DataSize.ofBytes(rawInputDataSize),
@@ -594,9 +584,7 @@ public class OperatorStats
 
                 DataSize.ofBytes(memoryReservation),
                 DataSize.ofBytes(revocableMemoryReservation),
-                DataSize.ofBytes(systemMemoryReservation),
                 DataSize.ofBytes(peakUserMemory),
-                DataSize.ofBytes(peakSystemMemory),
                 DataSize.ofBytes(peakRevocableMemory),
                 DataSize.ofBytes(peakTotalMemory),
 
@@ -641,6 +629,7 @@ public class OperatorStats
                 addInputCpu,
                 physicalInputDataSize,
                 physicalInputPositions,
+                physicalInputReadTime,
                 internalNetworkInputDataSize,
                 internalNetworkInputPositions,
                 rawInputDataSize,
@@ -662,9 +651,7 @@ public class OperatorStats
                 finishCpu,
                 userMemoryReservation,
                 revocableMemoryReservation,
-                systemMemoryReservation,
                 peakUserMemoryReservation,
-                peakSystemMemoryReservation,
                 peakRevocableMemoryReservation,
                 peakTotalMemoryReservation,
                 spilledDataSize,

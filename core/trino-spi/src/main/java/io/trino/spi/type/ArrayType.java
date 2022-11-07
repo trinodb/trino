@@ -195,10 +195,8 @@ public class ArrayType
         if (block instanceof AbstractArrayBlock) {
             return ((AbstractArrayBlock) block).apply((valuesBlock, start, length) -> arrayBlockToObjectValues(session, valuesBlock, start, length), position);
         }
-        else {
-            Block arrayBlock = block.getObject(position, Block.class);
-            return arrayBlockToObjectValues(session, arrayBlock, 0, arrayBlock.getPositionCount());
-        }
+        Block arrayBlock = block.getObject(position, Block.class);
+        return arrayBlockToObjectValues(session, arrayBlock, 0, arrayBlock.getPositionCount());
     }
 
     private List<Object> arrayBlockToObjectValues(ConnectorSession session, Block block, int start, int length)
@@ -219,7 +217,7 @@ public class ArrayType
             blockBuilder.appendNull();
         }
         else {
-            block.writePositionTo(position, blockBuilder);
+            writeObject(blockBuilder, getObject(block, position));
         }
     }
 
@@ -250,7 +248,13 @@ public class ArrayType
     @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
-        blockBuilder.appendStructure((Block) value);
+        Block arrayBlock = (Block) value;
+
+        BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
+        for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
+            elementType.appendTo(arrayBlock, i, entryBuilder);
+        }
+        blockBuilder.closeEntry();
     }
 
     @Override

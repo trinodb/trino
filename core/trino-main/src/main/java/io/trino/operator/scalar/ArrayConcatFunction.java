@@ -15,15 +15,14 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -32,8 +31,6 @@ import io.trino.sql.gen.VarArgsToArrayAdapterGenerator;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -55,23 +52,20 @@ public final class ArrayConcatFunction
 
     private ArrayConcatFunction()
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        FUNCTION_NAME,
-                        ImmutableList.of(typeVariable("E")),
-                        ImmutableList.of(),
-                        arrayType(new TypeSignature("E")),
-                        ImmutableList.of(arrayType(new TypeSignature("E"))),
-                        true),
-                new FunctionNullability(false, ImmutableList.of(false)),
-                false,
-                true,
-                DESCRIPTION,
-                SCALAR));
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .name(FUNCTION_NAME)
+                        .typeVariable("E")
+                        .returnType(arrayType(new TypeSignature("E")))
+                        .argumentType(arrayType(new TypeSignature("E")))
+                        .variableArity()
+                        .build())
+                .description(DESCRIPTION)
+                .build());
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         if (boundSignature.getArity() < 2) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "There must be two or more arguments to " + FUNCTION_NAME);
@@ -86,7 +80,7 @@ public final class ArrayConcatFunction
                 METHOD_HANDLE.bindTo(arrayType.getElementType()),
                 USER_STATE_FACTORY.bindTo(arrayType.getElementType()));
 
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 nCopies(boundSignature.getArity(), NEVER_NULL),

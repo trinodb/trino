@@ -32,12 +32,13 @@ import java.util.OptionalInt;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class SimplePagesHashStrategy
         implements PagesHashStrategy
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SimplePagesHashStrategy.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SimplePagesHashStrategy.class).instanceSize());
     private final List<Type> types;
     private final List<Optional<BlockPositionComparison>> comparisonOperators;
     private final List<Integer> outputChannels;
@@ -215,7 +216,7 @@ public class SimplePagesHashStrategy
             Block leftBlock = channels.get(hashChannel).get(leftBlockIndex);
             Block rightBlock = page.getBlock(rightChannels[i]);
             BlockPositionIsDistinctFrom isDistinctFromOperator = isDistinctFromOperators.get(i);
-            if (!isDistinctFromOperator.isDistinctFrom(leftBlock, leftPosition, rightBlock, rightPosition)) {
+            if (isDistinctFromOperator.isDistinctFrom(leftBlock, leftPosition, rightBlock, rightPosition)) {
                 return false;
             }
         }

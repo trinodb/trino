@@ -41,8 +41,7 @@ public class CountAggregationBenchmark
         AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(
                 1,
                 new PlanNodeId("test"),
-                ImmutableList.of(countFunction.bind(ImmutableList.of(0))),
-                false);
+                ImmutableList.of(countFunction.bind(ImmutableList.of(0))));
         return ImmutableList.of(tableScanOperator, aggregationOperator);
     }
 

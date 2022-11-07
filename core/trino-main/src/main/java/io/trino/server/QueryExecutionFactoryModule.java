@@ -115,7 +115,8 @@ public class QueryExecutionFactoryModule
     @Override
     public void configure(Binder binder)
     {
-        var executionBinder = newMapBinder(binder, new TypeLiteral<Class<? extends Statement>>() {}, new TypeLiteral<QueryExecutionFactory<?>>() {});
+        MapBinder<Class<? extends Statement>, QueryExecutionFactory<?>> executionBinder =
+                newMapBinder(binder, new TypeLiteral<Class<? extends Statement>>() {}, new TypeLiteral<QueryExecutionFactory<?>>() {});
 
         binder.bind(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         for (Class<? extends Statement> statement : getNonDataDefinitionStatements()) {
@@ -172,7 +173,8 @@ public class QueryExecutionFactoryModule
             Class<? extends DataDefinitionTask<T>> task)
     {
         checkArgument(isDataDefinitionStatement(statement));
-        var taskBinder = newMapBinder(binder, new TypeLiteral<Class<? extends Statement>>() {}, new TypeLiteral<DataDefinitionTask<?>>() {});
+        MapBinder<Class<? extends Statement>, DataDefinitionTask<?>> taskBinder =
+                newMapBinder(binder, new TypeLiteral<Class<? extends Statement>>() {}, new TypeLiteral<DataDefinitionTask<?>>() {});
         taskBinder.addBinding(statement).to(task).in(Scopes.SINGLETON);
         executionBinder.addBinding(statement).to(DataDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
     }

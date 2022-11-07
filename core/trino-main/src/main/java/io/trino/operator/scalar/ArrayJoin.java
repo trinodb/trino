@@ -16,20 +16,19 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionDependencies;
-import io.trino.metadata.FunctionDependencyDeclaration;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionDependencyDeclaration;
+import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -41,9 +40,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.castableToTypeParameter;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
@@ -89,19 +85,17 @@ public final class ArrayJoin
 
         public ArrayJoinWithNullReplacement()
         {
-            super(new FunctionMetadata(
-                    new Signature(
-                            FUNCTION_NAME,
-                            ImmutableList.of(typeVariable("T")),
-                            ImmutableList.of(),
-                            VARCHAR.getTypeSignature(),
-                            ImmutableList.of(arrayType(new TypeSignature("T")), VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()),
-                            false),
-                    new FunctionNullability(false, ImmutableList.of(false, false, false)),
-                    false,
-                    true,
-                    DESCRIPTION,
-                    SCALAR));
+            super(FunctionMetadata.scalarBuilder()
+                    .signature(Signature.builder()
+                            .name(FUNCTION_NAME)
+                            .typeVariable("T")
+                            .returnType(VARCHAR)
+                            .argumentType(arrayType(new TypeSignature("T")))
+                            .argumentType(VARCHAR)
+                            .argumentType(VARCHAR)
+                            .build())
+                    .description(DESCRIPTION)
+                    .build());
         }
 
         @Override
@@ -111,7 +105,7 @@ public final class ArrayJoin
         }
 
         @Override
-        public ScalarFunctionImplementation specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+        public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
         {
             return specializeArrayJoin(boundSignature, functionDependencies, METHOD_HANDLE);
         }
@@ -119,19 +113,16 @@ public final class ArrayJoin
 
     private ArrayJoin()
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        FUNCTION_NAME,
-                        ImmutableList.of(castableToTypeParameter("T", VARCHAR.getTypeSignature())),
-                        ImmutableList.of(),
-                        VARCHAR.getTypeSignature(),
-                        ImmutableList.of(arrayType(new TypeSignature("T")), VARCHAR.getTypeSignature()),
-                        false),
-                new FunctionNullability(false, ImmutableList.of(false, false)),
-                false,
-                true,
-                DESCRIPTION,
-                SCALAR));
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .name(FUNCTION_NAME)
+                        .castableToTypeParameter("T", VARCHAR.getTypeSignature())
+                        .returnType(VARCHAR)
+                        .argumentType(arrayType(new TypeSignature("T")))
+                        .argumentType(VARCHAR)
+                        .build())
+                .description(DESCRIPTION)
+                .build());
     }
 
     @UsedByGeneratedCode
@@ -154,12 +145,12 @@ public final class ArrayJoin
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         return specializeArrayJoin(boundSignature, functionDependencies, METHOD_HANDLE);
     }
 
-    private static ChoicesScalarFunctionImplementation specializeArrayJoin(
+    private static ChoicesSpecializedSqlScalarFunction specializeArrayJoin(
             BoundSignature boundSignature,
             FunctionDependencies functionDependencies,
             MethodHandle methodHandle)
@@ -168,34 +159,32 @@ public final class ArrayJoin
 
         Type type = ((ArrayType) boundSignature.getArgumentTypes().get(0)).getElementType();
         if (type instanceof UnknownType) {
-            return new ChoicesScalarFunctionImplementation(
+            return new ChoicesSpecializedSqlScalarFunction(
                     boundSignature,
                     FAIL_ON_NULL,
                     argumentConventions,
                     methodHandle.bindTo(null),
                     Optional.of(STATE_FACTORY));
         }
-        else {
-            try {
-                InvocationConvention convention = new InvocationConvention(ImmutableList.of(BLOCK_POSITION), NULLABLE_RETURN, true, false);
-                MethodHandle cast = functionDependencies.getCastInvoker(type, VARCHAR, convention).getMethodHandle();
+        try {
+            InvocationConvention convention = new InvocationConvention(ImmutableList.of(BLOCK_POSITION), NULLABLE_RETURN, true, false);
+            MethodHandle cast = functionDependencies.getCastImplementation(type, VARCHAR, convention).getMethodHandle();
 
-                // if the cast doesn't take a ConnectorSession, create an adapter that drops the provided session
-                if (cast.type().parameterArray()[0] != ConnectorSession.class) {
-                    cast = MethodHandles.dropArguments(cast, 0, ConnectorSession.class);
-                }
+            // if the cast doesn't take a ConnectorSession, create an adapter that drops the provided session
+            if (cast.type().parameterArray()[0] != ConnectorSession.class) {
+                cast = MethodHandles.dropArguments(cast, 0, ConnectorSession.class);
+            }
 
-                MethodHandle target = MethodHandles.insertArguments(methodHandle, 0, cast);
-                return new ChoicesScalarFunctionImplementation(
-                        boundSignature,
-                        FAIL_ON_NULL,
-                        argumentConventions,
-                        target,
-                        Optional.of(STATE_FACTORY));
-            }
-            catch (TrinoException e) {
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Input type %s not supported", type), e);
-            }
+            MethodHandle target = MethodHandles.insertArguments(methodHandle, 0, cast);
+            return new ChoicesSpecializedSqlScalarFunction(
+                    boundSignature,
+                    FAIL_ON_NULL,
+                    argumentConventions,
+                    target,
+                    Optional.of(STATE_FACTORY));
+        }
+        catch (TrinoException e) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Input type %s not supported", type), e);
         }
     }
 

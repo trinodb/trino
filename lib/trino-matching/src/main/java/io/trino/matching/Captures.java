@@ -45,9 +45,7 @@ public class Captures
         if (this == NIL) {
             return other;
         }
-        else {
-            return new Captures(capture, value, tail.addAll(other));
-        }
+        return new Captures(capture, value, tail.addAll(other));
     }
 
     @SuppressWarnings("unchecked cast")
@@ -56,12 +54,10 @@ public class Captures
         if (this.equals(NIL)) {
             throw new NoSuchElementException("Requested value for unknown Capture. Was it registered in the Pattern?");
         }
-        else if (this.capture.equals(capture)) {
+        if (this.capture.equals(capture)) {
             return (T) value;
         }
-        else {
-            return tail.get(capture);
-        }
+        return tail.get(capture);
     }
 
     @Override

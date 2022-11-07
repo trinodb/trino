@@ -59,10 +59,10 @@ import java.util.Properties;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
+import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
-import static io.trino.plugin.hive.util.HiveUtil.closeWithSuppression;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializer;
 import static io.trino.plugin.hive.util.HiveUtil.getTableObjectInspector;
 import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
@@ -226,7 +226,7 @@ public class GenericHiveRecordCursor<K, V extends Writable>
             return true;
         }
         catch (IOException | SerDeException | RuntimeException e) {
-            closeWithSuppression(this, e);
+            closeAllSuppress(e, this);
             if (e instanceof TextLineLengthLimitExceededException) {
                 throw new TrinoException(HIVE_BAD_DATA, "Line too long in text file: " + path, e);
             }

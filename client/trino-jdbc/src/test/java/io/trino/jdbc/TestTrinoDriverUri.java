@@ -26,6 +26,8 @@ import static io.trino.jdbc.ConnectionProperties.HTTP_PROXY;
 import static io.trino.jdbc.ConnectionProperties.SOCKS_PROXY;
 import static io.trino.jdbc.ConnectionProperties.SSL_TRUST_STORE_PASSWORD;
 import static io.trino.jdbc.ConnectionProperties.SSL_TRUST_STORE_PATH;
+import static io.trino.jdbc.ConnectionProperties.SSL_TRUST_STORE_TYPE;
+import static io.trino.jdbc.ConnectionProperties.SSL_USE_SYSTEM_TRUST_STORE;
 import static io.trino.jdbc.ConnectionProperties.SSL_VERIFICATION;
 import static io.trino.jdbc.ConnectionProperties.SslVerificationMode.CA;
 import static io.trino.jdbc.ConnectionProperties.SslVerificationMode.FULL;
@@ -154,6 +156,12 @@ public class TestTrinoDriverUri
         // key store path with ssl verification mode NONE
         assertInvalid("jdbc:trino://localhost:8080?SSLKeyStorePath=keystore.jks", "Connection property 'SSLKeyStorePath' is not allowed");
 
+        // use system trust store with ssl verification mode NONE
+        assertInvalid("jdbc:trino://localhost:8080?SSLUseSystemTrustStore=true", "Connection property 'SSLUseSystemTrustStore' is not allowed");
+
+        // use system trust store with key store path
+        assertInvalid("jdbc:trino://localhost:8080?SSL=true&SSLUseSystemTrustStore=true&SSLTrustStorePath=truststore.jks", "Connection property 'SSLTrustStorePath' is not allowed");
+
         // kerberos config without service name
         assertInvalid("jdbc:trino://localhost:8080?KerberosCredentialCachePath=/test", "Connection property 'KerberosCredentialCachePath' is not allowed");
 
@@ -173,13 +181,9 @@ public class TestTrinoDriverUri
 
         // legacy url
         assertInvalid("jdbc:presto://localhost:8080", "Invalid JDBC URL: jdbc:presto://localhost:8080");
-    }
 
-    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Connection property 'user' is required")
-    public void testRequireUser()
-            throws Exception
-    {
-        TrinoDriverUri.create("jdbc:trino://localhost:8080", new Properties());
+        // cannot set mutually exclusive properties for non-conforming clients to true
+        assertInvalid("jdbc:trino://localhost:8080?assumeLiteralNamesInMetadataCallsForNonConformingClients=true&assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=true", "Connection property 'assumeLiteralNamesInMetadataCallsForNonConformingClients' is not allowed");
     }
 
     @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Connection property 'user' value is empty")
@@ -340,6 +344,29 @@ public class TestTrinoDriverUri
     }
 
     @Test
+    public void testUriWithSslEnabledSystemTrustStoreDefault()
+            throws SQLException
+    {
+        TrinoDriverUri parameters = createDriverUri("jdbc:trino://localhost:8080/blackhole?SSL=true&SSLUseSystemTrustStore=true");
+        assertUriPortScheme(parameters, 8080, "https");
+
+        Properties properties = parameters.getProperties();
+        assertEquals(properties.getProperty(SSL_USE_SYSTEM_TRUST_STORE.getKey()), "true");
+    }
+
+    @Test
+    public void testUriWithSslEnabledSystemTrustStoreOverride()
+            throws SQLException
+    {
+        TrinoDriverUri parameters = createDriverUri("jdbc:trino://localhost:8080/blackhole?SSL=true&SSLTrustStoreType=Override&SSLUseSystemTrustStore=true");
+        assertUriPortScheme(parameters, 8080, "https");
+
+        Properties properties = parameters.getProperties();
+        assertEquals(properties.getProperty(SSL_TRUST_STORE_TYPE.getKey()), "Override");
+        assertEquals(properties.getProperty(SSL_USE_SYSTEM_TRUST_STORE.getKey()), "true");
+    }
+
+    @Test
     public void testUriWithExtraCredentials()
             throws SQLException
     {
@@ -375,6 +402,24 @@ public class TestTrinoDriverUri
         TrinoDriverUri parameters = createDriverUri("jdbc:trino://localhost:8080/catalog");
         assertThat(parameters.getCatalog()).isPresent();
         assertThat(parameters.getSchema()).isEmpty();
+    }
+
+    @Test
+    public void testAssumeLiteralNamesInMetadataCallsForNonConformingClients()
+            throws SQLException
+    {
+        TrinoDriverUri parameters = createDriverUri("jdbc:trino://localhost:8080?assumeLiteralNamesInMetadataCallsForNonConformingClients=true");
+        assertThat(parameters.isAssumeLiteralNamesInMetadataCallsForNonConformingClients()).isTrue();
+        assertThat(parameters.isAssumeLiteralUnderscoreInMetadataCallsForNonConformingClients()).isFalse();
+    }
+
+    @Test
+    public void testAssumeLiteralUnderscoreInMetadataCallsForNonConformingClients()
+            throws SQLException
+    {
+        TrinoDriverUri parameters = createDriverUri("jdbc:trino://localhost:8080?assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=true");
+        assertThat(parameters.isAssumeLiteralUnderscoreInMetadataCallsForNonConformingClients()).isTrue();
+        assertThat(parameters.isAssumeLiteralNamesInMetadataCallsForNonConformingClients()).isFalse();
     }
 
     private static void assertUriPortScheme(TrinoDriverUri parameters, int port, String scheme)

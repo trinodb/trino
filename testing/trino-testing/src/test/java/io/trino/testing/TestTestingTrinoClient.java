@@ -64,7 +64,7 @@ public class TestTestingTrinoClient
                         .put("http-server.authentication.type", "password")
                         .put("http-server.authentication.allow-insecure-over-http", "false")
                         .put("http-server.process-forwarded", "true")
-                        .build())
+                        .buildOrThrow())
                 .build();
 
         server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestTestingTrinoClient::authenticate);

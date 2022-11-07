@@ -19,17 +19,19 @@ import io.trino.spi.block.BlockBuilder;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
-import java.util.function.BiConsumer;
+import java.util.OptionalInt;
+import java.util.function.ObjLongConsumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static java.lang.Math.toIntExact;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
 public class GroupByIdBlock
         implements Block
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupByIdBlock.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(GroupByIdBlock.class).instanceSize());
 
     private final long groupCount;
     private final Block block;
@@ -64,9 +66,15 @@ public class GroupByIdBlock
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public OptionalInt fixedSizeInBytesPerPosition()
     {
-        return block.getPositionsSizeInBytes(positions);
+        return block.fixedSizeInBytesPerPosition();
+    }
+
+    @Override
+    public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionCount)
+    {
+        return block.getPositionsSizeInBytes(positions, selectedPositionCount);
     }
 
     @Override
@@ -136,12 +144,6 @@ public class GroupByIdBlock
     }
 
     @Override
-    public void writePositionTo(int position, BlockBuilder blockBuilder)
-    {
-        block.writePositionTo(position, blockBuilder);
-    }
-
-    @Override
     public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
     {
         return block.equals(position, offset, otherBlock, otherPosition, otherOffset, length);
@@ -202,10 +204,10 @@ public class GroupByIdBlock
     }
 
     @Override
-    public void retainedBytesForEachPart(BiConsumer<Object, Long> consumer)
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(block, block.getRetainedSizeInBytes());
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -218,6 +220,12 @@ public class GroupByIdBlock
     public Block copyPositions(int[] positions, int offset, int length)
     {
         return block.copyPositions(positions, offset, length);
+    }
+
+    @Override
+    public Block copyWithAppendedNull()
+    {
+        throw new UnsupportedOperationException("GroupByIdBlock does not support newBlockWithAppendedNull()");
     }
 
     @Override

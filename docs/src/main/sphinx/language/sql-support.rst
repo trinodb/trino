@@ -89,11 +89,12 @@ Data management
 * :doc:`/sql/update`
 * :doc:`/sql/delete`
 * :doc:`/sql/truncate`
+* :doc:`/sql/merge`
 
-.. _sql-materialized-views-management:
+.. _sql-materialized-view-management:
 
-Materialized views management
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Materialized view management
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * :doc:`/sql/create-materialized-view`
 * :doc:`/sql/alter-materialized-view`
@@ -114,10 +115,10 @@ Schema and table management
 * :doc:`/sql/alter-schema`
 * :doc:`/sql/comment`
 
-.. _sql-views-management:
+.. _sql-view-management:
 
-Views management
-^^^^^^^^^^^^^^^^
+View management
+^^^^^^^^^^^^^^^
 
 * :doc:`/sql/create-view`
 * :doc:`/sql/drop-view`

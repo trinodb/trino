@@ -23,6 +23,9 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.ScalarOperator;
 
 import java.math.BigInteger;
+import java.util.Optional;
+import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
@@ -31,6 +34,7 @@ import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
+import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.invoke.MethodHandles.lookup;
 
@@ -39,7 +43,23 @@ final class ShortDecimalType
 {
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(ShortDecimalType.class, lookup(), long.class);
 
-    ShortDecimalType(int precision, int scale)
+    private static final ShortDecimalType[][] INSTANCES;
+
+    static {
+        INSTANCES = new ShortDecimalType[MAX_SHORT_PRECISION][MAX_SHORT_PRECISION + 1];
+        for (int precision = 1; precision <= MAX_SHORT_PRECISION; precision++) {
+            for (int scale = 0; scale <= precision; scale++) {
+                INSTANCES[precision - 1][scale] = new ShortDecimalType(precision, scale);
+            }
+        }
+    }
+
+    static ShortDecimalType getInstance(int precision, int scale)
+    {
+        return INSTANCES[precision - 1][scale];
+    }
+
+    private ShortDecimalType(int precision, int scale)
     {
         super(precision, scale, long.class);
         checkArgument(0 < precision && precision <= Decimals.MAX_SHORT_PRECISION, "Invalid precision: %s", precision);
@@ -116,6 +136,12 @@ final class ShortDecimalType
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
         blockBuilder.writeLong(value).closeEntry();
+    }
+
+    @Override
+    public Optional<Stream<?>> getDiscreteValues(Range range)
+    {
+        return Optional.of(LongStream.rangeClosed((long) range.getMin(), (long) range.getMax()).boxed());
     }
 
     @ScalarOperator(EQUAL)

@@ -22,6 +22,7 @@ public class TestSqlStandardAccessControl
 {
     @Test
     public void testEverythingImplemented()
+            throws NoSuchMethodException
     {
         assertAllMethodsOverridden(ConnectorAccessControl.class, SqlStandardAccessControl.class);
     }

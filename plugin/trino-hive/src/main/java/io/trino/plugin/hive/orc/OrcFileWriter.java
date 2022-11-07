@@ -15,6 +15,7 @@ package io.trino.plugin.hive.orc;
 
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
 import io.trino.orc.OrcDataSink;
 import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcWriteValidation.OrcWriteValidationMode;
@@ -37,6 +38,7 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.management.ManagementFactory;
@@ -47,7 +49,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
-import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -57,13 +58,15 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class OrcFileWriter
         implements FileWriter
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcFileWriter.class).instanceSize();
+    private static final Logger log = Logger.get(OrcFileWriter.class);
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(OrcFileWriter.class).instanceSize());
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
     protected final OrcWriter orcWriter;
@@ -71,7 +74,7 @@ public class OrcFileWriter
     private final AcidTransaction transaction;
     private final boolean useAcidSchema;
     private final OptionalInt bucketNumber;
-    private final Callable<Void> rollbackAction;
+    private final Closeable rollbackAction;
     private final int[] fileInputColumnIndexes;
     private final List<Block> nullBlocks;
     private final Optional<Supplier<OrcDataSource>> validationInputFactory;
@@ -86,7 +89,7 @@ public class OrcFileWriter
             AcidTransaction transaction,
             boolean useAcidSchema,
             OptionalInt bucketNumber,
-            Callable<Void> rollbackAction,
+            Closeable rollbackAction,
             List<String> columnNames,
             List<Type> fileColumnTypes,
             ColumnMetadata<OrcType> fileColumnOrcTypes,
@@ -127,6 +130,9 @@ public class OrcFileWriter
                 validationInputFactory.isPresent(),
                 validationMode,
                 stats);
+        if (transaction.isTransactional()) {
+            this.setMaxWriteId(transaction.getWriteId());
+        }
     }
 
     @Override
@@ -136,7 +142,7 @@ public class OrcFileWriter
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
         return INSTANCE_SIZE + orcWriter.getRetainedBytes();
     }
@@ -152,7 +158,7 @@ public class OrcFileWriter
             int inputColumnIndex = fileInputColumnIndexes[i];
             if (inputColumnIndex < 0) {
                 hasNullBlocks = true;
-                blocks[i] = new RunLengthEncodedBlock(nullBlocks.get(i), positionCount);
+                blocks[i] = RunLengthEncodedBlock.create(nullBlocks.get(i), positionCount);
             }
             else {
                 blocks[i] = dataPage.getBlock(inputColumnIndex);
@@ -174,7 +180,7 @@ public class OrcFileWriter
     }
 
     @Override
-    public void commit()
+    public Closeable commit()
     {
         try {
             if (transaction.isAcidTransactionRunning() && useAcidSchema) {
@@ -184,10 +190,11 @@ public class OrcFileWriter
         }
         catch (IOException | UncheckedIOException e) {
             try {
-                rollbackAction.call();
+                rollbackAction.close();
             }
             catch (Exception ignored) {
                 // ignore
+                log.error(ignored, "Exception when committing file");
             }
             throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);
         }
@@ -204,6 +211,8 @@ public class OrcFileWriter
                 throw new TrinoException(HIVE_WRITE_VALIDATION_FAILED, e);
             }
         }
+
+        return rollbackAction;
     }
 
     private void updateUserMetadata()
@@ -233,13 +242,8 @@ public class OrcFileWriter
     @Override
     public void rollback()
     {
-        try {
-            try {
-                orcWriter.close();
-            }
-            finally {
-                rollbackAction.call();
-            }
+        try (rollbackAction) {
+            orcWriter.close();
         }
         catch (Exception e) {
             throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", e);

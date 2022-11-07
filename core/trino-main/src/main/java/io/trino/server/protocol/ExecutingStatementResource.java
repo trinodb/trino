@@ -23,8 +23,9 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.client.ProtocolHeaders;
 import io.trino.client.QueryResults;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.QueryManager;
-import io.trino.operator.ExchangeClientSupplier;
+import io.trino.operator.DirectExchangeClientSupplier;
 import io.trino.server.ForStatementResource;
 import io.trino.server.ServerConfig;
 import io.trino.server.security.ResourceSecurity;
@@ -80,7 +81,8 @@ public class ExecutingStatementResource
     private static final DataSize MAX_TARGET_RESULT_SIZE = DataSize.of(128, MEGABYTE);
 
     private final QueryManager queryManager;
-    private final ExchangeClientSupplier exchangeClientSupplier;
+    private final DirectExchangeClientSupplier directExchangeClientSupplier;
+    private final ExchangeManagerRegistry exchangeManagerRegistry;
     private final BlockEncodingSerde blockEncodingSerde;
     private final QueryInfoUrlFactory queryInfoUrlFactory;
     private final BoundedExecutor responseExecutor;
@@ -88,25 +90,30 @@ public class ExecutingStatementResource
 
     private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
     private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("execution-query-purger"));
+    private final PreparedStatementEncoder preparedStatementEncoder;
     private final boolean compressionEnabled;
 
     @Inject
     public ExecutingStatementResource(
             QueryManager queryManager,
-            ExchangeClientSupplier exchangeClientSupplier,
+            DirectExchangeClientSupplier directExchangeClientSupplier,
+            ExchangeManagerRegistry exchangeManagerRegistry,
             BlockEncodingSerde blockEncodingSerde,
             QueryInfoUrlFactory queryInfoUrlTemplate,
             @ForStatementResource BoundedExecutor responseExecutor,
             @ForStatementResource ScheduledExecutorService timeoutExecutor,
+            PreparedStatementEncoder preparedStatementEncoder,
             ServerConfig serverConfig)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
-        this.exchangeClientSupplier = requireNonNull(exchangeClientSupplier, "exchangeClientSupplier is null");
+        this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
+        this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.queryInfoUrlFactory = requireNonNull(queryInfoUrlTemplate, "queryInfoUrlTemplate is null");
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
-        this.compressionEnabled = requireNonNull(serverConfig, "serverConfig is null").isQueryResultsCompressionEnabled();
+        this.preparedStatementEncoder = requireNonNull(preparedStatementEncoder, "preparedStatementEncoder is null");
+        this.compressionEnabled = serverConfig.isQueryResultsCompressionEnabled();
 
         queryPurger.scheduleWithFixedDelay(
                 () -> {
@@ -118,12 +125,24 @@ public class ExecutingStatementResource
                             }
                             catch (NoSuchElementException e) {
                                 // query is no longer registered
-                                queries.remove(entry.getKey());
+                                Query query = queries.remove(entry.getKey());
+                                if (query != null) {
+                                    query.dispose();
+                                }
                             }
                         }
                     }
                     catch (Throwable e) {
                         log.warn(e, "Error removing old queries");
+                    }
+
+                    try {
+                        for (Query query : queries.values()) {
+                            query.markResultsConsumedIfReady();
+                        }
+                    }
+                    catch (Throwable e) {
+                        log.warn(e, "Error marking results consumed");
                     }
                 },
                 200,
@@ -183,7 +202,8 @@ public class ExecutingStatementResource
                 querySlug,
                 queryManager,
                 queryInfoUrlFactory.getQueryInfoUrl(queryId),
-                exchangeClientSupplier,
+                directExchangeClientSupplier,
+                exchangeManagerRegistry,
                 responseExecutor,
                 timeoutExecutor,
                 blockEncodingSerde));
@@ -207,12 +227,12 @@ public class ExecutingStatementResource
         }
         ListenableFuture<QueryResults> queryResultsFuture = query.waitForResults(token, uriInfo, wait, targetResultSize);
 
-        ListenableFuture<Response> response = Futures.transform(queryResultsFuture, queryResults -> toResponse(query, queryResults, compressionEnabled), directExecutor());
+        ListenableFuture<Response> response = Futures.transform(queryResultsFuture, queryResults -> toResponse(query, queryResults), directExecutor());
 
         bindAsyncResponse(asyncResponse, response, responseExecutor);
     }
 
-    private static Response toResponse(Query query, QueryResults queryResults, boolean compressionEnabled)
+    private Response toResponse(Query query, QueryResults queryResults)
     {
         ResponseBuilder response = Response.ok(queryResults);
 
@@ -236,7 +256,7 @@ public class ExecutingStatementResource
         // add added prepare statements
         for (Entry<String, String> entry : query.getAddedPreparedStatements().entrySet()) {
             String encodedKey = urlEncode(entry.getKey());
-            String encodedValue = urlEncode(entry.getValue());
+            String encodedValue = urlEncode(preparedStatementEncoder.encodePreparedStatementForHeader(entry.getValue()));
             response.header(protocolHeaders.responseAddedPrepare(), encodedKey + '=' + encodedValue);
         }
 

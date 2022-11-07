@@ -73,7 +73,7 @@ public final class WordStemFunction
             .put(utf8Slice("ru"), RussianStemmer::new)
             .put(utf8Slice("sv"), SwedishStemmer::new)
             .put(utf8Slice("tr"), TurkishStemmer::new)
-            .build();
+            .buildOrThrow();
 
     @Description("Returns the stem of a word in the English language")
     @ScalarFunction

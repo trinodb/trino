@@ -13,17 +13,12 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.TypeSignature;
 
-import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.comparableTypeParameter;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.operator.scalar.JsonToMapCast.JSON_TO_MAP;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -36,23 +31,22 @@ public final class JsonStringToMapCast
 
     private JsonStringToMapCast()
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        JSON_STRING_TO_MAP_NAME,
-                        ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
-                        ImmutableList.of(),
-                        mapType(new TypeSignature("K"), new TypeSignature("V")),
-                        ImmutableList.of(VARCHAR.getTypeSignature()),
-                        false),
-                new FunctionNullability(true, ImmutableList.of(false)),
-                true,
-                true,
-                "",
-                SCALAR));
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .name(JSON_STRING_TO_MAP_NAME)
+                        .comparableTypeParameter("K")
+                        .typeVariable("V")
+                        .returnType(mapType(new TypeSignature("K"), new TypeSignature("V")))
+                        .argumentType(VARCHAR)
+                        .build())
+                .nullable()
+                .hidden()
+                .noDescription()
+                .build());
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         return JSON_TO_MAP.specialize(boundSignature);
     }

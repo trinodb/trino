@@ -14,23 +14,21 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.exchange.ExchangeInput;
 import io.trino.execution.QueryPreparer.PreparedQuery;
 import io.trino.execution.QueryTracker.TrackedQuery;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.memory.VersionedMemoryPoolId;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.protocol.Slug;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.Plan;
 
-import java.net.URI;
 import java.util.List;
-import java.util.Map;
+import java.util.Queue;
 import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
@@ -44,9 +42,11 @@ public interface QueryExecution
 
     void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener);
 
-    void addOutputInfoListener(Consumer<QueryOutputInfo> listener);
+    void setOutputInfoListener(Consumer<QueryOutputInfo> listener);
 
     void outputTaskFailed(TaskId taskId, Throwable failure);
+
+    void resultsConsumed();
 
     Plan getQueryPlan();
 
@@ -62,15 +62,13 @@ public interface QueryExecution
 
     DataSize getTotalMemoryReservation();
 
-    VersionedMemoryPoolId getMemoryPool();
-
-    void setMemoryPool(VersionedMemoryPoolId poolId);
-
     void start();
 
     void cancelQuery();
 
     void cancelStage(StageId stageId);
+
+    void failTask(TaskId taskId, Exception reason);
 
     void recordHeartbeat();
 
@@ -89,24 +87,24 @@ public interface QueryExecution
     }
 
     /**
-     * Output schema and buffer URIs for query.  The info will always contain column names and types.  Buffer locations will always
-     * contain the full location set, but may be empty.  Users of this data should keep a private copy of the seen buffers to
-     * handle out of order events from the listener.  Once noMoreBufferLocations is set the locations will never change, and
-     * it is guaranteed that all previously sent locations are contained in the buffer locations.
+     * The info will always contain column names and types.
+     * The {@code inputsQueue} is shared between {@link QueryOutputInfo} instances.
+     * It is guaranteed that no new entries will be added to {@code inputsQueue} after {@link QueryOutputInfo}
+     * with {@link #isNoMoreInputs()} {@code == true} is created.
      */
     class QueryOutputInfo
     {
         private final List<String> columnNames;
         private final List<Type> columnTypes;
-        private final Map<TaskId, URI> bufferLocations;
-        private final boolean noMoreBufferLocations;
+        private final Queue<ExchangeInput> inputsQueue;
+        private final boolean noMoreInputs;
 
-        public QueryOutputInfo(List<String> columnNames, List<Type> columnTypes, Map<TaskId, URI> bufferLocations, boolean noMoreBufferLocations)
+        public QueryOutputInfo(List<String> columnNames, List<Type> columnTypes, Queue<ExchangeInput> inputsQueue, boolean noMoreInputs)
         {
             this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
             this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
-            this.bufferLocations = ImmutableMap.copyOf(requireNonNull(bufferLocations, "bufferLocations is null"));
-            this.noMoreBufferLocations = noMoreBufferLocations;
+            this.inputsQueue = requireNonNull(inputsQueue, "inputsQueue is null");
+            this.noMoreInputs = noMoreInputs;
         }
 
         public List<String> getColumnNames()
@@ -119,14 +117,20 @@ public interface QueryExecution
             return columnTypes;
         }
 
-        public Map<TaskId, URI> getBufferLocations()
+        public void drainInputs(Consumer<ExchangeInput> consumer)
         {
-            return bufferLocations;
+            while (true) {
+                ExchangeInput input = inputsQueue.poll();
+                if (input == null) {
+                    break;
+                }
+                consumer.accept(input);
+            }
         }
 
-        public boolean isNoMoreBufferLocations()
+        public boolean isNoMoreInputs()
         {
-            return noMoreBufferLocations;
+            return noMoreInputs;
         }
     }
 }

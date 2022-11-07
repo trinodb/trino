@@ -47,7 +47,6 @@ import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.kafka.util.TestUtils.loadTpchTopicDescription;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -119,8 +118,8 @@ public final class KafkaQueryRunner
             Map<SchemaTableName, KafkaTopicDescription> topicDescriptions = ImmutableMap.<SchemaTableName, KafkaTopicDescription>builder()
                     .putAll(extraTopicDescription)
                     .putAll(tpchTopicDescriptions)
-                    .putAll(testTopicDescriptions.build())
-                    .build();
+                    .putAll(testTopicDescriptions.buildOrThrow())
+                    .buildOrThrow();
             setExtension(combine(
                     extension,
                     conditionalModule(
@@ -179,11 +178,6 @@ public final class KafkaQueryRunner
                 message);
     }
 
-    private static String kafkaTopicName(TpchTable<?> table)
-    {
-        return TPCH_SCHEMA + "." + table.getTableName().toLowerCase(ENGLISH);
-    }
-
     private static Map<SchemaTableName, KafkaTopicDescription> createTpchTopicDescriptions(TypeManager typeManager, Iterable<TpchTable<?>> tables)
             throws Exception
     {
@@ -196,7 +190,7 @@ public final class KafkaQueryRunner
 
             topicDescriptions.put(loadTpchTopicDescription(topicDescriptionJsonCodec, tpchTable.toString(), tpchTable));
         }
-        return topicDescriptions.build();
+        return topicDescriptions.buildOrThrow();
     }
 
     public static void main(String[] args)
@@ -205,6 +199,7 @@ public final class KafkaQueryRunner
         Logging.initialize();
         DistributedQueryRunner queryRunner = builder(TestingKafka.create())
                 .setTables(TpchTable.getTables())
+                .setCoordinatorProperties(ImmutableMap.of("http-server.http.port", "8080"))
                 .build();
         Logger log = Logger.get(KafkaQueryRunner.class);
         log.info("======== SERVER STARTED ========");

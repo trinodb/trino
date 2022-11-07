@@ -773,7 +773,7 @@ public class TestAvroDecoder
         Map<String, Map<String, Float>> data = ImmutableMap.<String, Map<String, Float>>builder()
                 .put("k1", buildMapFromKeysAndValues(ImmutableList.of("key1", "key2", "key3"), ImmutableList.of(1.3F, 2.3F, -.5F)))
                 .put("k2", buildMapFromKeysAndValues(ImmutableList.of("key10", "key20", "key30"), ImmutableList.of(11.3F, 12.3F, -1.5F)))
-                .build();
+                .buildOrThrow();
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", MAP_OF_REAL_MAP_TYPE, "map_field", null, null, false, false, false);
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "map_field", schema.toString(), data);
         checkMapValue(decodedRow, row, data);
@@ -1036,7 +1036,7 @@ public class TestAvroDecoder
                                 .set("sf1", 4.5D)
                                 .set("sf2", false)
                                 .build())
-                        .build())
+                        .buildOrThrow())
                 .set("f12", new GenericRecordBuilder(schema.getField("f12").schema())
                         .set("sf1", 3)
                         .set("sf2", new GenericData.EnumSymbol(schema.getField("f12").schema().getField("sf2").schema(), "running"))
@@ -1110,9 +1110,7 @@ public class TestAvroDecoder
                         null));
         data = new GenericRecordBuilder(schema)
                 .set("f10", array)
-                .set("f11", ImmutableMap.builder()
-                        .put("key1", new GenericRecordBuilder(schema.getField("f11").schema().getTypes().get(1).getValueType().getTypes().get(1)).build())
-                        .build())
+                .set("f11", ImmutableMap.of("key1", new GenericRecordBuilder(schema.getField("f11").schema().getTypes().get(1).getValueType().getTypes().get(1)).build()))
                 .set("f12", new GenericRecordBuilder(schema.getField("f12").schema().getTypes().get(1)).build())
                 .build();
         decodedRow = buildAndDecodeColumn(row, "record_field", schema.toString(), data);

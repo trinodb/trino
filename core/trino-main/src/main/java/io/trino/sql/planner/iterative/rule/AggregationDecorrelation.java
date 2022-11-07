@@ -13,14 +13,18 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.PlanNode;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 class AggregationDecorrelation
 {
@@ -49,6 +53,28 @@ class AggregationDecorrelation
                     Optional.of(masks.get(symbol))));
         }
 
-        return rewritten.build();
+        return rewritten.buildOrThrow();
+    }
+
+    /**
+     * Creates distinct aggregation node based on existing distinct aggregation node.
+     *
+     * @see #isDistinctOperator(PlanNode)
+     */
+    public static AggregationNode restoreDistinctAggregation(
+            AggregationNode distinct,
+            PlanNode source,
+            List<Symbol> groupingKeys)
+    {
+        checkArgument(isDistinctOperator(distinct));
+        return new AggregationNode(
+                distinct.getId(),
+                source,
+                ImmutableMap.of(),
+                AggregationNode.singleGroupingSet(groupingKeys),
+                ImmutableList.of(),
+                distinct.getStep(),
+                Optional.empty(),
+                Optional.empty());
     }
 }

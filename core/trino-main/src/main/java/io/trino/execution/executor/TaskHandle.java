@@ -124,7 +124,7 @@ public class TaskHandle
     {
         destroyed = true;
 
-        ImmutableList.Builder<PrioritizedSplitRunner> builder = ImmutableList.builder();
+        ImmutableList.Builder<PrioritizedSplitRunner> builder = ImmutableList.builderWithExpectedSize(runningIntermediateSplits.size() + runningLeafSplits.size() + queuedLeafSplits.size());
         builder.addAll(runningIntermediateSplits);
         builder.addAll(runningLeafSplits);
         builder.addAll(queuedLeafSplits);

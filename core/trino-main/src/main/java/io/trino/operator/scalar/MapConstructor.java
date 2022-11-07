@@ -15,12 +15,6 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionDependencies;
-import io.trino.metadata.FunctionDependencyDeclaration;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -29,15 +23,17 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DuplicateMapKeyException;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionDependencyDeclaration;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.comparableTypeParameter;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -46,6 +42,7 @@ import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.Failures.internalError;
@@ -71,19 +68,17 @@ public final class MapConstructor
 
     public MapConstructor()
     {
-        super(new FunctionMetadata(
-                new Signature(
-                        "map",
-                        ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
-                        ImmutableList.of(),
-                        TypeSignature.mapType(new TypeSignature("K"), new TypeSignature("V")),
-                        ImmutableList.of(arrayType(new TypeSignature("K")), arrayType(new TypeSignature("V"))),
-                        false),
-                new FunctionNullability(false, ImmutableList.of(false, false)),
-                false,
-                true,
-                DESCRIPTION,
-                SCALAR));
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
+                        .name("map")
+                        .comparableTypeParameter("K")
+                        .typeVariable("V")
+                        .returnType(mapType(new TypeSignature("K"), new TypeSignature("V")))
+                        .argumentType(arrayType(new TypeSignature("K")))
+                        .argumentType(arrayType(new TypeSignature("V")))
+                        .build())
+                .description(DESCRIPTION)
+                .build());
     }
 
     @Override
@@ -97,16 +92,16 @@ public final class MapConstructor
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         MapType mapType = (MapType) boundSignature.getReturnType();
-        MethodHandle keyIndeterminate = functionDependencies.getOperatorInvoker(
+        MethodHandle keyIndeterminate = functionDependencies.getOperatorImplementation(
                 INDETERMINATE,
                 ImmutableList.of(mapType.getKeyType()),
                 simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
         MethodHandle instanceFactory = constructorMethodHandle(State.class, MapType.class).bindTo(mapType);
 
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),

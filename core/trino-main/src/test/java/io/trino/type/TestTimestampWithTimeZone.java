@@ -27,7 +27,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
@@ -271,11 +271,11 @@ public class TestTimestampWithTimeZone
     public void testCastToTime()
     {
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as time)",
-                TIME,
+                TIME_MILLIS,
                 sqlTimeOf(3, 4, 5, 321));
 
         functionAssertions.assertFunctionString("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as time)",
-                TIME,
+                TIME_MILLIS,
                 "03:04:05.321");
     }
 
@@ -293,7 +293,7 @@ public class TestTimestampWithTimeZone
     }
 
     @Test
-    public void testCastToSlice()
+    public void testCastToVarchar()
     {
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as varchar)", VARCHAR, "2001-01-22 03:04:05.321 +07:09");
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05 +07:09' as varchar)", VARCHAR, "2001-01-22 03:04:05 +07:09");
@@ -302,7 +302,7 @@ public class TestTimestampWithTimeZone
     }
 
     @Test
-    public void testCastFromSlice()
+    public void testCastFromVarchar()
     {
         assertFunction("cast('2001-1-22 03:04:05.321' as timestamp with time zone)",
                 TIMESTAMP_TZ_MILLIS,

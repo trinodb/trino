@@ -19,6 +19,7 @@ import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.eventlistener.EventListener;
+import io.trino.spi.function.FunctionKind;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.SystemAccessControl;
@@ -30,12 +31,13 @@ import io.trino.spi.type.Type;
 
 import java.security.Principal;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Objects.requireNonNull;
+import static java.util.Collections.emptyList;
 
 public class AllowAllSystemAccessControl
         implements SystemAccessControl
@@ -56,7 +58,6 @@ public class AllowAllSystemAccessControl
         @Override
         public SystemAccessControl create(Map<String, String> config)
         {
-            requireNonNull(config, "config is null");
             checkArgument(config.isEmpty(), "This access controller does not support any configuration properties");
             return INSTANCE;
         }
@@ -177,11 +178,6 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
-    public void checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table)
-    {
-    }
-
-    @Override
     public void checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Object> properties)
     {
     }
@@ -197,12 +193,17 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
-    public void checkCanSetTableProperties(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Object> properties)
+    public void checkCanSetTableProperties(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Optional<Object>> properties)
     {
     }
 
     @Override
     public void checkCanSetTableComment(SystemSecurityContext context, CatalogSchemaTableName table)
+    {
+    }
+
+    @Override
+    public void checkCanSetViewComment(SystemSecurityContext context, CatalogSchemaTableName view)
     {
     }
 
@@ -304,7 +305,7 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
-    public void checkCanCreateMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
+    public void checkCanCreateMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView, Map<String, Object> properties)
     {
     }
 
@@ -324,7 +325,17 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanSetMaterializedViewProperties(SystemSecurityContext context, CatalogSchemaTableName materializedView, Map<String, Optional<Object>> properties)
+    {
+    }
+
+    @Override
     public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, String functionName, TrinoPrincipal grantee, boolean grantOption)
+    {
+    }
+
+    @Override
+    public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, FunctionKind functionKind, CatalogSchemaRoutineName functionName, TrinoPrincipal grantee, boolean grantOption)
     {
     }
 
@@ -424,6 +435,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName)
+    {
+    }
+
+    @Override
     public void checkCanExecuteTableProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName table, String procedure)
     {
     }
@@ -435,14 +451,14 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
-    public Optional<ViewExpression> getRowFilter(SystemSecurityContext context, CatalogSchemaTableName tableName)
+    public List<ViewExpression> getRowFilters(SystemSecurityContext context, CatalogSchemaTableName tableName)
     {
-        return Optional.empty();
+        return emptyList();
     }
 
     @Override
-    public Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
+    public List<ViewExpression> getColumnMasks(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
     {
-        return Optional.empty();
+        return emptyList();
     }
 }

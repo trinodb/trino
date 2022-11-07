@@ -29,6 +29,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.MessageType;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -36,6 +37,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -58,8 +60,8 @@ public class TestTimestamp
     {
         MessageType parquetSchema = parseMessageType("message hive_timestamp { optional int64 test (TIMESTAMP_MILLIS); }");
         ContiguousSet<Long> epochMillisValues = ContiguousSet.create(Range.closedOpen((long) -1_000, (long) 1_000), DiscreteDomain.longs());
-        ImmutableList.Builder<SqlTimestamp> timestampsMillis = new ImmutableList.Builder<>();
-        ImmutableList.Builder<Long> bigints = new ImmutableList.Builder<>();
+        ImmutableList.Builder<SqlTimestamp> timestampsMillis = ImmutableList.builder();
+        ImmutableList.Builder<Long> bigints = ImmutableList.builder();
         for (long value : epochMillisValues) {
             timestampsMillis.add(SqlTimestamp.fromMillis(3, value));
             bigints.add(value);
@@ -71,7 +73,7 @@ public class TestTimestamp
         ConnectorSession session = getHiveSession(new HiveConfig());
 
         try (ParquetTester.TempFile tempFile = new ParquetTester.TempFile("test", "parquet")) {
-            JobConf jobConf = new JobConf();
+            JobConf jobConf = new JobConf(newEmptyConfiguration());
             jobConf.setEnum(WRITER_VERSION, PARQUET_1_0);
 
             ParquetTester.writeParquetColumn(
@@ -82,7 +84,8 @@ public class TestTimestamp
                     getStandardStructObjectInspector(columnNames, objectInspectors),
                     new Iterator<?>[] {epochMillisValues.iterator()},
                     Optional.of(parquetSchema),
-                    false);
+                    false,
+                    DateTimeZone.getDefault());
 
             testReadingAs(TIMESTAMP_MILLIS, session, tempFile, columnNames, timestampsMillis.build());
             testReadingAs(BIGINT, session, tempFile, columnNames, bigints.build());

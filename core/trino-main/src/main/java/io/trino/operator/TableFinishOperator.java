@@ -30,6 +30,7 @@ import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.StatisticAggregationsDescriptor;
+import io.trino.util.AutoCloseableCloser;
 
 import java.util.Collection;
 import java.util.List;
@@ -360,7 +361,10 @@ public class TableFinishOperator
     public void close()
             throws Exception
     {
-        statisticsAggregationOperator.close();
+        AutoCloseableCloser closer = AutoCloseableCloser.create();
+        closer.register(() -> statisticsAggregationOperator.getOperatorContext().destroy());
+        closer.register(statisticsAggregationOperator);
+        closer.close();
     }
 
     public interface TableFinisher

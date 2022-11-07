@@ -77,18 +77,18 @@ public class TestUnwrapSingleColumnRowInApply
                                         ImmutableMap.<String, ExpressionMatcher>builder()
                                                 .put("unwrapped", expression("unwrappedValue IN (unwrappedElement)"))
                                                 .put("notUnwrapped", expression("nonRowValue IN (nonRowElement)"))
-                                                .build(),
+                                                .buildOrThrow(),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
                                                         .put("unwrappedValue", expression("rowValue[1]"))
                                                         .put("nonRowValue", expression("nonRowValue"))
-                                                        .build(),
+                                                        .buildOrThrow(),
                                                 values("rowValue", "nonRowValue")),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
                                                         .put("unwrappedElement", expression("rowElement[1]"))
                                                         .put("nonRowElement", expression("nonRowElement"))
-                                                        .build(),
+                                                        .buildOrThrow(),
                                                 values("rowElement", "nonRowElement")))));
     }
 
@@ -115,18 +115,18 @@ public class TestUnwrapSingleColumnRowInApply
                                         ImmutableMap.<String, ExpressionMatcher>builder()
                                                 .put("unwrapped", expression(new QuantifiedComparisonExpression(EQUAL, ALL, new SymbolReference("unwrappedValue"), new SymbolReference("unwrappedElement"))))
                                                 .put("notUnwrapped", expression(new QuantifiedComparisonExpression(EQUAL, ALL, new SymbolReference("nonRowValue"), new SymbolReference("nonRowElement"))))
-                                                .build(),
+                                                .buildOrThrow(),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
                                                         .put("unwrappedValue", expression("rowValue[1]"))
                                                         .put("nonRowValue", expression("nonRowValue"))
-                                                        .build(),
+                                                        .buildOrThrow(),
                                                 values("rowValue", "nonRowValue")),
                                         project(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()
                                                         .put("unwrappedElement", expression("rowElement[1]"))
                                                         .put("nonRowElement", expression("nonRowElement"))
-                                                        .build(),
+                                                        .buildOrThrow(),
                                                 values("rowElement", "nonRowElement")))));
     }
 }

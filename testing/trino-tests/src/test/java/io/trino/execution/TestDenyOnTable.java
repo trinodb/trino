@@ -137,7 +137,7 @@ public class TestDenyOnTable
     @Test(dataProvider = "privileges")
     public void testDenyOnNonExistingTable(String privilege)
     {
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT %s ON TABLE default.missing_table TO %s", privilege, randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY %s ON TABLE default.missing_table TO %s", privilege, randomUsername())))
                 .hasMessageContaining("Table 'local.default.missing_table' does not exist");
     }
 

@@ -56,7 +56,7 @@ public class ThriftMetastoreStats
     private final ThriftMetastoreApiStats dropRole = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats openTransaction = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats commitTransaction = new ThriftMetastoreApiStats();
-    private final ThriftMetastoreApiStats rollbackTransaction = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats abortTransaction = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats acquireLock = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats checkLock = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats unlock = new ThriftMetastoreApiStats();
@@ -335,9 +335,9 @@ public class ThriftMetastoreStats
 
     @Managed
     @Nested
-    public ThriftMetastoreApiStats getRollbackTransaction()
+    public ThriftMetastoreApiStats getAbortTransaction()
     {
-        return rollbackTransaction;
+        return abortTransaction;
     }
 
     @Managed
