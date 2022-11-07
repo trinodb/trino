@@ -35,7 +35,6 @@ import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public abstract class BaseTestTrinoS3FileSystemObjectStorage
@@ -55,7 +54,9 @@ public abstract class BaseTestTrinoS3FileSystemObjectStorage
         String prefix = "test-delete-recursively-missing-object-" + randomNameSuffix();
 
         try (TrinoS3FileSystem fs = createFileSystem()) {
-            assertFalse(fs.delete(new Path("s3://%s/%s".formatted(getBucketName(), prefix)), true));
+            // Follow Amazon S3 behavior if attempting to delete an object that does not exist
+            // and return a success message
+            assertTrue(fs.delete(new Path("s3://%s/%s".formatted(getBucketName(), prefix)), true));
         }
     }
 
@@ -66,7 +67,9 @@ public abstract class BaseTestTrinoS3FileSystemObjectStorage
         String prefix = "test-delete-non-recursively-missing-object-" + randomNameSuffix();
 
         try (TrinoS3FileSystem fs = createFileSystem()) {
-            assertFalse(fs.delete(new Path("s3://%s/%s".formatted(getBucketName(), prefix)), false));
+            // Follow Amazon S3 behavior if attempting to delete an object that does not exist
+            // and return a success message
+            assertTrue(fs.delete(new Path("s3://%s/%s".formatted(getBucketName(), prefix)), false));
         }
     }
 
@@ -169,9 +172,7 @@ public abstract class BaseTestTrinoS3FileSystemObjectStorage
                 assertTrue(fs.delete(new Path("s3://%s/%s/foo".formatted(getBucketName(), prefix)), true));
 
                 paths = listPaths(fs.getS3Client(), getBucketName(), prefix, true);
-                // TODO The directory `prefix + "/foo/"` should have been deleted
                 assertThat(paths).containsOnly(
-                        "%s/foo/".formatted(prefix),
                         "%s/foobar/".formatted(prefix));
             }
             finally {
@@ -193,9 +194,9 @@ public abstract class BaseTestTrinoS3FileSystemObjectStorage
                 List<String> paths = listPaths(fs.getS3Client(), getBucketName(), prefix, false);
                 assertThat(paths).containsOnly(prefix + PATH_SEPARATOR);
 
-                // TODO The directory should have been deleted because it is empty
-                assertThatThrownBy(() -> fs.delete(new Path(prefixPath), false))
-                        .hasMessage("Directory %s is not empty".formatted(prefixPath));
+                assertTrue(fs.delete(new Path(prefixPath), false));
+
+                assertThat(listPaths(fs.getS3Client(), getBucketName(), prefix, true)).isEmpty();
             }
             finally {
                 fs.delete(new Path(prefixPath), true);
@@ -219,9 +220,9 @@ public abstract class BaseTestTrinoS3FileSystemObjectStorage
                         directoryName + PATH_SEPARATOR,
                         directoryName + DIRECTORY_SUFFIX);
 
-                // TODO The directory should have been deleted because it is empty
-                assertThatThrownBy(() -> fs.delete(new Path(directoryPath), false))
-                        .hasMessage("Directory %s is not empty".formatted(directoryPath));
+                assertTrue(fs.delete(new Path(directoryPath), false));
+
+                assertThat(listPaths(fs.getS3Client(), getBucketName(), directoryName, true)).isEmpty();
             }
             finally {
                 fs.delete(new Path(directoryPath), true);
@@ -276,10 +277,7 @@ public abstract class BaseTestTrinoS3FileSystemObjectStorage
                 assertTrue(fs.delete(new Path("s3://%s/%s/foo".formatted(getBucketName(), prefix)), true));
 
                 paths = listPaths(fs.getS3Client(), getBucketName(), prefix, true);
-                // TODO The directory with the key `prefix + "/foo/"` should have been deleted
-                assertThat(paths).containsOnly(
-                        "%s/foo/".formatted(prefix),
-                        "%s/foobar/".formatted(prefix));
+                assertThat(paths).containsOnly("%s/foobar/".formatted(prefix));
             }
             finally {
                 fs.delete(new Path(prefixPath), true);
@@ -338,10 +336,7 @@ public abstract class BaseTestTrinoS3FileSystemObjectStorage
 
                 assertTrue(fs.delete(new Path(directoryPath), true));
 
-                // TODO All the content under `directoryPath` should have been deleted
-                assertThat(listPaths(fs.getS3Client(), getBucketName(), prefix, true)).containsOnly(
-                        directoryKey + "/",
-                        directoryKey + "/dir4/");
+                assertThat(listPaths(fs.getS3Client(), getBucketName(), prefix, true)).isEmpty();
             }
             finally {
                 fs.delete(new Path(prefixPath), true);
@@ -368,8 +363,7 @@ public abstract class BaseTestTrinoS3FileSystemObjectStorage
 
                 assertTrue(fs.delete(new Path(prefixPath + "/directory"), true));
 
-                // TODO The directory with the key `directoryKey` should have been deleted
-                assertThat(listPaths(fs.getS3Client(), getBucketName(), prefix, true)).containsOnly(directoryKey + PATH_SEPARATOR);
+                assertThat(listPaths(fs.getS3Client(), getBucketName(), prefix, true)).isEmpty();
             }
             finally {
                 fs.delete(new Path(prefixPath), true);
@@ -403,11 +397,7 @@ public abstract class BaseTestTrinoS3FileSystemObjectStorage
 
                 assertTrue(fs.delete(new Path(directoryPath), true));
 
-                // TODO (https://github.com/trinodb/trino/issues/13017) The directory with the key `directoryKey + "/dir4"` should have been deleted
-                assertThat(listPaths(fs.getS3Client(), getBucketName(), prefix, true))
-                        .containsOnly(
-                                directoryKey + "/",
-                                directoryKey + "/dir4/");
+                assertThat(listPaths(fs.getS3Client(), getBucketName(), prefix, true)).isEmpty();
             }
             finally {
                 fs.delete(new Path(prefixPath), true);
