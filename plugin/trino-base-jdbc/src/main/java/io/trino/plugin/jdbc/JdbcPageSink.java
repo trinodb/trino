@@ -129,7 +129,7 @@ public class JdbcPageSink
         try {
             for (int position = 0; position < page.getPositionCount(); position++) {
                 if (includePageSinkIdColumn) {
-                    pageSinkIdWriteFunction.set(statement, 1, pageSinkId.getId());
+                    pageSinkIdWriteFunction.set(statement, page.getChannelCount() + 1, pageSinkId.getId());
                 }
 
                 for (int channel = 0; channel < page.getChannelCount(); channel++) {
@@ -157,7 +157,7 @@ public class JdbcPageSink
             throws SQLException
     {
         Block block = page.getBlock(channel);
-        int parameterIndex = channel + (includePageSinkIdColumn ? 2 : 1);
+        int parameterIndex = channel + 1;
 
         WriteFunction writeFunction = columnWriters.get(channel);
         if (block.isNull(position)) {
