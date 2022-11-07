@@ -101,7 +101,7 @@ public class GlueIcebergTableOperations
     @Override
     protected void commitNewTable(TableMetadata metadata)
     {
-        verify(version == -1, "commitNewTable called on a table which already exists");
+        verify(version.isEmpty(), "commitNewTable called on a table which already exists");
         String newMetadataLocation = writeNewMetadata(metadata, 0);
         TableInput tableInput = getTableInput(tableName, owner, ImmutableMap.of(METADATA_LOCATION_PROP, newMetadataLocation));
 
@@ -115,7 +115,7 @@ public class GlueIcebergTableOperations
     @Override
     protected void commitToExistingTable(TableMetadata base, TableMetadata metadata)
     {
-        String newMetadataLocation = writeNewMetadata(metadata, version + 1);
+        String newMetadataLocation = writeNewMetadata(metadata, version.orElseThrow() + 1);
         TableInput tableInput = getTableInput(
                 tableName,
                 owner,

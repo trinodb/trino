@@ -36,6 +36,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -73,7 +74,7 @@ public abstract class AbstractIcebergTableOperations
     protected TableMetadata currentMetadata;
     protected String currentMetadataLocation;
     protected boolean shouldRefresh = true;
-    protected int version = -1;
+    protected OptionalInt version = OptionalInt.empty();
 
     protected AbstractIcebergTableOperations(
             FileIO fileIo,
@@ -98,7 +99,7 @@ public abstract class AbstractIcebergTableOperations
         currentMetadata = tableMetadata;
         currentMetadataLocation = tableMetadata.metadataFileLocation();
         shouldRefresh = false;
-        version = parseVersion(currentMetadataLocation).orElse(-1);
+        version = parseVersion(currentMetadataLocation);
     }
 
     @Override
@@ -228,7 +229,7 @@ public abstract class AbstractIcebergTableOperations
 
         currentMetadata = newMetadata.get();
         currentMetadataLocation = newLocation;
-        version = parseVersion(newLocation).orElse(-1);
+        version = parseVersion(newLocation);
         shouldRefresh = false;
     }
 

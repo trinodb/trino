@@ -63,7 +63,7 @@ public class FileMetastoreTableOperations
                     currentMetadataLocation, metadataLocation, getSchemaTableName());
         }
 
-        String newMetadataLocation = writeNewMetadata(metadata, version + 1);
+        String newMetadataLocation = writeNewMetadata(metadata, version.orElseThrow() + 1);
 
         Table table = Table.builder(currentTable)
                 .setDataColumns(toHiveColumns(metadata.schema().columns()))

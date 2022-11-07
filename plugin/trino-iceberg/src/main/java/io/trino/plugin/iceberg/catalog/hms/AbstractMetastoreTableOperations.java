@@ -30,6 +30,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.Optional;
 
+import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
 import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
@@ -89,7 +90,8 @@ public abstract class AbstractMetastoreTableOperations
     @Override
     protected final void commitNewTable(TableMetadata metadata)
     {
-        String newMetadataLocation = writeNewMetadata(metadata, version + 1);
+        verify(version.isEmpty(), "commitNewTable called on a table which already exists");
+        String newMetadataLocation = writeNewMetadata(metadata, 0);
 
         Table.Builder builder = Table.builder()
                 .setDatabaseName(database)
