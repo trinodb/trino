@@ -42,12 +42,19 @@ public class LoggingInvocationHandler
     private final Object delegate;
     private final ParameterNamesProvider parameterNames;
     private final Consumer<String> logger;
+    private final boolean includeResult;
 
     public LoggingInvocationHandler(Object delegate, ParameterNamesProvider parameterNames, Consumer<String> logger)
+    {
+        this(delegate, parameterNames, logger, false);
+    }
+
+    public LoggingInvocationHandler(Object delegate, ParameterNamesProvider parameterNames, Consumer<String> logger, boolean includeResult)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.parameterNames = requireNonNull(parameterNames, "parameterNames is null");
         this.logger = requireNonNull(logger, "logger is null");
+        this.includeResult = includeResult;
     }
 
     @Override
@@ -66,7 +73,12 @@ public class LoggingInvocationHandler
             throw t;
         }
         Duration elapsed = Duration.nanosSince(startNanos);
-        logger.accept(format("%s succeeded in %s", invocationDescription(method, args), elapsed));
+        if (includeResult) {
+            logger.accept(format("%s succeeded in %s and returned %s", invocationDescription(method, args), elapsed, formatArgument(result)));
+        }
+        else {
+            logger.accept(format("%s succeeded in %s", invocationDescription(method, args), elapsed));
+        }
         return result;
     }
 
