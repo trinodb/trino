@@ -701,12 +701,29 @@ public class TrinoS3FileSystem
         {
             return (this == SHALLOW_FILES_ONLY || this == RECURSIVE_FILES_ONLY);
         }
+
+        public boolean isRecursive()
+        {
+            return this == RECURSIVE_FILES_ONLY;
+        }
     }
 
     /**
      * List all objects rooted at the provided path.
      */
     private Iterator<LocatedFileStatus> listPath(Path path, OptionalInt initialMaxKeys, ListingMode mode)
+    {
+        Iterator<ListObjectsV2Result> listings = listObjects(path, initialMaxKeys, mode.isRecursive());
+
+        Iterator<LocatedFileStatus> results = Iterators.concat(Iterators.transform(listings, this::statusFromListing));
+        if (mode.isFilesOnly()) {
+            //  Even recursive listing can still contain empty "directory" objects, must filter them out
+            results = Iterators.filter(results, LocatedFileStatus::isFile);
+        }
+        return results;
+    }
+
+    private Iterator<ListObjectsV2Result> listObjects(Path path, OptionalInt initialMaxKeys, boolean recursive)
     {
         String key = keyFromPath(path);
         if (!key.isEmpty()) {
@@ -716,12 +733,12 @@ public class TrinoS3FileSystem
         ListObjectsV2Request request = new ListObjectsV2Request()
                 .withBucketName(getBucketName(uri))
                 .withPrefix(key)
-                .withDelimiter(mode == ListingMode.RECURSIVE_FILES_ONLY ? null : PATH_SEPARATOR)
+                .withDelimiter(recursive ? null : PATH_SEPARATOR)
                 .withMaxKeys(initialMaxKeys.isPresent() ? initialMaxKeys.getAsInt() : null)
                 .withRequesterPays(requesterPaysEnabled);
 
         STATS.newListObjectsCall();
-        Iterator<ListObjectsV2Result> listings = new AbstractSequentialIterator<>(s3.listObjectsV2(request))
+        return new AbstractSequentialIterator<>(s3.listObjectsV2(request))
         {
             @Override
             protected ListObjectsV2Result computeNext(ListObjectsV2Result previous)
@@ -734,13 +751,6 @@ public class TrinoS3FileSystem
                 return s3.listObjectsV2(request);
             }
         };
-
-        Iterator<LocatedFileStatus> results = Iterators.concat(Iterators.transform(listings, this::statusFromListing));
-        if (mode.isFilesOnly()) {
-            //  Even recursive listing can still contain empty "directory" objects, must filter them out
-            results = Iterators.filter(results, LocatedFileStatus::isFile);
-        }
-        return results;
     }
 
     private Iterator<LocatedFileStatus> statusFromListing(ListObjectsV2Result listing)
