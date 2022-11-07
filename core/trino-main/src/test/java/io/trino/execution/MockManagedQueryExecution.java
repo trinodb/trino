@@ -270,7 +270,8 @@ public class MockManagedQueryExecution
                 state.isDone(),
                 Optional.empty(),
                 Optional.empty(),
-                RetryPolicy.NONE);
+                RetryPolicy.NONE,
+                false);
     }
 
     @Override

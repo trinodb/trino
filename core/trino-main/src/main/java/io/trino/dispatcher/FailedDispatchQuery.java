@@ -241,7 +241,8 @@ public class FailedDispatchQuery
                 true,
                 resourceGroupId,
                 Optional.empty(),
-                RetryPolicy.NONE);
+                RetryPolicy.NONE,
+                false);
 
         return queryInfo;
     }
