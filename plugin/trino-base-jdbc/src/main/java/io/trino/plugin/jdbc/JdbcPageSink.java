@@ -110,8 +110,9 @@ public class JdbcPageSink
                     .collect(toImmutableList());
         }
 
+        String insertSql = jdbcClient.buildInsertSql(handle, columnWriters);
         try {
-            statement = connection.prepareStatement(jdbcClient.buildInsertSql(handle, columnWriters));
+            statement = connection.prepareStatement(insertSql);
         }
         catch (SQLException e) {
             closeAllSuppress(e, connection);
