@@ -17,7 +17,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
-import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
@@ -30,7 +29,6 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static io.airlift.slice.SliceUtf8.countCodePoints;
-import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
@@ -68,7 +66,7 @@ public final class CharType
                 Slice.class);
 
         if (length < 0 || length > MAX_LENGTH) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("CHAR length must be in range [0, %s], got %s", MAX_LENGTH, length));
+            throw new IllegalArgumentException(format("CHAR length must be in range [0, %s], got %s", MAX_LENGTH, length));
         }
         this.length = (int) length;
     }
