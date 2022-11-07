@@ -16,13 +16,13 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.ranger.version>2.3.0</dep.ranger.version>
+        <dep.ranger.version>2.2.0</dep.ranger.version>
         <dep.apache-bval-jsr.version>2.0.5</dep.apache-bval-jsr.version>
         <dep.hbase.jetty.version>9.4.44.v20210927</dep.hbase.jetty.version>
         <dep.log4j.core.version>2.15.0</dep.log4j.core.version>
         <dep.slf4j-api.version>1.7.30</dep.slf4j-api.version>
         <dep.airlift.units.version>1.6</dep.airlift.units.version>
-        <dep.hadoop.version>3.2.0</dep.hadoop.version>
+        <dep.hadoop.version>3.3.0</dep.hadoop.version>
         <dep.hbase.jetty.version>9.4.44.v20210927</dep.hbase.jetty.version>
         <dep.commons.cli.version>1.4</dep.commons.cli.version>
         <dep.apache-httpclient.version>4.5.10</dep.apache-httpclient.version>
@@ -44,11 +44,12 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-hadoop-toolkit</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino.hadoop</groupId>
-            <artifactId>hadoop-apache</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.trino.hadoop</groupId>
+                    <artifactId>hadoop-apache</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -88,6 +89,54 @@
         <dependency>
             <groupId>javax.inject</groupId>
             <artifactId>javax.inject</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-common</artifactId>
+            <version>${dep.hadoop.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.sun.jersey</groupId>
+                    <artifactId>jersey-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.sun.jersey</groupId>
+                    <artifactId>jersey-servlet</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.sun.jersey</groupId>
+                    <artifactId>jersey-json</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.sun.jersey</groupId>
+                    <artifactId>jersey-server</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.osgi</groupId>
+                    <artifactId>org.osgi.core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>javax.ws.rs</groupId>
+                    <artifactId>jsr311-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>log4j</groupId>
+                    <artifactId>log4j</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-log4j12</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-log4j12</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -136,14 +185,6 @@
                 <exclusion>
                     <groupId>org.eclipse.persistence</groupId>
                     <artifactId>javax.persistence</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.hadoop</groupId>
-                    <artifactId>hadoop-common</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>ch.qos.logback</groupId>
-                    <artifactId>logback-classic</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
