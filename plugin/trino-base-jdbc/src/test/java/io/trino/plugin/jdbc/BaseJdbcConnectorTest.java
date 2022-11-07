@@ -1104,13 +1104,18 @@ public abstract class BaseJdbcConnectorTest
                 .matches("VALUES (BIGINT '3', CAST('CANADA' AS varchar(25)), BIGINT '1')");
 
         assertThatThrownBy(() -> query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % 0 = 2"))
-                .hasMessageContaining("by zero");
+                .satisfies(this::verifyDivisionByZeroFailure);
 
         // Expression that evaluates to 0 for some rows on RHS of modulus
         assertThatThrownBy(() -> query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % (regionkey - 1) = 2"))
-                .hasMessageContaining("by zero");
+                .satisfies(this::verifyDivisionByZeroFailure);
 
         // TODO add coverage for other arithmetic pushdowns https://github.com/trinodb/trino/issues/14808
+    }
+
+    protected void verifyDivisionByZeroFailure(Throwable e)
+    {
+        throw new UnsupportedOperationException("This method should be overridden");
     }
 
     @Test

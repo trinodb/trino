@@ -551,6 +551,12 @@ public abstract class BaseSqlServerConnectorTest
     }
 
     @Override
+    protected void verifyDivisionByZeroFailure(Throwable e)
+    {
+        assertThat(e).hasMessage("Divide by zero error encountered.");
+    }
+
+    @Override
     protected OptionalInt maxSchemaNameLength()
     {
         return OptionalInt.of(128);

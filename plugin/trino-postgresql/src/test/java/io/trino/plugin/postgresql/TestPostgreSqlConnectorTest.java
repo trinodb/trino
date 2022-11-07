@@ -857,6 +857,12 @@ public class TestPostgreSqlConnectorTest
     }
 
     @Override
+    protected void verifyDivisionByZeroFailure(Throwable e)
+    {
+        assertThat(e).hasMessage("ERROR: division by zero");
+    }
+
+    @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
         return format("(?s).*null value in column \"%s\" violates not-null constraint.*", columnName);
