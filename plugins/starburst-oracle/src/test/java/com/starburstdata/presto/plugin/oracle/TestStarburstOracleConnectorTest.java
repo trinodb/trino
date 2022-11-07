@@ -48,8 +48,6 @@ public class TestStarburstOracleConnectorTest
                 .withUnlockEnterpriseFeatures(true)
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .putAll(TestingStarburstOracleServer.connectionProperties())
-                        .put("oracle.connection-pool.enabled", "true")
-                        .put("oracle.connection-pool.max-size", "10")
                         .buildOrThrow())
                 .withTables(REQUIRED_TPCH_TABLES)
                 .build();
