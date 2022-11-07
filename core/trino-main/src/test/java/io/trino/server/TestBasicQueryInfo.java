@@ -156,7 +156,8 @@ public class TestBasicQueryInfo
                         false,
                         Optional.empty(),
                         Optional.of(QueryType.SELECT),
-                        RetryPolicy.NONE));
+                        RetryPolicy.NONE,
+                        false));
 
         assertEquals(basicInfo.getQueryId().getId(), "0");
         assertEquals(basicInfo.getState(), RUNNING);

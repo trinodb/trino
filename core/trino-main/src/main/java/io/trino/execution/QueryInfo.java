@@ -80,6 +80,7 @@ public class QueryInfo
     private final Optional<ResourceGroupId> resourceGroupId;
     private final Optional<QueryType> queryType;
     private final RetryPolicy retryPolicy;
+    private final boolean pruned;
 
     @JsonCreator
     public QueryInfo(
@@ -113,7 +114,8 @@ public class QueryInfo
             @JsonProperty("finalQueryInfo") boolean finalQueryInfo,
             @JsonProperty("resourceGroupId") Optional<ResourceGroupId> resourceGroupId,
             @JsonProperty("queryType") Optional<QueryType> queryType,
-            @JsonProperty("retryPolicy") RetryPolicy retryPolicy)
+            @JsonProperty("retryPolicy") RetryPolicy retryPolicy,
+            @JsonProperty("pruned") boolean pruned)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(session, "session is null");
@@ -174,6 +176,7 @@ public class QueryInfo
         this.resourceGroupId = resourceGroupId;
         this.queryType = queryType;
         this.retryPolicy = retryPolicy;
+        this.pruned = pruned;
     }
 
     @JsonProperty
@@ -376,6 +379,12 @@ public class QueryInfo
     public RetryPolicy getRetryPolicy()
     {
         return retryPolicy;
+    }
+
+    @JsonProperty
+    public boolean isPruned()
+    {
+        return pruned;
     }
 
     @Override
