@@ -1009,34 +1009,6 @@ public abstract class BaseJdbcConnectorTest
     }
 
     @Test
-    public void testArithmeticPredicatePushdown()
-    {
-        if (!hasBehavior(SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN)) {
-            assertThat(query("SELECT shippriority FROM orders WHERE shippriority % 4 = 0")).isNotFullyPushedDown(FilterNode.class);
-            return;
-        }
-        assertThat(query("SELECT shippriority FROM orders WHERE shippriority % 4 = 0")).isFullyPushedDown();
-
-        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % nationkey = 2"))
-                .isFullyPushedDown()
-                .matches("VALUES (BIGINT '3', CAST('CANADA' AS varchar(25)), BIGINT '1')");
-
-        // some databases calculate remainder instead of modulus when one of the values is negative
-        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % -nationkey = 2"))
-                .isFullyPushedDown()
-                .matches("VALUES (BIGINT '3', CAST('CANADA' AS varchar(25)), BIGINT '1')");
-
-        assertThatThrownBy(() -> query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % 0 = 2"))
-                .hasMessageContaining("by zero");
-
-        // Expression that evaluates to 0 for some rows on RHS of modulus
-        assertThatThrownBy(() -> query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % (regionkey - 1) = 2"))
-                .hasMessageContaining("by zero");
-
-        // TODO add coverage for other arithmetic pushdowns https://github.com/trinodb/trino/issues/14808
-    }
-
-    @Test
     public void testCaseSensitiveTopNPushdown()
     {
         if (!hasBehavior(SUPPORTS_TOPN_PUSHDOWN)) {
@@ -1111,6 +1083,34 @@ public abstract class BaseJdbcConnectorTest
                 "SELECT address FROM customer WHERE address IN ('01bR7OOM6zPqo29DpAq', 'BJYZYJQk4yD5B', 'a6M1wdC44LW')"))
                 .skippingTypesCheck()
                 .matches("VALUES 'BJYZYJQk4yD5B', 'a6M1wdC44LW', '01bR7OOM6zPqo29DpAq'");
+    }
+
+    @Test
+    public void testArithmeticPredicatePushdown()
+    {
+        if (!hasBehavior(SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN)) {
+            assertThat(query("SELECT shippriority FROM orders WHERE shippriority % 4 = 0")).isNotFullyPushedDown(FilterNode.class);
+            return;
+        }
+        assertThat(query("SELECT shippriority FROM orders WHERE shippriority % 4 = 0")).isFullyPushedDown();
+
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % nationkey = 2"))
+                .isFullyPushedDown()
+                .matches("VALUES (BIGINT '3', CAST('CANADA' AS varchar(25)), BIGINT '1')");
+
+        // some databases calculate remainder instead of modulus when one of the values is negative
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % -nationkey = 2"))
+                .isFullyPushedDown()
+                .matches("VALUES (BIGINT '3', CAST('CANADA' AS varchar(25)), BIGINT '1')");
+
+        assertThatThrownBy(() -> query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % 0 = 2"))
+                .hasMessageContaining("by zero");
+
+        // Expression that evaluates to 0 for some rows on RHS of modulus
+        assertThatThrownBy(() -> query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % (regionkey - 1) = 2"))
+                .hasMessageContaining("by zero");
+
+        // TODO add coverage for other arithmetic pushdowns https://github.com/trinodb/trino/issues/14808
     }
 
     @Test
