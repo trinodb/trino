@@ -15,15 +15,17 @@ package io.trino.plugin.elasticsearch.decoders;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.primitives.Longs;
+import com.google.common.collect.ImmutableList;
 import io.trino.plugin.elasticsearch.DecoderDescriptor;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import org.elasticsearch.common.document.DocumentField;
+import org.elasticsearch.common.time.DateFormatter;
 import org.elasticsearch.search.SearchHit;
 
-import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
+import java.util.List;
 import java.util.function.Supplier;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -39,10 +41,17 @@ public class TimestampDecoder
         implements Decoder
 {
     private final String path;
+    private final DateFormatter formatter;
 
-    public TimestampDecoder(String path)
+    public TimestampDecoder(String path, List<String> formats)
     {
         this.path = requireNonNull(path, "path is null");
+        if (formats.isEmpty()) {
+            this.formatter = DateFormatter.forPattern("strict_date_optional_time||epoch_millis");
+        }
+        else {
+            this.formatter = DateFormatter.forPattern(String.join("||", formats));
+        }
     }
 
     @Override
@@ -67,16 +76,18 @@ public class TimestampDecoder
         else {
             LocalDateTime timestamp;
             if (value instanceof String valueString) {
-                Long epochMillis = Longs.tryParse(valueString);
-                if (epochMillis != null) {
-                    timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), UTC);
+                try {
+                    timestamp = LocalDateTime.from(formatter.parse(valueString));
                 }
-                else {
+                catch (DateTimeParseException | IllegalArgumentException e) {
+                    // Compatible for Elasticsearch6
+                    // Docvalue_fields query for Elasticsearch6 will always return ISO_DATE_TIME format
                     timestamp = ISO_DATE_TIME.parse(valueString, LocalDateTime::from);
                 }
             }
             else if (value instanceof Number) {
-                timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(((Number) value).longValue()), UTC);
+                String valueString = String.valueOf(value);
+                timestamp = LocalDateTime.from(formatter.parse(valueString));
             }
             else {
                 throw new TrinoException(NOT_SUPPORTED, format(
@@ -96,11 +107,13 @@ public class TimestampDecoder
             implements DecoderDescriptor
     {
         private final String path;
+        private final List<String> formats;
 
         @JsonCreator
-        public Descriptor(String path)
+        public Descriptor(String path, List<String> formats)
         {
             this.path = path;
+            this.formats = ImmutableList.copyOf(formats);
         }
 
         @JsonProperty
@@ -109,10 +122,16 @@ public class TimestampDecoder
             return path;
         }
 
+        @JsonProperty
+        public List<String> getFormats()
+        {
+            return formats;
+        }
+
         @Override
         public Decoder createDecoder()
         {
-            return new TimestampDecoder(path);
+            return new TimestampDecoder(path, formats);
         }
     }
 }

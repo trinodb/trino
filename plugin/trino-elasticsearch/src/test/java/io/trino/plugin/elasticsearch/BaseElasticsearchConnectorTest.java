@@ -1252,6 +1252,61 @@ public abstract class BaseElasticsearchConnectorTest
     }
 
     @Test
+    public void testCustomDateFormat()
+            throws IOException
+    {
+        String indexName = "custom_date_format";
+        @Language("JSON")
+        String mapping = "" +
+                "{" +
+                "  \"properties\": { " +
+                "    \"ts1\":{\"type\": \"date\", \"format\": \"epoch_millis\"}," +
+                "    \"ts2\":{\"type\": \"date\", \"format\": \"epoch_second\"}," +
+                "    \"ts3\":{\"type\": \"date\", \"format\": \"strict_date_optional_time\"}," +
+                "    \"ts4\":{\"type\": \"date\", \"format\": \"yyyy-MM-dd'T'HH:mm:ss.SSSZZ\"}," +
+                "    \"ts5\":{\"type\": \"date\", \"format\": \"yyyy-MM-dd HH:mm:ss\"}," +
+                "    \"ts6\":{\"type\": \"date\", \"format\": \"yyyy-MM-dd HH:mm:ss||epoch_second\"}" +
+                "  }" +
+                "}";
+        createIndex(indexName, mapping);
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("ts1", 1667820637001L)
+                .put("ts2", 1667820637L)
+                .put("ts3", "2022-11-07T11:30:37.000+0000")
+                .put("ts4", "2022-11-07T19:30:37.001+0800")
+                .put("ts5", "2022-11-07 11:30:37")
+                .put("ts6", 1667820637L)
+                .buildOrThrow());
+
+        assertQuery(
+                "SELECT ts1 FROM custom_date_format",
+                "VALUES '2022-11-07 11:30:37.001'");
+        assertQuery(
+                "SELECT ts2 FROM custom_date_format",
+                "VALUES '2022-11-07 11:30:37.000'");
+        assertQuery(
+                "SELECT ts3 FROM custom_date_format",
+                "VALUES '2022-11-07 11:30:37.000'");
+        assertQuery(
+                "SELECT ts4 FROM custom_date_format",
+                "VALUES '2022-11-07 11:30:37.001'");
+        assertQuery(
+                "SELECT ts5 FROM custom_date_format",
+                "VALUES '2022-11-07 11:30:37.000'");
+
+        /* Here index a document with another date format to verify the compatibility because the mapping allows field
+           'ts6' accepts multiple formats.
+        */
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("ts6", "2022-11-07 11:30:37")
+                .buildOrThrow());
+
+        assertQuery(
+                "SELECT ts6 FROM custom_date_format",
+                "VALUES ('2022-11-07 11:30:37.000'), ('2022-11-07 11:30:37.000')");
+    }
+
+    @Test
     public void testTimestamps()
             throws IOException
     {
