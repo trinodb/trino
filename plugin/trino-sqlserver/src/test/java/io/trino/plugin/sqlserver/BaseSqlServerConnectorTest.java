@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.sqlserver.DataCompression.NONE;
@@ -63,6 +64,10 @@ public abstract class BaseSqlServerConnectorTest
                 return false;
 
             case SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN:
+                // TODO remove once super has this set to true
+                verify(!super.hasBehavior(connectorBehavior));
+                return true;
+
             case SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV:
             case SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE:
                 return true;
