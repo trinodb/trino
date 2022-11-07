@@ -304,14 +304,16 @@ jobs:
               plugin/trino-hive-hadoop2/bin/run_hive_s3_select_json_tests.sh
             fi
           fi
-      - name: Run Hive Glue Tests
+      - name: Run Hive AWS Tests
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: us-east-2
+          S3_BUCKET: "trino-ci-test"
+          S3_BUCKET_ENDPOINT: "s3.us-east-2.amazonaws.com"
         run: |
           if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
-            $MAVEN test ${MAVEN_TEST} -pl :trino-hive -P test-hive-glue
+            $MAVEN test ${MAVEN_TEST} -pl :trino-hive -P aws-tests
           fi
       - name: Run Hive Azure ABFS Access Key Tests
         if: matrix.config != 'config-empty' # Hive 1.x does not support Azure storage
