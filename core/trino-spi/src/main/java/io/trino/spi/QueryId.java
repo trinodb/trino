@@ -113,6 +113,7 @@ public final class QueryId
         return ids;
     }
 
+    @SuppressWarnings("AnnotateFormatMethod") // would require adding error_prone_annotations dependency
     private static void checkArgument(boolean condition, String message, Object... messageArgs)
     {
         if (!condition) {

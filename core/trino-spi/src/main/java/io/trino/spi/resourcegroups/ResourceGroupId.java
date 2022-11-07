@@ -90,6 +90,7 @@ public final class ResourceGroupId
         return descendantSegments.subList(0, segments.size()).equals(segments);
     }
 
+    @SuppressWarnings("AnnotateFormatMethod") // would require adding error_prone_annotations dependency
     private static void checkArgument(boolean argument, String format, Object... args)
     {
         if (!argument) {

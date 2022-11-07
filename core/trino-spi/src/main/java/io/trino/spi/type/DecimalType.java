@@ -99,6 +99,7 @@ public abstract sealed class DecimalType
         return List.of(numericParameter(precision), numericParameter(scale));
     }
 
+    @SuppressWarnings("AnnotateFormatMethod") // would require adding error_prone_annotations dependency
     static void checkArgument(boolean condition, String format, Object... args)
     {
         if (!condition) {

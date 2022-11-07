@@ -271,6 +271,7 @@ public class InMemoryRecordSet
         }
     }
 
+    @SuppressWarnings("AnnotateFormatMethod") // would require adding error_prone_annotations dependency
     private static void checkArgument(boolean test, String message, Object... args)
     {
         if (!test) {

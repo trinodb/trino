@@ -134,6 +134,7 @@ public final class TypeSignature
         return typeName.toString();
     }
 
+    @SuppressWarnings("AnnotateFormatMethod") // would require adding error_prone_annotations dependency
     private static void checkArgument(boolean argument, String format, Object... args)
     {
         if (!argument) {

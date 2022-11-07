@@ -348,6 +348,7 @@ public final class TimeZoneKey
         return formatZoneOffset(offsetMinutes >= 0, toIntExact(abs(offsetMinutes / 60)), (int) abs(offsetMinutes % 60));
     }
 
+    @SuppressWarnings("AnnotateFormatMethod") // would require adding error_prone_annotations dependency
     private static void checkArgument(boolean check, String message, Object... args)
     {
         if (!check) {

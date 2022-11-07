@@ -516,6 +516,7 @@ public final class TypeOperatorDeclaration
             throw new IllegalArgumentException(format("Unexpected parameters for %s operator: %s", operatorType, method));
         }
 
+        @SuppressWarnings("AnnotateFormatMethod") // would require adding error_prone_annotations dependency
         private static void checkArgument(boolean test, String message, Object... arguments)
         {
             if (!test) {
