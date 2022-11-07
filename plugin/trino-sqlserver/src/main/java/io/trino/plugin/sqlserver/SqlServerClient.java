@@ -166,6 +166,9 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.UuidType.UUID;
+import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
+import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -177,6 +180,7 @@ import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Objects.requireNonNull;
+import static java.util.UUID.fromString;
 import static java.util.stream.Collectors.joining;
 
 public class SqlServerClient
@@ -378,6 +382,8 @@ public class SqlServerClient
                 return Optional.of(varbinaryColumnMapping());
             case "datetimeoffset":
                 return Optional.of(timestampWithTimeZoneColumnMapping(typeHandle.getRequiredDecimalDigits()));
+            case "uniqueidentifier":
+                return Optional.of(uuidColumnMapping());
         }
 
         switch (typeHandle.getJdbcType()) {
@@ -535,6 +541,10 @@ public class SqlServerClient
                 return WriteMapping.longMapping(dataType, timestampWriteFunction(timestampType));
             }
             return WriteMapping.objectMapping(dataType, longTimestampWriteFunction(timestampType, precision));
+        }
+
+        if (type == UUID) {
+            return WriteMapping.sliceMapping("uniqueidentifier", uuidWriteFunction());
         }
 
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
@@ -769,6 +779,19 @@ public class SqlServerClient
                 createTimestampWithTimeZoneType(precision),
                 longTimestampWithTimeZoneReadFunction(),
                 longTimestampWithTimeZoneWriteFunction());
+    }
+
+    private static ColumnMapping uuidColumnMapping()
+    {
+        return ColumnMapping.sliceMapping(
+                UUID,
+                (resultSet, columnIndex) -> javaUuidToTrinoUuid(fromString((String) resultSet.getObject(columnIndex))),
+                uuidWriteFunction());
+    }
+
+    private static SliceWriteFunction uuidWriteFunction()
+    {
+        return (statement, index, value) -> statement.setObject(index, trinoUuidToJavaUuid(value).toString(), Types.CHAR);
     }
 
     private static LongReadFunction shortTimestampWithTimeZoneReadFunction()

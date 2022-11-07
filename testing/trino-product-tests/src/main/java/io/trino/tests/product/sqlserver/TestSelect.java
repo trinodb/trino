@@ -45,6 +45,7 @@ import static java.sql.JDBCType.CHAR;
 import static java.sql.JDBCType.DATE;
 import static java.sql.JDBCType.DOUBLE;
 import static java.sql.JDBCType.INTEGER;
+import static java.sql.JDBCType.JAVA_OBJECT;
 import static java.sql.JDBCType.REAL;
 import static java.sql.JDBCType.SMALLINT;
 import static java.sql.JDBCType.TIMESTAMP;
@@ -147,7 +148,8 @@ public class TestSelect
                         TIMESTAMP,
                         TIMESTAMP,
                         DOUBLE,
-                        REAL)
+                        REAL,
+                        JAVA_OBJECT)
                 .containsOnly(
                         row(
                                 Long.MIN_VALUE,
@@ -168,7 +170,8 @@ public class TestSelect
                                 Timestamp.valueOf("1970-01-01 00:00:00.000"),
                                 Timestamp.valueOf("1960-01-01 00:00:00"),
                                 Double.MIN_VALUE,
-                                -3.40E+38f),
+                                -3.40E+38f,
+                                "754c6fb2-d6f7-8c49-f991-80b155cefead"),
                         row(
                                 Long.MAX_VALUE,
                                 Short.MAX_VALUE,
@@ -188,8 +191,9 @@ public class TestSelect
                                 Timestamp.valueOf("9999-12-31 23:59:59.999"),
                                 Timestamp.valueOf("2079-06-06 00:00:00"),
                                 12345678912.3456756,
-                                12345678.6557f),
-                        row(nCopies(19, null).toArray()));
+                                12345678.6557f,
+                                "e04949ec-8c67-409e-1983-e7ace2e55a8c"),
+                        row(nCopies(20, null).toArray()));
     }
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})

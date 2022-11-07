@@ -50,6 +50,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -802,6 +803,47 @@ public abstract class BaseSqlServerTypeMapping
                 .addRoundTrip("DATETIMEOFFSET(6)", "'1969-12-31 23:59:59.9999994'", createTimestampWithTimeZoneType(6), "TIMESTAMP '1969-12-31 23:59:59.999999+00:00'")
 
                 .execute(getQueryRunner(), session, sqlServerCreateAndInsert("test_sqlserver_datetimeoffset"));
+    }
+
+    @Test
+    public void testSqlServerUniqueIdentifier()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("uniqueidentifier", "NULL", UUID, "CAST(NULL AS uuid)")
+                .addRoundTrip("uniqueidentifier", "'d5416a8a-5faf-208d-a0cc-aaf97732f49a'", UUID, "uuid 'd5416a8a-5faf-208d-a0cc-aaf97732f49a'")
+                .addRoundTrip("uniqueidentifier", "'00000000-0000-0000-0000-000000000000'", UUID, "uuid '00000000-0000-0000-0000-000000000000'")
+                .addRoundTrip("uniqueidentifier", "'ffffffff-ffff-ffff-ffff-ffffffffffff'", UUID, "uuid 'ffffffff-ffff-ffff-ffff-ffffffffffff'")
+                .addRoundTrip("uniqueidentifier", "'0E984725-C51C-4BF4-9960-E1C80E27ABA0wrong'", UUID, "uuid '0E984725-C51C-4BF4-9960-E1C80E27ABA0'")
+                .execute(getQueryRunner(), sqlServerCreateAndInsert("test_sqlserver_uniqueidentifier"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("uniqueidentifier", "NULL", UUID, "CAST(NULL AS uuid)")
+                .addRoundTrip("uniqueidentifier", "uuid 'd5416a8a-5faf-208d-a0cc-aaf97732f49a'", UUID, "uuid 'd5416a8a-5faf-208d-a0cc-aaf97732f49a'")
+                .addRoundTrip("uniqueidentifier", "uuid '00000000-0000-0000-0000-000000000000'", UUID, "uuid '00000000-0000-0000-0000-000000000000'")
+                .addRoundTrip("uniqueidentifier", "uuid 'ffffffff-ffff-ffff-ffff-ffffffffffff'", UUID, "uuid 'ffffffff-ffff-ffff-ffff-ffffffffffff'")
+                .execute(getQueryRunner(), sqlServerCreateAndTrinoInsert("test_sqlserver_uniqueidentifier"));
+    }
+
+    @Test
+    public void testUnsupportedUniqueIdentifier()
+    {
+        try (TestTable table = new TestTable(onRemoteDatabase(), "test_unsupported_uniqueidentifier", "(data uniqueidentifier)")) {
+            assertSqlServerQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES ('0E984725-EXTRA-4BF4-9960-E1C80E27ABA0')",
+                    "Conversion failed when converting from a character string to uniqueidentifier.");
+        }
+    }
+
+    @Test
+    public void testTrinoUuid()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("uuid", "NULL", UUID, "CAST(NULL AS uuid)")
+                .addRoundTrip("uuid", "uuid 'd5416a8a-5faf-208d-a0cc-aaf97732f49a'", UUID, "uuid 'd5416a8a-5faf-208d-a0cc-aaf97732f49a'")
+                .addRoundTrip("uuid", "uuid '00000000-0000-0000-0000-000000000000'", UUID, "uuid '00000000-0000-0000-0000-000000000000'")
+                .addRoundTrip("uuid", "uuid 'ffffffff-ffff-ffff-ffff-ffffffffffff'", UUID, "uuid 'ffffffff-ffff-ffff-ffff-ffffffffffff'")
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_uuid"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_uuid"));
     }
 
     @DataProvider
