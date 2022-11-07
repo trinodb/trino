@@ -592,20 +592,20 @@ public abstract class BaseJdbcClient
             // columnList is only used for createTableSql - the extraColumns are not included on the JdbcOutputTableHandle
             ImmutableList.Builder<String> columnList = ImmutableList.builderWithExpectedSize(columns.size() + (pageSinkIdColumn.isPresent() ? 1 : 0));
 
-            Optional<String> pageSinkIdColumnName = Optional.empty();
-            if (pageSinkIdColumn.isPresent()) {
-                String columnName = identifierMapping.toRemoteColumnName(connection, pageSinkIdColumn.get().getName());
-                pageSinkIdColumnName = Optional.of(columnName);
-                verifyColumnName(connection.getMetaData(), columnName);
-                columnList.add(getColumnDefinitionSql(session, pageSinkIdColumn.get(), columnName));
-            }
-
             for (ColumnMetadata column : columns) {
                 String columnName = identifierMapping.toRemoteColumnName(connection, column.getName());
                 verifyColumnName(connection.getMetaData(), columnName);
                 columnNames.add(columnName);
                 columnTypes.add(column.getType());
                 columnList.add(getColumnDefinitionSql(session, column, columnName));
+            }
+
+            Optional<String> pageSinkIdColumnName = Optional.empty();
+            if (pageSinkIdColumn.isPresent()) {
+                String columnName = identifierMapping.toRemoteColumnName(connection, pageSinkIdColumn.get().getName());
+                pageSinkIdColumnName = Optional.of(columnName);
+                verifyColumnName(connection.getMetaData(), columnName);
+                columnList.add(getColumnDefinitionSql(session, pageSinkIdColumn.get(), columnName));
             }
 
             RemoteTableName remoteTableName = new RemoteTableName(Optional.ofNullable(catalog), Optional.ofNullable(remoteSchema), remoteTargetTableName);
@@ -1005,14 +1005,14 @@ public abstract class BaseJdbcClient
         return format(
                 "INSERT INTO %s (%s%s) VALUES (%s%s)",
                 quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName().orElseGet(handle::getTableName)),
-                hasPageSinkIdColumn ? quoted(handle.getPageSinkIdColumnName().get()) + ", " : "",
                 handle.getColumnNames().stream()
                         .map(this::quoted)
                         .collect(joining(", ")),
-                hasPageSinkIdColumn ? "?, " : "",
+                hasPageSinkIdColumn ? ", " + quoted(handle.getPageSinkIdColumnName().get()) : "",
                 columnWriters.stream()
                         .map(WriteFunction::getBindExpression)
-                        .collect(joining(",")));
+                        .collect(joining(",")),
+                hasPageSinkIdColumn ? ", ?" : "");
     }
 
     @Override
