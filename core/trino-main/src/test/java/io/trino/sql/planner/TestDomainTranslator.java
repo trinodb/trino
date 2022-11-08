@@ -1072,6 +1072,17 @@ public class TestDomainTranslator
                                 Range.greaterThan(VARCHAR, utf8Slice("2004"))),
                         false)));
 
+        // Regression test for https://github.com/trinodb/trino/issues/14954
+        assertPredicateTranslates(
+                greaterThan(new GenericLiteral("DATE", "2001-01-31"), cast(C_VARCHAR, DATE)),
+                tupleDomain(
+                        C_VARCHAR,
+                        Domain.create(ValueSet.ofRanges(
+                                        Range.lessThan(VARCHAR, utf8Slice("2002")),
+                                        Range.greaterThan(VARCHAR, utf8Slice("9"))),
+                                false)),
+                greaterThan(new GenericLiteral("DATE", "2001-01-31"), cast(C_VARCHAR, DATE)));
+
         // BETWEEN
         assertPredicateTranslates(
                 between(cast(C_VARCHAR, DATE), new GenericLiteral("DATE", "2001-01-31"), new GenericLiteral("DATE", "2005-09-10")),
@@ -1083,6 +1094,24 @@ public class TestDomainTranslator
                 and(
                         greaterThanOrEqual(cast(C_VARCHAR, DATE), new GenericLiteral("DATE", "2001-01-31")),
                         lessThanOrEqual(cast(C_VARCHAR, DATE), new GenericLiteral("DATE", "2005-09-10"))));
+
+        // Regression test for https://github.com/trinodb/trino/issues/14954
+        assertPredicateTranslates(
+                between(new GenericLiteral("DATE", "2001-01-31"), cast(C_VARCHAR, DATE), cast(C_VARCHAR_1, DATE)),
+                tupleDomain(
+                        C_VARCHAR,
+                        Domain.create(ValueSet.ofRanges(
+                                        Range.lessThan(VARCHAR, utf8Slice("2002")),
+                                        Range.greaterThan(VARCHAR, utf8Slice("9"))),
+                                false),
+                        C_VARCHAR_1,
+                        Domain.create(ValueSet.ofRanges(
+                                        Range.lessThan(VARCHAR, utf8Slice("1")),
+                                        Range.greaterThan(VARCHAR, utf8Slice("2000"))),
+                                false)),
+                and(
+                        greaterThanOrEqual(new GenericLiteral("DATE", "2001-01-31"), cast(C_VARCHAR, DATE)),
+                        lessThanOrEqual(new GenericLiteral("DATE", "2001-01-31"), cast(C_VARCHAR_1, DATE))));
     }
 
     @Test
