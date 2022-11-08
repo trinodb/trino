@@ -13,6 +13,8 @@
  */
 package io.trino.parquet;
 
+import com.google.errorprone.annotations.FormatMethod;
+
 import java.io.IOException;
 
 import static java.lang.String.format;
@@ -25,22 +27,26 @@ public class ParquetCorruptionException
         super(message);
     }
 
+    @FormatMethod
     public ParquetCorruptionException(String messageFormat, Object... args)
     {
         super(format(messageFormat, args));
     }
 
+    @FormatMethod
     public ParquetCorruptionException(Throwable cause, String messageFormat, Object... args)
     {
         super(format(messageFormat, args), cause);
     }
 
+    @FormatMethod
     public ParquetCorruptionException(ParquetDataSourceId dataSourceId, String messageFormat, Object... args)
     {
         super(formatMessage(dataSourceId, messageFormat, args));
     }
 
-    private static String formatMessage(ParquetDataSourceId dataSourceId, String messageFormat, Object[] args)
+    @FormatMethod
+    private static String formatMessage(ParquetDataSourceId dataSourceId, String messageFormat, Object... args)
     {
         return "Malformed Parquet file. " + format(messageFormat, args) + " [" + dataSourceId + "]";
     }

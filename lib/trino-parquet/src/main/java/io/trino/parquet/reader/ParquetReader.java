@@ -17,6 +17,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
+import com.google.errorprone.annotations.FormatMethod;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.parquet.ChunkKey;
 import io.trino.parquet.DiskRange;
@@ -590,11 +591,14 @@ public class ParquetReader
         }
     }
 
+    @FormatMethod
     private void validateWrite(java.util.function.Predicate<ParquetWriteValidation> test, String messageFormat, Object... args)
             throws ParquetCorruptionException
     {
         if (writeValidation.isPresent() && !test.test(writeValidation.get())) {
-            throw new ParquetCorruptionException(dataSource.getId(), "Write validation failed: " + messageFormat, args);
+            @SuppressWarnings("FormatStringAnnotation")
+            ParquetCorruptionException exception = new ParquetCorruptionException(dataSource.getId(), "Write validation failed: " + messageFormat, args);
+            throw exception;
         }
     }
 }
