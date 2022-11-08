@@ -449,8 +449,7 @@ class AggregationAnalyzer
                 if (node.getFilter().isPresent()) {
                     throw semanticException(FUNCTION_NOT_AGGREGATE,
                             node,
-                            "Filter is only valid for aggregation functions",
-                            node);
+                            "Filter is only valid for aggregation functions");
                 }
                 if (node.getOrderBy().isPresent()) {
                     throw semanticException(FUNCTION_NOT_AGGREGATE, node, "ORDER BY is only valid for aggregation functions");
@@ -803,7 +802,7 @@ class AggregationAnalyzer
         getReferencesToScope(node, analysis, orderByScope.get())
                 .findFirst()
                 .ifPresent(expression -> {
-                    throw semanticException(errorCode, expression, errorString);
+                    throw semanticException(errorCode, expression, "%s", errorString);
                 });
     }
 }

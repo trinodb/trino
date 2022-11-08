@@ -1520,7 +1520,7 @@ class StatementAnalyzer
             verify(isTopLevel || node.getFunctions().isEmpty(), "Inline functions must be at the top level");
             for (FunctionSpecification function : node.getFunctions()) {
                 if (function.getName().getPrefix().isPresent()) {
-                    throw semanticException(SYNTAX_ERROR, function, "Inline function names cannot be qualified: " + function.getName());
+                    throw semanticException(SYNTAX_ERROR, function, "Inline function names cannot be qualified: %s", function.getName());
                 }
                 function.getRoutineCharacteristics().stream()
                         .filter(SecurityCharacteristic.class::isInstance)
@@ -2501,7 +2501,7 @@ class StatementAnalyzer
             Query query = parseView(originalSql, name, table);
 
             if (!query.getFunctions().isEmpty()) {
-                throw semanticException(NOT_SUPPORTED, table, "View contains inline function: " + name);
+                throw semanticException(NOT_SUPPORTED, table, "View contains inline function: %s", name);
             }
 
             analysis.registerTableForView(table);
