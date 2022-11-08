@@ -14,6 +14,7 @@
 package io.trino.spi.type;
 
 import com.fasterxml.jackson.annotation.JsonValue;
+import com.google.errorprone.annotations.FormatMethod;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -134,6 +135,7 @@ public final class TypeSignature
         return typeName.toString();
     }
 
+    @FormatMethod
     private static void checkArgument(boolean argument, String format, Object... args)
     {
         if (!argument) {

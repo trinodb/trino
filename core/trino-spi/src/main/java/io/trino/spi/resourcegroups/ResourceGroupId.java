@@ -15,6 +15,7 @@ package io.trino.spi.resourcegroups;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import com.google.errorprone.annotations.FormatMethod;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -90,6 +91,7 @@ public final class ResourceGroupId
         return descendantSegments.subList(0, segments.size()).equals(segments);
     }
 
+    @FormatMethod
     private static void checkArgument(boolean argument, String format, Object... args)
     {
         if (!argument) {

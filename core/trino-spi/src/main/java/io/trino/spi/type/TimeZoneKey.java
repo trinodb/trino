@@ -15,6 +15,7 @@ package io.trino.spi.type;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import com.google.errorprone.annotations.FormatMethod;
 import io.trino.spi.TrinoException;
 
 import java.io.IOException;
@@ -348,6 +349,7 @@ public final class TimeZoneKey
         return format("%s%02d:%02d", offset < 0 ? "-" : "+", abs(offset / 60), abs(offset % 60));
     }
 
+    @FormatMethod
     private static void checkArgument(boolean check, String message, Object... args)
     {
         if (!check) {

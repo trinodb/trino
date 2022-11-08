@@ -13,6 +13,7 @@
  */
 package io.trino.spi.connector;
 
+import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
@@ -271,6 +272,7 @@ public class InMemoryRecordSet
         }
     }
 
+    @FormatMethod
     private static void checkArgument(boolean test, String message, Object... args)
     {
         if (!test) {

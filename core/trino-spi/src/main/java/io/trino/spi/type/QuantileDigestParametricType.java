@@ -13,6 +13,8 @@
  */
 package io.trino.spi.type;
 
+import com.google.errorprone.annotations.FormatMethod;
+
 import java.util.List;
 
 import static java.lang.String.format;
@@ -41,6 +43,7 @@ public class QuantileDigestParametricType
         return new QuantileDigestType(parameters.get(0).getType());
     }
 
+    @FormatMethod
     private static void checkArgument(boolean argument, String format, Object... args)
     {
         if (!argument) {

@@ -13,6 +13,7 @@
  */
 package io.trino.spi.type;
 
+import com.google.errorprone.annotations.FormatMethod;
 import io.trino.spi.TrinoException;
 
 import java.util.List;
@@ -99,6 +100,7 @@ public abstract sealed class DecimalType
         return List.of(numericParameter(precision), numericParameter(scale));
     }
 
+    @FormatMethod
     static void checkArgument(boolean condition, String format, Object... args)
     {
         if (!condition) {
