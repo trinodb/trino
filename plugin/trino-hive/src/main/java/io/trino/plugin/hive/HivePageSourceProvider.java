@@ -454,6 +454,7 @@ public class HivePageSourceProvider
          * ordinal of this column in the underlying page source or record cursor
          */
         private final OptionalInt index;
+        // partition side
         private final Optional<HiveType> baseTypeCoercionFrom;
         private final boolean nestedStructNameBasedMapping;
 
@@ -562,6 +563,7 @@ public class HivePageSourceProvider
             int regularIndex = 0;
 
             for (HiveColumnHandle column : columns) {
+                // baseTypeCoercionFrom: partition side
                 Optional<HiveType> baseTypeCoercionFrom = tableToPartitionMapping.getCoercion(column.getBaseHiveColumnIndex());
                 if (column.getColumnType() == REGULAR) {
                     if (column.isBaseColumn()) {
@@ -574,12 +576,12 @@ public class HivePageSourceProvider
 
                     // Add regular mapping if projection is valid for partition schema, otherwise add an empty mapping
                     if (baseTypeCoercionFrom.isEmpty()
-                            || projectionValidForType(baseTypeCoercionFrom.get(), column.getHiveColumnProjectionInfo())) {
-                        columnMappings.add(regular(column, regularIndex, baseTypeCoercionFrom, tableToPartitionMapping.getNestedStructNameBasedMapping()));
+                            || projectionValidForType(baseTypeCoercionFrom.get(), column.getHiveColumnProjectionInfo(), tableToPartitionMapping.isNestedStructNameBasedMapping())) {
+                        columnMappings.add(regular(column, regularIndex, baseTypeCoercionFrom, tableToPartitionMapping.isNestedStructNameBasedMapping()));
                         regularIndex++;
                     }
                     else {
-                        columnMappings.add(empty(column, tableToPartitionMapping.getNestedStructNameBasedMapping()));
+                        columnMappings.add(empty(column, tableToPartitionMapping.isNestedStructNameBasedMapping()));
                     }
                 }
                 else if (isRowIdColumnHandle(column)) {
@@ -589,8 +591,8 @@ public class HivePageSourceProvider
                             "duplicate column in columns list");
 
                     if (baseTypeCoercionFrom.isEmpty()
-                            || projectionValidForType(baseTypeCoercionFrom.get(), column.getHiveColumnProjectionInfo())) {
-                        columnMappings.add(synthesized(column, regularIndex, baseTypeCoercionFrom, tableToPartitionMapping.getNestedStructNameBasedMapping()));
+                            || projectionValidForType(baseTypeCoercionFrom.get(), column.getHiveColumnProjectionInfo(), tableToPartitionMapping.isNestedStructNameBasedMapping())) {
+                        columnMappings.add(synthesized(column, regularIndex, baseTypeCoercionFrom, tableToPartitionMapping.isNestedStructNameBasedMapping()));
                     }
                     else {
                         throw new RuntimeException("baseTypeCoercisionFrom was empty for the rowId column");
@@ -602,7 +604,7 @@ public class HivePageSourceProvider
                             column,
                             getPrefilledColumnValue(column, partitionKeysByName.get(column.getName()), path, bucketNumber, estimatedFileSize, fileModifiedTime, partitionName),
                             baseTypeCoercionFrom,
-                            tableToPartitionMapping.getNestedStructNameBasedMapping()));
+                            tableToPartitionMapping.isNestedStructNameBasedMapping()));
                 }
             }
 
@@ -614,24 +616,30 @@ public class HivePageSourceProvider
                 }
 
                 if (projectionsForColumn.containsKey(column.getBaseHiveColumnIndex())) {
-                    columnMappings.add(interim(column, regularIndex, tableToPartitionMapping.getCoercion(column.getBaseHiveColumnIndex()), tableToPartitionMapping.getNestedStructNameBasedMapping()));
+                    columnMappings.add(interim(column, regularIndex, tableToPartitionMapping.getCoercion(column.getBaseHiveColumnIndex()), tableToPartitionMapping.isNestedStructNameBasedMapping()));
                 }
                 else {
                     // If coercion does not affect bucket number calculation, coercion doesn't need to be applied here.
                     // Otherwise, read of this partition should not be allowed.
                     // (Alternatively, the partition could be read as an unbucketed partition. This is not implemented.)
-                    columnMappings.add(interim(column, regularIndex, Optional.empty(), tableToPartitionMapping.getNestedStructNameBasedMapping()));
+                    columnMappings.add(interim(column, regularIndex, Optional.empty(), tableToPartitionMapping.isNestedStructNameBasedMapping()));
                 }
                 regularIndex++;
             }
             return columnMappings.build();
         }
 
-        private static boolean projectionValidForType(HiveType baseType, Optional<HiveColumnProjectionInfo> projection)
+        private static boolean projectionValidForType(HiveType baseType, Optional<HiveColumnProjectionInfo> projection, boolean nestedStructNameBasedMapping)
         {
-            List<Integer> dereferences = projection.map(HiveColumnProjectionInfo::getDereferenceIndices).orElse(ImmutableList.of());
-            Optional<HiveType> targetType = baseType.getHiveTypeForDereferences(dereferences);
-            return targetType.isPresent();
+            if (nestedStructNameBasedMapping) {
+                List<String> dereferences = projection.map(HiveColumnProjectionInfo::getDereferenceNames).orElse(ImmutableList.of());
+                Optional<HiveType> targetType = baseType.getHiveTypeForDereferencesNameBased(dereferences);
+                return targetType.isPresent();
+            } else {
+                List<Integer> dereferences = projection.map(HiveColumnProjectionInfo::getDereferenceIndices).orElse(ImmutableList.of());
+                Optional<HiveType> targetType = baseType.getHiveTypeForDereferences(dereferences);
+                return targetType.isPresent();
+            }
         }
 
         public static List<ColumnMapping> extractRegularAndInterimColumnMappings(List<ColumnMapping> columnMappings)
@@ -651,8 +659,14 @@ public class HivePageSourceProvider
                         }
                         HiveType fromHiveTypeBase = columnMapping.getBaseTypeCoercionFrom().get();
 
+                        // seems the partition translate here
                         Optional<HiveColumnProjectionInfo> newColumnProjectionInfo = columnHandle.getHiveColumnProjectionInfo().map(projectedColumn -> {
-                            HiveType fromHiveType = fromHiveTypeBase.getHiveTypeForDereferences(projectedColumn.getDereferenceIndices()).get();
+                            HiveType fromHiveType;
+                            if (columnMapping.isNestedStructNameBasedMapping()) {
+                                fromHiveType = fromHiveTypeBase.getHiveTypeForDereferencesNameBased(projectedColumn.getDereferenceNames()).get();
+                            } else {
+                                fromHiveType = fromHiveTypeBase.getHiveTypeForDereferences(projectedColumn.getDereferenceIndices()).get();
+                            }
                             return new HiveColumnProjectionInfo(
                                     projectedColumn.getDereferenceIndices(),
                                     projectedColumn.getDereferenceNames(),
@@ -691,6 +705,7 @@ public class HivePageSourceProvider
             Map<Integer, ColumnMapping> baseHiveColumnToBlockIndex = uniqueIndex(baseColumnMapping, mapping -> mapping.getHiveColumnHandle().getBaseHiveColumnIndex());
 
             int[] bucketColumnIndices = conversion.getBucketColumnHandles().stream()
+                    // todo: might need to change
                     .mapToInt(columnHandle -> baseHiveColumnToBlockIndex.get(columnHandle.getBaseHiveColumnIndex()).getIndex())
                     .toArray();
             List<HiveType> bucketColumnHiveTypes = conversion.getBucketColumnHandles().stream()

@@ -2932,6 +2932,7 @@ public class HiveMetadata
             else {
                 // Create a new column handle
                 HiveColumnHandle oldColumnHandle = (HiveColumnHandle) assignments.get(projectedColumn.getVariable().getName());
+                // todo: change here, since need to change projection for dereference.
                 projectedColumnHandle = createProjectedColumnHandle(oldColumnHandle, projectedColumn.getDereferenceIndices());
                 projectedColumnName = ((HiveColumnHandle) projectedColumnHandle).getName();
             }

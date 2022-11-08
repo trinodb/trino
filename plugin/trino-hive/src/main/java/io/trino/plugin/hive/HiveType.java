@@ -215,13 +215,32 @@ public final class HiveType
         return new HiveType(toTypeInfo(type));
     }
 
-    public Optional<HiveType> getHiveTypeForDereferences(List<Integer> dereferences)
+    public Optional<HiveType> getHiveTypeForDereferences(List<? extends Integer> dereferences)
     {
         TypeInfo typeInfo = getTypeInfo();
         for (int fieldIndex : dereferences) {
             checkArgument(typeInfo instanceof StructTypeInfo, "typeInfo should be struct type", typeInfo);
             StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
+           // TODO: USE name based mapping here
             try {
+                typeInfo = structTypeInfo.getAllStructFieldTypeInfos().get(fieldIndex);
+            }
+            catch (RuntimeException e) {
+                return Optional.empty();
+            }
+        }
+        return Optional.of(toHiveType(typeInfo));
+    }
+
+    public Optional<HiveType> getHiveTypeForDereferencesNameBased(List<String> dereferences)
+    {
+        TypeInfo typeInfo = getTypeInfo();
+        for (String fieldName : dereferences) {
+            checkArgument(typeInfo instanceof StructTypeInfo, "typeInfo should be struct type", typeInfo);
+            StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
+            // TODO: USE name based mapping here
+            try {
+                int fieldIndex = structTypeInfo.getAllStructFieldNames().indexOf(fieldName);
                 typeInfo = structTypeInfo.getAllStructFieldTypeInfos().get(fieldIndex);
             }
             catch (RuntimeException e) {

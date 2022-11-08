@@ -37,6 +37,7 @@ public class ReaderColumns
 
     public ReaderColumns(List<? extends ColumnHandle> readerColumns, List<Integer> readerBlockIndices)
     {
+        // todo: change here?
         this.readerColumns = ImmutableList.copyOf(requireNonNull(readerColumns, "readerColumns is null"));
 
         readerBlockIndices.forEach(value -> checkArgument(value >= 0 && value < readerColumns.size(), "block index out of bounds"));

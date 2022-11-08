@@ -46,6 +46,7 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.ql.metadata.Hive;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
@@ -144,15 +145,19 @@ public class HivePageSource
             types[columnIndex] = type;
 
             if (columnMapping.getKind() != EMPTY && columnMapping.getBaseTypeCoercionFrom().isPresent()) {
-                List<Integer> dereferenceIndices = column.getHiveColumnProjectionInfo()
-                        .map(HiveColumnProjectionInfo::getDereferenceIndices)
-                        .orElse(ImmutableList.of());
-                // todo: use dereferenceIndices:
-                // 1. columnMapping.getHiveColumnHandle().getBaseColumn().getHiveType()
-                // 2. index via dereferenceIndices: get c1(int)
-                // 3. use c1 and look up in columnMapping.getBaseTypeCoercionFrom() via name
-                // 4. depends on get / not get: get toType.
-                HiveType fromType = columnMapping.getBaseTypeCoercionFrom().get().getHiveTypeForDereferences(dereferenceIndices).get();
+                HiveType fromType;
+
+                if (columnMapping.isNestedStructNameBasedMapping()) {
+                    List<String> dereferenceNames = column.getHiveColumnProjectionInfo()
+                            .map(HiveColumnProjectionInfo::getDereferenceNames)
+                            .orElse(ImmutableList.of());
+                    fromType = columnMapping.getBaseTypeCoercionFrom().get().getHiveTypeForDereferencesNameBased(dereferenceNames).get();
+                } else {
+                    List<Integer> dereferenceIndices = column.getHiveColumnProjectionInfo()
+                            .map(HiveColumnProjectionInfo::getDereferenceIndices)
+                            .orElse(ImmutableList.of());
+                    fromType = columnMapping.getBaseTypeCoercionFrom().get().getHiveTypeForDereferences(dereferenceIndices).get();
+                }
                 HiveType toType = columnMapping.getHiveColumnHandle().getHiveType();
                 coercers.add(createCoercer(typeManager, fromType, toType, columnMapping.isNestedStructNameBasedMapping()));
             }
@@ -230,6 +235,7 @@ public class HivePageSource
                         break;
                     case REGULAR:
                     case SYNTHESIZED:
+                        // todo need to change
                         Block block = dataPage.getBlock(columnMapping.getIndex());
                         Optional<Function<Block, Block>> coercer = coercers.get(fieldId);
                         if (coercer.isPresent()) {

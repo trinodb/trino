@@ -53,6 +53,7 @@ public class ReaderProjectionsAdapter
 
         for (int i = 0; i < expectedColumns.size(); i++) {
             ColumnHandle projectedColumnHandle = readColumns.getForColumnAt(i);
+            // todo: change here
             int inputChannel = readColumns.getPositionForColumnAt(i);
             List<Integer> dereferences = projectionGetter.get(expectedColumns.get(i), projectedColumnHandle);
 

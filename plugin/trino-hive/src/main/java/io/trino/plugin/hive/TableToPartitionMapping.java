@@ -32,12 +32,12 @@ public class TableToPartitionMapping
 {
     public static TableToPartitionMapping empty()
     {
-        return new TableToPartitionMapping(Optional.empty(), ImmutableMap.of(), false);
+        return new TableToPartitionMapping(Optional.empty(), ImmutableMap.of(), true);
     }
 
     public static TableToPartitionMapping mapColumnsByIndex(Map<Integer, HiveTypeName> columnCoercions)
     {
-        return new TableToPartitionMapping(Optional.empty(), columnCoercions, false);
+        return new TableToPartitionMapping(Optional.empty(), columnCoercions, true);
     }
 
     // Overhead of ImmutableMap is not accounted because of its complexity.
@@ -84,7 +84,7 @@ public class TableToPartitionMapping
     }
 
     @JsonProperty
-    public boolean getNestedStructNameBasedMapping(){
+    public boolean isNestedStructNameBasedMapping(){
         return nestedStructNameBasedMapping;
     }
 

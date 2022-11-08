@@ -70,6 +70,7 @@ public class TestHiveReaderProjectionsUtil
 
         HiveType baseHiveType = column.getHiveType();
         List<String> names = baseHiveType.getHiveDereferenceNames(indices);
+        // todo: test
         HiveType hiveType = baseHiveType.getHiveTypeForDereferences(indices).get();
 
         HiveColumnProjectionInfo columnProjection = new HiveColumnProjectionInfo(indices, names, hiveType, hiveType.getType(TESTING_TYPE_MANAGER));
