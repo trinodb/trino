@@ -13,12 +13,30 @@
  */
 package io.trino.spi.type;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSqlTimeWithTimeZone
 {
+    @Test
+    public void testToString()
+    {
+        assertThat(SqlTimeWithTimeZone.newInstance(0, 0, 1).toString()).isEqualTo("00:00:00+00:01");
+        assertThat(SqlTimeWithTimeZone.newInstance(1, 0, 1).toString()).isEqualTo("00:00:00.0+00:01");
+        assertThat(SqlTimeWithTimeZone.newInstance(2, 0, 1).toString()).isEqualTo("00:00:00.00+00:01");
+        assertThat(SqlTimeWithTimeZone.newInstance(3, 0, 1).toString()).isEqualTo("00:00:00.000+00:01");
+        assertThat(SqlTimeWithTimeZone.newInstance(4, 0, 1).toString()).isEqualTo("00:00:00.0000+00:01");
+        assertThat(SqlTimeWithTimeZone.newInstance(5, 0, 1).toString()).isEqualTo("00:00:00.00000+00:01");
+        assertThat(SqlTimeWithTimeZone.newInstance(6, 0, 1).toString()).isEqualTo("00:00:00.000000+00:01");
+        assertThat(SqlTimeWithTimeZone.newInstance(7, 0, 1).toString()).isEqualTo("00:00:00.0000000+00:01");
+        assertThat(SqlTimeWithTimeZone.newInstance(8, 0, 1).toString()).isEqualTo("00:00:00.00000000+00:01");
+        assertThat(SqlTimeWithTimeZone.newInstance(9, 0, 1).toString()).isEqualTo("00:00:00.000000000+00:01");
+        assertThat(SqlTimeWithTimeZone.newInstance(10, 0, 1).toString()).isEqualTo("00:00:00.0000000000+00:01");
+        assertThat(SqlTimeWithTimeZone.newInstance(11, 0, 1).toString()).isEqualTo("00:00:00.00000000000+00:01");
+        assertThat(SqlTimeWithTimeZone.newInstance(12, 0, 1).toString()).isEqualTo("00:00:00.000000000000+00:01");
+    }
+
     @Test
     public void testEqualsDifferentZone()
     {
