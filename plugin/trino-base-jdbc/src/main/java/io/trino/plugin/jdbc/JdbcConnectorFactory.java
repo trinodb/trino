@@ -16,6 +16,7 @@ package io.trino.plugin.jdbc;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
+import io.trino.plugin.base.CatalogName;
 import io.trino.spi.NodeManager;
 import io.trino.spi.VersionEmbedder;
 import io.trino.spi.connector.Connector;
@@ -34,23 +35,13 @@ public class JdbcConnectorFactory
         implements ConnectorFactory
 {
     private final String name;
-    private final JdbcModuleProvider moduleProvider;
+    private final Module module;
 
     public JdbcConnectorFactory(String name, Module module)
     {
-        this(name, catalogName -> module);
-    }
-
-    /**
-     * @deprecated Prefer {@link JdbcConnectorFactory#JdbcConnectorFactory(String, Module)} instead.
-     * Notice that {@link io.trino.plugin.base.CatalogName} is available in guice context.
-     */
-    @Deprecated
-    public JdbcConnectorFactory(String name, JdbcModuleProvider moduleProvider)
-    {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
-        this.moduleProvider = requireNonNull(moduleProvider, "moduleProvider is null");
+        this.module = module;
     }
 
     @Override
@@ -63,14 +54,16 @@ public class JdbcConnectorFactory
     public Connector create(String catalogName, Map<String, String> requiredConfig, ConnectorContext context)
     {
         requireNonNull(requiredConfig, "requiredConfig is null");
+        requireNonNull(module, "module is null");
         checkSpiVersion(context, this);
 
         Bootstrap app = new Bootstrap(
                 binder -> binder.bind(TypeManager.class).toInstance(context.getTypeManager()),
                 binder -> binder.bind(NodeManager.class).toInstance(context.getNodeManager()),
                 binder -> binder.bind(VersionEmbedder.class).toInstance(context.getVersionEmbedder()),
-                new JdbcModule(catalogName),
-                moduleProvider.getModule(catalogName));
+                binder -> binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName)),
+                new JdbcModule(),
+                module);
 
         Injector injector = app
                 .doNotInitializeLogging()
@@ -78,15 +71,5 @@ public class JdbcConnectorFactory
                 .initialize();
 
         return injector.getInstance(JdbcConnector.class);
-    }
-
-    /**
-     * @deprecated Prefer {@link JdbcConnectorFactory#JdbcConnectorFactory(String, Module)} instead.
-     * Notice that {@link io.trino.plugin.base.CatalogName} is available in guice context.
-     */
-    @Deprecated
-    public interface JdbcModuleProvider
-    {
-        Module getModule(String catalogName);
     }
 }

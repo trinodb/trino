@@ -16,6 +16,7 @@ package io.trino.plugin.elasticsearch;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.TypeDeserializerModule;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
@@ -51,12 +52,13 @@ public class ElasticsearchConnectorFactory
         Bootstrap app = new Bootstrap(
                 new MBeanModule(),
                 new MBeanServerModule(),
-                new ConnectorObjectNameGeneratorModule(catalogName, "io.trino.plugin.elasticsearch", "trino.plugin.elasticsearch"),
+                new ConnectorObjectNameGeneratorModule("io.trino.plugin.elasticsearch", "trino.plugin.elasticsearch"),
                 new JsonModule(),
                 new TypeDeserializerModule(context.getTypeManager()),
                 new ElasticsearchConnectorModule(),
                 binder -> {
                     binder.bind(NodeManager.class).toInstance(context.getNodeManager());
+                    binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
                 });
 
         Injector injector = app
