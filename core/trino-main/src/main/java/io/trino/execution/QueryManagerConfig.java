@@ -64,6 +64,9 @@ public class QueryManagerConfig
     private int queryManagerExecutorPoolSize = 5;
     private int queryExecutorPoolSize = 1000;
 
+    /**
+     * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}
+     */
     private Duration remoteTaskMaxErrorDuration = new Duration(5, TimeUnit.MINUTES);
     private int remoteTaskMaxCallbackThreads = 1000;
 
@@ -640,5 +643,10 @@ public class QueryManagerConfig
     {
         this.faultTolerantExecutionEventDrivenSchedulerEnabled = faultTolerantExecutionEventDrivenSchedulerEnabled;
         return this;
+    }
+
+    public void applyFaultTolerantExecutionDefaults()
+    {
+        remoteTaskMaxErrorDuration = new Duration(1, MINUTES);
     }
 }
