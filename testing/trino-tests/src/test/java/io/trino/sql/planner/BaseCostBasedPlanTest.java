@@ -17,6 +17,7 @@ package io.trino.sql.planner;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
+import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
@@ -337,6 +338,7 @@ public abstract class BaseCostBasedPlanTest
             return null;
         }
 
+        @FormatMethod
         private void output(int indent, String message, Object... args)
         {
             String formattedMessage = format(message, args);

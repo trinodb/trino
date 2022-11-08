@@ -17,6 +17,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session.ResourceEstimateBuilder;
@@ -374,6 +375,7 @@ public class HttpRequestSessionContextFactory
         return builder.build();
     }
 
+    @FormatMethod
     private static void assertRequest(boolean expression, String format, Object... args)
     {
         if (!expression) {

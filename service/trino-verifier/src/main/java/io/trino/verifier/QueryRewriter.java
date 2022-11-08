@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.SimpleTimeLimiter;
 import com.google.common.util.concurrent.TimeLimiter;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
+import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.units.Duration;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
@@ -115,7 +116,7 @@ public class QueryRewriter
             }
         }
 
-        throw new QueryRewriteException("Unsupported query type: " + statement.getClass());
+        throw new QueryRewriteException("Unsupported query type: %s", statement.getClass());
     }
 
     private Query rewriteCreateTableAsSelect(Connection connection, Query query, CreateTableAsSelect statement)
@@ -241,7 +242,7 @@ public class QueryRewriter
             throws QueryRewriteException
     {
         if (columns.isEmpty()) {
-            throw new QueryRewriteException("Table " + table + " has no columns");
+            throw new QueryRewriteException("Table %s has no columns", table);
         }
         ImmutableList.Builder<SelectItem> selectItems = ImmutableList.builder();
         for (Column column : columns) {
@@ -271,6 +272,7 @@ public class QueryRewriter
     public static class QueryRewriteException
             extends Exception
     {
+        @FormatMethod
         public QueryRewriteException(String messageFormat, Object... args)
         {
             super(format(messageFormat, args));

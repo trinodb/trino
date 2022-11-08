@@ -15,6 +15,7 @@ package io.trino.metadata;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.google.errorprone.annotations.FormatMethod;
 import io.trino.FeaturesConfig;
 import io.trino.collect.cache.NonEvictableCache;
 import io.trino.connector.CatalogServiceProvider;
@@ -249,6 +250,7 @@ public class FunctionManager
         }
     }
 
+    @FormatMethod
     private static void verifyFunctionSignature(boolean check, String message, Object... args)
     {
         if (!check) {

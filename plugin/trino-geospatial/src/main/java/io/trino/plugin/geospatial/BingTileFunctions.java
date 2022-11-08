@@ -17,6 +17,7 @@ import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.Point;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.slice.Slice;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -661,12 +662,12 @@ public final class BingTileFunctions
 
     private static void checkLatitude(double latitude, String errorMessage)
     {
-        checkCondition(latitude >= MIN_LATITUDE && latitude <= MAX_LATITUDE, errorMessage);
+        checkCondition(latitude >= MIN_LATITUDE && latitude <= MAX_LATITUDE, "%s", errorMessage);
     }
 
     private static void checkLongitude(double longitude, String errorMessage)
     {
-        checkCondition(longitude >= MIN_LONGITUDE && longitude <= MAX_LONGITUDE, errorMessage);
+        checkCondition(longitude >= MIN_LONGITUDE && longitude <= MAX_LONGITUDE, "%s", errorMessage);
     }
 
     private static boolean withinDistance(GreatCircleDistanceToPoint distanceFunction, double maxDistance, Point point)
@@ -706,6 +707,7 @@ public final class BingTileFunctions
         }
     }
 
+    @FormatMethod
     private static void checkCondition(boolean condition, String formatString, Object... args)
     {
         if (!condition) {

@@ -14,6 +14,7 @@
 package io.trino.hive.formats.rcfile;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -458,6 +459,7 @@ public class RcFileReader
         return in.readSlice(length);
     }
 
+    @FormatMethod
     private void verify(boolean expression, String messageFormat, Object... args)
             throws RcFileCorruptionException
     {
@@ -466,17 +468,21 @@ public class RcFileReader
         }
     }
 
+    @FormatMethod
     private RcFileCorruptionException corrupt(String messageFormat, Object... args)
     {
         closeQuietly();
         return new RcFileCorruptionException(messageFormat, args);
     }
 
+    @FormatMethod
     private void validateWrite(Predicate<RcFileWriteValidation> test, String messageFormat, Object... args)
             throws RcFileCorruptionException
     {
         if (writeValidation.isPresent() && !test.test(writeValidation.get())) {
-            throw corrupt("Write validation failed: " + messageFormat, args);
+            @SuppressWarnings("FormatStringAnnotation")
+            RcFileCorruptionException exception = corrupt("Write validation failed: " + messageFormat, args);
+            throw exception;
         }
     }
 

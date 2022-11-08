@@ -21,6 +21,8 @@ import com.google.common.hash.HashFunction;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
+import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.FormatString;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.plugin.hive.HiveBasicStatistics;
@@ -364,7 +366,8 @@ public class MetastoreHiveStatisticsProvider
         });
     }
 
-    private static void checkStatistics(boolean expression, SchemaTableName table, String partition, String column, String message, Object... args)
+    @FormatMethod
+    private static void checkStatistics(boolean expression, SchemaTableName table, String partition, String column, @FormatString String message, Object... args)
     {
         if (!expression) {
             throw new TrinoException(
@@ -373,7 +376,8 @@ public class MetastoreHiveStatisticsProvider
         }
     }
 
-    private static void checkStatistics(boolean expression, SchemaTableName table, String partition, String message, Object... args)
+    @FormatMethod
+    private static void checkStatistics(boolean expression, SchemaTableName table, String partition, @FormatString String message, Object... args)
     {
         if (!expression) {
             throw new TrinoException(
