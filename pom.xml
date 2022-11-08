@@ -68,6 +68,9 @@
         <dep.minio.version>7.1.4</dep.minio.version>
         <dep.iceberg.version>1.0.0</dep.iceberg.version>
         <dep.spotbugs-annotations.version>4.7.2</dep.spotbugs-annotations.version>
+        <dep.protobuf.version>3.21.6</dep.protobuf.version>
+        <dep.wire.version>3.2.2</dep.wire.version>
+        <dep.kotlin.version>1.4.0</dep.kotlin.version>
 
         <dep.docker.images.version>72</dep.docker.images.version>
 
@@ -1183,6 +1186,18 @@
             </dependency>
 
             <dependency>
+                <groupId>com.google.protobuf</groupId>
+                <artifactId>protobuf-java</artifactId>
+                <version>${dep.protobuf.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.protobuf</groupId>
+                <artifactId>protobuf-java-util</artifactId>
+                <version>${dep.protobuf.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.h2database</groupId>
                 <artifactId>h2</artifactId>
                 <version>1.4.200</version>
@@ -1300,6 +1315,13 @@
                 <artifactId>okhttp-urlconnection</artifactId>
                 <version>${dep.okhttp.version}</version>
             </dependency>
+
+            <dependency>
+                <groupId>com.squareup.wire</groupId>
+                <artifactId>wire-schema</artifactId>
+                <version>${dep.wire.version}</version>
+            </dependency>
+
 
             <dependency>
                 <groupId>com.teradata</groupId>
@@ -1723,6 +1745,18 @@
                 <groupId>org.jetbrains</groupId>
                 <artifactId>annotations</artifactId>
                 <version>19.0.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-stdlib</artifactId>
+                <version>${dep.kotlin.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-stdlib-common</artifactId>
+                <version>${dep.kotlin.version}</version>
             </dependency>
 
             <dependency>
