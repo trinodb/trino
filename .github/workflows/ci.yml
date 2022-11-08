@@ -555,7 +555,7 @@ jobs:
           path: |
             core/trino-server/target/*.tar.gz
             impacted-features.log
-            testing/trino-product-tests-launcher/target/*-executable.jar
+            testing/trino-product-tests-launcher/target/*.jar
             testing/trino-product-tests/target/*-executable.jar
             client/trino-cli/target/*-executable.jar
           retention-days: 1

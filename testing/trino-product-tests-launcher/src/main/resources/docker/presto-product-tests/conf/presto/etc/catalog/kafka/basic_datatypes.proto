@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+message schema {
+  string a_varchar = 1;
+  uint32 b_integer = 2;
+  uint64 c_bigint = 3;
+  double d_double = 4;
+  float e_float = 5;
+  bool f_boolean = 6;
+}

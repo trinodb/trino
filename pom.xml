@@ -553,6 +553,13 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-record-decoder</artifactId>
+                <type>test-jar</type>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-resource-group-managers</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -1367,7 +1374,7 @@
                 <groupId>io.confluent</groupId>
                 <artifactId>kafka-json-schema-serializer</artifactId>
                 <version>${dep.confluent.version}</version>
-                <!-- This is under Confluence Community License and it should not be used with compile scope -->
+                <!-- This is under Confluent Community License and it should not be used with compile scope -->
                 <scope>test</scope>
                 <exclusions>
                     <exclusion>
@@ -1383,6 +1390,22 @@
                         <artifactId>commons-logging</artifactId>
                     </exclusion>
                 </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>io.confluent</groupId>
+                <artifactId>kafka-protobuf-provider</artifactId>
+                <version>${dep.confluent.version}</version>
+                <!-- This is under Confluent Community License and it should not be used with compile scope -->
+                <scope>provided</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>io.confluent</groupId>
+                <artifactId>kafka-protobuf-serializer</artifactId>
+                <version>${dep.confluent.version}</version>
+                <!-- This is under Confluent Community License and it should not be used with compile scope -->
+                <scope>test</scope>
             </dependency>
 
             <dependency>
