@@ -79,6 +79,7 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
+import net.jodah.failsafe.function.CheckedSupplier;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 
@@ -1070,9 +1071,14 @@ public class SqlServerClient
 
     private static Optional<DataCompression> getTableDataCompressionWithRetries(Handle handle, JdbcTableHandle table)
     {
-        // DDL operations can take out locks against system tables causing the `getTableDataCompression` query to deadlock
-        final int maxAttemptCount = 3;
-        RetryPolicy<Optional<DataCompression>> retryPolicy = new RetryPolicy<Optional<DataCompression>>()
+        return retryOnDeadlock(() -> getTableDataCompression(handle, table), "error when getting table compression info for '%s'".formatted(table));
+    }
+
+    public static <T> T retryOnDeadlock(CheckedSupplier<T> supplier, String attemptLogMessage)
+    {
+        // DDL operations can take out locks against system tables causing queries against them to deadlock
+        int maxAttemptCount = 3;
+        RetryPolicy<T> retryPolicy = new RetryPolicy<T>()
                 .withMaxAttempts(maxAttemptCount)
                 .handleIf(throwable ->
                 {
@@ -1080,11 +1086,11 @@ public class SqlServerClient
                     return rootCause instanceof SQLServerException &&
                             ((SQLServerException) (rootCause)).getSQLServerError().getErrorNumber() == SQL_SERVER_DEADLOCK_ERROR_CODE;
                 })
-                .onFailedAttempt(event -> log.warn(event.getLastFailure(), "Attempt %d of %d: error when getting table compression info for '%s'", event.getAttemptCount(), maxAttemptCount, table));
+                .onFailedAttempt(event -> log.warn(event.getLastFailure(), "Attempt %d of %d: %s", event.getAttemptCount(), maxAttemptCount, attemptLogMessage));
 
         return Failsafe
                 .with(retryPolicy)
-                .get(() -> getTableDataCompression(handle, table));
+                .get(supplier);
     }
 
     private static class StatisticsDao
