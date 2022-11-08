@@ -18,6 +18,7 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.CatalogNameModule;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
@@ -69,12 +70,13 @@ public class RaptorConnectorFactory
                 new CatalogNameModule(catalogName),
                 new JsonModule(),
                 new MBeanModule(),
-                new ConnectorObjectNameGeneratorModule(catalogName, "io.trino.plugin.raptor.legacy", "trino.plugin.raptor.legacy"),
+                new ConnectorObjectNameGeneratorModule("io.trino.plugin.raptor.legacy", "trino.plugin.raptor.legacy"),
                 new MBeanServerModule(),
                 binder -> {
                     binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                     binder.bind(PageSorter.class).toInstance(context.getPageSorter());
                     binder.bind(TypeManager.class).toInstance(context.getTypeManager());
+                    binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
                 },
                 metadataModule,
                 new BackupModule(backupProviders),
