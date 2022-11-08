@@ -512,10 +512,10 @@ public final class DomainTranslator
                 Type castTargetType = requireNonNull(expressionTypes.get(NodeRef.of(castExpression)), "No type for Cast target expression");
                 if (castSourceType instanceof VarcharType && castTargetType == DATE && !castExpression.isSafe()) {
                     Optional<ExtractionResult> result = createVarcharCastToDateComparisonExtractionResult(
-                            node,
+                            normalized,
                             (VarcharType) castSourceType,
-                            normalized.getValue(),
-                            complement);
+                            complement,
+                            node);
                     if (result.isPresent()) {
                         return result.get();
                     }
@@ -604,15 +604,14 @@ public final class DomainTranslator
         }
 
         private Optional<ExtractionResult> createVarcharCastToDateComparisonExtractionResult(
-                ComparisonExpression node,
+                NormalizedSimpleComparison comparison,
                 VarcharType sourceType,
-                NullableValue value,
-                boolean complement)
+                boolean complement,
+                ComparisonExpression originalExpression)
         {
-            Cast castExpression = (Cast) node.getLeft();
-            Expression sourceExpression = castExpression.getExpression();
-            ComparisonExpression.Operator comparisonOperator = node.getOperator();
-            requireNonNull(value, "value is null");
+            Expression sourceExpression = ((Cast) comparison.getSymbolExpression()).getExpression();
+            ComparisonExpression.Operator operator = comparison.getComparisonOperator();
+            NullableValue value = comparison.getValue();
 
             if (complement || value.isNull()) {
                 return Optional.empty();
@@ -638,7 +637,7 @@ public final class DomainTranslator
             ValueSet valueSet;
             boolean nullAllowed = false;
 
-            switch (comparisonOperator) {
+            switch (operator) {
                 case EQUAL:
                     valueSet = dateStringRanges(date, sourceType);
                     break;
@@ -649,7 +648,7 @@ public final class DomainTranslator
                         return Optional.empty();
                     }
                     valueSet = ValueSet.all(sourceType).subtract(dateStringRanges(date, sourceType));
-                    nullAllowed = (comparisonOperator == IS_DISTINCT_FROM);
+                    nullAllowed = (operator == IS_DISTINCT_FROM);
                     break;
                 case LESS_THAN:
                 case LESS_THAN_OR_EQUAL:
@@ -670,7 +669,7 @@ public final class DomainTranslator
 
             return Optional.of(new ExtractionResult(
                     TupleDomain.withColumnDomains(ImmutableMap.of(sourceSymbol, Domain.create(valueSet, nullAllowed))),
-                    node));
+                    originalExpression));
         }
 
         /**
