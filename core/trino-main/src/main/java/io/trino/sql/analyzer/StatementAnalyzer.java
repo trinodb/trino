@@ -677,9 +677,12 @@ class StatementAnalyzer
                     .collect(toImmutableList());
 
             if (!typesMatchForInsert(tableTypes, queryTypes)) {
-                throw semanticException(TYPE_MISMATCH, refreshMaterializedView, "Insert query has mismatched column types: " +
-                        "Table: [" + Joiner.on(", ").join(tableTypes) + "], " +
-                        "Query: [" + Joiner.on(", ").join(queryTypes) + "]");
+                throw semanticException(
+                        TYPE_MISMATCH,
+                        refreshMaterializedView,
+                        "Insert query has mismatched column types: Table: [%s], Query: [%s]",
+                        Joiner.on(", ").join(tableTypes),
+                        Joiner.on(", ").join(queryTypes));
             }
 
             Stream<Column> columns = Streams.zip(
@@ -1136,7 +1139,7 @@ class StatementAnalyzer
 
             // analyze WHERE
             if (!procedureMetadata.getExecutionMode().supportsFilter() && node.getWhere().isPresent()) {
-                throw semanticException(NOT_SUPPORTED, node, "WHERE not supported for procedure " + procedureName);
+                throw semanticException(NOT_SUPPORTED, node, "WHERE not supported for procedure %s", procedureName);
             }
             node.getWhere().ifPresent(where -> analyzeWhere(node, tableScope, where));
 
@@ -1546,7 +1549,7 @@ class StatementAnalyzer
                 // table alias is mandatory for a polymorphic table function invocation which produces proper columns.
                 // We don't enforce this requirement.
                 properColumnsDescriptor = analyzedProperColumnsDescriptor
-                        .orElseThrow(() -> semanticException(MISSING_RETURN_TYPE, node, "Cannot determine returned relation type for table function " + node.getName()));
+                        .orElseThrow(() -> semanticException(MISSING_RETURN_TYPE, node, "Cannot determine returned relation type for table function %s", node.getName()));
             }
             else { // returned type is statically declared at function declaration
                 // According to SQL standard ISO/IEC 9075-2, 7.6 <table reference>, p. 409,
@@ -1660,11 +1663,11 @@ class StatementAnalyzer
                 for (TableFunctionArgument argument : arguments) {
                     String argumentName = argument.getName().orElseThrow().getCanonicalValue();
                     if (!uniqueArgumentNames.add(argumentName)) {
-                        throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Duplicate argument name: " + argumentName);
+                        throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Duplicate argument name: %s", argumentName);
                     }
                     ArgumentSpecification argumentSpecification = argumentSpecificationsByName.remove(argumentName);
                     if (argumentSpecification == null) {
-                        throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Unexpected argument name: " + argumentName);
+                        throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Unexpected argument name: %s", argumentName);
                     }
                     ArgumentAnalysis argumentAnalysis = analyzeArgument(argumentSpecification, argument, scope);
                     passedArguments.put(argumentSpecification.getName(), argumentAnalysis.getArgument());
@@ -1707,7 +1710,7 @@ class StatementAnalyzer
                 actualType = "expression";
             }
             else {
-                throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Unexpected table function argument type: " + argument.getClass().getSimpleName());
+                throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Unexpected table function argument type: %s", argument.getClass().getSimpleName());
             }
 
             if (argumentSpecification instanceof TableArgumentSpecification) {
@@ -1879,7 +1882,7 @@ class StatementAnalyzer
         private Argument analyzeDefault(ArgumentSpecification argumentSpecification, Node errorLocation)
         {
             if (argumentSpecification.isRequired()) {
-                throw semanticException(MISSING_ARGUMENT, errorLocation, "Missing argument: " + argumentSpecification.getName());
+                throw semanticException(MISSING_ARGUMENT, errorLocation, "Missing argument: %s", argumentSpecification.getName());
             }
 
             checkArgument(!(argumentSpecification instanceof TableArgumentSpecification), "invalid table argument specification: default set");
@@ -1939,10 +1942,10 @@ class StatementAnalyzer
                         candidates = qualifiedInputs.get(QualifiedName.of(fullyQualifiedName.getCatalogName(), fullyQualifiedName.getSchemaName(), fullyQualifiedName.getObjectName()));
                     }
                     if (candidates.isEmpty()) {
-                        throw semanticException(INVALID_COPARTITIONING, name.getOriginalParts().get(0), "No table argument found for name: " + name);
+                        throw semanticException(INVALID_COPARTITIONING, name.getOriginalParts().get(0), "No table argument found for name: %s", name);
                     }
                     if (candidates.size() > 1) {
-                        throw semanticException(INVALID_COPARTITIONING, name.getOriginalParts().get(0), "Ambiguous reference: multiple table arguments found for name: " + name);
+                        throw semanticException(INVALID_COPARTITIONING, name.getOriginalParts().get(0), "Ambiguous reference: multiple table arguments found for name: %s", name);
                     }
                     TableArgumentAnalysis argument = getOnlyElement(candidates);
                     if (!referencedArguments.add(argument.getArgumentName())) {
@@ -2549,7 +2552,7 @@ class StatementAnalyzer
                 qualifiedName = getQualifiedName((DereferenceExpression) expression);
             }
             else {
-                throw semanticException(INVALID_COLUMN_REFERENCE, expression, "Expected column reference. Actual: " + expression);
+                throw semanticException(INVALID_COLUMN_REFERENCE, expression, "Expected column reference. Actual: %s", expression);
             }
             Optional<ResolvedField> field = inputScope.tryResolveField(expression, qualifiedName);
             if (field.isEmpty() || !field.get().isLocal()) {
@@ -2718,7 +2721,7 @@ class StatementAnalyzer
                     .map(name -> name.toLowerCase(ENGLISH))
                     .forEach(name -> {
                         if (!names.add(name)) {
-                            throw semanticException(DUPLICATE_COLUMN_NAME, relation.getRelation(), "Duplicate name of table function proper column: " + name);
+                            throw semanticException(DUPLICATE_COLUMN_NAME, relation.getRelation(), "Duplicate name of table function proper column: %s", name);
                         }
                     });
 
@@ -2949,12 +2952,13 @@ class StatementAnalyzer
             if (node instanceof Intersect || node instanceof Except || node instanceof Union && node.isDistinct()) {
                 for (Type type : outputFieldTypes) {
                     if (!type.isComparable()) {
-                        StringBuilder message = new StringBuilder(format("Type %s is not comparable and therefore cannot be used in ", type));
-                        message.append(setOperationName);
-                        if (node instanceof Union) {
-                            message.append(" DISTINCT");
-                        }
-                        throw semanticException(TYPE_MISMATCH, node, message.toString());
+                        throw semanticException(
+                                TYPE_MISMATCH,
+                                node,
+                                "Type %s is not comparable and therefore cannot be used in %s%s",
+                                type,
+                                setOperationName,
+                                node instanceof Union ? " DISTINCT" : "");
                     }
                 }
             }
@@ -3619,7 +3623,7 @@ class StatementAnalyzer
                 CanonicalizationAware<Identifier> canonicalName = canonicalizationAwareKey(windowReference.getName());
                 ResolvedWindow referencedWindow = analysis.getWindowDefinition(querySpecification, canonicalName);
                 if (referencedWindow == null) {
-                    throw semanticException(INVALID_WINDOW_REFERENCE, windowReference.getName(), "Cannot resolve WINDOW name " + windowReference.getName());
+                    throw semanticException(INVALID_WINDOW_REFERENCE, windowReference.getName(), "Cannot resolve WINDOW name %s", windowReference.getName());
                 }
 
                 return new ResolvedWindow(
@@ -3638,7 +3642,7 @@ class StatementAnalyzer
                 CanonicalizationAware<Identifier> canonicalName = canonicalizationAwareKey(referencedName);
                 ResolvedWindow referencedWindow = analysis.getWindowDefinition(querySpecification, canonicalName);
                 if (referencedWindow == null) {
-                    throw semanticException(INVALID_WINDOW_REFERENCE, referencedName, "Cannot resolve WINDOW name " + referencedName);
+                    throw semanticException(INVALID_WINDOW_REFERENCE, referencedName, "Cannot resolve WINDOW name %s", referencedName);
                 }
 
                 // analyze dependencies between this window specification and referenced window specification
@@ -5226,9 +5230,9 @@ class StatementAnalyzer
                 if (!(type instanceof TimestampWithTimeZoneType ||
                         type instanceof TimestampType ||
                         type instanceof DateType)) {
-                    throw semanticException(TYPE_MISMATCH, queryPeriod, format(
+                    throw semanticException(TYPE_MISMATCH, queryPeriod,
                             "Type %s invalid. Temporal pointers must be of type Timestamp, Timestamp with Time Zone, or Date.",
-                            type.getDisplayName()));
+                            type.getDisplayName());
                 }
                 if (pointer == null) {
                     throw semanticException(INVALID_ARGUMENTS, queryPeriod, "Pointer value cannot be NULL");
@@ -5239,7 +5243,8 @@ class StatementAnalyzer
                     throw semanticException(
                             INVALID_ARGUMENTS,
                             queryPeriod,
-                            format("Pointer value '%s' is not in the past", varchar));
+                            "Pointer value '%s' is not in the past",
+                            varchar);
                 }
             }
             else {
