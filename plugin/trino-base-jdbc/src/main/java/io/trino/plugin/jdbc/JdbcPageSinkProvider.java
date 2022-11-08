@@ -37,21 +37,9 @@ public class JdbcPageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle tableHandle)
-    {
-        throw new IllegalArgumentException("createPageSink not supported without ConnectorPageSinkId");
-    }
-
-    @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle tableHandle, ConnectorPageSinkId pageSinkId)
     {
         return new JdbcPageSink(session, (JdbcOutputTableHandle) tableHandle, jdbcClient, pageSinkId);
-    }
-
-    @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle tableHandle)
-    {
-        throw new IllegalArgumentException("createPageSink not supported without ConnectorPageSinkId");
     }
 
     @Override
