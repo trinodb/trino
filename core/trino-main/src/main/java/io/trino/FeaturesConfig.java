@@ -73,6 +73,9 @@ public class FeaturesConfig
     private boolean scaleWriters = true;
     private DataSize writerMinSize = DataSize.of(32, DataSize.Unit.MEGABYTE);
     private DataIntegrityVerification exchangeDataIntegrityVerification = DataIntegrityVerification.ABORT;
+    /**
+     * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}}
+     */
     private boolean exchangeCompressionEnabled;
     private boolean pagesIndexEagerCompactionEnabled;
     private boolean omitDateTimeTypePrecision;
@@ -478,5 +481,10 @@ public class FeaturesConfig
     {
         this.forceSpillingJoin = forceSpillingJoin;
         return this;
+    }
+
+    public void applyFaultTolerantExecutionDefaults()
+    {
+        exchangeCompressionEnabled = true;
     }
 }
