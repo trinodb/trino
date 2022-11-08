@@ -26,7 +26,7 @@ import org.testng.annotations.Test;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
 import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_ENABLED;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
@@ -77,7 +77,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
                         tableWriter(
                                 ImmutableList.of("nationkey"),
                                 ImmutableList.of("nationkey"),
-                                exchange(LOCAL, REPARTITION, SCALED_WRITER_DISTRIBUTION,
+                                exchange(LOCAL, REPARTITION, SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION,
                                         exchange(REMOTE, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
                                                 tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))))));
 

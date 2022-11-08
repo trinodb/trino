@@ -41,7 +41,7 @@ import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.TestingHandles.createTestCatalogHandle;
@@ -97,7 +97,7 @@ public class TestValidateScaledWritersUsage
                         .addInputsSet(symbol)
                         .addSource(planBuilder.exchange(innerExchange ->
                                 innerExchange
-                                        .partitioningScheme(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))
+                                        .partitioningScheme(new PartitioningScheme(Partitioning.create(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))
                                         .addInputsSet(symbol)
                                         .addSource(tableScanNode))));
         PlanNode root = planBuilder.output(
@@ -119,7 +119,7 @@ public class TestValidateScaledWritersUsage
                         .addInputsSet(symbol)
                         .addSource(planBuilder.exchange(innerExchange ->
                                 innerExchange
-                                        .partitioningScheme(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))
+                                        .partitioningScheme(new PartitioningScheme(Partitioning.create(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))
                                         .addInputsSet(symbol)
                                         .addSource(tableScanNode))));
         PlanNode root = planBuilder.output(
@@ -144,7 +144,7 @@ public class TestValidateScaledWritersUsage
                         .addInputsSet(symbol, symbol)
                         .addSource(planBuilder.exchange(innerExchange ->
                                 innerExchange
-                                        .partitioningScheme(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))
+                                        .partitioningScheme(new PartitioningScheme(Partitioning.create(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))
                                         .addInputsSet(symbol)
                                         .addSource(tableScanNode)))
                         .addSource(planBuilder.exchange(innerExchange ->
@@ -174,7 +174,7 @@ public class TestValidateScaledWritersUsage
                         .addInputsSet(symbol, symbol)
                         .addSource(planBuilder.exchange(innerExchange ->
                                 innerExchange
-                                        .partitioningScheme(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))
+                                        .partitioningScheme(new PartitioningScheme(Partitioning.create(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))
                                         .addInputsSet(symbol)
                                         .addSource(tableScanNode)))
                         .addSource(planBuilder.exchange(innerExchange ->
@@ -210,7 +210,7 @@ public class TestValidateScaledWritersUsage
                                 planBuilder.createTarget(catalogNotSupportingScaledWriters, schemaTableName, false, true),
                                 tableWriterSource,
                                 symbol,
-                                new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))));
+                                new PartitioningScheme(Partitioning.create(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))));
         validatePlan(root);
     }
 
@@ -229,7 +229,7 @@ public class TestValidateScaledWritersUsage
                                 planBuilder.createTarget(catalogSupportingScaledWriters, schemaTableName, true, true),
                                 planBuilder.exchange(innerExchange ->
                                         innerExchange
-                                                .partitioningScheme(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))
+                                                .partitioningScheme(new PartitioningScheme(Partitioning.create(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))
                                                 .addInputsSet(symbol)
                                                 .addSource(tableScanNode)),
                                 symbol)));
