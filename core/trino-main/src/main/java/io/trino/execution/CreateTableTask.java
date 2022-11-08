@@ -79,7 +79,6 @@ import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.EXCLUDING;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class CreateTableTask
@@ -201,11 +200,18 @@ public class CreateTableTask
                 LikeClause.PropertiesOption propertiesOption = likeClause.getPropertiesOption().orElse(EXCLUDING);
                 QualifiedObjectName likeTableName = redirection.getRedirectedTableName().orElse(originalLikeTableName);
                 if (propertiesOption == INCLUDING && !catalogName.equals(likeTableName.getCatalogName())) {
-                    String message = "CREATE TABLE LIKE table INCLUDING PROPERTIES across catalogs is not supported";
                     if (!originalLikeTableName.equals(likeTableName)) {
-                        message += format(". LIKE table '%s' redirected to '%s'.", originalLikeTableName, likeTableName);
+                        throw semanticException(
+                                NOT_SUPPORTED,
+                                statement,
+                                "CREATE TABLE LIKE table INCLUDING PROPERTIES across catalogs is not supported. LIKE table '%s' redirected to '%s'.",
+                                originalLikeTableName,
+                                likeTableName);
                     }
-                    throw semanticException(NOT_SUPPORTED, statement, message);
+                    throw semanticException(
+                            NOT_SUPPORTED,
+                            statement,
+                            "CREATE TABLE LIKE table INCLUDING PROPERTIES across catalogs is not supported");
                 }
 
                 TableMetadata likeTableMetadata = plannerContext.getMetadata().getTableMetadata(session, likeTable);
