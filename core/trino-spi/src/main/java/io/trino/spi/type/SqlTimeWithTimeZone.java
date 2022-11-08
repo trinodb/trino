@@ -26,6 +26,7 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.POWERS_OF_TEN;
 import static io.trino.spi.type.Timestamps.SECONDS_PER_MINUTE;
 import static io.trino.spi.type.Timestamps.rescale;
+import static io.trino.spi.type.Timestamps.round;
 import static java.lang.Math.abs;
 import static java.lang.String.format;
 
@@ -69,6 +70,11 @@ public final class SqlTimeWithTimeZone
     public int getOffsetMinutes()
     {
         return offsetMinutes;
+    }
+
+    public SqlTimeWithTimeZone roundTo(int precision)
+    {
+        return new SqlTimeWithTimeZone(precision, round(picos, 12 - precision), offsetMinutes);
     }
 
     @Override
