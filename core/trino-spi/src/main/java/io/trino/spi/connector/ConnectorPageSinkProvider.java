@@ -20,7 +20,10 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 public interface ConnectorPageSinkProvider
 {
     @Deprecated // TODO(Issue #14705): Remove
-    ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle);
+    default ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
+    {
+        throw new IllegalArgumentException("createPageSink not supported for outputTableHandle");
+    }
 
     default ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, ConnectorPageSinkId pageSinkId)
     {
@@ -28,7 +31,10 @@ public interface ConnectorPageSinkProvider
     }
 
     @Deprecated // TODO(Issue #14705): Remove
-    ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle);
+    default ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
+    {
+        throw new IllegalArgumentException("createPageSink not supported for insertTableHandle");
+    }
 
     default ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, ConnectorPageSinkId pageSinkId)
     {

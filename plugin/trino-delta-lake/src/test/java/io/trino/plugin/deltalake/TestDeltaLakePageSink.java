@@ -59,6 +59,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.testing.TestingPageSinkId.TESTING_PAGE_SINK_ID;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.Math.round;
 import static java.time.temporal.ChronoUnit.MINUTES;
@@ -181,7 +182,7 @@ public class TestDeltaLakePageSink
                 new TestingTypeManager(),
                 new NodeVersion("test-version"));
 
-        return provider.createPageSink(transaction, SESSION, tableHandle);
+        return provider.createPageSink(transaction, SESSION, tableHandle, TESTING_PAGE_SINK_ID);
     }
 
     private static List<DeltaLakeColumnHandle> getColumnHandles()
