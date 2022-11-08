@@ -47,6 +47,9 @@ public class MemoryManagerConfig
     private DataSize faultTolerantExecutionTaskRuntimeMemoryEstimationOverhead = DataSize.of(1, GIGABYTE);
     private LowMemoryQueryKillerPolicy lowMemoryQueryKillerPolicy = LowMemoryQueryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
     private LowMemoryTaskKillerPolicy lowMemoryTaskKillerPolicy = LowMemoryTaskKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
+    /**
+     * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}}
+     */
     private Duration killOnOutOfMemoryDelay = new Duration(5, MINUTES);
 
     public LowMemoryQueryKillerPolicy getLowMemoryQueryKillerPolicy()
@@ -187,6 +190,11 @@ public class MemoryManagerConfig
                 "fault-tolerant-execution-task-memory-estimation-quantile must not be in [0.0, 1.0] range");
         this.faultTolerantExecutionTaskMemoryEstimationQuantile = faultTolerantExecutionTaskMemoryEstimationQuantile;
         return this;
+    }
+
+    public void applyFaultTolerantExecutionDefaults()
+    {
+        killOnOutOfMemoryDelay = new Duration(0, MINUTES);
     }
 
     public enum LowMemoryQueryKillerPolicy
