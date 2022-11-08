@@ -45,6 +45,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.execution.scheduler.StageExecution.State.ABORTED;
 import static io.trino.execution.scheduler.StageExecution.State.FINISHED;
 import static io.trino.execution.scheduler.StageExecution.State.FLUSHING;
+import static io.trino.execution.scheduler.StageExecution.State.SCHEDULED;
 import static io.trino.execution.scheduler.policy.PlanUtils.createAggregationFragment;
 import static io.trino.execution.scheduler.policy.PlanUtils.createBroadcastAndPartitionedJoinPlanFragment;
 import static io.trino.execution.scheduler.policy.PlanUtils.createBroadcastJoinPlanFragment;
@@ -220,6 +221,48 @@ public class TestPhasedExecutionSchedule
         partitionedBuildStage.setState(FLUSHING);
         schedule.schedule();
         assertThat(getActiveFragments(schedule)).containsExactly(joinFragment.getId(), probeFragment.getId());
+    }
+
+    @Test
+    public void testSourceStageBroadcastJoinWithPartitionedJoinBuildSide()
+    {
+        PlanFragment nestedJoinBuildFragment = createTableScanPlanFragment("nested_join_build");
+        PlanFragment nestedJoinProbeFragment = createTableScanPlanFragment("nested_join_probe");
+        PlanFragment nestedJoinFragment = createJoinPlanFragment(INNER, "nested_join", nestedJoinBuildFragment, nestedJoinProbeFragment);
+        PlanFragment joinSourceFragment = createBroadcastJoinPlanFragment("probe", nestedJoinFragment);
+
+        TestingStageExecution nestedJoinBuildStage = new TestingStageExecution(nestedJoinBuildFragment);
+        TestingStageExecution nestedJoinProbeStage = new TestingStageExecution(nestedJoinProbeFragment);
+        TestingStageExecution nestedJoinStage = new TestingStageExecution(nestedJoinFragment);
+        TestingStageExecution joinSourceStage = new TestingStageExecution(joinSourceFragment);
+
+        PhasedExecutionSchedule schedule = PhasedExecutionSchedule.forStages(ImmutableSet.of(
+                nestedJoinBuildStage, nestedJoinProbeStage, nestedJoinStage, joinSourceStage), dynamicFilterService);
+
+        // nestedJoinStage and nestedJoinProbeStage should start immediately
+        DirectedGraph<PlanFragmentId, FragmentsEdge> dependencies = schedule.getFragmentDependency();
+        assertThat(dependencies.edgeSet()).containsExactlyInAnyOrder(
+                new FragmentsEdge(nestedJoinBuildFragment.getId(), joinSourceFragment.getId()),
+                new FragmentsEdge(nestedJoinFragment.getId(), joinSourceFragment.getId()),
+                new FragmentsEdge(nestedJoinBuildFragment.getId(), nestedJoinProbeFragment.getId()),
+                new FragmentsEdge(nestedJoinProbeFragment.getId(), joinSourceFragment.getId()));
+        assertThat(getActiveFragments(schedule)).containsExactly(nestedJoinBuildFragment.getId(), nestedJoinFragment.getId());
+
+        // Mark nestedJoinFragment and nestedJoinBuildFragment as scheduled.
+        // joinSourceFragment still has dependency on nestedJoinProbeFragment
+        nestedJoinStage.setState(SCHEDULED);
+        nestedJoinBuildStage.setState(FINISHED);
+        schedule.schedule();
+        assertThat(getActiveFragments(schedule)).containsExactly(nestedJoinProbeFragment.getId());
+
+        // mark nestedJoinFragment buffer as full, now joinSourceFragment is forced to be scheduled
+        nestedJoinStage.setAnyTaskBlocked(true);
+        schedule.schedule();
+        assertThat(getActiveFragments(schedule)).containsExactly(nestedJoinProbeFragment.getId(), joinSourceFragment.getId());
+
+        nestedJoinProbeStage.setState(FINISHED);
+        schedule.schedule();
+        assertThat(getActiveFragments(schedule)).containsExactly(joinSourceFragment.getId());
     }
 
     private Set<PlanFragmentId> getActiveFragments(PhasedExecutionSchedule schedule)
