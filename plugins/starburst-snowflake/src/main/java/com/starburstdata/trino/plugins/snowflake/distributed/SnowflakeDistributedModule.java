@@ -12,11 +12,13 @@ package com.starburstdata.trino.plugins.snowflake.distributed;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Binder;
 import com.google.inject.Key;
+import com.google.inject.Provider;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeJdbcClientModule;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.trino.plugin.base.classloader.ForClassLoaderSafe;
@@ -52,20 +54,12 @@ import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.ElementType.PARAMETER;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class SnowflakeDistributedModule
         extends AbstractConfigurationAwareModule
 {
-    protected final String catalogName;
-
-    public SnowflakeDistributedModule(String catalogName)
-    {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
-    }
-
     // TODO: Reorganize this method
     @Override
     protected void setup(Binder binder)
@@ -95,7 +89,8 @@ public class SnowflakeDistributedModule
         configBinder(binder).bindConfig(SnowflakeDistributedConfig.class);
 
         binder.bind(SnowflakeExportStats.class).toInstance(new SnowflakeExportStats());
-        newExporter(binder).export(SnowflakeExportStats.class).as(generator -> generator.generatedNameOf(SnowflakeExportStats.class, catalogName));
+        Provider<CatalogName> catalogName = binder.getProvider(CatalogName.class);
+        newExporter(binder).export(SnowflakeExportStats.class).as(generator -> generator.generatedNameOf(SnowflakeExportStats.class, catalogName.get().toString()));
 
         binder.bind(TrinoS3FileSystemStats.class).toInstance(TrinoS3FileSystem.getFileSystemStats());
         newExporter(binder).export(TrinoS3FileSystemStats.class)
@@ -103,8 +98,8 @@ public class SnowflakeDistributedModule
         binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(FileFormatDataSourceStats.class).withGeneratedName();
 
-        install(new JdbcModule(catalogName));
-        install(new SnowflakeJdbcClientModule(catalogName, true));
+        install(new JdbcModule());
+        install(new SnowflakeJdbcClientModule(true));
 
         setupTableFunctions(binder);
     }

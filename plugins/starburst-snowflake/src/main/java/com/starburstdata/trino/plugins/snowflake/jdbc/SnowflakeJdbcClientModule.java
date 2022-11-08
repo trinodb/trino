@@ -66,14 +66,12 @@ public class SnowflakeJdbcClientModule
     private static final String TIMESTAMP_FORMAT = "YYYY-MM-DD\"T\"HH24:MI:SS.FF9TZH:TZM";
     private static final String TIME_FORMAT = "HH24:MI:SS.FF9";
 
-    private final String catalogName;
     // TODO If any module setup is needed by the JDBC client and needs to be disabled in the distributed connector,
     //  move all shared module configuration to a separate module and remove this field.
     private final boolean distributedConnector;
 
-    public SnowflakeJdbcClientModule(String catalogName, boolean distributedConnector)
+    public SnowflakeJdbcClientModule(boolean distributedConnector)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.distributedConnector = distributedConnector;
     }
 
@@ -94,7 +92,7 @@ public class SnowflakeJdbcClientModule
 
         install(new CredentialProviderModule());
 
-        install(new ConnectorObjectNameGeneratorModule(catalogName, "com.starburstdata.trino.plugins.snowflake", "starburst.plugin.snowflake"));
+        install(new ConnectorObjectNameGeneratorModule("com.starburstdata.trino.plugins.snowflake", "starburst.plugin.snowflake"));
 
         newOptionalBinder(binder, Key.get(ConnectionFactory.class, ForBaseJdbc.class))
                 .setDefault()

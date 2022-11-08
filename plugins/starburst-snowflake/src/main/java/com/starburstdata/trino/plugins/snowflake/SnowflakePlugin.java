@@ -13,7 +13,6 @@ import com.google.common.collect.ImmutableList;
 import com.starburstdata.trino.plugins.snowflake.distributed.SnowflakeDistributedConnectorFactory;
 import com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeJdbcClientModule;
 import io.trino.plugin.jdbc.JdbcConnectorFactory;
-import io.trino.plugin.jdbc.JdbcConnectorFactory.JdbcModuleProvider;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 
@@ -29,8 +28,7 @@ public class SnowflakePlugin
         return ImmutableList.of(
                 new JdbcConnectorFactory(
                         SNOWFLAKE_JDBC,
-                        (JdbcModuleProvider) catalogName ->
-                                new SnowflakeJdbcClientModule(catalogName, false)),
+                        new SnowflakeJdbcClientModule(false)),
                 new SnowflakeDistributedConnectorFactory(SNOWFLAKE_DISTRIBUTED));
     }
 }
