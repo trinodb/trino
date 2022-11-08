@@ -110,7 +110,7 @@ public class SetSessionTask
             propertyMetadata.decode(objectValue);
         }
         catch (RuntimeException e) {
-            throw semanticException(INVALID_SESSION_PROPERTY, statement, e.getMessage());
+            throw semanticException(INVALID_SESSION_PROPERTY, statement, "Invalid session property value '%s': %s", propertyName.toString(), e.getMessage());
         }
 
         stateMachine.addSetSessionProperties(propertyName.toString(), value);

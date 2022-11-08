@@ -14,6 +14,7 @@
 package io.trino.sql.analyzer;
 
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.FormatMethod;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.spi.StandardErrorCode;
@@ -438,8 +439,7 @@ class AggregationAnalyzer
                 if (node.getFilter().isPresent()) {
                     throw semanticException(FUNCTION_NOT_AGGREGATE,
                             node,
-                            "Filter is only valid for aggregation functions",
-                            node);
+                            "Filter is only valid for aggregation functions");
                 }
                 if (node.getOrderBy().isPresent()) {
                     throw semanticException(FUNCTION_NOT_AGGREGATE, node, "ORDER BY is only valid for aggregation functions");
@@ -787,12 +787,13 @@ class AggregationAnalyzer
         return hasReferencesToScope(node, analysis, orderByScope.get());
     }
 
-    private void verifyNoOrderByReferencesToOutputColumns(Node node, StandardErrorCode errorCode, String errorString)
+    @FormatMethod
+    private void verifyNoOrderByReferencesToOutputColumns(Node node, StandardErrorCode errorCode, String errorString, Object... errorStringArguments)
     {
         getReferencesToScope(node, analysis, orderByScope.get())
                 .findFirst()
                 .ifPresent(expression -> {
-                    throw semanticException(errorCode, expression, errorString);
+                    throw semanticException(errorCode, expression, errorString, errorStringArguments);
                 });
     }
 }
