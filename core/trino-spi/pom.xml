@@ -234,6 +234,36 @@
                                     <new>method void io.trino.spi.connector.ConnectorViewDefinition.ViewColumn::&lt;init&gt;(java.lang.String, io.trino.spi.type.TypeId, java.util.Optional&lt;java.lang.String&gt;)</new>
                                     <justification>Add support for view column comments</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.noLongerDefault</code>
+                                    <old>method io.trino.spi.connector.ConnectorPageSink io.trino.spi.connector.ConnectorPageSinkProvider::createPageSink(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorInsertTableHandle, io.trino.spi.connector.ConnectorPageSinkId)</old>
+                                    <justification>Deprecated SPI removal</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.noLongerDefault</code>
+                                    <old>method io.trino.spi.connector.ConnectorPageSink io.trino.spi.connector.ConnectorPageSinkProvider::createPageSink(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorOutputTableHandle, io.trino.spi.connector.ConnectorPageSinkId)</old>
+                                    <justification>Deprecated SPI removal</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.noLongerDefault</code>
+                                    <old>method io.trino.spi.connector.ConnectorPageSink io.trino.spi.connector.ConnectorPageSinkProvider::createPageSink(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorOutputTableHandle, io.trino.spi.connector.ConnectorPageSinkId)</old>
+                                    <justification>Deprecated SPI removal</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.nowAbstract</code>
+                                    <old>method io.trino.spi.connector.ConnectorPageSink io.trino.spi.connector.ConnectorPageSinkProvider::createPageSink(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorInsertTableHandle, io.trino.spi.connector.ConnectorPageSinkId)</old>
+                                    <justification>Deprecated SPI removal</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.nowAbstract</code>
+                                    <old>method io.trino.spi.connector.ConnectorPageSink io.trino.spi.connector.ConnectorPageSinkProvider::createPageSink(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorOutputTableHandle, io.trino.spi.connector.ConnectorPageSinkId)</old>
+                                    <justification>Deprecated SPI removal</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
