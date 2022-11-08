@@ -109,7 +109,7 @@ public class JweTokenSerializer
                     claims.get(REFRESH_TOKEN_KEY, String.class));
         }
         catch (ParseException ex) {
-            throw new IllegalArgumentException("Malformed jwt token", ex);
+            return TokenPair.accessToken(token);
         }
         catch (JOSEException ex) {
             throw new IllegalArgumentException("Decryption failed", ex);
