@@ -93,7 +93,7 @@ public class PhasedExecutionSchedule
      */
     private final List<PlanFragmentId> sortedFragments = new ArrayList<>();
     private final Map<PlanFragmentId, StageExecution> stagesByFragmentId;
-    private final Set<StageExecution> activeStages = new LinkedHashSet<>();
+    private final Set<StageExecution> schedulingStages = new LinkedHashSet<>();
     private final DynamicFilterService dynamicFilterService;
 
     /**
@@ -145,7 +145,7 @@ public class PhasedExecutionSchedule
         // notifications from previously started stages are not lost
         Optional<ListenableFuture<Void>> rescheduleFuture = getRescheduleFuture();
         schedule();
-        return new StagesScheduleResult(activeStages, rescheduleFuture);
+        return new StagesScheduleResult(schedulingStages, rescheduleFuture);
     }
 
     @Override
@@ -165,7 +165,7 @@ public class PhasedExecutionSchedule
     void schedule()
     {
         ImmutableSet.Builder<PlanFragmentId> fragmentsToExecute = ImmutableSet.builder();
-        fragmentsToExecute.addAll(removeCompletedStages());
+        fragmentsToExecute.addAll(removeScheduledStages());
         fragmentsToExecute.addAll(unblockStagesWithFullOutputBuffer());
         selectForExecution(fragmentsToExecute.build());
     }
@@ -183,25 +183,25 @@ public class PhasedExecutionSchedule
     }
 
     @VisibleForTesting
-    Set<StageExecution> getActiveStages()
+    Set<StageExecution> getSchedulingStages()
     {
-        return activeStages;
+        return schedulingStages;
     }
 
-    private Set<PlanFragmentId> removeCompletedStages()
+    private Set<PlanFragmentId> removeScheduledStages()
     {
-        // iterate over all stages, not only active ones; stages which are not yet active could have already been aborted
-        Set<StageExecution> completedStages = stagesByFragmentId.values().stream()
-                .filter(this::isStageCompleted)
+        // iterate over all stages, not only scheduling ones; stages which are not yet scheduling could have already been aborted
+        Set<StageExecution> scheduledStages = stagesByFragmentId.values().stream()
+                .filter(this::isStageScheduled)
                 .collect(toImmutableSet());
         // remove completed stages outside of Java stream to prevent concurrent modification
-        log.debug("completedStages: %s", completedStages);
-        return completedStages.stream()
-                .flatMap(stage -> removeCompletedStage(stage).stream())
+        log.debug("scheduledStages: %s", scheduledStages);
+        return scheduledStages.stream()
+                .flatMap(stage -> removeScheduledStage(stage).stream())
                 .collect(toImmutableSet());
     }
 
-    private Set<PlanFragmentId> removeCompletedStage(StageExecution stage)
+    private Set<PlanFragmentId> removeScheduledStage(StageExecution stage)
     {
         // start all stages that depend on completed stage
         PlanFragmentId fragmentId = stage.getFragment().getId();
@@ -215,7 +215,7 @@ public class PhasedExecutionSchedule
                 .filter(dependentFragmentId -> fragmentDependency.inDegreeOf(dependentFragmentId) == 1)
                 .collect(toImmutableSet());
         fragmentDependency.removeVertex(fragmentId);
-        activeStages.remove(stage);
+        schedulingStages.remove(stage);
         return fragmentsToExecute;
     }
 
@@ -248,16 +248,16 @@ public class PhasedExecutionSchedule
 
     private void selectForExecution(StageExecution stage)
     {
-        if (isStageCompleted(stage)) {
+        if (isStageScheduled(stage)) {
             // don't start completed stages (can happen when non-lazy stage is selected for
             // execution and stage is started immediately even with dependencies)
             return;
         }
 
-        if (activeStages.add(stage) && fragmentDependency.outDegreeOf(stage.getFragment().getId()) > 0) {
+        if (schedulingStages.add(stage) && fragmentDependency.outDegreeOf(stage.getFragment().getId()) > 0) {
             // if there are any dependent stages then reschedule when stage is completed
             stage.addStateChangeListener(state -> {
-                if (isStageCompleted(stage)) {
+                if (isStageScheduled(stage)) {
                     notifyReschedule(stage);
                 }
             });
@@ -276,7 +276,7 @@ public class PhasedExecutionSchedule
         rescheduleFuture.set(null);
     }
 
-    private boolean isStageCompleted(StageExecution stage)
+    private boolean isStageScheduled(StageExecution stage)
     {
         State state = stage.getState();
         return state == SCHEDULED || state == RUNNING || state == FLUSHING || state.isDone();
