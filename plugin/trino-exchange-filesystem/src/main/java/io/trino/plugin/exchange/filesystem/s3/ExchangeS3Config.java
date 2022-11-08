@@ -24,6 +24,7 @@ import software.amazon.awssdk.core.retry.RetryMode;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.model.StorageClass;
 
+import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
@@ -129,6 +130,12 @@ public class ExchangeS3Config
     {
         this.s3Endpoint = Optional.ofNullable(s3Endpoint);
         return this;
+    }
+
+    @AssertTrue(message = "Either exchange.s3.region or exchange.s3.endpoint is expected to be set")
+    public boolean isEndpointOrRegionSet()
+    {
+        return s3Region.isPresent() || s3Endpoint.isPresent();
     }
 
     @Min(0)
