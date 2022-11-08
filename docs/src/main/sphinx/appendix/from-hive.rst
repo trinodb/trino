@@ -110,6 +110,23 @@ Trino query::
     FROM tests
     CROSS JOIN UNNEST(scores) AS t (score);
 
+Use ANSI SQL syntax for date and time INTERVAL expressions
+----------------------------------------------------------
+
+Trino supports the ANSI SQL style ``INTERVAL`` expressions that differs from the implementation used in Hive.
+
+* The ``INTERVAL`` keyword is required and is not optional.
+* Date and time units must be singular. For example ``day`` and not ``days``.
+* Values must be quoted.
+
+Hive query::
+
+    SELECT cast('2000-08-19' as date) + 14 days;
+
+Equivalent Trino query::
+
+    SELECT cast('2000-08-19' as date) + INTERVAL '14' day;
+
 Caution with datediff
 ---------------------
 
