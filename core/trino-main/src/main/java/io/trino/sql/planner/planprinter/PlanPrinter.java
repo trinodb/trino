@@ -975,7 +975,7 @@ public class PlanPrinter
                     context.tag());
 
             if (node.getCommonBaseFrame().isPresent()) {
-                nodeOutput.appendDetails("base frame: " + formatFrame(node.getCommonBaseFrame().get()));
+                nodeOutput.appendDetails("base frame: %s", formatFrame(node.getCommonBaseFrame().get()));
             }
             for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
                 WindowNode.Function function = entry.getValue();
@@ -994,17 +994,17 @@ public class PlanPrinter
                 appendValuePointers(nodeOutput, entry.getValue().getExpressionAndValuePointers());
             }
             if (node.getRowsPerMatch() != WINDOW) {
-                nodeOutput.appendDetails(formatRowsPerMatch(node.getRowsPerMatch()));
+                nodeOutput.appendDetails("%s", formatRowsPerMatch(node.getRowsPerMatch()));
             }
-            nodeOutput.appendDetails(formatSkipTo(node.getSkipToPosition(), node.getSkipToLabel()));
-            nodeOutput.appendDetails(format("pattern[%s] (%s)", node.getPattern(), node.isInitial() ? "INITIAL" : "SEEK"));
-            nodeOutput.appendDetails(format("subsets[%s]", node.getSubsets().entrySet().stream()
+            nodeOutput.appendDetails("%s", formatSkipTo(node.getSkipToPosition(), node.getSkipToLabel()));
+            nodeOutput.appendDetails("pattern[%s] (%s)", node.getPattern(), node.isInitial() ? "INITIAL" : "SEEK");
+            nodeOutput.appendDetails("subsets[%s]", node.getSubsets().entrySet().stream()
                     .map(subset -> subset.getKey().getName() +
                             " := " +
                             subset.getValue().stream()
                                     .map(IrLabel::getName)
                                     .collect(Collectors.joining(", ", "{", "}")))
-                    .collect(joining(", "))));
+                    .collect(joining(", ")));
             for (Map.Entry<IrLabel, ExpressionAndValuePointers> entry : node.getVariableDefinitions().entrySet()) {
                 nodeOutput.appendDetails("%s := %s", entry.getKey().getName(), anonymizer.anonymize(unresolveFunctions(entry.getValue().getExpression())));
                 appendValuePointers(nodeOutput, entry.getValue());
@@ -1027,7 +1027,7 @@ public class PlanPrinter
                     String sourceSymbolName = expressionAndPointers.getClassifierSymbols().contains(symbol)
                             ? "classifier"
                             : anonymizer.anonymize(scalarPointer.getInputSymbol());
-                    nodeOutput.appendDetails(indentString(1) + anonymizer.anonymize(symbol) + " := " + sourceSymbolName + "[" + formatLogicalIndexPointer(scalarPointer.getLogicalIndexPointer()) + "]");
+                    nodeOutput.appendDetails("%s%s := %s[%s]", indentString(1), anonymizer.anonymize(symbol), sourceSymbolName, formatLogicalIndexPointer(scalarPointer.getLogicalIndexPointer()));
                 }
                 else if (pointer instanceof AggregationValuePointer aggregationPointer) {
                     String processingMode = aggregationPointer.getSetDescriptor().isRunning() ? "RUNNING " : "FINAL ";
@@ -1036,7 +1036,7 @@ public class PlanPrinter
                     String labels = aggregationPointer.getSetDescriptor().getLabels().stream()
                             .map(IrLabel::getName)
                             .collect(joining(", ", "{", "}"));
-                    nodeOutput.appendDetails(indentString(1) + anonymizer.anonymize(symbol) + " := " + processingMode + name + "(" + arguments + ")" + labels);
+                    nodeOutput.appendDetails("%s%s := %s%s(%s)%s", indentString(1), anonymizer.anonymize(symbol), processingMode, name, arguments, labels);
                 }
                 else {
                     throw new UnsupportedOperationException("unexpected ValuePointer type: " + pointer.getClass().getSimpleName());
@@ -1204,7 +1204,7 @@ public class PlanPrinter
                     })
                     .collect(toImmutableList());
             for (String row : rows) {
-                nodeOutput.appendDetails(row);
+                nodeOutput.appendDetails("%s", row);
             }
             return null;
         }
@@ -1564,7 +1564,7 @@ public class PlanPrinter
         {
             nodeOutput.appendDetails("Collected statistics:");
             printStatisticAggregationsInfo(nodeOutput, descriptor.getTableStatistics(), descriptor.getColumnStatistics(), aggregations.getAggregations());
-            nodeOutput.appendDetails(indentString(1) + "grouped by => [%s]", getStatisticGroupingSetsInfo(descriptor.getGrouping()));
+            nodeOutput.appendDetails("%sgrouped by => [%s]", indentString(1), getStatisticGroupingSetsInfo(descriptor.getGrouping()));
         }
 
         private String getStatisticGroupingSetsInfo(Map<String, Symbol> columnMappings)
@@ -1582,7 +1582,8 @@ public class PlanPrinter
         {
             nodeOutput.appendDetails("aggregations =>");
             for (Map.Entry<TableStatisticType, Symbol> tableStatistic : tableStatistics.entrySet()) {
-                nodeOutput.appendDetails(indentString(1) + "%s => [%s := %s]",
+                nodeOutput.appendDetails("%s%s => [%s := %s]",
+                        indentString(1),
                         anonymizer.anonymize(tableStatistic.getValue()),
                         tableStatistic.getKey(),
                         formatAggregation(anonymizer, aggregations.get(tableStatistic.getValue())));
@@ -1603,7 +1604,8 @@ public class PlanPrinter
                     }
                 }
                 nodeOutput.appendDetails(
-                        indentString(1) + "%s[%s] => [%s := %s]",
+                        "%s%s[%s] => [%s := %s]",
+                        indentString(1),
                         aggregationName,
                         anonymizer.anonymizeColumn(columnStatistic.getKey().getColumnName()),
                         anonymizer.anonymize(columnStatistic.getValue()),
@@ -1783,10 +1785,10 @@ public class PlanPrinter
                         .collect(toImmutableMap(TableArgumentProperties::getArgumentName, identity()));
 
                 node.getArguments().entrySet()
-                        .forEach(entry -> nodeOutput.appendDetails(formatArgument(entry.getKey(), entry.getValue(), tableArguments)));
+                        .forEach(entry -> nodeOutput.appendDetails("%s", formatArgument(entry.getKey(), entry.getValue(), tableArguments)));
 
                 if (!node.getCopartitioningLists().isEmpty()) {
-                    nodeOutput.appendDetails(node.getCopartitioningLists().stream()
+                    nodeOutput.appendDetails("%s", node.getCopartitioningLists().stream()
                             .map(list -> list.stream().collect(Collectors.joining(", ", "(", ")")))
                             .collect(joining(", ", "Co-partition: [", "]")));
                 }
