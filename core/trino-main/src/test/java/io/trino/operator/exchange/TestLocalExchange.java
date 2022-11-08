@@ -59,7 +59,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DIST
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -317,7 +317,7 @@ public class TestLocalExchange
                 nodePartitioningManager,
                 SESSION,
                 3,
-                SCALED_WRITER_DISTRIBUTION,
+                SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION,
                 ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty(),
@@ -400,7 +400,7 @@ public class TestLocalExchange
                 nodePartitioningManager,
                 SESSION,
                 3,
-                SCALED_WRITER_DISTRIBUTION,
+                SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION,
                 ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty(),
@@ -441,7 +441,7 @@ public class TestLocalExchange
                 nodePartitioningManager,
                 SESSION,
                 3,
-                SCALED_WRITER_DISTRIBUTION,
+                SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION,
                 ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty(),

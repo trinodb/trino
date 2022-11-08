@@ -53,7 +53,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DIST
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -125,7 +125,7 @@ public class LocalExchange
                 return new PassthroughExchanger(sourceIterator.next(), maxBufferedBytes.toBytes() / bufferCount, memoryManager::updateMemoryUsage);
             };
         }
-        else if (partitioning.equals(SCALED_WRITER_DISTRIBUTION)) {
+        else if (partitioning.equals(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION)) {
             exchangerSupplier = () -> new ScaleWriterExchanger(
                     buffers,
                     memoryManager,
@@ -367,7 +367,7 @@ public class LocalExchange
             bufferCount = defaultConcurrency;
             checkArgument(partitionChannels.isEmpty(), "Passthrough exchange must not have partition channels");
         }
-        else if (partitioning.equals(SCALED_WRITER_DISTRIBUTION)) {
+        else if (partitioning.equals(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION)) {
             // Even when scale writers is enabled, the buffer count or the number of drivers will remain constant.
             // However, only some of them are actively doing the work.
             bufferCount = defaultConcurrency;

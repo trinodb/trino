@@ -342,7 +342,7 @@ import static io.trino.sql.planner.SortExpressionExtractor.extractSortExpression
 import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
@@ -516,7 +516,7 @@ public class LocalExecutionPlanner
 
         if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_BROADCAST_DISTRIBUTION) ||
                 partitioningScheme.getPartitioning().getHandle().equals(FIXED_ARBITRARY_DISTRIBUTION) ||
-                partitioningScheme.getPartitioning().getHandle().equals(SCALED_WRITER_DISTRIBUTION) ||
+                partitioningScheme.getPartitioning().getHandle().equals(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION) ||
                 partitioningScheme.getPartitioning().getHandle().equals(SINGLE_DISTRIBUTION) ||
                 partitioningScheme.getPartitioning().getHandle().equals(COORDINATOR_DISTRIBUTION)) {
             return plan(taskContext, plan, outputLayout, types, partitionedSourceOrder, new TaskOutputFactory(outputBuffer));
@@ -3506,7 +3506,7 @@ public class LocalExecutionPlanner
 
             return result.isPresent()
                     && result.get() instanceof ExchangeNode
-                    && ((ExchangeNode) result.get()).getPartitioningScheme().getPartitioning().getHandle().equals(SCALED_WRITER_DISTRIBUTION);
+                    && ((ExchangeNode) result.get()).getPartitioningScheme().getPartitioning().getHandle().isScaleWriters();
         }
 
         private PhysicalOperation createLocalMerge(ExchangeNode node, LocalExecutionPlanContext context)
