@@ -39,23 +39,14 @@ import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static java.util.Objects.requireNonNull;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class JdbcModule
         extends AbstractConfigurationAwareModule
 {
-    private final String catalogName;
-
-    public JdbcModule(String catalogName)
-    {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
-    }
-
     @Override
     public void setup(Binder binder)
     {
-        binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
         install(new JdbcDiagnosticModule());
         install(new IdentifierMappingModule());
 
@@ -85,8 +76,9 @@ public class JdbcModule
         bindSessionPropertiesProvider(binder, JdbcDynamicFilteringSessionProperties.class);
 
         binder.bind(DynamicFilteringStats.class).in(Scopes.SINGLETON);
+        Provider<CatalogName> catalogName = binder.getProvider(CatalogName.class);
         newExporter(binder).export(DynamicFilteringStats.class)
-                .as(generator -> generator.generatedNameOf(DynamicFilteringStats.class, catalogName));
+                .as(generator -> generator.generatedNameOf(DynamicFilteringStats.class, catalogName.get().toString()));
 
         binder.bind(CachingJdbcClient.class).in(Scopes.SINGLETON);
         binder.bind(JdbcClient.class).to(Key.get(CachingJdbcClient.class)).in(Scopes.SINGLETON);
