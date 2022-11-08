@@ -215,15 +215,15 @@ public class PhasedExecutionSchedule
                 .filter(dependentFragmentId -> fragmentDependency.inDegreeOf(dependentFragmentId) == 1)
                 .collect(toImmutableSet());
         fragmentDependency.removeVertex(fragmentId);
-        fragmentTopology.removeVertex(fragmentId);
         activeStages.remove(stage);
         return fragmentsToExecute;
     }
 
     private Set<PlanFragmentId> unblockStagesWithFullOutputBuffer()
     {
-        // find stages that are blocked on full task output buffer
-        Set<PlanFragmentId> blockedFragments = activeStages.stream()
+        // iterate over all stages, not only scheduled ones; stages which are scheduled but still running
+        // (e.g. partitioned stage with broadcast output buffer) might have blocked task output buffer
+        Set<PlanFragmentId> blockedFragments = stagesByFragmentId.values().stream()
                 .filter(StageExecution::isAnyTaskBlocked)
                 .map(stage -> stage.getFragment().getId())
                 .collect(toImmutableSet());
