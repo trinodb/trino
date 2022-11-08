@@ -111,7 +111,6 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
     protected String getExpectedHiveCreateSchema(String catalogName)
     {
         String expectedHiveCreateSchema = "CREATE SCHEMA %s.%s\n" +
-                "AUTHORIZATION ROLE public\n" +
                 "WITH (\n" +
                 "   location = '%s'\n" +
                 ")";
