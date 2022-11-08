@@ -424,7 +424,7 @@ public class UnwrapCastInComparison
 
             if (target instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
                 if (source instanceof TimestampType) {
-                    // Cast from TIMESTAMP WITH TIME ZONE to TIMESTAMP and back to TIMESTAMP WITH TIME ZONE does not round trip, unless the value's zone is equal to sesion zone
+                    // Cast from TIMESTAMP WITH TIME ZONE to TIMESTAMP and back to TIMESTAMP WITH TIME ZONE does not round trip, unless the value's zone is equal to session zone
                     if (!getTimeZone(timestampWithTimeZoneType, value).equals(session.getTimeZoneKey())) {
                         return false;
                     }
