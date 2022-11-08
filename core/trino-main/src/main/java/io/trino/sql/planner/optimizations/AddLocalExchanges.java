@@ -84,7 +84,7 @@ import static io.trino.SystemSessionProperties.isTaskScaleWritersEnabled;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.StreamPreferredProperties.any;
 import static io.trino.sql.planner.optimizations.StreamPreferredProperties.defaultParallelism;
@@ -626,7 +626,7 @@ public class AddLocalExchanges
                                 LOCAL,
                                 newSource.getNode(),
                                 new PartitioningScheme(
-                                        Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()),
+                                        Partitioning.create(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION, ImmutableList.of()),
                                         newSource.getNode().getOutputSymbols())),
                         newSource.getProperties());
                 return rebaseAndDeriveProperties(node, ImmutableList.of(exchange));
