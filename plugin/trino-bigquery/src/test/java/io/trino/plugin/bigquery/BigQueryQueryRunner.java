@@ -31,6 +31,7 @@ import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.sql.SqlExecutor;
+import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 
 import java.io.ByteArrayInputStream;
@@ -45,6 +46,8 @@ import java.util.Map;
 import static com.google.cloud.bigquery.BigQuery.DatasetDeleteOption.deleteContents;
 import static com.google.cloud.bigquery.BigQuery.DatasetListOption.labelFilter;
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -57,7 +60,10 @@ public final class BigQueryQueryRunner
 
     private BigQueryQueryRunner() {}
 
-    public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties, Map<String, String> connectorProperties)
+    public static DistributedQueryRunner createQueryRunner(
+            Map<String, String> extraProperties,
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> tables)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -79,6 +85,10 @@ public final class BigQueryQueryRunner
                     "bigquery",
                     "bigquery",
                     connectorProperties);
+
+            queryRunner.execute(createSession(), "CREATE SCHEMA IF NOT EXISTS " + TPCH_SCHEMA);
+            queryRunner.execute(createSession(), "CREATE SCHEMA IF NOT EXISTS " + TEST_SCHEMA);
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
 
             return queryRunner;
         }
@@ -182,7 +192,10 @@ public final class BigQueryQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of("http-server.http.port", "8080"), ImmutableMap.of());
+        DistributedQueryRunner queryRunner = createQueryRunner(
+                ImmutableMap.of("http-server.http.port", "8080"),
+                ImmutableMap.of(),
+                TpchTable.getTables());
         Thread.sleep(10);
         Logger log = Logger.get(BigQueryQueryRunner.class);
         log.info("======== SERVER STARTED ========");

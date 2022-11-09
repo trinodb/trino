@@ -68,7 +68,8 @@ public class TestBigQueryTypeMapping
     {
         return BigQueryQueryRunner.createQueryRunner(
                 ImmutableMap.of(),
-                ImmutableMap.of("bigquery.skip-view-materialization", "true"));
+                ImmutableMap.of("bigquery.skip-view-materialization", "true"),
+                ImmutableList.of());
     }
 
     @Test
