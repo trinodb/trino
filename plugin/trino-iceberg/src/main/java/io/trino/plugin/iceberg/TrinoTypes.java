@@ -147,20 +147,20 @@ public final class TrinoTypes
 
     private static Optional<Object> getAdjacentValue(long min, long max, long value, Direction direction)
     {
-        switch (direction) {
-            case PREV:
+        return switch (direction) {
+            case PREV -> {
                 if (value == min) {
-                    return Optional.empty();
+                    yield Optional.empty();
                 }
-                return Optional.of(value - 1);
-
-            case NEXT:
+                yield Optional.of(value - 1);
+            }
+            case NEXT -> {
                 if (value == max) {
-                    return Optional.empty();
+                    yield Optional.empty();
                 }
-                return Optional.of(value + 1);
-        }
-        throw new UnsupportedOperationException("Unsupported direction: " + direction);
+                yield Optional.of(value + 1);
+            }
+        };
     }
 
     private enum Direction
