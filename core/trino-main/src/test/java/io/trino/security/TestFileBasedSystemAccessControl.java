@@ -92,30 +92,18 @@ public class TestFileBasedSystemAccessControl
         accessControlManager.checkCanImpersonateUser(Identity.ofUser("admin"), "bob");
         accessControlManager.checkCanImpersonateUser(Identity.ofUser("admin"), "anything");
         accessControlManager.checkCanImpersonateUser(Identity.ofUser("admin-other"), "anything");
-        try {
-            accessControlManager.checkCanImpersonateUser(Identity.ofUser("admin-test"), "alice");
-            throw new AssertionError("expected AccessDeniedException");
-        }
-        catch (AccessDeniedException expected) {
-        }
+        assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("admin-test"), "alice"))
+                .isInstanceOf(AccessDeniedException.class);
 
-        try {
-            accessControlManager.checkCanImpersonateUser(Identity.ofUser("invalid"), "alice");
-            throw new AssertionError("expected AccessDeniedException");
-        }
-        catch (AccessDeniedException expected) {
-        }
+        assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("invalid"), "alice"))
+                .isInstanceOf(AccessDeniedException.class);
 
         accessControlManager.checkCanImpersonateUser(Identity.ofUser("anything"), "test");
-        try {
-            accessControlManager.checkCanImpersonateUser(Identity.ofUser("invalid-other"), "test");
-            throw new AssertionError("expected AccessDeniedException");
-        }
-        catch (AccessDeniedException expected) {
-        }
+        assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("invalid-other"), "test"))
+                .isInstanceOf(AccessDeniedException.class);
 
-        accessControlManager = newAccessControlManager(transactionManager, "catalog_principal.json");
-        accessControlManager.checkCanImpersonateUser(Identity.ofUser("anything"), "anythingElse");
+        AccessControlManager accessControlManagerWithPrincipal = newAccessControlManager(transactionManager, "catalog_principal.json");
+        accessControlManagerWithPrincipal.checkCanImpersonateUser(Identity.ofUser("anything"), "anythingElse");
     }
 
     @Test
@@ -144,38 +132,22 @@ public class TestFileBasedSystemAccessControl
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog_principal.json");
 
-        try {
-            accessControlManager.checkCanSetUser(Optional.empty(), alice.getUser());
-            throw new AssertionError("expected AccessDeniedExeption");
-        }
-        catch (AccessDeniedException expected) {
-        }
+        assertThatThrownBy(() -> accessControlManager.checkCanSetUser(Optional.empty(), alice.getUser()))
+                .isInstanceOf(AccessDeniedException.class);
 
         accessControlManager.checkCanSetUser(kerberosValidAlice.getPrincipal(), kerberosValidAlice.getUser());
         accessControlManager.checkCanSetUser(kerberosValidNonAsciiUser.getPrincipal(), kerberosValidNonAsciiUser.getUser());
-        try {
-            accessControlManager.checkCanSetUser(kerberosInvalidAlice.getPrincipal(), kerberosInvalidAlice.getUser());
-            throw new AssertionError("expected AccessDeniedExeption");
-        }
-        catch (AccessDeniedException expected) {
-        }
+        assertThatThrownBy(() -> accessControlManager.checkCanSetUser(kerberosInvalidAlice.getPrincipal(), kerberosInvalidAlice.getUser()))
+                .isInstanceOf(AccessDeniedException.class);
 
         accessControlManager.checkCanSetUser(kerberosValidShare.getPrincipal(), kerberosValidShare.getUser());
-        try {
-            accessControlManager.checkCanSetUser(kerberosInValidShare.getPrincipal(), kerberosInValidShare.getUser());
-            throw new AssertionError("expected AccessDeniedExeption");
-        }
-        catch (AccessDeniedException expected) {
-        }
+        assertThatThrownBy(() -> accessControlManager.checkCanSetUser(kerberosInValidShare.getPrincipal(), kerberosInValidShare.getUser()))
+                .isInstanceOf(AccessDeniedException.class);
 
         accessControlManager.checkCanSetUser(validSpecialRegexWildDot.getPrincipal(), validSpecialRegexWildDot.getUser());
         accessControlManager.checkCanSetUser(validSpecialRegexEndQuote.getPrincipal(), validSpecialRegexEndQuote.getUser());
-        try {
-            accessControlManager.checkCanSetUser(invalidSpecialRegex.getPrincipal(), invalidSpecialRegex.getUser());
-            throw new AssertionError("expected AccessDeniedExeption");
-        }
-        catch (AccessDeniedException expected) {
-        }
+        assertThatThrownBy(() -> accessControlManager.checkCanSetUser(invalidSpecialRegex.getPrincipal(), invalidSpecialRegex.getUser()))
+                .isInstanceOf(AccessDeniedException.class);
 
         AccessControlManager accessControlManagerNoPatterns = newAccessControlManager(transactionManager, "catalog.json");
         accessControlManagerNoPatterns.checkCanSetUser(kerberosValidAlice.getPrincipal(), kerberosValidAlice.getUser());
