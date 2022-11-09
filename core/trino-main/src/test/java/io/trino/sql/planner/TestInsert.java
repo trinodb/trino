@@ -301,6 +301,7 @@ public class TestInsert
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "false")
                 .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "false")
                 .setSystemProperty(TASK_WRITER_COUNT, "16")
+                .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, "2") // force parallel plan even on test nodes with single CPU
                 .build();
     }
 }
