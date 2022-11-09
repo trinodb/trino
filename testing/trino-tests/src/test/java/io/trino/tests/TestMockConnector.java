@@ -265,4 +265,31 @@ public class TestMockConnector
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE mock.default.new_table (c int) WITH (unknown_property = 1)"))
                 .hasMessage("Catalog 'mock' table property 'unknown_property' does not exist");
     }
+
+    @Test
+    public void testCaseInsensitive()
+    {
+        assertUpdate("Create Schema Mock.New_Schema");
+        assertUpdate("Drop Schema Mock.Default");
+        assertUpdate("Alter Schema Mock.Default Rename To Renamed");
+        assertUpdate("Comment On View Mock.Default.Test_View Is 'new comment'");
+        assertUpdate("Create Materialized View Mock.Default.Materialized_View With (Refresh_Interval = '1h') As Select * From Tpch.Tiny.Nation");
+        assertUpdate("Refresh Materialized View Mock.Default.Test_Materialized_View", 0);
+        assertUpdate("Drop Materialized View Mock.Default.Test_Materialized_View");
+        assertQuery("Select Nationkey From Mock.Default.Nation", "Select Nationkey From Nation");
+        assertUpdate("Insert Into Mock.Default.Nation Values (101, 'POLAND', 0, 'No comment')", 1);
+        assertUpdate("Delete From Mock.Default.Nation Where Nationkey = 1", 1);
+        assertUpdate("Update Mock.Default.Nation Set Name = 'ALGERIA'", 25);
+        assertUpdate("""
+                Merge Into Mock.Default.Nation N1 Using Mock.Default.NATION N2
+                    On N1.Name = N2.NAME
+                    When Matched
+                        Then Update Set Name = N2.Name
+                """, 25);
+        assertUpdate("Call Mock.Default.Test_Procedure()");
+        assertQuerySucceeds("Alter Table Mock.Default.Test_Table Execute Testing_Table_Procedure()");
+        assertThatThrownBy(() -> assertUpdate("Select * From Table(Mock.System.Simple_Table_Function())"))
+                .hasMessage("execution by operator is not yet implemented for table function simple_table_function");
+        assertUpdate("Create Table Mock.Default.New_Table (C int) With (Integer_Table_Property = 1)");
+    }
 }
