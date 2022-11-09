@@ -42,7 +42,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
 import static java.util.Objects.requireNonNull;
-import static org.apache.commons.lang3.StringUtils.isNotEmpty;
 
 public class CachingDirectoryLister
         implements DirectoryLister
@@ -238,7 +237,7 @@ public class CachingDirectoryLister
     private static boolean isLocationPresent(Storage storage)
     {
         // Some Hive table types (e.g.: views) do not have a storage location
-        return storage.getOptionalLocation().isPresent() && isNotEmpty(storage.getLocation());
+        return storage.getOptionalLocation().isPresent() && !storage.getLocation().isEmpty();
     }
 
     /**
