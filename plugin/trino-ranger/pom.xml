@@ -184,6 +184,10 @@
                 </exclusion>
                 <exclusion>
                     <groupId>org.eclipse.persistence</groupId>
+                    <artifactId>org.eclipse.persistence.moxy</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.eclipse.persistence</groupId>
                     <artifactId>javax.persistence</artifactId>
                 </exclusion>
             </exclusions>
