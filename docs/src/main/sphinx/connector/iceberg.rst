@@ -751,6 +751,8 @@ and rename operations, including in nested structures.
 Table partitioning can also be changed and the connector can still
 query data created before the partitioning change.
 
+.. _iceberg-register-table:
+
 Register table
 --------------
 The connector can register existing Iceberg tables with the catalog.
