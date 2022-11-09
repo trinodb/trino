@@ -429,20 +429,15 @@ public class HivePageSourceProvider
         HiveColumnHandle expectedColumn = (HiveColumnHandle) expected;
         HiveColumnHandle readColumn = (HiveColumnHandle) read;
 
-        checkArgument(expectedColumn.getBaseColumn().equals(readColumn.getBaseColumn()), "reader column is not valid for expected column");
+        checkState(readColumn.isBaseColumn(),  "Read column path must be a base column");
+        checkState(expectedColumn.getBaseColumn().equals(readColumn.getBaseColumn()), "reader column is not valid for expected column");
 
-        List<Integer> expectedDereferences = expectedColumn.getHiveColumnProjectionInfo()
-                .map(HiveColumnProjectionInfo::getDereferenceIndices)
-                .orElse(ImmutableList.of());
+        List<String> expectedDereferenceNames = expectedColumn.getHiveColumnProjectionInfo()
+            .map(HiveColumnProjectionInfo::getDereferenceNames)
+            .orElse(ImmutableList.of());
 
-        List<Integer> readerDereferences = readColumn.getHiveColumnProjectionInfo()
-                .map(HiveColumnProjectionInfo::getDereferenceIndices)
-                .orElse(ImmutableList.of());
-
-        checkArgument(readerDereferences.size() <= expectedDereferences.size(), "Field returned by the reader should include expected field");
-        checkArgument(expectedDereferences.subList(0, readerDereferences.size()).equals(readerDereferences), "Field returned by the reader should be a prefix of expected field");
-
-        return expectedDereferences.subList(readerDereferences.size(), expectedDereferences.size());
+        HiveType hiveType = readColumn.getHiveType();
+        return hiveType.getHiveDereferenceDataAccessIndices(expectedDereferenceNames);
     }
 
     public static class ColumnMapping
@@ -533,6 +528,7 @@ public class HivePageSourceProvider
             return index.getAsInt();
         }
 
+        // partition side
         public Optional<HiveType> getBaseTypeCoercionFrom()
         {
             return baseTypeCoercionFrom;
@@ -631,15 +627,12 @@ public class HivePageSourceProvider
 
         private static boolean projectionValidForType(HiveType baseType, Optional<HiveColumnProjectionInfo> projection, boolean nestedStructNameBasedMapping)
         {
-            if (nestedStructNameBasedMapping) {
-                List<String> dereferences = projection.map(HiveColumnProjectionInfo::getDereferenceNames).orElse(ImmutableList.of());
-                Optional<HiveType> targetType = baseType.getHiveTypeForDereferencesNameBased(dereferences);
-                return targetType.isPresent();
-            } else {
-                List<Integer> dereferences = projection.map(HiveColumnProjectionInfo::getDereferenceIndices).orElse(ImmutableList.of());
-                Optional<HiveType> targetType = baseType.getHiveTypeForDereferences(dereferences);
-                return targetType.isPresent();
-            }
+            List<Integer> dereferences = nestedStructNameBasedMapping ?
+                    projection.map(HiveColumnProjectionInfo::getDereferenceDataAccessIndices).orElse(ImmutableList.of()) :
+                    projection.map(HiveColumnProjectionInfo::getDereferenceIndices).orElse(ImmutableList.of());
+
+            Optional<HiveType> targetType = baseType.getHiveTypeForDereferences(dereferences);
+            return targetType.isPresent();
         }
 
         public static List<ColumnMapping> extractRegularAndInterimColumnMappings(List<ColumnMapping> columnMappings)
@@ -662,12 +655,17 @@ public class HivePageSourceProvider
                         // seems the partition translate here
                         Optional<HiveColumnProjectionInfo> newColumnProjectionInfo = columnHandle.getHiveColumnProjectionInfo().map(projectedColumn -> {
                             HiveType fromHiveType;
+                            List<Integer> dereferenceDataAccessIndices;
+
+                            // columnMapping.hiveColumnHandle.getBaseColumn()
                             if (columnMapping.isNestedStructNameBasedMapping()) {
+//                                dereferenceDataAccessIndices = fromHiveTypeBase.getHiveDereferenceDataAccessIndices(projectedColumn.getDereferenceNames());
                                 fromHiveType = fromHiveTypeBase.getHiveTypeForDereferencesNameBased(projectedColumn.getDereferenceNames()).get();
                             } else {
                                 fromHiveType = fromHiveTypeBase.getHiveTypeForDereferences(projectedColumn.getDereferenceIndices()).get();
                             }
                             return new HiveColumnProjectionInfo(
+                                    projectedColumn.getDereferenceIndices(),
                                     projectedColumn.getDereferenceIndices(),
                                     projectedColumn.getDereferenceNames(),
                                     fromHiveType,
@@ -811,7 +809,7 @@ public class HivePageSourceProvider
     }
 
     /**
-     * Creates a mapping between the input {@param columns} and base columns if required.
+     * Creates a mapping between the input {@param columns} and base columns it required.
      */
     public static Optional<ReaderColumns> projectBaseColumns(List<HiveColumnHandle> columns)
     {
@@ -845,6 +843,8 @@ public class HivePageSourceProvider
         return Optional.of(new ReaderColumns(projectedColumns.build(), outputColumnMapping.build()));
     }
 
+
+    // Is this code being actively used?
     /**
      * Creates a set of sufficient columns for the input projected columns and prepares a mapping between the two. For example,
      * if input {@param columns} include columns "a.b" and "a.b.c", then they will be projected from a single column "a.b".

@@ -32,7 +32,7 @@ public class ReaderColumns
 {
     // columns to be read by the reader (ordered)
     private final List<ColumnHandle> readerColumns;
-    // indices for mapping expected column handles to the reader's column handles
+    // indices for mapping expected column handles to the reader's column handles(as above)
     private final List<Integer> readerBlockIndices;
 
     public ReaderColumns(List<? extends ColumnHandle> readerColumns, List<Integer> readerBlockIndices)
@@ -52,9 +52,14 @@ public class ReaderColumns
         checkArgument(index >= 0 && index < readerBlockIndices.size(), "index is not valid");
         int readerIndex = readerBlockIndices.get(index);
         return readerColumns.get(readerIndex);
+
+//        checkArgument(index >= 0 && index < readerBlockIndices.size(), "index is not valid");
+//        int readerIndex = readerBlockIndices.get(index);
+//        return readerColumns.get(getPositionForColumnAt(index));
     }
 
     /**
+     * todo: what is channel? seems like index in readerColumns when creating the map
      * For a channel expected by wrapper page source, returns the channel index in the underlying page source or record cursor.
      */
     public int getPositionForColumnAt(int index)

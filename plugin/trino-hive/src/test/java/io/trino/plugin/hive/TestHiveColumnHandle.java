@@ -68,6 +68,7 @@ public class TestHiveColumnHandle
 
         HiveColumnProjectionInfo columnProjectionInfo = new HiveColumnProjectionInfo(
                 ImmutableList.of(1),
+                ImmutableList.of(1),
                 ImmutableList.of("b"),
                 HiveType.HIVE_LONG,
                 BIGINT);

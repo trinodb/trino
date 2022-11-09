@@ -516,6 +516,7 @@ public abstract class AbstractTestHiveFileFormats
                         baseHiveType.getType(TESTING_TYPE_MANAGER),
                         Optional.of(new HiveColumnProjectionInfo(
                                 testColumn.getDereferenceIndices(),
+                                testColumn.getDereferenceIndices(),
                                 testColumn.getDereferenceNames(),
                                 partialHiveType,
                                 partialHiveType.getType(TESTING_TYPE_MANAGER))),

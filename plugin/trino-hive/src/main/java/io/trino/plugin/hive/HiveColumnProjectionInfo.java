@@ -32,7 +32,12 @@ public class HiveColumnProjectionInfo
 {
     private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(HiveColumnProjectionInfo.class).instanceSize());
 
+    // indices chain in the schema/table order
     private final List<Integer> dereferenceIndices;
+
+    // indices chain in the partition order
+    private final List<Integer> dereferenceDataAccessIndices;
+
     private final List<String> dereferenceNames;
     private final HiveType hiveType;
     private final Type type;
@@ -41,12 +46,15 @@ public class HiveColumnProjectionInfo
     @JsonCreator
     public HiveColumnProjectionInfo(
             @JsonProperty("dereferenceIndices") List<Integer> dereferenceIndices,
+            @JsonProperty("dereferenceDataAccessIndices") List<Integer> dereferenceDataAccessIndices,
             @JsonProperty("dereferenceNames") List<String> dereferenceNames,
             @JsonProperty("hiveType") HiveType hiveType,
             @JsonProperty("type") Type type)
     {
         this.dereferenceIndices = requireNonNull(dereferenceIndices, "dereferenceIndices is null");
+        this.dereferenceDataAccessIndices = requireNonNull(dereferenceDataAccessIndices, "dereferenceDataAccessIndices is null");
         this.dereferenceNames = requireNonNull(dereferenceNames, "dereferenceNames is null");
+
         checkArgument(dereferenceIndices.size() > 0, "dereferenceIndices should not be empty");
         checkArgument(dereferenceIndices.size() == dereferenceNames.size(), "dereferenceIndices and dereferenceNames should have the same sizes");
 
@@ -66,6 +74,13 @@ public class HiveColumnProjectionInfo
     {
         return dereferenceIndices;
     }
+
+    @JsonProperty
+    public List<Integer> getDereferenceDataAccessIndices()
+    {
+        return dereferenceDataAccessIndices;
+    }
+
 
     @JsonProperty
     public List<String> getDereferenceNames()
@@ -103,6 +118,7 @@ public class HiveColumnProjectionInfo
 
         HiveColumnProjectionInfo other = (HiveColumnProjectionInfo) obj;
         return Objects.equals(this.dereferenceIndices, other.dereferenceIndices) &&
+                Objects.equals(this.dereferenceDataAccessIndices, other.dereferenceDataAccessIndices) &&
                 Objects.equals(this.dereferenceNames, other.dereferenceNames) &&
                 Objects.equals(this.hiveType, other.hiveType) &&
                 Objects.equals(this.type, other.type);
@@ -119,6 +135,7 @@ public class HiveColumnProjectionInfo
     {
         return INSTANCE_SIZE
                 + estimatedSizeOf(dereferenceIndices, SizeOf::sizeOf)
+                + estimatedSizeOf(dereferenceDataAccessIndices, SizeOf::sizeOf)
                 + estimatedSizeOf(dereferenceNames, SizeOf::estimatedSizeOf)
                 + hiveType.getRetainedSizeInBytes()
                 // type is not accounted for as the instances are cached (by TypeRegistry) and shared

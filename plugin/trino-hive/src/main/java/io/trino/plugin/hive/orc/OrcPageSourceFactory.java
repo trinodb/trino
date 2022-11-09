@@ -182,7 +182,7 @@ public class OrcPageSourceFactory
         }
 
         List<HiveColumnHandle> readerColumnHandles = columns;
-
+        // list of physical read data columns
         Optional<ReaderColumns> readerColumns = projectBaseColumns(columns);
         if (readerColumns.isPresent()) {
             readerColumnHandles = readerColumns.get().get().stream()

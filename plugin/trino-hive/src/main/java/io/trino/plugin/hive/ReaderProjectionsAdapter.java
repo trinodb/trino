@@ -52,6 +52,7 @@ public class ReaderProjectionsAdapter
         ImmutableList.Builder<ChannelMapping> mappingBuilder = ImmutableList.builder();
 
         for (int i = 0; i < expectedColumns.size(); i++) {
+            // underlying datasource
             ColumnHandle projectedColumnHandle = readColumns.getForColumnAt(i);
             // todo: change here
             int inputChannel = readColumns.getPositionForColumnAt(i);

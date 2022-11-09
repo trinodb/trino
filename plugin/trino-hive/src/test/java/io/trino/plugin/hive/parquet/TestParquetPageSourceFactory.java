@@ -53,7 +53,8 @@ public class TestParquetPageSourceFactory
                 Optional.of(
                     new HiveColumnProjectionInfo(
                         ImmutableList.of(1, 1),
-                        ImmutableList.of("optional_level2", "required_level3"),
+                            ImmutableList.of(1, 1),
+                            ImmutableList.of("optional_level2", "required_level3"),
                         toHiveType(IntegerType.INTEGER),
                         IntegerType.INTEGER)),
                 REGULAR,

@@ -2972,6 +2972,7 @@ public class HiveMetadata
                                 .orElse(ImmutableList.of()))
                         .addAll(indices)
                         .build(),
+                ImmutableList.of(),
                 // Merge names
                 ImmutableList.<String>builder()
                         .addAll(column.getHiveColumnProjectionInfo()

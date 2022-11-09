@@ -221,7 +221,6 @@ public final class HiveType
         for (int fieldIndex : dereferences) {
             checkArgument(typeInfo instanceof StructTypeInfo, "typeInfo should be struct type", typeInfo);
             StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
-           // TODO: USE name based mapping here
             try {
                 typeInfo = structTypeInfo.getAllStructFieldTypeInfos().get(fieldIndex);
             }
@@ -238,7 +237,6 @@ public final class HiveType
         for (String fieldName : dereferences) {
             checkArgument(typeInfo instanceof StructTypeInfo, "typeInfo should be struct type", typeInfo);
             StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
-            // TODO: USE name based mapping here
             try {
                 int fieldIndex = structTypeInfo.getAllStructFieldNames().indexOf(fieldName);
                 typeInfo = structTypeInfo.getAllStructFieldTypeInfos().get(fieldIndex);
@@ -248,6 +246,29 @@ public final class HiveType
             }
         }
         return Optional.of(toHiveType(typeInfo));
+    }
+
+    // use the name based lookup and translate into access indices according to the partition's layout
+    // empty means cannot access such field
+    public List<Integer> getHiveDereferenceDataAccessIndices(List<String> dereferences)
+    {
+        ImmutableList.Builder<Integer> dereferenceDataAccessIndices = ImmutableList.builder();
+        TypeInfo typeInfo = getTypeInfo();
+
+        for (String fieldName : dereferences) {
+            checkArgument(typeInfo instanceof StructTypeInfo, "typeInfo should be struct type", typeInfo);
+            StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
+            int fieldIndex = structTypeInfo.getAllStructFieldNames().indexOf(fieldName);
+
+            if (fieldIndex < 0) {
+                return ImmutableList.of();
+            } else {
+                dereferenceDataAccessIndices.add(fieldIndex);
+                typeInfo = structTypeInfo.getAllStructFieldTypeInfos().get(fieldIndex);
+            }
+        }
+
+        return dereferenceDataAccessIndices.build();
     }
 
     public List<String> getHiveDereferenceNames(List<Integer> dereferences)

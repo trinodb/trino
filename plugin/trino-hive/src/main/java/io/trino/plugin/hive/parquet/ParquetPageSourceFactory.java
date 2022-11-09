@@ -291,6 +291,7 @@ public class ParquetPageSourceFactory
         }
     }
 
+
     public static Optional<MessageType> getParquetMessageType(List<HiveColumnHandle> columns, boolean useColumnNames, MessageType fileSchema)
     {
         Optional<MessageType> message = projectSufficientColumns(columns)

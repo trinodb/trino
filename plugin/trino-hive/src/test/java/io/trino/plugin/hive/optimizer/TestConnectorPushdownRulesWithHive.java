@@ -159,6 +159,7 @@ public class TestConnectorPushdownRulesWithHive
                 baseType,
                 Optional.of(new HiveColumnProjectionInfo(
                         ImmutableList.of(0),
+                        ImmutableList.of(0),
                         ImmutableList.of("a"),
                         toHiveType(BIGINT),
                         BIGINT)),
@@ -314,6 +315,7 @@ public class TestConnectorPushdownRulesWithHive
                 toHiveType(ROW_TYPE),
                 ROW_TYPE,
                 Optional.of(new HiveColumnProjectionInfo(
+                        ImmutableList.of(0),
                         ImmutableList.of(0),
                         ImmutableList.of("a"),
                         toHiveType(BIGINT),
