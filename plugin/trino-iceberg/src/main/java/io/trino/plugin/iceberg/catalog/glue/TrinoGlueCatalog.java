@@ -631,32 +631,32 @@ public class TrinoGlueCatalog
     @Override
     public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> namespace)
     {
+        ImmutableList.Builder<SchemaTableName> views = ImmutableList.builder();
         try {
             List<String> namespaces = namespace.map(List::of).orElseGet(() -> listNamespaces(session));
-            return namespaces.stream()
-                    .flatMap(glueNamespace -> {
-                        try {
-                            return getPaginatedResults(
-                                    glueClient::getTables,
-                                    new GetTablesRequest().withDatabaseName(glueNamespace),
-                                    GetTablesRequest::setNextToken,
-                                    GetTablesResult::getNextToken,
-                                    stats.getGetTables())
-                                    .map(GetTablesResult::getTableList)
-                                    .flatMap(List::stream)
-                                    .filter(table -> isPrestoView(firstNonNull(table.getParameters(), ImmutableMap.of())))
-                                    .map(table -> new SchemaTableName(glueNamespace, table.getName()));
-                        }
-                        catch (EntityNotFoundException e) {
-                            // Namespace may have been deleted
-                            return Stream.empty();
-                        }
-                    })
-                    .collect(toImmutableList());
+            for (String glueNamespace : namespaces) {
+                try {
+                    views.addAll(getPaginatedResults(
+                            glueClient::getTables,
+                            new GetTablesRequest().withDatabaseName(glueNamespace),
+                            GetTablesRequest::setNextToken,
+                            GetTablesResult::getNextToken,
+                            stats.getGetTables())
+                            .map(GetTablesResult::getTableList)
+                            .flatMap(List::stream)
+                            .filter(table -> isPrestoView(firstNonNull(table.getParameters(), ImmutableMap.of())))
+                            .map(table -> new SchemaTableName(glueNamespace, table.getName()))
+                            .collect(toImmutableList()));
+                }
+                catch (EntityNotFoundException e) {
+                    // Namespace may have been deleted
+                }
+            }
         }
         catch (AmazonServiceException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
         }
+        return views.build();
     }
 
     @Override
