@@ -627,12 +627,15 @@ public class HivePageSourceProvider
 
         private static boolean projectionValidForType(HiveType baseType, Optional<HiveColumnProjectionInfo> projection, boolean nestedStructNameBasedMapping)
         {
-            List<Integer> dereferences = nestedStructNameBasedMapping ?
-                    projection.map(HiveColumnProjectionInfo::getDereferenceDataAccessIndices).orElse(ImmutableList.of()) :
-                    projection.map(HiveColumnProjectionInfo::getDereferenceIndices).orElse(ImmutableList.of());
-
-            Optional<HiveType> targetType = baseType.getHiveTypeForDereferences(dereferences);
-            return targetType.isPresent();
+            if (nestedStructNameBasedMapping) {
+                List<String> dereferences = projection.map(HiveColumnProjectionInfo::getDereferenceNames).orElse(ImmutableList.of());
+                Optional<HiveType> targetType = baseType.getHiveTypeForDereferencesNameBased(dereferences);
+                return targetType.isPresent();
+            } else {
+                List<Integer> dereferences = projection.map(HiveColumnProjectionInfo::getDereferenceIndices).orElse(ImmutableList.of());
+                Optional<HiveType> targetType = baseType.getHiveTypeForDereferences(dereferences);
+                return targetType.isPresent();
+            }
         }
 
         public static List<ColumnMapping> extractRegularAndInterimColumnMappings(List<ColumnMapping> columnMappings)
