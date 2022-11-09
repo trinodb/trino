@@ -79,6 +79,7 @@ import io.trino.sql.tree.WindowSpecification;
 
 import javax.annotation.Nullable;
 
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -88,7 +89,6 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_AGGREGATE;
@@ -107,6 +107,7 @@ import static io.trino.sql.analyzer.ScopeReferenceExtractor.isFieldFromScope;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
 import static java.lang.String.format;
+import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -117,7 +118,7 @@ class AggregationAnalyzer
     // fields and expressions in the group by clause
     private final Set<FieldId> groupingFields;
     private final Set<ScopeAware<Expression>> expressions;
-    private final Map<NodeRef<Expression>, FieldId> columnReferences;
+    private final Map<Expression, FieldId> columnReferences;
 
     private final Session session;
     private final Metadata metadata;
@@ -175,12 +176,13 @@ class AggregationAnalyzer
                 .map(expression -> scopeAwareKey(expression, analysis, sourceScope))
                 .collect(toImmutableSet());
 
-        this.columnReferences = analysis.getColumnReferenceFields()
-                .entrySet().stream()
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getFieldId()));
+        Map<Expression, FieldId> columnReferencesLocal = new IdentityHashMap<>();
+        for (Map.Entry<NodeRef<Expression>, ResolvedField> e : analysis.getColumnReferenceFields().entrySet()) {
+            columnReferencesLocal.put(e.getKey().getNode(), e.getValue().getFieldId());
+        }
+        this.columnReferences = unmodifiableMap(columnReferencesLocal);
 
         this.groupingFields = groupByExpressions.stream()
-                .map(NodeRef::of)
                 .filter(columnReferences::containsKey)
                 .map(columnReferences::get)
                 .collect(toImmutableSet());
@@ -390,12 +392,11 @@ class AggregationAnalyzer
                                 .collect(toImmutableList());
                         if (node.isDistinct()) {
                             List<FieldId> fieldIds = node.getArguments().stream()
-                                    .map(NodeRef::of)
                                     .map(columnReferences::get)
                                     .filter(Objects::nonNull)
                                     .collect(toImmutableList());
                             for (Expression sortKey : sortKeys) {
-                                if (!node.getArguments().contains(sortKey) && !fieldIds.contains(columnReferences.get(NodeRef.of(sortKey)))) {
+                                if (!node.getArguments().contains(sortKey) && !fieldIds.contains(columnReferences.get(sortKey))) {
                                     throw semanticException(
                                             EXPRESSION_NOT_IN_DISTINCT,
                                             sortKey,
@@ -561,7 +562,7 @@ class AggregationAnalyzer
                 return true;
             }
 
-            if (columnReferences.containsKey(NodeRef.<Expression>of(node))) {
+            if (columnReferences.containsKey(node)) {
                 return isGroupingKey(node);
             }
 
@@ -571,7 +572,7 @@ class AggregationAnalyzer
 
         private boolean isGroupingKey(Expression node)
         {
-            FieldId fieldId = columnReferences.get(NodeRef.of(node));
+            FieldId fieldId = columnReferences.get(node);
             requireNonNull(fieldId, () -> "No FieldId for " + node);
 
             if (orderByScope.isPresent() && isFieldFromScope(fieldId, orderByScope.get())) {
@@ -588,7 +589,7 @@ class AggregationAnalyzer
                 return true;
             }
 
-            FieldId fieldId = requireNonNull(columnReferences.get(NodeRef.<Expression>of(node)), "No FieldId for FieldReference");
+            FieldId fieldId = requireNonNull(columnReferences.get(node), "No FieldId for FieldReference");
             boolean inGroup = groupingFields.contains(fieldId);
             if (!inGroup) {
                 Field field = sourceScope.getRelationType().getFieldByIndex(node.getFieldIndex());
@@ -710,7 +711,7 @@ class AggregationAnalyzer
             }
 
             Optional<Expression> argumentNotInGroupBy = node.getGroupingColumns().stream()
-                    .filter(argument -> !columnReferences.containsKey(NodeRef.of(argument)) || !isGroupingKey(argument))
+                    .filter(argument -> !columnReferences.containsKey(argument) || !isGroupingKey(argument))
                     .findAny();
             if (argumentNotInGroupBy.isPresent()) {
                 throw semanticException(
