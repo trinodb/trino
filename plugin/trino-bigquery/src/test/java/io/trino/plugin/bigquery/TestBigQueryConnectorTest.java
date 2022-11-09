@@ -60,7 +60,8 @@ public class TestBigQueryConnectorTest
     {
         return BigQueryQueryRunner.createQueryRunner(
                 ImmutableMap.of(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                REQUIRED_TPCH_TABLES);
     }
 
     @SuppressWarnings("DuplicateBranchesInSwitch")
