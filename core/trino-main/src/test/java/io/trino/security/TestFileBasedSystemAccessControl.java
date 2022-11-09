@@ -102,6 +102,16 @@ public class TestFileBasedSystemAccessControl
         assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("invalid-other"), "test"))
                 .isInstanceOf(AccessDeniedException.class);
 
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("svc_tenant"), "svc_tenant_prod");
+        assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("svc_tenant"), "svc_tenant_other"))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("svc_tenant"), "svc_other_prod"))
+                .isInstanceOf(AccessDeniedException.class);
+
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("external_corp_dept"), "internal-corp-dept-sandbox");
+        assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("external_corp_dept"), "invalid"))
+                .isInstanceOf(AccessDeniedException.class);
+
         AccessControlManager accessControlManagerWithPrincipal = newAccessControlManager(transactionManager, "catalog_principal.json");
         accessControlManagerWithPrincipal.checkCanImpersonateUser(Identity.ofUser("anything"), "anythingElse");
     }

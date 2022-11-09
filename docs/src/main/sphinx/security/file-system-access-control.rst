@@ -544,7 +544,8 @@ Each impersonation rule is composed of the following fields:
 * ``original_role`` (optional): regex to match against role names of the
   requesting impersonation. Defaults to ``.*``.
 * ``new_user`` (required): regex to match against the user that will be
-  impersonated.
+  impersonated. Supports replacement string to substitute against
+  *original_user*.
 * ``allow`` (optional): boolean indicating if the authentication should be
   allowed. Defaults to ``true``.
 
@@ -553,7 +554,9 @@ The impersonation rules are a bit different than the other rules: The attribute
 Doing so it was possible to make the attribute ``allow`` optional.
 
 The following example allows the ``admin`` role, to impersonate any user, except
-for ``bob``. It also allows any user to impersonate the ``test`` user:
+for ``bob``. It also allows any user to impersonate the ``test`` user. It also
+allows a user in the form ``team_backend`` to impersonate the
+``team_backend_sandbox`` user, but not arbitrary users:
 
 .. literalinclude:: user-impersonation.json
     :language: json

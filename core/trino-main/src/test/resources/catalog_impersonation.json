@@ -21,6 +21,16 @@
         {
             "original_user": ".*",
             "new_user": "test"
+        },
+        {
+            "original_user": "svc_(.*)",
+            "new_user": "svc_$1_prod",
+            "allow": true
+        },
+        {
+            "original_user": "external_(.*)_(.*)",
+            "new_user": "internal-$1-$2-sandbox",
+            "allow": true
         }
     ]
 }

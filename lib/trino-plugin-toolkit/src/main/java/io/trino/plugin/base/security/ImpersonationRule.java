@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -31,6 +32,7 @@ public class ImpersonationRule
     private final Optional<Pattern> originalRolePattern;
     private final Pattern newUserPattern;
     private final boolean allow;
+    private final StringBuilder stringBuilder;
 
     @JsonCreator
     public ImpersonationRule(
@@ -43,13 +45,24 @@ public class ImpersonationRule
         this.originalRolePattern = requireNonNull(originalRolePattern, "originalRolePattern is null");
         this.newUserPattern = requireNonNull(newUserPattern, "newUserPattern is null");
         this.allow = firstNonNull(allow, TRUE);
+        this.stringBuilder = new StringBuilder();
     }
 
     public Optional<Boolean> match(String originalUser, Set<String> originalRoles, String newUser)
     {
+        Pattern replacedNewUserPattern = newUserPattern;
+        if (originalUserPattern.isPresent()) {
+            Matcher matcher = originalUserPattern.get().matcher(originalUser);
+            if (matcher.matches()) {
+                stringBuilder.setLength(0);
+                matcher.appendReplacement(stringBuilder, newUserPattern.pattern());
+                replacedNewUserPattern = Pattern.compile(stringBuilder.toString());
+            }
+        }
+
         if (originalUserPattern.map(regex -> regex.matcher(originalUser).matches()).orElse(true) &&
                 originalRolePattern.map(regex -> originalRoles.stream().anyMatch(role -> regex.matcher(role).matches())).orElse(true) &&
-                newUserPattern.matcher(newUser).matches()) {
+                replacedNewUserPattern.matcher(newUser).matches()) {
             return Optional.of(allow);
         }
         return Optional.empty();
