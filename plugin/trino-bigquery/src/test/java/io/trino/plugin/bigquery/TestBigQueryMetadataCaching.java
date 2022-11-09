@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
@@ -34,7 +35,8 @@ public class TestBigQueryMetadataCaching
         this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
         return BigQueryQueryRunner.createQueryRunner(
                 ImmutableMap.of(),
-                ImmutableMap.of("bigquery.metadata.cache-ttl", "5m"));
+                ImmutableMap.of("bigquery.metadata.cache-ttl", "5m"),
+                ImmutableList.of());
     }
 
     @Test

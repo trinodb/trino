@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
@@ -53,7 +54,8 @@ public class TestBigQueryCaseInsensitiveMapping
     {
         return BigQueryQueryRunner.createQueryRunner(
                 ImmutableMap.of(),
-                ImmutableMap.of("bigquery.case-insensitive-name-matching", "true"));
+                ImmutableMap.of("bigquery.case-insensitive-name-matching", "true"),
+                ImmutableList.of());
     }
 
     @Test
