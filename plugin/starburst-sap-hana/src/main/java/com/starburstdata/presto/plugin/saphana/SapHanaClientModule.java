@@ -37,6 +37,8 @@ public class SapHanaClientModule
         install(new SapHanaAuthenticationModule());
         install(new JdbcJoinPushdownSupportModule());
 
-        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
+        @SuppressWarnings("TrinoExperimentalSpi")
+        Class<ConnectorTableFunction> clazz = ConnectorTableFunction.class;
+        newSetBinder(binder, clazz).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 }
