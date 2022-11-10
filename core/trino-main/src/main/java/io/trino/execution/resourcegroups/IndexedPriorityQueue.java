@@ -46,6 +46,9 @@ public final class IndexedPriorityQueue<E>
     {
         Entry<E> entry = index.get(element);
         if (entry != null) {
+            if (entry.getPriority() == priority) {
+                return false;
+            }
             queue.remove(entry);
             Entry<E> newEntry = new Entry<>(element, priority, entry.getGeneration());
             queue.add(newEntry);
