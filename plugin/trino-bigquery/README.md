@@ -22,6 +22,9 @@ You can follow the steps below to be able to run the integration tests locally.
   **BigQuery Admin** role assigned.
 * Get the base64 encoded text of the service account credentials file using `base64
   /path/to/service_account_credentials.json`.
-* Set the VM option `bigquery.credentials-key` and `testing.gcp-storage-bucket` in the IntelliJ "Run Configuration" (or on the CLI if using Maven
-  directly). It should look something like `-Dbigquery.credentials-key=base64-text -Dtesting.gcp-storage-bucket=DESTINATION_BUCKET_NAME`.
+* The `TestBigQueryWithDifferentProjectIdConnectorSmokeTest` requires an alternate project ID which is different from the
+  project ID attached to the service account but the service account still has access to.
+* Set the VM options `bigquery.credentials-key`, `testing.gcp-storage-bucket`, and `testing.alternate-bq-project-id` in the IntelliJ "Run Configuration"
+  (or on the CLI if using Maven directly). It should look something like
+  `-Dbigquery.credentials-key=base64-text -Dtesting.gcp-storage-bucket=DESTINATION_BUCKET_NAME -Dtesting.alternate-bq-project-id=bigquery-cicd-alternate`.
 * Run any test of your choice.
