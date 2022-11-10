@@ -15,12 +15,13 @@ You can follow the steps below to be able to run the integration tests locally.
 
 * [Enable BigQuery in your Google Cloud account](https://console.cloud.google.com/flows/enableapi?apiid=bigquery).
 * Build the project by following the instructions [here](../../README.md).
-* Run `gsutil cp src/test/resources/region.csv gs://DESTINATION_BUCKET_NAME/tpch/tiny/region.csv` 
+* Create a Google Cloud Storage bucket using `gsutil mb gs://DESTINATION_BUCKET_NAME`
+* Run `gsutil cp plugin/trino-bigquery/src/test/resources/region.csv gs://DESTINATION_BUCKET_NAME/tpch/tiny/region.csv` 
   (replace `DESTINATION_BUCKET_NAME` with the target bucket name).
 * [Create a service account](https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console) in Google Cloud with the
   **BigQuery Admin** role assigned.
 * Get the base64 encoded text of the service account credentials file using `base64
   /path/to/service_account_credentials.json`.
-* Set the VM option `bigquery.credentials-key` in the IntelliJ "Run Configuration" (or on the CLI if using Maven
-  directly). It should look something like `-Dbigquery.credentials-key=base64-text`.
+* Set the VM option `bigquery.credentials-key` and `testing.gcp-storage-bucket` in the IntelliJ "Run Configuration" (or on the CLI if using Maven
+  directly). It should look something like `-Dbigquery.credentials-key=base64-text -Dtesting.gcp-storage-bucket=DESTINATION_BUCKET_NAME`.
 * Run any test of your choice.
