@@ -560,11 +560,11 @@ You can use the connector to :doc:`/sql/insert`, :doc:`/sql/delete`,
 
 Write operations are supported for tables stored on the following systems:
 
-* Azure ADLS Gen2
+* Azure ADLS Gen2, Google Cloud Storage
 
-  Writes to the Azure ADLS Gen2 file system are enabled by default. Trino
-  detects write collisions on ADLS Gen2 when writing from multiple Trino
-  clusters, or from as any number of open source Delta Lake clusters.
+  Writes to the Azure ADLS Gen2 and Google Cloud Storage are
+  enabled by default. Trino detects write collisions on these storage systems
+  when writing from multiple Trino clusters, or from other query engines.
 
 * S3 and S3-compatible storage
 
