@@ -66,8 +66,8 @@ Trino queries
 Trino tasks
 ------------
 
-* Input data bytes: ``trino.execution:name=TaskManager:InputDataSize.FiveMinute.Count``
-* Input rows: ``trino.execution:name=TaskManager:InputPositions.FiveMinute.Count``
+* Input data bytes: ``trino.execution:name=SqlTaskManager:InputDataSize.FiveMinute.Count``
+* Input rows: ``trino.execution:name=SqlTaskManager:InputPositions.FiveMinute.Count``
 
 Connectors
 ----------
