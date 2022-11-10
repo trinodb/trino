@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.mongodb.DBRef;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Collation;
 import com.mongodb.client.model.CreateCollectionOptions;
 import io.trino.sql.planner.plan.LimitNode;
@@ -822,6 +823,17 @@ public class TestMongoConnectorTest
                 "ALTER TABLE " + sourceTableName + " RENAME TO \"" + targetTableName + "\"",
                 "Qualified identifier name must be shorter than or equal to '120' bytes: .*");
         assertUpdate("DROP TABLE \"" + sourceTableName + "\"");
+    }
+
+    @Test
+    public void testListTablesFromSchemaWithBigAmountOfTables()
+    {
+        MongoDatabase database = client.getDatabase("huge_schema");
+        for (int i = 0; i < 10_000; i++) {
+            database.createCollection("table_" + i);
+        }
+
+        assertThat(getQueryRunner().execute("SHOW TABLES FROM mongodb.huge_schema").getRowCount()).isEqualTo(10_000);
     }
 
     @Override
