@@ -471,7 +471,10 @@ jobs:
           BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CREDENTIALS_KEY }}
         if: matrix.modules == 'plugin/trino-bigquery' && env.BIGQUERY_CREDENTIALS_KEY != ''
         run: |
-          $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}" -Dtesting.gcp-storage-bucket="trino-ci-test"
+          $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests \
+            -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}" \
+            -Dtesting.gcp-storage-bucket="trino-ci-test" \
+            -Dtesting.alternate-bq-project-id=bigquery-cicd-alternate
       - name: Cloud BigQuery Case Insensitive Mapping Tests
         env:
           BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY }}
