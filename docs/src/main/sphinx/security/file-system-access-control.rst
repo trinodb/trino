@@ -544,8 +544,9 @@ Each impersonation rule is composed of the following fields:
 * ``original_role`` (optional): regex to match against role names of the
   requesting impersonation. Defaults to ``.*``.
 * ``new_user`` (required): regex to match against the user that will be
-  impersonated. Supports replacement string to substitute against
-  *original_user*.
+  impersonated. May contain references to subsequences captured during the match
+  against *original_user*, and each reference will be replaced by the result of
+  evaluating the corresponding group respectively.
 * ``allow`` (optional): boolean indicating if the authentication should be
   allowed. Defaults to ``true``.
 

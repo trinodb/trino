@@ -32,7 +32,6 @@ public class ImpersonationRule
     private final Optional<Pattern> originalRolePattern;
     private final Pattern newUserPattern;
     private final boolean allow;
-    private final StringBuilder stringBuilder;
 
     @JsonCreator
     public ImpersonationRule(
@@ -45,7 +44,6 @@ public class ImpersonationRule
         this.originalRolePattern = requireNonNull(originalRolePattern, "originalRolePattern is null");
         this.newUserPattern = requireNonNull(newUserPattern, "newUserPattern is null");
         this.allow = firstNonNull(allow, TRUE);
-        this.stringBuilder = new StringBuilder();
     }
 
     public Optional<Boolean> match(String originalUser, Set<String> originalRoles, String newUser)
@@ -54,7 +52,7 @@ public class ImpersonationRule
         if (originalUserPattern.isPresent()) {
             Matcher matcher = originalUserPattern.get().matcher(originalUser);
             if (matcher.matches()) {
-                stringBuilder.setLength(0);
+                StringBuilder stringBuilder = new StringBuilder();
                 matcher.appendReplacement(stringBuilder, newUserPattern.pattern());
                 replacedNewUserPattern = Pattern.compile(stringBuilder.toString());
             }
