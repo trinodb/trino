@@ -37,6 +37,7 @@ import static io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -422,6 +423,38 @@ public class TestBigQueryConnectorTest
             onBigQuery("INSERT INTO " + table.getName() + " VALUES ('a', 1, '2021-01-01')");
             // Adding a CAST makes BigQuery return columns in a different order
             assertQuery("SELECT c_varchar, CAST(c_int AS SMALLINT), c_date FROM " + table.getName(), "VALUES ('a', 1, '2021-01-01')");
+        }
+    }
+
+    @Test
+    public void testSelectTableWithRowAccessPolicyFilterAll()
+    {
+        String policyName = "test_policy" + randomTableSuffix();
+        try (TestTable table = new TestTable(this::onBigQuery, "test.test_row_access_policy", "AS SELECT 1 col")) {
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 1");
+
+            // Use assertEventually because there's delay until new row access policies become effective
+            onBigQuery("CREATE ROW ACCESS POLICY " + policyName + " ON " + table.getName() + " FILTER USING (true)");
+            assertEventually(() -> assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName()));
+
+            onBigQuery("DROP ALL ROW ACCESS POLICIES ON " + table.getName());
+            assertEventually(() -> assertQuery("SELECT * FROM " + table.getName(), "VALUES 1"));
+        }
+    }
+
+    @Test
+    public void testSelectTableWithRowAccessPolicyFilterPartialRow()
+    {
+        String policyName = "test_policy" + randomTableSuffix();
+        try (TestTable table = new TestTable(this::onBigQuery, "test.test_row_access_policy", "AS (SELECT 1 col UNION ALL SELECT 2 col)")) {
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1), (2)");
+
+            // Use assertEventually because there's delay until new row access policies become effective
+            onBigQuery("CREATE ROW ACCESS POLICY " + policyName + " ON " + table.getName() + " GRANT TO (\"allAuthenticatedUsers\") FILTER USING (col = 1)");
+            assertEventually(() -> assertQuery("SELECT * FROM " + table.getName(), "VALUES 1"));
+
+            onBigQuery("DROP ALL ROW ACCESS POLICIES ON " + table.getName());
+            assertEventually(() -> assertQuery("SELECT * FROM " + table.getName(), "VALUES (1), (2)"));
         }
     }
 
