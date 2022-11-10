@@ -1165,15 +1165,19 @@ public class PlanPrinter
             printTableScanInfo(nodeOutput, node, tableInfo);
             PlanNodeStats nodeStats = stats.map(s -> s.get(node.getId())).orElse(null);
             if (nodeStats != null) {
-                String inputDetail = "Input: %s (%s)";
                 if (nodeStats.getPlanNodePhysicalInputDataSize().toBytes() > 0) {
-                    inputDetail += ", Physical Input: %s";
+                    nodeOutput.appendDetails(
+                            "Input: %s (%s), Physical Input: %s",
+                            formatPositions(nodeStats.getPlanNodeInputPositions()),
+                            nodeStats.getPlanNodeInputDataSize().toString(),
+                            nodeStats.getPlanNodePhysicalInputDataSize().toString());
                 }
-                nodeOutput.appendDetails(
-                        inputDetail,
-                        formatPositions(nodeStats.getPlanNodeInputPositions()),
-                        nodeStats.getPlanNodeInputDataSize().toString(),
-                        nodeStats.getPlanNodePhysicalInputDataSize().toString());
+                else {
+                    nodeOutput.appendDetails(
+                            "Input: %s (%s)",
+                            formatPositions(nodeStats.getPlanNodeInputPositions()),
+                            nodeStats.getPlanNodeInputDataSize().toString());
+                }
             }
             return null;
         }
@@ -1293,16 +1297,21 @@ public class PlanPrinter
                 if (nodeStats != null) {
                     // Add to 'details' rather than 'statistics', since these stats are node-specific
                     double filtered = 100.0d * (nodeStats.getPlanNodeInputPositions() - nodeStats.getPlanNodeOutputPositions()) / nodeStats.getPlanNodeInputPositions();
-                    String inputDetail = "Input: %s (%s), Filtered: %s%%";
                     if (nodeStats.getPlanNodePhysicalInputDataSize().toBytes() > 0) {
-                        inputDetail += ", Physical Input: %s";
+                        nodeOutput.appendDetails(
+                                "Input: %s (%s), Filtered: %s%%, Physical Input: %s",
+                                formatPositions(nodeStats.getPlanNodeInputPositions()),
+                                nodeStats.getPlanNodeInputDataSize().toString(),
+                                formatDouble(filtered),
+                                nodeStats.getPlanNodePhysicalInputDataSize().toString());
                     }
-                    nodeOutput.appendDetails(
-                            inputDetail,
-                            formatPositions(nodeStats.getPlanNodeInputPositions()),
-                            nodeStats.getPlanNodeInputDataSize().toString(),
-                            formatDouble(filtered),
-                            nodeStats.getPlanNodePhysicalInputDataSize().toString());
+                    else {
+                        nodeOutput.appendDetails(
+                                "Input: %s (%s), Filtered: %s%%",
+                                formatPositions(nodeStats.getPlanNodeInputPositions()),
+                                nodeStats.getPlanNodeInputDataSize().toString(),
+                                formatDouble(filtered));
+                    }
                 }
                 List<DynamicFilterDomainStats> collectedDomainStats = dynamicFilters.stream()
                         .map(DynamicFilters.Descriptor::getId)
