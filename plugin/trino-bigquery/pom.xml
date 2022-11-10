@@ -392,6 +392,7 @@
                             <excludes>
                                 <!-- If you are adding entry here also add an entry to cloud-tests or cloud-tests-case-insensitive-mapping profile below -->
                                 <exclude>**/TestBigQueryConnectorTest.java</exclude>
+                                <exclude>**/TestBigQueryWithDifferentProjectIdConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestBigQueryMetadataCaching.java</exclude>
                                 <exclude>**/TestBigQueryTypeMapping.java</exclude>
                                 <exclude>**/TestBigQueryMetadata.java</exclude>
@@ -427,6 +428,7 @@
                         <configuration>
                             <includes>
                                 <include>**/TestBigQueryConnectorTest.java</include>
+                                <include>**/TestBigQueryWithDifferentProjectIdConnectorSmokeTest.java</include>
                                 <include>**/TestBigQueryMetadataCaching.java</include>
                                 <include>**/TestBigQueryTypeMapping.java</include>
                                 <include>**/TestBigQueryMetadata.java</include>
