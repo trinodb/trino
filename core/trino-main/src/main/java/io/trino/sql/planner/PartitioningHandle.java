@@ -23,6 +23,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
 import static java.util.Objects.requireNonNull;
 
 public class PartitioningHandle
@@ -31,6 +32,12 @@ public class PartitioningHandle
     private final Optional<ConnectorTransactionHandle> transactionHandle;
     private final ConnectorPartitioningHandle connectorHandle;
     private final boolean scaleWriters;
+
+    public static boolean isScaledWriterHashDistribution(PartitioningHandle partitioning)
+    {
+        return partitioning.isScaleWriters()
+                && (partitioning.equals(SCALED_WRITER_HASH_DISTRIBUTION) || partitioning.getCatalogHandle().isPresent());
+    }
 
     public PartitioningHandle(
             Optional<CatalogHandle> catalogHandle,

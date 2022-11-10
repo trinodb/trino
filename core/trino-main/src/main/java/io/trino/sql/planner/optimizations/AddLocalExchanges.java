@@ -24,6 +24,7 @@ import io.trino.spi.connector.GroupingProperty;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Partitioning;
+import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -84,6 +85,7 @@ import static io.trino.SystemSessionProperties.isTaskScaleWritersEnabled;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.StreamPreferredProperties.any;
@@ -612,7 +614,7 @@ public class AddLocalExchanges
                 WriterTarget writerTarget)
         {
             return partitioningSchemeOptional
-                    .map(partitioningScheme -> visitPartitionedWriter(node, partitioningScheme, source, parentPreferences))
+                    .map(partitioningScheme -> visitPartitionedWriter(node, partitioningScheme, source, parentPreferences, writerTarget))
                     .orElseGet(() -> visitUnpartitionedWriter(node, source, writerTarget));
         }
 
@@ -639,11 +641,16 @@ public class AddLocalExchanges
             return planAndEnforceChildren(node, fixedParallelism(), fixedParallelism());
         }
 
-        private PlanWithProperties visitPartitionedWriter(PlanNode node, PartitioningScheme partitioningScheme, PlanNode source, StreamPreferredProperties parentPreferences)
+        private PlanWithProperties visitPartitionedWriter(PlanNode node, PartitioningScheme partitioningScheme, PlanNode source, StreamPreferredProperties parentPreferences, WriterTarget writerTarget)
         {
-            // TODO - Support scale task writers for partitioned tables (https://github.com/trinodb/trino/issues/13379)
             if (getTaskPartitionedWriterCount(session) == 1) {
                 return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
+            }
+
+            if (isTaskScaleWritersEnabled(session)
+                    && writerTarget.supportsReportingWrittenBytes(plannerContext.getMetadata(), session)
+                    && writerTarget.supportsMultipleWritersPerPartition(plannerContext.getMetadata(), session)) {
+                return visitScalePartitionedWriter(node, partitioningScheme, source);
             }
 
             if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_HASH_DISTRIBUTION)) {
@@ -669,6 +676,46 @@ public class AddLocalExchanges
             return rebaseAndDeriveProperties(node, ImmutableList.of(exchange));
         }
 
+        private PlanWithProperties visitScalePartitionedWriter(PlanNode node, PartitioningScheme partitioningScheme, PlanNode source)
+        {
+            if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_HASH_DISTRIBUTION)) {
+                // arbitrary hash function on predefined set of partition columns
+                PlanWithProperties newSource = source.accept(this, defaultParallelism(session));
+                PlanWithProperties exchange = deriveProperties(
+                        partitionedExchange(
+                                idAllocator.getNextId(),
+                                LOCAL,
+                                newSource.getNode(),
+                                partitioningScheme.withPartitioningHandle(SCALED_WRITER_HASH_DISTRIBUTION)),
+                        newSource.getProperties());
+                return rebaseAndDeriveProperties(node, ImmutableList.of(exchange));
+            }
+
+            // connector provided hash function
+            verify(!(partitioningScheme.getPartitioning().getHandle().getConnectorHandle() instanceof SystemPartitioningHandle));
+            verify(
+                    partitioningScheme.getPartitioning().getArguments().stream().noneMatch(Partitioning.ArgumentBinding::isConstant),
+                    "Table writer partitioning has constant arguments");
+
+            PlanWithProperties newSource = source.accept(this, defaultParallelism(session));
+            PartitioningHandle partitioningHandle = partitioningScheme.getPartitioning().getHandle();
+            PlanWithProperties exchange = deriveProperties(
+                    partitionedExchange(
+                            idAllocator.getNextId(),
+                            LOCAL,
+                            newSource.getNode(),
+                            partitioningScheme
+                                    .withPartitioningHandle(
+                                            new PartitioningHandle(
+                                                    partitioningHandle.getCatalogHandle(),
+                                                    partitioningHandle.getTransactionHandle(),
+                                                    partitioningHandle.getConnectorHandle(),
+                                                    true))),
+                    newSource.getProperties());
+
+            return rebaseAndDeriveProperties(node, ImmutableList.of(exchange));
+        }
+
         //
         // Merge
         //
@@ -677,7 +724,7 @@ public class AddLocalExchanges
         public PlanWithProperties visitMergeWriter(MergeWriterNode node, StreamPreferredProperties parentPreferences)
         {
             return node.getPartitioningScheme()
-                    .map(partitioningScheme -> visitPartitionedWriter(node, partitioningScheme, node.getSource(), parentPreferences))
+                    .map(partitioningScheme -> visitPartitionedWriter(node, partitioningScheme, node.getSource(), parentPreferences, node.getTarget()))
                     .orElseGet(() -> visitUnpartitionedWriter(node, node.getSource(), node.getTarget()));
         }
 
