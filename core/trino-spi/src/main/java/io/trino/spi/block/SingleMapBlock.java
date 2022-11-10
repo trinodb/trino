@@ -28,12 +28,13 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
 import static io.trino.spi.block.MapHashTables.computePosition;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 public class SingleMapBlock
         extends AbstractSingleMapBlock
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleMapBlock.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SingleMapBlock.class).instanceSize());
 
     private final int offset;
     private final int positionCount;    // The number of keys in this single map * 2
@@ -83,7 +84,7 @@ public class SingleMapBlock
         consumer.accept(mapBlock.getRawKeyBlock(), mapBlock.getRawKeyBlock().getRetainedSizeInBytes());
         consumer.accept(mapBlock.getRawValueBlock(), mapBlock.getRawValueBlock().getRetainedSizeInBytes());
         consumer.accept(mapBlock.getHashTables(), mapBlock.getHashTables().getRetainedSizeInBytes());
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -108,6 +109,12 @@ public class SingleMapBlock
     Block getRawValueBlock()
     {
         return mapBlock.getRawValueBlock();
+    }
+
+    @Override
+    public Block copyWithAppendedNull()
+    {
+        throw new UnsupportedOperationException("SingleMapBlock does not support newBlockWithAppendedNull()");
     }
 
     @Override

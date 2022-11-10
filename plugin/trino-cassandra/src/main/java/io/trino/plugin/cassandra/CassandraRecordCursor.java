@@ -32,12 +32,14 @@ public class CassandraRecordCursor
         implements RecordCursor
 {
     private final List<CassandraType> cassandraTypes;
+    private final CassandraTypeManager cassandraTypeManager;
     private final ResultSet rs;
     private Row currentRow;
 
-    public CassandraRecordCursor(CassandraSession cassandraSession, List<CassandraType> cassandraTypes, String cql)
+    public CassandraRecordCursor(CassandraSession cassandraSession, CassandraTypeManager cassandraTypeManager, List<CassandraType> cassandraTypes, String cql)
     {
         this.cassandraTypes = cassandraTypes;
+        this.cassandraTypeManager = cassandraTypeManager;
         rs = cassandraSession.execute(cql);
         currentRow = null;
     }
@@ -126,7 +128,7 @@ public class CassandraRecordCursor
         if (getCassandraType(i).getKind() == Kind.TIMESTAMP) {
             throw new IllegalArgumentException("Timestamp column can not be accessed with getSlice");
         }
-        NullableValue value = cassandraTypes.get(i).getColumnValue(currentRow, i);
+        NullableValue value = cassandraTypeManager.getColumnValue(cassandraTypes.get(i), currentRow, i);
         if (value.getValue() instanceof Slice) {
             return (Slice) value.getValue();
         }
@@ -140,7 +142,7 @@ public class CassandraRecordCursor
         switch (cassandraType.getKind()) {
             case TUPLE:
             case UDT:
-                return cassandraType.getColumnValue(currentRow, i).getValue();
+                return cassandraTypeManager.getColumnValue(cassandraType, currentRow, i).getValue();
             default:
                 throw new IllegalArgumentException("getObject cannot be called for " + cassandraType);
         }

@@ -29,8 +29,9 @@ import io.trino.spi.ErrorType;
 import io.trino.spi.QueryId;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedResultWithQueryId;
+import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.ResultWithQueryId;
 import io.trino.tpch.TpchTable;
 import org.assertj.core.api.AbstractThrowableAssert;
 import org.intellij.lang.annotations.Language;
@@ -48,6 +49,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
+import static com.google.common.base.Functions.identity;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -76,8 +78,10 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.data.Percentage.withPercentage;
 import static org.testng.Assert.assertEquals;
 
 public abstract class BaseFailureRecoveryTest
@@ -93,6 +97,11 @@ public abstract class BaseFailureRecoveryTest
     protected BaseFailureRecoveryTest(RetryPolicy retryPolicy)
     {
         this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
+    }
+
+    protected RetryPolicy getRetryPolicy()
+    {
+        return retryPolicy;
     }
 
     @Override
@@ -203,11 +212,10 @@ public abstract class BaseFailureRecoveryTest
                 .finishesSuccessfully(queryAssertion);
 
         assertThatQuery(query)
-                .withSession(session)
-                .experiencing(TASK_GET_RESULTS_REQUEST_FAILURE)
-                .at(boundaryDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
-                .finishesSuccessfully(queryAssertion);
+                .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
+                .at(distributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
+                .finishesSuccessfully();
 
         assertThatQuery(query)
                 .withSession(session)
@@ -219,22 +227,25 @@ public abstract class BaseFailureRecoveryTest
         assertThatQuery(query)
                 .withSession(session)
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.EXTERNAL))
-                .at(intermediateDistributedStage())
+                .at(distributedStage())
                 .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
                 .finishesSuccessfully(queryAssertion);
 
-        assertThatQuery(query)
-                .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
-                .at(intermediateDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
-                .finishesSuccessfully();
+        if (getRetryPolicy() == RetryPolicy.QUERY) {
+            assertThatQuery(query)
+                    .withSession(session)
+                    .experiencing(TASK_GET_RESULTS_REQUEST_FAILURE)
+                    .at(boundaryDistributedStage())
+                    .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
+                    .finishesSuccessfully(queryAssertion);
 
-        assertThatQuery(query)
-                .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
-                // using boundary stage so we observe task failures
-                .at(boundaryDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
-                .finishesSuccessfully();
+            assertThatQuery(query)
+                    .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
+                    // using boundary stage so we observe task failures
+                    .at(boundaryDistributedStage())
+                    .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
+                    .finishesSuccessfully();
+        }
     }
 
     @Test(invocationCount = INVOCATION_COUNT)
@@ -304,7 +315,7 @@ public abstract class BaseFailureRecoveryTest
     }
 
     @Test(invocationCount = INVOCATION_COUNT)
-    public void testAnalyzeStatistics()
+    public void testAnalyzeTable()
     {
         testNonSelect(
                 Optional.empty(),
@@ -312,6 +323,23 @@ public abstract class BaseFailureRecoveryTest
                 "ANALYZE <table>",
                 Optional.of("DROP TABLE <table>"),
                 false);
+    }
+
+    @Test(invocationCount = INVOCATION_COUNT)
+    public void testMerge()
+    {
+        testTableModification(
+                Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
+                """
+                        MERGE INTO <table> t
+                        USING (SELECT orderkey, 'X' clerk FROM <table>) s
+                        ON t.orderkey = s.orderkey
+                        WHEN MATCHED AND s.orderkey > 1000
+                            THEN UPDATE SET clerk = t.clerk || s.clerk
+                        WHEN MATCHED AND s.orderkey <= 1000
+                            THEN DELETE
+                        """,
+                Optional.of("DROP TABLE <table>"));
     }
 
     @Test(invocationCount = INVOCATION_COUNT)
@@ -437,15 +465,6 @@ public abstract class BaseFailureRecoveryTest
                 .finishesSuccessfully();
 
         assertThatQuery(query)
-                .withSession(session)
-                .withSetupQuery(setupQuery)
-                .withCleanupQuery(cleanupQuery)
-                .experiencing(TASK_GET_RESULTS_REQUEST_FAILURE)
-                .at(boundaryDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
-                .finishesSuccessfully();
-
-        assertThatQuery(query)
                 .withSetupQuery(setupQuery)
                 .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
@@ -453,13 +472,24 @@ public abstract class BaseFailureRecoveryTest
                 .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
                 .finishesSuccessfully();
 
-        assertThatQuery(query)
-                .withSetupQuery(setupQuery)
-                .withCleanupQuery(cleanupQuery)
-                .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
-                .at(boundaryDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
-                .finishesSuccessfully();
+        if (getRetryPolicy() == RetryPolicy.QUERY) {
+            assertThatQuery(query)
+                    .withSession(session)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .experiencing(TASK_GET_RESULTS_REQUEST_FAILURE)
+                    .at(boundaryDistributedStage())
+                    .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
+                    .finishesSuccessfully();
+
+            assertThatQuery(query)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
+                    .at(boundaryDistributedStage())
+                    .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
+                    .finishesSuccessfully();
+        }
     }
 
     protected FailureRecoveryAssert assertThatQuery(String query)
@@ -563,7 +593,7 @@ public abstract class BaseFailureRecoveryTest
             String tableName = "table_" + randomTableSuffix();
             setup.ifPresent(sql -> getQueryRunner().execute(noRetries(session), resolveTableName(sql, tableName)));
 
-            ResultWithQueryId<MaterializedResult> resultWithQueryId = null;
+            MaterializedResultWithQueryId resultWithQueryId = null;
             RuntimeException failure = null;
             try {
                 resultWithQueryId = getDistributedQueryRunner().executeWithQueryId(withTraceToken(session, traceToken), resolveTableName(query, tableName));
@@ -635,9 +665,41 @@ public abstract class BaseFailureRecoveryTest
                 assertThat(expected.getUpdatedTableStatistics()).isPresent();
                 assertThat(actual.getUpdatedTableStatistics()).isPresent();
 
-                MaterializedResult expectedUpdatedTableStatistics = expected.getUpdatedTableStatistics().get();
-                MaterializedResult actualUpdatedTableStatistics = actual.getUpdatedTableStatistics().get();
-                assertEqualsIgnoreOrder(actualUpdatedTableStatistics, expectedUpdatedTableStatistics, "For query: \n " + query);
+                MaterializedResult expectedUpdatedTableStatisticsResult = expected.getUpdatedTableStatistics().get();
+                MaterializedResult actualUpdatedTableStatisticsResult = actual.getUpdatedTableStatistics().get();
+                assertEquals(actualUpdatedTableStatisticsResult.getTypes(), expectedUpdatedTableStatisticsResult.getTypes(), "Column types");
+                assertEquals(actualUpdatedTableStatisticsResult.getColumnNames(), expectedUpdatedTableStatisticsResult.getColumnNames(), "Column names");
+                Map<String, MaterializedRow> expectedUpdatedTableStatistics = expectedUpdatedTableStatisticsResult.getMaterializedRows().stream()
+                        .collect(toMap(row -> (String) row.getField(0), identity()));
+                Map<String, MaterializedRow> actualUpdatedTableStatistics = actualUpdatedTableStatisticsResult.getMaterializedRows().stream()
+                        .collect(toMap(row -> (String) row.getField(0), identity()));
+                assertEquals(actualUpdatedTableStatistics.keySet(), expectedUpdatedTableStatistics.keySet(), "Table columns");
+                expectedUpdatedTableStatistics.forEach((key, expectedRow) -> {
+                    MaterializedRow actualRow = actualUpdatedTableStatistics.get(key);
+                    assertEquals(actualRow.getFieldCount(), expectedRow.getFieldCount(), "Unexpected layout of stats");
+                    for (int statsColumnIndex = 0; statsColumnIndex < expectedRow.getFieldCount(); statsColumnIndex++) {
+                        String statsColumnName = actualUpdatedTableStatisticsResult.getColumnNames().get(statsColumnIndex);
+                        String testedFieldDescription = "Field %d '%s' in %s".formatted(statsColumnIndex, statsColumnName, actualRow);
+                        Object expectedValue = expectedRow.getField(statsColumnIndex);
+                        Object actualValue = actualRow.getField(statsColumnIndex);
+                        if (expectedValue == null) {
+                            assertThat(actualValue).as(testedFieldDescription)
+                                    .isNull();
+                        }
+                        else {
+                            switch (statsColumnName) {
+                                case "data_size", "distinct_values_count" -> {
+                                    assertThat((double) actualValue).as(testedFieldDescription)
+                                            .isCloseTo((double) expectedValue, withPercentage(5));
+                                }
+                                default -> {
+                                    assertThat(actualValue).as(testedFieldDescription)
+                                            .isEqualTo(expectedValue);
+                                }
+                            }
+                        }
+                    }
+                });
             }
             else if (isUpdate) {
                 assertEquals(actualQueryResult.getUpdateCount(), expectedQueryResult.getUpdateCount());
@@ -722,7 +784,7 @@ public abstract class BaseFailureRecoveryTest
         private final Optional<MaterializedResult> updatedTableStatistics;
 
         private ExecutionResult(
-                ResultWithQueryId<MaterializedResult> resultWithQueryId,
+                MaterializedResultWithQueryId resultWithQueryId,
                 Optional<MaterializedResult> updatedTableContent,
                 Optional<MaterializedResult> updatedTableStatistics)
         {
@@ -781,6 +843,11 @@ public abstract class BaseFailureRecoveryTest
     protected static Function<MaterializedResult, Integer> intermediateDistributedStage()
     {
         return result -> findStageId(result, stage -> !stage.isCoordinatorOnly() && !stage.getSubStages().isEmpty());
+    }
+
+    protected static Function<MaterializedResult, Integer> distributedStage()
+    {
+        return result -> findStageId(result, stage -> !stage.isCoordinatorOnly());
     }
 
     protected static Function<MaterializedResult, Integer> leafStage()

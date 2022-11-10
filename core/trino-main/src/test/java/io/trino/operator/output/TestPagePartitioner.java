@@ -24,9 +24,11 @@ import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.BufferState;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.buffer.OutputBufferInfo;
+import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
+import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.DriverContext;
 import io.trino.operator.OperatorContext;
@@ -70,8 +72,8 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createLongDictionaryBlock;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
-import static io.trino.block.BlockAssertions.createRLEBlock;
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
+import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
@@ -259,7 +261,7 @@ public class TestPagePartitioner
     public void testPartitionPositionsWithRleNotNull(PartitioningMode partitioningMode)
     {
         PagePartitioner pagePartitioner = pagePartitioner(BIGINT, BIGINT).build();
-        Page page = new Page(createRLEBlock(0, POSITIONS_PER_PAGE), createLongSequenceBlock(0, POSITIONS_PER_PAGE));
+        Page page = new Page(createRepeatedValuesBlock(0, POSITIONS_PER_PAGE), createLongSequenceBlock(0, POSITIONS_PER_PAGE));
 
         processPages(pagePartitioner, partitioningMode, page);
 
@@ -274,7 +276,7 @@ public class TestPagePartitioner
     public void testPartitionPositionsWithRleNotNullWithReplication(PartitioningMode partitioningMode)
     {
         PagePartitioner pagePartitioner = pagePartitioner(BIGINT, BIGINT).replicate().build();
-        Page page = new Page(createRLEBlock(0, POSITIONS_PER_PAGE), createLongSequenceBlock(0, POSITIONS_PER_PAGE));
+        Page page = new Page(createRepeatedValuesBlock(0, POSITIONS_PER_PAGE), createLongSequenceBlock(0, POSITIONS_PER_PAGE));
 
         processPages(pagePartitioner, partitioningMode, page);
 
@@ -288,7 +290,7 @@ public class TestPagePartitioner
     public void testPartitionPositionsWithRleNullWithNullChannel(PartitioningMode partitioningMode)
     {
         PagePartitioner pagePartitioner = pagePartitioner(BIGINT, BIGINT).withNullChannel(0).build();
-        Page page = new Page(new RunLengthEncodedBlock(createLongsBlock((Long) null), POSITIONS_PER_PAGE), createLongSequenceBlock(0, POSITIONS_PER_PAGE));
+        Page page = new Page(RunLengthEncodedBlock.create(createLongsBlock((Long) null), POSITIONS_PER_PAGE), createLongSequenceBlock(0, POSITIONS_PER_PAGE));
 
         processPages(pagePartitioner, partitioningMode, page);
 
@@ -316,7 +318,7 @@ public class TestPagePartitioner
     public void testOutputForOneValueDictionaryBlock(PartitioningMode partitioningMode)
     {
         PagePartitioner pagePartitioner = pagePartitioner(BIGINT).build();
-        Page page = new Page(new DictionaryBlock(createLongsBlock(0), new int[] {0, 0, 0, 0}));
+        Page page = new Page(DictionaryBlock.create(4, createLongsBlock(0), new int[] {0, 0, 0, 0}));
 
         processPages(pagePartitioner, partitioningMode, page);
 
@@ -330,7 +332,7 @@ public class TestPagePartitioner
     public void testOutputForViewDictionaryBlock(PartitioningMode partitioningMode)
     {
         PagePartitioner pagePartitioner = pagePartitioner(BIGINT).build();
-        Page page = new Page(new DictionaryBlock(createLongSequenceBlock(4, 8), new int[] {1, 0, 3, 2}));
+        Page page = new Page(DictionaryBlock.create(4, createLongSequenceBlock(4, 8), new int[] {1, 0, 3, 2}));
 
         processPages(pagePartitioner, partitioningMode, page);
 
@@ -683,9 +685,9 @@ public class TestPagePartitioner
         }
 
         @Override
-        public boolean isOverutilized()
+        public OutputBufferStatus getStatus()
         {
-            return false;
+            return OutputBufferStatus.initial();
         }
 
         @Override
@@ -699,18 +701,18 @@ public class TestPagePartitioner
         }
 
         @Override
-        public ListenableFuture<BufferResult> get(OutputBuffers.OutputBufferId bufferId, long token, DataSize maxSize)
+        public ListenableFuture<BufferResult> get(OutputBufferId bufferId, long token, DataSize maxSize)
         {
             return null;
         }
 
         @Override
-        public void acknowledge(OutputBuffers.OutputBufferId bufferId, long token)
+        public void acknowledge(OutputBufferId bufferId, long token)
         {
         }
 
         @Override
-        public void destroy(OutputBuffers.OutputBufferId bufferId)
+        public void destroy(OutputBufferId bufferId)
         {
         }
 

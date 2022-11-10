@@ -16,6 +16,7 @@ package io.trino.operator.window;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.function.WindowFunction;
+import io.trino.spi.function.WindowFunctionSupplier;
 
 import java.lang.reflect.Constructor;
 import java.util.List;

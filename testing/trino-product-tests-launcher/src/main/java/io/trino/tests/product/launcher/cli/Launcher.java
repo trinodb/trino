@@ -26,6 +26,7 @@ import picocli.CommandLine.Option;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ListResourceBundle;
+import java.util.ResourceBundle;
 
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.tests.product.launcher.cli.Launcher.EnvironmentCommand;
@@ -58,17 +59,18 @@ public class Launcher
     public static void main(String[] args)
     {
         Launcher launcher = new Launcher();
-        run(launcher, args);
+        run(launcher, new LauncherBundle(), args);
     }
 
-    public static void run(Launcher launcher, String[] args)
+    public static void run(Launcher launcher, ResourceBundle bundle, String[] args)
     {
         IFactory factory = createFactory(launcher.getExtensions());
         System.exit(new CommandLine(launcher, factory)
                 .setCaseInsensitiveEnumValuesAllowed(true)
                 .registerConverter(Duration.class, Duration::valueOf)
                 .registerConverter(Path.class, Paths::get)
-                .setResourceBundle(new LauncherBundle()).execute(args));
+                .setResourceBundle(bundle)
+                .execute(args));
     }
 
     private static IFactory createFactory(Extensions extensions)

@@ -24,7 +24,7 @@ import java.sql.Connection;
 import java.time.temporal.ChronoUnit;
 
 import static io.trino.tempto.context.ThreadLocalTestContextHolder.testContext;
-import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_RETRY_POLICY;
+import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_RETRY_POLICY;
 
 public final class QueryExecutors
 {
@@ -91,7 +91,29 @@ public final class QueryExecutors
 
     public static QueryExecutor onSpark()
     {
-        return testContext().getDependency(QueryExecutor.class, "spark");
+        return new QueryExecutor() {
+            private final QueryExecutor delegate = testContext().getDependency(QueryExecutor.class, "spark");
+
+            @Override
+            public QueryResult executeQuery(String sql, QueryParam... params)
+                    throws QueryExecutionException
+            {
+                return Failsafe.with(ERROR_COMMITTING_WRITE_TO_HIVE_RETRY_POLICY)
+                        .get(() -> delegate.executeQuery(sql, params));
+            }
+
+            @Override
+            public Connection getConnection()
+            {
+                return delegate.getConnection();
+            }
+
+            @Override
+            public void close()
+            {
+                delegate.close();
+            }
+        };
     }
 
     public static QueryExecutor onDelta()

@@ -168,7 +168,7 @@ public abstract class BaseIcebergMaterializedViewTest
                                 "WITH (\n" +
                                 "   format = 'ORC',\n" +
                                 "   format_version = 2,\n" +
-                                "   location = '" + getSchemaDirectory() + "/st_\\E[0-9a-f]+\\Q',\n" +
+                                "   location = '" + getSchemaDirectory() + "/st_\\E[0-9a-f]+-[0-9a-f]+\\Q',\n" +
                                 "   orc_bloom_filter_columns = ARRAY['_date'],\n" +
                                 "   orc_bloom_filter_fpp = 1E-1,\n" +
                                 "   partitioning = ARRAY['_date'],\n" +
@@ -443,7 +443,7 @@ public abstract class BaseIcebergMaterializedViewTest
                         "WITH (\n" +
                         "   format = 'ORC',\n" +
                         "   format_version = 2,\n" +
-                        "   location = '" + getSchemaDirectory() + "/st_\\E[0-9a-f]+\\Q',\n" +
+                        "   location = '" + getSchemaDirectory() + "/st_\\E[0-9a-f]+-[0-9a-f]+\\Q',\n" +
                         "   partitioning = ARRAY['_date'],\n" +
                         "   storage_schema = '" + getSchemaName() + "'\n" +
                         ") AS\n" +

@@ -60,7 +60,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -95,7 +95,7 @@ public class TestExpressionInterpreter
             .put(new Symbol("bound_double"), DOUBLE)
             .put(new Symbol("bound_boolean"), BOOLEAN)
             .put(new Symbol("bound_date"), DATE)
-            .put(new Symbol("bound_time"), TIME)
+            .put(new Symbol("bound_time"), TIME_MILLIS)
             .put(new Symbol("bound_timestamp"), TIMESTAMP_MILLIS)
             .put(new Symbol("bound_pattern"), VARCHAR)
             .put(new Symbol("bound_null_string"), VARCHAR)
@@ -111,7 +111,7 @@ public class TestExpressionInterpreter
             .put(new Symbol("unbound_double"), DOUBLE)
             .put(new Symbol("unbound_boolean"), BOOLEAN)
             .put(new Symbol("unbound_date"), DATE)
-            .put(new Symbol("unbound_time"), TIME)
+            .put(new Symbol("unbound_time"), TIME_MILLIS)
             .put(new Symbol("unbound_timestamp"), TIMESTAMP_MILLIS)
             .put(new Symbol("unbound_interval"), INTERVAL_DAY_TIME)
             .put(new Symbol("unbound_pattern"), VARCHAR)
@@ -1780,11 +1780,11 @@ public class TestExpressionInterpreter
     {
         optimize("ARRAY[]");
         assertOptimizedEquals("ARRAY[(unbound_long + 0), (unbound_long + 1), (unbound_long + 2)]",
-                "array_constructor((unbound_long + 0), (unbound_long + 1), (unbound_long + 2))");
+                "\"$array\"((unbound_long + 0), (unbound_long + 1), (unbound_long + 2))");
         assertOptimizedEquals("ARRAY[(bound_long + 0), (unbound_long + 1), (bound_long + 2)]",
-                "array_constructor((bound_long + 0), (unbound_long + 1), (bound_long + 2))");
+                "\"$array\"((bound_long + 0), (unbound_long + 1), (bound_long + 2))");
         assertOptimizedEquals("ARRAY[(bound_long + 0), (unbound_long + 1), NULL]",
-                "array_constructor((bound_long + 0), (unbound_long + 1), NULL)");
+                "\"$array\"((bound_long + 0), (unbound_long + 1), NULL)");
     }
 
     @Test

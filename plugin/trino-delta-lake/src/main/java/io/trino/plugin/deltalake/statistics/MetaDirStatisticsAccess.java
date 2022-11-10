@@ -15,7 +15,8 @@ package io.trino.plugin.deltalake.statistics;
 
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
-import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.hdfs.HdfsContext;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.hadoop.fs.FileSystem;
@@ -67,7 +68,7 @@ public class MetaDirStatisticsAccess
     {
         try {
             Path statisticsPath = new Path(new Path(tableLocation, statisticsDirectory), statisticsFile);
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsEnvironment.HdfsContext(session), statisticsPath);
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsContext(session), statisticsPath);
             if (!fileSystem.exists(statisticsPath)) {
                 return Optional.empty();
             }
@@ -92,7 +93,7 @@ public class MetaDirStatisticsAccess
         try {
             Path statisticsPath = new Path(metaPath, STATISTICS_FILE);
 
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsEnvironment.HdfsContext(session), metaPath);
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsContext(session), metaPath);
             try (OutputStream outputStream = fileSystem.create(statisticsPath, true)) {
                 outputStream.write(statisticsCodec.toJsonBytes(statistics));
             }
@@ -110,7 +111,7 @@ public class MetaDirStatisticsAccess
     {
         Path statisticsPath = new Path(new Path(tableLocation, STATISTICS_META_DIR), STATISTICS_FILE);
         try {
-            FileSystem hdfs = hdfsEnvironment.getFileSystem(new HdfsEnvironment.HdfsContext(session), statisticsPath);
+            FileSystem hdfs = hdfsEnvironment.getFileSystem(new HdfsContext(session), statisticsPath);
             if (!hdfs.delete(statisticsPath, false) && hdfs.exists(statisticsPath)) {
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Failed to delete statistics file %s", statisticsPath));
             }
@@ -122,7 +123,7 @@ public class MetaDirStatisticsAccess
 
     private void ensureDirectoryExists(ConnectorSession session, Path directoryPath)
     {
-        HdfsEnvironment.HdfsContext hdfsContext = new HdfsEnvironment.HdfsContext(session);
+        HdfsContext hdfsContext = new HdfsContext(session);
         if (!pathExists(hdfsContext, hdfsEnvironment, directoryPath)) {
             createDirectory(hdfsContext, hdfsEnvironment, directoryPath);
         }

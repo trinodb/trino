@@ -461,10 +461,12 @@ public class DefaultJdbcMetadata
                                         .addAll(newLeftColumns.values())
                                         .addAll(newRightColumns.values())
                                         .build()),
-                        ImmutableSet.<SchemaTableName>builder()
-                                .addAll(leftHandle.getAllReferencedTables())
-                                .addAll(rightHandle.getAllReferencedTables())
-                                .build(),
+                        leftHandle.getAllReferencedTables().flatMap(leftReferencedTables ->
+                                rightHandle.getAllReferencedTables().map(rightReferencedTables ->
+                                        ImmutableSet.<SchemaTableName>builder()
+                                                .addAll(leftReferencedTables)
+                                                .addAll(rightReferencedTables)
+                                                .build())),
                         nextSyntheticColumnId),
                 ImmutableMap.copyOf(newLeftColumns),
                 ImmutableMap.copyOf(newRightColumns),

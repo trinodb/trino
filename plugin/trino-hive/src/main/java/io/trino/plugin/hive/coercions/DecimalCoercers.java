@@ -14,15 +14,19 @@
 
 package io.trino.plugin.hive.coercions;
 
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.RealType;
+import io.trino.spi.type.VarcharType;
 
 import java.util.function.Function;
 
+import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.type.DecimalConversions.doubleToLongDecimal;
 import static io.trino.spi.type.DecimalConversions.doubleToShortDecimal;
 import static io.trino.spi.type.DecimalConversions.longDecimalToDouble;
@@ -38,6 +42,8 @@ import static io.trino.spi.type.DecimalConversions.shortToShortCast;
 import static io.trino.spi.type.Decimals.longTenToNth;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
+import static java.lang.Math.min;
+import static java.lang.String.format;
 
 public final class DecimalCoercers
 {
@@ -49,18 +55,12 @@ public final class DecimalCoercers
             if (toType.isShort()) {
                 return new ShortDecimalToShortDecimalCoercer(fromType, toType);
             }
-            else {
-                return new ShortDecimalToLongDecimalCoercer(fromType, toType);
-            }
+            return new ShortDecimalToLongDecimalCoercer(fromType, toType);
         }
-        else {
-            if (toType.isShort()) {
-                return new LongDecimalToShortDecimalCoercer(fromType, toType);
-            }
-            else {
-                return new LongDecimalToLongDecimalCoercer(fromType, toType);
-            }
+        if (toType.isShort()) {
+            return new LongDecimalToShortDecimalCoercer(fromType, toType);
         }
+        return new LongDecimalToLongDecimalCoercer(fromType, toType);
     }
 
     private static class ShortDecimalToShortDecimalCoercer
@@ -153,9 +153,7 @@ public final class DecimalCoercers
         if (fromType.isShort()) {
             return new ShortDecimalToDoubleCoercer(fromType);
         }
-        else {
-            return new LongDecimalToDoubleCoercer(fromType);
-        }
+        return new LongDecimalToDoubleCoercer(fromType);
     }
 
     private static class ShortDecimalToDoubleCoercer
@@ -198,9 +196,7 @@ public final class DecimalCoercers
         if (fromType.isShort()) {
             return new ShortDecimalToRealCoercer(fromType);
         }
-        else {
-            return new LongDecimalToRealCoercer(fromType);
-        }
+        return new LongDecimalToRealCoercer(fromType);
     }
 
     private static class ShortDecimalToRealCoercer
@@ -238,14 +234,66 @@ public final class DecimalCoercers
         }
     }
 
+    public static Function<Block, Block> createDecimalToVarcharCoercer(DecimalType fromType, VarcharType toType)
+    {
+        if (fromType.isShort()) {
+            return new ShortDecimalToVarcharCoercer(fromType, toType);
+        }
+        return new LongDecimalToVarcharCoercer(fromType, toType);
+    }
+
+    private static class ShortDecimalToVarcharCoercer
+            extends TypeCoercer<DecimalType, VarcharType>
+    {
+        private final int lengthLimit;
+
+        protected ShortDecimalToVarcharCoercer(DecimalType fromType, VarcharType toType)
+        {
+            super(fromType, toType);
+            this.lengthLimit = toType.getLength().orElse(Integer.MAX_VALUE);
+        }
+
+        @Override
+        protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
+        {
+            String stringValue = Decimals.toString(fromType.getLong(block, position), fromType.getScale());
+            // Hive truncates digits (also before the decimal point), which can be perceived as a bug
+            if (stringValue.length() > lengthLimit) {
+                throw new TrinoException(INVALID_ARGUMENTS, format("Decimal value %s representation exceeds varchar(%s) bounds", stringValue, lengthLimit));
+            }
+            toType.writeString(blockBuilder, stringValue.substring(0, min(lengthLimit, stringValue.length())));
+        }
+    }
+
+    private static class LongDecimalToVarcharCoercer
+            extends TypeCoercer<DecimalType, VarcharType>
+    {
+        private final int lengthLimit;
+
+        protected LongDecimalToVarcharCoercer(DecimalType fromType, VarcharType toType)
+        {
+            super(fromType, toType);
+            this.lengthLimit = toType.getLength().orElse(Integer.MAX_VALUE);
+        }
+
+        @Override
+        protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
+        {
+            String stringValue = Decimals.toString((Int128) fromType.getObject(block, position), fromType.getScale());
+            // Hive truncates digits (also before the decimal point), which can be perceived as a bug
+            if (stringValue.length() > lengthLimit) {
+                throw new TrinoException(INVALID_ARGUMENTS, format("Decimal value %s representation exceeds varchar(%s) bounds", stringValue, lengthLimit));
+            }
+            toType.writeString(blockBuilder, stringValue.substring(0, min(lengthLimit, stringValue.length())));
+        }
+    }
+
     public static Function<Block, Block> createDoubleToDecimalCoercer(DecimalType toType)
     {
         if (toType.isShort()) {
             return new DoubleToShortDecimalCoercer(toType);
         }
-        else {
-            return new DoubleToLongDecimalCoercer(toType);
-        }
+        return new DoubleToLongDecimalCoercer(toType);
     }
 
     private static class DoubleToShortDecimalCoercer
@@ -285,9 +333,7 @@ public final class DecimalCoercers
         if (toType.isShort()) {
             return new RealToShortDecimalCoercer(toType);
         }
-        else {
-            return new RealToLongDecimalCoercer(toType);
-        }
+        return new RealToLongDecimalCoercer(toType);
     }
 
     private static class RealToShortDecimalCoercer

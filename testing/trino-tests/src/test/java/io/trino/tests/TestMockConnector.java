@@ -20,6 +20,7 @@ import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.MockConnectorTableHandle;
+import io.trino.connector.TestingTableFunctions.SimpleTableFunction;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.procedure.TestProcedure;
@@ -27,7 +28,10 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition.Column;
+import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -40,6 +44,7 @@ import java.util.Optional;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_DATA;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_SCHEMA;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
+import static io.trino.spi.connector.TableProcedureExecutionMode.coordinatorOnly;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -73,6 +78,16 @@ public class TestMockConnector
                                     }
                                     return new MockConnectorTableHandle(tableName);
                                 })
+                                .withGetViews((session, schemaTablePrefix) -> ImmutableMap.of(
+                                        new SchemaTableName("default", "test_view"),
+                                        new ConnectorViewDefinition(
+                                                "SELECT nationkey FROM mock.default.test_table",
+                                                Optional.of("mock"),
+                                                Optional.of("default"),
+                                                ImmutableList.of(new ViewColumn("nationkey", BIGINT.getTypeId())),
+                                                Optional.empty(),
+                                                Optional.of("alice"),
+                                                false)))
                                 .withGetMaterializedViewProperties(() -> ImmutableList.of(
                                         durationProperty(
                                                 "refresh_interval",
@@ -98,6 +113,8 @@ public class TestMockConnector
                                 })
                                 .withMetrics(schemaTableName -> new Metrics(ImmutableMap.of("test_metric", new LongCount(1))))
                                 .withProcedures(ImmutableSet.of(new TestProcedure().get()))
+                                .withTableProcedures(ImmutableSet.of(new TableProcedureMetadata("TESTING_TABLE_PROCEDURE", coordinatorOnly(), ImmutableList.of())))
+                                .withTableFunctions(ImmutableSet.of(new SimpleTableFunction()))
                                 .withSchemaProperties(() -> ImmutableList.<PropertyMetadata<?>>builder()
                                         .add(booleanProperty("boolean_schema_property", "description", false, false))
                                         .build())
@@ -125,6 +142,12 @@ public class TestMockConnector
     public void testRenameSchema()
     {
         assertUpdate("ALTER SCHEMA mock.default RENAME to renamed");
+    }
+
+    @Test
+    public void testViewComment()
+    {
+        assertUpdate("COMMENT ON VIEW mock.default.test_view IS 'new comment'");
     }
 
     @Test
@@ -191,9 +214,7 @@ public class TestMockConnector
         assertQuery("SELECT count(*) FROM mock.default.nation WHERE name = 'ALGERIA'", "SELECT 1");
         assertUpdate("UPDATE mock.default.nation SET name = 'ALGERIA'", 25);
         assertUpdate("UPDATE mock.default.nation SET name = 'ALGERIA' WHERE nationkey = 1", 1);
-        assertThatThrownBy(() -> assertUpdate("UPDATE mock.default.nation SET name = 'x' WHERE false", 0))
-                // TODO https://github.com/trinodb/trino/issues/8855 - UPDATE with WHERE false currently is not supported
-                .hasMessage("Invalid descendant for DeleteNode or UpdateNode: io.trino.sql.planner.plan.ExchangeNode");
+        assertUpdate("UPDATE mock.default.nation SET name = 'x' WHERE false", 0);
         // Mock connector only pretends support for UPDATE, it does not manipulate any data
         assertQuery("SELECT count(*) FROM mock.default.nation WHERE name = 'ALGERIA'", "SELECT 1");
     }
@@ -204,6 +225,22 @@ public class TestMockConnector
         assertUpdate("CALL mock.default.test_procedure()");
         assertThatThrownBy(() -> assertUpdate("CALL mock.default.non_exist_procedure()"))
                 .hasMessage("Procedure not registered: default.non_exist_procedure");
+    }
+
+    @Test
+    public void testTableProcedure()
+    {
+        assertQuerySucceeds("ALTER TABLE mock.default.test_table EXECUTE TESTING_TABLE_PROCEDURE()");
+        assertQueryFails("ALTER TABLE mock.default.test_table EXECUTE NON_EXISTING_TABLE_PROCEDURE()", "Table procedure not registered: NON_EXISTING_TABLE_PROCEDURE");
+    }
+
+    @Test
+    public void testTableFunction()
+    {
+        assertThatThrownBy(() -> assertUpdate("SELECT * FROM TABLE(mock.system.simple_table_function())"))
+                .hasMessage("execution by operator is not yet implemented for table function simple_table_function");
+        assertThatThrownBy(() -> assertUpdate("SELECT * FROM TABLE(mock.system.non_existing_table_function())"))
+                .hasMessageContaining("Table function mock.system.non_existing_table_function not registered");
     }
 
     @Test

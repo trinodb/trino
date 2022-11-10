@@ -15,8 +15,10 @@ package io.trino.spi.ptf;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.spi.Experimental;
 import io.trino.spi.expression.ConnectorExpression;
 
+import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -27,6 +29,7 @@ import static java.util.Objects.requireNonNull;
  * This representation should be considered experimental. Eventually, {@link ConnectorExpression}
  * should be extended to include this kind of argument.
  */
+@Experimental(eta = "2022-10-31")
 public class DescriptorArgument
         extends Argument
 {
@@ -43,6 +46,25 @@ public class DescriptorArgument
     public Optional<Descriptor> getDescriptor()
     {
         return descriptor;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        DescriptorArgument that = (DescriptorArgument) o;
+        return descriptor.equals(that.descriptor);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(descriptor);
     }
 
     public static Builder builder()

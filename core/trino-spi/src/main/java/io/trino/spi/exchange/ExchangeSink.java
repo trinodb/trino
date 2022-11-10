@@ -14,15 +14,30 @@
 package io.trino.spi.exchange;
 
 import io.airlift.slice.Slice;
+import io.trino.spi.Experimental;
 
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.concurrent.CompletableFuture;
 
 @ThreadSafe
+@Experimental(eta = "2023-01-01")
 public interface ExchangeSink
 {
     CompletableFuture<Void> NOT_BLOCKED = CompletableFuture.completedFuture(null);
+
+    /**
+     * Returns {@code true} when {@link ExchangeSinkInstanceHandle} needs to be updated
+     * through {@link #updateHandle(ExchangeSinkInstanceHandle)} to make further progress
+     */
+    boolean isHandleUpdateRequired();
+
+    /**
+     * Update {@link ExchangeSinkInstanceHandle}. Done by the engine upon request initiated by the {@link ExchangeSink}
+     *
+     * @param handle updated handle
+     */
+    void updateHandle(ExchangeSinkInstanceHandle handle);
 
     /**
      * Returns a future that will be completed when the exchange sink becomes
@@ -33,8 +48,7 @@ public interface ExchangeSink
 
     /**
      * Appends arbitrary {@code data} to a partition specified by {@code partitionId}.
-     * The engine is free to reuse the {@code data} buffer.
-     * The implementation is expected to copy the buffer as it may be invalidated and recycled.
+     * With method call the {@code data} buffer ownership is passed from caller to callee.
      * This method is guaranteed not to be invoked after {@link #finish()}.
      * This method can be invoked after {@link #abort()}.
      * If this method is invoked after {@link #abort()} the invocation should be ignored.

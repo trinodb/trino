@@ -31,6 +31,7 @@ import java.util.stream.Stream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.jdbc.RemoteDatabaseEvent.Status.CANCELLED;
 import static io.trino.plugin.jdbc.RemoteDatabaseEvent.Status.RUNNING;
+import static io.trino.testing.containers.TestContainers.exposeFixedPorts;
 import static java.lang.String.format;
 import static java.util.function.Predicate.not;
 import static org.testcontainers.containers.PostgreSQLContainer.POSTGRESQL_PORT;
@@ -51,6 +52,11 @@ public class TestingPostgreSqlServer
 
     public TestingPostgreSqlServer()
     {
+        this(false);
+    }
+
+    public TestingPostgreSqlServer(boolean shouldExposeFixedPorts)
+    {
         // Use the oldest supported PostgreSQL version
         dockerContainer = new PostgreSQLContainer<>("postgres:10.20")
                 .withStartupAttempts(3)
@@ -58,6 +64,9 @@ public class TestingPostgreSqlServer
                 .withUsername(USER)
                 .withPassword(PASSWORD)
                 .withCommand("postgres", "-c", "log_destination=stderr", "-c", "log_statement=all");
+        if (shouldExposeFixedPorts) {
+            exposeFixedPorts(dockerContainer);
+        }
         dockerContainer.start();
 
         execute("CREATE SCHEMA tpch");
@@ -129,7 +138,7 @@ public class TestingPostgreSqlServer
 
     public String getJdbcUrl()
     {
-        return format("jdbc:postgresql://%s:%s/%s", dockerContainer.getContainerIpAddress(), dockerContainer.getMappedPort(POSTGRESQL_PORT), DATABASE);
+        return format("jdbc:postgresql://%s:%s/%s", dockerContainer.getHost(), dockerContainer.getMappedPort(POSTGRESQL_PORT), DATABASE);
     }
 
     @Override

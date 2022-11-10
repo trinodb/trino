@@ -15,20 +15,15 @@ package io.trino.plugin.deltalake.metastore;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Sets;
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.Session;
+import io.trino.plugin.deltalake.AllowDeltaLakeManagedTableRename;
 import io.trino.plugin.deltalake.TestingDeltaLakePlugin;
-import io.trino.plugin.hive.HdfsConfig;
-import io.trino.plugin.hive.HdfsConfiguration;
-import io.trino.plugin.hive.HdfsConfigurationInitializer;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HiveHdfsConfiguration;
 import io.trino.plugin.hive.NodeVersion;
-import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.CountingAccessHiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
@@ -45,6 +40,7 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.CREATE_TABLE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_DATABASE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_TABLE;
@@ -72,12 +68,9 @@ public class TestDeltaLakeMetastoreAccessOperations
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(TEST_SESSION).build();
 
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake").toFile();
-        HdfsConfig hdfsConfig = new HdfsConfig();
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
-        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
         HiveMetastore hiveMetastore = new FileHiveMetastore(
                 new NodeVersion("testversion"),
-                hdfsEnvironment,
+                HDFS_ENVIRONMENT,
                 false,
                 new FileHiveMetastoreConfig()
                         .setCatalogDirectory(baseDir.toURI().toString())
@@ -107,6 +100,7 @@ public class TestDeltaLakeMetastoreAccessOperations
         protected void setup(Binder binder)
         {
             binder.bind(HiveMetastoreFactory.class).annotatedWith(RawHiveMetastoreFactory.class).toInstance(HiveMetastoreFactory.ofInstance(metastore));
+            binder.bind(Key.get(boolean.class, AllowDeltaLakeManagedTableRename.class)).toInstance(false);
         }
     }
 

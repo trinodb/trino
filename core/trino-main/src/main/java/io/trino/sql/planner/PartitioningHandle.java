@@ -15,7 +15,7 @@ package io.trino.sql.planner;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
@@ -27,26 +27,26 @@ import static java.util.Objects.requireNonNull;
 
 public class PartitioningHandle
 {
-    private final Optional<CatalogName> connectorId;
+    private final Optional<CatalogHandle> catalogHandle;
     private final Optional<ConnectorTransactionHandle> transactionHandle;
     private final ConnectorPartitioningHandle connectorHandle;
 
     @JsonCreator
     public PartitioningHandle(
-            @JsonProperty("connectorId") Optional<CatalogName> connectorId,
+            @JsonProperty("catalogHandle") Optional<CatalogHandle> catalogHandle,
             @JsonProperty("transactionHandle") Optional<ConnectorTransactionHandle> transactionHandle,
             @JsonProperty("connectorHandle") ConnectorPartitioningHandle connectorHandle)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
-        checkArgument(connectorId.isEmpty() || transactionHandle.isPresent(), "transactionHandle is required when connectorId is present");
+        checkArgument(catalogHandle.isEmpty() || transactionHandle.isPresent(), "transactionHandle is required when catalogHandle is present");
         this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
     }
 
     @JsonProperty
-    public Optional<CatalogName> getConnectorId()
+    public Optional<CatalogHandle> getCatalogHandle()
     {
-        return connectorId;
+        return catalogHandle;
     }
 
     @JsonProperty
@@ -82,7 +82,7 @@ public class PartitioningHandle
         }
         PartitioningHandle that = (PartitioningHandle) o;
 
-        return Objects.equals(connectorId, that.connectorId) &&
+        return Objects.equals(catalogHandle, that.catalogHandle) &&
                 Objects.equals(transactionHandle, that.transactionHandle) &&
                 Objects.equals(connectorHandle, that.connectorHandle);
     }
@@ -90,14 +90,14 @@ public class PartitioningHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, transactionHandle, connectorHandle);
+        return Objects.hash(catalogHandle, transactionHandle, connectorHandle);
     }
 
     @Override
     public String toString()
     {
-        if (connectorId.isPresent()) {
-            return connectorId.get() + ":" + connectorHandle;
+        if (catalogHandle.isPresent()) {
+            return catalogHandle.get() + ":" + connectorHandle;
         }
         return connectorHandle.toString();
     }

@@ -97,8 +97,6 @@ public final class DateTimeZoneIndex
         if (FIXED_ZONE_OFFSET[zoneKey] == VARIABLE_ZONE) {
             return DATE_TIME_ZONES[zoneKey].getOffset(epochMillis) / 60_000;
         }
-        else {
-            return FIXED_ZONE_OFFSET[zoneKey];
-        }
+        return FIXED_ZONE_OFFSET[zoneKey];
     }
 }

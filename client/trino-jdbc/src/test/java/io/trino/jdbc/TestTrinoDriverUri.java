@@ -181,6 +181,9 @@ public class TestTrinoDriverUri
 
         // legacy url
         assertInvalid("jdbc:presto://localhost:8080", "Invalid JDBC URL: jdbc:presto://localhost:8080");
+
+        // cannot set mutually exclusive properties for non-conforming clients to true
+        assertInvalid("jdbc:trino://localhost:8080?assumeLiteralNamesInMetadataCallsForNonConformingClients=true&assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=true", "Connection property 'assumeLiteralNamesInMetadataCallsForNonConformingClients' is not allowed");
     }
 
     @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Connection property 'user' value is empty")
@@ -399,6 +402,24 @@ public class TestTrinoDriverUri
         TrinoDriverUri parameters = createDriverUri("jdbc:trino://localhost:8080/catalog");
         assertThat(parameters.getCatalog()).isPresent();
         assertThat(parameters.getSchema()).isEmpty();
+    }
+
+    @Test
+    public void testAssumeLiteralNamesInMetadataCallsForNonConformingClients()
+            throws SQLException
+    {
+        TrinoDriverUri parameters = createDriverUri("jdbc:trino://localhost:8080?assumeLiteralNamesInMetadataCallsForNonConformingClients=true");
+        assertThat(parameters.isAssumeLiteralNamesInMetadataCallsForNonConformingClients()).isTrue();
+        assertThat(parameters.isAssumeLiteralUnderscoreInMetadataCallsForNonConformingClients()).isFalse();
+    }
+
+    @Test
+    public void testAssumeLiteralUnderscoreInMetadataCallsForNonConformingClients()
+            throws SQLException
+    {
+        TrinoDriverUri parameters = createDriverUri("jdbc:trino://localhost:8080?assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=true");
+        assertThat(parameters.isAssumeLiteralUnderscoreInMetadataCallsForNonConformingClients()).isTrue();
+        assertThat(parameters.isAssumeLiteralNamesInMetadataCallsForNonConformingClients()).isFalse();
     }
 
     private static void assertUriPortScheme(TrinoDriverUri parameters, int port, String scheme)

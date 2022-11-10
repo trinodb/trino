@@ -48,6 +48,9 @@ name from the properties file.
 
 .. include:: jdbc-common-configurations.fragment
 
+.. |default_domain_compaction_threshold| replace:: ``32``
+.. include:: jdbc-domain-compaction-threshold.fragment
+
 .. include:: jdbc-procedures.fragment
 
 .. include:: jdbc-case-insensitive-matching.fragment
@@ -56,6 +59,45 @@ name from the properties file.
 
 Type mapping
 ------------
+
+Because Trino and Druid each support types that the other does not, this
+connector :ref:`modifies some types <type-mapping-overview>` when reading data.
+
+Druid type to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps Druid types to the corresponding Trino types according to the
+following table:
+
+.. list-table:: Druid type to Trino type mapping
+  :widths: 30, 30, 50
+  :header-rows: 1
+
+  * - Druid type
+    - Trino type
+    - Notes
+  * - ``STRING``
+    - ``VARCHAR``
+    -
+  * - ``FLOAT``
+    - ``REAL``
+    -
+  * - ``DOUBLE``
+    - ``DOUBLE``
+    -
+  * - ``LONG``
+    - ``BIGINT``
+    - Except for the special ``_time`` column, which is mapped to ``TIMESTAMP``.
+  * - ``TIMESTAMP``
+    - ``TIMESTAMP``
+    - Only applicable to the special ``_time`` column.
+
+No other data types are supported.
+
+Druid does not have a real ``NULL`` value for any data type. By
+default, Druid treats ``NULL`` as the default value for a data type. For
+example, ``LONG`` would be ``0``, ``DOUBLE`` would be ``0.0``, ``STRING`` would
+be an empty string ``''``, and so forth.
 
 .. include:: jdbc-type-mapping.fragment
 

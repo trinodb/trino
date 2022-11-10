@@ -17,8 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.iceberg.PartitionTransforms.ColumnTransform;
 import io.trino.spi.Page;
 import io.trino.spi.PageIndexer;
@@ -40,8 +39,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.JobConf;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
@@ -63,7 +60,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.trino.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_TOO_MANY_OPEN_PARTITIONS;
 import static io.trino.plugin.iceberg.PartitionTransforms.getColumnTransform;
 import static io.trino.plugin.iceberg.util.Timestamps.getTimestampTz;
@@ -92,9 +88,7 @@ public class IcebergPageSink
     private final PartitionSpec partitionSpec;
     private final LocationProvider locationProvider;
     private final IcebergFileWriterFactory fileWriterFactory;
-    private final HdfsEnvironment hdfsEnvironment;
-    private final HdfsContext hdfsContext;
-    private final JobConf jobConf;
+    private final TrinoFileSystem fileSystem;
     private final JsonCodec<CommitTaskData> jsonCodec;
     private final ConnectorSession session;
     private final IcebergFileFormat fileFormat;
@@ -117,8 +111,7 @@ public class IcebergPageSink
             LocationProvider locationProvider,
             IcebergFileWriterFactory fileWriterFactory,
             PageIndexerFactory pageIndexerFactory,
-            HdfsEnvironment hdfsEnvironment,
-            HdfsContext hdfsContext,
+            TrinoFileSystem fileSystem,
             List<IcebergColumnHandle> inputColumns,
             JsonCodec<CommitTaskData> jsonCodec,
             ConnectorSession session,
@@ -131,9 +124,7 @@ public class IcebergPageSink
         this.partitionSpec = requireNonNull(partitionSpec, "partitionSpec is null");
         this.locationProvider = requireNonNull(locationProvider, "locationProvider is null");
         this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.hdfsContext = requireNonNull(hdfsContext, "hdfsContext is null");
-        this.jobConf = toJobConf(hdfsEnvironment.getConfiguration(hdfsContext, new Path(locationProvider.newDataLocation("data-file"))));
+        this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.session = requireNonNull(session, "session is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
@@ -165,8 +156,7 @@ public class IcebergPageSink
     @Override
     public CompletableFuture<?> appendPage(Page page)
     {
-        hdfsEnvironment.doAs(session.getIdentity(), () -> doAppend(page));
-
+        doAppend(page);
         return NOT_BLOCKED;
     }
 
@@ -336,15 +326,15 @@ public class IcebergPageSink
         // prepend query id to a file name so we can determine which files were written by which query. This is needed for opportunistic cleanup of extra files
         // which may be present for successfully completing query in presence of failure recovery mechanisms.
         String fileName = fileFormat.toIceberg().addExtension(session.getQueryId() + "-" + randomUUID());
-        Path outputPath = partitionData.map(partition -> new Path(locationProvider.newDataLocation(partitionSpec, partition, fileName)))
-                .orElse(new Path(locationProvider.newDataLocation(fileName)));
+        String outputPath = partitionData
+                .map(partition -> locationProvider.newDataLocation(partitionSpec, partition, fileName))
+                .orElseGet(() -> locationProvider.newDataLocation(fileName));
 
         IcebergFileWriter writer = fileWriterFactory.createDataFileWriter(
+                fileSystem,
                 outputPath,
                 outputSchema,
-                jobConf,
                 session,
-                hdfsContext,
                 fileFormat,
                 metricsConfig,
                 storageProperties);
@@ -440,10 +430,10 @@ public class IcebergPageSink
     private static class WriteContext
     {
         private final IcebergFileWriter writer;
-        private final Path path;
+        private final String path;
         private final Optional<PartitionData> partitionData;
 
-        public WriteContext(IcebergFileWriter writer, Path path, Optional<PartitionData> partitionData)
+        public WriteContext(IcebergFileWriter writer, String path, Optional<PartitionData> partitionData)
         {
             this.writer = requireNonNull(writer, "writer is null");
             this.path = requireNonNull(path, "path is null");
@@ -455,7 +445,7 @@ public class IcebergPageSink
             return writer;
         }
 
-        public Path getPath()
+        public String getPath()
         {
             return path;
         }

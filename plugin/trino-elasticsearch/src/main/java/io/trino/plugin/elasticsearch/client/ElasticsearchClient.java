@@ -100,7 +100,6 @@ import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH
 import static java.lang.StrictMath.toIntExact;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.elasticsearch.action.search.SearchType.QUERY_THEN_FETCH;
@@ -139,8 +138,6 @@ public class ElasticsearchClient
             Optional<AwsSecurityConfig> awsSecurityConfig,
             Optional<PasswordConfig> passwordConfig)
     {
-        requireNonNull(config, "config is null");
-
         client = createClient(config, awsSecurityConfig, passwordConfig, backpressureStats);
 
         this.ignorePublishAddress = config.isIgnorePublishAddress();
@@ -202,7 +199,9 @@ public class ElasticsearchClient
             TimeStat backpressureStats)
     {
         RestClientBuilder builder = RestClient.builder(
-                new HttpHost(config.getHost(), config.getPort(), config.isTlsEnabled() ? "https" : "http"))
+                config.getHosts().stream()
+                        .map(httpHost -> new HttpHost(httpHost, config.getPort(), config.isTlsEnabled() ? "https" : "http"))
+                        .toArray(HttpHost[]::new))
                 .setMaxRetryTimeoutMillis(toIntExact(config.getMaxRetryTime().toMillis()));
 
         builder.setHttpClientConfigCallback(ignored -> {

@@ -117,6 +117,7 @@ public final class HiveQueryRunner
         private Optional<DirectoryLister> directoryLister = Optional.empty();
         private boolean tpcdsCatalogEnabled;
         private String security = SQL_STANDARD;
+        private boolean createTpchSchemas = true;
         private ColumnNaming tpchColumnNaming = SIMPLIFIED;
         private DecimalTypeMapping tpchDecimalTypeMapping = DOUBLE;
 
@@ -197,6 +198,12 @@ public final class HiveQueryRunner
             return self();
         }
 
+        public SELF setCreateTpchSchemas(boolean createTpchSchemas)
+        {
+            this.createTpchSchemas = createTpchSchemas;
+            return self();
+        }
+
         public SELF setTpchColumnNaming(ColumnNaming tpchColumnNaming)
         {
             this.tpchColumnNaming = requireNonNull(tpchColumnNaming, "tpchColumnNaming is null");
@@ -240,6 +247,7 @@ public final class HiveQueryRunner
                     hiveProperties.put("hive.parquet.time-zone", TIME_ZONE.getID());
                 }
                 hiveProperties.put("hive.max-partitions-per-scan", "1000");
+                hiveProperties.put("hive.max-partitions-for-eager-load", "1000");
                 hiveProperties.put("hive.security", security);
                 hiveProperties.putAll(this.hiveProperties.buildOrThrow());
 
@@ -248,12 +256,16 @@ public final class HiveQueryRunner
                         .put("hive.max-initial-split-size", "10kB") // so that each bucket has multiple splits
                         .put("hive.max-split-size", "10kB") // so that each bucket has multiple splits
                         .put("hive.storage-format", "TEXTFILE") // so that there's no minimum split size for the file
-                        .put("hive.compression-codec", "NONE") // so that the file is splittable
                         .buildOrThrow();
+                hiveBucketedProperties = new HashMap<>(hiveBucketedProperties);
+                hiveBucketedProperties.put("hive.compression-codec", "NONE"); // so that the file is splittable
+
                 queryRunner.createCatalog(HIVE_CATALOG, "hive", hiveProperties);
                 queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, "hive", hiveBucketedProperties);
 
-                populateData(queryRunner, metastore);
+                if (createTpchSchemas) {
+                    populateData(queryRunner, metastore);
+                }
 
                 return queryRunner;
             }

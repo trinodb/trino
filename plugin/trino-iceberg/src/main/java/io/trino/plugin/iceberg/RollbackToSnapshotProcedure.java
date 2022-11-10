@@ -26,21 +26,24 @@ import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.trino.spi.block.MethodHandleUtil.methodHandle;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
 public class RollbackToSnapshotProcedure
         implements Provider<Procedure>
 {
-    private static final MethodHandle ROLLBACK_TO_SNAPSHOT = methodHandle(
-            RollbackToSnapshotProcedure.class,
-            "rollbackToSnapshot",
-            ConnectorSession.class,
-            String.class,
-            String.class,
-            Long.class);
+    private static final MethodHandle ROLLBACK_TO_SNAPSHOT;
+
+    static {
+        try {
+            ROLLBACK_TO_SNAPSHOT = lookup().unreflect(RollbackToSnapshotProcedure.class.getMethod("rollbackToSnapshot", ConnectorSession.class, String.class, String.class, Long.class));
+        }
+        catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
 
     private final TrinoCatalogFactory catalogFactory;
     private final ClassLoader classLoader;
@@ -74,7 +77,7 @@ public class RollbackToSnapshotProcedure
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             SchemaTableName schemaTableName = new SchemaTableName(schema, table);
             Table icebergTable = catalogFactory.create(clientSession.getIdentity()).loadTable(clientSession, schemaTableName);
-            icebergTable.rollback().toSnapshotId(snapshotId).commit();
+            icebergTable.manageSnapshots().setCurrentSnapshot(snapshotId).commit();
         }
     }
 }

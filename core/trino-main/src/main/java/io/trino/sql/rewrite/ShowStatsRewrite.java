@@ -16,10 +16,12 @@ package io.trino.sql.rewrite;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.cost.CachingStatsProvider;
+import io.trino.cost.CachingTableStatsProvider;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.SymbolStatsEstimate;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.Metadata;
 import io.trino.operator.scalar.timestamp.TimestampToVarcharCast;
 import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToVarcharCast;
 import io.trino.spi.type.BigintType;
@@ -87,12 +89,14 @@ public class ShowStatsRewrite
     private static final Expression NULL_DOUBLE = new Cast(new NullLiteral(), toSqlType(DOUBLE));
     private static final Expression NULL_VARCHAR = new Cast(new NullLiteral(), toSqlType(VARCHAR));
 
+    private final Metadata metadata;
     private final QueryExplainerFactory queryExplainerFactory;
     private final StatsCalculator statsCalculator;
 
     @Inject
-    public ShowStatsRewrite(QueryExplainerFactory queryExplainerFactory, StatsCalculator statsCalculator)
+    public ShowStatsRewrite(Metadata metadata, QueryExplainerFactory queryExplainerFactory, StatsCalculator statsCalculator)
     {
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.queryExplainerFactory = requireNonNull(queryExplainerFactory, "queryExplainerFactory is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
     }
@@ -106,7 +110,7 @@ public class ShowStatsRewrite
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             WarningCollector warningCollector)
     {
-        return (Statement) new Visitor(session, parameters, queryExplainerFactory.createQueryExplainer(analyzerFactory), warningCollector, statsCalculator).process(node, null);
+        return (Statement) new Visitor(session, parameters, metadata, queryExplainerFactory.createQueryExplainer(analyzerFactory), warningCollector, statsCalculator).process(node, null);
     }
 
     private static class Visitor
@@ -114,14 +118,16 @@ public class ShowStatsRewrite
     {
         private final Session session;
         private final List<Expression> parameters;
+        private final Metadata metadata;
         private final QueryExplainer queryExplainer;
         private final WarningCollector warningCollector;
         private final StatsCalculator statsCalculator;
 
-        private Visitor(Session session, List<Expression> parameters, QueryExplainer queryExplainer, WarningCollector warningCollector, StatsCalculator statsCalculator)
+        private Visitor(Session session, List<Expression> parameters, Metadata metadata, QueryExplainer queryExplainer, WarningCollector warningCollector, StatsCalculator statsCalculator)
         {
             this.session = requireNonNull(session, "session is null");
             this.parameters = requireNonNull(parameters, "parameters is null");
+            this.metadata = requireNonNull(metadata, "metadata is null");
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
@@ -132,7 +138,7 @@ public class ShowStatsRewrite
         {
             Query query = getRelation(node);
             Plan plan = queryExplainer.getLogicalPlan(session, query, parameters, warningCollector);
-            CachingStatsProvider cachingStatsProvider = new CachingStatsProvider(statsCalculator, session, plan.getTypes());
+            CachingStatsProvider cachingStatsProvider = new CachingStatsProvider(statsCalculator, session, plan.getTypes(), new CachingTableStatsProvider(metadata, session));
             PlanNodeStatsEstimate stats = cachingStatsProvider.getStats(plan.getRoot());
             return rewriteShowStats(plan, stats);
         }

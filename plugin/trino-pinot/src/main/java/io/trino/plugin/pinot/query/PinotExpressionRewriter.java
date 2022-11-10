@@ -23,8 +23,10 @@ import io.trino.spi.connector.SchemaTableName;
 import org.apache.pinot.common.function.TransformFunctionType;
 import org.apache.pinot.common.request.context.ExpressionContext;
 import org.apache.pinot.common.request.context.FunctionContext;
+import org.apache.pinot.core.operator.transform.transformer.datetime.BaseDateTimeTransformer;
+import org.apache.pinot.core.operator.transform.transformer.datetime.DateTimeTransformerFactory;
+import org.apache.pinot.core.operator.transform.transformer.datetime.EpochToEpochTransformer;
 import org.apache.pinot.segment.spi.AggregationFunctionType;
-import org.apache.pinot.spi.data.DateTimeFormatSpec;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -65,8 +67,6 @@ import static org.apache.pinot.core.operator.transform.function.DateTruncTransfo
 import static org.apache.pinot.core.operator.transform.transformer.timeunit.TimeUnitTransformerFactory.getTimeUnitTransformer;
 import static org.apache.pinot.segment.spi.AggregationFunctionType.COUNT;
 import static org.apache.pinot.segment.spi.AggregationFunctionType.getAggregationFunctionType;
-import static org.apache.pinot.spi.data.DateTimeFormatSpec.validateFormat;
-import static org.apache.pinot.spi.data.DateTimeGranularitySpec.validateGranularity;
 
 public class PinotExpressionRewriter
 {
@@ -177,13 +177,13 @@ public class PinotExpressionRewriter
             ImmutableList.Builder<ExpressionContext> argumentsBuilder = ImmutableList.builder();
             argumentsBuilder.add(rewriteExpression(object.getArguments().get(0), context));
             String inputFormat = object.getArguments().get(1).getLiteral().toUpperCase(ENGLISH);
-            checkDateTimeFormatSpec(inputFormat);
             argumentsBuilder.add(forLiteral(inputFormat));
             String outputFormat = object.getArguments().get(2).getLiteral().toUpperCase(ENGLISH);
-            checkDateTimeFormatSpec(outputFormat);
             argumentsBuilder.add(forLiteral(outputFormat));
             String granularity = object.getArguments().get(3).getLiteral().toUpperCase(ENGLISH);
-            validateGranularity(granularity);
+            BaseDateTimeTransformer dateTimeTransformer = DateTimeTransformerFactory.getDateTimeTransformer(inputFormat, outputFormat, granularity);
+            // Even if the format is valid, make sure it is not a simple date format: format characters can be ambiguous due to lower casing
+            checkState(dateTimeTransformer instanceof EpochToEpochTransformer, "Unsupported date format: simple date format not supported");
             argumentsBuilder.add(forLiteral(granularity));
             return new FunctionContext(object.getType(), object.getFunctionName(), argumentsBuilder.build());
         }
@@ -304,15 +304,6 @@ public class PinotExpressionRewriter
                     .collect(toImmutableList());
             return new FunctionContext(object.getType(), object.getFunctionName(), arguments);
         }
-    }
-
-    private static void checkDateTimeFormatSpec(String dateTimeFormat)
-    {
-        requireNonNull(dateTimeFormat, "dateTimeFormat is null");
-        validateFormat(dateTimeFormat);
-        // Even if the format is valid, make sure it is not a simple date format: format characters can be ambiguous due to lower casing
-        DateTimeFormatSpec dateTimeFormatSpec = new DateTimeFormatSpec(dateTimeFormat);
-        checkState(dateTimeFormatSpec.getSDFPattern() == null, "Unsupported date format: simple date format not supported");
     }
 
     private static void verifyIsIdentifierOrFunction(ExpressionContext expressionContext)

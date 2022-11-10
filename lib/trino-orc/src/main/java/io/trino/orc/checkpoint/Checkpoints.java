@@ -144,7 +144,7 @@ public final class Checkpoints
             if (columnEncoding == DICTIONARY_V2) {
                 return new LongStreamV2Checkpoint(0, createInputStreamCheckpoint(0, 0));
             }
-            else if (columnEncoding == DICTIONARY) {
+            if (columnEncoding == DICTIONARY) {
                 return new LongStreamV1Checkpoint(0, createInputStreamCheckpoint(0, 0));
             }
         }
@@ -389,11 +389,6 @@ public final class Checkpoints
             this.columnId = requireNonNull(columnId, "columnId is null");
             this.columnType = requireNonNull(columnType, "columnType is null");
             this.positionsList = ImmutableList.copyOf(requireNonNull(positionsList, "positionsList is null"));
-        }
-
-        public int getIndex()
-        {
-            return index;
         }
 
         public boolean hasNextPosition()

@@ -16,20 +16,19 @@ package io.trino.plugin.hive.optimizer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.Files;
 import io.trino.Session;
+import io.trino.hdfs.DynamicHdfsConfiguration;
+import io.trino.hdfs.HdfsConfig;
+import io.trino.hdfs.HdfsConfiguration;
+import io.trino.hdfs.HdfsConfigurationInitializer;
+import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
-import io.trino.plugin.hive.HdfsConfig;
-import io.trino.plugin.hive.HdfsConfiguration;
-import io.trino.plugin.hive.HdfsConfigurationInitializer;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveColumnHandle;
-import io.trino.plugin.hive.HiveHdfsConfiguration;
 import io.trino.plugin.hive.HiveTableHandle;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.TestingHiveConnectorFactory;
-import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
@@ -45,6 +44,9 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.util.Map;
 import java.util.Optional;
 
@@ -81,9 +83,14 @@ public class TestHiveProjectionPushdownIntoTableScan
     @Override
     protected LocalQueryRunner createLocalQueryRunner()
     {
-        baseDir = Files.createTempDir();
+        try {
+            baseDir = Files.createTempDirectory(null).toFile();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
         HdfsConfig config = new HdfsConfig();
-        HdfsConfiguration configuration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(config), ImmutableSet.of());
+        HdfsConfiguration configuration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(config), ImmutableSet.of());
         HdfsEnvironment environment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());
 
         HiveMetastore metastore = new FileHiveMetastore(

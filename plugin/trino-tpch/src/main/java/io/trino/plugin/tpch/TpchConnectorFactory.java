@@ -45,11 +45,11 @@ public class TpchConnectorFactory
     public static final String TPCH_TABLE_SCAN_REDIRECTION_CATALOG = "tpch.table-scan-redirection-catalog";
     public static final String TPCH_TABLE_SCAN_REDIRECTION_SCHEMA = "tpch.table-scan-redirection-schema";
     public static final String TPCH_SPLITS_PER_NODE = "tpch.splits-per-node";
+    public static final String TPCH_PARTITIONING_ENABLED = "tpch.partitioning-enabled";
     private static final int DEFAULT_MAX_ROWS_PER_PAGE = 1_000_000;
 
     private final int defaultSplitsPerNode;
     private final boolean predicatePushdownEnabled;
-    private final boolean partitioningEnabled;
 
     public TpchConnectorFactory()
     {
@@ -58,14 +58,13 @@ public class TpchConnectorFactory
 
     public TpchConnectorFactory(int defaultSplitsPerNode)
     {
-        this(defaultSplitsPerNode, true, true);
+        this(defaultSplitsPerNode, true);
     }
 
-    public TpchConnectorFactory(int defaultSplitsPerNode, boolean predicatePushdownEnabled, boolean partitioningEnabled)
+    public TpchConnectorFactory(int defaultSplitsPerNode, boolean predicatePushdownEnabled)
     {
         this.defaultSplitsPerNode = defaultSplitsPerNode;
         this.predicatePushdownEnabled = predicatePushdownEnabled;
-        this.partitioningEnabled = partitioningEnabled;
     }
 
     @Override
@@ -82,6 +81,7 @@ public class TpchConnectorFactory
         int splitsPerNode = getSplitsPerNode(properties);
         ColumnNaming columnNaming = ColumnNaming.valueOf(properties.getOrDefault(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.SIMPLIFIED.name()).toUpperCase(ENGLISH));
         DecimalTypeMapping decimalTypeMapping = DecimalTypeMapping.valueOf(properties.getOrDefault(TPCH_DOUBLE_TYPE_MAPPING_PROPERTY, DecimalTypeMapping.DOUBLE.name()).toUpperCase(ENGLISH));
+        boolean partitioningEnabled = Boolean.parseBoolean(properties.getOrDefault(TPCH_PARTITIONING_ENABLED, "true"));
         NodeManager nodeManager = context.getNodeManager();
 
         return new Connector()

@@ -25,9 +25,8 @@ import io.trino.spi.metrics.Count;
 import io.trino.spi.metrics.Metrics;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.ResultWithQueryId;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.testng.services.Flaky;
@@ -80,6 +79,7 @@ public class TestMemoryConnectorTest
                         .build());
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -90,19 +90,15 @@ public class TestMemoryConnectorTest
             case SUPPORTS_AGGREGATION_PUSHDOWN:
                 return false;
 
+            case SUPPORTS_RENAME_SCHEMA:
+                return false;
+
             case SUPPORTS_ADD_COLUMN:
-            case SUPPORTS_DROP_COLUMN:
             case SUPPORTS_RENAME_COLUMN:
                 return false;
 
-            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
-            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
-            case SUPPORTS_COMMENT_ON_TABLE:
-            case SUPPORTS_COMMENT_ON_COLUMN:
-                return false;
-
-            case SUPPORTS_RENAME_SCHEMA:
-                return false;
+            case SUPPORTS_COMMENT_ON_VIEW:
+                return true;
 
             case SUPPORTS_CREATE_VIEW:
                 return true;
@@ -186,7 +182,7 @@ public class TestMemoryConnectorTest
     private Metrics collectCustomMetrics(String sql)
     {
         DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
-        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(getSession(), sql);
+        MaterializedResultWithQueryId result = runner.executeWithQueryId(getSession(), sql);
         return runner
                 .getCoordinator()
                 .getQueryManager()
@@ -201,7 +197,7 @@ public class TestMemoryConnectorTest
     @Test(timeOut = 30_000)
     public void testPhysicalInputPositions()
     {
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
                 "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey " +
                         "AND supplier.name = 'Supplier#000000001'");
@@ -454,7 +450,7 @@ public class TestMemoryConnectorTest
 
     private void assertDynamicFiltering(@Language("SQL") String selectQuery, Session session, int expectedRowCount, int... expectedOperatorRowsRead)
     {
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(session, selectQuery);
+        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(session, selectQuery);
 
         assertEquals(result.getResult().getRowCount(), expectedRowCount);
         assertEquals(getOperatorRowsRead(getDistributedQueryRunner(), result.getQueryId()), Ints.asList(expectedOperatorRowsRead));

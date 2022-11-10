@@ -21,6 +21,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Sets;
 import io.trino.Session;
 import io.trino.cost.PlanNodeStatsEstimate;
+import io.trino.cost.TableStatsProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.spi.connector.ColumnHandle;
@@ -53,6 +54,8 @@ import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.MergeProcessorNode;
+import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.OffsetNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
@@ -135,7 +138,7 @@ public class UnaliasSymbolReferences
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, TableStatsProvider tableStatsProvider)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -318,7 +321,7 @@ public class UnaliasSymbolReferences
         @Override
         public PlanAndMappings visitTableFunction(TableFunctionNode node, UnaliasContext context)
         {
-            // TODO rewrite sources, tableArgumentProperties, and inputDescriptorMappings when we add support for input tables
+            // TODO rewrite sources, and tableArgumentProperties when we add support for input tables
             Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
             SymbolMapper mapper = symbolMapper(mapping);
 
@@ -332,7 +335,6 @@ public class UnaliasSymbolReferences
                             newProperOutputs,
                             node.getSources(),
                             node.getTableArgumentProperties(),
-                            node.getInputDescriptorMappings(),
                             node.getHandle()),
                     mapping);
         }
@@ -684,6 +686,30 @@ public class UnaliasSymbolReferences
                             newOutput,
                             node.getExecuteHandle()),
                     mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitMergeWriter(MergeWriterNode node, UnaliasContext context)
+        {
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            MergeWriterNode rewrittenMerge = mapper.map(node, rewrittenSource.getRoot());
+
+            return new PlanAndMappings(rewrittenMerge, mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitMergeProcessor(MergeProcessorNode node, UnaliasContext context)
+        {
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            MergeProcessorNode mergeProcessorNode = mapper.map(node, rewrittenSource.getRoot());
+
+            return new PlanAndMappings(mergeProcessorNode, mapping);
         }
 
         @Override

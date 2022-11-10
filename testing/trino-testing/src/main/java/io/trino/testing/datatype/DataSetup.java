@@ -13,11 +13,11 @@
  */
 package io.trino.testing.datatype;
 
-import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.TemporaryRelation;
 
 import java.util.List;
 
 public interface DataSetup
 {
-    TestTable setupTestTable(List<ColumnSetup> inputs);
+    TemporaryRelation setupTemporaryRelation(List<ColumnSetup> inputs);
 }

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import io.trino.Session;
+import io.trino.cost.TableStatsProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.connector.ConstantProperty;
 import io.trino.spi.connector.GroupingProperty;
@@ -42,6 +43,7 @@ import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -77,9 +79,11 @@ import static io.trino.SystemSessionProperties.getTaskConcurrency;
 import static io.trino.SystemSessionProperties.getTaskWriterCount;
 import static io.trino.SystemSessionProperties.isDistributedSortEnabled;
 import static io.trino.SystemSessionProperties.isSpillEnabled;
+import static io.trino.SystemSessionProperties.isTaskScaleWritersEnabled;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.StreamPreferredProperties.any;
 import static io.trino.sql.planner.optimizations.StreamPreferredProperties.defaultParallelism;
@@ -97,6 +101,7 @@ import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.ExchangeNode.gatheringExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.mergingExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.partitionedExchange;
+import static io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -113,7 +118,7 @@ public class AddLocalExchanges
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, TableStatsProvider tableStatsProvider)
     {
         PlanWithProperties result = plan.accept(new Rewriter(symbolAllocator, idAllocator, session), any());
         return result.getNode();
@@ -589,25 +594,52 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitTableWriter(TableWriterNode node, StreamPreferredProperties parentPreferences)
         {
-            return visitTableWriter(node, node.getPartitioningScheme(), node.getSource(), parentPreferences);
+            return visitTableWriter(node, node.getPartitioningScheme(), node.getSource(), parentPreferences, node.getTarget());
         }
 
         @Override
         public PlanWithProperties visitTableExecute(TableExecuteNode node, StreamPreferredProperties parentPreferences)
         {
-            return visitTableWriter(node, node.getPartitioningScheme(), node.getSource(), parentPreferences);
+            return visitTableWriter(node, node.getPartitioningScheme(), node.getSource(), parentPreferences, node.getTarget());
         }
 
-        private PlanWithProperties visitTableWriter(PlanNode node, Optional<PartitioningScheme> partitioningSchemeOptional, PlanNode source, StreamPreferredProperties parentPreferences)
+        private PlanWithProperties visitTableWriter(
+                PlanNode node,
+                Optional<PartitioningScheme> partitioningSchemeOptional,
+                PlanNode source,
+                StreamPreferredProperties parentPreferences,
+                WriterTarget writerTarget)
         {
+            return visitPartitionedWriter(node, partitioningSchemeOptional, source, parentPreferences, writerTarget);
+        }
+
+        private PlanWithProperties visitPartitionedWriter(PlanNode node, Optional<PartitioningScheme> optionalPartitioning, PlanNode source, StreamPreferredProperties parentPreferences, WriterTarget writerTarget)
+        {
+            // TODO - Support scale task writers for partitioned tables (https://github.com/trinodb/trino/issues/13379)
+            if (optionalPartitioning.isEmpty()
+                    && isTaskScaleWritersEnabled(session)
+                    && writerTarget.supportsReportingWrittenBytes(plannerContext.getMetadata(), session)) {
+                PlanWithProperties newSource = source.accept(this, defaultParallelism(session));
+                PlanWithProperties exchange = deriveProperties(
+                        partitionedExchange(
+                                idAllocator.getNextId(),
+                                LOCAL,
+                                newSource.getNode(),
+                                new PartitioningScheme(
+                                        Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()),
+                                        newSource.getNode().getOutputSymbols())),
+                        newSource.getProperties());
+                return rebaseAndDeriveProperties(node, ImmutableList.of(exchange));
+            }
             if (getTaskWriterCount(session) == 1) {
                 return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
             }
-            if (partitioningSchemeOptional.isEmpty()) {
+
+            if (optionalPartitioning.isEmpty()) {
                 return planAndEnforceChildren(node, fixedParallelism(), fixedParallelism());
             }
 
-            PartitioningScheme partitioningScheme = partitioningSchemeOptional.get();
+            PartitioningScheme partitioningScheme = optionalPartitioning.get();
 
             if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_HASH_DISTRIBUTION)) {
                 // arbitrary hash function on predefined set of partition columns
@@ -630,6 +662,16 @@ public class AddLocalExchanges
                     newSource.getProperties());
 
             return rebaseAndDeriveProperties(node, ImmutableList.of(exchange));
+        }
+
+        //
+        // Merge
+        //
+
+        @Override
+        public PlanWithProperties visitMergeWriter(MergeWriterNode node, StreamPreferredProperties parentPreferences)
+        {
+            return visitPartitionedWriter(node, node.getPartitioningScheme(), node.getSource(), parentPreferences, node.getTarget());
         }
 
         //

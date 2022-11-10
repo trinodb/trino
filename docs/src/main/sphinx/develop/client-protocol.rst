@@ -172,9 +172,9 @@ in subsequent requests, just like browser cookies.
       its value is the name of a session property that is
       removed from the client's accumulated list.
   * - ``X-Trino-Role``
-    - Sets the "role" for query processing.  A "role" is represents
-      a collection of permissions.  Set by response header
-      ``X-Trino-Set-Role``.  See doc:/sql/create-role to
+    - Sets the "role" for query processing. A "role" represents
+      a collection of permissions. Set by response header
+      ``X-Trino-Set-Role``. See :doc:`/sql/create-role` to
       understand roles.
   * - ``X-Trino-Prepared-Statement``
     - A comma-separated list of the name=value pairs, where the

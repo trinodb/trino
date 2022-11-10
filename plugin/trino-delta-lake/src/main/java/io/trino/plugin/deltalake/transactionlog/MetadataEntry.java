@@ -32,6 +32,9 @@ import static java.lang.String.format;
 
 public class MetadataEntry
 {
+    public static final String DELTA_CHECKPOINT_WRITE_STATS_AS_JSON_PROPERTY = "delta.checkpoint.writeStatsAsJson";
+    public static final String DELTA_CHECKPOINT_WRITE_STATS_AS_STRUCT_PROPERTY = "delta.checkpoint.writeStatsAsStruct";
+
     private static final String DELTA_CHECKPOINT_INTERVAL_PROPERTY = "delta.checkpointInterval";
 
     private final String id;
@@ -40,7 +43,7 @@ public class MetadataEntry
     private final Format format;
     private final String schemaString;
     private final List<String> partitionColumns;
-    private final List<String> canonincalPartitionColumns;
+    private final List<String> canonicalPartitionColumns;
     private final Map<String, String> configuration;
     private final long createdTime;
 
@@ -61,7 +64,7 @@ public class MetadataEntry
         this.format = format;
         this.schemaString = schemaString;
         this.partitionColumns = partitionColumns;
-        this.canonincalPartitionColumns = partitionColumns.stream()
+        this.canonicalPartitionColumns = partitionColumns.stream()
                 // canonicalize partition keys to lowercase so they match column names used in DeltaLakeColumnHandle
                 .map(value -> value.toLowerCase(Locale.ENGLISH))
                 .collect(toImmutableList());
@@ -114,7 +117,7 @@ public class MetadataEntry
     @JsonIgnore
     public List<String> getCanonicalPartitionColumns()
     {
-        return canonincalPartitionColumns;
+        return canonicalPartitionColumns;
     }
 
     @JsonProperty
@@ -153,7 +156,7 @@ public class MetadataEntry
         }
     }
 
-    public static Map<String, String> buildDeltaMetadataConfiguration(Optional<Long> checkpointInterval)
+    public static Map<String, String> configurationForNewTable(Optional<Long> checkpointInterval)
     {
         return checkpointInterval
                 .map(value -> ImmutableMap.of(DELTA_CHECKPOINT_INTERVAL_PROPERTY, String.valueOf(value)))
@@ -177,14 +180,14 @@ public class MetadataEntry
                 Objects.equals(format, that.format) &&
                 Objects.equals(schemaString, that.schemaString) &&
                 Objects.equals(partitionColumns, that.partitionColumns) &&
-                Objects.equals(canonincalPartitionColumns, that.canonincalPartitionColumns) &&
+                Objects.equals(canonicalPartitionColumns, that.canonicalPartitionColumns) &&
                 Objects.equals(configuration, that.configuration);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(id, name, description, format, schemaString, partitionColumns, canonincalPartitionColumns, configuration, createdTime);
+        return Objects.hash(id, name, description, format, schemaString, partitionColumns, canonicalPartitionColumns, configuration, createdTime);
     }
 
     @Override

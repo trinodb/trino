@@ -47,6 +47,7 @@ import java.util.function.BiFunction;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.linkedin.coral.trino.rel2trino.functions.TrinoKeywordsConverter.quoteWordIfNotQuoted;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_VIEW_TRANSLATION_ERROR;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
@@ -226,7 +227,7 @@ public final class ViewReaderUtil
                         Optional.of(table.getDatabaseName()),
                         columns,
                         Optional.ofNullable(table.getParameters().get(TABLE_COMMENT)),
-                        Optional.empty(),
+                        Optional.empty(), // will be filled in later by HiveMetadata
                         hiveViewsRunAsInvoker);
             }
             catch (RuntimeException e) {
@@ -245,8 +246,11 @@ public final class ViewReaderUtil
             switch (type.getSqlTypeName()) {
                 case ROW: {
                     verify(type.isStruct(), "expected ROW type to be a struct: %s", type);
+                    // There is no API in RelDataType for Coral to add quotes for rowType.
+                    // We add the Coral function here to parse data types successfully.
+                    // Goal is to use data type mapping instead of translating to strings
                     return type.getFieldList().stream()
-                            .map(field -> field.getName().toLowerCase(Locale.ENGLISH) + " " + getTypeString(field.getType()))
+                            .map(field -> quoteWordIfNotQuoted(field.getName().toLowerCase(Locale.ENGLISH)) + " " + getTypeString(field.getType()))
                             .collect(joining(",", "row(", ")"));
                 }
                 case CHAR:

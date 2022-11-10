@@ -41,7 +41,9 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
+import static com.google.cloud.bigquery.TableDefinition.Type.EXTERNAL;
 import static com.google.cloud.bigquery.TableDefinition.Type.MATERIALIZED_VIEW;
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
@@ -75,8 +77,6 @@ public class BigQuerySplitManager
             BigQueryReadClientFactory bigQueryReadClientFactory,
             NodeManager nodeManager)
     {
-        requireNonNull(config, "config cannot be null");
-
         this.bigQueryClientFactory = requireNonNull(bigQueryClientFactory, "bigQueryClientFactory cannot be null");
         this.bigQueryReadClientFactory = requireNonNull(bigQueryReadClientFactory, "bigQueryReadClientFactory cannot be null");
         this.parallelism = config.getParallelism();
@@ -96,13 +96,19 @@ public class BigQuerySplitManager
         log.debug("getSplits(transaction=%s, session=%s, table=%s)", transaction, session, table);
         BigQueryTableHandle bigQueryTableHandle = (BigQueryTableHandle) table;
 
-        TableId remoteTableId = bigQueryTableHandle.getRemoteTableName().toTableId();
         int actualParallelism = parallelism.orElse(nodeManager.getRequiredWorkerNodes().size());
         TupleDomain<ColumnHandle> tableConstraint = bigQueryTableHandle.getConstraint();
         Optional<String> filter = BigQueryFilterQueryBuilder.buildFilter(tableConstraint);
+
+        if (!bigQueryTableHandle.isNamedRelation()) {
+            List<ColumnHandle> columns = bigQueryTableHandle.getProjectedColumns().orElse(ImmutableList.of());
+            return new FixedSplitSource(ImmutableList.of(BigQuerySplit.forViewStream(columns, filter)));
+        }
+
+        TableId remoteTableId = bigQueryTableHandle.asPlainTable().getRemoteTableName().toTableId();
         List<BigQuerySplit> splits = emptyProjectionIsRequired(bigQueryTableHandle.getProjectedColumns()) ?
                 createEmptyProjection(session, remoteTableId, actualParallelism, filter) :
-                readFromBigQuery(session, TableDefinition.Type.valueOf(bigQueryTableHandle.getType()), remoteTableId, bigQueryTableHandle.getProjectedColumns(), actualParallelism, filter);
+                readFromBigQuery(session, TableDefinition.Type.valueOf(bigQueryTableHandle.asPlainTable().getType()), remoteTableId, bigQueryTableHandle.getProjectedColumns(), actualParallelism, filter);
         return new FixedSplitSource(splits);
     }
 
@@ -123,8 +129,8 @@ public class BigQuerySplitManager
             // Storage API doesn't support reading wildcard tables
             return ImmutableList.of(BigQuerySplit.forViewStream(columns, filter));
         }
-        if (type == MATERIALIZED_VIEW) {
-            // Storage API doesn't support reading materialized views
+        if (type == MATERIALIZED_VIEW || type == EXTERNAL) {
+            // Storage API doesn't support reading materialized views and external tables
             return ImmutableList.of(BigQuerySplit.forViewStream(columns, filter));
         }
         if (isSkipViewMaterialization(session) && type == VIEW) {
@@ -134,7 +140,7 @@ public class BigQuerySplitManager
                 .create(session, remoteTableId, projectedColumnsNames, filter, actualParallelism);
 
         return readSession.getStreamsList().stream()
-                .map(stream -> BigQuerySplit.forStream(stream.getName(), readSession.getAvroSchema().getSchema(), columns))
+                .map(stream -> BigQuerySplit.forStream(stream.getName(), readSession.getAvroSchema().getSchema(), columns, OptionalInt.of(stream.getSerializedSize())))
                 .collect(toImmutableList());
     }
 

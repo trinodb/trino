@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>389</version>
+        <version>400</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -14,6 +14,16 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+
+        <!--
+          Project's default for air.test.parallel is 'methods'. By design, 'instances' runs all the methods in the same instance in the same thread,
+          but two methods on two different instances will be running in different threads.
+          As a side effect, it prevents TestNG from initializing multiple test instances upfront, which happens with 'methods'.
+          This reduces tests' memory footprint, which generally allows them to complete faster.
+          A potential downside can be long tail single-threaded execution of a single long test class.
+          TODO (https://github.com/trinodb/trino/issues/11294) remove when we upgrade to surefire with https://issues.apache.org/jira/browse/SUREFIRE-1967
+          -->
+        <air.test.parallel>instances</air.test.parallel>
     </properties>
 
     <dependencies>
@@ -288,6 +298,13 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-tests</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-tpcds</artifactId>
             <scope>test</scope>
         </dependency>
@@ -364,6 +381,8 @@
                         <!-- com.amazonaws:aws-java-sdk-core and software.amazon.awssdk:sdk-core MIME type file duplicate-->
                         <ignoredResourcePattern>mime.types</ignoredResourcePattern>
                         <ignoredResourcePattern>about.html</ignoredResourcePattern>
+                        <ignoredResourcePattern>iceberg-build.properties</ignoredResourcePattern>
+                        <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
                     </ignoredResourcePatterns>
                 </configuration>
             </plugin>

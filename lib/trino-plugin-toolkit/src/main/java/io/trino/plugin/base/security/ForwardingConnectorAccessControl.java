@@ -128,6 +128,12 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
+    public void checkCanSetViewComment(ConnectorSecurityContext context, SchemaTableName viewName)
+    {
+        delegate().checkCanSetViewComment(context, viewName);
+    }
+
+    @Override
     public void checkCanSetColumnComment(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         delegate().checkCanSetColumnComment(context, tableName);
@@ -263,6 +269,12 @@ public abstract class ForwardingConnectorAccessControl
     public void checkCanRenameMaterializedView(ConnectorSecurityContext context, SchemaTableName viewName, SchemaTableName newViewName)
     {
         delegate().checkCanRenameMaterializedView(context, viewName, newViewName);
+    }
+
+    @Override
+    public void checkCanGrantExecuteFunctionPrivilege(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName functionName, TrinoPrincipal grantee, boolean grantOption)
+    {
+        delegate().checkCanGrantExecuteFunctionPrivilege(context, functionKind, functionName, grantee, grantOption);
     }
 
     @Override

@@ -14,6 +14,7 @@
 package io.trino.tests.product.iceberg;
 
 import io.trino.tempto.ProductTest;
+import org.assertj.core.api.Assertions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -43,9 +44,9 @@ public class TestIcebergPartitionEvolution
 
         onSpark().executeQuery("ALTER TABLE iceberg_test.default.test_dropped_partition_field DROP PARTITION FIELD " + (dropFirst ? "a" : "b"));
 
-        assertThat(onTrino().executeQuery("SHOW CREATE TABLE test_dropped_partition_field"))
-                .containsOnly(
-                        row("CREATE TABLE iceberg.default.test_dropped_partition_field (\n" +
+        Assertions.assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE test_dropped_partition_field").getOnlyValue())
+                .matches(
+                        "\\QCREATE TABLE iceberg.default.test_dropped_partition_field (\n" +
                                 "   a varchar,\n" +
                                 "   b varchar,\n" +
                                 "   c varchar\n" +
@@ -53,9 +54,9 @@ public class TestIcebergPartitionEvolution
                                 "WITH (\n" +
                                 "   format = 'ORC',\n" +
                                 "   format_version = 1,\n" +
-                                "   location = 'hdfs://hadoop-master:9000/user/hive/warehouse/test_dropped_partition_field',\n" +
+                                "   location = 'hdfs://hadoop-master:9000/user/hive/warehouse/test_dropped_partition_field-\\E.*\\Q',\n" +
                                 "   partitioning = ARRAY[" + (dropFirst ? "'void(a)','b'" : "'a','void(b)'") + "]\n" +
-                                ")"));
+                                ")\\E");
 
         assertThat(onTrino().executeQuery("SELECT * FROM test_dropped_partition_field"))
                 .containsOnly(

@@ -15,6 +15,7 @@ package io.trino.parquet.writer;
 
 import com.google.common.collect.ImmutableList;
 import org.apache.parquet.schema.GroupType;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Type;
 import org.testng.annotations.Test;
@@ -33,6 +34,7 @@ import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.StructuralTestUtil.arrayType;
 import static io.trino.testing.StructuralTestUtil.mapType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit.MICROS;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit.MILLIS;
@@ -121,6 +123,49 @@ public class TestParquetSchemaConverter
         assertThat(keyType.asGroupType().getType(1).asPrimitiveType().isRepetition(OPTIONAL)).isTrue();
         valueType = keyValueValue.getType(1).asPrimitiveType();
         assertThat(valueType.isRepetition(OPTIONAL)).isTrue();
+    }
+
+    /**
+     * This test ensures the parquet writer matches the parquet spec for lists.
+     *
+     * From https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#lists
+     *
+     * Lists
+     * LIST is used to annotate types that should be interpreted as lists.
+     * LIST must always annotate a 3-level structure:
+     *
+     * <list-repetition> group <name> (LIST) {
+     *   repeated group list {
+     *     <element-repetition> <element-type> element;
+     *   }
+     * }
+     */
+    @Test
+    public void testArrayMatchesParquetSpec()
+    {
+        ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(
+                ImmutableList.of(arrayType(VARCHAR)),
+                ImmutableList.of("tags"),
+                false,
+                false);
+
+        GroupType outerGroup = schemaConverter.getMessageType().getType(0).asGroupType();
+        GroupType innerGroup = outerGroup.getType(0).asGroupType();
+        PrimitiveType elementType = innerGroup.getType(0).asPrimitiveType();
+
+        assertThat(outerGroup.getName()).isEqualTo("tags");
+        assertThat(outerGroup.getLogicalTypeAnnotation()).isEqualTo(LogicalTypeAnnotation.ListLogicalTypeAnnotation.listType());
+        assertThat(outerGroup.getFieldCount()).isEqualTo(1);
+        assertThat(outerGroup.getRepetition()).isEqualTo(OPTIONAL);
+
+        assertThat(innerGroup.getName()).isEqualTo("list");
+        assertThat(innerGroup.getFieldCount()).isEqualTo(1);
+        assertThat(innerGroup.getRepetition()).isEqualTo(REPEATED);
+
+        assertThat(elementType.getName()).isEqualTo("element");
+        assertThat(elementType.getPrimitiveTypeName()).isEqualTo(PrimitiveType.PrimitiveTypeName.BINARY);
+        assertThat(elementType.getLogicalTypeAnnotation()).isEqualTo(LogicalTypeAnnotation.stringType());
+        assertThat(elementType.getRepetition()).isEqualTo(OPTIONAL);
     }
 
     @Test

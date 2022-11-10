@@ -49,30 +49,28 @@ public final class LongDecode
         if (n >= ONE.ordinal() && n <= TWENTY_FOUR.ordinal()) {
             return n + 1;
         }
-        else if (n == TWENTY_SIX.ordinal()) {
+        if (n == TWENTY_SIX.ordinal()) {
             return 26;
         }
-        else if (n == TWENTY_EIGHT.ordinal()) {
+        if (n == TWENTY_EIGHT.ordinal()) {
             return 28;
         }
-        else if (n == THIRTY.ordinal()) {
+        if (n == THIRTY.ordinal()) {
             return 30;
         }
-        else if (n == THIRTY_TWO.ordinal()) {
+        if (n == THIRTY_TWO.ordinal()) {
             return 32;
         }
-        else if (n == FORTY.ordinal()) {
+        if (n == FORTY.ordinal()) {
             return 40;
         }
-        else if (n == FORTY_EIGHT.ordinal()) {
+        if (n == FORTY_EIGHT.ordinal()) {
             return 48;
         }
-        else if (n == FIFTY_SIX.ordinal()) {
+        if (n == FIFTY_SIX.ordinal()) {
             return 56;
         }
-        else {
-            return 64;
-        }
+        return 64;
     }
 
     /**
@@ -87,30 +85,28 @@ public final class LongDecode
         if (width >= 1 && width <= 24) {
             return width;
         }
-        else if (width > 24 && width <= 26) {
+        if (width > 24 && width <= 26) {
             return 26;
         }
-        else if (width > 26 && width <= 28) {
+        if (width > 26 && width <= 28) {
             return 28;
         }
-        else if (width > 28 && width <= 30) {
+        if (width > 28 && width <= 30) {
             return 30;
         }
-        else if (width > 30 && width <= 32) {
+        if (width > 30 && width <= 32) {
             return 32;
         }
-        else if (width > 32 && width <= 40) {
+        if (width > 32 && width <= 40) {
             return 40;
         }
-        else if (width > 40 && width <= 48) {
+        if (width > 40 && width <= 48) {
             return 48;
         }
-        else if (width > 48 && width <= 56) {
+        if (width > 48 && width <= 56) {
             return 56;
         }
-        else {
-            return 64;
-        }
+        return 64;
     }
 
     public static long readSignedVInt(OrcInputStream inputStream)
@@ -144,9 +140,7 @@ public final class LongDecode
         if (signed) {
             return readSignedVInt(inputStream);
         }
-        else {
-            return readUnsignedVInt(inputStream);
-        }
+        return readUnsignedVInt(inputStream);
     }
 
     public static long zigzagDecode(long value)
@@ -170,10 +164,8 @@ public final class LongDecode
                 output.write((byte) value);
                 return;
             }
-            else {
-                output.write((byte) (0x80 | (value & 0x7f)));
-                value >>>= 7;
-            }
+            output.write((byte) (0x80 | (value & 0x7f)));
+            value >>>= 7;
         }
     }
 

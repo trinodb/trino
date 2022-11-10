@@ -26,7 +26,6 @@ import java.util.Map;
 
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergTaskFailureRecoveryTest
         extends BaseIcebergFailureRecoveryTest
@@ -52,18 +51,12 @@ public class TestIcebergTaskFailureRecoveryTest
                 .setInitialTables(requiredTpchTables)
                 .setCoordinatorProperties(coordinatorProperties)
                 .setExtraProperties(configProperties)
+                .setIcebergProperties(Map.of("iceberg.experimental.extended-statistics.enabled", "true"))
                 .setAdditionalSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
                 })
                 .build();
-    }
-
-    @Override
-    public void testJoinDynamicFilteringEnabled()
-    {
-        assertThatThrownBy(super::testJoinDynamicFilteringEnabled)
-                .hasMessageContaining("Dynamic filter is missing");
     }
 
     @AfterClass(alwaysRun = true)

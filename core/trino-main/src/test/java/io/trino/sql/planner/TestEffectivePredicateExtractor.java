@@ -20,11 +20,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.AbstractMockMetadata;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
@@ -35,6 +32,9 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.SortOrder;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
@@ -94,7 +94,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.metadata.FunctionId.toFunctionId;
+import static io.trino.spi.function.FunctionId.toFunctionId;
 import static io.trino.spi.function.FunctionKind.SCALAR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -111,6 +111,7 @@ import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static org.testng.Assert.assertEquals;
@@ -162,7 +163,7 @@ public class TestEffectivePredicateExtractor
         public TableProperties getTableProperties(Session session, TableHandle handle)
         {
             return new TableProperties(
-                    new CatalogName("test"),
+                    TEST_CATALOG_HANDLE,
                     TestingConnectorTransactionHandle.INSTANCE,
                     new ConnectorTableProperties(
                             ((PredicatedTableHandle) handle.getConnectorHandle()).getPredicate(),
@@ -1193,6 +1194,7 @@ public class TestEffectivePredicateExtractor
         BoundSignature boundSignature = new BoundSignature(name, UNKNOWN, ImmutableList.of());
         return new ResolvedFunction(
                 boundSignature,
+                GlobalSystemConnector.CATALOG_HANDLE,
                 toFunctionId(boundSignature.toSignature()),
                 SCALAR,
                 true,
@@ -1233,7 +1235,7 @@ public class TestEffectivePredicateExtractor
     private static TableHandle makeTableHandle(TupleDomain<ColumnHandle> predicate)
     {
         return new TableHandle(
-                new CatalogName("test"),
+                TEST_CATALOG_HANDLE,
                 new PredicatedTableHandle(predicate),
                 TestingTransactionHandle.create());
     }

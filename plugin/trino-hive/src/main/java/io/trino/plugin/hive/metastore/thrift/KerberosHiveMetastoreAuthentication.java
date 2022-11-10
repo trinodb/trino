@@ -14,10 +14,8 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.hdfs.authentication.HadoopAuthentication;
 import io.trino.plugin.hive.ForHiveMetastore;
-import io.trino.plugin.hive.authentication.HadoopAuthentication;
-import io.trino.plugin.hive.authentication.HiveMetastoreAuthentication;
-import io.trino.plugin.hive.authentication.MetastoreKerberosConfig;
 import org.apache.hadoop.hive.metastore.security.DelegationTokenIdentifier;
 import org.apache.hadoop.hive.thrift.client.TUGIAssumingTransport;
 import org.apache.hadoop.security.SaslRpcServer;
@@ -131,14 +129,13 @@ public class KerberosHiveMetastoreAuthentication
         public void handle(Callback[] callbacks)
         {
             for (Callback callback : callbacks) {
-                if (callback instanceof NameCallback) {
-                    ((NameCallback) callback).setName(username);
+                if (callback instanceof NameCallback nameCallback) {
+                    nameCallback.setName(username);
                 }
-                if (callback instanceof PasswordCallback) {
-                    ((PasswordCallback) callback).setPassword(password.toCharArray());
+                if (callback instanceof PasswordCallback passwordCallback) {
+                    passwordCallback.setPassword(password.toCharArray());
                 }
-                if (callback instanceof RealmCallback) {
-                    RealmCallback realmCallback = (RealmCallback) callback;
+                if (callback instanceof RealmCallback realmCallback) {
                     realmCallback.setText(realmCallback.getDefaultText());
                 }
             }

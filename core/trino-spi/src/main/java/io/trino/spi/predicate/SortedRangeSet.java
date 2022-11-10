@@ -51,6 +51,7 @@ import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Boolean.TRUE;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Collections.unmodifiableList;
@@ -66,7 +67,7 @@ import static java.util.stream.Collectors.joining;
 public final class SortedRangeSet
         implements ValueSet
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SortedRangeSet.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SortedRangeSet.class).instanceSize());
 
     private final Type type;
     private final MethodHandle equalOperator;
@@ -223,10 +224,7 @@ public final class SortedRangeSet
         return new SortedRangeSet(
                 type,
                 inclusive,
-                new DictionaryBlock(
-                        dictionaryIndex,
-                        block,
-                        dictionary));
+                DictionaryBlock.create(dictionaryIndex, block, dictionary));
     }
 
     /**
@@ -259,7 +257,7 @@ public final class SortedRangeSet
         return new SortedRangeSet(
                 type,
                 new boolean[] {true, true},
-                new RunLengthEncodedBlock(block, 2));
+                RunLengthEncodedBlock.create(block, 2));
     }
 
     static SortedRangeSet copyOf(Type type, Collection<Range> ranges)
@@ -1104,17 +1102,11 @@ public final class SortedRangeSet
         @Override
         public int compareTo(RangeView that)
         {
-            int compare;
-            compare = compareLowBound(that);
-            if (compare != 0) {
-                return compare;
+            int lowBoundCompare = compareLowBound(that);
+            if (lowBoundCompare != 0) {
+                return lowBoundCompare;
             }
-            compare = compareHighBound(that);
-            if (compare != 0) {
-                return compare;
-            }
-
-            return 0;
+            return compareHighBound(that);
         }
 
         private int compareLowBound(RangeView that)

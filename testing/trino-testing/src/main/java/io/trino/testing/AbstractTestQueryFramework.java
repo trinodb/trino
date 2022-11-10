@@ -19,8 +19,13 @@ import com.google.common.collect.MoreCollectors;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.execution.QueryInfo;
+import io.trino.execution.QueryManager;
 import io.trino.execution.QueryState;
 import io.trino.execution.QueryStats;
+import io.trino.execution.SqlTaskManager;
+import io.trino.execution.TaskId;
+import io.trino.execution.TaskInfo;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.MemoryPool;
@@ -56,6 +61,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Consumer;
@@ -106,6 +112,8 @@ public abstract class AbstractTestQueryFramework
     {
         try (afterClassCloser) {
             checkQueryMemoryReleased();
+            checkQueryInfosFinal();
+            checkTasksDone();
         }
         finally {
             queryRunner = null;
@@ -116,27 +124,20 @@ public abstract class AbstractTestQueryFramework
 
     private void checkQueryMemoryReleased()
     {
-        if (queryRunner == null) {
-            return;
-        }
-        if (!(queryRunner instanceof DistributedQueryRunner)) {
-            return;
-        }
-        DistributedQueryRunner distributedQueryRunner = (DistributedQueryRunner) queryRunner;
-        assertEventually(
+        tryGetDistributedQueryRunner().ifPresent(runner -> assertEventually(
                 new Duration(30, SECONDS),
                 new Duration(1, SECONDS),
                 () -> {
-                    List<TestingTrinoServer> servers = distributedQueryRunner.getServers();
+                    List<TestingTrinoServer> servers = runner.getServers();
                     for (int serverId = 0; serverId < servers.size(); ++serverId) {
                         TestingTrinoServer server = servers.get(serverId);
-                        assertMemoryPoolReleased(distributedQueryRunner.getCoordinator(), server, serverId);
+                        assertMemoryPoolReleased(runner.getCoordinator(), server, serverId);
                     }
 
-                    assertThat(distributedQueryRunner.getCoordinator().getClusterMemoryManager().getClusterTotalMemoryReservation())
+                    assertThat(runner.getCoordinator().getClusterMemoryManager().getClusterTotalMemoryReservation())
                             .describedAs("cluster memory reservation")
                             .isZero();
-                });
+                }));
     }
 
     private void assertMemoryPoolReleased(TestingTrinoServer coordinator, TestingTrinoServer server, long serverId)
@@ -176,6 +177,55 @@ public abstract class AbstractTestQueryFramework
         });
 
         return result.toString();
+    }
+
+    private void checkQueryInfosFinal()
+    {
+        tryGetDistributedQueryRunner().ifPresent(runner -> assertEventually(
+                new Duration(30, SECONDS),
+                new Duration(1, SECONDS),
+                () -> {
+                    TestingTrinoServer coordinator = runner.getCoordinator();
+                    QueryManager queryManager = coordinator.getQueryManager();
+                    for (BasicQueryInfo basicQueryInfo : queryManager.getQueries()) {
+                        QueryId queryId = basicQueryInfo.getQueryId();
+                        if (!basicQueryInfo.getState().isDone()) {
+                            fail("query is expected to be in done state: " + basicQueryInfo.getQuery());
+                        }
+                        QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
+                        if (!queryInfo.isFinalQueryInfo()) {
+                            fail("QueryInfo is expected to be final: " + basicQueryInfo.getQuery());
+                        }
+                    }
+                }));
+    }
+
+    private void checkTasksDone()
+    {
+        tryGetDistributedQueryRunner().ifPresent(runner -> assertEventually(
+                new Duration(30, SECONDS),
+                new Duration(1, SECONDS),
+                () -> {
+                    QueryManager queryManager = runner.getCoordinator().getQueryManager();
+                    List<TestingTrinoServer> servers = runner.getServers();
+                    for (TestingTrinoServer server : servers) {
+                        SqlTaskManager taskManager = server.getTaskManager();
+                        List<TaskInfo> taskInfos = taskManager.getAllTaskInfo();
+                        for (TaskInfo taskInfo : taskInfos) {
+                            TaskId taskId = taskInfo.getTaskStatus().getTaskId();
+                            QueryId queryId = taskId.getQueryId();
+                            String query = "unknown";
+                            try {
+                                query = queryManager.getQueryInfo(queryId).getQuery();
+                            }
+                            catch (NoSuchElementException ignored) {
+                            }
+                            if (!taskInfo.getTaskStatus().getState().isDone()) {
+                                fail("Task is expected to be in done state. TaskId: %s, QueryId: %s, Query: %s ".formatted(taskId, queryId, query));
+                            }
+                        }
+                    }
+                }));
     }
 
     @Test
@@ -465,7 +515,7 @@ public abstract class AbstractTestQueryFramework
             Consumer<MaterializedResult> resultAssertion)
     {
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
-        ResultWithQueryId<MaterializedResult> resultWithQueryId = queryRunner.executeWithQueryId(session, query);
+        MaterializedResultWithQueryId resultWithQueryId = queryRunner.executeWithQueryId(session, query);
         QueryStats queryStats = queryRunner.getCoordinator()
                 .getQueryManager()
                 .getFullQueryInfo(resultWithQueryId.getQueryId())
@@ -534,6 +584,14 @@ public abstract class AbstractTestQueryFramework
         checkState(queryRunner != null, "queryRunner not set");
         checkState(queryRunner instanceof DistributedQueryRunner, "queryRunner is not a DistributedQueryRunner");
         return (DistributedQueryRunner) queryRunner;
+    }
+
+    private Optional<DistributedQueryRunner> tryGetDistributedQueryRunner()
+    {
+        if (queryRunner != null && queryRunner instanceof DistributedQueryRunner runner) {
+            return Optional.of(runner);
+        }
+        return Optional.empty();
     }
 
     protected Session noJoinReordering()
@@ -605,7 +663,7 @@ public abstract class AbstractTestQueryFramework
     {
         return inTransaction(getSession(), transactionSession -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
-            getQueryRunner().getMetadata().getCatalogHandle(transactionSession, tableHandle.getCatalogName().getCatalogName());
+            getQueryRunner().getMetadata().getCatalogHandle(transactionSession, tableHandle.getCatalogHandle().getCatalogName());
             return getQueryRunner().getMetadata().getTableMetadata(transactionSession, tableHandle);
         });
     }

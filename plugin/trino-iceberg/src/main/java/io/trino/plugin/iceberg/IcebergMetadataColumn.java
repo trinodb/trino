@@ -22,11 +22,13 @@ import java.util.stream.Stream;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public enum IcebergMetadataColumn
 {
     FILE_PATH(MetadataColumns.FILE_PATH.fieldId(), "$path", VARCHAR, PRIMITIVE),
+    FILE_MODIFIED_TIME(Integer.MAX_VALUE - 1001, "$file_modified_time", TIMESTAMP_TZ_MILLIS, PRIMITIVE), // https://github.com/apache/iceberg/issues/5240
     /**/;
 
     private static final Set<Integer> COLUMNS_ID = Stream.of(values())

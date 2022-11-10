@@ -24,14 +24,14 @@ import io.airlift.slice.Slice;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.connector.CatalogName;
 import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.BufferState;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.buffer.OutputBufferStateMachine;
-import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.PartitionedOutputBuffer;
+import io.trino.execution.buffer.PipelinedOutputBuffers;
+import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
@@ -50,7 +50,6 @@ import io.trino.spi.QueryId;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.UpdatablePageSource;
-import io.trino.spi.type.Type;
 import io.trino.spiller.SpillSpaceTracker;
 import io.trino.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -78,11 +77,11 @@ import static io.trino.execution.TaskState.FLUSHING;
 import static io.trino.execution.TaskState.RUNNING;
 import static io.trino.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static io.trino.execution.TaskTestUtils.createTestSplitMonitor;
-import static io.trino.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
-import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.trino.execution.buffer.PagesSerde.getSerializedPagePositionCount;
+import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -94,7 +93,6 @@ import static org.testng.Assert.assertFalse;
 public class TestSqlTaskExecution
 {
     private static final OutputBufferId OUTPUT_BUFFER_ID = new OutputBufferId(0);
-    private static final CatalogName CONNECTOR_ID = new CatalogName("test");
     private static final Duration ASSERT_WAIT_TIMEOUT = new Duration(1, HOURS);
     public static final TaskId TASK_ID = new TaskId(new StageId("query", 0), 0, 0);
 
@@ -122,7 +120,7 @@ public class TestSqlTaskExecution
             //      |
             //    Scan
             //
-            TestingScanOperatorFactory testingScanOperatorFactory = new TestingScanOperatorFactory(0, TABLE_SCAN_NODE_ID, ImmutableList.of(VARCHAR));
+            TestingScanOperatorFactory testingScanOperatorFactory = new TestingScanOperatorFactory(0, TABLE_SCAN_NODE_ID);
             TaskOutputOperatorFactory taskOutputOperatorFactory = new TaskOutputOperatorFactory(
                     1,
                     TABLE_SCAN_NODE_ID,
@@ -138,14 +136,15 @@ public class TestSqlTaskExecution
                             OptionalInt.empty())),
                     ImmutableList.of(TABLE_SCAN_NODE_ID));
             TaskContext taskContext = newTestingTaskContext(taskNotificationExecutor, driverYieldExecutor, taskStateMachine);
-            SqlTaskExecution sqlTaskExecution = SqlTaskExecution.createSqlTaskExecution(
+            SqlTaskExecution sqlTaskExecution = new SqlTaskExecution(
                     taskStateMachine,
                     taskContext,
                     outputBuffer,
                     localExecutionPlan,
                     taskExecutor,
-                    taskNotificationExecutor,
-                    createTestSplitMonitor());
+                    createTestSplitMonitor(),
+                    taskNotificationExecutor);
+            sqlTaskExecution.start();
 
             //
             // test body
@@ -208,7 +207,7 @@ public class TestSqlTaskExecution
         return new PartitionedOutputBuffer(
                 TASK_ID.toString(),
                 new OutputBufferStateMachine(TASK_ID, taskNotificationExecutor),
-                createInitialEmptyOutputBuffers(PARTITIONED)
+                PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withBuffer(OUTPUT_BUFFER_ID, 0)
                         .withNoMoreBufferIds(),
                 DataSize.of(1, MEGABYTE),
@@ -287,7 +286,7 @@ public class TestSqlTaskExecution
 
     private ScheduledSplit newScheduledSplit(int sequenceId, PlanNodeId planNodeId, int begin, int count)
     {
-        return new ScheduledSplit(sequenceId, planNodeId, new Split(CONNECTOR_ID, new TestingSplit(begin, begin + count)));
+        return new ScheduledSplit(sequenceId, planNodeId, new Split(TEST_CATALOG_HANDLE, new TestingSplit(begin, begin + count)));
     }
 
     public static class Pauser
@@ -337,8 +336,7 @@ public class TestSqlTaskExecution
 
         public TestingScanOperatorFactory(
                 int operatorId,
-                PlanNodeId sourceId,
-                List<Type> types)
+                PlanNodeId sourceId)
         {
             this.operatorId = operatorId;
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
@@ -484,7 +482,7 @@ public class TestSqlTaskExecution
     public static class TestingSplit
             implements ConnectorSplit
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(TestingSplit.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TestingSplit.class).instanceSize());
 
         private final int begin;
         private final int end;

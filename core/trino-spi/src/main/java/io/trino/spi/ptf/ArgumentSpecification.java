@@ -13,6 +13,8 @@
  */
 package io.trino.spi.ptf;
 
+import io.trino.spi.Experimental;
+
 import javax.annotation.Nullable;
 
 import static io.trino.spi.ptf.Preconditions.checkArgument;
@@ -28,6 +30,7 @@ import static io.trino.spi.ptf.Preconditions.checkNotNullOrEmpty;
  * <p>
  * Default values are allowed for all arguments except Table arguments.
  */
+@Experimental(eta = "2022-10-31")
 public abstract class ArgumentSpecification
 {
     private final String name;

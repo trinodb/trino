@@ -14,11 +14,10 @@
 package io.trino.plugin.iceberg;
 
 import io.airlift.json.JsonCodec;
-import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeOperators;
 
 import javax.inject.Inject;
 
@@ -27,28 +26,25 @@ import static java.util.Objects.requireNonNull;
 public class IcebergMetadataFactory
 {
     private final TypeManager typeManager;
-    private final TypeOperators typeOperators;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
     private final TrinoCatalogFactory catalogFactory;
-    private final HdfsEnvironment hdfsEnvironment;
+    private final TrinoFileSystemFactory fileSystemFactory;
 
     @Inject
     public IcebergMetadataFactory(
             TypeManager typeManager,
             JsonCodec<CommitTaskData> commitTaskCodec,
             TrinoCatalogFactory catalogFactory,
-            HdfsEnvironment hdfsEnvironment)
+            TrinoFileSystemFactory fileSystemFactory)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        // TODO consider providing TypeOperators in ConnectorContext to increase cache reuse
-        this.typeOperators = new TypeOperators();
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
     }
 
     public IcebergMetadata create(ConnectorIdentity identity)
     {
-        return new IcebergMetadata(typeManager, typeOperators, commitTaskCodec, catalogFactory.create(identity), hdfsEnvironment);
+        return new IcebergMetadata(typeManager, commitTaskCodec, catalogFactory.create(identity), fileSystemFactory);
     }
 }

@@ -32,11 +32,14 @@ import java.util.Date;
 import java.util.UUID;
 
 import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.literal;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
 public final class CassandraTestingUtils
 {
+    public static final CassandraTypeManager CASSANDRA_TYPE_MANAGER = new CassandraTypeManager(TESTING_TYPE_MANAGER);
+
     public static final String TABLE_ALL_TYPES = "table_all_types";
     public static final String TABLE_TUPLE_TYPE = "table_tuple_type";
     public static final String TABLE_USER_DEFINED_TYPE = "table_user_defined_type";

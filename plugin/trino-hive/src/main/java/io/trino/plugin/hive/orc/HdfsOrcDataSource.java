@@ -14,11 +14,11 @@
 package io.trino.plugin.hive.orc;
 
 import io.airlift.slice.Slice;
+import io.trino.hdfs.FSDataInputStreamTail;
 import io.trino.orc.AbstractOrcDataSource;
 import io.trino.orc.OrcDataSourceId;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.util.FSDataInputStreamTail;
 import io.trino.spi.TrinoException;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.hdfs.BlockMissingException;

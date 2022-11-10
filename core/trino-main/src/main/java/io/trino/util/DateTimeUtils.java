@@ -61,6 +61,8 @@ public final class DateTimeUtils
 
     public static int parseDate(String value)
     {
+        // Note: update DomainTranslator.Visitor.createVarcharCastToDateComparisonExtractionResult whenever varchar->date conversion (CAST) behavior changes.
+
         // in order to follow the standard, we should validate the value:
         // - the required format is 'YYYY-MM-DD'
         // - all components should be unsigned numbers

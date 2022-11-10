@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake.metastore;
 
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
@@ -55,6 +56,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
+import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_FILESYSTEM_ERROR;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_TABLE;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.PATH_PROPERTY;
@@ -79,17 +81,20 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     private final TransactionLogAccess transactionLogAccess;
     private final TypeManager typeManager;
     private final CachingExtendedStatisticsAccess statisticsAccess;
+    private final TrinoFileSystemFactory fileSystemFactory;
 
     public HiveMetastoreBackedDeltaLakeMetastore(
             HiveMetastore delegate,
             TransactionLogAccess transactionLogAccess,
             TypeManager typeManager,
-            CachingExtendedStatisticsAccess statisticsAccess)
+            CachingExtendedStatisticsAccess statisticsAccess,
+            TrinoFileSystemFactory fileSystemFactory)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogSupport is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.statisticsAccess = requireNonNull(statisticsAccess, "statisticsAccess is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
     }
 
     @Override
@@ -161,12 +166,20 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     }
 
     @Override
-    public void dropTable(ConnectorSession session, String databaseName, String tableName)
+    public void dropTable(ConnectorSession session, String databaseName, String tableName, boolean externalTable)
     {
         String tableLocation = getTableLocation(new SchemaTableName(databaseName, tableName), session);
         delegate.dropTable(databaseName, tableName, true);
         statisticsAccess.invalidateCache(tableLocation);
         transactionLogAccess.invalidateCaches(tableLocation);
+        if (!externalTable) {
+            try {
+                fileSystemFactory.create(session).deleteDirectory(tableLocation);
+            }
+            catch (IOException e) {
+                throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Failed to delete directory %s of the table %s", tableLocation, tableName), e);
+            }
+        }
     }
 
     @Override
@@ -236,6 +249,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
                 .map(columnMeta -> new DeltaLakeColumnHandle(
                         columnMeta.getName(),
                         columnMeta.getType(),
+                        columnMeta.getFieldId(),
                         columnMeta.getPhysicalName(),
                         columnMeta.getPhysicalColumnType(),
                         metadata.getCanonicalPartitionColumns().contains(columnMeta.getName()) ? PARTITION_KEY : REGULAR))

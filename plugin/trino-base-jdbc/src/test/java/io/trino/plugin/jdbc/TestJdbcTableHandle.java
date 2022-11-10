@@ -33,7 +33,7 @@ public class TestJdbcTableHandle
     @Test
     public void testJsonRoundTrip()
     {
-        assertJsonRoundTrip(TABLE_CODEC, new JdbcTableHandle(new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTable"));
+        assertJsonRoundTrip(TABLE_CODEC, new JdbcTableHandle(new SchemaTableName("schema", "table"), new RemoteTableName(Optional.of("jdbcCatalog"), Optional.of("jdbcSchema"), "jdbcTable"), Optional.empty()));
     }
 
     @Test
@@ -41,15 +41,15 @@ public class TestJdbcTableHandle
     {
         EquivalenceTester.equivalenceTester()
                 .addEquivalentGroup(
-                        new JdbcTableHandle(new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTable"),
-                        new JdbcTableHandle(new SchemaTableName("schema", "table"), "jdbcCatalogX", "jdbcSchema", "jdbcTable"),
-                        new JdbcTableHandle(new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchemaX", "jdbcTable"),
-                        new JdbcTableHandle(new SchemaTableName("schema", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTableX"))
+                        new JdbcTableHandle(new SchemaTableName("schema", "table"), new RemoteTableName(Optional.of("jdbcCatalog"), Optional.of("jdbcSchema"), "jdbcTable"), Optional.empty()),
+                        new JdbcTableHandle(new SchemaTableName("schema", "table"), new RemoteTableName(Optional.of("jdbcCatalogX"), Optional.of("jdbcSchema"), "jdbcTable"), Optional.empty()),
+                        new JdbcTableHandle(new SchemaTableName("schema", "table"), new RemoteTableName(Optional.of("jdbcCatalog"), Optional.of("jdbcSchemaX"), "jdbcTable"), Optional.empty()),
+                        new JdbcTableHandle(new SchemaTableName("schema", "table"), new RemoteTableName(Optional.of("jdbcCatalog"), Optional.of("jdbcSchema"), "jdbcTableX"), Optional.empty()))
                 .addEquivalentGroup(
-                        new JdbcTableHandle(new SchemaTableName("schemaX", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTable"),
-                        new JdbcTableHandle(new SchemaTableName("schemaX", "table"), "jdbcCatalogX", "jdbcSchema", "jdbcTable"),
-                        new JdbcTableHandle(new SchemaTableName("schemaX", "table"), "jdbcCatalog", "jdbcSchemaX", "jdbcTable"),
-                        new JdbcTableHandle(new SchemaTableName("schemaX", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTableX"))
+                        new JdbcTableHandle(new SchemaTableName("schemaX", "table"), new RemoteTableName(Optional.of("jdbcCatalog"), Optional.of("jdbcSchema"), "jdbcTable"), Optional.empty()),
+                        new JdbcTableHandle(new SchemaTableName("schemaX", "table"), new RemoteTableName(Optional.of("jdbcCatalogX"), Optional.of("jdbcSchema"), "jdbcTable"), Optional.empty()),
+                        new JdbcTableHandle(new SchemaTableName("schemaX", "table"), new RemoteTableName(Optional.of("jdbcCatalog"), Optional.of("jdbcSchemaX"), "jdbcTable"), Optional.empty()),
+                        new JdbcTableHandle(new SchemaTableName("schemaX", "table"), new RemoteTableName(Optional.of("jdbcCatalog"), Optional.of("jdbcSchema"), "jdbcTableX"), Optional.empty()))
                 .addEquivalentGroup(createNamedHandle())
                 .addEquivalentGroup(createQueryBasedHandle())
                 .check();
@@ -71,7 +71,7 @@ public class TestJdbcTableHandle
                 Optional.empty(),
                 OptionalLong.of(1),
                 Optional.of(ImmutableList.of(new JdbcColumnHandle("i", type, IntegerType.INTEGER))),
-                ImmutableSet.of(),
+                Optional.of(ImmutableSet.of()),
                 0);
     }
 
@@ -88,7 +88,7 @@ public class TestJdbcTableHandle
                 Optional.empty(),
                 OptionalLong.of(1),
                 Optional.of(ImmutableList.of(new JdbcColumnHandle("i", type, IntegerType.INTEGER))),
-                ImmutableSet.of(),
+                Optional.of(ImmutableSet.of()),
                 0);
     }
 }

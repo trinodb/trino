@@ -702,18 +702,17 @@ to combine the results of more than one select statement into a single result se
 
 .. code-block:: text
 
-    query INTERSECT [DISTINCT] query
+    query INTERSECT [ALL | DISTINCT] query
 
 .. code-block:: text
 
-    query EXCEPT [DISTINCT] query
+    query EXCEPT [ALL | DISTINCT] query
 
 The argument ``ALL`` or ``DISTINCT`` controls which rows are included in
 the final result set. If the argument ``ALL`` is specified all rows are
 included even if the rows are identical.  If the argument ``DISTINCT``
 is specified only unique rows are included in the combined result set.
-If neither is specified, the behavior defaults to ``DISTINCT``.  The ``ALL``
-argument is not supported for ``INTERSECT`` or ``EXCEPT``.
+If neither is specified, the behavior defaults to ``DISTINCT``.
 
 
 Multiple set operations are processed left to right, unless the order is explicitly

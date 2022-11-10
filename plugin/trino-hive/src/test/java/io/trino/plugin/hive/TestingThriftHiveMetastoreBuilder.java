@@ -15,20 +15,24 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
-import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
+import io.airlift.units.Duration;
+import io.trino.hdfs.DynamicHdfsConfiguration;
+import io.trino.hdfs.HdfsConfig;
+import io.trino.hdfs.HdfsConfigurationInitializer;
+import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.azure.HiveAzureConfig;
 import io.trino.plugin.hive.azure.TrinoAzureConfigurationInitializer;
 import io.trino.plugin.hive.gcs.GoogleGcsConfigurationInitializer;
 import io.trino.plugin.hive.gcs.HiveGcsConfig;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
-import io.trino.plugin.hive.metastore.thrift.MetastoreLocator;
-import io.trino.plugin.hive.metastore.thrift.TestingMetastoreLocator;
+import io.trino.plugin.hive.metastore.thrift.TestingTokenAwareMetastoreClientFactory;
 import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
-import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationConfig;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreClient;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
-import io.trino.plugin.hive.metastore.thrift.TokenDelegationThriftMetastoreFactory;
+import io.trino.plugin.hive.metastore.thrift.TokenAwareMetastoreClientFactory;
+import io.trino.plugin.hive.metastore.thrift.UgiBasedMetastoreClientFactory;
 import io.trino.plugin.hive.s3.HiveS3Config;
 import io.trino.plugin.hive.s3.TrinoS3ConfigurationInitializer;
 
@@ -40,7 +44,7 @@ import static java.util.Objects.requireNonNull;
 public final class TestingThriftHiveMetastoreBuilder
 {
     private static final HdfsEnvironment HDFS_ENVIRONMENT = new HdfsEnvironment(
-            new HiveHdfsConfiguration(
+            new DynamicHdfsConfiguration(
                     new HdfsConfigurationInitializer(
                             new HdfsConfig()
                                     .setSocksProxy(HiveTestUtils.SOCKS_PROXY.orElse(null)),
@@ -52,8 +56,9 @@ public final class TestingThriftHiveMetastoreBuilder
             new HdfsConfig(),
             new NoHdfsAuthentication());
 
-    private MetastoreLocator metastoreLocator;
+    private TokenAwareMetastoreClientFactory tokenAwareMetastoreClientFactory;
     private HiveConfig hiveConfig = new HiveConfig();
+    private ThriftMetastoreConfig thriftMetastoreConfig = new ThriftMetastoreConfig();
     private HdfsEnvironment hdfsEnvironment = HDFS_ENVIRONMENT;
 
     public static TestingThriftHiveMetastoreBuilder testingThriftHiveMetastoreBuilder()
@@ -63,25 +68,40 @@ public final class TestingThriftHiveMetastoreBuilder
 
     private TestingThriftHiveMetastoreBuilder() {}
 
+    public TestingThriftHiveMetastoreBuilder metastoreClient(HostAndPort address, Duration timeout)
+    {
+        requireNonNull(address, "address is null");
+        requireNonNull(timeout, "timeout is null");
+        checkState(tokenAwareMetastoreClientFactory == null, "Metastore client already set");
+        tokenAwareMetastoreClientFactory = new TestingTokenAwareMetastoreClientFactory(HiveTestUtils.SOCKS_PROXY, address, timeout);
+        return this;
+    }
+
     public TestingThriftHiveMetastoreBuilder metastoreClient(HostAndPort address)
     {
         requireNonNull(address, "address is null");
-        checkState(metastoreLocator == null, "Metastore client already set");
-        metastoreLocator = new TestingMetastoreLocator(HiveTestUtils.SOCKS_PROXY, address);
+        checkState(tokenAwareMetastoreClientFactory == null, "Metastore client already set");
+        tokenAwareMetastoreClientFactory = new TestingTokenAwareMetastoreClientFactory(HiveTestUtils.SOCKS_PROXY, address);
         return this;
     }
 
     public TestingThriftHiveMetastoreBuilder metastoreClient(ThriftMetastoreClient client)
     {
         requireNonNull(client, "client is null");
-        checkState(metastoreLocator == null, "Metastore client already set");
-        metastoreLocator = token -> client;
+        checkState(tokenAwareMetastoreClientFactory == null, "Metastore client already set");
+        tokenAwareMetastoreClientFactory = token -> client;
         return this;
     }
 
     public TestingThriftHiveMetastoreBuilder hiveConfig(HiveConfig hiveConfig)
     {
         this.hiveConfig = requireNonNull(hiveConfig, "hiveConfig is null");
+        return this;
+    }
+
+    public TestingThriftHiveMetastoreBuilder thriftMetastoreConfig(ThriftMetastoreConfig thriftMetastoreConfig)
+    {
+        this.thriftMetastoreConfig = requireNonNull(thriftMetastoreConfig, "thriftMetastoreConfig is null");
         return this;
     }
 
@@ -93,16 +113,12 @@ public final class TestingThriftHiveMetastoreBuilder
 
     public ThriftMetastore build()
     {
-        checkState(metastoreLocator != null, "metastore client not set");
+        checkState(tokenAwareMetastoreClientFactory != null, "metastore client not set");
         ThriftHiveMetastoreFactory metastoreFactory = new ThriftHiveMetastoreFactory(
-                new TokenDelegationThriftMetastoreFactory(
-                        metastoreLocator,
-                        new ThriftMetastoreConfig(),
-                        new ThriftMetastoreAuthenticationConfig(),
-                        hdfsEnvironment),
+                new UgiBasedMetastoreClientFactory(tokenAwareMetastoreClientFactory, thriftMetastoreConfig),
                 new HiveMetastoreConfig().isHideDeltaLakeTables(),
                 hiveConfig.isTranslateHiveViews(),
-                new ThriftMetastoreConfig(),
+                thriftMetastoreConfig,
                 hdfsEnvironment);
         return metastoreFactory.createMetastore(Optional.empty());
     }

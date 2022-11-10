@@ -13,9 +13,15 @@
  */
 package io.trino.connector;
 
-import io.trino.connector.ConnectorManager.ConnectorServices;
+import io.trino.Session;
+
+import java.util.List;
 
 public interface ConnectorServicesProvider
 {
-    ConnectorServices getConnectorServices(CatalogName catalogName);
+    void loadInitialCatalogs();
+
+    void ensureCatalogsLoaded(Session session, List<CatalogProperties> catalogs);
+
+    ConnectorServices getConnectorServices(CatalogHandle catalogHandle);
 }

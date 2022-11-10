@@ -17,7 +17,6 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.connector.CatalogName;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
@@ -40,6 +39,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.constrainedIndexSource;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 
 public class TestPruneIndexSourceColumns
         extends BaseRuleTest
@@ -81,7 +81,7 @@ public class TestPruneIndexSourceColumns
                                 .collect(toImmutableList())),
                 p.indexSource(
                         new TableHandle(
-                                new CatalogName("local"),
+                                TEST_CATALOG_HANDLE,
                                 new TpchTableHandle(TINY_SCHEMA_NAME, "orders", TINY_SCALE_FACTOR),
                                 TpchTransactionHandle.INSTANCE),
                         ImmutableSet.of(orderkey, custkey),

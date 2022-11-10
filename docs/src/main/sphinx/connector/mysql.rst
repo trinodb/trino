@@ -38,7 +38,7 @@ connection properties as appropriate for your setup:
 The ``connection-url`` defines the connection information and parameters to pass
 to the MySQL JDBC driver. The supported parameters for the URL are
 available in the `MySQL Developer Guide
-<https://dev.mysql.com/doc/connector-j/8.0/en/>`_.
+<https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-reference-configuration-properties.html>`_.
 
 For example, the following ``connection-url`` allows you to
 configure the JDBC driver to interpret time values based on UTC as a timezone on
@@ -91,6 +91,9 @@ creates a catalog named ``sales`` using the configured connector.
 
 .. include:: jdbc-common-configurations.fragment
 
+.. |default_domain_compaction_threshold| replace:: ``32``
+.. include:: jdbc-domain-compaction-threshold.fragment
+
 .. include:: jdbc-procedures.fragment
 
 .. include:: jdbc-case-insensitive-matching.fragment
@@ -103,14 +106,16 @@ Type mapping
 ------------
 
 Because Trino and MySQL each support types that the other does not, this
-connector modifies some types when reading or writing data.
+connector :ref:`modifies some types <type-mapping-overview>` when reading or
+writing data. Data types may not map the same way in both directions between
+Trino and the data source. Refer to the following sections for type mapping in
+each direction.
 
-MySQL to Trino read type mapping
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+MySQL to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This connector supports reading the following MySQL types and performs
-conversion to Trino types with the detailed mappings as shown in the following
-table.
+The connector maps MySQL types to the corresponding Trino types following
+this table:
 
 .. list-table:: MySQL to Trino type mapping
   :widths: 30, 20, 50
@@ -167,8 +172,14 @@ table.
   * - ``LONGTEXT``
     - ``VARCHAR``
     -
+  * - ``ENUM(n)``
+    - ``VARCHAR(n)``
+    -
   * - ``BINARY``, ``VARBINARY``, ``TINYBLOB``, ``BLOB``, ``MEDIUMBLOB``, ``LONGBLOB``
     - ``VARBINARY``
+    -
+  * - ``JSON``
+    - ``JSON``
     -
   * - ``DATE``
     - ``DATE``
@@ -185,12 +196,11 @@ table.
 
 No other types are supported.
 
-Trino to MySQL write type mapping
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Trino to MySQL type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This connector supports writing the following Trino types and performs
-conversion to MySQL types with the detailed mappings as shown in the
-following table.
+The connector maps Trino types to the corresponding MySQL types following
+this table:
 
 .. list-table:: Trino to MySQL type mapping
   :widths: 30, 20, 50
@@ -229,6 +239,9 @@ following table.
   * - ``VARCHAR(n)``
     - ``VARCHAR(n)``
     -
+  * - ``JSON``
+    - ``JSON``
+    -
   * - ``DATE``
     - ``DATE``
     -
@@ -255,7 +268,7 @@ By default, values that require rounding or truncation to fit will cause a failu
 is controlled via the ``decimal-rounding-mode`` configuration property or the ``decimal_rounding_mode`` session
 property, which can be set to ``UNNECESSARY`` (the default),
 ``UP``, ``DOWN``, ``CEILING``, ``FLOOR``, ``HALF_UP``, ``HALF_DOWN``, or ``HALF_EVEN``
-(see `RoundingMode <https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/math/RoundingMode.html#enum.constant.summary>`_).
+(see `RoundingMode <https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/math/RoundingMode.html#enum.constant.summary>`_).
 
 .. include:: jdbc-type-mapping.fragment
 

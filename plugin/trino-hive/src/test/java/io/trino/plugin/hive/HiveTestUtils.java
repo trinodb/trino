@@ -17,9 +17,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.DataSize;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.hdfs.DynamicHdfsConfiguration;
+import io.trino.hdfs.HdfsConfig;
+import io.trino.hdfs.HdfsConfigurationInitializer;
+import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
-import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.azure.HiveAzureConfig;
 import io.trino.plugin.hive.azure.TrinoAzureConfigurationInitializer;
 import io.trino.plugin.hive.gcs.GoogleGcsConfigurationInitializer;
@@ -77,7 +83,7 @@ public final class HiveTestUtils
     public static final Optional<HostAndPort> SOCKS_PROXY = Optional.ofNullable(System.getProperty("hive.metastore.thrift.client.socks-proxy"))
             .map(HostAndPort::fromString);
 
-    public static final HiveHdfsConfiguration HDFS_CONFIGURATION = new HiveHdfsConfiguration(
+    public static final DynamicHdfsConfiguration HDFS_CONFIGURATION = new DynamicHdfsConfiguration(
             new HdfsConfigurationInitializer(
                     new HdfsConfig()
                             .setSocksProxy(SOCKS_PROXY.orElse(null)),
@@ -145,11 +151,12 @@ public final class HiveTestUtils
 
     public static Set<HivePageSourceFactory> getDefaultHivePageSourceFactories(HdfsEnvironment hdfsEnvironment, HiveConfig hiveConfig)
     {
+        TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(hdfsEnvironment);
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
         return ImmutableSet.<HivePageSourceFactory>builder()
                 .add(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, hdfsEnvironment, stats, hiveConfig))
                 .add(new OrcPageSourceFactory(new OrcReaderConfig(), hdfsEnvironment, stats, hiveConfig))
-                .add(new ParquetPageSourceFactory(hdfsEnvironment, stats, new ParquetReaderConfig(), hiveConfig))
+                .add(new ParquetPageSourceFactory(fileSystemFactory, stats, new ParquetReaderConfig(), hiveConfig))
                 .build();
     }
 

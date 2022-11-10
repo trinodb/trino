@@ -27,7 +27,7 @@ public class TestHive3OnDataLake
     @Test
     public void testInsertOverwritePartitionedAndBucketedAcidTable()
     {
-        String testTable = getTestTableName();
+        String testTable = getFullyQualifiedTestTableName();
         computeActual(getCreateTableStatement(
                 testTable,
                 "partitioned_by=ARRAY['regionkey']",

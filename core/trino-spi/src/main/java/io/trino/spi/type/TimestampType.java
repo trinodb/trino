@@ -47,12 +47,6 @@ public abstract class TimestampType
     public static final TimestampType TIMESTAMP_NANOS = createTimestampType(9);
     public static final TimestampType TIMESTAMP_PICOS = createTimestampType(12);
 
-    /**
-     * @deprecated Use {@link #TIMESTAMP_MILLIS} instead
-     */
-    @Deprecated
-    public static final TimestampType TIMESTAMP = TIMESTAMP_MILLIS;
-
     private final int precision;
 
     public static TimestampType createTimestampType(int precision)

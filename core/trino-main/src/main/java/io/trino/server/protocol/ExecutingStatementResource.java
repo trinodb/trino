@@ -23,6 +23,7 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.client.ProtocolHeaders;
 import io.trino.client.QueryResults;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.QueryManager;
 import io.trino.operator.DirectExchangeClientSupplier;
 import io.trino.server.ForStatementResource;
@@ -81,6 +82,7 @@ public class ExecutingStatementResource
 
     private final QueryManager queryManager;
     private final DirectExchangeClientSupplier directExchangeClientSupplier;
+    private final ExchangeManagerRegistry exchangeManagerRegistry;
     private final BlockEncodingSerde blockEncodingSerde;
     private final QueryInfoUrlFactory queryInfoUrlFactory;
     private final BoundedExecutor responseExecutor;
@@ -95,6 +97,7 @@ public class ExecutingStatementResource
     public ExecutingStatementResource(
             QueryManager queryManager,
             DirectExchangeClientSupplier directExchangeClientSupplier,
+            ExchangeManagerRegistry exchangeManagerRegistry,
             BlockEncodingSerde blockEncodingSerde,
             QueryInfoUrlFactory queryInfoUrlTemplate,
             @ForStatementResource BoundedExecutor responseExecutor,
@@ -104,12 +107,13 @@ public class ExecutingStatementResource
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
+        this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.queryInfoUrlFactory = requireNonNull(queryInfoUrlTemplate, "queryInfoUrlTemplate is null");
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         this.preparedStatementEncoder = requireNonNull(preparedStatementEncoder, "preparedStatementEncoder is null");
-        this.compressionEnabled = requireNonNull(serverConfig, "serverConfig is null").isQueryResultsCompressionEnabled();
+        this.compressionEnabled = serverConfig.isQueryResultsCompressionEnabled();
 
         queryPurger.scheduleWithFixedDelay(
                 () -> {
@@ -130,6 +134,15 @@ public class ExecutingStatementResource
                     }
                     catch (Throwable e) {
                         log.warn(e, "Error removing old queries");
+                    }
+
+                    try {
+                        for (Query query : queries.values()) {
+                            query.markResultsConsumedIfReady();
+                        }
+                    }
+                    catch (Throwable e) {
+                        log.warn(e, "Error marking results consumed");
                     }
                 },
                 200,
@@ -190,6 +203,7 @@ public class ExecutingStatementResource
                 queryManager,
                 queryInfoUrlFactory.getQueryInfoUrl(queryId),
                 directExchangeClientSupplier,
+                exchangeManagerRegistry,
                 responseExecutor,
                 timeoutExecutor,
                 blockEncodingSerde));

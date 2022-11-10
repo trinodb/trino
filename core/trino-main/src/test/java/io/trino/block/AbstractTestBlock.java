@@ -36,7 +36,6 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.List;
-import java.util.function.Supplier;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
@@ -62,13 +61,17 @@ public abstract class AbstractTestBlock
 {
     private static final BlockEncodingSerde BLOCK_ENCODING_SERDE = new TestingBlockEncodingSerde(TESTING_TYPE_MANAGER::getType);
 
-    protected <T> void assertBlock(Block block, Supplier<BlockBuilder> newBlockBuilder, T[] expectedValues)
+    protected <T> void assertBlock(Block block, T[] expectedValues)
     {
         assertBlockSize(block);
         assertRetainedSize(block);
 
-        assertBlockPositions(block, newBlockBuilder, expectedValues);
-        assertBlockPositions(copyBlockViaBlockSerde(block), newBlockBuilder, expectedValues);
+        assertBlockPositions(block, expectedValues);
+        assertBlockPositions(copyBlockViaBlockSerde(block), expectedValues);
+
+        Block blockWithNull = copyBlockViaBlockSerde(block).copyWithAppendedNull();
+        T[] expectedValuesWithNull = Arrays.copyOf(expectedValues, expectedValues.length + 1);
+        assertBlockPositions(blockWithNull, expectedValuesWithNull);
 
         assertBlockSize(block);
         assertRetainedSize(block);
@@ -76,11 +79,11 @@ public abstract class AbstractTestBlock
         if (block.mayHaveNull()) {
             assertThatThrownBy(() -> block.isNull(-1))
                     .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageMatching(format("(position is not valid|Invalid position -1 in block with %d positions)", block.getPositionCount()));
+                    .hasMessage("Invalid position -1 in block with %d positions", block.getPositionCount());
 
             assertThatThrownBy(() -> block.isNull(block.getPositionCount()))
                     .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageMatching(format("(position is not valid|Invalid position %d in block with %d positions)", block.getPositionCount(), block.getPositionCount()));
+                    .hasMessage("Invalid position %d in block with %d positions", block.getPositionCount(), block.getPositionCount());
         }
     }
 
@@ -165,12 +168,12 @@ public abstract class AbstractTestBlock
         assertEquals(block.getRetainedSizeInBytes(), retainedSize);
     }
 
-    protected <T> void assertBlockFilteredPositions(T[] expectedValues, Block block, Supplier<BlockBuilder> newBlockBuilder, int... positions)
+    protected <T> void assertBlockFilteredPositions(T[] expectedValues, Block block, int... positions)
     {
         Block filteredBlock = block.copyPositions(positions, 0, positions.length);
         T[] filteredExpectedValues = filter(expectedValues, positions);
         assertEquals(filteredBlock.getPositionCount(), positions.length);
-        assertBlock(filteredBlock, newBlockBuilder, filteredExpectedValues);
+        assertBlock(filteredBlock, filteredExpectedValues);
     }
 
     private static <T> T[] filter(T[] expectedValues, int[] positions)
@@ -183,11 +186,11 @@ public abstract class AbstractTestBlock
         return prunedExpectedValues;
     }
 
-    private <T> void assertBlockPositions(Block block, Supplier<BlockBuilder> newBlockBuilder, T[] expectedValues)
+    private <T> void assertBlockPositions(Block block, T[] expectedValues)
     {
         assertEquals(block.getPositionCount(), expectedValues.length);
         for (int position = 0; position < block.getPositionCount(); position++) {
-            assertBlockPosition(block, newBlockBuilder, position, expectedValues[position], expectedValues.getClass().getComponentType());
+            assertBlockPosition(block, position, expectedValues[position]);
         }
     }
 
@@ -230,8 +233,7 @@ public abstract class AbstractTestBlock
         assertEquals(block.getPositionsSizeInBytes(positions, positions.length - firstHalf.getPositionCount()), expectedSecondHalfSize);
     }
 
-    // expectedValueType is required since otherwise the expected value type is unknown when expectedValue is null.
-    protected <T> void assertBlockPosition(Block block, Supplier<BlockBuilder> newBlockBuilder, int position, T expectedValue, Class<?> expectedValueType)
+    protected <T> void assertBlockPosition(Block block, int position, T expectedValue)
     {
         assertPositionValue(block, position, expectedValue);
         assertPositionValue(block.getSingleValueBlock(position), 0, expectedValue);
@@ -400,9 +402,7 @@ public abstract class AbstractTestBlock
             // dictionary blocks might become unwrapped when copyRegion is called on a block that is already compact
             return ((DictionaryBlock) block).compact().getSizeInBytes();
         }
-        else {
-            return copyBlockViaCopyRegion(block).getSizeInBytes();
-        }
+        return copyBlockViaCopyRegion(block).getSizeInBytes();
     }
 
     private static Block copyBlockViaCopyRegion(Block block)

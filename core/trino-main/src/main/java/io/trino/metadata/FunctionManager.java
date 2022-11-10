@@ -17,14 +17,21 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.trino.FeaturesConfig;
 import io.trino.collect.cache.NonEvictableCache;
-import io.trino.operator.aggregation.AggregationMetadata;
-import io.trino.operator.window.WindowFunctionSupplier;
+import io.trino.connector.CatalogServiceProvider;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.AggregationImplementation;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionId;
+import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.InOut;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
+import io.trino.spi.function.ScalarFunctionImplementation;
+import io.trino.spi.function.WindowFunctionSupplier;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.type.BlockTypeOperators;
@@ -51,14 +58,15 @@ import static java.util.concurrent.TimeUnit.HOURS;
 
 public class FunctionManager
 {
-    private final NonEvictableCache<FunctionKey, FunctionInvoker> specializedScalarCache;
-    private final NonEvictableCache<FunctionKey, AggregationMetadata> specializedAggregationCache;
+    private final NonEvictableCache<FunctionKey, ScalarFunctionImplementation> specializedScalarCache;
+    private final NonEvictableCache<FunctionKey, AggregationImplementation> specializedAggregationCache;
     private final NonEvictableCache<FunctionKey, WindowFunctionSupplier> specializedWindowCache;
 
+    private final CatalogServiceProvider<FunctionProvider> functionProviders;
     private final GlobalFunctionCatalog globalFunctionCatalog;
 
     @Inject
-    public FunctionManager(GlobalFunctionCatalog globalFunctionCatalog)
+    public FunctionManager(CatalogServiceProvider<FunctionProvider> functionProviders, GlobalFunctionCatalog globalFunctionCatalog)
     {
         specializedScalarCache = buildNonEvictableCache(CacheBuilder.newBuilder()
                 .maximumSize(1000)
@@ -72,13 +80,14 @@ public class FunctionManager
                 .maximumSize(1000)
                 .expireAfterWrite(1, HOURS));
 
-        this.globalFunctionCatalog = globalFunctionCatalog;
+        this.functionProviders = requireNonNull(functionProviders, "functionProviders is null");
+        this.globalFunctionCatalog = requireNonNull(globalFunctionCatalog, "globalFunctionCatalog is null");
     }
 
-    public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
+    public ScalarFunctionImplementation getScalarFunctionImplementation(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
     {
         try {
-            return uncheckedCacheGet(specializedScalarCache, new FunctionKey(resolvedFunction, invocationConvention), () -> getScalarFunctionInvokerInternal(resolvedFunction, invocationConvention));
+            return uncheckedCacheGet(specializedScalarCache, new FunctionKey(resolvedFunction, invocationConvention), () -> getScalarFunctionImplementationInternal(resolvedFunction, invocationConvention));
         }
         catch (UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), TrinoException.class);
@@ -86,22 +95,22 @@ public class FunctionManager
         }
     }
 
-    private FunctionInvoker getScalarFunctionInvokerInternal(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
+    private ScalarFunctionImplementation getScalarFunctionImplementationInternal(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
     {
         FunctionDependencies functionDependencies = getFunctionDependencies(resolvedFunction);
-        FunctionInvoker functionInvoker = globalFunctionCatalog.getScalarFunctionInvoker(
+        ScalarFunctionImplementation scalarFunctionImplementation = getFunctionProvider(resolvedFunction).getScalarFunctionImplementation(
                 resolvedFunction.getFunctionId(),
                 resolvedFunction.getSignature(),
                 functionDependencies,
                 invocationConvention);
-        verifyMethodHandleSignature(resolvedFunction.getSignature(), functionInvoker, invocationConvention);
-        return functionInvoker;
+        verifyMethodHandleSignature(resolvedFunction.getSignature(), scalarFunctionImplementation, invocationConvention);
+        return scalarFunctionImplementation;
     }
 
-    public AggregationMetadata getAggregateFunctionImplementation(ResolvedFunction resolvedFunction)
+    public AggregationImplementation getAggregationImplementation(ResolvedFunction resolvedFunction)
     {
         try {
-            return uncheckedCacheGet(specializedAggregationCache, new FunctionKey(resolvedFunction), () -> getAggregateFunctionImplementationInternal(resolvedFunction));
+            return uncheckedCacheGet(specializedAggregationCache, new FunctionKey(resolvedFunction), () -> getAggregationImplementationInternal(resolvedFunction));
         }
         catch (UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), TrinoException.class);
@@ -109,19 +118,19 @@ public class FunctionManager
         }
     }
 
-    private AggregationMetadata getAggregateFunctionImplementationInternal(ResolvedFunction resolvedFunction)
+    private AggregationImplementation getAggregationImplementationInternal(ResolvedFunction resolvedFunction)
     {
         FunctionDependencies functionDependencies = getFunctionDependencies(resolvedFunction);
-        return globalFunctionCatalog.getAggregateFunctionImplementation(
+        return getFunctionProvider(resolvedFunction).getAggregationImplementation(
                 resolvedFunction.getFunctionId(),
                 resolvedFunction.getSignature(),
                 functionDependencies);
     }
 
-    public WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction)
+    public WindowFunctionSupplier getWindowFunctionSupplier(ResolvedFunction resolvedFunction)
     {
         try {
-            return uncheckedCacheGet(specializedWindowCache, new FunctionKey(resolvedFunction), () -> getWindowFunctionImplementationInternal(resolvedFunction));
+            return uncheckedCacheGet(specializedWindowCache, new FunctionKey(resolvedFunction), () -> getWindowFunctionSupplierInternal(resolvedFunction));
         }
         catch (UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), TrinoException.class);
@@ -129,10 +138,10 @@ public class FunctionManager
         }
     }
 
-    private WindowFunctionSupplier getWindowFunctionImplementationInternal(ResolvedFunction resolvedFunction)
+    private WindowFunctionSupplier getWindowFunctionSupplierInternal(ResolvedFunction resolvedFunction)
     {
         FunctionDependencies functionDependencies = getFunctionDependencies(resolvedFunction);
-        return globalFunctionCatalog.getWindowFunctionImplementation(
+        return getFunctionProvider(resolvedFunction).getWindowFunctionSupplier(
                 resolvedFunction.getFunctionId(),
                 resolvedFunction.getSignature(),
                 functionDependencies);
@@ -140,12 +149,23 @@ public class FunctionManager
 
     private FunctionDependencies getFunctionDependencies(ResolvedFunction resolvedFunction)
     {
-        return new FunctionDependencies(this::getScalarFunctionInvoker, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
+        return new InternalFunctionDependencies(this::getScalarFunctionImplementation, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
     }
 
-    private static void verifyMethodHandleSignature(BoundSignature boundSignature, FunctionInvoker functionInvoker, InvocationConvention convention)
+    private FunctionProvider getFunctionProvider(ResolvedFunction resolvedFunction)
     {
-        MethodHandle methodHandle = functionInvoker.getMethodHandle();
+        if (resolvedFunction.getCatalogHandle().equals(GlobalSystemConnector.CATALOG_HANDLE)) {
+            return globalFunctionCatalog;
+        }
+
+        FunctionProvider functionProvider = functionProviders.getService(resolvedFunction.getCatalogHandle());
+        checkArgument(functionProvider != null, "No function provider for catalog: '%s' (function '%s')", resolvedFunction.getCatalogHandle(), resolvedFunction.getSignature().getName());
+        return functionProvider;
+    }
+
+    private static void verifyMethodHandleSignature(BoundSignature boundSignature, ScalarFunctionImplementation scalarFunctionImplementation, InvocationConvention convention)
+    {
+        MethodHandle methodHandle = scalarFunctionImplementation.getMethodHandle();
         MethodType methodType = methodHandle.type();
 
         checkArgument(convention.getArgumentConventions().size() == boundSignature.getArgumentTypes().size(),
@@ -155,16 +175,16 @@ public class FunctionManager
                 .mapToInt(InvocationArgumentConvention::getParameterCount)
                 .sum();
         expectedParameterCount += methodType.parameterList().stream().filter(ConnectorSession.class::equals).count();
-        if (functionInvoker.getInstanceFactory().isPresent()) {
+        if (scalarFunctionImplementation.getInstanceFactory().isPresent()) {
             expectedParameterCount++;
         }
         checkArgument(expectedParameterCount == methodType.parameterCount(),
                 "Expected %s method parameters, but got %s", expectedParameterCount, methodType.parameterCount());
 
         int parameterIndex = 0;
-        if (functionInvoker.getInstanceFactory().isPresent()) {
+        if (scalarFunctionImplementation.getInstanceFactory().isPresent()) {
             verifyFunctionSignature(convention.supportsInstanceFactory(), "Method requires instance factory, but calling convention does not support an instance factory");
-            MethodHandle factoryMethod = functionInvoker.getInstanceFactory().orElseThrow();
+            MethodHandle factoryMethod = scalarFunctionImplementation.getInstanceFactory().orElseThrow();
             verifyFunctionSignature(methodType.parameterType(parameterIndex).equals(factoryMethod.type().returnType()), "Invalid return type");
             parameterIndex++;
         }
@@ -203,7 +223,7 @@ public class FunctionManager
                     verifyFunctionSignature(parameterType.equals(InOut.class), "Expected IN_OUT argument type to be InOut");
                     break;
                 case FUNCTION:
-                    Class<?> lambdaInterface = functionInvoker.getLambdaInterfaces().get(lambdaArgumentIndex);
+                    Class<?> lambdaInterface = scalarFunctionImplementation.getLambdaInterfaces().get(lambdaArgumentIndex);
                     verifyFunctionSignature(parameterType.equals(lambdaInterface),
                             "Expected function interface to be %s, but is %s", lambdaInterface, parameterType);
                     lambdaArgumentIndex++;
@@ -297,6 +317,6 @@ public class FunctionManager
         GlobalFunctionCatalog functionCatalog = new GlobalFunctionCatalog();
         functionCatalog.addFunctions(SystemFunctionBundle.create(new FeaturesConfig(), typeOperators, new BlockTypeOperators(typeOperators), UNKNOWN));
         functionCatalog.addFunctions(new InternalFunctionBundle(new LiteralFunction(new InternalBlockEncodingSerde(new BlockEncodingManager(), TESTING_TYPE_MANAGER))));
-        return new FunctionManager(functionCatalog);
+        return new FunctionManager(CatalogServiceProvider.fail(), functionCatalog);
     }
 }

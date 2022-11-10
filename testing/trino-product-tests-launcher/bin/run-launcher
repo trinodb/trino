@@ -2,7 +2,8 @@
 
 target="${BASH_SOURCE%/*/*}/target"
 
-if command -v mvnd >/dev/null; then
+# Disable mvnd for scripts on ARM until https://github.com/apache/maven-mvnd/issues/671 is fixed
+if command -v mvnd >/dev/null && test "$(arch)" != arm64; then
     # Using mvnd here can save more than 2 seconds compared to ./mvnw startup cost. This is especially important
     # when invoking inspection commands like --help, env list, etc.
     # See https://github.com/apache/maven-mvnd/issues/604 for why mvnd.logPurgePeriod is set.

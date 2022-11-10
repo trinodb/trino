@@ -84,6 +84,7 @@ import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Grant;
 import io.trino.sql.tree.GrantRoles;
 import io.trino.sql.tree.Insert;
+import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.RefreshMaterializedView;
@@ -139,6 +140,7 @@ import static io.trino.spi.resourcegroups.QueryType.DELETE;
 import static io.trino.spi.resourcegroups.QueryType.DESCRIBE;
 import static io.trino.spi.resourcegroups.QueryType.EXPLAIN;
 import static io.trino.spi.resourcegroups.QueryType.INSERT;
+import static io.trino.spi.resourcegroups.QueryType.MERGE;
 import static io.trino.spi.resourcegroups.QueryType.SELECT;
 import static io.trino.spi.resourcegroups.QueryType.UPDATE;
 import static java.lang.String.format;
@@ -176,6 +178,7 @@ public final class StatementUtils
             .add(basicStatement(Insert.class, INSERT))
             .add(basicStatement(Update.class, UPDATE))
             .add(basicStatement(Delete.class, DELETE))
+            .add(basicStatement(Merge.class, MERGE))
             .add(basicStatement(Analyze.class, ANALYZE))
             // DDL
             .add(dataDefinitionStatement(AddColumn.class, AddColumnTask.class))

@@ -62,6 +62,7 @@ public class QueryManagerConfig
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
 
     private int queryManagerExecutorPoolSize = 5;
+    private int queryExecutorPoolSize = 1000;
 
     private Duration remoteTaskMaxErrorDuration = new Duration(5, TimeUnit.MINUTES);
     private int remoteTaskMaxCallbackThreads = 1000;
@@ -258,6 +259,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setQueryManagerExecutorPoolSize(int queryManagerExecutorPoolSize)
     {
         this.queryManagerExecutorPoolSize = queryManagerExecutorPoolSize;
+        return this;
+    }
+
+    @Min(1)
+    public int getQueryExecutorPoolSize()
+    {
+        return queryExecutorPoolSize;
+    }
+
+    @Config("query.executor-pool-size")
+    public QueryManagerConfig setQueryExecutorPoolSize(int queryExecutorPoolSize)
+    {
+        this.queryExecutorPoolSize = queryExecutorPoolSize;
         return this;
     }
 

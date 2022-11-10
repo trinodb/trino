@@ -15,6 +15,7 @@ package io.trino.plugin.hive.orc;
 
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
 import io.trino.orc.OrcDataSink;
 import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcWriteValidation.OrcWriteValidationMode;
@@ -57,13 +58,15 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class OrcFileWriter
         implements FileWriter
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcFileWriter.class).instanceSize();
+    private static final Logger log = Logger.get(OrcFileWriter.class);
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(OrcFileWriter.class).instanceSize());
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
     protected final OrcWriter orcWriter;
@@ -127,6 +130,9 @@ public class OrcFileWriter
                 validationInputFactory.isPresent(),
                 validationMode,
                 stats);
+        if (transaction.isTransactional()) {
+            this.setMaxWriteId(transaction.getWriteId());
+        }
     }
 
     @Override
@@ -152,7 +158,7 @@ public class OrcFileWriter
             int inputColumnIndex = fileInputColumnIndexes[i];
             if (inputColumnIndex < 0) {
                 hasNullBlocks = true;
-                blocks[i] = new RunLengthEncodedBlock(nullBlocks.get(i), positionCount);
+                blocks[i] = RunLengthEncodedBlock.create(nullBlocks.get(i), positionCount);
             }
             else {
                 blocks[i] = dataPage.getBlock(inputColumnIndex);
@@ -188,6 +194,7 @@ public class OrcFileWriter
             }
             catch (Exception ignored) {
                 // ignore
+                log.error(ignored, "Exception when committing file");
             }
             throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);
         }

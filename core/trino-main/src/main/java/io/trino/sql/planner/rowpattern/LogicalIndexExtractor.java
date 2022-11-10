@@ -158,18 +158,12 @@ public class LogicalIndexExtractor
             if (isPatternRecognitionFunction(node)) {
                 QualifiedName name = node.getName();
                 String functionName = name.getSuffix().toUpperCase(ENGLISH);
-                switch (functionName) {
-                    case "FIRST":
-                    case "LAST":
-                    case "PREV":
-                    case "NEXT":
-                        return rewritePatternNavigationFunction(node, context, treeRewriter);
-                    case "CLASSIFIER":
-                        return rewriteClassifierFunction(node, context);
-                    case "MATCH_NUMBER":
-                        return rewriteMatchNumberFunction();
-                }
-                throw new UnsupportedOperationException("unsupported pattern recognition function type: " + node.getName());
+                return switch (functionName) {
+                    case "FIRST", "LAST", "PREV", "NEXT" -> rewritePatternNavigationFunction(node, context, treeRewriter);
+                    case "CLASSIFIER" -> rewriteClassifierFunction(node, context);
+                    case "MATCH_NUMBER" -> rewriteMatchNumberFunction();
+                    default -> throw new UnsupportedOperationException("unsupported pattern recognition function type: " + node.getName());
+                };
             }
 
             if (metadata.isAggregationFunction(session, QualifiedName.of(extractFunctionName(node.getName())))) {
@@ -252,19 +246,19 @@ public class LogicalIndexExtractor
             if (node.getArguments().size() > 1) {
                 offset = OptionalInt.of(toIntExact(((LongLiteral) node.getArguments().get(1)).getValue()));
             }
-            switch (functionName) {
-                case "PREV":
-                    return treeRewriter.rewrite(argument, context.withPhysicalOffset(-offset.orElse(1)));
-                case "NEXT":
-                    return treeRewriter.rewrite(argument, context.withPhysicalOffset(offset.orElse(1)));
-                case "FIRST":
-                    boolean running = processingMode.isEmpty() || processingMode.get().getMode() != FINAL;
-                    return treeRewriter.rewrite(argument, context.withLogicalOffset(running, false, offset.orElse(0)));
-                case "LAST":
-                    running = processingMode.isEmpty() || processingMode.get().getMode() != FINAL;
-                    return treeRewriter.rewrite(argument, context.withLogicalOffset(running, true, offset.orElse(0)));
-            }
-            throw new UnsupportedOperationException("unsupported pattern navigation function type: " + node.getName());
+            return switch (functionName) {
+                case "PREV" -> treeRewriter.rewrite(argument, context.withPhysicalOffset(-offset.orElse(1)));
+                case "NEXT" -> treeRewriter.rewrite(argument, context.withPhysicalOffset(offset.orElse(1)));
+                case "FIRST" -> treeRewriter.rewrite(argument, context.withLogicalOffset(
+                        processingMode.isEmpty() || processingMode.get().getMode() != FINAL,
+                        false,
+                        offset.orElse(0)));
+                case "LAST" -> treeRewriter.rewrite(argument, context.withLogicalOffset(
+                        processingMode.isEmpty() || processingMode.get().getMode() != FINAL,
+                        true,
+                        offset.orElse(0)));
+                default -> throw new UnsupportedOperationException("unsupported pattern navigation function type: " + node.getName());
+            };
         }
 
         private Expression rewriteClassifierFunction(FunctionCall node, LogicalIndexContext context)

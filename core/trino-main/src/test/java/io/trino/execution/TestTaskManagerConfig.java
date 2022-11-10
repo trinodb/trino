@@ -58,6 +58,8 @@ public class TestTaskManagerConfig
                 .setSinkMaxBufferSize(DataSize.of(32, Unit.MEGABYTE))
                 .setSinkMaxBroadcastBufferSize(DataSize.of(200, Unit.MEGABYTE))
                 .setMaxPagePartitioningBufferSize(DataSize.of(32, Unit.MEGABYTE))
+                .setScaleWritersEnabled(true)
+                .setScaleWritersMaxWriterCount(8)
                 .setWriterCount(1)
                 .setTaskConcurrency(DEFAULT_PROCESSOR_COUNT)
                 .setHttpResponseThreads(100)
@@ -65,7 +67,11 @@ public class TestTaskManagerConfig
                 .setTaskNotificationThreads(5)
                 .setTaskYieldThreads(3)
                 .setLevelTimeMultiplier(new BigDecimal("2"))
-                .setStatisticsCpuTimerEnabled(true));
+                .setStatisticsCpuTimerEnabled(true)
+                .setInterruptStuckSplitTasksEnabled(true)
+                .setInterruptStuckSplitTasksWarningThreshold(new Duration(10, TimeUnit.MINUTES))
+                .setInterruptStuckSplitTasksTimeout(new Duration(15, TimeUnit.MINUTES))
+                .setInterruptStuckSplitTasksDetectionInterval(new Duration(2, TimeUnit.MINUTES)));
     }
 
     @Test
@@ -93,6 +99,8 @@ public class TestTaskManagerConfig
                 .put("sink.max-buffer-size", "42MB")
                 .put("sink.max-broadcast-buffer-size", "128MB")
                 .put("driver.max-page-partitioning-buffer-size", "40MB")
+                .put("task.scale-writers.enabled", "false")
+                .put("task.scale-writers.max-writer-count", "4")
                 .put("task.writer-count", "4")
                 .put("task.concurrency", Integer.toString(processorCount))
                 .put("task.http-response-threads", "4")
@@ -101,6 +109,10 @@ public class TestTaskManagerConfig
                 .put("task.task-yield-threads", "8")
                 .put("task.level-time-multiplier", "2.1")
                 .put("task.statistics-cpu-timer-enabled", "false")
+                .put("task.interrupt-stuck-split-tasks-enabled", "false")
+                .put("task.interrupt-stuck-split-tasks-warning-threshold", "3m")
+                .put("task.interrupt-stuck-split-tasks-timeout", "4m")
+                .put("task.interrupt-stuck-split-tasks-detection-interval", "10m")
                 .buildOrThrow();
 
         TaskManagerConfig expected = new TaskManagerConfig()
@@ -124,6 +136,8 @@ public class TestTaskManagerConfig
                 .setSinkMaxBufferSize(DataSize.of(42, Unit.MEGABYTE))
                 .setSinkMaxBroadcastBufferSize(DataSize.of(128, Unit.MEGABYTE))
                 .setMaxPagePartitioningBufferSize(DataSize.of(40, Unit.MEGABYTE))
+                .setScaleWritersEnabled(false)
+                .setScaleWritersMaxWriterCount(4)
                 .setWriterCount(4)
                 .setTaskConcurrency(processorCount)
                 .setHttpResponseThreads(4)
@@ -131,7 +145,11 @@ public class TestTaskManagerConfig
                 .setTaskNotificationThreads(13)
                 .setTaskYieldThreads(8)
                 .setLevelTimeMultiplier(new BigDecimal("2.1"))
-                .setStatisticsCpuTimerEnabled(false);
+                .setStatisticsCpuTimerEnabled(false)
+                .setInterruptStuckSplitTasksEnabled(false)
+                .setInterruptStuckSplitTasksWarningThreshold(new Duration(3, TimeUnit.MINUTES))
+                .setInterruptStuckSplitTasksTimeout(new Duration(4, TimeUnit.MINUTES))
+                .setInterruptStuckSplitTasksDetectionInterval(new Duration(10, TimeUnit.MINUTES));
 
         assertFullMapping(properties, expected);
     }

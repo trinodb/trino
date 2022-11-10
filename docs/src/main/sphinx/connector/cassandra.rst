@@ -144,13 +144,6 @@ Property name                                                 Description
 ``cassandra.load-policy.dc-aware.allow-remote-dc-for-local``  Set to ``true`` to allow to use hosts of
                                                               remote datacenter for local consistency level.
 
-``cassandra.load-policy.use-token-aware``                     Set to ``true`` to use ``TokenAwarePolicy`` (defaults to ``false``).
-
-``cassandra.load-policy.shuffle-replicas``                    Set to ``true`` to use ``TokenAwarePolicy`` with shuffling of replicas,
-                                                              defaults to ``false``.
-
-``cassandra.load-policy.allowed-addresses``                   Comma-separated list of hosts to allow.
-
 ``cassandra.no-host-available-retry-timeout``                 Retry timeout for ``AllNodesFailedException``, defaults to ``1m``.
 
 ``cassandra.speculative-execution.limit``                     The number of speculative executions. This is disabled by default.
@@ -205,43 +198,158 @@ This table can then be queried in Trino::
 
     SELECT * FROM cassandra.mykeyspace.users;
 
-Data types
-----------
+.. _cassandra-type-mapping:
 
-The data types mappings are as follows:
+Type mapping
+------------
 
-================  ======
-Cassandra         Trino
-================  ======
-ASCII             VARCHAR
-BIGINT            BIGINT
-BLOB              VARBINARY
-BOOLEAN           BOOLEAN
-DATE              DATE
-DECIMAL           DOUBLE
-DOUBLE            DOUBLE
-FLOAT             REAL
-INET              VARCHAR(45)
-INT               INTEGER
-LIST<?>           VARCHAR
-MAP<?, ?>         VARCHAR
-SET<?>            VARCHAR
-SMALLINT          SMALLINT
-TEXT              VARCHAR
-TIMESTAMP         TIMESTAMP(3) WITH TIME ZONE
-TIMEUUID          UUID
-TINYINT           TINYINT
-TUPLE             ROW with anonymous fields
-UUID              UUID
-UDT               ROW with field names
-VARCHAR           VARCHAR
-VARINT            VARCHAR
-================  ======
+Because Trino and Cassandra each support types that the other does not, this
+connector :ref:`modifies some types <type-mapping-overview>` when reading or
+writing data. Data types may not map the same way in both directions between
+Trino and the data source. Refer to the following sections for type mapping in
+each direction.
 
-Any collection (LIST/MAP/SET) can be designated as FROZEN, and the value is
-mapped to VARCHAR. Additionally, blobs have the limitation that they cannot be empty.
+Cassandra type to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Types not mentioned in the table above are not supported.
+The connector maps Cassandra types to the corresponding Trino types according to
+the following table:
+
+.. list-table:: Cassandra type to Trino type mapping
+  :widths: 30, 25, 50
+  :header-rows: 1
+
+  * - Cassandra type
+    - Trino type
+    - Notes
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+    -
+  * - ``TINYINT``
+    - ``TINYINT``
+    -
+  * - ``SMALLINT``
+    - ``SMALLINT``
+    -
+  * - ``INT``
+    - ``INTEGER``
+    -
+  * - ``BIGINT``
+    - ``BIGINT``
+    -
+  * - ``FLOAT``
+    - ``REAL``
+    -
+  * - ``DOUBLE``
+    - ``DOUBLE``
+    -
+  * - ``DECIMAL``
+    - ``DOUBLE``
+    -
+  * - ``ASCII``
+    - ``VARCHAR``
+    - US-ASCII character string
+  * - ``TEXT``
+    - ``VARCHAR``
+    - UTF-8 encoded string
+  * - ``VARCHAR``
+    - ``VARCHAR``
+    - UTF-8 encoded string
+  * - ``VARINT``
+    - ``VARCHAR``
+    - Arbitrary-precision integer
+  * - ``BLOB``
+    - ``VARBINARY``
+    -
+  * - ``DATE``
+    - ``DATE``
+    -
+  * - ``TIMESTAMP``
+    - ``TIMESTAMP(3) WITH TIME ZONE``
+    -
+  * - ``LIST<?>``
+    - ``VARCHAR``
+    -
+  * - ``MAP<?, ?>``
+    - ``VARCHAR``
+    -
+  * - ``SET<?>``
+    - ``VARCHAR``
+    -
+  * - ``TUPLE``
+    - ``ROW`` with anonymous fields
+    -
+  * - ``UDT``
+    - ``ROW`` with field names
+    -
+  * - ``INET``
+    - ``IPADDRESS``
+    -
+  * - ``UUID``
+    - ``UUID``
+    -
+  * - ``TIMEUUID``
+    - ``UUID``
+    -
+
+No other types are supported.
+
+Trino type to Cassandra type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps Trino types to the corresponding Cassandra types according to
+the following table:
+
+.. list-table:: Trino type to Cassandra type mapping
+  :widths: 30, 25, 50
+  :header-rows: 1
+
+  * - Trino type
+    - Cassandra type
+    - Notes
+
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+    -
+  * - ``TINYINT``
+    - ``TINYINT``
+    -
+  * - ``SMALLINT``
+    - ``SMALLINT``
+    -
+  * - ``INTEGER``
+    - ``INT``
+    -
+  * - ``BIGINT``
+    - ``BIGINT``
+    -
+  * - ``REAL``
+    - ``FLOAT``
+    -
+  * - ``DOUBLE``
+    - ``DOUBLE``
+    -
+  * - ``VARCHAR``
+    - ``TEXT``
+    -
+  * - ``DATE``
+    - ``DATE``
+    -
+  * - ``TIMESTAMP(3) WITH TIME ZONE``
+    - ``TIMESTAMP``
+    -
+  * - ``IPADDRESS``
+    - ``INET``
+    -
+  * - ``UUID``
+    - ``UUID``
+    -
+
+
+No other types are supported.
+
+Partition key types
+-------------------
 
 Partition keys can only be of the following types:
 

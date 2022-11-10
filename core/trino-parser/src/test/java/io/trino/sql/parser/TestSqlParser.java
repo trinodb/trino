@@ -24,7 +24,7 @@ import io.trino.sql.tree.AllRows;
 import io.trino.sql.tree.Analyze;
 import io.trino.sql.tree.AnchorPattern;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.ArrayConstructor;
+import io.trino.sql.tree.Array;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BinaryLiteral;
@@ -63,6 +63,7 @@ import io.trino.sql.tree.DropSchema;
 import io.trino.sql.tree.DropTable;
 import io.trino.sql.tree.DropView;
 import io.trino.sql.tree.EmptyPattern;
+import io.trino.sql.tree.EmptyTableTreatment;
 import io.trino.sql.tree.Execute;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Explain;
@@ -187,10 +188,10 @@ import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SubsetDefinition;
 import io.trino.sql.tree.Table;
-import io.trino.sql.tree.TableArgument;
 import io.trino.sql.tree.TableExecute;
 import io.trino.sql.tree.TableFunctionArgument;
 import io.trino.sql.tree.TableFunctionInvocation;
+import io.trino.sql.tree.TableFunctionTableArgument;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.TimeLiteral;
 import io.trino.sql.tree.TimestampLiteral;
@@ -256,8 +257,7 @@ import static io.trino.sql.tree.ArithmeticUnaryExpression.negative;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.positive;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.DateTimeDataType.Type.TIMESTAMP;
-import static io.trino.sql.tree.DescriptorArgument.descriptorArgument;
-import static io.trino.sql.tree.DescriptorArgument.nullDescriptorArgument;
+import static io.trino.sql.tree.EmptyTableTreatment.Treatment.PRUNE;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.trino.sql.tree.FrameBound.Type.FOLLOWING;
 import static io.trino.sql.tree.JsonPathParameter.JsonFormat.JSON;
@@ -273,6 +273,8 @@ import static io.trino.sql.tree.SortItem.NullOrdering.LAST;
 import static io.trino.sql.tree.SortItem.NullOrdering.UNDEFINED;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
+import static io.trino.sql.tree.TableFunctionDescriptorArgument.descriptorArgument;
+import static io.trino.sql.tree.TableFunctionDescriptorArgument.nullDescriptorArgument;
 import static io.trino.sql.tree.Trim.Specification.BOTH;
 import static io.trino.sql.tree.Trim.Specification.LEADING;
 import static io.trino.sql.tree.Trim.Specification.TRAILING;
@@ -416,20 +418,20 @@ public class TestSqlParser
     }
 
     @Test
-    public void testArrayConstructor()
+    public void testArray()
     {
-        assertExpression("ARRAY []", new ArrayConstructor(ImmutableList.of()));
-        assertExpression("ARRAY [1, 2]", new ArrayConstructor(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))));
-        assertExpression("ARRAY [1e0, 2.5e0]", new ArrayConstructor(ImmutableList.of(new DoubleLiteral("1.0"), new DoubleLiteral("2.5"))));
-        assertExpression("ARRAY ['hi']", new ArrayConstructor(ImmutableList.of(new StringLiteral("hi"))));
-        assertExpression("ARRAY ['hi', 'hello']", new ArrayConstructor(ImmutableList.of(new StringLiteral("hi"), new StringLiteral("hello"))));
+        assertExpression("ARRAY []", new Array(ImmutableList.of()));
+        assertExpression("ARRAY [1, 2]", new Array(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))));
+        assertExpression("ARRAY [1e0, 2.5e0]", new Array(ImmutableList.of(new DoubleLiteral("1.0"), new DoubleLiteral("2.5"))));
+        assertExpression("ARRAY ['hi']", new Array(ImmutableList.of(new StringLiteral("hi"))));
+        assertExpression("ARRAY ['hi', 'hello']", new Array(ImmutableList.of(new StringLiteral("hi"), new StringLiteral("hello"))));
     }
 
     @Test
     public void testArraySubscript()
     {
         assertExpression("ARRAY [1, 2][1]", new SubscriptExpression(
-                new ArrayConstructor(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))),
+                new Array(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))),
                 new LongLiteral("1")));
 
         assertExpression("CASE WHEN TRUE THEN ARRAY[1,2] END[1]", new SubscriptExpression(
@@ -437,7 +439,7 @@ public class TestSqlParser
                         ImmutableList.of(
                                 new WhenClause(
                                         new BooleanLiteral("true"),
-                                        new ArrayConstructor(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))))),
+                                        new Array(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))))),
                         Optional.empty()),
                 new LongLiteral("1")));
     }
@@ -1681,7 +1683,7 @@ public class TestSqlParser
                 new Property(
                         new Identifier("computed"),
                         new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(new StringLiteral("ban"), new StringLiteral("ana")))),
-                new Property(new Identifier("a"), new ArrayConstructor(ImmutableList.of(new StringLiteral("v1"), new StringLiteral("v2")))));
+                new Property(new Identifier("a"), new Array(ImmutableList.of(new StringLiteral("v1"), new StringLiteral("v2")))));
 
         assertStatement("CREATE TABLE foo " +
                         "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
@@ -1849,6 +1851,7 @@ public class TestSqlParser
     @Test
     public void testMerge()
     {
+        NodeLocation location = new NodeLocation(1, 1);
         assertStatement("" +
                         "MERGE INTO inventory AS i " +
                         "  USING changes AS c " +
@@ -1862,8 +1865,8 @@ public class TestSqlParser
                         "WHEN NOT MATCHED AND c.action = 'new' " +
                         "  THEN INSERT (part, qty) VALUES (c.part, c.qty)",
                 new Merge(
-                        table(QualifiedName.of("inventory")),
-                        Optional.of(new Identifier("i")),
+                        location,
+                        new AliasedRelation(location, table(QualifiedName.of("inventory")), new Identifier("i"), null),
                         aliased(table(QualifiedName.of("changes")), "c"),
                         equal(nameReference("i", "part"), nameReference("c", "part")),
                         ImmutableList.of(
@@ -1914,6 +1917,14 @@ public class TestSqlParser
         assertStatement("COMMENT ON TABLE a IS 'test'", new Comment(Comment.Type.TABLE, QualifiedName.of("a"), Optional.of("test")));
         assertStatement("COMMENT ON TABLE a IS ''", new Comment(Comment.Type.TABLE, QualifiedName.of("a"), Optional.of("")));
         assertStatement("COMMENT ON TABLE a IS NULL", new Comment(Comment.Type.TABLE, QualifiedName.of("a"), Optional.empty()));
+    }
+
+    @Test
+    public void testCommentView()
+    {
+        assertStatement("COMMENT ON VIEW a IS 'test'", new Comment(Comment.Type.VIEW, QualifiedName.of("a"), Optional.of("test")));
+        assertStatement("COMMENT ON VIEW a IS ''", new Comment(Comment.Type.VIEW, QualifiedName.of("a"), Optional.of("")));
+        assertStatement("COMMENT ON VIEW a IS NULL", new Comment(Comment.Type.VIEW, QualifiedName.of("a"), Optional.empty()));
     }
 
     @Test
@@ -2006,7 +2017,7 @@ public class TestSqlParser
                         new Property(
                                 new Identifier("computed"),
                                 new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(new StringLiteral("ban"), new StringLiteral("ana")))),
-                        new Property(new Identifier("a"), new ArrayConstructor(ImmutableList.of(new StringLiteral("v1"), new StringLiteral("v2")))))));
+                        new Property(new Identifier("a"), new Array(ImmutableList.of(new StringLiteral("v1"), new StringLiteral("v2")))))));
 
         assertStatement("EXPLAIN ANALYZE foo", new Explain(new Analyze(table, ImmutableList.of()), ImmutableList.of()));
         assertStatement("EXPLAIN ANALYZE ANALYZE foo", new ExplainAnalyze(new Analyze(table, ImmutableList.of()), false));
@@ -2655,6 +2666,16 @@ public class TestSqlParser
     }
 
     @Test
+    public void testPrepareDropView()
+    {
+        assertStatement("PREPARE statement1 FROM DROP VIEW IF EXISTS \"catalog-test\".\"test\".\"foo\"",
+                new Prepare(identifier("statement1"),
+                        new DropView(QualifiedName.of("catalog-test", "test", "foo"), true)));
+        assertStatementIsInvalid("PREPARE statement1 FROM DROP VIEW IF EXISTS catalog-test.test.foo")
+                .withMessage("line 1:52: mismatched input '-'. Expecting: '.', <EOF>");
+    }
+
+    @Test
     public void testPrepareWithParameters()
     {
         assertStatement("PREPARE myquery FROM SELECT ?, ? FROM foo",
@@ -2756,7 +2777,7 @@ public class TestSqlParser
     public void testExecuteWithUsing()
     {
         assertStatement("EXECUTE myquery USING 1, 'abc', ARRAY ['hello']",
-                new Execute(identifier("myquery"), ImmutableList.of(new LongLiteral("1"), new StringLiteral("abc"), new ArrayConstructor(ImmutableList.of(new StringLiteral("hello"))))));
+                new Execute(identifier("myquery"), ImmutableList.of(new LongLiteral("1"), new StringLiteral("abc"), new Array(ImmutableList.of(new StringLiteral("hello"))))));
     }
 
     @Test
@@ -3307,7 +3328,7 @@ public class TestSqlParser
                         true, false, new ArrayList<>(), Optional.of("A simple materialized view")));
 
         List<Property> properties = ImmutableList.of(new Property(new Identifier("partitioned_by"),
-                new ArrayConstructor(ImmutableList.of(new StringLiteral("dateint")))));
+                new Array(ImmutableList.of(new StringLiteral("dateint")))));
 
         assertStatement("CREATE OR REPLACE MATERIALIZED VIEW catalog.schema.matview COMMENT 'A simple materialized view'" +
                         "WITH (partitioned_by = ARRAY ['dateint'])" +
@@ -3912,7 +3933,7 @@ public class TestSqlParser
                                 new TableFunctionArgument(
                                         location(1, 77),
                                         Optional.of(new Identifier(location(1, 77), "arg1", false)),
-                                        new TableArgument(
+                                        new TableFunctionTableArgument(
                                                 location(1, 85),
                                                 new AliasedRelation(
                                                         location(1, 85),
@@ -3924,7 +3945,7 @@ public class TestSqlParser
                                                                 new Identifier(location(1, 112), "c", false))),
                                                 Optional.of(ImmutableList.of(new Identifier(location(1, 196), "a", false))),
                                                 Optional.of(new OrderBy(ImmutableList.of(new SortItem(location(1, 360), new Identifier(location(1, 360), "b", false), ASCENDING, LAST)))),
-                                                true)),
+                                                Optional.of(new EmptyTableTreatment(location(1, 266), PRUNE)))),
                                 new TableFunctionArgument(
                                         location(1, 425),
                                         Optional.of(new Identifier(location(1, 425), "arg2", false)),
@@ -3954,6 +3975,69 @@ public class TestSqlParser
                         ImmutableList.of(ImmutableList.of(
                                 qualifiedName(location(1, 734), "ord"),
                                 qualifiedName(location(1, 739), "nation"))))));
+    }
+
+    @Test
+    public void testTableFunctionTableArgumentAliasing()
+    {
+        // no alias
+        assertThat(statement("SELECT * FROM TABLE(some_ptf(input => TABLE(orders)))"))
+                .isEqualTo(selectAllFrom(new TableFunctionInvocation(
+                        location(1, 21),
+                        qualifiedName(location(1, 21), "some_ptf"),
+                        ImmutableList.of(new TableFunctionArgument(
+                                location(1, 30),
+                                Optional.of(new Identifier(location(1, 30), "input", false)),
+                                new TableFunctionTableArgument(
+                                        location(1, 39),
+                                        new Table(location(1, 39), qualifiedName(location(1, 45), "orders")),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()))),
+                        ImmutableList.of())));
+
+        // table alias; no column aliases
+        assertThat(statement("SELECT * FROM TABLE(some_ptf(input => TABLE(orders) AS ord))"))
+                .isEqualTo(selectAllFrom(new TableFunctionInvocation(
+                        location(1, 21),
+                        qualifiedName(location(1, 21), "some_ptf"),
+                        ImmutableList.of(new TableFunctionArgument(
+                                location(1, 30),
+                                Optional.of(new Identifier(location(1, 30), "input", false)),
+                                new TableFunctionTableArgument(
+                                        location(1, 39),
+                                        new AliasedRelation(
+                                                location(1, 39),
+                                                new Table(location(1, 39), qualifiedName(location(1, 45), "orders")),
+                                                new Identifier(location(1, 56), "ord", false),
+                                                null),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()))),
+                        ImmutableList.of())));
+
+        // table alias and column aliases
+        assertThat(statement("SELECT * FROM TABLE(some_ptf(input => TABLE(orders) AS ord(a, b, c)))"))
+                .isEqualTo(selectAllFrom(new TableFunctionInvocation(
+                        location(1, 21),
+                        qualifiedName(location(1, 21), "some_ptf"),
+                        ImmutableList.of(new TableFunctionArgument(
+                                location(1, 30),
+                                Optional.of(new Identifier(location(1, 30), "input", false)),
+                                new TableFunctionTableArgument(
+                                        location(1, 39),
+                                        new AliasedRelation(
+                                                location(1, 39),
+                                                new Table(location(1, 39), qualifiedName(location(1, 45), "orders")),
+                                                new Identifier(location(1, 56), "ord", false),
+                                                ImmutableList.of(
+                                                        new Identifier(location(1, 60), "a", false),
+                                                        new Identifier(location(1, 63), "b", false),
+                                                        new Identifier(location(1, 66), "c", false))),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()))),
+                        ImmutableList.of())));
     }
 
     private static Query selectAllFrom(Relation relation)

@@ -218,6 +218,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanSetViewComment(SystemSecurityContext context, CatalogSchemaTableName view)
+    {
+        delegate().checkCanSetViewComment(context, view);
+    }
+
+    @Override
     public void checkCanSetColumnComment(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         delegate().checkCanSetColumnComment(context, table);
@@ -365,6 +371,12 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, String functionName, TrinoPrincipal grantee, boolean grantOption)
     {
         delegate().checkCanGrantExecuteFunctionPrivilege(context, functionName, grantee, grantOption);
+    }
+
+    @Override
+    public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, FunctionKind functionKind, CatalogSchemaRoutineName functionName, TrinoPrincipal grantee, boolean grantOption)
+    {
+        delegate().checkCanGrantExecuteFunctionPrivilege(context, functionKind, functionName, grantee, grantOption);
     }
 
     @Override

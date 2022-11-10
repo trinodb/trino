@@ -16,12 +16,10 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.operator.OperatorStats;
-import io.trino.plugin.deltalake.util.DockerizedMinioDataLake;
 import io.trino.spi.QueryId;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.ResultWithQueryId;
 import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
@@ -30,8 +28,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
-import static io.trino.plugin.deltalake.DeltaLakeDockerizedMinioDataLake.createDockerizedMinioDataLakeForDeltaLake;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
+import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.TPCH_SCHEMA;
+import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
@@ -39,30 +38,18 @@ import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 
-// smoke test which covers ANALYZE compatibility with different filesystems is part of AbstractTestDeltaLakeIntegrationSmokeTest
+// smoke test which covers ANALYZE compatibility with different filesystems is part of BaseDeltaLakeConnectorSmokeTest
 public class TestDeltaLakeAnalyze
         extends AbstractTestQueryFramework
 {
-    private static final String SCHEMA = "default";
-    private final String bucketName;
-
-    public TestDeltaLakeAnalyze()
-    {
-        this.bucketName = "test-delta-lake-analyze-" + randomTableSuffix();
-    }
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DockerizedMinioDataLake dockerizedMinioDataLake = closeAfterClass(createDockerizedMinioDataLakeForDeltaLake(bucketName));
-
-        return DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
+        return createDeltaLakeQueryRunner(
                 DELTA_CATALOG,
-                SCHEMA,
-                ImmutableMap.of("delta.enable-non-concurrent-writes", "true"),
-                dockerizedMinioDataLake.getMinioAddress(),
-                dockerizedMinioDataLake.getTestingHadoop());
+                ImmutableMap.of(),
+                ImmutableMap.of("delta.enable-non-concurrent-writes", "true"));
     }
 
     @Test
@@ -81,10 +68,7 @@ public class TestDeltaLakeAnalyze
     {
         String tableName = "test_analyze_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName
-                + " WITH ("
-                + "location = '" + getLocationForTable(tableName) + "'"
-                + (checkpointInterval.isPresent() ? format(", checkpoint_interval = %s", checkpointInterval.get()) : "")
-                + ")"
+                + (checkpointInterval.isPresent() ? format(" WITH (checkpoint_interval = %s)", checkpointInterval.get()) : "")
                 + " AS SELECT * FROM tpch.sf1.nation", 25);
 
         assertQuery(
@@ -165,10 +149,9 @@ public class TestDeltaLakeAnalyze
         String tableName = "test_analyze_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName
                 + " WITH ("
-                + "   location = '" + getLocationForTable(tableName) + "',"
                 + "   partitioned_by = ARRAY['regionkey']"
                 + ")"
-                + " AS SELECT * FROM tpch.sf1.nation", 25);
+                + "AS SELECT * FROM tpch.sf1.nation", 25);
 
         assertQuery(
                 "SHOW STATS FOR " + tableName,
@@ -233,11 +216,7 @@ public class TestDeltaLakeAnalyze
     public void testAnalyzeEmpty()
     {
         String tableName = "test_analyze_empty_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName
-                + " WITH ("
-                + "location = '" + getLocationForTable(tableName) + "'"
-                + ")"
-                + " AS SELECT * FROM tpch.sf1.nation WHERE false", 0);
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation WHERE false", 0);
 
         assertQuery(
                 "SHOW STATS FOR " + tableName,
@@ -279,11 +258,7 @@ public class TestDeltaLakeAnalyze
     {
         String tableName = "test_analyze_extended_stats_disabled" + randomTableSuffix();
 
-        assertUpdate("CREATE TABLE " + tableName
-                + " WITH ("
-                + "location = '" + getLocationForTable(tableName) + "'"
-                + ")"
-                + " AS SELECT * FROM tpch.sf1.nation", 25);
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
 
         Session extendedStatisticsDisabled = Session.builder(getSession())
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "extended_statistics_enabled", "false")
@@ -301,11 +276,7 @@ public class TestDeltaLakeAnalyze
     {
         String tableName = "test_analyze_" + randomTableSuffix();
 
-        assertUpdate("CREATE TABLE " + tableName
-                + " WITH ("
-                + "location = '" + getLocationForTable(tableName) + "'"
-                + ")"
-                + " AS SELECT * FROM tpch.sf1.nation", 25);
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
 
         Thread.sleep(100);
         Instant afterInitialDataIngestion = Instant.now();
@@ -336,11 +307,7 @@ public class TestDeltaLakeAnalyze
     {
         String tableName = "test_analyze_some_columns" + randomTableSuffix();
 
-        assertUpdate("CREATE TABLE " + tableName
-                + " WITH ("
-                + "location = '" + getLocationForTable(tableName) + "'"
-                + ")"
-                + " AS SELECT * FROM tpch.sf1.nation", 25);
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
 
         // analyze empty list of columns
         assertQueryFails(format("ANALYZE %s WITH(columns = ARRAY[])", tableName), "Cannot specify empty list of columns for analysis");
@@ -382,7 +349,7 @@ public class TestDeltaLakeAnalyze
                         "(null, null, null, null, 50.0, null, null)");
 
         // drop stats
-        assertUpdate(format("CALL %s.system.drop_extended_stats('%s', '%s')", DELTA_CATALOG, SCHEMA, tableName));
+        assertUpdate(format("CALL %s.system.drop_extended_stats('%s', '%s')", DELTA_CATALOG, TPCH_SCHEMA, tableName));
 
         // now we should be able to analyze all columns
         assertUpdate(format("ANALYZE %s", tableName));
@@ -421,12 +388,10 @@ public class TestDeltaLakeAnalyze
     @Test
     public void testDropExtendedStats()
     {
-        String path = "test_drop_extended_stats_" + randomTableSuffix();
-
         try (TestTable table = new TestTable(
                 getQueryRunner()::execute,
                 "test_drop_extended_stats",
-                format("WITH (location = '%s') AS SELECT * FROM tpch.sf1.nation", getLocationForTable(path)))) {
+                "AS SELECT * FROM tpch.sf1.nation")) {
             String query = "SHOW STATS FOR " + table.getName();
             String baseStats = "VALUES"
                     //  column       size  NDist nullF rows   low  high
@@ -449,7 +414,7 @@ public class TestDeltaLakeAnalyze
             assertQuery(query, extendedStats);
 
             // Dropping extended stats clears distinct count and leaves other stats alone
-            assertUpdate(format("CALL %s.system.drop_extended_stats('%s', '%s')", DELTA_CATALOG, SCHEMA, table.getName()));
+            assertUpdate(format("CALL %s.system.drop_extended_stats('%s', '%s')", DELTA_CATALOG, TPCH_SCHEMA, table.getName()));
             assertQuery(query, baseStats);
 
             // Re-analyzing should work
@@ -461,14 +426,12 @@ public class TestDeltaLakeAnalyze
     @Test
     public void testDropMissingStats()
     {
-        String path = "test_drop_missing_stats_" + randomTableSuffix();
-
         try (TestTable table = new TestTable(
                 getQueryRunner()::execute,
                 "test_drop_missing_stats",
-                format("WITH (location = '%s') AS SELECT * FROM tpch.sf1.nation", getLocationForTable(path)))) {
+                "AS SELECT * FROM tpch.sf1.nation")) {
             // When there are no extended stats, the procedure should have no effect
-            assertUpdate(format("CALL %s.system.drop_extended_stats('%s', '%s')", DELTA_CATALOG, SCHEMA, table.getName()));
+            assertUpdate(format("CALL %s.system.drop_extended_stats('%s', '%s')", DELTA_CATALOG, TPCH_SCHEMA, table.getName()));
             assertQuery(
                     "SHOW STATS FOR " + table.getName(),
                     "VALUES"
@@ -484,14 +447,12 @@ public class TestDeltaLakeAnalyze
     @Test
     public void testDropStatsAccessControl()
     {
-        String path = "test_deny_drop_stats_" + randomTableSuffix();
-
         try (TestTable table = new TestTable(
                 getQueryRunner()::execute,
                 "test_deny_drop_stats",
-                format("WITH (location = '%s') AS SELECT * FROM tpch.sf1.nation", getLocationForTable(path)))) {
+                "AS SELECT * FROM tpch.sf1.nation")) {
             assertAccessDenied(
-                    format("CALL %s.system.drop_extended_stats('%s', '%s')", DELTA_CATALOG, SCHEMA, table.getName()),
+                    format("CALL %s.system.drop_extended_stats('%s', '%s')", DELTA_CATALOG, TPCH_SCHEMA, table.getName()),
                     "Cannot insert into table .*",
                     privilege(table.getName(), INSERT_TABLE));
         }
@@ -499,7 +460,7 @@ public class TestDeltaLakeAnalyze
 
     private void runAnalyzeVerifySplitCount(String tableName, long expectedSplitCount)
     {
-        ResultWithQueryId<MaterializedResult> analyzeResult = getDistributedQueryRunner().executeWithQueryId(getSession(), "ANALYZE " + tableName);
+        MaterializedResultWithQueryId analyzeResult = getDistributedQueryRunner().executeWithQueryId(getSession(), "ANALYZE " + tableName);
         verifySplitCount(analyzeResult.getQueryId(), expectedSplitCount);
     }
 
@@ -519,10 +480,5 @@ public class TestDeltaLakeAnalyze
                 .stream()
                 .filter(summary -> summary.getOperatorType().contains("Scan"))
                 .collect(onlyElement());
-    }
-
-    private String getLocationForTable(String tableName)
-    {
-        return format("s3://%s/%s", bucketName, tableName);
     }
 }

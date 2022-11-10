@@ -192,6 +192,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanSetViewComment(SecurityContext context, QualifiedObjectName viewName)
+    {
+        delegate().checkCanSetViewComment(context, viewName);
+    }
+
+    @Override
     public void checkCanSetColumnComment(SecurityContext context, QualifiedObjectName tableName)
     {
         delegate().checkCanSetColumnComment(context, tableName);
@@ -327,6 +333,12 @@ public abstract class ForwardingAccessControl
     public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption)
     {
         delegate().checkCanGrantExecuteFunctionPrivilege(context, functionName, grantee, grantOption);
+    }
+
+    @Override
+    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName, Identity grantee, boolean grantOption)
+    {
+        delegate().checkCanGrantExecuteFunctionPrivilege(context, functionKind, functionName, grantee, grantOption);
     }
 
     @Override

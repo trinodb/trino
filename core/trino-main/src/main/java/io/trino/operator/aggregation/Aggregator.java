@@ -52,9 +52,7 @@ public class Aggregator
         if (step.isOutputPartial()) {
             return intermediateType;
         }
-        else {
-            return finalType;
-        }
+        return finalType;
     }
 
     public void processPage(Page page)

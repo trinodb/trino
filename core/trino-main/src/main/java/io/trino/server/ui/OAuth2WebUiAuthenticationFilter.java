@@ -33,6 +33,7 @@ import javax.ws.rs.core.Response;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -69,7 +70,6 @@ public class OAuth2WebUiAuthenticationFilter
         this.client = requireNonNull(client, "client is null");
         this.tokenPairSerializer = requireNonNull(tokenPairSerializer, "tokenPairSerializer is null");
         this.tokenExpiration = requireNonNull(tokenExpiration, "tokenExpiration is null");
-        requireNonNull(oauth2Config, "oauth2Config is null");
         this.userMapping = UserMapping.createUserMapping(oauth2Config.getUserMappingPattern(), oauth2Config.getUserMappingFile());
         this.principalField = oauth2Config.getPrincipalField();
         groupsField = requireNonNull(oauth2Config.getGroupsField(), "groupsField is null");
@@ -94,9 +94,10 @@ public class OAuth2WebUiAuthenticationFilter
             request.abortWith(Response.seeOther(DISABLED_LOCATION_URI).build());
             return;
         }
-        Optional<Map<String, Object>> claims;
         Optional<TokenPair> tokenPair = getTokenPair(request);
-        claims = tokenPair.flatMap(this::getAccessTokenClaims);
+        Optional<Map<String, Object>> claims = tokenPair
+                .filter(this::tokenNotExpired)
+                .flatMap(this::getAccessTokenClaims);
         if (claims.isEmpty()) {
             needAuthentication(request, tokenPair);
             return;
@@ -133,6 +134,11 @@ public class OAuth2WebUiAuthenticationFilter
         }
     }
 
+    private boolean tokenNotExpired(TokenPair tokenPair)
+    {
+        return tokenPair.getExpiration().after(Date.from(Instant.now()));
+    }
+
     private Optional<Map<String, Object>> getAccessTokenClaims(TokenPair tokenPair)
     {
         return client.getClaims(tokenPair.getAccessToken());
@@ -140,24 +146,34 @@ public class OAuth2WebUiAuthenticationFilter
 
     private void needAuthentication(ContainerRequestContext request, Optional<TokenPair> tokenPair)
     {
-        // send 401 to REST api calls and redirect to others
-        if (request.getUriInfo().getRequestUri().getPath().startsWith("/ui/api/")) {
-            sendWwwAuthenticate(request, "Unauthorized", ImmutableSet.of(TRINO_FORM_LOGIN));
-            return;
-        }
         Optional<String> refreshToken = tokenPair.flatMap(TokenPair::getRefreshToken);
         if (refreshToken.isPresent()) {
             try {
-                OAuth2Client.Response response = client.refreshTokens(refreshToken.get());
-                String serializedToken = tokenPairSerializer.serialize(TokenPair.fromOAuth2Response(response));
-                request.abortWith(Response.seeOther(request.getUriInfo().getRequestUri())
-                        .cookie(OAuthWebUiCookie.create(serializedToken, tokenExpiration.map(expiration -> Instant.now().plus(expiration)).orElse(response.getExpiration())))
-                        .build());
+                redirectForNewToken(request, refreshToken.get());
+                return;
             }
-            catch (ChallengeFailedException e) {
+            catch (Exception e) {
                 LOG.debug(e, "Tokens refresh challenge has failed");
-                startOAuth2Challenge(request);
             }
+        }
+        handleAuthenticationFailure(request);
+    }
+
+    private void redirectForNewToken(ContainerRequestContext request, String refreshToken)
+            throws ChallengeFailedException
+    {
+        OAuth2Client.Response response = client.refreshTokens(refreshToken);
+        String serializedToken = tokenPairSerializer.serialize(TokenPair.fromOAuth2Response(response));
+        request.abortWith(Response.seeOther(request.getUriInfo().getRequestUri())
+                .cookie(OAuthWebUiCookie.create(serializedToken, tokenExpiration.map(expiration -> Instant.now().plus(expiration)).orElse(response.getExpiration())))
+                .build());
+    }
+
+    private void handleAuthenticationFailure(ContainerRequestContext request)
+    {
+        // send 401 to REST api calls and redirect to others
+        if (request.getUriInfo().getRequestUri().getPath().startsWith("/ui/api/")) {
+            sendWwwAuthenticate(request, "Unauthorized", ImmutableSet.of(TRINO_FORM_LOGIN));
         }
         else {
             startOAuth2Challenge(request);

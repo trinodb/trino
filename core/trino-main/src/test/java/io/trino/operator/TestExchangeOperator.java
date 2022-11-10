@@ -22,6 +22,7 @@ import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
+import io.trino.exchange.DirectExchangeInput;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
@@ -33,7 +34,6 @@ import io.trino.operator.ExchangeOperator.ExchangeOperatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.split.RemoteSplit;
-import io.trino.split.RemoteSplit.DirectExchangeInput;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -52,7 +52,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
-import static io.trino.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
+import static io.trino.operator.ExchangeOperator.REMOTE_CATALOG_HANDLE;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.operator.TestingTaskBuffer.PAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -153,7 +153,7 @@ public class TestExchangeOperator
 
     private static Split newRemoteSplit(TaskId taskId)
     {
-        return new Split(REMOTE_CONNECTOR_ID, new RemoteSplit(new DirectExchangeInput(taskId, "http://localhost/" + taskId)));
+        return new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(new DirectExchangeInput(taskId, "http://localhost/" + taskId)));
     }
 
     @Test
@@ -272,6 +272,7 @@ public class TestExchangeOperator
 
         SourceOperator operator = operatorFactory.createOperator(driverContext);
         assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes(), 0);
+        operatorFactory.noMoreOperators();
         return operator;
     }
 
@@ -292,9 +293,7 @@ public class TestExchangeOperator
                 greaterThanZero = true;
                 break;
             }
-            else {
-                Thread.sleep(10);
-            }
+            Thread.sleep(10);
         }
         assertTrue(greaterThanZero);
 

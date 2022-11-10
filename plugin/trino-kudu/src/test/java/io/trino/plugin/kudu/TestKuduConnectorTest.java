@@ -24,6 +24,8 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunnerTpch;
@@ -61,23 +63,35 @@ public class TestKuduConnectorTest
         }
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_DELETE:
-                return true;
-            case SUPPORTS_RENAME_SCHEMA:
-            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
-            case SUPPORTS_COMMENT_ON_TABLE:
-            case SUPPORTS_COMMENT_ON_COLUMN:
-            case SUPPORTS_ARRAY:
-            case SUPPORTS_NOT_NULL_CONSTRAINT:
             case SUPPORTS_TOPN_PUSHDOWN:
-            case SUPPORTS_NEGATIVE_DATE:
                 return false;
 
+            case SUPPORTS_RENAME_SCHEMA:
+                return false;
+
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
+                return false;
+
+            case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_COMMENT_ON_COLUMN:
+                return false;
+
+            case SUPPORTS_NOT_NULL_CONSTRAINT:
+                return false;
+
+            case SUPPORTS_DELETE:
+            case SUPPORTS_MERGE:
+                return true;
+
+            case SUPPORTS_ARRAY:
             case SUPPORTS_ROW_TYPE:
+            case SUPPORTS_NEGATIVE_DATE:
                 return false;
 
             default:
@@ -85,11 +99,31 @@ public class TestKuduConnectorTest
         }
     }
 
+    @Override
+    protected String createTableForWrites(String createTable)
+    {
+        // assume primary key column is the first column and there are multiple columns
+        Matcher matcher = Pattern.compile("CREATE TABLE .* \\((\\w+) .*").matcher(createTable);
+        assertThat(matcher.matches()).as(createTable).isTrue();
+        String column = matcher.group(1);
+
+        return createTable.replaceFirst(",", " WITH (primary_key=true),") +
+                format("WITH (partition_by_hash_columns = ARRAY['%s'], partition_by_hash_buckets = 2)", column);
+    }
+
     @Test
     @Override
     public void testCreateSchema()
     {
         assertThatThrownBy(super::testCreateSchema)
+                .hasMessage("Creating schema in Kudu connector not allowed if schema emulation is disabled.");
+    }
+
+    @Override
+    public void testCreateSchemaWithLongName()
+    {
+        // TODO: Add a test to BaseKuduConnectorSmokeTest
+        assertThatThrownBy(super::testCreateSchemaWithLongName)
                 .hasMessage("Creating schema in Kudu connector not allowed if schema emulation is disabled.");
     }
 
@@ -115,6 +149,24 @@ public class TestKuduConnectorTest
     {
         assertThatThrownBy(super::testRenameTableToUnqualifiedPreservesSchema)
                 .hasMessage("Creating schema in Kudu connector not allowed if schema emulation is disabled.");
+    }
+
+    @Override
+    public void testAddAndDropColumnName(String columnName)
+    {
+        // TODO: Enable this test
+        assertThatThrownBy(() -> super.testAddAndDropColumnName(columnName))
+                .hasMessage("Table partitioning must be specified using setRangePartitionColumns or addHashPartitions");
+        throw new SkipException("TODO");
+    }
+
+    @Override
+    public void testRenameColumnName(String columnName)
+    {
+        // TODO: Enable this test
+        assertThatThrownBy(() -> super.testRenameColumnName(columnName))
+                .hasMessage("Table partitioning must be specified using setRangePartitionColumns or addHashPartitions");
+        throw new SkipException("TODO");
     }
 
     @Test
@@ -396,6 +448,32 @@ public class TestKuduConnectorTest
     }
 
     @Override
+    public void testCreateTableWithLongColumnName()
+    {
+        // Overridden because DDL in base class can't create Kudu table due to lack of primary key and required table properties
+        String tableName = "test_long_column" + randomTableSuffix();
+        String baseColumnName = "col";
+
+        int maxLength = maxColumnNameLength().orElseThrow();
+
+        String validColumnName = baseColumnName + "z".repeat(maxLength - baseColumnName.length());
+        assertUpdate("CREATE TABLE " + tableName + " (" +
+                "id INT WITH (primary_key=true)," +
+                validColumnName + " bigint)" +
+                "WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)");
+        assertTrue(columnExists(tableName, validColumnName));
+        assertUpdate("DROP TABLE " + tableName);
+
+        String invalidColumnName = validColumnName + "z";
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + tableName + " (" +
+                "id INT WITH (primary_key=true)," +
+                invalidColumnName + " bigint)" +
+                "WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)"))
+                .satisfies(this::verifyColumnNameLengthFailurePermissible);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
+    @Override
     public void testCreateTableWithColumnComment()
     {
         // TODO https://github.com/trinodb/trino/issues/12469 Support column comment when creating tables
@@ -450,6 +528,19 @@ public class TestKuduConnectorTest
         assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar COMMENT 'test new column comment'");
         assertThat(getColumnComment(tableName, "b_varchar")).isEqualTo("test new column comment");
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Override
+    public void testAddColumnWithCommentSpecialCharacter(String comment)
+    {
+        // Override because Kudu connector doesn't support creating a new table without partition columns
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_add_col_",
+                "(id INT WITH (primary_key=true), a_varchar varchar) WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN b_varchar varchar COMMENT " + varcharLiteral(comment));
+            assertEquals(getColumnComment(table.getName(), "b_varchar"), comment);
+        }
     }
 
     @Test
@@ -597,10 +688,20 @@ public class TestKuduConnectorTest
                 .hasStackTraceContaining("Cannot apply operator: varchar = date");
     }
 
+    @Override
+    public void testVarcharCastToDateInPredicate()
+    {
+        assertThatThrownBy(super::testVarcharCastToDateInPredicate)
+                .hasStackTraceContaining("Table partitioning must be specified using setRangePartitionColumns or addHashPartitions");
+
+        throw new SkipException("TODO: implement the test for Kudu");
+    }
+
     @Test
     @Override
     public void testCharVarcharComparison()
     {
+        // TODO https://github.com/trinodb/trino/issues/3597 Fix Kudu CREATE TABLE AS SELECT with char(n) type does not preserve trailing spaces
         assertThatThrownBy(super::testCharVarcharComparison)
                 .hasMessageContaining("For query: ")
                 .hasMessageContaining("Actual rows")
@@ -654,6 +755,30 @@ public class TestKuduConnectorTest
                 " partition_by_hash_columns = ARRAY['foo_1'], " +
                 " partition_by_hash_buckets = 2 " +
                 ")";
+    }
+
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        return OptionalInt.of(256);
+    }
+
+    @Override
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("invalid table name: identifier");
+    }
+
+    @Override
+    protected OptionalInt maxColumnNameLength()
+    {
+        return OptionalInt.of(256);
+    }
+
+    @Override
+    protected void verifyColumnNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("invalid column name: identifier");
     }
 
     private void assertTableProperty(String tableProperties, String key, String regexValue)

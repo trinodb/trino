@@ -34,9 +34,9 @@ Linux operating system
 Java runtime environment
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-Trino requires a 64-bit version of Java 11, with a minimum required version of 11.0.15.
-Earlier patch versions such as 11.0.2 do not work, nor will earlier major versions such as Java 8.
-Newer major versions such as Java 12 or 13, including Java 17, are not supported -- they may work, but are not tested.
+Trino requires a 64-bit version of Java 17, with a minimum required version of 17.0.3.
+Earlier major versions such as Java 8 or Java 11 do not work.
+Newer major versions such as Java 18 or 19, are not supported -- they may work, but are not tested.
 
 We recommend using `Azul Zulu <https://www.azul.com/downloads/zulu-community/>`_
 as the JDK for Trino, as Trino is tested against that distribution.
@@ -129,8 +129,8 @@ The following provides a good starting point for creating ``etc/jvm.config``:
 
     -server
     -Xmx16G
-    -XX:-UseBiasedLocking
-    -XX:+UseG1GC
+    -XX:InitialRAMPercentage=80
+    -XX:MaxRAMPercentage=80
     -XX:G1HeapRegionSize=32M
     -XX:+ExplicitGCInvokesConcurrent
     -XX:+ExitOnOutOfMemoryError
@@ -163,10 +163,11 @@ Config properties
 ^^^^^^^^^^^^^^^^^
 
 The config properties file, ``etc/config.properties``, contains the
-configuration for the Trino server. Every Trino server can function
-as both a coordinator and a worker, but dedicating a single machine
-to only perform coordination work provides the best performance on
-larger clusters.
+configuration for the Trino server. Every Trino server can function as both a
+coordinator and a worker. A cluster is required to include one coordinator, and
+dedicating a machine to only perform coordination work provides the best
+performance on larger clusters. Scaling and parallelization is achieved by using
+many workers.
 
 The following is a minimal configuration for the coordinator:
 
@@ -175,8 +176,6 @@ The following is a minimal configuration for the coordinator:
     coordinator=true
     node-scheduler.include-coordinator=false
     http-server.http.port=8080
-    query.max-memory=50GB
-    query.max-memory-per-node=1GB
     discovery.uri=http://example.net:8080
 
 And this is a minimal configuration for the workers:
@@ -185,8 +184,6 @@ And this is a minimal configuration for the workers:
 
     coordinator=false
     http-server.http.port=8080
-    query.max-memory=50GB
-    query.max-memory-per-node=1GB
     discovery.uri=http://example.net:8080
 
 Alternatively, if you are setting up a single machine for testing, that
@@ -197,8 +194,6 @@ functions as both a coordinator and worker, use this configuration:
     coordinator=true
     node-scheduler.include-coordinator=true
     http-server.http.port=8080
-    query.max-memory=5GB
-    query.max-memory-per-node=1GB
     discovery.uri=http://example.net:8080
 
 These properties require some explanation:
@@ -218,12 +213,6 @@ These properties require some explanation:
   Specifies the port for the HTTP server. Trino uses HTTP for all
   communication, internal and external.
 
-* ``query.max-memory``:
-  The maximum amount of distributed memory, that a query may use.
-
-* ``query.max-memory-per-node``:
-  The maximum amount of user memory, that a query may use on any one machine.
-
 * ``discovery.uri``:
   The Trino coordinator has a discovery service that is used by all the nodes
   to find each other. Every Trino instance registers itself with the discovery
@@ -233,9 +222,17 @@ These properties require some explanation:
   port of the Trino coordinator. If you have disabled HTTP on the coordinator,
   the URI scheme must be ``https``, not ``http``.
 
-The above configuration properties are a minimal set to help you get started.
-Please see :doc:`/admin` and :doc:`/security` for a more comprehensive list.
-In particular, see :doc:`/admin/resource-groups` for configuring queuing policies.
+The above configuration properties are a *minimal set* to help you get started.
+All additional configuration is optional and varies widely based on the specific
+cluster and supported use cases. The :doc:`/admin` and :doc:`/security` sections
+contain documentation for many aspects, including :doc:`/admin/resource-groups`
+for configuring queuing policies and :doc:`/admin/fault-tolerant-execution`.
+
+The :doc:`/admin/properties` provides a comprehensive list of the supported
+properties for topics such as :doc:`/admin/properties-general`,
+:doc:`/admin/properties-resource-management`,
+:doc:`/admin/properties-query-management`,
+:doc:`/admin/properties-web-interface`, and others.
 
 .. _log-levels:
 
@@ -286,7 +283,40 @@ See :doc:`/connector` for more information about configuring connectors.
 Running Trino
 --------------
 
-The installation directory contains the launcher script in ``bin/launcher``.
+The installation provides a ``bin/launcher`` script, which requires Python in
+the ``PATH``. The script can be used manually or as a daemon startup script. It
+accepts the following commands:
+
+.. list-table:: ``launcher`` commands
+  :widths: 15, 85
+  :header-rows: 1
+
+  * - Command
+    - Action
+  * - ``run``
+    - Starts the server in the foreground and leaves it running. To shut down
+      the server, use Ctrl+C in this terminal or the ``stop`` command from
+      another terminal.
+  * - ``start``
+    - Starts the server as a daemon and returns its process ID.
+  * - ``stop``
+    - Shuts down a server started with either ``start`` or ``run``. Sends the
+      SIGTERM signal.
+  * - ``restart``
+    - Stops then restarts a running server, or starts a stopped server,
+      assigning a new process ID.
+  * - ``kill``
+    - Shuts down a possibly hung server by sending the SIGKILL signal.
+  * - ``status``
+    - Prints a status line, either *Stopped pid* or *Running as pid*.
+
+A number of additional options allow you to specify configuration file and
+directory locations, as well as Java options. Run the launcher with ``--help``
+to see the supported commands and command line options.
+
+The ``-v`` or ``--verbose`` option for each command prepends the server's
+current settings before the command's usual output.
+
 Trino can be started as a daemon by running the following:
 
 .. code-block:: text
@@ -300,10 +330,6 @@ if using a supervision system like daemontools:
 .. code-block:: text
 
     bin/launcher run
-
-Run the launcher with ``--help`` to see the supported commands and
-command line options. In particular, the ``--verbose`` option is
-very useful for debugging the installation.
 
 The launcher configures default values for the configuration
 directory ``etc``, configuration files, the data directory ``var``,

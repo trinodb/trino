@@ -65,7 +65,7 @@ Configuration properties
     - ``false``
 
   * - http-event-listener.log-completed
-    - Enable the plugin to log ``QueryCcompletedEvent`` events
+    - Enable the plugin to log ``QueryCompletedEvent`` events
     - ``false``
 
   * - http-event-listener.log-split

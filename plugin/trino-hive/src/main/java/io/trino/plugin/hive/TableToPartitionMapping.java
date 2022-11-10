@@ -41,9 +41,9 @@ public class TableToPartitionMapping
     }
 
     // Overhead of ImmutableMap is not accounted because of its complexity.
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TableToPartitionMapping.class).instanceSize();
-    private static final int INTEGER_INSTANCE_SIZE = ClassLayout.parseClass(Integer.class).instanceSize();
-    private static final int OPTIONAL_INSTANCE_SIZE = ClassLayout.parseClass(Optional.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TableToPartitionMapping.class).instanceSize());
+    private static final int INTEGER_INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(Integer.class).instanceSize());
+    private static final int OPTIONAL_INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(Optional.class).instanceSize());
 
     private final Optional<Map<Integer, Integer>> tableToPartitionColumns;
     private final Map<Integer, HiveTypeName> partitionColumnCoercions;
@@ -57,8 +57,7 @@ public class TableToPartitionMapping
             this.tableToPartitionColumns = Optional.empty();
         }
         else {
-            this.tableToPartitionColumns = requireNonNull(tableToPartitionColumns, "tableToPartitionColumns is null")
-                    .map(ImmutableMap::copyOf);
+            this.tableToPartitionColumns = tableToPartitionColumns.map(ImmutableMap::copyOf);
         }
         this.partitionColumnCoercions = ImmutableMap.copyOf(requireNonNull(partitionColumnCoercions, "partitionColumnCoercions is null"));
     }

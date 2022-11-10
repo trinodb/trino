@@ -52,7 +52,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.block.ArrayBlock.fromElementBlock;
-import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -122,7 +121,7 @@ public final class BlockAssertions
         }
     }
 
-    public static DictionaryBlock createRandomDictionaryBlock(Block dictionary, int positionCount)
+    public static Block createRandomDictionaryBlock(Block dictionary, int positionCount)
     {
         checkArgument(dictionary.getPositionCount() > 0, "dictionary position count %s is less than or equal to 0", dictionary.getPositionCount());
 
@@ -130,13 +129,13 @@ public final class BlockAssertions
         int[] ids = IntStream.range(0, positionCount)
                 .map(i -> random.nextInt(dictionary.getPositionCount()))
                 .toArray();
-        return new DictionaryBlock(0, positionCount, dictionary, ids, false, randomDictionaryId());
+        return DictionaryBlock.create(positionCount, dictionary, ids);
     }
 
     public static RunLengthEncodedBlock createRandomRleBlock(Block block, int positionCount)
     {
-        checkArgument(block.getPositionCount() > 0, format("block positions %d is less than or equal to 0", block.getPositionCount()));
-        return new RunLengthEncodedBlock(block.getSingleValueBlock(random().nextInt(block.getPositionCount())), positionCount);
+        checkArgument(block.getPositionCount() >= 2, format("block positions %d is less 2", block.getPositionCount()));
+        return (RunLengthEncodedBlock) RunLengthEncodedBlock.create(block.getSingleValueBlock(random().nextInt(block.getPositionCount())), positionCount);
     }
 
     public static Block createRandomBlockForType(Type type, int positionCount, float nullRate)
@@ -194,7 +193,12 @@ public final class BlockAssertions
         return createRandomBlockForNestedType(type, positionCount, nullRate);
     }
 
-    private static Block createRandomBlockForNestedType(Type type, int positionCount, float nullRate)
+    public static Block createRandomBlockForNestedType(Type type, int positionCount, float nullRate)
+    {
+        return createRandomBlockForNestedType(type, positionCount, nullRate, ENTRY_SIZE);
+    }
+
+    public static Block createRandomBlockForNestedType(Type type, int positionCount, float nullRate, int maxCardinality)
     {
         // Builds isNull and offsets of size positionCount
         boolean[] isNull = null;
@@ -214,7 +218,7 @@ public final class BlockAssertions
             else {
                 // RowType doesn't need offsets, so we just use 1,
                 // for ArrayType and MapType we choose randomly either array length or map size at the current position
-                offsets[position + 1] = offsets[position] + (type instanceof RowType ? 1 : random.nextInt(ENTRY_SIZE) + 1);
+                offsets[position + 1] = offsets[position] + (type instanceof RowType ? 1 : random.nextInt(maxCardinality) + 1);
             }
         }
 
@@ -441,7 +445,7 @@ public final class BlockAssertions
         for (int i = 0; i < length; i++) {
             ids[i] = i % dictionarySize;
         }
-        return new DictionaryBlock(builder.build(), ids);
+        return DictionaryBlock.create(ids.length, builder.build(), ids);
     }
 
     public static Block createStringArraysBlock(Iterable<? extends Iterable<String>> values)
@@ -712,7 +716,7 @@ public final class BlockAssertions
         for (int i = 0; i < length; i++) {
             ids[i] = i % dictionarySize;
         }
-        return new DictionaryBlock(builder.build(), ids);
+        return DictionaryBlock.create(ids.length, builder.build(), ids);
     }
 
     public static Block createLongRepeatBlock(int value, int length)
@@ -889,18 +893,18 @@ public final class BlockAssertions
         return builder.build();
     }
 
-    public static RunLengthEncodedBlock createRLEBlock(double value, int positionCount)
+    public static Block createRepeatedValuesBlock(double value, int positionCount)
     {
         BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(null, 1);
         DOUBLE.writeDouble(blockBuilder, value);
-        return new RunLengthEncodedBlock(blockBuilder.build(), positionCount);
+        return RunLengthEncodedBlock.create(blockBuilder.build(), positionCount);
     }
 
-    public static RunLengthEncodedBlock createRLEBlock(long value, int positionCount)
+    public static Block createRepeatedValuesBlock(long value, int positionCount)
     {
         BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, 1);
         BIGINT.writeLong(blockBuilder, value);
-        return new RunLengthEncodedBlock(blockBuilder.build(), positionCount);
+        return RunLengthEncodedBlock.create(blockBuilder.build(), positionCount);
     }
 
     private static <T> Block createBlock(Type type, ValueWriter<T> valueWriter, Iterable<T> values)

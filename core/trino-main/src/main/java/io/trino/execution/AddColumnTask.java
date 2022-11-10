@@ -15,7 +15,7 @@ package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.QualifiedObjectName;
@@ -38,7 +38,6 @@ import java.util.Map;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
-import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.spi.StandardErrorCode.COLUMN_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -90,7 +89,7 @@ public class AddColumnTask
             return immediateVoidFuture();
         }
         TableHandle tableHandle = redirectionAwareTableHandle.getTableHandle().get();
-        CatalogName catalogName = getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, tableHandle.getCatalogName().getCatalogName());
+        CatalogHandle catalogHandle = tableHandle.getCatalogHandle();
 
         accessControl.checkCanAddColumns(session.toSecurityContext(), redirectionAwareTableHandle.getRedirectedTableName().orElse(originalTableName));
 
@@ -113,11 +112,12 @@ public class AddColumnTask
             }
             return immediateVoidFuture();
         }
-        if (!element.isNullable() && !plannerContext.getMetadata().getConnectorCapabilities(session, catalogName).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
-            throw semanticException(NOT_SUPPORTED, element, "Catalog '%s' does not support NOT NULL for column '%s'", catalogName.getCatalogName(), element.getName());
+        if (!element.isNullable() && !plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
+            throw semanticException(NOT_SUPPORTED, element, "Catalog '%s' does not support NOT NULL for column '%s'", catalogHandle, element.getName());
         }
         Map<String, Object> columnProperties = columnPropertyManager.getProperties(
-                catalogName,
+                catalogHandle.getCatalogName(),
+                catalogHandle,
                 element.getProperties(),
                 session,
                 plannerContext,

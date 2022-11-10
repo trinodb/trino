@@ -22,9 +22,11 @@ import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.UuidType;
 
 import java.io.IOException;
 import java.util.BitSet;
@@ -44,6 +46,7 @@ import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.SHARD_UUID_COLUMN
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -122,7 +125,7 @@ public class RaptorPageSource
         return new Page(page.getPositionCount(), blocks);
     }
 
-    static TrinoException handleException(Exception exception)
+    public static TrinoException handleException(Exception exception)
     {
         if (exception instanceof TrinoException) {
             return (TrinoException) exception;
@@ -200,7 +203,12 @@ public class RaptorPageSource
 
         static ColumnAdaptation rowIdColumn()
         {
-            return new RowIdColumn();
+            return RowIdColumn.INSTANCE;
+        }
+
+        static ColumnAdaptation mergeRowIdColumn(OptionalInt bucketNumber, UUID shardUuid)
+        {
+            return new MergeRowIdColumn(bucketNumber, shardUuid);
         }
 
         static ColumnAdaptation sourceColumn(int index)
@@ -225,7 +233,7 @@ public class RaptorPageSource
         @Override
         public Block block(Page sourcePage, long filePosition)
         {
-            return new RunLengthEncodedBlock(shardUuidBlock, sourcePage.getPositionCount());
+            return RunLengthEncodedBlock.create(shardUuidBlock, sourcePage.getPositionCount());
         }
 
         @Override
@@ -239,6 +247,8 @@ public class RaptorPageSource
     private static class RowIdColumn
             implements ColumnAdaptation
     {
+        public static final RowIdColumn INSTANCE = new RowIdColumn();
+
         @Override
         public Block block(Page sourcePage, long filePosition)
         {
@@ -255,6 +265,36 @@ public class RaptorPageSource
         {
             return toStringHelper(this)
                     .toString();
+        }
+    }
+
+    private static class MergeRowIdColumn
+            implements ColumnAdaptation
+    {
+        private final Block bucketNumberValue;
+        private final Block shardUuidValue;
+
+        public MergeRowIdColumn(OptionalInt bucketNumber, UUID shardUuid)
+        {
+            BlockBuilder blockBuilder = INTEGER.createFixedSizeBlockBuilder(1);
+            bucketNumber.ifPresentOrElse(value -> INTEGER.writeLong(blockBuilder, value), blockBuilder::appendNull);
+            bucketNumberValue = blockBuilder.build();
+
+            BlockBuilder builder = UuidType.UUID.createFixedSizeBlockBuilder(1);
+            UuidType.UUID.writeSlice(builder, javaUuidToTrinoUuid(shardUuid));
+            shardUuidValue = builder.build();
+        }
+
+        @Override
+        public Block block(Page sourcePage, long filePosition)
+        {
+            Block bucketNumberBlock = RunLengthEncodedBlock.create(bucketNumberValue, sourcePage.getPositionCount());
+            Block shardUuidBlock = RunLengthEncodedBlock.create(shardUuidValue, sourcePage.getPositionCount());
+            Block rowIdBlock = RowIdColumn.INSTANCE.block(sourcePage, filePosition);
+            return RowBlock.fromFieldBlocks(
+                    sourcePage.getPositionCount(),
+                    Optional.empty(),
+                    new Block[] {bucketNumberBlock, shardUuidBlock, rowIdBlock});
         }
     }
 
@@ -275,7 +315,7 @@ public class RaptorPageSource
         @Override
         public Block block(Page sourcePage, long filePosition)
         {
-            return new RunLengthEncodedBlock(nullBlock, sourcePage.getPositionCount());
+            return RunLengthEncodedBlock.create(nullBlock, sourcePage.getPositionCount());
         }
 
         @Override
@@ -302,7 +342,7 @@ public class RaptorPageSource
         @Override
         public Block block(Page sourcePage, long filePosition)
         {
-            return new RunLengthEncodedBlock(bucketNumberBlock, sourcePage.getPositionCount());
+            return RunLengthEncodedBlock.create(bucketNumberBlock, sourcePage.getPositionCount());
         }
 
         @Override

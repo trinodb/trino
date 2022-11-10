@@ -18,7 +18,6 @@ import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ColumnarMap;
-import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.MapType;
@@ -94,7 +93,7 @@ public class TestColumnarMap
 
     private static void assertDictionaryBlock(Block block, Slice[][][] expectedValues)
     {
-        DictionaryBlock dictionaryBlock = createTestDictionaryBlock(block);
+        Block dictionaryBlock = createTestDictionaryBlock(block);
         Slice[][][] expectedDictionaryValues = createTestDictionaryExpectedValues(expectedValues);
 
         assertBlock(dictionaryBlock, expectedDictionaryValues);

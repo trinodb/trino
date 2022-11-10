@@ -62,7 +62,6 @@ public class InternalAuthenticationManager
 
     private static String getSharedSecret(InternalCommunicationConfig internalCommunicationConfig, NodeInfo nodeInfo, boolean authenticationEnabled)
     {
-        requireNonNull(internalCommunicationConfig, "internalCommunicationConfig is null");
         requireNonNull(nodeInfo, "nodeInfo is null");
 
         // This check should not be required (as bean validation already checked it),

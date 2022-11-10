@@ -23,6 +23,7 @@ import io.airlift.concurrent.MoreFutures;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.Page;
 import io.trino.spi.PageIndexer;
@@ -30,6 +31,7 @@ import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.IntArrayBlockBuilder;
+import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
@@ -47,6 +49,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -58,7 +61,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class HivePageSink
-        implements ConnectorPageSink
+        implements ConnectorPageSink, ConnectorMergeSink
 {
     private static final Logger log = Logger.get(HivePageSink.class);
 
@@ -90,11 +93,13 @@ public class HivePageSink
     private final List<Slice> partitionUpdates = new ArrayList<>();
     private final List<Callable<Object>> verificationTasks = new ArrayList<>();
 
+    private final boolean isMergeSink;
     private long writtenBytes;
     private long memoryUsage;
     private long validationCpuNanos;
 
     public HivePageSink(
+            HiveWritableTableHandle tableHandle,
             HiveWriterFactory writerFactory,
             List<HiveColumnHandle> inputColumns,
             boolean isTransactional,
@@ -118,6 +123,7 @@ public class HivePageSink
         this.writeVerificationExecutor = requireNonNull(writeVerificationExecutor, "writeVerificationExecutor is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
 
+        this.isMergeSink = tableHandle.getTransaction().isMerge();
         requireNonNull(bucketProperty, "bucketProperty is null");
         this.pagePartitioner = new HiveWriterPagePartitioner(
                 inputColumns,
@@ -130,7 +136,6 @@ public class HivePageSink
         ImmutableList.Builder<Integer> dataColumnsInputIndex = ImmutableList.builder();
         Object2IntMap<String> dataColumnNameToIdMap = new Object2IntOpenHashMap<>();
         Map<String, HiveType> dataColumnNameToTypeMap = new HashMap<>();
-        // sample weight column is passed separately, so index must be calculated without this column
         for (int inputIndex = 0; inputIndex < inputColumns.size(); inputIndex++) {
             HiveColumnHandle column = inputColumns.get(inputIndex);
             if (column.isPartitionKey()) {
@@ -188,11 +193,30 @@ public class HivePageSink
     {
         // Must be wrapped in doAs entirely
         // Implicit FileSystem initializations are possible in HiveRecordWriter#commit -> RecordWriter#close
-        ListenableFuture<Collection<Slice>> result = hdfsEnvironment.doAs(session.getIdentity(), this::doFinish);
+        ListenableFuture<Collection<Slice>> result = hdfsEnvironment.doAs(
+                session.getIdentity(),
+                isMergeSink ? this::doMergeSinkFinish : this::doInsertSinkFinish);
+
         return MoreFutures.toCompletableFuture(result);
     }
 
-    private ListenableFuture<Collection<Slice>> doFinish()
+    private ListenableFuture<Collection<Slice>> doMergeSinkFinish()
+    {
+        ImmutableList.Builder<Slice> resultSlices = ImmutableList.builder();
+        for (HiveWriter writer : writers) {
+            writer.commit();
+            MergeFileWriter mergeFileWriter = (MergeFileWriter) writer.getFileWriter();
+            PartitionUpdateAndMergeResults results = mergeFileWriter.getPartitionUpdateAndMergeResults(writer.getPartitionUpdate());
+            resultSlices.add(wrappedBuffer(PartitionUpdateAndMergeResults.CODEC.toJsonBytes(results)));
+        }
+        List<Slice> result = resultSlices.build();
+        writtenBytes = writers.stream()
+                .mapToLong(HiveWriter::getWrittenBytes)
+                .sum();
+        return Futures.immediateFuture(result);
+    }
+
+    private ListenableFuture<Collection<Slice>> doInsertSinkFinish()
     {
         for (HiveWriter writer : writers) {
             closeWriter(writer);
@@ -373,9 +397,11 @@ public class HivePageSink
 
             OptionalInt bucketNumber = OptionalInt.empty();
             if (bucketBlock != null) {
-                bucketNumber = OptionalInt.of(bucketBlock.getInt(position, 0));
+                bucketNumber = OptionalInt.of((int) INTEGER.getLong(bucketBlock, position));
             }
+
             writer = writerFactory.createWriter(partitionColumns, position, bucketNumber);
+
             writers.set(writerIndex, writer);
         }
         verify(writers.size() == pagePartitioner.getMaxIndex() + 1);
@@ -386,6 +412,9 @@ public class HivePageSink
 
     private Page getDataPage(Page page)
     {
+        if (isMergeSink) {
+            return page;
+        }
         Block[] blocks = new Block[dataColumnInputIndex.length];
         for (int i = 0; i < dataColumnInputIndex.length; i++) {
             int dataColumn = dataColumnInputIndex[i];
@@ -417,6 +446,13 @@ public class HivePageSink
             blocks[i] = page.getBlock(dataColumn);
         }
         return new Page(page.getPositionCount(), blocks);
+    }
+
+    @Override
+    public void storeMergedRows(Page page)
+    {
+        checkArgument(isMergeSink, "isMergeSink is false");
+        appendPage(page);
     }
 
     private static class HiveWriterPagePartitioner

@@ -29,6 +29,7 @@ import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
+import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExceptNode;
 import io.trino.sql.planner.plan.ExchangeNode;
@@ -41,6 +42,8 @@ import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.MergeProcessorNode;
+import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.OffsetNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
@@ -555,6 +558,15 @@ public final class ValidateDependenciesChecker
         }
 
         @Override
+        public Void visitDynamicFilterSource(DynamicFilterSourceNode node, Set<Symbol> boundSymbols)
+        {
+            node.getSource().accept(this, boundSymbols); // visit child
+            checkDependencies(node.getOutputSymbols(), node.getDynamicFilters().values(), "Dynamic filter symbols must be part of output symbols");
+
+            return null;
+        }
+
+        @Override
         public Void visitTableScan(TableScanNode node, Set<Symbol> boundSymbols)
         {
             //We don't have to do a check here as TableScanNode has no dependencies.
@@ -662,6 +674,25 @@ public final class ValidateDependenciesChecker
         {
             PlanNode source = node.getSource();
             source.accept(this, boundSymbols); // visit child
+            return null;
+        }
+
+        @Override
+        public Void visitMergeWriter(MergeWriterNode node, Set<Symbol> boundSymbols)
+        {
+            PlanNode source = node.getSource();
+            source.accept(this, boundSymbols); // visit child
+            return null;
+        }
+
+        @Override
+        public Void visitMergeProcessor(MergeProcessorNode node, Set<Symbol> boundSymbols)
+        {
+            PlanNode source = node.getSource();
+            source.accept(this, boundSymbols); // visit child
+
+            checkArgument(source.getOutputSymbols().contains(node.getRowIdSymbol()), "Invalid node. rowId symbol (%s) is not in source plan output (%s)", node.getRowIdSymbol(), node.getSource().getOutputSymbols());
+            checkArgument(source.getOutputSymbols().contains(node.getMergeRowSymbol()), "Invalid node. Merge row symbol (%s) is not in source plan output (%s)", node.getMergeRowSymbol(), node.getSource().getOutputSymbols());
 
             return null;
         }

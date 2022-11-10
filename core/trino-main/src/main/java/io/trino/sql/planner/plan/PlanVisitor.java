@@ -89,6 +89,11 @@ public abstract class PlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
+    public R visitDynamicFilterSource(DynamicFilterSourceNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitJoin(JoinNode node, C context)
     {
         return visitPlan(node, context);
@@ -145,6 +150,16 @@ public abstract class PlanVisitor<R, C>
     }
 
     public R visitSimpleTableExecuteNode(SimpleTableExecuteNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitMergeWriter(MergeWriterNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitMergeProcessor(MergeProcessorNode node, C context)
     {
         return visitPlan(node, context);
     }

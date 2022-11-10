@@ -53,8 +53,8 @@ public class StatusResource
     {
         this.nodeInfo = requireNonNull(nodeInfo, "nodeInfo is null");
         this.version = requireNonNull(nodeVersion, "nodeVersion is null");
-        this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
-        this.coordinator = requireNonNull(serverConfig, "serverConfig is null").isCoordinator();
+        this.environment = nodeInfo.getEnvironment();
+        this.coordinator = serverConfig.isCoordinator();
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
         this.memoryMXBean = ManagementFactory.getMemoryMXBean();
         this.logicalCores = Runtime.getRuntime().availableProcessors();

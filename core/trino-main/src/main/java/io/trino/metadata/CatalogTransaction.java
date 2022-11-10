@@ -14,7 +14,7 @@
 package io.trino.metadata;
 
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -29,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 
 public class CatalogTransaction
 {
-    private final CatalogName catalogName;
+    private final CatalogHandle catalogHandle;
     private final Connector connector;
     private final ConnectorTransactionHandle transactionHandle;
     @GuardedBy("this")
@@ -37,18 +37,18 @@ public class CatalogTransaction
     private final AtomicBoolean finished = new AtomicBoolean();
 
     public CatalogTransaction(
-            CatalogName catalogName,
+            CatalogHandle catalogHandle,
             Connector connector,
             ConnectorTransactionHandle transactionHandle)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.connector = requireNonNull(connector, "connector is null");
         this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
     }
 
-    public CatalogName getCatalogName()
+    public CatalogHandle getCatalogHandle()
     {
-        return catalogName;
+        return catalogHandle;
     }
 
     public boolean isSingleStatementWritesOnly()
@@ -60,7 +60,7 @@ public class CatalogTransaction
     {
         checkState(!finished.get(), "Already finished");
         if (connectorMetadata == null) {
-            ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+            ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
             connectorMetadata = connector.getMetadata(connectorSession, transactionHandle);
         }
         return connectorMetadata;

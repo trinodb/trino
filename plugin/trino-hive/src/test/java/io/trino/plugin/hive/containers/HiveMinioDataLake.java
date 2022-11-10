@@ -13,27 +13,33 @@
  */
 package io.trino.plugin.hive.containers;
 
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.containers.Minio;
+import io.trino.testing.minio.MinioClient;
 import io.trino.util.AutoCloseableCloser;
 import org.testcontainers.containers.Network;
 
+import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.testing.containers.TestContainers.getPathFromClassPathResource;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.Network.newNetwork;
 
 public class HiveMinioDataLake
         implements AutoCloseable
 {
-    public static final String ACCESS_KEY = "accesskey";
-    public static final String SECRET_KEY = "secretkey";
+    @Deprecated
+    public static final String MINIO_ACCESS_KEY = Minio.MINIO_ACCESS_KEY;
+    @Deprecated
+    public static final String MINIO_SECRET_KEY = Minio.MINIO_SECRET_KEY;
+    /**
+     * In S3 this region is implicitly the default one. In Minio, however,
+     * if we set an empty region, it will accept any.
+     * So setting it by default to `us-east-1` simulates S3 better
+     */
+    public static final String MINIO_DEFAULT_REGION = "us-east-1";
 
     private final String bucketName;
     private final Minio minio;
@@ -42,11 +48,16 @@ public class HiveMinioDataLake
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
 
     private State state = State.INITIAL;
-    private AmazonS3 s3Client;
+    private MinioClient minioClient;
 
-    public HiveMinioDataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount)
+    public HiveMinioDataLake(String bucketName)
     {
-        this(bucketName, hiveHadoopFilesToMount, HiveHadoop.DEFAULT_IMAGE);
+        this(bucketName, HiveHadoop.DEFAULT_IMAGE);
+    }
+
+    public HiveMinioDataLake(String bucketName, String hiveHadoopImage)
+    {
+        this(bucketName, ImmutableMap.of("/etc/hadoop/conf/core-site.xml", getPathFromClassPathResource("hive_minio_datalake/hive-core-site.xml")), hiveHadoopImage);
     }
 
     public HiveMinioDataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount, String hiveHadoopImage)
@@ -57,45 +68,30 @@ public class HiveMinioDataLake
                 Minio.builder()
                         .withNetwork(network)
                         .withEnvVars(ImmutableMap.<String, String>builder()
-                                .put("MINIO_ACCESS_KEY", ACCESS_KEY)
-                                .put("MINIO_SECRET_KEY", SECRET_KEY)
+                                .put("MINIO_ACCESS_KEY", MINIO_ACCESS_KEY)
+                                .put("MINIO_SECRET_KEY", MINIO_SECRET_KEY)
+                                .put("MINIO_REGION", MINIO_DEFAULT_REGION)
                                 .buildOrThrow())
                         .build());
-        this.hiveHadoop = closer.register(
-                HiveHadoop.builder()
-                        .withFilesToMount(ImmutableMap.<String, String>builder()
-                                .put("hive_minio_datalake/hive-core-site.xml", "/etc/hadoop/conf/core-site.xml")
-                                .putAll(hiveHadoopFilesToMount)
-                                .buildOrThrow())
-                        .withImage(hiveHadoopImage)
-                        .withNetwork(network)
-                        .build());
+
+        HiveHadoop.Builder hiveHadoopBuilder = HiveHadoop.builder()
+                .withImage(hiveHadoopImage)
+                .withNetwork(network)
+                .withFilesToMount(hiveHadoopFilesToMount);
+        this.hiveHadoop = closer.register(hiveHadoopBuilder.build());
     }
 
-    public void start()
+    public HiveMinioDataLake start()
     {
         checkState(state == State.INITIAL, "Already started: %s", state);
         state = State.STARTING;
         minio.start();
         hiveHadoop.start();
-        s3Client = AmazonS3ClientBuilder
-                .standard()
-                .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(
-                        "http://localhost:" + minio.getMinioApiEndpoint().getPort(),
-                        "us-east-1"))
-                .withPathStyleAccessEnabled(true)
-                .withCredentials(new AWSStaticCredentialsProvider(
-                        new BasicAWSCredentials(ACCESS_KEY, SECRET_KEY)))
-                .build();
-        s3Client.createBucket(this.bucketName);
-        closer.register(() -> s3Client.shutdown());
+        minioClient = closer.register(minio.createMinioClient());
+        minio.createBucket(bucketName);
         state = State.STARTED;
-    }
 
-    public AmazonS3 getS3Client()
-    {
-        checkState(state == State.STARTED, "Can't provide client when MinIO state is: %s", state);
-        return s3Client;
+        return this;
     }
 
     public void stop()
@@ -103,6 +99,27 @@ public class HiveMinioDataLake
     {
         closer.close();
         state = State.STOPPED;
+    }
+
+    public MinioClient getMinioClient()
+    {
+        checkState(state == State.STARTED, "Can't provide client when MinIO state is: %s", state);
+        return minioClient;
+    }
+
+    public void copyResources(String resourcePath, String target)
+    {
+        minio.copyResources(resourcePath, bucketName, target);
+    }
+
+    public void writeFile(byte[] contents, String target)
+    {
+        minio.writeFile(contents, bucketName, target);
+    }
+
+    public List<String> listFiles(String targetDirectory)
+    {
+        return getMinioClient().listObjects(getBucketName(), targetDirectory);
     }
 
     public Minio getMinio()
@@ -118,6 +135,12 @@ public class HiveMinioDataLake
     public String getBucketName()
     {
         return bucketName;
+    }
+
+    @Deprecated
+    public String getMinioAddress()
+    {
+        return getMinio().getMinioAddress();
     }
 
     @Override

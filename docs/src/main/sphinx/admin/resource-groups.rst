@@ -288,48 +288,49 @@ This example is for a MySQL database.
     -- global properties
     INSERT INTO resource_groups_global_properties (name, value) VALUES ('cpu_quota_period', '1h');
 
-    -- Every row in resource_groups table indicates a resource group. The parent-child relationship
-    -- is indicated by the ID in 'parent' column.
+    -- Every row in resource_groups table indicates a resource group. 
+    -- The enviroment name is 'test_environment', make sure it matches `node.environment` in your cluster.
+    -- The parent-child relationship is indicated by the ID in 'parent' column. 
 
     -- create a root group 'global' with NULL parent
-    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_policy, jmx_export, environment) VALUES ('global', '80%', 100, 1000, 'weighted', true, 'test');
+    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_policy, jmx_export, environment) VALUES ('global', '80%', 100, 1000, 'weighted', true, 'test_environment');
 
     -- get ID of 'global' group
     SELECT resource_group_id FROM resource_groups WHERE name = 'global';  -- 1
     -- create two new groups with 'global' as parent
-    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_weight, environment, parent) VALUES ('data_definition', '10%', 5, 100, 1, 'test', 1);
-    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_weight, environment, parent) VALUES ('adhoc', '10%', 50, 1, 10, 'test', 1);
+    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_weight, environment, parent) VALUES ('data_definition', '10%', 5, 100, 1, 'test_environment', 1);
+    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_weight, environment, parent) VALUES ('adhoc', '10%', 50, 1, 10, 'test_environment', 1);
 
     -- get ID of 'adhoc' group
     SELECT resource_group_id FROM resource_groups WHERE name = 'adhoc';   -- 3
     -- create 'other' group with 'adhoc' as parent
-    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_weight, scheduling_policy, environment, parent) VALUES ('other', '10%', 2, 1, 10, 'weighted_fair', 'test', 3);
+    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_weight, scheduling_policy, environment, parent) VALUES ('other', '10%', 2, 1, 10, 'weighted_fair', 'test_environment', 3);
 
     -- get ID of 'other' group
     SELECT resource_group_id FROM resource_groups WHERE name = 'other';  -- 4
     -- create '${USER}' group with 'other' as parent.
-    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, environment, parent) VALUES ('${USER}', '10%', 1, 100, 'test', 4);
+    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, environment, parent) VALUES ('${USER}', '10%', 1, 100, 'test_environment', 4);
 
     -- create 'bi-${toolname}' group with 'adhoc' as parent
-    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_weight, scheduling_policy, environment, parent) VALUES ('bi-${toolname}', '10%', 10, 100, 10, 'weighted_fair', 'test', 3);
+    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_weight, scheduling_policy, environment, parent) VALUES ('bi-${toolname}', '10%', 10, 100, 10, 'weighted_fair', 'test_environment', 3);
 
     -- get ID of 'bi-${toolname}' group
     SELECT resource_group_id FROM resource_groups WHERE name = 'bi-${toolname}';  -- 6
     -- create '${USER}' group with 'bi-${toolname}' as parent. This indicates
     -- nested group 'global.adhoc.bi-${toolname}.${USER}', and will have a
     -- different ID than 'global.adhoc.other.${USER}' created above.
-    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued,  environment, parent) VALUES ('${USER}', '10%', 3, 10, 'test', 6);
+    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued,  environment, parent) VALUES ('${USER}', '10%', 3, 10, 'test_environment', 6);
 
     -- create 'pipeline' group with 'global' as parent
-    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_weight, jmx_export, environment, parent) VALUES ('pipeline', '80%', 45, 100, 1, true, 'test', 1);
+    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_weight, jmx_export, environment, parent) VALUES ('pipeline', '80%', 45, 100, 1, true, 'test_environment', 1);
 
     -- get ID of 'pipeline' group
     SELECT resource_group_id FROM resource_groups WHERE name = 'pipeline'; -- 8
     -- create 'pipeline_${USER}' group with 'pipeline' as parent
-    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued,  environment, parent) VALUES ('pipeline_${USER}', '50%', 5, 100, 'test', 8);
+    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued,  environment, parent) VALUES ('pipeline_${USER}', '50%', 5, 100, 'test_environment', 8);
 
     -- create a root group 'admin' with NULL parent
-    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_policy, environment, jmx_export) VALUES ('admin', '100%', 50, 100, 'query_priority', 'test', true);
+    INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_policy, environment, jmx_export) VALUES ('admin', '100%', 50, 100, 'query_priority', 'test_environment', true);
 
 
     -- Selectors

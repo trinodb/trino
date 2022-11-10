@@ -67,6 +67,7 @@ import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
+import static java.lang.Math.toIntExact;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
 
@@ -105,7 +106,7 @@ public class TimestampColumnWriter
         INSTANT_NANOS,
     }
 
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TimestampColumnWriter.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TimestampColumnWriter.class).instanceSize());
 
     private static final long ORC_EPOCH_IN_SECONDS = OffsetDateTime.of(2015, 1, 1, 0, 0, 0, 0, UTC).toEpochSecond();
 

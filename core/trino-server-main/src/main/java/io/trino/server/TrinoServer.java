@@ -27,10 +27,10 @@ public final class TrinoServer
     public static void main(String[] args)
     {
         String javaVersion = nullToEmpty(StandardSystemProperty.JAVA_VERSION.value());
-        String majorVersion = javaVersion.split("[^\\d]", 2)[0];
+        String majorVersion = javaVersion.split("\\D", 2)[0];
         Integer major = Ints.tryParse(majorVersion);
-        if (major == null || major < 11) {
-            System.err.println(format("ERROR: Trino requires Java 11+ (found %s)", javaVersion));
+        if (major == null || major < 17) {
+            System.err.println(format("ERROR: Trino requires Java 17+ (found %s)", javaVersion));
             System.exit(100);
         }
 

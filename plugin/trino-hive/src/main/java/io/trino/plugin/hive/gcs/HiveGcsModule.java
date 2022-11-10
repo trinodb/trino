@@ -16,8 +16,8 @@ package io.trino.plugin.hive.gcs;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.plugin.hive.ConfigurationInitializer;
-import io.trino.plugin.hive.DynamicConfigurationProvider;
+import io.trino.hdfs.ConfigurationInitializer;
+import io.trino.hdfs.DynamicConfigurationProvider;
 import io.trino.plugin.hive.rubix.RubixEnabledConfig;
 
 import static com.google.common.base.Preconditions.checkArgument;

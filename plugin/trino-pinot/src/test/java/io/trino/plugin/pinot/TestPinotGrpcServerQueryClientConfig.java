@@ -21,7 +21,7 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static org.apache.pinot.common.utils.grpc.GrpcQueryClient.Config.DEFAULT_MAX_INBOUND_MESSAGE_BYTES_SIZE;
+import static org.apache.pinot.common.config.GrpcConfig.DEFAULT_MAX_INBOUND_MESSAGE_BYTES_SIZE;
 
 public class TestPinotGrpcServerQueryClientConfig
 {
@@ -33,7 +33,8 @@ public class TestPinotGrpcServerQueryClientConfig
                         .setMaxRowsPerSplitForSegmentQueries(Integer.MAX_VALUE - 1)
                         .setGrpcPort(8090)
                         .setUsePlainText(true)
-                        .setMaxInboundMessageSize(DataSize.ofBytes(DEFAULT_MAX_INBOUND_MESSAGE_BYTES_SIZE)));
+                        .setMaxInboundMessageSize(DataSize.ofBytes(DEFAULT_MAX_INBOUND_MESSAGE_BYTES_SIZE))
+                        .setProxyUri(null));
     }
 
     @Test
@@ -44,12 +45,14 @@ public class TestPinotGrpcServerQueryClientConfig
                 .put("pinot.grpc.port", "8091")
                 .put("pinot.grpc.use-plain-text", "false")
                 .put("pinot.grpc.max-inbound-message-size", String.valueOf(DataSize.ofBytes(1)))
+                .put("pinot.grpc.proxy-uri", "my-pinot-proxy:8094")
                 .buildOrThrow();
         PinotGrpcServerQueryClientConfig expected = new PinotGrpcServerQueryClientConfig()
                 .setMaxRowsPerSplitForSegmentQueries(10)
                 .setGrpcPort(8091)
                 .setUsePlainText(false)
-                .setMaxInboundMessageSize(DataSize.ofBytes(1));
+                .setMaxInboundMessageSize(DataSize.ofBytes(1))
+                .setProxyUri("my-pinot-proxy:8094");
         ConfigAssertions.assertFullMapping(properties, expected);
     }
 }

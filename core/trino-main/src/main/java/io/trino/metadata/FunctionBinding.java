@@ -14,6 +14,8 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ImmutableSortedMap;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionId;
 import io.trino.spi.type.Type;
 
 import java.util.Map;

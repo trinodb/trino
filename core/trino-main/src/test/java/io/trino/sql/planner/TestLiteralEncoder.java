@@ -17,13 +17,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionNullability;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.LiteralFunction;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.metadata.Signature;
 import io.trino.operator.scalar.Re2JCastToRegexpFunction;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionNullability;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimeZoneKey;
@@ -46,11 +47,11 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreCase;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.FunctionId.toFunctionId;
 import static io.trino.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
 import static io.trino.operator.scalar.JoniRegexpCasts.castVarcharToJoniRegexp;
 import static io.trino.operator.scalar.JsonFunctions.castVarcharToJsonPath;
 import static io.trino.operator.scalar.StringFunctions.castVarcharToCodePoints;
+import static io.trino.spi.function.FunctionId.toFunctionId;
 import static io.trino.spi.function.FunctionKind.SCALAR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.CharType.createCharType;
@@ -70,6 +71,7 @@ import static io.trino.transaction.TransactionBuilder.transaction;
 import static io.trino.type.CodePointsType.CODE_POINTS;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.JsonPathType.JSON_PATH;
+import static io.trino.type.LikeFunctions.likePattern;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
 import static io.trino.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
 import static io.trino.type.UnknownType.UNKNOWN;
@@ -84,6 +86,7 @@ public class TestLiteralEncoder
 
     private final ResolvedFunction literalFunction = new ResolvedFunction(
             new BoundSignature(LITERAL_FUNCTION_NAME, VARBINARY, ImmutableList.of(VARBINARY)),
+            GlobalSystemConnector.CATALOG_HANDLE,
             new LiteralFunction(PLANNER_CONTEXT.getBlockEncodingSerde()).getFunctionMetadata().getFunctionId(),
             SCALAR,
             true,
@@ -93,6 +96,7 @@ public class TestLiteralEncoder
 
     private final ResolvedFunction base64Function = new ResolvedFunction(
             new BoundSignature("from_base64", VARBINARY, ImmutableList.of(VARCHAR)),
+            GlobalSystemConnector.CATALOG_HANDLE,
             toFunctionId(Signature.builder()
                     .name("from_base64")
                     .returnType(VARBINARY)
@@ -239,9 +243,18 @@ public class TestLiteralEncoder
     @Test
     public void testEncodeRegex()
     {
-        assertRoundTrip(castVarcharToJoniRegexp(utf8Slice("[a-z]")), LIKE_PATTERN, (left, right) -> left.pattern().equals(right.pattern()));
         assertRoundTrip(castVarcharToJoniRegexp(utf8Slice("[a-z]")), JONI_REGEXP, (left, right) -> left.pattern().equals(right.pattern()));
         assertRoundTrip(castVarcharToRe2JRegexp(utf8Slice("[a-z]")), PLANNER_CONTEXT.getTypeManager().getType(RE2J_REGEXP_SIGNATURE), (left, right) -> left.pattern().equals(right.pattern()));
+    }
+
+    @Test
+    public void testEncodeLikePattern()
+    {
+        assertRoundTrip(likePattern(utf8Slice("abc")), LIKE_PATTERN, (left, right) -> left.getPattern().equals(right.getPattern()));
+        assertRoundTrip(likePattern(utf8Slice("abc_")), LIKE_PATTERN, (left, right) -> left.getPattern().equals(right.getPattern()));
+        assertRoundTrip(likePattern(utf8Slice("abc%")), LIKE_PATTERN, (left, right) -> left.getPattern().equals(right.getPattern()));
+
+        assertRoundTrip(likePattern(utf8Slice("a_b%cX%X_"), utf8Slice("/")), LIKE_PATTERN, (left, right) -> left.getPattern().equals(right.getPattern()));
     }
 
     @Test

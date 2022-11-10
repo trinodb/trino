@@ -24,6 +24,7 @@ import io.trino.SystemSessionProperties;
 import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
+import io.trino.cost.TableStatsProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.connector.GroupingProperty;
 import io.trino.spi.connector.LocalProperty;
@@ -39,6 +40,7 @@ import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
+import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ChildReplacer;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
@@ -53,6 +55,7 @@ import io.trino.sql.planner.plan.IndexSourceNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -117,7 +120,6 @@ import static io.trino.sql.planner.plan.ExchangeNode.mergingExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.replicatedExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.roundRobinExchange;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -136,9 +138,9 @@ public class AddExchanges
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, TableStatsProvider tableStatsProvider)
     {
-        PlanWithProperties result = plan.accept(new Rewriter(idAllocator, symbolAllocator, session), PreferredProperties.any());
+        PlanWithProperties result = plan.accept(new Rewriter(idAllocator, symbolAllocator, session, tableStatsProvider), PreferredProperties.any());
         return result.getNode();
     }
 
@@ -156,12 +158,12 @@ public class AddExchanges
         private final boolean redistributeWrites;
         private final boolean scaleWriters;
 
-        public Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+        public Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session, TableStatsProvider tableStatsProvider)
         {
             this.idAllocator = idAllocator;
             this.symbolAllocator = symbolAllocator;
             this.types = symbolAllocator.getTypes();
-            this.statsProvider = new CachingStatsProvider(statsCalculator, session, types);
+            this.statsProvider = new CachingStatsProvider(statsCalculator, session, types, tableStatsProvider);
             this.session = session;
             this.domainTranslator = new DomainTranslator(plannerContext);
             this.distributedIndexJoins = SystemSessionProperties.isDistributedIndexJoinEnabled(session);
@@ -447,19 +449,18 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitTopN(TopNNode node, PreferredProperties preferredProperties)
         {
-            PlanWithProperties child;
-            switch (node.getStep()) {
-                case SINGLE:
-                case FINAL:
-                    child = planChild(node, PreferredProperties.undistributed());
+            return switch (node.getStep()) {
+                case SINGLE, FINAL -> {
+                    PlanWithProperties child = planChild(node, PreferredProperties.undistributed());
                     if (!child.getProperties().isSingleNode()) {
                         child = withDerivedProperties(
                                 gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
                                 child.getProperties());
                     }
-                    return rebaseAndDeriveProperties(node, child);
-                case PARTIAL:
-                    child = planChild(node, PreferredProperties.any());
+                    yield rebaseAndDeriveProperties(node, child);
+                }
+                case PARTIAL -> {
+                    PlanWithProperties child = planChild(node, PreferredProperties.any());
                     // If source is pre-sorted, partial topN can be replaced with partial limit N.
                     // We record the pre-sorted symbols in LimitNode to avoid pushdown of such replaced LimitNode
                     // through the source which was producing ordered input.
@@ -467,7 +468,7 @@ public class AddExchanges
                     boolean sortingSatisfied = LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).stream()
                             .allMatch(Optional::isEmpty);
                     if (sortingSatisfied) {
-                        return withDerivedProperties(
+                        yield withDerivedProperties(
                                 new LimitNode(
                                         node.getId(),
                                         child.getNode(),
@@ -477,9 +478,9 @@ public class AddExchanges
                                         node.getOrderingScheme().getOrderBy()),
                                 child.getProperties());
                     }
-                    return rebaseAndDeriveProperties(node, child);
-            }
-            throw new UnsupportedOperationException(format("Unsupported step for TopN [%s]", node.getStep()));
+                    yield rebaseAndDeriveProperties(node, child);
+                }
+            };
         }
 
         @Override
@@ -623,7 +624,24 @@ public class AddExchanges
         private PlanWithProperties visitTableWriter(PlanNode node, Optional<PartitioningScheme> partitioningScheme, PlanNode source, PreferredProperties preferredProperties, TableWriterNode.WriterTarget writerTarget)
         {
             PlanWithProperties newSource = source.accept(this, preferredProperties);
+            PlanWithProperties partitionedSource = getWriterPlanWithProperties(partitioningScheme, newSource, writerTarget);
 
+            return rebaseAndDeriveProperties(node, partitionedSource);
+        }
+
+        @Override
+        public PlanWithProperties visitMergeWriter(MergeWriterNode node, PreferredProperties preferredProperties)
+        {
+            PlanWithProperties source = node.getSource().accept(this, preferredProperties);
+
+            Optional<PartitioningScheme> partitioningScheme = node.getPartitioningScheme();
+            PlanWithProperties partitionedSource = getWriterPlanWithProperties(partitioningScheme, source, node.getTarget());
+
+            return rebaseAndDeriveProperties(node, partitionedSource);
+        }
+
+        private PlanWithProperties getWriterPlanWithProperties(Optional<PartitioningScheme> partitioningScheme, PlanWithProperties newSource, TableWriterNode.WriterTarget writerTarget)
+        {
             if (partitioningScheme.isEmpty()) {
                 if (scaleWriters && writerTarget.supportsReportingWrittenBytes(plannerContext.getMetadata(), session)) {
                     partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), newSource.getNode().getOutputSymbols()));
@@ -632,7 +650,6 @@ public class AddExchanges
                     partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), newSource.getNode().getOutputSymbols()));
                 }
             }
-
             if (partitioningScheme.isPresent() && !newSource.getProperties().isCompatibleTablePartitioningWith(partitioningScheme.get().getPartitioning(), false, plannerContext.getMetadata(), session)) {
                 newSource = withDerivedProperties(
                         partitionedExchange(
@@ -642,7 +659,7 @@ public class AddExchanges
                                 partitioningScheme.get()),
                         newSource.getProperties());
             }
-            return rebaseAndDeriveProperties(node, newSource);
+            return newSource;
         }
 
         @Override
@@ -764,9 +781,7 @@ public class AddExchanges
 
                 return planReplicatedJoin(node, left);
             }
-            else {
-                return planPartitionedJoin(node, leftSymbols, rightSymbols);
-            }
+            return planPartitionedJoin(node, leftSymbols, rightSymbols);
         }
 
         private PlanWithProperties planPartitionedJoin(JoinNode node, List<Symbol> leftSymbols, List<Symbol> rightSymbols)
@@ -1256,19 +1271,17 @@ public class AddExchanges
                 // instead of "arbitraryPartition".
                 return new PlanWithProperties(node.replaceChildren(partitionedChildren));
             }
-            else {
-                // Trino currently cannot execute stage that has multiple table scans, so in that case
-                // we have to insert REMOTE exchange with FIXED_ARBITRARY_DISTRIBUTION instead of local exchange
-                return new PlanWithProperties(
-                        new ExchangeNode(
-                                idAllocator.getNextId(),
-                                REPARTITION,
-                                REMOTE,
-                                new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
-                                partitionedChildren,
-                                partitionedOutputLayouts,
-                                Optional.empty()));
-            }
+            // Trino currently cannot execute stage that has multiple table scans, so in that case
+            // we have to insert REMOTE exchange with FIXED_ARBITRARY_DISTRIBUTION instead of local exchange
+            return new PlanWithProperties(
+                    new ExchangeNode(
+                            idAllocator.getNextId(),
+                            REPARTITION,
+                            REMOTE,
+                            new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
+                            partitionedChildren,
+                            partitionedOutputLayouts,
+                            Optional.empty()));
         }
 
         @Override
@@ -1293,6 +1306,14 @@ public class AddExchanges
             return withDerivedProperties(
                     ChildReplacer.replaceChildren(node, ImmutableList.of(child.getNode())),
                     child.getProperties());
+        }
+
+        @Override
+        public PlanWithProperties visitAssignUniqueId(AssignUniqueId node, PreferredProperties preferredProperties)
+        {
+            PreferredProperties translatedPreferred = preferredProperties.translate(symbol -> node.getIdColumn().equals(symbol) ? Optional.empty() : Optional.of(symbol));
+
+            return rebaseAndDeriveProperties(node, planChild(node, translatedPreferred));
         }
 
         private PlanWithProperties rebaseAndDeriveProperties(PlanNode node, List<PlanWithProperties> children)

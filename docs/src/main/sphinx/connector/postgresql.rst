@@ -41,9 +41,9 @@ as appropriate for your setup:
 The ``connection-url`` defines the connection information and parameters to pass
 to the PostgreSQL JDBC driver. The parameters for the URL are available in the
 `PostgreSQL JDBC driver documentation
-<https://jdbc.postgresql.org/documentation/head/connect.html>`_. Some parameters
-can have adverse effects on the connector behavior or not work with the
-connector.
+<https://jdbc.postgresql.org/documentation/use/#connecting-to-the-database>`__.
+Some parameters can have adverse effects on the connector behavior or not work
+with the connector.
 
 The ``connection-user`` and ``connection-password`` are typically required and
 determine the user credentials for the connection, often a service user. You can
@@ -69,7 +69,7 @@ property:
   connection-url=jdbc:postgresql://example.net:5432/database?ssl=true
 
 For more information on TLS configuration options, see the `PostgreSQL JDBC
-driver documentation <https://jdbc.postgresql.org/documentation/head/connect.html>`_.
+driver documentation <https://jdbc.postgresql.org/documentation/use/#connecting-to-the-database>`__.
 
 Multiple PostgreSQL databases or servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -86,6 +86,9 @@ catalog named ``sales`` using the configured connector.
 
 .. include:: jdbc-common-configurations.fragment
 
+.. |default_domain_compaction_threshold| replace:: ``32``
+.. include:: jdbc-domain-compaction-threshold.fragment
+
 .. include:: jdbc-procedures.fragment
 
 .. include:: jdbc-case-insensitive-matching.fragment
@@ -97,35 +100,162 @@ catalog named ``sales`` using the configured connector.
 Type mapping
 ------------
 
-The data type mappings are as follows:
+Because Trino and PostgreSQL each support types that the other does not, this
+connector :ref:`modifies some types <type-mapping-overview>` when reading or
+writing data. Data types may not map the same way in both directions between
+Trino and the data source. Refer to the following sections for type mapping in
+each direction.
 
-=================== ================================ =======================================================================
-PostgreSQL          Trino                            Notes
-=================== ================================ =======================================================================
-``BIT``             ``BOOLEAN``
-``BOOLEAN``         ``BOOLEAN``
-``SMALLINT``        ``SMALLINT``
-``INTEGER``         ``INTEGER``
-``BIGINT``          ``BIGINT``
-``REAL``            ``DATE``
-``DOUBLE``          ``DOUBLE``
-``NUMERIC(p, s)``   ``DECIMAL(p, s)``                ``DECIMAL(p, s)`` is an alias of  ``NUMERIC(p, s)``.
-                                                     See :ref:`postgresql-decimal-type-handling` for more information.
-``CHAR(n)``         ``CHAR(n)``
-``VARCHAR(n)``      ``VARCHAR(n)``
-``ENUM``            ``VARCHAR``
-``BINARY``          ``VARBINARY``
-``DATE``            ``DATE``
-``TIME(n)``         ``TIME(n)``
-``TIMESTAMP(n)``    ``TIMESTAMP(n)``
-``TIMESTAMPTZ(n)``  ``TIMESTAMP(n) WITH TIME ZONE``
-``MONEY``           ``VARCHAR``
-``UUID``            ``UUID``
-``JSON``            ``JSON``
-``JSONB``           ``JSON``
-``HSTORE``          ``MAP(VARCHAR, VARCHAR)``
-``ARRAY``           Disabled, ``ARRAY`` or ``JSON``  See :ref:`postgresql-array-type-handling` for more information.
-=================== ================================ =======================================================================
+PostgreSQL type to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps PostgreSQL types to the corresponding Trino types following
+this table:
+
+.. list-table:: PostgreSQL type to Trino type mapping
+  :widths: 30, 20, 50
+  :header-rows: 1
+
+  * - PostgreSQL type
+    - Trino type
+    - Notes
+  * - ``BIT``
+    - ``BOOLEAN``
+    -
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+    -
+  * - ``SMALLINT``
+    - ``SMALLINT``
+    -
+  * - ``INTEGER``
+    - ``INTEGER``
+    -
+  * - ``BIGINT``
+    - ``BIGINT``
+    -
+  * - ``REAL``
+    - ``REAL``
+    -
+  * - ``DOUBLE``
+    - ``DOUBLE``
+    -
+  * - ``NUMERIC(p, s)``
+    - ``DECIMAL(p, s)``
+    - ``DECIMAL(p, s)`` is an alias of  ``NUMERIC(p, s)``. See
+      :ref:`postgresql-decimal-type-handling` for more information.
+  * - ``CHAR(n)``
+    - ``CHAR(n)``
+    -
+  * - ``VARCHAR(n)``
+    - ``VARCHAR(n)``
+    -
+  * - ``ENUM``
+    - ``VARCHAR``
+    -
+  * - ``BYTEA``
+    - ``VARBINARY``
+    -
+  * - ``DATE``
+    - ``DATE``
+    -
+  * - ``TIME(n)``
+    - ``TIME(n)``
+    -
+  * - ``TIMESTAMP(n)``
+    - ``TIMESTAMP(n)``
+    -
+  * - ``TIMESTAMPTZ(n)``
+    - ``TIMESTAMP(n) WITH TIME ZONE``
+    -
+  * - ``MONEY``
+    - ``VARCHAR``
+    -
+  * - ``UUID``
+    - ``UUID``
+    -
+  * - ``JSON``
+    - ``JSON``
+    -
+  * - ``JSONB``
+    - ``JSON``
+    -
+  * - ``HSTORE``
+    - ``MAP(VARCHAR, VARCHAR)``
+    -
+  * - ``ARRAY``
+    - Disabled, ``ARRAY``, or ``JSON``
+    - See :ref:`postgresql-array-type-handling` for more information.
+
+No other types are supported.
+
+Trino type to PostgreSQL type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps Trino types to the corresponding PostgreSQL types following
+this table:
+
+.. list-table:: Trino type to PostgreSQL type mapping
+  :widths: 30, 20, 50
+  :header-rows: 1
+
+  * - Trino type
+    - PostgreSQL type
+    - Notes
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+    -
+  * - ``SMALLINT``
+    - ``SMALLINT``
+    -
+  * - ``TINYINT``
+    - ``SMALLINT``
+    -
+  * - ``INTEGER``
+    - ``INTEGER``
+    -
+  * - ``BIGINT``
+    - ``BIGINT``
+    -
+  * - ``DOUBLE``
+    - ``DOUBLE``
+    -
+  * - ``DECIMAL(p, s)``
+    - ``NUMERIC(p, s)``
+    - ``DECIMAL(p, s)`` is an alias of  ``NUMERIC(p, s)``. See
+      :ref:`postgresql-decimal-type-handling` for more information.
+  * - ``CHAR(n)``
+    - ``CHAR(n)``
+    -
+  * - ``VARCHAR(n)``
+    - ``VARCHAR(n)``
+    -
+  * - ``VARBINARY``
+    - ``BYTEA``
+    -
+  * - ``DATE``
+    - ``DATE``
+    -
+  * - ``TIME(n)``
+    - ``TIME(n)``
+    -
+  * - ``TIMESTAMP(n)``
+    - ``TIMESTAMP(n)``
+    -
+  * - ``TIMESTAMP(n) WITH TIME ZONE``
+    - ``TIMESTAMPTZ(n)``
+    -
+  * - ``UUID``
+    - ``UUID``
+    -
+  * - ``JSON``
+    - ``JSONB``
+    -
+  * - ``ARRAY``
+    - ``ARRAY``
+    - See :ref:`postgresql-array-type-handling` for more information.
+
+No other types are supported.
 
 .. _postgresql-decimal-type-handling:
 
@@ -141,7 +271,7 @@ By default, values that require rounding or truncation to fit will cause a failu
 is controlled via the ``decimal-rounding-mode`` configuration property or the ``decimal_rounding_mode`` session
 property, which can be set to ``UNNECESSARY`` (the default),
 ``UP``, ``DOWN``, ``CEILING``, ``FLOOR``, ``HALF_UP``, ``HALF_DOWN``, or ``HALF_EVEN``
-(see `RoundingMode <https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/math/RoundingMode.html#enum.constant.summary>`_).
+(see `RoundingMode <https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/math/RoundingMode.html#enum.constant.summary>`_).
 
 .. _postgresql-array-type-handling:
 

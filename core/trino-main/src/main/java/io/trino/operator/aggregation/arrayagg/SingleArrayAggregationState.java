@@ -21,12 +21,13 @@ import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.operator.aggregation.BlockBuilderCopier.copyBlockBuilder;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class SingleArrayAggregationState
         implements ArrayAggregationState
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleArrayAggregationState.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SingleArrayAggregationState.class).instanceSize());
     private BlockBuilder blockBuilder;
     private final Type type;
 

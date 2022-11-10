@@ -2349,7 +2349,7 @@ public abstract class AbstractTestJoinQueries
 
     private void assertJoinOutputPositions(@Language("SQL") String sql, int expectedJoinOutputPositions)
     {
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
                 Session.builder(getSession())
                         .setSystemProperty(JOIN_REORDERING_STRATEGY, "NONE")
                         .build(),

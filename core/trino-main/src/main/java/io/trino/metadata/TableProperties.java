@@ -14,7 +14,7 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -33,16 +33,16 @@ import static java.util.Objects.requireNonNull;
 public class TableProperties
 {
     private final ConnectorTableProperties tableProperties;
-    private final CatalogName catalogName;
+    private final CatalogHandle catalogHandle;
     private final ConnectorTransactionHandle transaction;
 
-    public TableProperties(CatalogName catalogName, ConnectorTransactionHandle transaction, ConnectorTableProperties tableProperties)
+    public TableProperties(CatalogHandle catalogHandle, ConnectorTransactionHandle transaction, ConnectorTableProperties tableProperties)
     {
-        requireNonNull(catalogName, "catalogName is null");
+        requireNonNull(catalogHandle, "catalogHandle is null");
         requireNonNull(transaction, "transaction is null");
         requireNonNull(tableProperties, "tableProperties is null");
 
-        this.catalogName = catalogName;
+        this.catalogHandle = catalogHandle;
         this.transaction = transaction;
         this.tableProperties = tableProperties;
     }
@@ -62,7 +62,7 @@ public class TableProperties
         return tableProperties.getTablePartitioning()
                 .map(nodePartitioning -> new TablePartitioning(
                         new PartitioningHandle(
-                                Optional.of(catalogName),
+                                Optional.of(catalogHandle),
                                 Optional.of(transaction),
                                 nodePartitioning.getPartitioningHandle()),
                         nodePartitioning.getPartitioningColumns()));

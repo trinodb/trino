@@ -50,7 +50,7 @@ public class CassandraTableHandle
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
-        this.partitions = requireNonNull(partitions, "partitions is null").map(ImmutableList::copyOf);
+        this.partitions = partitions.map(ImmutableList::copyOf);
         this.clusteringKeyPredicates = requireNonNull(clusteringKeyPredicates, "clusteringKeyPredicates is null");
     }
 

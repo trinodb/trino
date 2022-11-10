@@ -36,12 +36,13 @@ import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.HiveType.toHiveType;
-import static io.trino.plugin.hive.HiveUpdateProcessor.getUpdateRowIdColumnHandle;
+import static io.trino.plugin.hive.HiveUpdateProcessor.getRowIdColumnHandleForNonUpdatedColumns;
 import static io.trino.plugin.hive.acid.AcidSchema.ACID_ROW_ID_ROW_TYPE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -52,7 +53,7 @@ import static java.util.Objects.requireNonNull;
 public class HiveColumnHandle
         implements ColumnHandle
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(HiveColumnHandle.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(HiveColumnHandle.class).instanceSize());
 
     public static final int PATH_COLUMN_INDEX = -11;
     public static final String PATH_COLUMN_NAME = "$path";
@@ -271,7 +272,12 @@ public class HiveColumnHandle
         List<HiveColumnHandle> nonUpdatedColumnHandles = columnHandles.stream()
                 .filter(column -> !column.isPartitionKey() && !column.isHidden() && !updatedColumns.contains(column))
                 .collect(toImmutableList());
-        return getUpdateRowIdColumnHandle(nonUpdatedColumnHandles);
+        return getRowIdColumnHandleForNonUpdatedColumns(nonUpdatedColumnHandles);
+    }
+
+    public static HiveColumnHandle mergeRowIdColumnHandle()
+    {
+        return createBaseColumn(UPDATE_ROW_ID_COLUMN_NAME, UPDATE_ROW_ID_COLUMN_INDEX, toHiveType(ACID_ROW_ID_ROW_TYPE), ACID_ROW_ID_ROW_TYPE, SYNTHESIZED, Optional.empty());
     }
 
     public static HiveColumnHandle pathColumnHandle()

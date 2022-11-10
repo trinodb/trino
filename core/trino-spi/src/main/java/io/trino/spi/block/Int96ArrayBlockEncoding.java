@@ -121,7 +121,7 @@ public class Int96ArrayBlockEncoding
         if (block instanceof Int96ArrayBlock) {
             return ((Int96ArrayBlock) block).getHighSlice();
         }
-        else if (block instanceof Int96ArrayBlockBuilder) {
+        if (block instanceof Int96ArrayBlockBuilder) {
             return ((Int96ArrayBlockBuilder) block).getHighSlice();
         }
 
@@ -133,7 +133,7 @@ public class Int96ArrayBlockEncoding
         if (block instanceof Int96ArrayBlock) {
             return ((Int96ArrayBlock) block).getLowSlice();
         }
-        else if (block instanceof Int96ArrayBlockBuilder) {
+        if (block instanceof Int96ArrayBlockBuilder) {
             return ((Int96ArrayBlockBuilder) block).getLowSlice();
         }
 

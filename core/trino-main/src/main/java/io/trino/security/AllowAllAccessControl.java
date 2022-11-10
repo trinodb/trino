@@ -145,6 +145,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanSetViewComment(SecurityContext context, QualifiedObjectName viewName)
+    {
+    }
+
+    @Override
     public void checkCanSetColumnComment(SecurityContext context, QualifiedObjectName tableName)
     {
     }
@@ -263,6 +268,11 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption)
+    {
+    }
+
+    @Override
+    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName, Identity grantee, boolean grantOption)
     {
     }
 

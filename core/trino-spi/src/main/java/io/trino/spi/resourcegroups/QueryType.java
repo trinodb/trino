@@ -24,4 +24,5 @@ public enum QueryType
     ANALYZE,
     DATA_DEFINITION,
     ALTER_TABLE_EXECUTE,
+    MERGE,
 }

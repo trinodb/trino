@@ -19,13 +19,14 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 public class SingleRowBlockWriter
         extends AbstractSingleRowBlock
         implements BlockBuilder
 {
-    public static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleRowBlockWriter.class).instanceSize();
+    public static final int INSTANCE_SIZE = toIntExact(toIntExact(ClassLayout.parseClass(SingleRowBlockWriter.class).instanceSize()));
 
     private final BlockBuilder[] fieldBlockBuilders;
 
@@ -110,7 +111,7 @@ public class SingleRowBlockWriter
         for (BlockBuilder fieldBlockBuilder : fieldBlockBuilders) {
             consumer.accept(fieldBlockBuilder, fieldBlockBuilder.getRetainedSizeInBytes());
         }
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -205,7 +206,7 @@ public class SingleRowBlockWriter
     }
 
     @Override
-    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
+    public BlockBuilder newBlockBuilderLike(int expectedEntries, BlockBuilderStatus blockBuilderStatus)
     {
         throw new UnsupportedOperationException();
     }
@@ -216,9 +217,7 @@ public class SingleRowBlockWriter
         if (!fieldBlockBuilderReturned) {
             return format("SingleRowBlockWriter{numFields=%d, fieldBlockBuilderReturned=false, positionCount=%d}", fieldBlockBuilders.length, getPositionCount());
         }
-        else {
-            return format("SingleRowBlockWriter{numFields=%d, fieldBlockBuilderReturned=true}", fieldBlockBuilders.length);
-        }
+        return format("SingleRowBlockWriter{numFields=%d, fieldBlockBuilderReturned=true}", fieldBlockBuilders.length);
     }
 
     void setRowIndex(int rowIndex)

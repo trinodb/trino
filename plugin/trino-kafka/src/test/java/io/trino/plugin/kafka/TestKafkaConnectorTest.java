@@ -49,10 +49,10 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.trino.spi.type.TimestampType.TIMESTAMP;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
@@ -155,22 +155,29 @@ public class TestKafkaConnectorTest
         return queryRunner;
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_ADD_COLUMN:
-            case SUPPORTS_DROP_COLUMN:
-            case SUPPORTS_CREATE_SCHEMA:
-            case SUPPORTS_CREATE_TABLE:
-            case SUPPORTS_CREATE_TABLE_WITH_DATA:
-            case SUPPORTS_DELETE:
-            case SUPPORTS_COMMENT_ON_TABLE:
-            case SUPPORTS_COMMENT_ON_COLUMN:
-            case SUPPORTS_RENAME_TABLE:
-            case SUPPORTS_RENAME_COLUMN:
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
+
+            case SUPPORTS_CREATE_SCHEMA:
+                return false;
+
+            case SUPPORTS_CREATE_TABLE:
+            case SUPPORTS_RENAME_TABLE:
+                return false;
+
+            case SUPPORTS_ADD_COLUMN:
+            case SUPPORTS_RENAME_COLUMN:
+                return false;
+
+            case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_COMMENT_ON_COLUMN:
+                return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
@@ -547,33 +554,33 @@ public class TestKafkaConnectorTest
                 .add(JsonDateTimeTestCase.builder()
                         .setTopicName(JSON_CUSTOM_DATE_TIME_TABLE_NAME)
                         .addField(DATE, CUSTOM_DATE_TIME.toString(), "yyyy-MM-dd", "DATE '2020-07-15'")
-                        .addField(TIME, CUSTOM_DATE_TIME.toString(), "HH:mm:ss.SSS", "TIME '01:02:03.456'")
+                        .addField(TIME_MILLIS, CUSTOM_DATE_TIME.toString(), "HH:mm:ss.SSS", "TIME '01:02:03.456'")
                         .addField(TIME_WITH_TIME_ZONE, CUSTOM_DATE_TIME.toString(), "HH:mm:ss.SSS Z", "TIME '01:02:03.456 -04:00'")
-                        .addField(TIMESTAMP, CUSTOM_DATE_TIME.toString(), "yyyy-dd-MM HH:mm:ss.SSS", "TIMESTAMP '2020-07-15 01:02:03.456'")
-                        .addField(TIMESTAMP_WITH_TIME_ZONE, CUSTOM_DATE_TIME.toString(), "yyyy-dd-MM HH:mm:ss.SSS Z", "TIMESTAMP '2020-07-15 01:02:03.456 -04:00'")
+                        .addField(TIMESTAMP_MILLIS, CUSTOM_DATE_TIME.toString(), "yyyy-dd-MM HH:mm:ss.SSS", "TIMESTAMP '2020-07-15 01:02:03.456'")
+                        .addField(TIMESTAMP_TZ_MILLIS, CUSTOM_DATE_TIME.toString(), "yyyy-dd-MM HH:mm:ss.SSS Z", "TIMESTAMP '2020-07-15 01:02:03.456 -04:00'")
                         .build())
                 .add(JsonDateTimeTestCase.builder()
                         .setTopicName(JSON_ISO8601_TABLE_NAME)
                         .addField(DATE, ISO8601.toString(), "DATE '2020-07-15'")
-                        .addField(TIME, ISO8601.toString(), "TIME '01:02:03.456'")
+                        .addField(TIME_MILLIS, ISO8601.toString(), "TIME '01:02:03.456'")
                         .addField(TIME_WITH_TIME_ZONE, ISO8601.toString(), "TIME '01:02:03.456 -04:00'")
-                        .addField(TIMESTAMP, ISO8601.toString(), "TIMESTAMP '2020-07-15 01:02:03.456'")
-                        .addField(TIMESTAMP_WITH_TIME_ZONE, ISO8601.toString(), "TIMESTAMP '2020-07-15 01:02:03.456 -04:00'")
+                        .addField(TIMESTAMP_MILLIS, ISO8601.toString(), "TIMESTAMP '2020-07-15 01:02:03.456'")
+                        .addField(TIMESTAMP_TZ_MILLIS, ISO8601.toString(), "TIMESTAMP '2020-07-15 01:02:03.456 -04:00'")
                         .build())
                 .add(JsonDateTimeTestCase.builder()
                         .setTopicName(JSON_RFC2822_TABLE_NAME)
-                        .addField(TIMESTAMP, RFC2822.toString(), "TIMESTAMP '2020-07-15 01:02:03'")
-                        .addField(TIMESTAMP_WITH_TIME_ZONE, RFC2822.toString(), "TIMESTAMP '2020-07-15 01:02:03 -04:00'")
+                        .addField(TIMESTAMP_MILLIS, RFC2822.toString(), "TIMESTAMP '2020-07-15 01:02:03'")
+                        .addField(TIMESTAMP_TZ_MILLIS, RFC2822.toString(), "TIMESTAMP '2020-07-15 01:02:03 -04:00'")
                         .build())
                 .add(JsonDateTimeTestCase.builder()
                         .setTopicName(JSON_MILLISECONDS_TABLE_NAME)
-                        .addField(TIME, MILLISECONDS_SINCE_EPOCH.toString(), "TIME '01:02:03.456'")
-                        .addField(TIMESTAMP, MILLISECONDS_SINCE_EPOCH.toString(), "TIMESTAMP '2020-07-15 01:02:03.456'")
+                        .addField(TIME_MILLIS, MILLISECONDS_SINCE_EPOCH.toString(), "TIME '01:02:03.456'")
+                        .addField(TIMESTAMP_MILLIS, MILLISECONDS_SINCE_EPOCH.toString(), "TIMESTAMP '2020-07-15 01:02:03.456'")
                         .build())
                 .add(JsonDateTimeTestCase.builder()
                         .setTopicName(JSON_SECONDS_TABLE_NAME)
-                        .addField(TIME, SECONDS_SINCE_EPOCH.toString(), "TIME '01:02:03'")
-                        .addField(TIMESTAMP, SECONDS_SINCE_EPOCH.toString(), "TIMESTAMP '2020-07-15 01:02:03'")
+                        .addField(TIME_MILLIS, SECONDS_SINCE_EPOCH.toString(), "TIME '01:02:03'")
+                        .addField(TIMESTAMP_MILLIS, SECONDS_SINCE_EPOCH.toString(), "TIMESTAMP '2020-07-15 01:02:03'")
                         .build())
                 .build();
     }

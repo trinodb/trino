@@ -24,17 +24,17 @@ import io.trino.json.JsonPathInvocationContext;
 import io.trino.json.PathEvaluationError;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.TypedValue;
-import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionManager;
-import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Metadata;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
-import io.trino.operator.scalar.ChoicesScalarFunctionImplementation;
-import io.trino.operator.scalar.ScalarFunctionImplementation;
+import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
+import io.trino.operator.scalar.SpecializedSqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
@@ -102,7 +102,7 @@ public class JsonQueryFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         Type parametersRowType = boundSignature.getArgumentType(2);
         MethodHandle methodHandle = METHOD_HANDLE
@@ -111,7 +111,7 @@ public class JsonQueryFunction
                 .bindTo(typeManager)
                 .bindTo(parametersRowType);
         MethodHandle instanceFactory = constructorMethodHandle(JsonPathInvocationContext.class);
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 NULLABLE_RETURN,
                 ImmutableList.of(BOXED_NULLABLE, BOXED_NULLABLE, BOXED_NULLABLE, NEVER_NULL, NEVER_NULL, NEVER_NULL),

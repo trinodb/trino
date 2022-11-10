@@ -838,10 +838,10 @@ public class TestDomainTranslator
         // we expect TupleDomain.all here().
         // see comment in DomainTranslator.Visitor.visitComparisonExpression()
         assertUnsupportedPredicate(equal(
-                new Cast(C_TIMESTAMP.toSymbolReference(), toSqlType(DATE)),
+                cast(C_TIMESTAMP, DATE),
                 toExpression(DATE_VALUE, DATE)));
         assertUnsupportedPredicate(equal(
-                new Cast(C_DECIMAL_12_2.toSymbolReference(), toSqlType(BIGINT)),
+                cast(C_DECIMAL_12_2, BIGINT),
                 bigintLiteral(135L)));
     }
 
@@ -849,19 +849,19 @@ public class TestDomainTranslator
     public void testNoSaturatedFloorCastFromUnsupportedApproximateDomain()
     {
         assertUnsupportedPredicate(equal(
-                new Cast(C_DECIMAL_12_2.toSymbolReference(), toSqlType(DOUBLE)),
+                cast(C_DECIMAL_12_2, DOUBLE),
                 toExpression(12345.56, DOUBLE)));
 
         assertUnsupportedPredicate(equal(
-                new Cast(C_BIGINT.toSymbolReference(), toSqlType(DOUBLE)),
+                cast(C_BIGINT, DOUBLE),
                 toExpression(12345.56, DOUBLE)));
 
         assertUnsupportedPredicate(equal(
-                new Cast(C_BIGINT.toSymbolReference(), toSqlType(REAL)),
+                cast(C_BIGINT, REAL),
                 toExpression(realValue(12345.56f), REAL)));
 
         assertUnsupportedPredicate(equal(
-                new Cast(C_INTEGER.toSymbolReference(), toSqlType(REAL)),
+                cast(C_INTEGER, REAL),
                 toExpression(realValue(12345.56f), REAL)));
     }
 
@@ -999,6 +999,90 @@ public class TestDomainTranslator
                 tupleDomain(C_INTEGER, Domain.create(ValueSet.ofRanges(Range.equal(INTEGER, 2L)), false)));
 
         assertPredicateIsAlwaysFalse(not(isDistinctFrom(cast(C_INTEGER, DOUBLE), doubleLiteral(2.1))));
+    }
+
+    @Test
+    public void testPredicateWithVarcharCastToDate()
+    {
+        // =
+        assertPredicateDerives(
+                equal(cast(C_VARCHAR, DATE), new GenericLiteral("DATE", " +2005-9-10  \t")),
+                tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
+                                Range.lessThan(VARCHAR, utf8Slice("1")),
+                                Range.range(VARCHAR, utf8Slice("2005-09-10"), true, utf8Slice("2005-09-11"), false),
+                                Range.range(VARCHAR, utf8Slice("2005-9-10"), true, utf8Slice("2005-9-11"), false),
+                                Range.greaterThan(VARCHAR, utf8Slice("9"))),
+                        false)));
+        // = with day ending with 9
+        assertPredicateDerives(
+                equal(cast(C_VARCHAR, DATE), new GenericLiteral("DATE", "2005-09-09")),
+                tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
+                                Range.lessThan(VARCHAR, utf8Slice("1")),
+                                Range.range(VARCHAR, utf8Slice("2005-09-09"), true, utf8Slice("2005-09-0:"), false),
+                                Range.range(VARCHAR, utf8Slice("2005-09-9"), true, utf8Slice("2005-09-:"), false),
+                                Range.range(VARCHAR, utf8Slice("2005-9-09"), true, utf8Slice("2005-9-0:"), false),
+                                Range.range(VARCHAR, utf8Slice("2005-9-9"), true, utf8Slice("2005-9-:"), false),
+                                Range.greaterThan(VARCHAR, utf8Slice("9"))),
+                        false)));
+        assertPredicateDerives(
+                equal(cast(C_VARCHAR, DATE), new GenericLiteral("DATE", "2005-09-19")),
+                tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
+                                Range.lessThan(VARCHAR, utf8Slice("1")),
+                                Range.range(VARCHAR, utf8Slice("2005-09-19"), true, utf8Slice("2005-09-1:"), false),
+                                Range.range(VARCHAR, utf8Slice("2005-9-19"), true, utf8Slice("2005-9-1:"), false),
+                                Range.greaterThan(VARCHAR, utf8Slice("9"))),
+                        false)));
+
+        // !=
+        assertPredicateDerives(
+                notEqual(cast(C_VARCHAR, DATE), new GenericLiteral("DATE", " +2005-9-10  \t")),
+                tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
+                                Range.lessThan(VARCHAR, utf8Slice("2005-09-10")),
+                                Range.range(VARCHAR, utf8Slice("2005-09-11"), true, utf8Slice("2005-9-10"), false),
+                                Range.greaterThanOrEqual(VARCHAR, utf8Slice("2005-9-11"))),
+                        false)));
+
+        // != with single-digit day
+        assertUnsupportedPredicate(
+                notEqual(cast(C_VARCHAR, DATE), new GenericLiteral("DATE", " +2005-9-2  \t")));
+        // != with day ending with 9
+        assertUnsupportedPredicate(
+                notEqual(cast(C_VARCHAR, DATE), new GenericLiteral("DATE", "2005-09-09")));
+        assertPredicateDerives(
+                notEqual(cast(C_VARCHAR, DATE), new GenericLiteral("DATE", "2005-09-19")),
+                tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
+                                Range.lessThan(VARCHAR, utf8Slice("2005-09-19")),
+                                Range.range(VARCHAR, utf8Slice("2005-09-1:"), true, utf8Slice("2005-9-19"), false),
+                                Range.greaterThanOrEqual(VARCHAR, utf8Slice("2005-9-1:"))),
+                        false)));
+
+        // <
+        assertPredicateDerives(
+                lessThan(cast(C_VARCHAR, DATE), new GenericLiteral("DATE", " +2005-9-10  \t")),
+                tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
+                                Range.lessThan(VARCHAR, utf8Slice("2006")),
+                                Range.greaterThan(VARCHAR, utf8Slice("9"))),
+                        false)));
+
+        // >
+        assertPredicateDerives(
+                greaterThan(cast(C_VARCHAR, DATE), new GenericLiteral("DATE", " +2005-9-10  \t")),
+                tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
+                                Range.lessThan(VARCHAR, utf8Slice("1")),
+                                Range.greaterThan(VARCHAR, utf8Slice("2004"))),
+                        false)));
+
+        // BETWEEN
+        assertPredicateTranslates(
+                between(cast(C_VARCHAR, DATE), new GenericLiteral("DATE", "2001-01-31"), new GenericLiteral("DATE", "2005-09-10")),
+                tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
+                                Range.lessThan(VARCHAR, utf8Slice("1")),
+                                Range.range(VARCHAR, utf8Slice("2000"), false, utf8Slice("2006"), false),
+                                Range.greaterThan(VARCHAR, utf8Slice("9"))),
+                        false)),
+                and(
+                        greaterThanOrEqual(cast(C_VARCHAR, DATE), new GenericLiteral("DATE", "2001-01-31")),
+                        lessThanOrEqual(cast(C_VARCHAR, DATE), new GenericLiteral("DATE", "2005-09-10"))));
     }
 
     @Test
@@ -1909,6 +1993,11 @@ public class TestDomainTranslator
     private void assertPredicateTranslates(Expression expression, TupleDomain<Symbol> tupleDomain)
     {
         assertPredicateTranslates(expression, tupleDomain, TRUE_LITERAL);
+    }
+
+    private void assertPredicateDerives(Expression expression, TupleDomain<Symbol> tupleDomain)
+    {
+        assertPredicateTranslates(expression, tupleDomain, expression);
     }
 
     private void assertPredicateTranslates(Expression expression, TupleDomain<Symbol> tupleDomain, Expression remainingExpression)

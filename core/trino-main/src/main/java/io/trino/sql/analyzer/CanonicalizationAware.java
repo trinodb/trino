@@ -99,7 +99,7 @@ public class CanonicalizationAware<T extends Node>
         if (node instanceof Identifier) {
             return OptionalInt.of(((Identifier) node).getCanonicalValue().hashCode());
         }
-        else if (node.getChildren().isEmpty()) {
+        if (node.getChildren().isEmpty()) {
             return OptionalInt.of(node.hashCode());
         }
         return OptionalInt.empty();

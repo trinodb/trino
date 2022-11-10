@@ -18,6 +18,7 @@ import com.google.inject.Provides;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.authentication.CachingKerberosAuthentication;
 import io.trino.plugin.base.authentication.KerberosAuthentication;
+import io.trino.plugin.base.authentication.KerberosConfiguration;
 import io.trino.plugin.kudu.schema.NoSchemaEmulation;
 import io.trino.plugin.kudu.schema.SchemaEmulation;
 import io.trino.plugin.kudu.schema.SchemaEmulationByTableNameConvention;
@@ -32,7 +33,6 @@ import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.base.util.SystemProperties.setJavaSecurityKrb5Conf;
 import static io.trino.plugin.kudu.KuduAuthenticationConfig.KuduAuthenticationType.KERBEROS;
 import static io.trino.plugin.kudu.KuduAuthenticationConfig.KuduAuthenticationType.NONE;
-import static java.util.Objects.requireNonNull;
 import static org.apache.kudu.client.KuduClient.KuduClientBuilder;
 
 public class KuduSecurityModule
@@ -88,7 +88,11 @@ public class KuduSecurityModule
                     builder -> {
                         kuduKerberosConfig.getKuduPrincipalPrimary().ifPresent(builder::saslProtocolName);
                         setJavaSecurityKrb5Conf(kuduKerberosConfig.getConfig().getAbsolutePath());
-                        KerberosAuthentication kerberosAuthentication = new KerberosAuthentication(kuduKerberosConfig.getClientPrincipal(), kuduKerberosConfig.getClientKeytab().getAbsolutePath());
+                        KerberosAuthentication kerberosAuthentication = new KerberosAuthentication(
+                                new KerberosConfiguration.Builder()
+                                        .withKerberosPrincipal(kuduKerberosConfig.getClientPrincipal())
+                                        .withKeytabLocation(kuduKerberosConfig.getClientKeytab().getAbsolutePath())
+                                        .build());
                         CachingKerberosAuthentication cachingKerberosAuthentication = new CachingKerberosAuthentication(kerberosAuthentication);
                         return new KerberizedKuduClient(builder, cachingKerberosAuthentication);
                     });
@@ -97,8 +101,6 @@ public class KuduSecurityModule
 
     private static KuduClientSession createKuduClientSession(KuduClientConfig config, Function<KuduClientBuilder, KuduClientWrapper> kuduClientFactory)
     {
-        requireNonNull(config, "config is null");
-
         KuduClient.KuduClientBuilder builder = new KuduClientBuilder(config.getMasterAddresses());
         builder.defaultAdminOperationTimeoutMs(config.getDefaultAdminOperationTimeout().toMillis());
         builder.defaultOperationTimeoutMs(config.getDefaultOperationTimeout().toMillis());

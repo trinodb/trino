@@ -16,7 +16,6 @@ package io.trino.plugin.hive.metastore.thrift;
 import com.google.common.net.HostAndPort;
 import io.airlift.security.pem.PemReader;
 import io.airlift.units.Duration;
-import io.trino.plugin.hive.authentication.HiveMetastoreAuthentication;
 import io.trino.spi.NodeManager;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
@@ -43,6 +42,7 @@ import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.lang.Math.toIntExact;
 import static java.util.Collections.list;
@@ -56,6 +56,11 @@ public class DefaultThriftMetastoreClientFactory
     private final int timeoutMillis;
     private final HiveMetastoreAuthentication metastoreAuthentication;
     private final String hostname;
+
+    private final MetastoreSupportsDateStatistics metastoreSupportsDateStatistics = new MetastoreSupportsDateStatistics();
+    private final AtomicInteger chosenGetTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
+    private final AtomicInteger chosenTableParamAlternative = new AtomicInteger(Integer.MAX_VALUE);
+    private final AtomicInteger chosenGetAllViewsAlternative = new AtomicInteger(Integer.MAX_VALUE);
 
     public DefaultThriftMetastoreClientFactory(
             Optional<SSLContext> sslContext,
@@ -101,7 +106,11 @@ public class DefaultThriftMetastoreClientFactory
     {
         return new ThriftHiveMetastoreClient(
                 transport,
-                hostname);
+                hostname,
+                metastoreSupportsDateStatistics,
+                chosenGetTableAlternative,
+                chosenTableParamAlternative,
+                chosenGetAllViewsAlternative);
     }
 
     private TTransport createTransport(HostAndPort address, Optional<String> delegationToken)

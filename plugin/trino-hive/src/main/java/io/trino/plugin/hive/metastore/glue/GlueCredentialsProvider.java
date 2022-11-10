@@ -18,12 +18,14 @@ import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
+import com.amazonaws.client.builder.AwsClientBuilder;
+import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClientBuilder;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
 
+import static io.trino.plugin.hive.aws.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public class GlueCredentialsProvider
         implements Provider<AWSCredentialsProvider>
@@ -33,7 +35,6 @@ public class GlueCredentialsProvider
     @Inject
     public GlueCredentialsProvider(GlueHiveMetastoreConfig config)
     {
-        requireNonNull(config, "config is null");
         if (config.getAwsCredentialsProvider().isPresent()) {
             this.credentialsProvider = getCustomAWSCredentialsProvider(config.getAwsCredentialsProvider().get());
         }
@@ -47,10 +48,24 @@ public class GlueCredentialsProvider
                 provider = DefaultAWSCredentialsProviderChain.getInstance();
             }
             if (config.getIamRole().isPresent()) {
+                AWSSecurityTokenServiceClientBuilder stsClientBuilder = AWSSecurityTokenServiceClientBuilder
+                        .standard()
+                        .withCredentials(provider);
+
+                if (config.getGlueStsEndpointUrl().isPresent() && config.getGlueStsRegion().isPresent()) {
+                    stsClientBuilder.setEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(config.getGlueStsEndpointUrl().get(), config.getGlueStsRegion().get()));
+                }
+                else if (config.getGlueStsRegion().isPresent()) {
+                    stsClientBuilder.setRegion(config.getGlueStsRegion().get());
+                }
+                else if (config.getPinGlueClientToCurrentRegion()) {
+                    stsClientBuilder.setRegion(getCurrentRegionFromEC2Metadata().getName());
+                }
+
                 provider = new STSAssumeRoleSessionCredentialsProvider
                         .Builder(config.getIamRole().get(), "trino-session")
                         .withExternalId(config.getExternalId().orElse(null))
-                        .withLongLivedCredentialsProvider(provider)
+                        .withStsClient(stsClientBuilder.build())
                         .build();
             }
             this.credentialsProvider = provider;

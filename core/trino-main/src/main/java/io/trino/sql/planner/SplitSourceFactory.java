@@ -30,6 +30,7 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
+import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
@@ -39,6 +40,8 @@ import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.MergeProcessorNode;
+import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -225,6 +228,12 @@ public class SplitSourceFactory
         }
 
         @Override
+        public Map<PlanNodeId, SplitSource> visitDynamicFilterSource(DynamicFilterSourceNode node, Void context)
+        {
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
         public Map<PlanNodeId, SplitSource> visitRemoteSource(RemoteSourceNode node, Void context)
         {
             // remote source node does not have splits
@@ -252,21 +261,20 @@ public class SplitSourceFactory
         @Override
         public Map<PlanNodeId, SplitSource> visitSample(SampleNode node, Void context)
         {
-            switch (node.getSampleType()) {
-                case BERNOULLI:
-                    return node.getSource().accept(this, context);
-                case SYSTEM:
+            return switch (node.getSampleType()) {
+                case BERNOULLI -> node.getSource().accept(this, context);
+                case SYSTEM -> {
                     Map<PlanNodeId, SplitSource> nodeSplits = node.getSource().accept(this, context);
                     // TODO: when this happens we should switch to either BERNOULLI or page sampling
                     if (nodeSplits.size() == 1) {
                         PlanNodeId planNodeId = getOnlyElement(nodeSplits.keySet());
                         SplitSource sampledSplitSource = new SampledSplitSource(nodeSplits.get(planNodeId), node.getSampleRatio());
-                        return ImmutableMap.of(planNodeId, sampledSplitSource);
+                        yield ImmutableMap.of(planNodeId, sampledSplitSource);
                     }
                     // table sampling on a sub query without splits is meaningless
-                    return nodeSplits;
-            }
-            throw new UnsupportedOperationException("Sampling is not supported for type " + node.getSampleType());
+                    yield nodeSplits;
+                }
+            };
         }
 
         @Override
@@ -398,6 +406,18 @@ public class SplitSourceFactory
 
         @Override
         public Map<PlanNodeId, SplitSource> visitUpdate(UpdateNode node, Void context)
+        {
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Map<PlanNodeId, SplitSource> visitMergeWriter(MergeWriterNode node, Void context)
+        {
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Map<PlanNodeId, SplitSource> visitMergeProcessor(MergeProcessorNode node, Void context)
         {
             return node.getSource().accept(this, context);
         }

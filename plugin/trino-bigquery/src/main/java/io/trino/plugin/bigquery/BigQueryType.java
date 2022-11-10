@@ -23,7 +23,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
-import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -40,6 +39,8 @@ import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+
+import javax.annotation.Nullable;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -59,7 +60,6 @@ import static io.trino.plugin.bigquery.BigQueryMetadata.DEFAULT_NUMERIC_TYPE_PRE
 import static io.trino.plugin.bigquery.BigQueryMetadata.DEFAULT_NUMERIC_TYPE_SCALE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.DecimalType.createDecimalType;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.TimeWithTimeZoneType.DEFAULT_PRECISION;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
@@ -175,8 +175,8 @@ public enum BigQueryType
     @VisibleForTesting
     public static String dateToStringConverter(Object value)
     {
-        LocalDate date = LocalDate.ofEpochDay(((Long) value).longValue());
-        return quote(date.toString());
+        LocalDate date = LocalDate.ofEpochDay((long) value);
+        return "'" + date + "'";
     }
 
     private static String datetimeToStringConverter(Object value)
@@ -213,7 +213,7 @@ public enum BigQueryType
         return DATETIME_FORMATTER.format(toZonedDateTime(epochSeconds, nanoAdjustment, zoneId));
     }
 
-    private static ZonedDateTime toZonedDateTime(long epochSeconds, long nanoAdjustment, ZoneId zoneId)
+    public static ZonedDateTime toZonedDateTime(long epochSeconds, long nanoAdjustment, ZoneId zoneId)
     {
         Instant instant = Instant.ofEpochSecond(epochSeconds, nanoAdjustment);
         return ZonedDateTime.ofInstant(instant, zoneId);
@@ -222,8 +222,10 @@ public enum BigQueryType
     static String stringToStringConverter(Object value)
     {
         Slice slice = (Slice) value;
-        // TODO (https://github.com/trinodb/trino/issues/7900) Add support for all String and Bytes literals
-        return quote(slice.toStringUtf8().replace("'", "\\'"));
+        return "'%s'".formatted(slice.toStringUtf8()
+                .replace("\\", "\\\\")
+                .replace("\n", "\\n")
+                .replace("'", "\\'"));
     }
 
     static String numericToStringConverter(Object value)
@@ -237,23 +239,23 @@ public enum BigQueryType
         return format("FROM_BASE64('%s')", Base64.getEncoder().encodeToString(slice.getBytes()));
     }
 
-    public static Field toField(String name, Type type)
+    public static Field toField(String name, Type type, @Nullable String comment)
     {
         if (type instanceof ArrayType) {
             Type elementType = ((ArrayType) type).getElementType();
-            return toInnerField(name, elementType, true);
+            return toInnerField(name, elementType, true, comment);
         }
-        return toInnerField(name, type, false);
+        return toInnerField(name, type, false, comment);
     }
 
-    private static Field toInnerField(String name, Type type, boolean repeated)
+    private static Field toInnerField(String name, Type type, boolean repeated, @Nullable String comment)
     {
         Field.Builder builder;
         if (type instanceof RowType) {
-            builder = Field.newBuilder(name, StandardSQLTypeName.STRUCT, toFieldList((RowType) type));
+            builder = Field.newBuilder(name, StandardSQLTypeName.STRUCT, toFieldList((RowType) type)).setDescription(comment);
         }
         else {
-            builder = Field.newBuilder(name, toStandardSqlTypeName(type));
+            builder = Field.newBuilder(name, toStandardSqlTypeName(type)).setDescription(comment);
         }
         if (repeated) {
             builder = builder.setMode(REPEATED);
@@ -267,7 +269,7 @@ public enum BigQueryType
         for (RowType.Field field : rowType.getFields()) {
             String fieldName = field.getName()
                     .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "ROW type does not have field names declared: " + rowType));
-            fields.add(toField(fieldName, field.getType()));
+            fields.add(toField(fieldName, field.getType(), null));
         }
         return FieldList.of(fields.build());
     }
@@ -298,7 +300,7 @@ public enum BigQueryType
         if (type == TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS) {
             return StandardSQLTypeName.TIMESTAMP;
         }
-        if (type instanceof CharType || type instanceof VarcharType) {
+        if (type instanceof VarcharType) {
             return StandardSQLTypeName.STRING;
         }
         if (type == VarbinaryType.VARBINARY) {
@@ -313,20 +315,15 @@ public enum BigQueryType
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
-    private static String quote(String value)
-    {
-        return "'" + value + "'";
-    }
-
     public Optional<String> convertToString(Type type, Object value)
     {
         if (type instanceof ArrayType) {
             return Optional.empty();
         }
-        if (type instanceof DecimalType) {
+        if (type instanceof DecimalType decimalType) {
             String bigqueryTypeName = this.toString();
             verify(bigqueryTypeName.equals("NUMERIC") || bigqueryTypeName.equals("BIGNUMERIC"), "Expected NUMERIC or BIGNUMERIC: %s", bigqueryTypeName);
-            if (isShortDecimal(type)) {
+            if (decimalType.isShort()) {
                 return Optional.of(format("%s '%s'", bigqueryTypeName, Decimals.toString((long) value, ((DecimalType) type).getScale())));
             }
             return Optional.of(format("%s '%s'", bigqueryTypeName, Decimals.toString((Int128) value, ((DecimalType) type).getScale())));

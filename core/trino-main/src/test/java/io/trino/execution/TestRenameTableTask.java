@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -37,7 +38,7 @@ public class TestRenameTableTask
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
         QualifiedObjectName newTableName = qualifiedObjectName("existing_view_new");
-        metadata.createTable(testSession, CATALOG_NAME, someTable(tableName), false);
+        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), false);
 
         getFutureValue(executeRenameTable(asQualifiedName(tableName), asQualifiedName(newTableName), false));
         assertThat(metadata.getTableHandle(testSession, tableName)).isEmpty();
@@ -93,7 +94,7 @@ public class TestRenameTableTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameTable(viewName, qualifiedName("existing_materialized_view_new"), false)))
                 .hasErrorCode(GENERIC_USER_ERROR)
-                .hasMessage("Table '%s' does not exist, but a materialized view with that name exists. Did you mean ALTER MATERIALIZED VIEW catalog.schema.existing_materialized_view RENAME TO ...?", viewName);
+                .hasMessage("Table '%s' does not exist, but a materialized view with that name exists. Did you mean ALTER MATERIALIZED VIEW test-catalog.schema.existing_materialized_view RENAME TO ...?", viewName);
     }
 
     @Test
@@ -104,14 +105,14 @@ public class TestRenameTableTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameTable(viewName, qualifiedName("existing_materialized_view_new"), true)))
                 .hasErrorCode(GENERIC_USER_ERROR)
-                .hasMessage("Table '%s' does not exist, but a materialized view with that name exists. Did you mean ALTER MATERIALIZED VIEW catalog.schema.existing_materialized_view RENAME TO ...?", viewName);
+                .hasMessage("Table '%s' does not exist, but a materialized view with that name exists. Did you mean ALTER MATERIALIZED VIEW test-catalog.schema.existing_materialized_view RENAME TO ...?", viewName);
     }
 
     @Test
     public void testRenameTableTargetViewExists()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(testSession, CATALOG_NAME, someTable(tableName), false);
+        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), false);
         QualifiedName viewName = qualifiedName("existing_view");
         metadata.createView(testSession, QualifiedObjectName.valueOf(viewName.toString()), someView(), false);
 
@@ -124,7 +125,7 @@ public class TestRenameTableTask
     public void testRenameTableTargetMaterializedViewExists()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(testSession, CATALOG_NAME, someTable(tableName), false);
+        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), false);
         QualifiedObjectName materializedViewName = qualifiedObjectName("existing_materialized_view");
         metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(), false, false);
 

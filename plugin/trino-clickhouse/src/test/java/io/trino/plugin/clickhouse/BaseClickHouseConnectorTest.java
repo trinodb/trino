@@ -33,12 +33,14 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ENGINE_PROPERTY;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ORDER_BY_PROPERTY;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.PARTITION_BY_PROPERTY;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.PRIMARY_KEY_PROPERTY;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.SAMPLE_BY_PROPERTY;
+import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
@@ -55,6 +57,7 @@ public abstract class BaseClickHouseConnectorTest
 {
     protected TestingClickHouseServer clickhouseServer;
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -64,14 +67,12 @@ public abstract class BaseClickHouseConnectorTest
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
+            case SUPPORTS_DELETE:
+                return false;
+
             case SUPPORTS_ARRAY:
             case SUPPORTS_ROW_TYPE:
-                return false;
-
             case SUPPORTS_NEGATIVE_DATE:
-                return false;
-
-            case SUPPORTS_DELETE:
                 return false;
 
             default:
@@ -91,6 +92,49 @@ public abstract class BaseClickHouseConnectorTest
     {
         // ClickHouse need resets all data in a column for specified column which to be renamed
         throw new SkipException("TODO: test not implemented yet");
+    }
+
+    @Override
+    public void testAddColumnWithCommentSpecialCharacter(String comment)
+    {
+        // Override because default storage engine doesn't support renaming columns
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column_", "(a_varchar varchar NOT NULL) WITH (engine = 'mergetree', order_by = ARRAY['a_varchar'])")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN b_varchar varchar COMMENT " + varcharLiteral(comment));
+            assertEquals(getColumnComment(table.getName(), "b_varchar"), comment);
+        }
+    }
+
+    @Override
+    public void testAddAndDropColumnName(String columnName)
+    {
+        // TODO: Enable this test
+        assertThatThrownBy(() -> super.testAddAndDropColumnName(columnName))
+                .hasMessageContaining("is not supported by storage Log");
+        throw new SkipException("TODO");
+    }
+
+    @Override
+    public void testRenameColumnName(String columnName)
+    {
+        // TODO: Enable this test
+        if (columnName.equals("a.dot")) {
+            assertThatThrownBy(() -> super.testRenameColumnName(columnName))
+                    .hasMessageContaining("Cannot rename column from nested struct to normal column");
+            throw new SkipException("TODO");
+        }
+        assertThatThrownBy(() -> super.testRenameColumnName(columnName))
+                .hasMessageContaining("is not supported by storage Log");
+        throw new SkipException("TODO");
+    }
+
+    @Override
+    protected Optional<String> filterColumnNameTestData(String columnName)
+    {
+        // TODO: Investigate why a\backslash allows creating a table, but it throws an exception when selecting
+        if (columnName.equals("a\\backslash`")) {
+            return Optional.empty();
+        }
+        return Optional.of(columnName);
     }
 
     @Override
@@ -164,6 +208,25 @@ public abstract class BaseClickHouseConnectorTest
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
+    @Override
+    public void testAddNotNullColumnToNonEmptyTable()
+    {
+        // Override because the default storage type doesn't support adding columns
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_notnull_col", "(a_varchar varchar NOT NULL)  WITH (engine = 'MergeTree', order_by = ARRAY['a_varchar'])")) {
+            String tableName = table.getName();
+
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar NOT NULL");
+            assertFalse(columnIsNullable(tableName, "b_varchar"));
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES ('a', 'b')", 1);
+
+            // ClickHouse set an empty character as the default value
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c_varchar varchar NOT NULL");
+            assertFalse(columnIsNullable(tableName, "c_varchar"));
+            assertQuery("SELECT c_varchar FROM " + tableName, "VALUES ''");
+        }
+    }
+
     @Test
     @Override
     public void testAddColumnWithComment()
@@ -178,6 +241,20 @@ public abstract class BaseClickHouseConnectorTest
             assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN empty_comment varchar COMMENT ''");
             assertNull(getColumnComment(tableName, "empty_comment"));
         }
+    }
+
+    @Override
+    public void testAlterTableAddLongColumnName()
+    {
+        // TODO: Find the maximum column name length in ClickHouse and enable this test.
+        throw new SkipException("TODO");
+    }
+
+    @Override
+    public void testAlterTableRenameColumnToLongName()
+    {
+        // TODO: Find the maximum column name length in ClickHouse and enable this test.
+        throw new SkipException("TODO");
     }
 
     @Test
@@ -543,18 +620,27 @@ public abstract class BaseClickHouseConnectorTest
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
             assertQueryFails(format("INSERT INTO %s (not_null_col, nullable_col) VALUES (NULL, 3)", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
         }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "not_null_no_cast", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL)")) {
+            assertUpdate(format("INSERT INTO %s (not_null_col) VALUES (2)", table.getName()), 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
+            // This is enforced by the engine and not the connector
+            assertQueryFails(format("INSERT INTO %s (not_null_col, nullable_col) VALUES (NULL, 3)", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
+            assertQueryFails(format("INSERT INTO %s (not_null_col, nullable_col) VALUES (TRY(5/0), 4)", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
+            assertQueryFails(format("INSERT INTO %s (not_null_col) VALUES (TRY(6/0))", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
+        }
     }
 
     @Override
     protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
     {
-        return "Date must be between 1970-01-01 and 2106-02-07 in ClickHouse: " + date;
+        return "Date must be between 1970-01-01 and 2149-06-06 in ClickHouse: " + date;
     }
 
     @Override
     protected String errorMessageForInsertNegativeDate(String date)
     {
-        return "Date must be between 1970-01-01 and 2106-02-07 in ClickHouse: " + date;
+        return "Date must be between 1970-01-01 and 2149-06-06 in ClickHouse: " + date;
     }
 
     @Test
@@ -565,7 +651,12 @@ public abstract class BaseClickHouseConnectorTest
         assertQuery("SELECT orderdate FROM orders WHERE orderdate = DATE '1997-09-14'", "VALUES DATE '1997-09-14'");
         assertQueryFails(
                 "SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'",
-                "Date must be between 1970-01-01 and 2106-02-07 in ClickHouse: -1996-09-14");
+                errorMessageForDateYearOfEraPredicate("-1996-09-14"));
+    }
+
+    protected String errorMessageForDateYearOfEraPredicate(String date)
+    {
+        return "Date must be between 1970-01-01 and 2149-06-06 in ClickHouse: " + date;
     }
 
     @Override
@@ -691,6 +782,84 @@ public abstract class BaseClickHouseConnectorTest
                 .hasMessageMatching("(?s).*(Cannot open file|File name too long).*");
         // ClickHouse lefts a table even if the above statement failed
         assertTrue(getQueryRunner().tableExists(getSession(), validTableName));
+    }
+
+    @Override
+    public void testRenameSchemaToLongName()
+    {
+        // Override because the max length is different from CREATE SCHEMA case
+        String sourceTableName = "test_rename_source_" + randomTableSuffix();
+        assertUpdate("CREATE SCHEMA " + sourceTableName);
+
+        String baseSchemaName = "test_rename_target_" + randomTableSuffix();
+
+        // The numeric value depends on file system
+        int maxLength = 255 - ".sql".length();
+
+        String validTargetSchemaName = baseSchemaName + "z".repeat(maxLength - baseSchemaName.length());
+        assertUpdate("ALTER SCHEMA " + sourceTableName + " RENAME TO " + validTargetSchemaName);
+        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains(validTargetSchemaName);
+        assertUpdate("DROP SCHEMA " + validTargetSchemaName);
+
+        assertUpdate("CREATE SCHEMA " + sourceTableName);
+        String invalidTargetSchemaName = validTargetSchemaName + "z";
+        assertThatThrownBy(() -> assertUpdate("ALTER SCHEMA " + sourceTableName + " RENAME TO " + invalidTargetSchemaName))
+                .satisfies(this::verifySchemaNameLengthFailurePermissible);
+        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain(invalidTargetSchemaName);
+    }
+
+    @Override
+    protected OptionalInt maxSchemaNameLength()
+    {
+        // The numeric value depends on file system
+        return OptionalInt.of(255 - ".sql.tmp".length());
+    }
+
+    @Override
+    protected void verifySchemaNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("File name too long");
+    }
+
+    @Override
+    public void testRenameTableToLongTableName()
+    {
+        // Override because ClickHouse connector can rename to a table which can't be dropped
+        String sourceTableName = "test_source_long_table_name_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
+
+        String baseTableName = "test_target_long_table_name_" + randomTableSuffix();
+        // The max length is different from CREATE TABLE case
+        String validTargetTableName = baseTableName + "z".repeat(255 - ".sql".length() - baseTableName.length());
+
+        assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + validTargetTableName);
+        assertTrue(getQueryRunner().tableExists(getSession(), validTargetTableName));
+        assertQuery("SELECT x FROM " + validTargetTableName, "VALUES 123");
+        assertThatThrownBy(() -> assertUpdate("DROP TABLE " + validTargetTableName))
+                .hasMessageMatching("(?s).*(Bad path syntax|File name too long).*");
+
+        assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
+        String invalidTargetTableName = validTargetTableName + "z";
+        assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + invalidTargetTableName))
+                .hasMessageMatching("(?s).*(Cannot rename|File name too long).*");
+        assertFalse(getQueryRunner().tableExists(getSession(), invalidTargetTableName));
+    }
+
+    @Test
+    public void testLargeDefaultDomainCompactionThreshold()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+        String propertyName = catalogName + "." + DOMAIN_COMPACTION_THRESHOLD;
+        assertQuery(
+                "SHOW SESSION LIKE '" + propertyName + "'",
+                "VALUES('" + propertyName + "','1000', '1000', 'integer', 'Maximum ranges to allow in a tuple domain without simplifying it')");
+    }
+
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        // The numeric value depends on file system
+        return OptionalInt.of(255 - ".sql.detached".length());
     }
 
     @Override

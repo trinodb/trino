@@ -24,8 +24,8 @@ import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.trino.spi.block.BlockUtil.calculateBlockResetSize;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
+import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
@@ -33,7 +33,7 @@ import static java.lang.Math.toIntExact;
 public class LongArrayBlockBuilder
         implements BlockBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongArrayBlockBuilder.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(LongArrayBlockBuilder.class).instanceSize());
     private static final Block NULL_VALUE_BLOCK = new LongArrayBlock(0, 1, new boolean[] {true}, new long[1]);
 
     @Nullable
@@ -103,15 +103,15 @@ public class LongArrayBlockBuilder
     public Block build()
     {
         if (!hasNonNullValue) {
-            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, positionCount);
+            return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, positionCount);
         }
         return new LongArrayBlock(0, positionCount, hasNullValue ? valueIsNull : null, values);
     }
 
     @Override
-    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
+    public BlockBuilder newBlockBuilderLike(int expectedEntries, BlockBuilderStatus blockBuilderStatus)
     {
-        return new LongArrayBlockBuilder(blockBuilderStatus, calculateBlockResetSize(positionCount));
+        return new LongArrayBlockBuilder(blockBuilderStatus, expectedEntries);
     }
 
     private void growCapacity()
@@ -179,7 +179,7 @@ public class LongArrayBlockBuilder
     {
         consumer.accept(values, sizeOf(values));
         consumer.accept(valueIsNull, sizeOf(valueIsNull));
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -191,7 +191,7 @@ public class LongArrayBlockBuilder
     @Override
     public long getLong(int position, int offset)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         if (offset != 0) {
             throw new IllegalArgumentException("offset must be zero");
         }
@@ -203,7 +203,7 @@ public class LongArrayBlockBuilder
     // TODO: Remove when we fix intermediate types on aggregations.
     public int getInt(int position, int offset)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         if (offset != 0) {
             throw new IllegalArgumentException("offset must be zero");
         }
@@ -215,7 +215,7 @@ public class LongArrayBlockBuilder
     // TODO: Remove when we fix intermediate types on aggregations.
     public short getShort(int position, int offset)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         if (offset != 0) {
             throw new IllegalArgumentException("offset must be zero");
         }
@@ -232,7 +232,7 @@ public class LongArrayBlockBuilder
     // TODO: Remove when we fix intermediate types on aggregations.
     public byte getByte(int position, int offset)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         if (offset != 0) {
             throw new IllegalArgumentException("offset must be zero");
         }
@@ -253,14 +253,14 @@ public class LongArrayBlockBuilder
     @Override
     public boolean isNull(int position)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return valueIsNull[position];
     }
 
     @Override
     public Block getSingleValueBlock(int position)
     {
-        checkReadablePosition(position);
+        checkReadablePosition(this, position);
         return new LongArrayBlock(
                 0,
                 1,
@@ -274,7 +274,7 @@ public class LongArrayBlockBuilder
         checkArrayRange(positions, offset, length);
 
         if (!hasNonNullValue) {
-            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
+            return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, length);
         }
         boolean[] newValueIsNull = null;
         if (hasNullValue) {
@@ -283,7 +283,7 @@ public class LongArrayBlockBuilder
         long[] newValues = new long[length];
         for (int i = 0; i < length; i++) {
             int position = positions[offset + i];
-            checkReadablePosition(position);
+            checkReadablePosition(this, position);
             if (hasNullValue) {
                 newValueIsNull[i] = valueIsNull[position];
             }
@@ -298,7 +298,7 @@ public class LongArrayBlockBuilder
         checkValidRegion(getPositionCount(), positionOffset, length);
 
         if (!hasNonNullValue) {
-            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
+            return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, length);
         }
         return new LongArrayBlock(positionOffset, length, hasNullValue ? valueIsNull : null, values);
     }
@@ -309,7 +309,7 @@ public class LongArrayBlockBuilder
         checkValidRegion(getPositionCount(), positionOffset, length);
 
         if (!hasNonNullValue) {
-            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
+            return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, length);
         }
         boolean[] newValueIsNull = null;
         if (hasNullValue) {
@@ -337,12 +337,5 @@ public class LongArrayBlockBuilder
     Slice getValuesSlice()
     {
         return Slices.wrappedLongArray(values, 0, positionCount);
-    }
-
-    private void checkReadablePosition(int position)
-    {
-        if (position < 0 || position >= getPositionCount()) {
-            throw new IllegalArgumentException("position is not valid");
-        }
     }
 }

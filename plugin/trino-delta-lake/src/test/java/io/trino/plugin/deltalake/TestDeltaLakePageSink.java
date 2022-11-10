@@ -14,11 +14,11 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.Files;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.NodeVersion;
@@ -39,10 +39,13 @@ import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -72,7 +75,7 @@ public class TestDeltaLakePageSink
     public void testPageSinkStats()
             throws Exception
     {
-        File tempDir = Files.createTempDir();
+        File tempDir = Files.createTempDirectory(null).toFile();
         try {
             DeltaLakeWriterStats stats = new DeltaLakeWriterStats();
             String tablePath = tempDir.getAbsolutePath() + "/test_table";
@@ -99,7 +102,7 @@ public class TestDeltaLakePageSink
                 }
             }
             Page page = pageBuilder.build();
-            pageSink.appendPage(page);
+            pageSink.appendPage(page).get(10, TimeUnit.SECONDS);
 
             JsonCodec<DataFileInfo> dataFileInfoCodec = new JsonCodecFactory().jsonCodec(DataFileInfo.class);
             Collection<Slice> fragments = getFutureValue(pageSink.finish());
@@ -169,8 +172,10 @@ public class TestDeltaLakePageSink
 
         DeltaLakePageSinkProvider provider = new DeltaLakePageSinkProvider(
                 new GroupByHashPageIndexerFactory(new JoinCompiler(new TypeOperators()), new BlockTypeOperators()),
+                new HdfsFileSystemFactory(HDFS_ENVIRONMENT),
                 HDFS_ENVIRONMENT,
                 JsonCodec.jsonCodec(DataFileInfo.class),
+                JsonCodec.jsonCodec(DeltaLakeMergeResult.class),
                 stats,
                 deltaLakeConfig,
                 new TestingTypeManager(),
@@ -187,6 +192,7 @@ public class TestDeltaLakePageSink
             handles.add(new DeltaLakeColumnHandle(
                     column.getColumnName(),
                     getTrinoType(column.getType()),
+                    OptionalInt.empty(),
                     column.getColumnName(),
                     getTrinoType(column.getType()),
                     REGULAR));

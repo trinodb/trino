@@ -32,6 +32,7 @@ import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.CONTRO
 import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.METADATA_SCHEMA_REFRESHED_KEYSPACES;
 import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.PROTOCOL_VERSION;
 import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.REQUEST_TIMEOUT;
+import static io.trino.plugin.cassandra.CassandraTestingUtils.CASSANDRA_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -51,13 +52,11 @@ public class TestingScyllaServer
     private final CassandraSession session;
 
     public TestingScyllaServer()
-            throws Exception
     {
         this("2.2.0");
     }
 
     public TestingScyllaServer(String version)
-            throws Exception
     {
         container = new GenericContainer<>("scylladb/scylla:" + version)
                 .withCommand("--smp", "1") // Limit SMP to run in a machine having many cores https://github.com/scylladb/scylla/issues/5638
@@ -73,11 +72,12 @@ public class TestingScyllaServer
 
         CqlSessionBuilder cqlSessionBuilder = CqlSession.builder()
                 .withApplicationName("TestCluster")
-                .addContactPoint(new InetSocketAddress(this.container.getContainerIpAddress(), this.container.getMappedPort(PORT)))
+                .addContactPoint(new InetSocketAddress(this.container.getHost(), this.container.getMappedPort(PORT)))
                 .withLocalDatacenter("datacenter1")
                 .withConfigLoader(config.build());
 
         session = new CassandraSession(
+                CASSANDRA_TYPE_MANAGER,
                 JsonCodec.listJsonCodec(ExtraColumnMetadata.class),
                 cqlSessionBuilder::build,
                 new Duration(1, MINUTES));
@@ -90,7 +90,7 @@ public class TestingScyllaServer
 
     public String getHost()
     {
-        return container.getContainerIpAddress();
+        return container.getHost();
     }
 
     public int getPort()

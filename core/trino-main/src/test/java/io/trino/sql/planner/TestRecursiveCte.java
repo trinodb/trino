@@ -22,6 +22,7 @@ import io.trino.testing.LocalQueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.sql.planner.LogicalPlanner.Stage.CREATED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -32,6 +33,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.union;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.lang.String.format;
 
 public class TestRecursiveCte
         extends BasePlanTest
@@ -73,7 +75,8 @@ public class TestRecursiveCte
                                 // "post-recursion" step with convergence assertion
                                 filter(
                                         "IF((count >= BIGINT '0'), " +
-                                                "CAST(fail(CAST('Recursion depth limit exceeded (1). Use ''max_recursion_depth'' session property to modify the limit.' AS varchar)) AS boolean), " +
+                                                format("CAST(fail(INTEGER '%d', VARCHAR 'Recursion depth limit exceeded (1). Use ''max_recursion_depth'' session property to modify the limit.') AS boolean), ",
+                                                        NOT_SUPPORTED.toErrorCode().getCode()) +
                                                 "true)",
                                         window(windowBuilder -> windowBuilder
                                                         .addFunction(

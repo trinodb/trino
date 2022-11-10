@@ -13,6 +13,7 @@
  */
 package io.trino.operator.output;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
@@ -24,7 +25,6 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.Arrays;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -40,7 +40,7 @@ public class SlicePositionsAppender
         implements PositionsAppender
 {
     private static final int EXPECTED_BYTES_PER_ENTRY = 32;
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SlicePositionsAppender.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SlicePositionsAppender.class).instanceSize());
     private static final Block NULL_VALUE_BLOCK = new VariableWidthBlock(1, EMPTY_SLICE, new int[] {0, 0}, Optional.of(new boolean[] {true}));
 
     private boolean initialized;
@@ -74,52 +74,55 @@ public class SlicePositionsAppender
     }
 
     @Override
+    // TODO: Make PositionsAppender work performant with different block types (https://github.com/trinodb/trino/issues/13267)
     public void append(IntArrayList positions, Block block)
     {
         if (positions.isEmpty()) {
             return;
         }
-        // performance of this method depends on block being always the same, flat type
-        checkArgument(block instanceof VariableWidthBlock);
         ensurePositionCapacity(positionCount + positions.size());
-        int[] positionArray = positions.elements();
-        int newByteCount = 0;
-        int[] lengths = new int[positions.size()];
+        if (block instanceof VariableWidthBlock) {
+            VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
+            int newByteCount = 0;
+            int[] lengths = new int[positions.size()];
+            int[] sourceOffsets = new int[positions.size()];
+            int[] positionArray = positions.elements();
 
-        if (block.mayHaveNull()) {
-            for (int i = 0; i < positions.size(); i++) {
-                int position = positionArray[i];
-                if (block.isNull(position)) {
-                    offsets[positionCount + i + 1] = offsets[positionCount + i];
-                    valueIsNull[positionCount + i] = true;
-                    hasNullValue = true;
-                }
-                else {
-                    int length = block.getSliceLength(position);
+            if (block.mayHaveNull()) {
+                for (int i = 0; i < positions.size(); i++) {
+                    int position = positionArray[i];
+                    int length = variableWidthBlock.getSliceLength(position);
                     lengths[i] = length;
+                    sourceOffsets[i] = variableWidthBlock.getRawSliceOffset(position);
+                    newByteCount += length;
+                    boolean isNull = block.isNull(position);
+                    valueIsNull[positionCount + i] = isNull;
+                    offsets[positionCount + i + 1] = offsets[positionCount + i] + length;
+                    hasNullValue |= isNull;
+                    hasNonNullValue |= !isNull;
+                }
+            }
+            else {
+                for (int i = 0; i < positions.size(); i++) {
+                    int position = positionArray[i];
+                    int length = variableWidthBlock.getSliceLength(position);
+                    lengths[i] = length;
+                    sourceOffsets[i] = variableWidthBlock.getRawSliceOffset(position);
                     newByteCount += length;
                     offsets[positionCount + i + 1] = offsets[positionCount + i] + length;
-                    hasNonNullValue = true;
                 }
+                hasNonNullValue = true;
             }
+            copyBytes(variableWidthBlock.getRawSlice(), lengths, sourceOffsets, positions.size(), newByteCount);
         }
         else {
-            for (int i = 0; i < positions.size(); i++) {
-                int position = positionArray[i];
-                int length = block.getSliceLength(position);
-                lengths[i] = length;
-                newByteCount += length;
-                offsets[positionCount + i + 1] = offsets[positionCount + i] + length;
-            }
-            hasNonNullValue = true;
+            appendGenericBlock(positions, block);
         }
-        copyBytes(block, lengths, positionArray, positions.size(), offsets, positionCount, newByteCount);
     }
 
     @Override
-    public void appendRle(RunLengthEncodedBlock block)
+    public void appendRle(Block block, int rlePositionCount)
     {
-        int rlePositionCount = block.getPositionCount();
         if (rlePositionCount == 0) {
             return;
         }
@@ -134,7 +137,7 @@ public class SlicePositionsAppender
         }
         else {
             hasNonNullValue = true;
-            duplicateBytes(block.getValue(), 0, rlePositionCount);
+            duplicateBytes(block.getSlice(0, 0, block.getSliceLength(0)), rlePositionCount);
         }
     }
 
@@ -150,7 +153,7 @@ public class SlicePositionsAppender
                     hasNullValue ? Optional.of(valueIsNull) : Optional.empty());
         }
         else {
-            result = new RunLengthEncodedBlock(NULL_VALUE_BLOCK, positionCount);
+            result = RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, positionCount);
         }
         reset();
         return result;
@@ -168,16 +171,20 @@ public class SlicePositionsAppender
         return sizeInBytes;
     }
 
-    private void copyBytes(Block block, int[] lengths, int[] positions, int count, int[] targetOffsets, int targetOffsetsIndex, int newByteCount)
+    private void copyBytes(Slice rawSlice, int[] lengths, int[] sourceOffsets, int count, int newByteCount)
     {
-        ensureBytesCapacity(getCurrentOffset() + newByteCount);
+        ensureExtraBytesCapacity(newByteCount);
 
-        for (int i = 0; i < count; i++) {
-            int position = positions[i];
-            if (!block.isNull(position)) {
-                int length = lengths[i];
-                Slice slice = block.getSlice(position, 0, length);
-                slice.getBytes(0, bytes, targetOffsets[targetOffsetsIndex + i], length);
+        if (rawSlice.hasByteArray()) {
+            byte[] base = rawSlice.byteArray();
+            int byteArrayOffset = rawSlice.byteArrayOffset();
+            for (int i = 0; i < count; i++) {
+                System.arraycopy(base, byteArrayOffset + sourceOffsets[i], bytes, offsets[positionCount + i], lengths[i]);
+            }
+        }
+        else {
+            for (int i = 0; i < count; i++) {
+                rawSlice.getBytes(sourceOffsets[i], bytes, offsets[positionCount + i], lengths[i]);
             }
         }
 
@@ -186,23 +193,73 @@ public class SlicePositionsAppender
     }
 
     /**
-     * Copy {@code length} bytes from {@code block}, at position {@code position} to {@code count} consecutive positions in the {@link #bytes} array.
+     * Copy all bytes from {@code slice} to {@code count} consecutive positions in the {@link #bytes} array.
      */
-    private void duplicateBytes(Block block, int position, int count)
+    private void duplicateBytes(Slice slice, int count)
     {
-        int length = block.getSliceLength(position);
+        int length = slice.length();
         int newByteCount = toIntExact((long) count * length);
         int startOffset = getCurrentOffset();
-        ensureBytesCapacity(startOffset + newByteCount);
+        ensureExtraBytesCapacity(newByteCount);
 
-        Slice slice = block.getSlice(position, 0, length);
+        duplicateBytes(slice, bytes, startOffset, count);
+
+        int currentStartOffset = startOffset + length;
         for (int i = 0; i < count; i++) {
-            slice.getBytes(0, bytes, startOffset + (i * length), length);
-            offsets[positionCount + i + 1] = startOffset + ((i + 1) * length);
+            offsets[positionCount + i + 1] = currentStartOffset;
+            currentStartOffset += length;
         }
 
         positionCount += count;
         updateSize(count, newByteCount);
+    }
+
+    /**
+     * Copy {@code length} bytes from {@code slice}, starting at offset {@code sourceOffset} to {@code count} consecutive positions in the {@link #bytes} array.
+     */
+    @VisibleForTesting
+    static void duplicateBytes(Slice slice, byte[] bytes, int startOffset, int count)
+    {
+        int length = slice.length();
+        if (length == 0) {
+            // nothing to copy
+            return;
+        }
+        // copy slice to the first position
+        slice.getBytes(0, bytes, startOffset, length);
+        int totalDuplicatedBytes = count * length;
+        int duplicatedBytes = length;
+        // copy every byte copied so far, doubling the number of bytes copied on evey iteration
+        while (duplicatedBytes * 2 <= totalDuplicatedBytes) {
+            System.arraycopy(bytes, startOffset, bytes, startOffset + duplicatedBytes, duplicatedBytes);
+            duplicatedBytes = duplicatedBytes * 2;
+        }
+        // copy the leftover
+        System.arraycopy(bytes, startOffset, bytes, startOffset + duplicatedBytes, totalDuplicatedBytes - duplicatedBytes);
+    }
+
+    private void appendGenericBlock(IntArrayList positions, Block block)
+    {
+        int newByteCount = 0;
+        for (int i = 0; i < positions.size(); i++) {
+            int position = positions.getInt(i);
+            if (block.isNull(position)) {
+                offsets[positionCount + 1] = offsets[positionCount];
+                valueIsNull[positionCount] = true;
+                hasNullValue = true;
+            }
+            else {
+                int length = block.getSliceLength(position);
+                ensureExtraBytesCapacity(length);
+                Slice slice = block.getSlice(position, 0, length);
+                slice.getBytes(0, bytes, offsets[positionCount], length);
+                offsets[positionCount + 1] = offsets[positionCount] + length;
+                hasNonNullValue = true;
+                newByteCount += length;
+            }
+            positionCount++;
+        }
+        updateSize(positions.size(), newByteCount);
     }
 
     private void reset()
@@ -230,12 +287,13 @@ public class SlicePositionsAppender
         sizeInBytes += (SIZE_OF_BYTE + SIZE_OF_INT) * positionsSize + bytesWritten;
     }
 
-    private void ensureBytesCapacity(int bytesCapacity)
+    private void ensureExtraBytesCapacity(int extraBytesCapacity)
     {
-        if (bytes.length < bytesCapacity) {
+        int totalBytesCapacity = getCurrentOffset() + extraBytesCapacity;
+        if (bytes.length < totalBytesCapacity) {
             int newBytesLength = Math.max(bytes.length, initialBytesSize);
-            if (bytesCapacity > newBytesLength) {
-                newBytesLength = Math.max(bytesCapacity, calculateNewArraySize(newBytesLength));
+            if (totalBytesCapacity > newBytesLength) {
+                newBytesLength = Math.max(totalBytesCapacity, calculateNewArraySize(newBytesLength));
             }
             bytes = Arrays.copyOf(bytes, newBytesLength);
             updateRetainedSize();

@@ -13,8 +13,6 @@
  */
 package io.trino.connector;
 
-import io.trino.connector.ConnectorManager.ConnectorServices;
-
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -35,11 +33,11 @@ public class ConnectorCatalogServiceProvider<T>
     }
 
     @Override
-    public T getService(CatalogName catalogName)
+    public T getService(CatalogHandle catalogHandle)
     {
-        ConnectorServices connectorServices = connectorServicesProvider.getConnectorServices(catalogName);
+        ConnectorServices connectorServices = connectorServicesProvider.getConnectorServices(catalogHandle);
         T result = serviceGetter.apply(connectorServices);
-        checkArgument(result != null, "Catalog '%s' does not have a %s", catalogName, name);
+        checkArgument(result != null, "Catalog '%s' does not have a %s", catalogHandle, name);
         return result;
     }
 }

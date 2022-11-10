@@ -13,6 +13,7 @@
  */
 package io.trino.spi.ptf;
 
+import io.trino.spi.Experimental;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
@@ -21,6 +22,7 @@ import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
+@Experimental(eta = "2022-10-31")
 public abstract class AbstractConnectorTableFunction
         implements ConnectorTableFunction
 {

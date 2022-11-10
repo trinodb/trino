@@ -36,7 +36,7 @@ public class HiveBucketFunction
     {
         this.bucketingVersion = requireNonNull(bucketingVersion, "bucketingVersion is null");
         this.bucketCount = bucketCount;
-        this.typeInfos = requireNonNull(hiveTypes, "hiveTypes is null").stream()
+        this.typeInfos = hiveTypes.stream()
                 .map(HiveType::getTypeInfo)
                 .collect(Collectors.toList());
     }

@@ -41,6 +41,7 @@ import java.util.stream.Collector;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableList;
@@ -54,7 +55,7 @@ import static java.util.stream.Collectors.toUnmodifiableList;
  */
 public final class TupleDomain<T>
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TupleDomain.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TupleDomain.class).instanceSize());
 
     private static final TupleDomain<?> NONE = new TupleDomain<>(Optional.empty());
     private static final TupleDomain<?> ALL = new TupleDomain<>(Optional.of(emptyMap()));
@@ -296,10 +297,10 @@ public final class TupleDomain<T>
     }
 
     @SuppressWarnings("unchecked")
-    private static <U, T extends U> TupleDomain<U> upcast(TupleDomain<T> domain)
+    private static <T> TupleDomain<T> upcast(TupleDomain<? extends T> domain)
     {
         // TupleDomain<T> is covariant with respect to T (because it's immutable), so it's a safe operation
-        return (TupleDomain<U>) domain;
+        return (TupleDomain<T>) domain;
     }
 
     @SafeVarargs

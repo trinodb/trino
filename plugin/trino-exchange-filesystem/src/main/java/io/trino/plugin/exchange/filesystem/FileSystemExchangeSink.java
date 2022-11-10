@@ -23,6 +23,7 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
 import io.trino.spi.exchange.ExchangeSink;
+import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -55,6 +56,7 @@ import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -67,14 +69,14 @@ public class FileSystemExchangeSink
     public static final String COMMITTED_MARKER_FILE_NAME = "committed";
     public static final String DATA_FILE_SUFFIX = ".data";
 
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(FileSystemExchangeSink.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(FileSystemExchangeSink.class).instanceSize());
 
     private final FileSystemExchangeStorage exchangeStorage;
     private final FileSystemExchangeStats stats;
     private final URI outputDirectory;
     private final int outputPartitionCount;
     private final Optional<SecretKey> secretKey;
-    private final boolean preserveRecordsOrder;
+    private final boolean preserveOrderWithinPartition;
     private final int maxPageStorageSizeInBytes;
     private final long maxFileSizeInBytes;
     private final BufferPool bufferPool;
@@ -89,7 +91,7 @@ public class FileSystemExchangeSink
             URI outputDirectory,
             int outputPartitionCount,
             Optional<SecretKey> secretKey,
-            boolean preserveRecordsOrder,
+            boolean preserveOrderWithinPartition,
             int maxPageStorageSizeInBytes,
             int exchangeSinkBufferPoolMinSize,
             int exchangeSinkBuffersPerPartition,
@@ -103,11 +105,24 @@ public class FileSystemExchangeSink
         this.outputDirectory = requireNonNull(outputDirectory, "outputDirectory is null");
         this.outputPartitionCount = outputPartitionCount;
         this.secretKey = requireNonNull(secretKey, "secretKey is null");
-        this.preserveRecordsOrder = preserveRecordsOrder;
+        this.preserveOrderWithinPartition = preserveOrderWithinPartition;
         this.maxPageStorageSizeInBytes = maxPageStorageSizeInBytes;
         this.maxFileSizeInBytes = maxFileSizeInBytes;
         // buffer pooling to overlap computation and I/O
         this.bufferPool = new BufferPool(stats, max(outputPartitionCount * exchangeSinkBuffersPerPartition, exchangeSinkBufferPoolMinSize), exchangeStorage.getWriteBufferSize());
+    }
+
+    @Override
+    public boolean isHandleUpdateRequired()
+    {
+        return false;
+    }
+
+    @Override
+    public void updateHandle(ExchangeSinkInstanceHandle handle)
+    {
+        // this implementation never requests an update
+        throw new UnsupportedOperationException();
     }
 
     // The future returned by {@link #isBlocked()} should only be considered as a best-effort hint.
@@ -142,7 +157,7 @@ public class FileSystemExchangeSink
                 stats,
                 outputDirectory,
                 secretKey,
-                preserveRecordsOrder,
+                preserveOrderWithinPartition,
                 partitionId,
                 bufferPool,
                 failure,
@@ -226,13 +241,13 @@ public class FileSystemExchangeSink
     @ThreadSafe
     private static class BufferedStorageWriter
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(BufferedStorageWriter.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(BufferedStorageWriter.class).instanceSize());
 
         private final FileSystemExchangeStorage exchangeStorage;
         private final FileSystemExchangeStats stats;
         private final URI outputDirectory;
         private final Optional<SecretKey> secretKey;
-        private final boolean preserveRecordsOrder;
+        private final boolean preserveOrderWithinPartition;
         private final int partitionId;
         private final BufferPool bufferPool;
         private final AtomicReference<Throwable> failure;
@@ -255,7 +270,7 @@ public class FileSystemExchangeSink
                 FileSystemExchangeStats stats,
                 URI outputDirectory,
                 Optional<SecretKey> secretKey,
-                boolean preserveRecordsOrder,
+                boolean preserveOrderWithinPartition,
                 int partitionId,
                 BufferPool bufferPool,
                 AtomicReference<Throwable> failure,
@@ -266,7 +281,7 @@ public class FileSystemExchangeSink
             this.stats = requireNonNull(stats, "stats is null");
             this.outputDirectory = requireNonNull(outputDirectory, "outputDirectory is null");
             this.secretKey = requireNonNull(secretKey, "secretKey is null");
-            this.preserveRecordsOrder = preserveRecordsOrder;
+            this.preserveOrderWithinPartition = preserveOrderWithinPartition;
             this.partitionId = partitionId;
             this.bufferPool = requireNonNull(bufferPool, "bufferPool is null");
             this.failure = requireNonNull(failure, "failure is null");
@@ -287,7 +302,7 @@ public class FileSystemExchangeSink
                 throw new TrinoException(NOT_SUPPORTED, format("Max row size of %s exceeded: %s", succinctBytes(maxPageStorageSizeInBytes), succinctBytes(requiredPageStorageSize)));
             }
 
-            if (currentFileSize + requiredPageStorageSize > maxFileSizeInBytes && !preserveRecordsOrder) {
+            if (currentFileSize + requiredPageStorageSize > maxFileSizeInBytes && !preserveOrderWithinPartition) {
                 stats.getFileSizeInBytes().add(currentFileSize);
                 flushIfNeeded(true);
                 setupWriterForNextPart();
@@ -379,10 +394,11 @@ public class FileSystemExchangeSink
     @ThreadSafe
     private static class BufferPool
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(BufferPool.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(BufferPool.class).instanceSize());
 
         private final FileSystemExchangeStats stats;
-        private final int numBuffers;
+        private final int maxNumBuffers;
+        private final int writeBufferSize;
         private final long bufferRetainedSize;
         @GuardedBy("this")
         private final Queue<SliceOutput> freeBuffersQueue;
@@ -390,23 +406,25 @@ public class FileSystemExchangeSink
         private CompletableFuture<Void> blockedFuture = new CompletableFuture<>();
         @GuardedBy("this")
         private boolean closed;
+        @GuardedBy("this")
+        private int numBuffersCreated;
 
-        public BufferPool(FileSystemExchangeStats stats, int numBuffers, int writeBufferSize)
+        public BufferPool(FileSystemExchangeStats stats, int maxNumBuffers, int writeBufferSize)
         {
             this.stats = requireNonNull(stats, "stats is null");
-            checkArgument(numBuffers >= 1, "numBuffers must be at least one");
+            checkArgument(maxNumBuffers >= 1, "maxNumBuffers must be at least one");
 
-            this.numBuffers = numBuffers;
-            this.freeBuffersQueue = new ArrayDeque<>(numBuffers);
-            for (int i = 0; i < numBuffers; ++i) {
-                freeBuffersQueue.add(Slices.allocate(writeBufferSize).getOutput());
-            }
+            this.maxNumBuffers = maxNumBuffers;
+            this.writeBufferSize = writeBufferSize;
+            this.numBuffersCreated = 1;
+            this.freeBuffersQueue = new ArrayDeque<>(maxNumBuffers);
+            freeBuffersQueue.add(Slices.allocate(writeBufferSize).getOutput());
             this.bufferRetainedSize = freeBuffersQueue.peek().getRetainedSize();
         }
 
         public synchronized CompletableFuture<Void> isBlocked()
         {
-            if (freeBuffersQueue.isEmpty()) {
+            if (!hasFreeBuffers()) {
                 if (blockedFuture.isDone()) {
                     blockedFuture = new CompletableFuture<>();
                     stats.getExchangeSinkBlocked().record(blockedFuture);
@@ -422,7 +440,7 @@ public class FileSystemExchangeSink
                 if (closed) {
                     return null;
                 }
-                if (!freeBuffersQueue.isEmpty()) {
+                if (hasFreeBuffers()) {
                     return freeBuffersQueue.poll();
                 }
                 try {
@@ -457,7 +475,7 @@ public class FileSystemExchangeSink
             if (closed) {
                 return INSTANCE_SIZE;
             }
-            return INSTANCE_SIZE + numBuffers * bufferRetainedSize;
+            return INSTANCE_SIZE + numBuffersCreated * bufferRetainedSize;
         }
 
         public void close()
@@ -474,6 +492,19 @@ public class FileSystemExchangeSink
             }
 
             completableFuture.complete(null);
+        }
+
+        private boolean hasFreeBuffers()
+        {
+            if (!freeBuffersQueue.isEmpty()) {
+                return true;
+            }
+            if (numBuffersCreated < maxNumBuffers) {
+                freeBuffersQueue.add(Slices.allocate(writeBufferSize).getOutput());
+                numBuffersCreated++;
+                return true;
+            }
+            return false;
         }
     }
 }

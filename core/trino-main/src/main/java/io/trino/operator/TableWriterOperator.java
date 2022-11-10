@@ -27,7 +27,6 @@ import io.trino.operator.OperationTimer.OperationTiming;
 import io.trino.spi.Mergeable;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
@@ -53,7 +52,6 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.SystemSessionProperties.isStatisticsCpuTimerEnabled;
-import static io.trino.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
@@ -76,7 +74,6 @@ public class TableWriterOperator
         private final PageSinkManager pageSinkManager;
         private final WriterTarget target;
         private final List<Integer> columnChannels;
-        private final List<String> notNullChannelColumnNames;
         private final Session session;
         private final OperatorFactory statisticsAggregationOperatorFactory;
         private final List<Type> types;
@@ -88,7 +85,6 @@ public class TableWriterOperator
                 PageSinkManager pageSinkManager,
                 WriterTarget writerTarget,
                 List<Integer> columnChannels,
-                List<String> notNullChannelColumnNames,
                 Session session,
                 OperatorFactory statisticsAggregationOperatorFactory,
                 List<Type> types)
@@ -96,7 +92,6 @@ public class TableWriterOperator
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.columnChannels = requireNonNull(columnChannels, "columnChannels is null");
-            this.notNullChannelColumnNames = requireNonNull(notNullChannelColumnNames, "notNullChannelColumnNames is null");
             this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
             checkArgument(
                     writerTarget instanceof CreateTarget
@@ -117,7 +112,7 @@ public class TableWriterOperator
             OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, TableWriterOperator.class.getSimpleName());
             Operator statisticsAggregationOperator = statisticsAggregationOperatorFactory.createOperator(driverContext);
             boolean statisticsCpuTimerEnabled = !(statisticsAggregationOperator instanceof DevNullOperator) && isStatisticsCpuTimerEnabled(session);
-            return new TableWriterOperator(context, createPageSink(), columnChannels, notNullChannelColumnNames, statisticsAggregationOperator, types, statisticsCpuTimerEnabled);
+            return new TableWriterOperator(context, createPageSink(), columnChannels, statisticsAggregationOperator, types, statisticsCpuTimerEnabled);
         }
 
         private ConnectorPageSink createPageSink()
@@ -146,7 +141,7 @@ public class TableWriterOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new TableWriterOperatorFactory(operatorId, planNodeId, pageSinkManager, target, columnChannels, notNullChannelColumnNames, session, statisticsAggregationOperatorFactory, types);
+            return new TableWriterOperatorFactory(operatorId, planNodeId, pageSinkManager, target, columnChannels, session, statisticsAggregationOperatorFactory, types);
         }
     }
 
@@ -159,7 +154,6 @@ public class TableWriterOperator
     private final LocalMemoryContext pageSinkMemoryContext;
     private final ConnectorPageSink pageSink;
     private final List<Integer> columnChannels;
-    private final List<String> notNullChannelColumnNames;
     private final AtomicLong pageSinkPeakMemoryUsage = new AtomicLong();
     private final Operator statisticAggregationOperator;
     private final List<Type> types;
@@ -181,7 +175,6 @@ public class TableWriterOperator
             OperatorContext operatorContext,
             ConnectorPageSink pageSink,
             List<Integer> columnChannels,
-            List<String> notNullChannelColumnNames,
             Operator statisticAggregationOperator,
             List<Type> types,
             boolean statisticsCpuTimerEnabled)
@@ -190,8 +183,6 @@ public class TableWriterOperator
         this.pageSinkMemoryContext = operatorContext.newLocalUserMemoryContext(TableWriterOperator.class.getSimpleName());
         this.pageSink = requireNonNull(pageSink, "pageSink is null");
         this.columnChannels = requireNonNull(columnChannels, "columnChannels is null");
-        this.notNullChannelColumnNames = requireNonNull(notNullChannelColumnNames, "notNullChannelColumnNames is null");
-        checkArgument(columnChannels.size() == notNullChannelColumnNames.size(), "columnChannels and notNullColumnNames have different sizes");
         this.statisticAggregationOperator = requireNonNull(statisticAggregationOperator, "statisticAggregationOperator is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.statisticsCpuTimerEnabled = statisticsCpuTimerEnabled;
@@ -255,10 +246,6 @@ public class TableWriterOperator
         Block[] blocks = new Block[columnChannels.size()];
         for (int outputChannel = 0; outputChannel < columnChannels.size(); outputChannel++) {
             Block block = page.getBlock(columnChannels.get(outputChannel));
-            String columnName = notNullChannelColumnNames.get(outputChannel);
-            if (columnName != null) {
-                verifyBlockHasNoNulls(block, columnName);
-            }
             blocks[outputChannel] = block;
         }
 
@@ -273,18 +260,6 @@ public class TableWriterOperator
         blocked = asVoid(allAsList(blockedOnAggregation, blockedOnWrite));
         rowCount += page.getPositionCount();
         updateWrittenBytes();
-    }
-
-    private void verifyBlockHasNoNulls(Block block, String columnName)
-    {
-        if (!block.mayHaveNull()) {
-            return;
-        }
-        for (int position = 0; position < block.getPositionCount(); position++) {
-            if (block.isNull(position)) {
-                throw new TrinoException(CONSTRAINT_VIOLATION, "NULL value not allowed for NOT NULL column: " + columnName);
-            }
-        }
     }
 
     @Override

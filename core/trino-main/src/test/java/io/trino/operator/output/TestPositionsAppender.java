@@ -14,7 +14,10 @@
 package io.trino.operator.output;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.block.BlockAssertions;
+import io.trino.spi.block.AbstractVariableWidthBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
@@ -22,20 +25,37 @@ import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarbinaryType;
+import io.trino.spi.type.VarcharType;
 import io.trino.type.BlockTypeOperators;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import javax.annotation.Nullable;
+
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.function.Function;
+import java.util.function.ObjLongConsumer;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.block.BlockAssertions.assertBlockEquals;
@@ -46,25 +66,17 @@ import static io.trino.block.BlockAssertions.createIntsBlock;
 import static io.trino.block.BlockAssertions.createLongDecimalsBlock;
 import static io.trino.block.BlockAssertions.createLongTimestampBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
-import static io.trino.block.BlockAssertions.createRandomBlockForType;
 import static io.trino.block.BlockAssertions.createRandomDictionaryBlock;
 import static io.trino.block.BlockAssertions.createSlicesBlock;
 import static io.trino.block.BlockAssertions.createSmallintsBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.block.BlockAssertions.createTinyintsBlock;
-import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DecimalType.createDecimalType;
-import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.anonymousRow;
-import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.createTimestampType;
-import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
@@ -76,7 +88,7 @@ public class TestPositionsAppender
     private static final PositionsAppenderFactory POSITIONS_APPENDER_FACTORY = new PositionsAppenderFactory(new BlockTypeOperators());
 
     @Test(dataProvider = "types")
-    public void testMixedBlockTypes(Type type)
+    public void testMixedBlockTypes(TestType type)
     {
         List<BlockView> input = ImmutableList.of(
                 input(emptyBlock(type)),
@@ -103,16 +115,16 @@ public class TestPositionsAppender
         testAppend(type, input);
     }
 
-    @Test(dataProvider = "nullRleTypes")
-    public void testNullRle(Type type)
+    @Test(dataProvider = "types")
+    public void testNullRle(TestType type)
     {
-        testNullRle(type, nullBlock(type, 2));
-        testNullRle(type, nullRleBlock(type, 2));
-        testNullRle(type, createRandomBlockForType(type, 4, 0.5f));
+        testNullRle(type.getType(), nullBlock(type, 2));
+        testNullRle(type.getType(), nullRleBlock(type, 2));
+        testNullRle(type.getType(), createRandomBlockForType(type, 4, 0.5f));
     }
 
     @Test(dataProvider = "types")
-    public void testRleSwitchToFlat(Type type)
+    public void testRleSwitchToFlat(TestType type)
     {
         List<BlockView> inputs = ImmutableList.of(
                 input(rleBlock(type, 3), 0, 1),
@@ -126,7 +138,7 @@ public class TestPositionsAppender
     }
 
     @Test(dataProvider = "types")
-    public void testFlatAppendRle(Type type)
+    public void testFlatAppendRle(TestType type)
     {
         List<BlockView> inputs = ImmutableList.of(
                 input(notNullBlock(type, 2), 0, 1),
@@ -140,7 +152,7 @@ public class TestPositionsAppender
     }
 
     @Test(dataProvider = "differentValues")
-    public void testMultipleRleBlocksWithDifferentValues(Type type, Block value1, Block value2)
+    public void testMultipleRleBlocksWithDifferentValues(TestType type, Block value1, Block value2)
     {
         List<BlockView> input = ImmutableList.of(
                 input(rleBlock(value1, 3), 0, 1),
@@ -153,28 +165,27 @@ public class TestPositionsAppender
     {
         return new Object[][]
                 {
-                        {BIGINT, createLongsBlock(0), createLongsBlock(1)},
-                        {BOOLEAN, createBooleansBlock(true), createBooleansBlock(false)},
-                        {INTEGER, createIntsBlock(0), createIntsBlock(1)},
-                        {createCharType(10), createStringsBlock("0"), createStringsBlock("1")},
-                        {createUnboundedVarcharType(), createStringsBlock("0"), createStringsBlock("1")},
-                        {DOUBLE, createDoublesBlock(0D), createDoublesBlock(1D)},
-                        {SMALLINT, createSmallintsBlock(0), createSmallintsBlock(1)},
-                        {TINYINT, createTinyintsBlock(0), createTinyintsBlock(1)},
-                        {VARBINARY, createSlicesBlock(Slices.wrappedLongArray(0)), createSlicesBlock(Slices.wrappedLongArray(1))},
-                        {createDecimalType(Decimals.MAX_SHORT_PRECISION + 1), createLongDecimalsBlock("0"), createLongDecimalsBlock("1")},
-                        {new ArrayType(BIGINT), createArrayBigintBlock(ImmutableList.of(ImmutableList.of(0L))), createArrayBigintBlock(ImmutableList.of(ImmutableList.of(1L)))},
-                        {
-                                createTimestampType(9),
-                                createLongTimestampBlock(createTimestampType(9), new LongTimestamp(0, 0)),
-                                createLongTimestampBlock(createTimestampType(9), new LongTimestamp(1, 0))}
+                        {TestType.BIGINT, createLongsBlock(0), createLongsBlock(1)},
+                        {TestType.BOOLEAN, createBooleansBlock(true), createBooleansBlock(false)},
+                        {TestType.INTEGER, createIntsBlock(0), createIntsBlock(1)},
+                        {TestType.CHAR_10, createStringsBlock("0"), createStringsBlock("1")},
+                        {TestType.VARCHAR, createStringsBlock("0"), createStringsBlock("1")},
+                        {TestType.DOUBLE, createDoublesBlock(0D), createDoublesBlock(1D)},
+                        {TestType.SMALLINT, createSmallintsBlock(0), createSmallintsBlock(1)},
+                        {TestType.TINYINT, createTinyintsBlock(0), createTinyintsBlock(1)},
+                        {TestType.VARBINARY, createSlicesBlock(Slices.wrappedLongArray(0)), createSlicesBlock(Slices.wrappedLongArray(1))},
+                        {TestType.LONG_DECIMAL, createLongDecimalsBlock("0"), createLongDecimalsBlock("1")},
+                        {TestType.ARRAY_BIGINT, createArrayBigintBlock(ImmutableList.of(ImmutableList.of(0L))), createArrayBigintBlock(ImmutableList.of(ImmutableList.of(1L)))},
+                        {TestType.LONG_TIMESTAMP, createLongTimestampBlock(createTimestampType(9), new LongTimestamp(0, 0)),
+                                createLongTimestampBlock(createTimestampType(9), new LongTimestamp(1, 0))},
+                        {TestType.VARCHAR_WITH_TEST_BLOCK, TestVariableWidthBlock.adapt(createStringsBlock("0")), TestVariableWidthBlock.adapt(createStringsBlock("1"))}
                 };
     }
 
     @Test(dataProvider = "types")
-    public void testMultipleRleWithTheSameValueProduceRle(Type type)
+    public void testMultipleRleWithTheSameValueProduceRle(TestType type)
     {
-        PositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(type, 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+        PositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(type.getType(), 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
 
         Block value = notNullBlock(type, 1);
         positionsAppender.append(allPositions(3), rleBlock(value, 3));
@@ -186,9 +197,9 @@ public class TestPositionsAppender
     }
 
     @Test(dataProvider = "types")
-    public void testConsecutiveBuilds(Type type)
+    public void testConsecutiveBuilds(TestType type)
     {
-        PositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(type, 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+        PositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(type.getType(), 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
 
         // empty block
         positionsAppender.append(positions(), emptyBlock(type));
@@ -204,21 +215,17 @@ public class TestPositionsAppender
 
         // append null and not null position
         positionsAppender.append(allPositions(2), block);
-        assertBlockEquals(type, positionsAppender.build(), block);
+        assertBlockEquals(type.getType(), positionsAppender.build(), block);
 
         // append not null rle
-        Block rleBlock = rleBlock(type, 1);
-        positionsAppender.append(allPositions(1), rleBlock);
-        assertBlockEquals(type, positionsAppender.build(), rleBlock);
-
-        // append empty rle
-        positionsAppender.append(positions(), rleBlock(type, 0));
-        assertEquals(positionsAppender.build().getPositionCount(), 0);
+        Block rleBlock = rleBlock(type, 10);
+        positionsAppender.append(allPositions(10), rleBlock);
+        assertBlockEquals(type.getType(), positionsAppender.build(), rleBlock);
 
         // append null rle
-        Block nullRleBlock = nullRleBlock(type, 1);
-        positionsAppender.append(allPositions(1), nullRleBlock);
-        assertBlockEquals(type, positionsAppender.build(), nullRleBlock);
+        Block nullRleBlock = nullRleBlock(type, 10);
+        positionsAppender.append(allPositions(10), nullRleBlock);
+        assertBlockEquals(type.getType(), positionsAppender.build(), nullRleBlock);
 
         // just build to confirm appender was reset
         assertEquals(positionsAppender.build().getPositionCount(), 0);
@@ -233,11 +240,11 @@ public class TestPositionsAppender
         PositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(VARCHAR, 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
 
         // first append some not empty value to avoid RleAwarePositionsAppender for the empty value
-        positionsAppender.appendRle(new RunLengthEncodedBlock(singleValueBlock("some value"), 1));
+        positionsAppender.appendRle(singleValueBlock("some value"), 1);
         // append empty value multiple times to trigger jit compilation
         Block emptyStringBlock = singleValueBlock("");
         for (int i = 0; i < 1000; i++) {
-            positionsAppender.appendRle(new RunLengthEncodedBlock(emptyStringBlock, 2000));
+            positionsAppender.appendRle(emptyStringBlock, 2000);
         }
     }
 
@@ -246,9 +253,9 @@ public class TestPositionsAppender
     {
         RowType type = anonymousRow(BIGINT, BIGINT, VARCHAR);
         Block rowBLock = RowBlock.fromFieldBlocks(2, Optional.empty(), new Block[] {
-                notNullBlock(BIGINT, 2),
-                dictionaryBlock(BIGINT, 2, 2, 0.5F),
-                rleBlock(VARCHAR, 2)
+                notNullBlock(TestType.BIGINT, 2),
+                dictionaryBlock(TestType.BIGINT, 2, 2, 0.5F),
+                rleBlock(TestType.VARCHAR, 2)
         });
 
         PositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(type, 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
@@ -259,45 +266,12 @@ public class TestPositionsAppender
         assertBlockEquals(type, actual, rowBLock);
     }
 
-    @DataProvider(name = "nullRleTypes")
-    public static Object[][] nullRleTypes()
-    {
-        return new Object[][]
-                {
-                        {BIGINT},
-                        {BOOLEAN},
-                        {INTEGER},
-                        {createCharType(10)},
-                        {createUnboundedVarcharType()},
-                        {DOUBLE},
-                        {SMALLINT},
-                        {TINYINT},
-                        {VARBINARY},
-                        {createDecimalType(Decimals.MAX_SHORT_PRECISION + 1)},
-                        {createTimestampType(9)},
-                        {anonymousRow(BIGINT, VARCHAR)}
-                };
-    }
-
     @DataProvider(name = "types")
     public static Object[][] types()
     {
-        return new Object[][]
-                {
-                        {BIGINT},
-                        {BOOLEAN},
-                        {INTEGER},
-                        {createCharType(10)},
-                        {createUnboundedVarcharType()},
-                        {DOUBLE},
-                        {SMALLINT},
-                        {TINYINT},
-                        {VARBINARY},
-                        {createDecimalType(Decimals.MAX_SHORT_PRECISION + 1)},
-                        {new ArrayType(BIGINT)},
-                        {createTimestampType(9)},
-                        {anonymousRow(BIGINT, VARCHAR)}
-                };
+        return Arrays.stream(TestType.values())
+                .map(type -> new Object[] {type})
+                .toArray(Object[][]::new);
     }
 
     private static Block singleValueBlock(String value)
@@ -322,17 +296,17 @@ public class TestPositionsAppender
         return new IntArrayList(positions);
     }
 
-    private DictionaryBlock dictionaryBlock(Block dictionary, int positionCount)
+    private Block dictionaryBlock(Block dictionary, int positionCount)
     {
         return createRandomDictionaryBlock(dictionary, positionCount);
     }
 
-    private DictionaryBlock dictionaryBlock(Block dictionary, int[] ids)
+    private Block dictionaryBlock(Block dictionary, int[] ids)
     {
-        return new DictionaryBlock(0, ids.length, dictionary, ids, false, randomDictionaryId());
+        return DictionaryBlock.create(ids.length, dictionary, ids);
     }
 
-    private DictionaryBlock dictionaryBlock(Type type, int positionCount, int dictionarySize, float nullRate)
+    private Block dictionaryBlock(TestType type, int positionCount, int dictionarySize, float nullRate)
     {
         Block dictionary = createRandomBlockForType(type, dictionarySize, nullRate);
         return createRandomDictionaryBlock(dictionary, positionCount);
@@ -340,43 +314,51 @@ public class TestPositionsAppender
 
     private RunLengthEncodedBlock rleBlock(Block value, int positionCount)
     {
-        return new RunLengthEncodedBlock(value, positionCount);
+        checkArgument(positionCount >= 2);
+        return (RunLengthEncodedBlock) RunLengthEncodedBlock.create(value, positionCount);
     }
 
-    private RunLengthEncodedBlock rleBlock(Type type, int positionCount)
+    private RunLengthEncodedBlock rleBlock(TestType type, int positionCount)
     {
+        checkArgument(positionCount >= 2);
         Block rleValue = createRandomBlockForType(type, 1, 0);
-        return new RunLengthEncodedBlock(rleValue, positionCount);
+        return (RunLengthEncodedBlock) RunLengthEncodedBlock.create(rleValue, positionCount);
     }
 
-    private RunLengthEncodedBlock nullRleBlock(Type type, int positionCount)
+    private RunLengthEncodedBlock nullRleBlock(TestType type, int positionCount)
     {
+        checkArgument(positionCount >= 2);
         Block rleValue = nullBlock(type, 1);
-        return new RunLengthEncodedBlock(rleValue, positionCount);
+        return (RunLengthEncodedBlock) RunLengthEncodedBlock.create(rleValue, positionCount);
     }
 
-    private Block partiallyNullBlock(Type type, int positionCount)
+    private Block partiallyNullBlock(TestType type, int positionCount)
     {
         return createRandomBlockForType(type, positionCount, 0.5F);
     }
 
-    private Block notNullBlock(Type type, int positionCount)
+    private Block notNullBlock(TestType type, int positionCount)
     {
         return createRandomBlockForType(type, positionCount, 0);
     }
 
-    private Block nullBlock(Type type, int positionCount)
+    private Block nullBlock(TestType type, int positionCount)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, positionCount);
+        BlockBuilder blockBuilder = type.getType().createBlockBuilder(null, positionCount);
         for (int i = 0; i < positionCount; i++) {
             blockBuilder.appendNull();
         }
-        return blockBuilder.build();
+        return type.adapt(blockBuilder.build());
     }
 
-    private Block emptyBlock(Type type)
+    private Block emptyBlock(TestType type)
     {
-        return type.createBlockBuilder(null, 0).build();
+        return type.adapt(type.getType().createBlockBuilder(null, 0).build());
+    }
+
+    private Block createRandomBlockForType(TestType type, int positionCount, float nullRate)
+    {
+        return type.adapt(BlockAssertions.createRandomBlockForType(type.getType(), positionCount, nullRate));
     }
 
     private void testNullRle(Type type, Block source)
@@ -398,9 +380,9 @@ public class TestPositionsAppender
         assertInstanceOf(actual, RunLengthEncodedBlock.class);
     }
 
-    private void testAppend(Type type, List<BlockView> inputs)
+    private void testAppend(TestType type, List<BlockView> inputs)
     {
-        PositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(type, 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+        PositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(type.getType(), 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
         long initialRetainedSize = positionsAppender.getRetainedSizeInBytes();
 
         inputs.forEach(input -> positionsAppender.append(input.getPositions(), input.getBlock()));
@@ -408,7 +390,7 @@ public class TestPositionsAppender
         assertGreaterThanOrEqual(positionsAppender.getRetainedSizeInBytes(), sizeInBytes);
         Block actual = positionsAppender.build();
 
-        assertBlockIsValid(actual, sizeInBytes, type, inputs);
+        assertBlockIsValid(actual, sizeInBytes, type.getType(), inputs);
         // verify positionsAppender reset
         assertEquals(positionsAppender.getSizeInBytes(), 0);
         assertEquals(positionsAppender.getRetainedSizeInBytes(), initialRetainedSize);
@@ -437,6 +419,48 @@ public class TestPositionsAppender
         return blockBuilder.build();
     }
 
+    private enum TestType
+    {
+        BIGINT(BigintType.BIGINT),
+        BOOLEAN(BooleanType.BOOLEAN),
+        INTEGER(IntegerType.INTEGER),
+        CHAR_10(createCharType(10)),
+        VARCHAR(createUnboundedVarcharType()),
+        DOUBLE(DoubleType.DOUBLE),
+        SMALLINT(SmallintType.SMALLINT),
+        TINYINT(TinyintType.TINYINT),
+        VARBINARY(VarbinaryType.VARBINARY),
+        LONG_DECIMAL(createDecimalType(Decimals.MAX_SHORT_PRECISION + 1)),
+        LONG_TIMESTAMP(createTimestampType(9)),
+        ROW_BIGINT_VARCHAR(anonymousRow(BigintType.BIGINT, VarcharType.VARCHAR)),
+        ARRAY_BIGINT(new ArrayType(BigintType.BIGINT)),
+        VARCHAR_WITH_TEST_BLOCK(VarcharType.VARCHAR, TestVariableWidthBlock.adaptation());
+
+        private final Type type;
+        private final Function<Block, Block> blockAdaptation;
+
+        TestType(Type type)
+        {
+            this(type, Function.identity());
+        }
+
+        TestType(Type type, Function<Block, Block> blockAdaptation)
+        {
+            this.type = requireNonNull(type, "type is null");
+            this.blockAdaptation = requireNonNull(blockAdaptation, "blockAdaptation is null");
+        }
+
+        public Block adapt(Block block)
+        {
+            return blockAdaptation.apply(block);
+        }
+
+        public Type getType()
+        {
+            return type;
+        }
+    }
+
     private static class BlockView
     {
         private final Block block;
@@ -461,6 +485,162 @@ public class TestPositionsAppender
         public void appendTo(PositionsAppender positionsAppender)
         {
             positionsAppender.append(getPositions(), getBlock());
+        }
+    }
+
+    private static class TestVariableWidthBlock
+            extends AbstractVariableWidthBlock
+    {
+        private final int arrayOffset;
+        private final int positionCount;
+        private final Slice slice;
+        private final int[] offsets;
+        @Nullable
+        private final boolean[] valueIsNull;
+
+        private static Function<Block, Block> adaptation()
+        {
+            return TestVariableWidthBlock::adapt;
+        }
+
+        private static Block adapt(Block block)
+        {
+            if (block instanceof RunLengthEncodedBlock) {
+                checkArgument(block.getPositionCount() == 0 || block.isNull(0));
+                return RunLengthEncodedBlock.create(new TestVariableWidthBlock(0, 1, EMPTY_SLICE, new int[] {0, 0}, new boolean[] {true}), block.getPositionCount());
+            }
+
+            int[] offsets = new int[block.getPositionCount() + 1];
+            boolean[] valueIsNull = new boolean[block.getPositionCount()];
+            boolean hasNullValue = false;
+            for (int i = 0; i < block.getPositionCount(); i++) {
+                if (block.isNull(i)) {
+                    valueIsNull[i] = true;
+                    hasNullValue = true;
+                    offsets[i + 1] = offsets[i];
+                }
+                else {
+                    offsets[i + 1] = offsets[i] + block.getSliceLength(i);
+                }
+            }
+
+            return new TestVariableWidthBlock(0, block.getPositionCount(), ((VariableWidthBlock) block).getRawSlice(), offsets, hasNullValue ? valueIsNull : null);
+        }
+
+        private TestVariableWidthBlock(int arrayOffset, int positionCount, Slice slice, int[] offsets, boolean[] valueIsNull)
+        {
+            checkArgument(arrayOffset >= 0);
+            this.arrayOffset = arrayOffset;
+            checkArgument(positionCount >= 0);
+            this.positionCount = positionCount;
+            this.slice = requireNonNull(slice, "slice is null");
+            this.offsets = offsets;
+            this.valueIsNull = valueIsNull;
+        }
+
+        @Override
+        protected Slice getRawSlice(int position)
+        {
+            return slice;
+        }
+
+        @Override
+        protected int getPositionOffset(int position)
+        {
+            return offsets[position + arrayOffset];
+        }
+
+        @Override
+        public int getSliceLength(int position)
+        {
+            return getPositionOffset(position + 1) - getPositionOffset(position);
+        }
+
+        @Override
+        protected boolean isEntryNull(int position)
+        {
+            return valueIsNull != null && valueIsNull[position + arrayOffset];
+        }
+
+        @Override
+        public int getPositionCount()
+        {
+            return positionCount;
+        }
+
+        @Override
+        public Block getRegion(int positionOffset, int length)
+        {
+            return new TestVariableWidthBlock(positionOffset + arrayOffset, length, slice, offsets, valueIsNull);
+        }
+
+        @Override
+        public Block getSingleValueBlock(int position)
+        {
+            if (isNull(position)) {
+                return new TestVariableWidthBlock(0, 1, EMPTY_SLICE, new int[] {0, 0}, new boolean[] {true});
+            }
+
+            int offset = getPositionOffset(position);
+            int entrySize = getSliceLength(position);
+
+            Slice copy = Slices.copyOf(getRawSlice(position), offset, entrySize);
+
+            return new TestVariableWidthBlock(0, 1, copy, new int[] {0, copy.length()}, null);
+        }
+
+        @Override
+        public long getSizeInBytes()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long getRegionSizeInBytes(int position, int length)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public OptionalInt fixedSizeInBytesPerPosition()
+        {
+            return OptionalInt.empty();
+        }
+
+        @Override
+        public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Block copyPositions(int[] positions, int offset, int length)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Block copyRegion(int position, int length)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Block copyWithAppendedNull()
+        {
+            throw new UnsupportedOperationException();
         }
     }
 }

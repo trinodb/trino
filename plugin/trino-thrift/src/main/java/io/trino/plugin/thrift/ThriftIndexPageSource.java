@@ -262,13 +262,11 @@ public class ThriftIndexPageSource
             statusFuture = toCompletableFuture(nonCancellationPropagating(splitFuture));
             return false;
         }
-        else {
-            // no more splits
-            splitFuture = null;
-            statusFuture = null;
-            haveSplits = true;
-            return true;
-        }
+        // no more splits
+        splitFuture = null;
+        statusFuture = null;
+        haveSplits = true;
+        return true;
     }
 
     private void updateSignalAndStatusFutures()

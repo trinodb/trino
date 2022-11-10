@@ -47,9 +47,9 @@ import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.TimeLogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
-import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType;
 import org.joda.time.DateTimeZone;
 
@@ -215,7 +215,7 @@ final class ParquetWriters
             return new DateValueWriter(valuesWriter, parquetType);
         }
         if (TIME_MICROS.equals(type)) {
-            verifyParquetType(type, parquetType, OriginalType.TIME_MICROS);
+            verifyParquetType(type, parquetType, TimeLogicalTypeAnnotation.class, isTime(LogicalTypeAnnotation.TimeUnit.MICROS));
             return new TimeMicrosValueWriter(valuesWriter, parquetType);
         }
         if (type instanceof TimestampType) {
@@ -224,28 +224,23 @@ final class ParquetWriters
                 return new Int96TimestampValueWriter(valuesWriter, type, parquetType, parquetTimeZone.get());
             }
             if (TIMESTAMP_MILLIS.equals(type)) {
-                verifyParquetType(type, parquetType, OriginalType.TIMESTAMP_MILLIS);
                 verifyParquetType(type, parquetType, TimestampLogicalTypeAnnotation.class, isTimestamp(LogicalTypeAnnotation.TimeUnit.MILLIS));
                 return new TimestampMillisValueWriter(valuesWriter, type, parquetType);
             }
             if (TIMESTAMP_MICROS.equals(type)) {
-                verifyParquetType(type, parquetType, OriginalType.TIMESTAMP_MICROS);
                 verifyParquetType(type, parquetType, TimestampLogicalTypeAnnotation.class, isTimestamp(LogicalTypeAnnotation.TimeUnit.MICROS));
                 return new BigintValueWriter(valuesWriter, type, parquetType);
             }
             if (TIMESTAMP_NANOS.equals(type)) {
-                verifyParquetType(type, parquetType, (OriginalType) null); // no OriginalType for timestamp NANOS
                 verifyParquetType(type, parquetType, TimestampLogicalTypeAnnotation.class, isTimestamp(LogicalTypeAnnotation.TimeUnit.NANOS));
                 return new TimestampNanosValueWriter(valuesWriter, type, parquetType);
             }
         }
 
         if (TIMESTAMP_TZ_MILLIS.equals(type)) {
-            verifyParquetType(type, parquetType, OriginalType.TIMESTAMP_MILLIS);
             return new TimestampTzMillisValueWriter(valuesWriter, parquetType);
         }
         if (TIMESTAMP_TZ_MICROS.equals(type)) {
-            verifyParquetType(type, parquetType, OriginalType.TIMESTAMP_MICROS);
             return new TimestampTzMicrosValueWriter(valuesWriter, parquetType);
         }
         if (DOUBLE.equals(type)) {
@@ -264,17 +259,20 @@ final class ParquetWriters
         throw new TrinoException(NOT_SUPPORTED, format("Unsupported type for Parquet writer: %s", type));
     }
 
-    private static void verifyParquetType(Type type, PrimitiveType parquetType, OriginalType originalType)
-    {
-        checkArgument(parquetType.getOriginalType() == originalType, "Wrong Parquet type '%s' for Trino type '%s'", parquetType, type);
-    }
-
     private static <T> void verifyParquetType(Type type, PrimitiveType parquetType, Class<T> annotationType, Predicate<T> predicate)
     {
         checkArgument(
                 annotationType.isInstance(parquetType.getLogicalTypeAnnotation()) &&
                         predicate.test(annotationType.cast(parquetType.getLogicalTypeAnnotation())),
                 "Wrong Parquet type '%s' for Trino type '%s'", parquetType, type);
+    }
+
+    private static Predicate<TimeLogicalTypeAnnotation> isTime(LogicalTypeAnnotation.TimeUnit precision)
+    {
+        requireNonNull(precision, "precision is null");
+        return annotation -> annotation.getUnit() == precision &&
+                // isAdjustedToUTC=false indicates Local semantics (timestamps not normalized to UTC)
+                !annotation.isAdjustedToUTC();
     }
 
     private static Predicate<TimestampLogicalTypeAnnotation> isTimestamp(LogicalTypeAnnotation.TimeUnit precision)

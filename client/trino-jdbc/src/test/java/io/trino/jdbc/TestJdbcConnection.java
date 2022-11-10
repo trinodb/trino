@@ -430,76 +430,10 @@ public class TestJdbcConnection
         }
     }
 
-    @Test(timeOut = 60_000)
-    public void testCancellationOnStatementClose()
-            throws Exception
-    {
-        String sql = "SELECT * FROM blackhole.default.devzero -- test cancellation " + randomUUID();
-        try (Connection connection = createConnection()) {
-            Statement statement = connection.createStatement();
-            statement.execute(sql);
-            ResultSet resultSet = statement.getResultSet();
-
-            // read some data
-            assertThat(resultSet.next()).isTrue();
-            assertThat(resultSet.next()).isTrue();
-            assertThat(resultSet.next()).isTrue();
-
-            // Make sure that query is still running
-            assertThat(listQueryStatuses(sql))
-                    .containsExactly("RUNNING")
-                    .hasSize(1);
-
-            // Closing statement should cancel queries and invalidate the result set
-            statement.close();
-
-            // verify that the query was cancelled
-            assertThatThrownBy(resultSet::next)
-                    .isInstanceOf(SQLException.class)
-                    .hasMessage("ResultSet is closed");
-            assertThat(listQueryErrorCodes(sql))
-                    .containsExactly("USER_CANCELED")
-                    .hasSize(1);
-        }
-    }
-
-    @Test(timeOut = 60_000)
-    public void testConcurrentCancellationOnStatementClose()
-            throws Exception
-    {
-        String sql = "SELECT * FROM blackhole.default.delay -- test cancellation " + randomUUID();
-        Future<?> future;
-        try (Connection connection = createConnection()) {
-            Statement statement = connection.createStatement();
-            future = executor.submit(() -> {
-                try (ResultSet resultSet = statement.executeQuery(sql)) {
-                    //noinspection StatementWithEmptyBody
-                    while (resultSet.next()) {
-                        // consume results
-                    }
-                }
-                return null;
-            });
-
-            // Wait for the queries to be started
-            assertEventually(() -> {
-                assertThatFutureIsBlocked(future);
-                assertThat(listQueryStatuses(sql))
-                        .contains("RUNNING")
-                        .hasSize(1);
-            });
-
-            // Closing statement should cancel queries
-            statement.close();
-
-            // verify that the query was cancelled
-            assertThatThrownBy(future::get).isNotNull();
-            assertThat(listQueryErrorCodes(sql))
-                    .allMatch(errorCode -> "TRANSACTION_ALREADY_ABORTED".equals(errorCode) || "USER_CANCELED".equals(errorCode))
-                    .hasSize(1);
-        }
-    }
-
+    /**
+     * @see TestJdbcStatement#testCancellationOnStatementClose()
+     * @see TestJdbcStatement#testConcurrentCancellationOnStatementClose()
+     */
     // TODO https://github.com/trinodb/trino/issues/10096 - enable test once concurrent jdbc statements are supported
     @Test(timeOut = 60_000, dataProviderClass = DataProviders.class, dataProvider = "trueFalse", enabled = false)
     public void testConcurrentCancellationOnConnectionClose(boolean autoCommit)
@@ -686,7 +620,7 @@ public class TestJdbcConnection
         }
     }
 
-    private static void assertThatFutureIsBlocked(Future<?> future)
+    static void assertThatFutureIsBlocked(Future<?> future)
     {
         if (!future.isDone()) {
             return;

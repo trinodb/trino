@@ -30,6 +30,7 @@ import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.testing.assertions.Assert.assertEventually;
@@ -53,7 +54,10 @@ public abstract class AbstractDistributedEngineOnlyQueries
     @AfterClass(alwaysRun = true)
     public void shutdown()
     {
-        executorService.shutdownNow();
+        if (executorService != null) {
+            executorService.shutdownNow();
+            executorService = null;
+        }
     }
 
     /**
@@ -207,6 +211,9 @@ public abstract class AbstractDistributedEngineOnlyQueries
     {
         // ExplainAnalyzeOperator may finish before dynamic filter stats are reported to QueryInfo
         assertEventually(() -> assertExplainAnalyze(
+                Session.builder(getSession())
+                        .setSystemProperty(ENABLE_LARGE_DYNAMIC_FILTERS, "true")
+                        .build(),
                 "EXPLAIN ANALYZE SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey",
                 "Dynamic filters: \n.*ranges=25, \\{\\[0], ..., \\[24]}.* collection time=\\d+.*"));
     }
@@ -216,7 +223,10 @@ public abstract class AbstractDistributedEngineOnlyQueries
     {
         assertExplainAnalyze(
                 "EXPLAIN ANALYZE VERBOSE SELECT * FROM nation a",
-                "'Input distribution' = \\{count=.*, p01=.*, p05=.*, p10=.*, p25=.*, p50=.*, p75=.*, p90=.*, p95=.*, p99=.*, min=.*, max=.*}");
+                "'Input rows distribution' = \\{count=.*, p01=.*, p05=.*, p10=.*, p25=.*, p50=.*, p75=.*, p90=.*, p95=.*, p99=.*, min=.*, max=.*}",
+                "'CPU time distribution \\(s\\)' = \\{count=.*, p01=.*, p05=.*, p10=.*, p25=.*, p50=.*, p75=.*, p90=.*, p95=.*, p99=.*, min=.*, max=.*}",
+                "'Wall time distribution \\(s\\)' = \\{count=.*, p01=.*, p05=.*, p10=.*, p25=.*, p50=.*, p75=.*, p90=.*, p95=.*, p99=.*, min=.*, max=.*}",
+                "Output buffer utilization distribution \\(%\\): \\{p01=.*, p05=.*, p10=.*, p25=.*, p50=.*, p75=.*, p90=.*, p95=.*, p99=.*, max=.*}");
     }
 
     @Test
@@ -345,5 +355,17 @@ public abstract class AbstractDistributedEngineOnlyQueries
         });
 
         assertThatThrownBy(queryFuture::get).hasMessageContaining("Query was canceled");
+    }
+
+    @Test(timeOut = 30_000)
+    public void testSelectiveLimit()
+    {
+        assertQuery("" +
+                        "SELECT * FROM (" +
+                        "   (SELECT orderkey AS a FROM tpch.sf10000.orders WHERE orderkey=-1)" +
+                        " UNION ALL SELECT * FROM (values -1) AS t(a))" +
+                        "WHERE a=-1 " +
+                        "LIMIT 1",
+                "VALUES -1");
     }
 }

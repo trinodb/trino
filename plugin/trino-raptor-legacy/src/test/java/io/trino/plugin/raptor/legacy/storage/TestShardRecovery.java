@@ -44,9 +44,9 @@ import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesW
 import static io.trino.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
 import static io.trino.plugin.raptor.legacy.storage.RaptorStorageManager.xxhash64;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.createTempFile;
+import static java.nio.file.Files.writeString;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -92,7 +92,6 @@ public class TestShardRecovery
         deleteRecursively(temporary, ALLOW_INSECURE);
     }
 
-    @SuppressWarnings("EmptyTryBlock")
     @Test
     public void testShardRecovery()
             throws Exception
@@ -101,7 +100,7 @@ public class TestShardRecovery
         File file = storageService.getStorageFile(shardUuid);
         File tempFile = createTempFile(temporary, "tmp", null).toFile();
 
-        Files.write("test data", tempFile, UTF_8);
+        writeString(tempFile.toPath(), "test data");
 
         backupStore.backupShard(shardUuid, tempFile);
         assertTrue(backupStore.shardExists(shardUuid));
@@ -123,7 +122,7 @@ public class TestShardRecovery
 
         // write data and backup
         File tempFile = createTempFile(temporary, "tmp", null).toFile();
-        Files.write("test data", tempFile, UTF_8);
+        writeString(tempFile.toPath(), "test data");
 
         backupStore.backupShard(shardUuid, tempFile);
         assertTrue(backupStore.shardExists(shardUuid));
@@ -135,7 +134,7 @@ public class TestShardRecovery
         File storageFile = storageService.getStorageFile(shardUuid);
         storageService.createParents(storageFile);
 
-        Files.write("bad data", storageFile, UTF_8);
+        writeString(storageFile.toPath(), "bad data");
 
         assertTrue(storageFile.exists());
         assertNotEquals(storageFile.length(), tempFile.length());
@@ -161,7 +160,7 @@ public class TestShardRecovery
 
         // write data and backup
         File tempFile = createTempFile(temporary, "tmp", null).toFile();
-        Files.write("test data", tempFile, UTF_8);
+        writeString(tempFile.toPath(), "test data");
 
         backupStore.backupShard(shardUuid, tempFile);
         assertTrue(backupStore.shardExists(shardUuid));
@@ -173,7 +172,7 @@ public class TestShardRecovery
         File storageFile = storageService.getStorageFile(shardUuid);
         storageService.createParents(storageFile);
 
-        Files.write("test xata", storageFile, UTF_8);
+        writeString(storageFile.toPath(), "test xata");
 
         assertTrue(storageFile.exists());
         assertEquals(storageFile.length(), tempFile.length());
@@ -201,7 +200,7 @@ public class TestShardRecovery
         File storageFile = storageService.getStorageFile(shardUuid);
         storageService.createParents(storageFile);
 
-        Files.write("test data", storageFile, UTF_8);
+        writeString(storageFile.toPath(), "test data");
 
         long size = storageFile.length();
         long xxhash64 = xxhash64(storageFile);
@@ -214,7 +213,7 @@ public class TestShardRecovery
         assertTrue(Files.equal(storageFile, backupFile));
 
         // corrupt backup file
-        Files.write("test xata", backupFile, UTF_8);
+        writeString(backupFile.toPath(), "test xata");
 
         assertTrue(backupFile.exists());
         assertEquals(storageFile.length(), backupFile.length());

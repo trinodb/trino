@@ -15,11 +15,13 @@ package io.trino.spi.ptf;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.spi.Experimental;
 import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -27,6 +29,7 @@ import static io.trino.spi.ptf.Preconditions.checkArgument;
 import static io.trino.spi.ptf.Preconditions.checkNotNullOrEmpty;
 import static java.util.Objects.requireNonNull;
 
+@Experimental(eta = "2022-10-31")
 public class Descriptor
 {
     private final List<Field> fields;
@@ -70,6 +73,25 @@ public class Descriptor
         return fields.stream().allMatch(field -> field.type.isPresent());
     }
 
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Descriptor that = (Descriptor) o;
+        return fields.equals(that.fields);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(fields);
+    }
+
     public static class Field
     {
         private final String name;
@@ -92,6 +114,25 @@ public class Descriptor
         public Optional<Type> getType()
         {
             return type;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            Field field = (Field) o;
+            return name.equals(field.name) && type.equals(field.type);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(name, type);
         }
     }
 }

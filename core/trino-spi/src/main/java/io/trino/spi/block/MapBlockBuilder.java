@@ -24,10 +24,10 @@ import java.util.Optional;
 import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.trino.spi.block.BlockUtil.calculateBlockResetSize;
 import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
 import static io.trino.spi.block.MapBlock.createMapBlockInternal;
 import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -35,7 +35,7 @@ public class MapBlockBuilder
         extends AbstractMapBlock
         implements BlockBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapBlockBuilder.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(MapBlockBuilder.class).instanceSize());
 
     @Nullable
     private final BlockBuilderStatus blockBuilderStatus;
@@ -43,6 +43,7 @@ public class MapBlockBuilder
     private int positionCount;
     private int[] offsets;
     private boolean[] mapIsNull;
+    private boolean hasNullValue;
     private final BlockBuilder keyBlockBuilder;
     private final BlockBuilder valueBlockBuilder;
     private final MapHashTables hashTables;
@@ -120,10 +121,17 @@ public class MapBlockBuilder
         return 0;
     }
 
+    @Nullable
     @Override
     protected boolean[] getMapIsNull()
     {
-        return mapIsNull;
+        return hasNullValue ? mapIsNull : null;
+    }
+
+    @Override
+    public boolean mayHaveNull()
+    {
+        return hasNullValue;
     }
 
     @Override
@@ -163,7 +171,7 @@ public class MapBlockBuilder
         consumer.accept(offsets, sizeOf(offsets));
         consumer.accept(mapIsNull, sizeOf(mapIsNull));
         consumer.accept(hashTables, hashTables.getRetainedSizeInBytes());
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -249,6 +257,7 @@ public class MapBlockBuilder
         }
         offsets[positionCount + 1] = keyBlockBuilder.getPositionCount();
         mapIsNull[positionCount] = isNull;
+        hasNullValue |= isNull;
         positionCount++;
 
         if (blockBuilderStatus != null) {
@@ -279,7 +288,7 @@ public class MapBlockBuilder
                 getMapType(),
                 0,
                 positionCount,
-                Optional.of(mapIsNull),
+                hasNullValue ? Optional.of(mapIsNull) : Optional.empty(),
                 offsets,
                 keyBlockBuilder.build(),
                 valueBlockBuilder.build(),
@@ -295,16 +304,15 @@ public class MapBlockBuilder
     }
 
     @Override
-    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
+    public BlockBuilder newBlockBuilderLike(int expectedEntries, BlockBuilderStatus blockBuilderStatus)
     {
-        int newSize = calculateBlockResetSize(getPositionCount());
         return new MapBlockBuilder(
                 getMapType(),
                 blockBuilderStatus,
                 keyBlockBuilder.newBlockBuilderLike(blockBuilderStatus),
                 valueBlockBuilder.newBlockBuilderLike(blockBuilderStatus),
-                new int[newSize + 1],
-                new boolean[newSize]);
+                new int[expectedEntries + 1],
+                new boolean[expectedEntries]);
     }
 
     @Override

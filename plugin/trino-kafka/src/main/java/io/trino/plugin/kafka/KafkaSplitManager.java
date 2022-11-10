@@ -52,7 +52,7 @@ public class KafkaSplitManager
     public KafkaSplitManager(KafkaConsumerFactory consumerFactory, KafkaConfig kafkaConfig, KafkaFilterManager kafkaFilterManager, ContentSchemaReader contentSchemaReader)
     {
         this.consumerFactory = requireNonNull(consumerFactory, "consumerFactory is null");
-        this.messagesPerSplit = requireNonNull(kafkaConfig, "kafkaConfig is null").getMessagesPerSplit();
+        this.messagesPerSplit = kafkaConfig.getMessagesPerSplit();
         this.kafkaFilterManager = requireNonNull(kafkaFilterManager, "kafkaFilterManager is null");
         this.contentSchemaReader = requireNonNull(contentSchemaReader, "contentSchemaReader is null");
     }

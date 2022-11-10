@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
-import io.trino.plugin.hive.authentication.HiveMetastoreAuthentication;
 import org.apache.thrift.transport.TTransport;
 
 import java.util.Optional;

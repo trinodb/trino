@@ -24,6 +24,7 @@ import java.lang.invoke.MethodType;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
 
+@Deprecated
 public final class MethodHandleUtil
 {
     private static final MethodHandle WRITE_LONG = methodHandle(Type.class, "writeLong", BlockBuilder.class, long.class);
@@ -40,6 +41,7 @@ public final class MethodHandleUtil
      * @param g (T1, T2, ..., Tn)U
      * @return (T1, T2, ..., Tn, S1, S2, ..., Sm)R
      */
+    @Deprecated
     public static MethodHandle compose(MethodHandle f, MethodHandle g)
     {
         if (f.type().parameterType(0) != g.type().returnType()) {
@@ -59,6 +61,7 @@ public final class MethodHandleUtil
      * @param h (T1, T2, ..., Tn)V
      * @return (S1, S2, ..., Sm, T1, T2, ..., Tn)R
      */
+    @Deprecated
     public static MethodHandle compose(MethodHandle f, MethodHandle g, MethodHandle h)
     {
         if (f.type().parameterCount() != 2) {
@@ -106,6 +109,7 @@ public final class MethodHandleUtil
      * method in a tight loop can create significant GC pressure and significantly increase
      * application pause time.
      */
+    @Deprecated
     public static MethodHandle methodHandle(Class<?> clazz, String name, Class<?>... parameterTypes)
     {
         try {
@@ -116,6 +120,7 @@ public final class MethodHandleUtil
         }
     }
 
+    @Deprecated
     public static MethodHandle nativeValueWriter(Type type)
     {
         Class<?> javaType = type.getJavaType();

@@ -22,7 +22,6 @@ import io.trino.Session;
 import io.trino.metadata.TableFunctionHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.ptf.NameAndPosition;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ExpressionUtils;
@@ -89,7 +88,9 @@ import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubsetDefinition;
 import io.trino.sql.tree.Table;
+import io.trino.sql.tree.TableFunctionDescriptorArgument;
 import io.trino.sql.tree.TableFunctionInvocation;
+import io.trino.sql.tree.TableFunctionTableArgument;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Unnest;
@@ -328,6 +329,16 @@ class RelationPlanner
     @Override
     protected RelationPlan visitTableFunctionInvocation(TableFunctionInvocation node, Void context)
     {
+        node.getArguments().stream()
+                .forEach(argument -> {
+                    if (argument.getValue() instanceof TableFunctionTableArgument) {
+                        throw semanticException(NOT_SUPPORTED, argument, "Table arguments are not yet supported for table functions");
+                    }
+                    if (argument.getValue() instanceof TableFunctionDescriptorArgument) {
+                        throw semanticException(NOT_SUPPORTED, argument, "Descriptor arguments are not yet supported for table functions");
+                    }
+                });
+
         TableFunctionInvocationAnalysis functionAnalysis = analysis.getTableFunctionAnalysis(node);
 
         // TODO handle input relations:
@@ -337,10 +348,10 @@ class RelationPlanner
         //  - prune when empty property  (from the actualArgument)
         //  - pass through columns property (from the actualArgument)
         //  - optional Specification: ordering scheme and partitioning (from the node's argument) <- planned upon the source's RelationPlan (or combined RelationPlan from all sources)
+        // TODO add - argument name
+        // TODO add - mapping column name => Symbol // TODO mind the fields without names and duplicate field names in RelationType
         List<RelationPlan> sources = ImmutableList.of();
         List<TableArgumentProperties> inputRelationsProperties = ImmutableList.of();
-        // TODO rewrite column references to Symbols upon the source's RelationPlan (or combined RelationPlan from all sources)
-        Map<NameAndPosition, Symbol> inputDescriptorMappings = ImmutableMap.of();
 
         Scope scope = analysis.getScope(node);
         // TODO pass columns from input relations, and make sure they have the right qualifier
@@ -355,8 +366,7 @@ class RelationPlanner
                 outputSymbols,
                 sources.stream().map(RelationPlan::getRoot).collect(toImmutableList()),
                 inputRelationsProperties,
-                inputDescriptorMappings,
-                new TableFunctionHandle(functionAnalysis.getCatalogName(), functionAnalysis.getConnectorTableFunctionHandle(), functionAnalysis.getTransactionHandle()));
+                new TableFunctionHandle(functionAnalysis.getCatalogHandle(), functionAnalysis.getConnectorTableFunctionHandle(), functionAnalysis.getTransactionHandle()));
 
         return new RelationPlan(root, scope, outputSymbols, outerContext);
     }
@@ -579,7 +589,7 @@ class RelationPlanner
         return planJoin(analysis.getJoinCriteria(node), node.getType(), analysis.getScope(node), leftPlan, rightPlan, analysis.getSubqueries(node));
     }
 
-    private RelationPlan planJoin(Expression criteria, Join.Type type, Scope scope, RelationPlan leftPlan, RelationPlan rightPlan, Analysis.SubqueryAnalysis subqueries)
+    public RelationPlan planJoin(Expression criteria, Join.Type type, Scope scope, RelationPlan leftPlan, RelationPlan rightPlan, Analysis.SubqueryAnalysis subqueries)
     {
         // NOTE: symbols must be in the same order as the outputDescriptor
         List<Symbol> outputSymbols = ImmutableList.<Symbol>builder()

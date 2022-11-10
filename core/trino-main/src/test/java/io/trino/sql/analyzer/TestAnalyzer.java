@@ -21,9 +21,18 @@ import com.google.common.io.Closer;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.StaticConnectorFactory;
+import io.trino.connector.TestingTableFunctions.DescriptorArgumentFunction;
+import io.trino.connector.TestingTableFunctions.MonomorphicStaticReturnTypeFunction;
+import io.trino.connector.TestingTableFunctions.OnlyPassThroughFunction;
+import io.trino.connector.TestingTableFunctions.PolymorphicStaticReturnTypeFunction;
+import io.trino.connector.TestingTableFunctions.TableArgumentFunction;
+import io.trino.connector.TestingTableFunctions.TableArgumentRowSemanticsFunction;
+import io.trino.connector.TestingTableFunctions.TwoScalarArgumentsFunction;
+import io.trino.connector.TestingTableFunctions.TwoTableArgumentsFunction;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TaskManagerConfig;
@@ -32,6 +41,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.AnalyzePropertyManager;
+import io.trino.metadata.CatalogTableFunctions;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.MaterializedViewDefinition;
@@ -40,7 +50,10 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SchemaPropertyManager;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.metadata.TableFunctionRegistry;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TableProceduresPropertyManager;
+import io.trino.metadata.TableProceduresRegistry;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.metadata.ViewColumn;
 import io.trino.metadata.ViewDefinition;
@@ -65,6 +78,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.OptimizerConfig;
@@ -76,6 +90,8 @@ import io.trino.testing.TestingAccessControlManager;
 import io.trino.testing.TestingMetadata;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.testing.assertions.TrinoExceptionAssert;
+import io.trino.transaction.NoOpTransactionManager;
+import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
@@ -97,6 +113,7 @@ import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_NAMED_QUERY;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_PARAMETER_NAME;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_PROPERTY;
+import static io.trino.spi.StandardErrorCode.DUPLICATE_RANGE_VARIABLE;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_WINDOW_NAME;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_AGGREGATE;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
@@ -106,6 +123,7 @@ import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_AGGREGATE;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
+import static io.trino.spi.StandardErrorCode.INVALID_COPARTITIONING;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LABEL;
 import static io.trino.spi.StandardErrorCode.INVALID_LIMIT_CLAUSE;
@@ -119,11 +137,13 @@ import static io.trino.spi.StandardErrorCode.INVALID_PROCESSING_MODE;
 import static io.trino.spi.StandardErrorCode.INVALID_RANGE;
 import static io.trino.spi.StandardErrorCode.INVALID_RECURSIVE_REFERENCE;
 import static io.trino.spi.StandardErrorCode.INVALID_ROW_PATTERN;
+import static io.trino.spi.StandardErrorCode.INVALID_TABLE_FUNCTION_INVOCATION;
 import static io.trino.spi.StandardErrorCode.INVALID_VIEW;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_MEASURE;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_REFERENCE;
 import static io.trino.spi.StandardErrorCode.MISMATCHED_COLUMN_ALIASES;
+import static io.trino.spi.StandardErrorCode.MISSING_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.trino.spi.StandardErrorCode.MISSING_COLUMN_ALIASES;
 import static io.trino.spi.StandardErrorCode.MISSING_COLUMN_NAME;
@@ -164,7 +184,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.analyzer.StatementAnalyzerFactory.createTestingStatementAnalyzerFactory;
 import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
 import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
@@ -180,6 +199,7 @@ import static java.util.Collections.emptyMap;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Test(singleThreaded = true)
 public class TestAnalyzer
@@ -214,64 +234,76 @@ public class TestAnalyzer
     public void testTooManyArguments()
     {
         assertFails("SELECT greatest(" + Joiner.on(", ").join(nCopies(128, "rand()")) + ")")
-                .hasErrorCode(TOO_MANY_ARGUMENTS);
+                .hasErrorCode(TOO_MANY_ARGUMENTS)
+                .hasMessage("line 1:8: Too many arguments for function call greatest()");
     }
 
     @Test
     public void testNonComparableGroupBy()
     {
         assertFails("SELECT * FROM (SELECT approx_set(1)) GROUP BY 1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:1: HyperLogLog is not comparable, and therefore cannot be used in GROUP BY");
     }
 
     @Test
     public void testNonComparableWindowPartition()
     {
         assertFails("SELECT row_number() OVER (PARTITION BY t.x) FROM (VALUES(CAST (NULL AS HyperLogLog))) AS t(x)")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:40: HyperLogLog is not comparable, and therefore cannot be used in window function PARTITION BY");
     }
 
     @Test
     public void testNonComparableWindowOrder()
     {
         assertFails("SELECT row_number() OVER (ORDER BY t.x) FROM (VALUES(color('red'))) AS t(x)")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:36: color is not orderable, and therefore cannot be used in window function ORDER BY");
     }
 
     @Test
     public void testNonComparableDistinctAggregation()
     {
         assertFails("SELECT count(DISTINCT x) FROM (SELECT approx_set(1) x)")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: DISTINCT can only be applied to comparable types (actual: HyperLogLog)");
     }
 
     @Test
     public void testNonComparableDistinct()
     {
         assertFails("SELECT DISTINCT * FROM (SELECT approx_set(1) x)")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:1: DISTINCT can only be applied to comparable types (actual: HyperLogLog)");
         assertFails("SELECT DISTINCT x FROM (SELECT approx_set(1) x)")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:1: DISTINCT can only be applied to comparable types (actual: HyperLogLog): x");
         assertFails("SELECT DISTINCT ROW(1, approx_set(1)).* from t1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:1: DISTINCT can only be applied to comparable types (actual: HyperLogLog)");
     }
 
     @Test
     public void testNonAggregationDistinct()
     {
         assertFails("SELECT lower(DISTINCT a) FROM (VALUES('foo')) AS t1(a)")
-                .hasErrorCode(FUNCTION_NOT_AGGREGATE);
+                .hasErrorCode(FUNCTION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: DISTINCT is not supported for non-aggregation functions");
         assertFails("SELECT lower(DISTINCT max(a)) FROM (VALUES('foo')) AS t1(a)")
-                .hasErrorCode(FUNCTION_NOT_AGGREGATE);
+                .hasErrorCode(FUNCTION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: DISTINCT is not supported for non-aggregation functions");
     }
 
     @Test
     public void testInSubqueryTypes()
     {
         assertFails("SELECT * FROM (VALUES 'a') t(y) WHERE y IN (VALUES 1)")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:41: Value expression and result of subquery must be of the same type: row(varchar(1)) vs row(integer)");
         assertFails("SELECT (VALUES true) IN (VALUES 1)")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:22: Value expression and result of subquery must be of the same type: row(boolean) vs row(integer)");
     }
 
     @Test
@@ -330,7 +362,8 @@ public class TestAnalyzer
     public void testHavingReferencesOutputAlias()
     {
         assertFails("SELECT sum(a) x FROM t1 HAVING x > 5")
-                .hasErrorCode(COLUMN_NOT_FOUND);
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:32: Column 'x' cannot be resolved");
     }
 
     @Test
@@ -338,33 +371,41 @@ public class TestAnalyzer
     {
         // wildcard without FROM
         assertFails("SELECT *")
-                .hasErrorCode(COLUMN_NOT_FOUND);
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:8: SELECT * not allowed in queries without FROM clause");
 
         // wildcard with invalid prefix
         assertFails("SELECT foo.* FROM t1")
-                .hasErrorCode(TABLE_NOT_FOUND);
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:8: Unable to resolve reference foo");
 
         assertFails("SELECT a.b.c.d.* FROM t1")
-                .hasErrorCode(TABLE_NOT_FOUND);
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:8: Unable to resolve reference a.b.c.d");
 
         // aliases mismatch
         assertFails("SELECT (1, 2).* AS (a) FROM t1")
-                .hasErrorCode(MISMATCHED_COLUMN_ALIASES);
+                .hasErrorCode(MISMATCHED_COLUMN_ALIASES)
+                .hasMessage("line 1:21: Column alias list has 1 entries but relation has 2 columns");
 
         // wildcard with no RowType expression
         assertFails("SELECT non_row.* FROM (VALUES ('true', 1)) t(non_row, b)")
-                .hasErrorCode(TABLE_NOT_FOUND);
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:8: Unable to resolve reference non_row");
 
         // wildcard with no RowType expression nested in a row
         assertFails("SELECT t.row.non_row.* FROM (VALUES (CAST(ROW('true') AS ROW(non_row boolean)), 1)) t(row, b)")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:1: expected expression of type Row");
 
         // reference to outer scope relation with anonymous field
         assertFails("SELECT (SELECT outer_relation.* FROM (VALUES 1) inner_relation) FROM (values 2) outer_relation")
-                .hasErrorCode(NOT_SUPPORTED);
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:9: SELECT * from outer scope table not supported with anonymous columns");
 
         assertFails("SELECT t.a FROM (SELECT t.* FROM (VALUES 1) t(a))")
-                .hasErrorCode(COLUMN_NOT_FOUND);
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:8: Column 't.a' cannot be resolved");
     }
 
     @Test
@@ -492,9 +533,11 @@ public class TestAnalyzer
     public void testGroupByWithWildcard()
     {
         assertFails("SELECT * FROM t1 GROUP BY 1")
-                .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("Column 't1.b' not in GROUP BY clause");
         assertFails("SELECT u1.*, u2.* FROM (select a, b + 1 from t1) u1 JOIN (select a, b + 2 from t1) u2 ON u1.a = u2.a GROUP BY u1.a, u2.a, 3")
-                .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("Column 2 not in GROUP BY clause");
     }
 
     @Test
@@ -502,19 +545,23 @@ public class TestAnalyzer
     {
         // identifier chain of length 2; match to table and field in immediate scope
         assertFails(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT a.b.* FROM a.b, t1 AS a")
-                .hasErrorCode(AMBIGUOUS_NAME);
+                .hasErrorCode(AMBIGUOUS_NAME)
+                .hasMessage("line 1:8: Reference 'a.b' is ambiguous");
 
         // identifier chain of length 2; match to table and field in outer scope
         assertFails(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT (SELECT a.b.* FROM (VALUES 1) v) FROM a.b, t1 AS a")
-                .hasErrorCode(AMBIGUOUS_NAME);
+                .hasErrorCode(AMBIGUOUS_NAME)
+                .hasMessage("line 1:16: Reference 'a.b' is ambiguous");
 
         // identifier chain of length 3; match to table and field in immediate scope
         assertFails(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT cat.a.b.* FROM cat.a.b, t2 AS cat")
-                .hasErrorCode(AMBIGUOUS_NAME);
+                .hasErrorCode(AMBIGUOUS_NAME)
+                .hasMessage("line 1:8: Reference 'cat.a.b' is ambiguous");
 
         // identifier chain of length 3; match to table and field in outer scope
         assertFails(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT (SELECT cat.a.b.* FROM (VALUES 1) v) FROM cat.a.b, t2 AS cat")
-                .hasErrorCode(AMBIGUOUS_NAME);
+                .hasErrorCode(AMBIGUOUS_NAME)
+                .hasMessage("line 1:16: Reference 'cat.a.b' is ambiguous");
 
         // identifier chain of length 2; no ambiguity: table match in closer scope than field match
         analyze(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT (SELECT a.b.* FROM a.b) FROM t1 AS a");
@@ -533,17 +580,20 @@ public class TestAnalyzer
 
         // identifier chain of length 1; only table match allowed, referencing field not qualified by table alias not allowed
         assertFails(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT b.* FROM t1")
-                .hasErrorCode(TABLE_NOT_FOUND);
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:8: Unable to resolve reference b");
 
         // identifier chain of length 3; illegal reference: multi-identifier table reference + field reference
         assertFails(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT a.t1.b.* FROM a.t1")
-                .hasErrorCode(TABLE_NOT_FOUND);
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:8: Unable to resolve reference a.t1.b");
         // the above query fixed by the use of table alias
         analyze(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT alias.b.* FROM a.t1 as alias");
 
         // identifier chain of length 4; illegal reference: multi-identifier table reference + field reference
         assertFails(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT cat.a.t1.b.* FROM cat.a.t1")
-                .hasErrorCode(TABLE_NOT_FOUND);
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:8: Unable to resolve reference cat.a.t1.b");
         // the above query fixed by the use of table alias
         analyze(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT alias.b.* FROM cat.a.t1 AS alias");
 
@@ -560,20 +610,24 @@ public class TestAnalyzer
 
         // ambiguous field references in immediate scope
         assertFails(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT a.b.* FROM t4 AS a, t5 AS a")
-                .hasErrorCode(AMBIGUOUS_NAME);
+                .hasErrorCode(AMBIGUOUS_NAME)
+                .hasMessage("line 1:8: Column 'a.b' is ambiguous");
 
         // ambiguous field references in outer scope
         assertFails(CLIENT_SESSION_FOR_IDENTIFIER_CHAIN_TESTS, "SELECT (SELECT a.b.* FROM (VALUES 1) v) FROM t4 AS a, t5 AS a")
-                .hasErrorCode(AMBIGUOUS_NAME);
+                .hasErrorCode(AMBIGUOUS_NAME)
+                .hasMessage("line 1:16: Column 'a.b' is ambiguous");
     }
 
     @Test
     public void testGroupByInvalidOrdinal()
     {
         assertFails("SELECT * FROM t1 GROUP BY 10")
-                .hasErrorCode(INVALID_COLUMN_REFERENCE);
+                .hasErrorCode(INVALID_COLUMN_REFERENCE)
+                .hasMessage("line 1:27: GROUP BY position 10 is not in select list");
         assertFails("SELECT * FROM t1 GROUP BY 0")
-                .hasErrorCode(INVALID_COLUMN_REFERENCE);
+                .hasErrorCode(INVALID_COLUMN_REFERENCE)
+                .hasMessage("line 1:27: GROUP BY position 0 is not in select list");
     }
 
     @Test
@@ -612,7 +666,8 @@ public class TestAnalyzer
 
         // (t1.)a is not part of GROUP BY
         assertFails("SELECT (SELECT a as a) FROM t1 GROUP BY b")
-                .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:16: Subquery uses 'a' which must appear in GROUP BY clause");
 
         // u.a is not GROUP-ed BY but select Subquery expression is using a different (shadowing) u.a
         analyze("SELECT (SELECT 1 FROM t1 u WHERE a = u.a) FROM t1 u GROUP BY b");
@@ -642,7 +697,8 @@ public class TestAnalyzer
 
         // (t1.)a is not part of GROUP BY
         assertFails("SELECT EXISTS(SELECT a as a) FROM t1 GROUP BY b")
-                .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:22: Subquery uses 'a' which must appear in GROUP BY clause");
 
         // u.a is not GROUP-ed BY but select Subquery expression is using a different (shadowing) u.a
         analyze("SELECT EXISTS(SELECT 1 FROM t1 u WHERE a = u.a) FROM t1 u GROUP BY b");
@@ -666,56 +722,68 @@ public class TestAnalyzer
     public void testOrderByInvalidOrdinal()
     {
         assertFails("SELECT * FROM t1 ORDER BY 10")
-                .hasErrorCode(INVALID_COLUMN_REFERENCE);
+                .hasErrorCode(INVALID_COLUMN_REFERENCE)
+                .hasMessage("line 1:27: ORDER BY position 10 is not in select list");
         assertFails("SELECT * FROM t1 ORDER BY 0")
-                .hasErrorCode(INVALID_COLUMN_REFERENCE);
+                .hasErrorCode(INVALID_COLUMN_REFERENCE)
+                .hasMessage("line 1:27: ORDER BY position 0 is not in select list");
     }
 
     @Test
     public void testOrderByNonComparable()
     {
         assertFails("SELECT x FROM (SELECT approx_set(1) x) ORDER BY 1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:1: Type HyperLogLog is not orderable, and therefore cannot be used in ORDER BY: :input(0)");
         assertFails("SELECT * FROM (SELECT approx_set(1) x) ORDER BY 1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:1: Type HyperLogLog is not orderable, and therefore cannot be used in ORDER BY: :input(0)");
         assertFails("SELECT x FROM (SELECT approx_set(1) x) ORDER BY x")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:1: Type HyperLogLog is not orderable, and therefore cannot be used in ORDER BY: x");
     }
 
     @Test
     public void testFetchFirstInvalidRowCount()
     {
         assertFails("SELECT * FROM t1 FETCH FIRST 0 ROWS ONLY")
-                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("line 1:18: FETCH FIRST row count must be positive (actual value: 0)");
     }
 
     @Test
     public void testFetchFirstWithTiesMissingOrderBy()
     {
         assertFails("SELECT * FROM t1 FETCH FIRST 5 ROWS WITH TIES")
-                .hasErrorCode(MISSING_ORDER_BY);
+                .hasErrorCode(MISSING_ORDER_BY)
+                .hasMessage("line 1:18: FETCH FIRST WITH TIES clause requires ORDER BY");
 
         // ORDER BY clause must be in the same scope as FETCH FIRST WITH TIES
         assertFails("SELECT * FROM (SELECT * FROM (values 1, 3, 2) t(a) ORDER BY a) FETCH FIRST 5 ROWS WITH TIES")
-                .hasErrorCode(MISSING_ORDER_BY);
+                .hasErrorCode(MISSING_ORDER_BY)
+                .hasMessage("line 1:64: FETCH FIRST WITH TIES clause requires ORDER BY");
     }
 
     @Test
     public void testNestedAggregation()
     {
         assertFails("SELECT sum(count(*)) FROM t1")
-                .hasErrorCode(NESTED_AGGREGATION);
+                .hasErrorCode(NESTED_AGGREGATION)
+                .hasMessage("line 1:8: Cannot nest aggregations inside aggregation 'sum': [count(*)]");
     }
 
     @Test
     public void testAggregationsNotAllowed()
     {
         assertFails("SELECT * FROM t1 WHERE sum(a) > 1")
-                .hasErrorCode(EXPRESSION_NOT_SCALAR);
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessage("line 1:31: WHERE clause cannot contain aggregations, window functions or grouping operations: [sum(a)]");
         assertFails("SELECT * FROM t1 GROUP BY sum(a)")
-                .hasErrorCode(EXPRESSION_NOT_SCALAR);
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessage("line 1:27: GROUP BY clause cannot contain aggregations, window functions or grouping operations: [sum(a)]");
         assertFails("SELECT * FROM t1 JOIN t2 ON sum(t1.a) = t2.a")
-                .hasErrorCode(EXPRESSION_NOT_SCALAR);
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessage("line 1:39: JOIN clause cannot contain aggregations, window functions or grouping operations: [sum(t1.a)]");
     }
 
     @Test
@@ -723,13 +791,17 @@ public class TestAnalyzer
     {
         // window function
         assertFails("SELECT * FROM t1 WHERE foo() over () > 1")
-                .hasErrorCode(EXPRESSION_NOT_SCALAR);
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessage("line 1:38: WHERE clause cannot contain aggregations, window functions or grouping operations: [foo() OVER ()]");
         assertFails("SELECT * FROM t1 GROUP BY rank() over ()")
-                .hasErrorCode(EXPRESSION_NOT_SCALAR);
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessage("line 1:27: GROUP BY clause cannot contain aggregations, window functions or grouping operations: [rank() OVER ()]");
         assertFails("SELECT * FROM t1 JOIN t2 ON sum(t1.a) over () = t2.a")
-                .hasErrorCode(EXPRESSION_NOT_SCALAR);
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessage("line 1:47: JOIN clause cannot contain aggregations, window functions or grouping operations: [sum(t1.a) OVER ()]");
         assertFails("SELECT 1 FROM (VALUES 1) HAVING count(*) OVER () > 1")
-                .hasErrorCode(NESTED_WINDOW);
+                .hasErrorCode(NESTED_WINDOW)
+                .hasMessage("line 1:33: HAVING clause cannot contain window functions or row pattern measures");
 
         // row pattern measure over window
         assertFails("SELECT * FROM t1 WHERE classy OVER ( " +
@@ -738,7 +810,8 @@ public class TestAnalyzer
                 "                                               PATTERN (A+) " +
                 "                                               DEFINE A AS true " +
                 "                                       ) > 'X'")
-                .hasErrorCode(EXPRESSION_NOT_SCALAR);
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessage("line 1:370: WHERE clause cannot contain aggregations, window functions or grouping operations: [classy OVER (MEASURES CLASSIFIER() AS classy ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING PATTERN((A+)) DEFINE A AS true)]");
 
         assertFails("SELECT * FROM t1 GROUP BY classy OVER (" +
                 "                                               MEASURES CLASSIFIER() AS classy " +
@@ -746,7 +819,8 @@ public class TestAnalyzer
                 "                                               PATTERN (A+) " +
                 "                                               DEFINE A AS true " +
                 "                                       )")
-                .hasErrorCode(EXPRESSION_NOT_SCALAR);
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessage("line 1:27: GROUP BY clause cannot contain aggregations, window functions or grouping operations: [classy OVER (MEASURES CLASSIFIER() AS classy ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING PATTERN((A+)) DEFINE A AS true)]");
 
         assertFails("SELECT * FROM t1 JOIN t2 ON classy OVER (" +
                 "                                               MEASURES CLASSIFIER() AS classy " +
@@ -754,7 +828,8 @@ public class TestAnalyzer
                 "                                               PATTERN (A+) " +
                 "                                               DEFINE A AS true " +
                 "                                       ) = t2.a")
-                .hasErrorCode(EXPRESSION_NOT_SCALAR);
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessage("line 1:374: JOIN clause cannot contain aggregations, window functions or grouping operations: [classy OVER (MEASURES CLASSIFIER() AS classy ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING PATTERN((A+)) DEFINE A AS true)]");
 
         assertFails("SELECT 1 FROM (VALUES 1) HAVING classy OVER (" +
                 "                                               MEASURES CLASSIFIER() AS classy " +
@@ -762,7 +837,8 @@ public class TestAnalyzer
                 "                                               PATTERN (A+) " +
                 "                                               DEFINE A AS true " +
                 "                                       ) > 'X'")
-                .hasErrorCode(NESTED_WINDOW);
+                .hasErrorCode(NESTED_WINDOW)
+                .hasMessage("line 1:33: HAVING clause cannot contain window functions or row pattern measures");
     }
 
     @Test
@@ -778,23 +854,31 @@ public class TestAnalyzer
     public void testGroupingNotAllowed()
     {
         assertFails("SELECT a, b, sum(c) FROM t1 WHERE grouping(a, b) GROUP BY GROUPING SETS ((a), (a, b))")
-                .hasErrorCode(EXPRESSION_NOT_SCALAR);
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessage("line 1:35: WHERE clause cannot contain aggregations, window functions or grouping operations: [GROUPING (a, b)]");
         assertFails("SELECT a, b, sum(c) FROM t1 GROUP BY grouping(a, b)")
-                .hasErrorCode(EXPRESSION_NOT_SCALAR);
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessage("line 1:38: GROUP BY clause cannot contain aggregations, window functions or grouping operations: [GROUPING (a, b)]");
         assertFails("SELECT t1.a, t1.b FROM t1 JOIN t2 ON grouping(t1.a, t1.b) > t2.a")
-                .hasErrorCode(EXPRESSION_NOT_SCALAR);
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessage("line 1:59: JOIN clause cannot contain aggregations, window functions or grouping operations: [GROUPING (t1.a, t1.b)]");
 
         assertFails("SELECT grouping(a) FROM t1")
-                .hasErrorCode(MISSING_GROUP_BY);
+                .hasErrorCode(MISSING_GROUP_BY)
+                .hasMessage("line 1:1: A GROUPING() operation can only be used with a corresponding GROUPING SET/CUBE/ROLLUP/GROUP BY clause");
         assertFails("SELECT * FROM t1 ORDER BY grouping(a)")
-                .hasErrorCode(MISSING_GROUP_BY);
+                .hasErrorCode(MISSING_GROUP_BY)
+                .hasMessage("line 1:1: A GROUPING() operation can only be used with a corresponding GROUPING SET/CUBE/ROLLUP/GROUP BY clause");
         assertFails("SELECT grouping(a) FROM t1 GROUP BY b")
-                .hasErrorCode(INVALID_ARGUMENTS);
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:8: The arguments to GROUPING() must be expressions referenced by the GROUP BY at the associated query level. Mismatch due to a.");
         assertFails("SELECT grouping(a.field) FROM (VALUES ROW(CAST(ROW(1) AS ROW(field BIGINT)))) t(a) GROUP BY a.field")
-                .hasErrorCode(INVALID_ARGUMENTS);
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:8: The arguments to GROUPING() must be expressions referenced by the GROUP BY at the associated query level. Mismatch due to a.field.");
 
         assertFails("SELECT a FROM t1 GROUP BY a ORDER BY grouping(a)")
-                .hasErrorCode(INVALID_ARGUMENTS);
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("Invalid reference to output of SELECT clause from grouping() expression in ORDER BY");
     }
 
     @Test
@@ -805,37 +889,48 @@ public class TestAnalyzer
                 "a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a," +
                 "a, a)";
         assertFails(format("SELECT a, b, %s + 1 FROM t1 GROUP BY GROUPING SETS ((a), (a, b))", grouping))
-                .hasErrorCode(TOO_MANY_ARGUMENTS);
+                .hasErrorCode(TOO_MANY_ARGUMENTS)
+                .hasMessage("line 1:14: GROUPING supports up to 63 column arguments");
         assertFails(format("SELECT a, b, %s as g FROM t1 GROUP BY a, b HAVING g > 0", grouping))
-                .hasErrorCode(TOO_MANY_ARGUMENTS);
+                .hasErrorCode(TOO_MANY_ARGUMENTS)
+                .hasMessage("line 1:14: GROUPING supports up to 63 column arguments");
         assertFails(format("SELECT a, b, rank() OVER (PARTITION BY %s) FROM t1 GROUP BY GROUPING SETS ((a), (a, b))", grouping))
-                .hasErrorCode(TOO_MANY_ARGUMENTS);
+                .hasErrorCode(TOO_MANY_ARGUMENTS)
+                .hasMessage("line 1:40: GROUPING supports up to 63 column arguments");
         assertFails(format("SELECT a, b, rank() OVER (PARTITION BY a ORDER BY %s) FROM t1 GROUP BY GROUPING SETS ((a), (a, b))", grouping))
-                .hasErrorCode(TOO_MANY_ARGUMENTS);
+                .hasErrorCode(TOO_MANY_ARGUMENTS)
+                .hasMessage("line 1:51: GROUPING supports up to 63 column arguments");
     }
 
     @Test
     public void testInvalidTable()
     {
         assertFails("SELECT * FROM foo.bar.t")
-                .hasErrorCode(CATALOG_NOT_FOUND);
+                .hasErrorCode(CATALOG_NOT_FOUND)
+                .hasMessage("line 1:15: Catalog 'foo' does not exist");
         assertFails("SELECT * FROM foo.t")
-                .hasErrorCode(SCHEMA_NOT_FOUND);
+                .hasErrorCode(SCHEMA_NOT_FOUND)
+                .hasMessage("line 1:15: Schema 'foo' does not exist");
         assertFails("SELECT * FROM foo")
-                .hasErrorCode(TABLE_NOT_FOUND);
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:15: Table 'tpch.s1.foo' does not exist");
         assertFails("SELECT * FROM foo FOR TIMESTAMP AS OF TIMESTAMP '2021-03-01 00:00:01'")
-                .hasErrorCode(TABLE_NOT_FOUND);
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:15: Table 'tpch.s1.foo' does not exist");
         assertFails("SELECT * FROM foo FOR VERSION AS OF 'version1'")
-                .hasErrorCode(TABLE_NOT_FOUND);
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:15: Table 'tpch.s1.foo' does not exist");
     }
 
     @Test
     public void testInvalidSchema()
     {
         assertFails("SHOW TABLES FROM NONEXISTENT_SCHEMA")
-                .hasErrorCode(SCHEMA_NOT_FOUND);
+                .hasErrorCode(SCHEMA_NOT_FOUND)
+                .hasMessage("line 1:1: Schema 'nonexistent_schema' does not exist");
         assertFails("SHOW TABLES IN NONEXISTENT_SCHEMA LIKE '%'")
-                .hasErrorCode(SCHEMA_NOT_FOUND);
+                .hasErrorCode(SCHEMA_NOT_FOUND)
+                .hasMessage("line 1:1: Schema 'nonexistent_schema' does not exist");
     }
 
     @Test
@@ -2785,78 +2880,105 @@ public class TestAnalyzer
     {
         // logical not
         assertFails("SELECT NOT 1 FROM t1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:12: Value of logical NOT expression must evaluate to a boolean (actual: integer)");
 
         // logical and/or
         assertFails("SELECT 1 AND TRUE FROM t1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Logical expression term must evaluate to a boolean (actual: integer)");
         assertFails("SELECT TRUE AND 1 FROM t1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:17: Logical expression term must evaluate to a boolean (actual: integer)");
         assertFails("SELECT 1 OR TRUE FROM t1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Logical expression term must evaluate to a boolean (actual: integer)");
         assertFails("SELECT TRUE OR 1 FROM t1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:16: Logical expression term must evaluate to a boolean (actual: integer)");
 
         // comparison
         assertFails("SELECT 1 = 'a' FROM t1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:10: Cannot apply operator: integer = varchar(1)");
 
         // nullif
         assertFails("SELECT NULLIF(1, 'a') FROM t1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Types are not comparable with NULLIF: integer vs varchar(1)");
 
         // case
         assertFails("SELECT CASE WHEN TRUE THEN 'a' ELSE 1 END FROM t1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:37: All CASE results must be the same type or coercible to a common type. Cannot find common type between varchar(1) and integer, all types (without duplicates): [varchar(1), integer]");
         assertFails("SELECT CASE WHEN '1' THEN 1 ELSE 2 END FROM t1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:18: CASE WHEN clause must evaluate to a boolean (actual: varchar(1))");
 
         assertFails("SELECT CASE 1 WHEN 'a' THEN 2 END FROM t1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:20: CASE operand type does not match WHEN clause operand type: integer vs varchar(1)");
         assertFails("SELECT CASE 1 WHEN 1 THEN 2 ELSE 'a' END FROM t1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:34: All CASE results must be the same type or coercible to a common type. Cannot find common type between integer and varchar(1), all types (without duplicates): [integer, varchar(1)]");
 
         // coalesce
         assertFails("SELECT COALESCE(1, 'a') FROM t1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:20: All COALESCE operands must be the same type or coercible to a common type. Cannot find common type between integer and varchar(1), all types (without duplicates): [integer, varchar(1)]");
 
         // cast
         assertFails("SELECT CAST(date '2014-01-01' AS bigint)")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Cannot cast date to bigint");
         assertFails("SELECT TRY_CAST(date '2014-01-01' AS bigint)")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Cannot cast date to bigint");
         assertFails("SELECT CAST(null AS UNKNOWN)")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: UNKNOWN is not a valid type");
         assertFails("SELECT CAST(1 AS MAP)")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Unknown type: MAP");
         assertFails("SELECT CAST(1 AS ARRAY)")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Unknown type: ARRAY");
         assertFails("SELECT CAST(1 AS ROW)")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Unknown type: ROW");
 
         // arithmetic unary
         assertFails("SELECT -'a' FROM t1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Cannot negate varchar(1)");
         assertFails("SELECT +'a' FROM t1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Unary '+' operator cannot by applied to varchar(1) type");
 
         // arithmetic addition/subtraction
         assertFails("SELECT 'a' + 1 FROM t1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:12: Cannot apply operator: varchar(1) + integer");
         assertFails("SELECT 1 + 'a'  FROM t1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:10: Cannot apply operator: integer + varchar(1)");
         assertFails("SELECT 'a' - 1 FROM t1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:12: Cannot apply operator: varchar(1) - integer");
         assertFails("SELECT 1 - 'a' FROM t1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:10: Cannot apply operator: integer - varchar(1)");
 
         // like
         assertFails("SELECT 1 LIKE 'a' FROM t1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Left side of LIKE expression must evaluate to a varchar (actual: integer)");
         assertFails("SELECT 'a' LIKE 1 FROM t1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:17: Pattern for LIKE expression must evaluate to a varchar (actual: integer)");
         assertFails("SELECT 'a' LIKE 'b' ESCAPE 1 FROM t1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:28: Escape for LIKE expression must evaluate to a varchar (actual: integer)");
         assertFails("SELECT 'abc' LIKE CHAR 'abc' FROM t1")
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage("line 1:19: Pattern for LIKE expression must evaluate to a varchar (actual: char(3))");
@@ -2866,29 +2988,38 @@ public class TestAnalyzer
 
         // extract
         assertFails("SELECT EXTRACt(DAY FROM 'a') FROM t1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:25: Cannot extract DAY from varchar(1)");
 
         // between
         assertFails("SELECT 1 BETWEEN 'a' AND 2 FROM t1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:10: Cannot check if integer is BETWEEN varchar(1) and integer");
         assertFails("SELECT 1 BETWEEN 0 AND 'b' FROM t1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:10: Cannot check if integer is BETWEEN integer and varchar(1)");
         assertFails("SELECT 1 BETWEEN 'a' AND 'b' FROM t1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:10: Cannot check if integer is BETWEEN varchar(1) and varchar(1)");
 
         // in
         assertFails("SELECT * FROM t1 WHERE 1 IN ('a')")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:30: IN value and list items must be the same type or coercible to a common type. Cannot find common type between integer and varchar(1), all types (without duplicates): [integer, varchar(1)]");
         assertFails("SELECT * FROM t1 WHERE 'a' IN (1)")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:32: IN value and list items must be the same type or coercible to a common type. Cannot find common type between varchar(1) and integer, all types (without duplicates): [varchar(1), integer]");
         assertFails("SELECT * FROM t1 WHERE 'a' IN (1, 'b')")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:32: IN value and list items must be the same type or coercible to a common type. Cannot find common type between varchar(1) and integer, all types (without duplicates): [varchar(1), integer]");
 
         // row type
         assertFails("SELECT t.x.f1 FROM (VALUES 1) t(x)")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Expression t.x is not of type ROW");
         assertFails("SELECT x.f1 FROM (VALUES 1) t(x)")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Expression x is not of type ROW");
 
         // subscript on Row
         assertFails("SELECT ROW(1, 'a')[x]")
@@ -2925,14 +3056,16 @@ public class TestAnalyzer
     public void testWildcardWithoutFrom()
     {
         assertFails("SELECT *")
-                .hasErrorCode(COLUMN_NOT_FOUND);
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:8: SELECT * not allowed in queries without FROM clause");
     }
 
     @Test
     public void testReferenceWithoutFrom()
     {
         assertFails("SELECT dummy")
-                .hasErrorCode(COLUMN_NOT_FOUND);
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:8: Column 'dummy' cannot be resolved");
     }
 
     @Test
@@ -2946,7 +3079,8 @@ public class TestAnalyzer
     public void testGroupByEmpty()
     {
         assertFails("SELECT a FROM t1 GROUP BY ()")
-                .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: 'a' must be an aggregate expression or appear in GROUP BY clause");
     }
 
     @Test
@@ -3017,44 +3151,58 @@ public class TestAnalyzer
     public void testGroupByCase()
     {
         assertFails("SELECT CASE a WHEN 1 THEN 'a' ELSE 'b' END, count(*) FROM t1")
-                .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: '(CASE a WHEN 1 THEN 'a' ELSE 'b' END)' must be an aggregate expression or appear in GROUP BY clause");
         assertFails("SELECT CASE 1 WHEN 2 THEN a ELSE 0 END, count(*) FROM t1")
-                .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: '(CASE 1 WHEN 2 THEN a ELSE 0 END)' must be an aggregate expression or appear in GROUP BY clause");
         assertFails("SELECT CASE 1 WHEN 2 THEN 0 ELSE a END, count(*) FROM t1")
-                .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: '(CASE 1 WHEN 2 THEN 0 ELSE a END)' must be an aggregate expression or appear in GROUP BY clause");
 
         assertFails("SELECT CASE WHEN a = 1 THEN 'a' ELSE 'b' END, count(*) FROM t1")
-                .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: '(CASE WHEN (a = 1) THEN 'a' ELSE 'b' END)' must be an aggregate expression or appear in GROUP BY clause");
         assertFails("SELECT CASE WHEN true THEN a ELSE 0 END, count(*) FROM t1")
-                .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: '(CASE WHEN true THEN a ELSE 0 END)' must be an aggregate expression or appear in GROUP BY clause");
         assertFails("SELECT CASE WHEN true THEN 0 ELSE a END, count(*) FROM t1")
-                .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: '(CASE WHEN true THEN 0 ELSE a END)' must be an aggregate expression or appear in GROUP BY clause");
     }
 
     @Test
     public void testGroupingWithWrongColumnsAndNoGroupBy()
     {
         assertFails("SELECT a, SUM(b), GROUPING(a, b, c, d) FROM t1 GROUP BY GROUPING SETS ((a, b), (c))")
-                .hasErrorCode(INVALID_ARGUMENTS);
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:19: The arguments to GROUPING() must be expressions referenced by the GROUP BY at the associated query level. Mismatch due to d.");
         assertFails("SELECT a, SUM(b), GROUPING(a, b) FROM t1")
-                .hasErrorCode(MISSING_GROUP_BY);
+                .hasErrorCode(MISSING_GROUP_BY)
+                .hasMessage("line 1:1: A GROUPING() operation can only be used with a corresponding GROUPING SET/CUBE/ROLLUP/GROUP BY clause");
     }
 
     @Test
     public void testMismatchedUnionQueries()
     {
         assertFails("SELECT 1 UNION SELECT 'a'")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:10: column 1 in UNION query has incompatible types: integer, varchar(1)");
         assertFails("SELECT a FROM t1 UNION SELECT 'a'")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:18: column 1 in UNION query has incompatible types: bigint, varchar(1)");
         assertFails("(SELECT 1) UNION SELECT 'a'")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:12: column 1 in UNION query has incompatible types: integer, varchar(1)");
         assertFails("SELECT 1, 2 UNION SELECT 1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:13: UNION query has different number of fields: 2, 1");
         assertFails("SELECT 'a' UNION SELECT 'b', 'c'")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:12: UNION query has different number of fields: 1, 2");
         assertFails("TABLE t2 UNION SELECT 'a'")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:10: UNION query has different number of fields: 2, 1");
         assertFails("SELECT 123, 'foo' UNION ALL SELECT 'bar', 999")
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessageMatching(".* column 1 in UNION query has incompatible types.*");
@@ -3067,7 +3215,8 @@ public class TestAnalyzer
     public void testUnionUnmatchedOrderByAttribute()
     {
         assertFails("TABLE t2 UNION ALL SELECT c, d FROM t1 ORDER BY c")
-                .hasErrorCode(COLUMN_NOT_FOUND);
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:49: Column 'c' cannot be resolved");
     }
 
     @Test
@@ -3078,14 +3227,16 @@ public class TestAnalyzer
                 .hasMessage("line 1:24: Type HyperLogLog is not comparable and therefore cannot be used in INTERSECT");
 
         assertFails("(VALUES approx_set(1)) INTERSECT ALL (VALUES approx_set(2))")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:24: Type HyperLogLog is not comparable and therefore cannot be used in INTERSECT");
 
         assertFails("(VALUES approx_set(1)) EXCEPT DISTINCT (VALUES approx_set(2))")
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage("line 1:24: Type HyperLogLog is not comparable and therefore cannot be used in EXCEPT");
 
         assertFails("(VALUES approx_set(1)) EXCEPT ALL (VALUES approx_set(2))")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:24: Type HyperLogLog is not comparable and therefore cannot be used in EXCEPT");
 
         assertFails("(VALUES approx_set(1)) UNION DISTINCT (VALUES approx_set(2))")
                 .hasErrorCode(TYPE_MISMATCH)
@@ -3109,33 +3260,42 @@ public class TestAnalyzer
     public void testGroupByComplexExpressions()
     {
         assertFails("SELECT IF(a IS NULL, 1, 0) FROM t1 GROUP BY b")
-                .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: 'IF((a IS NULL), 1, 0)' must be an aggregate expression or appear in GROUP BY clause");
         assertFails("SELECT IF(a IS NOT NULL, 1, 0) FROM t1 GROUP BY b")
-                .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: 'IF((a IS NOT NULL), 1, 0)' must be an aggregate expression or appear in GROUP BY clause");
         assertFails("SELECT IF(CAST(a AS VARCHAR) LIKE 'a', 1, 0) FROM t1 GROUP BY b")
-                .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: 'IF((CAST(a AS VARCHAR) LIKE 'a'), 1, 0)' must be an aggregate expression or appear in GROUP BY clause");
         assertFails("SELECT a IN (1, 2, 3) FROM t1 GROUP BY b")
-                .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:10: '(a IN (1, 2, 3))' must be an aggregate expression or appear in GROUP BY clause");
         assertFails("SELECT 1 IN (a, 2, 3) FROM t1 GROUP BY b")
-                .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessage("line 1:10: '(1 IN (a, 2, 3))' must be an aggregate expression or appear in GROUP BY clause");
     }
 
     @Test
     public void testNonNumericTableSamplePercentage()
     {
         assertFails("SELECT * FROM t1 TABLESAMPLE BERNOULLI ('a')")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:41: Sample percentage should be a numeric expression");
         assertFails("SELECT * FROM t1 TABLESAMPLE BERNOULLI (a + 1)")
-                .hasErrorCode(EXPRESSION_NOT_CONSTANT);
+                .hasErrorCode(EXPRESSION_NOT_CONSTANT)
+                .hasMessage("line 1:43: Sample percentage cannot contain column references");
     }
 
     @Test
     public void testTableSampleOutOfRange()
     {
         assertFails("SELECT * FROM t1 TABLESAMPLE BERNOULLI (-1)")
-                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("line 1:41: Sample percentage must be greater than or equal to 0");
         assertFails("SELECT * FROM t1 TABLESAMPLE BERNOULLI (-101)")
-                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("line 1:41: Sample percentage must be greater than or equal to 0");
     }
 
     @Test
@@ -3147,25 +3307,33 @@ public class TestAnalyzer
         analyze("CREATE TABLE test(a) AS (VALUES 1)");
 
         assertFails("CREATE TABLE test AS SELECT 123")
-                .hasErrorCode(MISSING_COLUMN_NAME);
+                .hasErrorCode(MISSING_COLUMN_NAME)
+                .hasMessage("line 1:1: Column name not specified at position 1");
         assertFails("CREATE TABLE test AS SELECT 1 a, 2 a")
-                .hasErrorCode(DUPLICATE_COLUMN_NAME);
+                .hasErrorCode(DUPLICATE_COLUMN_NAME)
+                .hasMessage("line 1:1: Column name 'a' specified more than once");
         assertFails("CREATE TABLE test AS SELECT null a")
-                .hasErrorCode(COLUMN_TYPE_UNKNOWN);
+                .hasErrorCode(COLUMN_TYPE_UNKNOWN)
+                .hasMessage("line 1:1: Column type is unknown: a");
         assertFails("CREATE TABLE test(x) AS SELECT 1, 2")
                 .hasErrorCode(MISMATCHED_COLUMN_ALIASES)
+                .hasMessage("line 1:19: Column alias list has 1 entries but relation has 2 columns")
                 .hasLocation(1, 19);
         assertFails("CREATE TABLE test(x, y) AS SELECT 1")
                 .hasErrorCode(MISMATCHED_COLUMN_ALIASES)
+                .hasMessage("line 1:19: Column alias list has 2 entries but relation has 1 columns")
                 .hasLocation(1, 19);
         assertFails("CREATE TABLE test(x, y) AS (VALUES 1)")
                 .hasErrorCode(MISMATCHED_COLUMN_ALIASES)
+                .hasMessage("line 1:19: Column alias list has 2 entries but relation has 1 columns")
                 .hasLocation(1, 19);
         assertFails("CREATE TABLE test(abc, AbC) AS SELECT 1, 2")
                 .hasErrorCode(DUPLICATE_COLUMN_NAME)
+                .hasMessage("line 1:24: Column name 'AbC' specified more than once")
                 .hasLocation(1, 24);
         assertFails("CREATE TABLE test(x) AS SELECT null")
                 .hasErrorCode(COLUMN_TYPE_UNKNOWN)
+                .hasMessage("line 1:1: Column type is unknown at position 1")
                 .hasLocation(1, 1);
         assertFails("CREATE TABLE test(x) WITH (p1 = y) AS SELECT null")
                 .hasErrorCode(COLUMN_NOT_FOUND)
@@ -3230,29 +3398,36 @@ public class TestAnalyzer
     public void testCreateViewColumns()
     {
         assertFails("CREATE VIEW test AS SELECT 123")
-                .hasErrorCode(MISSING_COLUMN_NAME);
+                .hasErrorCode(MISSING_COLUMN_NAME)
+                .hasMessage("line 1:1: Column name not specified at position 1");
         assertFails("CREATE VIEW test AS SELECT 1 a, 2 a")
-                .hasErrorCode(DUPLICATE_COLUMN_NAME);
+                .hasErrorCode(DUPLICATE_COLUMN_NAME)
+                .hasMessage("line 1:1: Column name 'a' specified more than once");
         assertFails("CREATE VIEW test AS SELECT null a")
-                .hasErrorCode(COLUMN_TYPE_UNKNOWN);
+                .hasErrorCode(COLUMN_TYPE_UNKNOWN)
+                .hasMessage("line 1:1: Column type is unknown: a");
     }
 
     @Test
     public void testCreateRecursiveView()
     {
         assertFails("CREATE OR REPLACE VIEW v1 AS SELECT * FROM v1")
-                .hasErrorCode(VIEW_IS_RECURSIVE);
+                .hasErrorCode(VIEW_IS_RECURSIVE)
+                .hasMessage("line 1:44: Statement would create a recursive view");
         assertFails("CREATE OR REPLACE VIEW mv1 AS SELECT * FROM mv1")
-                .hasErrorCode(VIEW_IS_RECURSIVE);
+                .hasErrorCode(VIEW_IS_RECURSIVE)
+                .hasMessage("line 1:45: Statement would create a recursive view");
     }
 
     @Test
     public void testCreateMaterializedRecursiveView()
     {
         assertFails("CREATE OR REPLACE MATERIALIZED VIEW v1 AS SELECT * FROM v1")
-                .hasErrorCode(VIEW_IS_RECURSIVE);
+                .hasErrorCode(VIEW_IS_RECURSIVE)
+                .hasMessage("line 1:57: Statement would create a recursive materialized view");
         assertFails("CREATE OR REPLACE MATERIALIZED VIEW mv1 AS SELECT * FROM mv1")
-                .hasErrorCode(VIEW_IS_RECURSIVE);
+                .hasErrorCode(VIEW_IS_RECURSIVE)
+                .hasMessage("line 1:58: Statement would create a recursive materialized view");
     }
 
     @Test
@@ -3261,7 +3436,8 @@ public class TestAnalyzer
         analyze("SELECT * FROM v1 a JOIN v1 b ON a.a = b.a");
         analyze("SELECT * FROM v1 a JOIN (SELECT * from v1) b ON a.a = b.a");
         assertFails("SELECT * FROM v5")
-                .hasErrorCode(INVALID_VIEW);
+                .hasErrorCode(INVALID_VIEW)
+                .hasMessage("line 1:15: Failed analyzing stored view 'tpch.s1.v5': line 1:15: View is recursive");
     }
 
     @Test
@@ -3271,9 +3447,11 @@ public class TestAnalyzer
         analyze("SHOW CREATE VIEW v2");
 
         assertFails("SHOW CREATE VIEW t1")
-                .hasErrorCode(NOT_SUPPORTED);
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: Relation 'tpch.s1.t1' is a table, not a view");
         assertFails("SHOW CREATE VIEW none")
-                .hasErrorCode(TABLE_NOT_FOUND);
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:1: View 'tpch.s1.none' does not exist");
     }
 
     // This test validates object resolution order (materialized view, view and table).
@@ -3318,7 +3496,8 @@ public class TestAnalyzer
     public void testStaleView()
     {
         assertFails("SELECT * FROM v2")
-                .hasErrorCode(VIEW_IS_STALE);
+                .hasErrorCode(VIEW_IS_STALE)
+                .hasMessage("line 1:15: View 'tpch.s1.v2' is stale or in invalid state: column [a] of type bigint projected from query view at position 0 cannot be coerced to column [a] of type varchar stored in view definition");
     }
 
     @Test
@@ -3354,7 +3533,8 @@ public class TestAnalyzer
     public void testUse()
     {
         assertFails("USE foo")
-                .hasErrorCode(NOT_SUPPORTED);
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: USE statement is not supported");
     }
 
     @Test
@@ -3526,7 +3706,8 @@ public class TestAnalyzer
     {
         analyze("SELECT apply(5, x -> abs(x)) from t1");
         assertFails("SELECT x -> abs(x) from t1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Lambda expression should always be used inside a function");
     }
 
     @Test
@@ -3721,45 +3902,86 @@ public class TestAnalyzer
     public void testInvalidDelete()
     {
         assertFails("DELETE FROM foo")
-                .hasErrorCode(TABLE_NOT_FOUND);
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:1: Table 'tpch.s1.foo' does not exist");
         assertFails("DELETE FROM v1")
-                .hasErrorCode(NOT_SUPPORTED);
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: Deleting from views is not supported");
         assertFails("DELETE FROM v1 WHERE a = 1")
-                .hasErrorCode(NOT_SUPPORTED);
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: Deleting from views is not supported");
+        assertFails("DELETE FROM mv1")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: Deleting from materialized views is not supported");
+    }
+
+    @Test
+    public void testInvalidUpdate()
+    {
+        assertFails("UPDATE foo SET bar = 'test'")
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:1: Table 'tpch.s1.foo' does not exist");
+        assertFails("UPDATE v1 SET a = 2")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: Updating views is not supported");
+        assertFails("UPDATE mv1 SET a = 1")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: Updating materialized views is not supported");
+    }
+
+    @Test
+    public void testInvalidMerge()
+    {
+        assertFails("MERGE INTO foo USING bar ON foo.id = bar.id WHEN MATCHED THEN DELETE")
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:1: Table 'tpch.s1.foo' does not exist");
+        assertFails("MERGE INTO v1 USING t1 ON v1.a = t1.a WHEN MATCHED THEN DELETE")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: Merging into views is not supported");
+        assertFails("MERGE INTO mv1 USING t1 ON mv1.a = t1.a WHEN MATCHED THEN DELETE")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: Merging into materialized views is not supported");
     }
 
     @Test
     public void testInvalidShowTables()
     {
         assertFails("SHOW TABLES FROM a.b.c")
-                .hasErrorCode(SYNTAX_ERROR);
+                .hasErrorCode(SYNTAX_ERROR)
+                .hasMessage("line 1:1: Too many parts in schema name: a.b.c");
 
         Session session = testSessionBuilder()
                 .setCatalog(Optional.empty())
                 .setSchema(Optional.empty())
                 .build();
         assertFails(session, "SHOW TABLES")
-                .hasErrorCode(MISSING_CATALOG_NAME);
+                .hasErrorCode(MISSING_CATALOG_NAME)
+                .hasMessage("line 1:1: Catalog must be specified when session catalog is not set");
         assertFails(session, "SHOW TABLES FROM a")
-                .hasErrorCode(MISSING_CATALOG_NAME);
+                .hasErrorCode(MISSING_CATALOG_NAME)
+                .hasMessage("line 1:1: Catalog must be specified when session catalog is not set");
         assertFails(session, "SHOW TABLES FROM c2.unknown")
-                .hasErrorCode(SCHEMA_NOT_FOUND);
+                .hasErrorCode(SCHEMA_NOT_FOUND)
+                .hasMessage("line 1:1: Schema 'unknown' does not exist");
 
         session = testSessionBuilder()
                 .setCatalog(SECOND_CATALOG)
                 .setSchema(Optional.empty())
                 .build();
         assertFails(session, "SHOW TABLES")
-                .hasErrorCode(MISSING_SCHEMA_NAME);
+                .hasErrorCode(MISSING_SCHEMA_NAME)
+                .hasMessage("line 1:1: Schema must be specified when session schema is not set");
         assertFails(session, "SHOW TABLES FROM unknown")
-                .hasErrorCode(SCHEMA_NOT_FOUND);
+                .hasErrorCode(SCHEMA_NOT_FOUND)
+                .hasMessage("line 1:1: Schema 'unknown' does not exist");
     }
 
     @Test
     public void testInvalidAtTimeZone()
     {
         assertFails("SELECT 'abc' AT TIME ZONE 'America/Los_Angeles'")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Type of value must be a time or timestamp with or without time zone (actual varchar(3))");
     }
 
     @Test
@@ -3775,24 +3997,31 @@ public class TestAnalyzer
     public void testInValidJoinOnClause()
     {
         assertFails("SELECT * FROM (VALUES (2, 2)) a(x,y) JOIN (VALUES (2, 2)) b(x,y) ON 1")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:69: JOIN ON clause must evaluate to a boolean: actual type integer");
         assertFails("SELECT * FROM (VALUES (2, 2)) a(x,y) JOIN (VALUES (2, 2)) b(x,y) ON a.x + b.x")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:73: JOIN ON clause must evaluate to a boolean: actual type integer");
         assertFails("SELECT * FROM (VALUES (2, 2)) a(x,y) JOIN (VALUES (2, 2)) b(x,y) ON ROW (TRUE)")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:69: JOIN ON clause must evaluate to a boolean: actual type row(boolean)");
         assertFails("SELECT * FROM (VALUES (2, 2)) a(x,y) JOIN (VALUES (2, 2)) b(x,y) ON (a.x=b.x, a.y=b.y)")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:69: JOIN ON clause must evaluate to a boolean: actual type row(boolean, boolean)");
     }
 
     @Test
     public void testInvalidAggregationFilter()
     {
         assertFails("SELECT sum(x) FILTER (WHERE x > 1) OVER (PARTITION BY x) FROM (VALUES (1), (2), (2), (4)) t (x)")
-                .hasErrorCode(NOT_SUPPORTED);
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: FILTER is not yet supported for window functions");
         assertFails("SELECT abs(x) FILTER (where y = 1) FROM (VALUES (1, 1)) t(x, y)")
-                .hasErrorCode(FUNCTION_NOT_AGGREGATE);
+                .hasErrorCode(FUNCTION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: Filter is only valid for aggregation functions");
         assertFails("SELECT abs(x) FILTER (where y = 1) FROM (VALUES (1, 1, 1)) t(x, y, z) GROUP BY z")
-                .hasErrorCode(FUNCTION_NOT_AGGREGATE);
+                .hasErrorCode(FUNCTION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: Filter is only valid for aggregation functions");
     }
 
     @Test
@@ -3801,15 +4030,20 @@ public class TestAnalyzer
         analyze("SELECT array_agg(DISTINCT x ORDER BY x) FROM (VALUES (1, 2), (3, 4)) t(x, y)");
         analyze("SELECT array_agg(x ORDER BY y) FROM (VALUES (1, 2), (3, 4)) t(x, y)");
         assertFails("SELECT array_agg(DISTINCT x ORDER BY y) FROM (VALUES (1, 2), (3, 4)) t(x, y)")
-                .hasErrorCode(EXPRESSION_NOT_IN_DISTINCT);
+                .hasErrorCode(EXPRESSION_NOT_IN_DISTINCT)
+                .hasMessage("line 1:38: For aggregate function with DISTINCT, ORDER BY expressions must appear in arguments");
         assertFails("SELECT abs(x ORDER BY y) FROM (VALUES (1, 2), (3, 4)) t(x, y)")
-                .hasErrorCode(FUNCTION_NOT_AGGREGATE);
+                .hasErrorCode(FUNCTION_NOT_AGGREGATE)
+                .hasMessage("line 1:8: ORDER BY is only valid for aggregation functions");
         assertFails("SELECT array_agg(x ORDER BY x) FROM (VALUES MAP(ARRAY['a'], ARRAY['b'])) t(x)")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: ORDER BY can only be applied to orderable types (actual: map(varchar(1), varchar(1)))");
         assertFails("SELECT 1 as a, array_agg(x ORDER BY a) FROM (VALUES (1), (2), (3)) t(x)")
-                .hasErrorCode(COLUMN_NOT_FOUND);
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:37: Column 'a' cannot be resolved");
         assertFails("SELECT 1 AS c FROM (VALUES (1), (2)) t(x) ORDER BY sum(x order by c)")
-                .hasErrorCode(COLUMN_NOT_FOUND);
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:67: ORDER BY clause in aggregation function must not reference query output columns");
     }
 
     @Test
@@ -3817,31 +4051,39 @@ public class TestAnalyzer
     {
         analyze("SELECT * FROM t1 WHERE t1.a <= ALL (VALUES 10, 20)");
         assertFails("SELECT * FROM t1 WHERE t1.a = ANY (SELECT 1, 2)")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:29: Value expression and result of subquery must be of the same type: row(bigint) vs row(integer, integer)");
         assertFails("SELECT * FROM t1 WHERE t1.a = SOME (VALUES ('abc'))")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:29: Value expression and result of subquery must be of the same type: row(bigint) vs row(varchar(3))");
 
         // map is not orderable
         assertFails(("SELECT map(ARRAY[1], ARRAY['hello']) < ALL (VALUES map(ARRAY[1], ARRAY['hello']))"))
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:38: Type [row(map(integer, varchar(5)))] must be orderable in order to be used in quantified comparison");
         // but map is comparable
         analyze(("SELECT map(ARRAY[1], ARRAY['hello']) = ALL (VALUES map(ARRAY[1], ARRAY['hello']))"));
 
         // HLL is neither orderable nor comparable
         assertFails("SELECT cast(NULL AS HyperLogLog) < ALL (VALUES cast(NULL AS HyperLogLog))")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:34: Type [row(HyperLogLog)] must be orderable in order to be used in quantified comparison");
         assertFails("SELECT cast(NULL AS HyperLogLog) = ANY (VALUES cast(NULL AS HyperLogLog))")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:34: Type [row(HyperLogLog)] must be comparable in order to be used in quantified comparison");
 
         // complex row with non-comparable field
         assertFails("SELECT ROW(cast(NULL AS HyperLogLog), 1) = ANY (VALUES ROW(cast(NULL AS HyperLogLog), 1))")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:42: Type [row(HyperLogLog, integer)] must be comparable in order to be used in quantified comparison");
 
         // qdigest is neither orderable nor comparable
         assertFails("SELECT cast(NULL AS qdigest(double)) < ALL (VALUES cast(NULL AS qdigest(double)))")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:38: Type [row(qdigest(double))] must be orderable in order to be used in quantified comparison");
         assertFails("SELECT cast(NULL AS qdigest(double)) = ANY (VALUES cast(NULL AS qdigest(double)))")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:38: Type [row(qdigest(double))] must be comparable in order to be used in quantified comparison");
     }
 
     @Test
@@ -3851,17 +4093,22 @@ public class TestAnalyzer
         analyze("SELECT * FROM (VALUES array[2, 2]) a(x) CROSS JOIN UNNEST(x)");
         analyze("SELECT * FROM (VALUES array[2, 2]) a(x) LEFT OUTER JOIN UNNEST(x) ON true");
         assertFails("SELECT * FROM (VALUES array[2, 2]) a(x) RIGHT OUTER JOIN UNNEST(x) ON true")
-                .hasErrorCode(INVALID_COLUMN_REFERENCE);
+                .hasErrorCode(INVALID_COLUMN_REFERENCE)
+                .hasMessage("line 1:65: LATERAL reference not allowed in RIGHT JOIN");
         assertFails("SELECT * FROM (VALUES array[2, 2]) a(x) FULL OUTER JOIN UNNEST(x) ON true")
-                .hasErrorCode(INVALID_COLUMN_REFERENCE);
+                .hasErrorCode(INVALID_COLUMN_REFERENCE)
+                .hasMessage("line 1:64: LATERAL reference not allowed in FULL JOIN");
         // Join involving UNNEST only supported without condition (cross join) or with condition ON TRUE
         analyze("SELECT * FROM (VALUES 1), UNNEST(array[2])");
         assertFails("SELECT * FROM (VALUES array[2, 2]) a(x) LEFT JOIN UNNEST(x) b(x) USING (x)")
-                .hasErrorCode(NOT_SUPPORTED);
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:15: LEFT JOIN involving UNNEST is only supported with condition ON TRUE");
         assertFails("SELECT * FROM (VALUES array[2, 2]) a(x) LEFT JOIN UNNEST(x) ON 1 = 1")
-                .hasErrorCode(NOT_SUPPORTED);
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:66: LEFT JOIN involving UNNEST is only supported with condition ON TRUE");
         assertFails("SELECT * FROM (VALUES array[2, 2]) a(x) LEFT JOIN UNNEST(x) ON false")
-                .hasErrorCode(NOT_SUPPORTED);
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:64: LEFT JOIN involving UNNEST is only supported with condition ON TRUE");
     }
 
     @Test
@@ -3871,27 +4118,34 @@ public class TestAnalyzer
         analyze("SELECT * FROM (VALUES array[2, 2]) a(x) CROSS JOIN LATERAL(VALUES x)");
         analyze("SELECT * FROM (VALUES array[2, 2]) a(x) LEFT OUTER JOIN LATERAL(VALUES x) ON true");
         assertFails("SELECT * FROM (VALUES array[2, 2]) a(x) RIGHT OUTER JOIN LATERAL(VALUES x) ON true")
-                .hasErrorCode(INVALID_COLUMN_REFERENCE);
+                .hasErrorCode(INVALID_COLUMN_REFERENCE)
+                .hasMessage("line 1:73: LATERAL reference not allowed in RIGHT JOIN");
         assertFails("SELECT * FROM (VALUES array[2, 2]) a(x) FULL OUTER JOIN LATERAL(VALUES x) ON true")
-                .hasErrorCode(INVALID_COLUMN_REFERENCE);
+                .hasErrorCode(INVALID_COLUMN_REFERENCE)
+                .hasMessage("line 1:72: LATERAL reference not allowed in FULL JOIN");
         // FULL join involving LATERAL relation only supported with condition ON TRUE
         analyze("SELECT * FROM (VALUES 1) FULL OUTER JOIN LATERAL(VALUES 2) ON true");
         assertFails("SELECT * FROM (VALUES 1) a(x) FULL OUTER JOIN LATERAL(VALUES 2) b(x) USING (x)")
-                .hasErrorCode(NOT_SUPPORTED);
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:15: FULL JOIN involving LATERAL relation is only supported with condition ON TRUE");
         assertFails("SELECT * FROM (VALUES 1) FULL OUTER JOIN LATERAL(VALUES 2) ON 1 = 1")
-                .hasErrorCode(NOT_SUPPORTED);
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:65: FULL JOIN involving LATERAL relation is only supported with condition ON TRUE");
         assertFails("SELECT * FROM (VALUES 1) FULL OUTER JOIN LATERAL(VALUES 2) ON false")
-                .hasErrorCode(NOT_SUPPORTED);
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:63: FULL JOIN involving LATERAL relation is only supported with condition ON TRUE");
     }
 
     @Test
     public void testNullTreatment()
     {
         assertFails("SELECT count() RESPECT NULLS OVER ()")
-                .hasErrorCode(NULL_TREATMENT_NOT_ALLOWED);
+                .hasErrorCode(NULL_TREATMENT_NOT_ALLOWED)
+                .hasMessage("line 1:8: Cannot specify null treatment clause for count function");
 
         assertFails("SELECT count() IGNORE NULLS OVER ()")
-                .hasErrorCode(NULL_TREATMENT_NOT_ALLOWED);
+                .hasErrorCode(NULL_TREATMENT_NOT_ALLOWED)
+                .hasMessage("line 1:8: Cannot specify null treatment clause for count function");
 
         analyze("SELECT lag(1) RESPECT NULLS OVER (ORDER BY x) FROM (VALUES 1) t(x)");
         analyze("SELECT lag(1) IGNORE NULLS OVER (ORDER BY x) FROM (VALUES 1) t(x)");
@@ -3901,7 +4155,8 @@ public class TestAnalyzer
     public void testCreateOrReplaceMaterializedView()
     {
         assertFails("CREATE OR REPLACE MATERIALIZED VIEW IF NOT EXISTS mv1 AS SELECT * FROM tab1")
-                .hasErrorCode(NOT_SUPPORTED);
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: 'CREATE OR REPLACE' and 'IF NOT EXISTS' clauses can not be used together");
     }
 
     @Test
@@ -3939,15 +4194,18 @@ public class TestAnalyzer
                 "                   DEFINE B AS true " +
                 "                 ) AS M";
         assertFails(format(query, "x, X, y"))
-                .hasErrorCode(AMBIGUOUS_NAME);
+                .hasErrorCode(AMBIGUOUS_NAME)
+                .hasMessage("line 1:25: ambiguous column: X in row pattern input relation");
 
         // TODO This should not fail according to SQL identifier semantics.
         //  Fix column name resolution so that fields contain canonical name.
         assertFails(format(query, "\"x\", \"X\", y"))
-                .hasErrorCode(AMBIGUOUS_NAME);
+                .hasErrorCode(AMBIGUOUS_NAME)
+                .hasMessage("line 1:25: ambiguous column: X in row pattern input relation");
 
         assertFails(format(query, "x, \"X\", y"))
-                .hasErrorCode(AMBIGUOUS_NAME);
+                .hasErrorCode(AMBIGUOUS_NAME)
+                .hasMessage("line 1:25: ambiguous column: X in row pattern input relation");
 
         // using original column names from input table
         analyze("SELECT a " +
@@ -4020,14 +4278,18 @@ public class TestAnalyzer
 
         // input table name is not visible in SELECT clause when output name is not specified
         assertFails(format(query, "Ticker.Measure", ""))
-                .hasErrorCode(COLUMN_NOT_FOUND);
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:8: Column 'ticker.measure' cannot be resolved");
         assertFails(format(query, "Ticker.*", ""))
-                .hasErrorCode(TABLE_NOT_FOUND);
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:8: Unable to resolve reference ticker");
         assertFails(format(query, "Ticker.y", ""))
-                .hasErrorCode(COLUMN_NOT_FOUND);
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:8: Column 'ticker.y' cannot be resolved");
         // input table name is not visible in SELECT clause when output name is specified
         assertFails(format(query, "Ticker.Measure", "AS M"))
-                .hasErrorCode(COLUMN_NOT_FOUND);
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:8: Column 'ticker.measure' cannot be resolved");
 
         // input table name is visible in PARTITION BY and ORDER BY clauses
         analyze("SELECT * " +
@@ -4100,7 +4362,8 @@ public class TestAnalyzer
                 .hasMessage("line 1:33: Column alias list has 1 entries but 'M' has 2 columns available");
 
         assertFails(format(query, "M.Measure", "AS M (partition, renamed)"))
-                .hasErrorCode(COLUMN_NOT_FOUND);
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:8: Column 'm.measure' cannot be resolved");
 
         analyze(format(query, "M.renamed", "AS M (partition, renamed)"));
     }
@@ -4116,7 +4379,8 @@ public class TestAnalyzer
                 "                   PATTERN (A B+) " +
                 "                   DEFINE B AS true " +
                 "                 ) ")
-                .hasErrorCode(INVALID_COLUMN_REFERENCE);
+                .hasErrorCode(INVALID_COLUMN_REFERENCE)
+                .hasMessage("line 1:115: Expected column reference. Actual: (x + 1)");
 
         assertFails("SELECT * " +
                 "          FROM (VALUES approx_set(1)) Ticker(x) " +
@@ -4125,7 +4389,8 @@ public class TestAnalyzer
                 "                   PATTERN (A B+) " +
                 "                   DEFINE B AS true " +
                 "                 ) ")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:125: HyperLogLog is not comparable, and therefore cannot be used in PARTITION BY");
     }
 
     @Test
@@ -4139,7 +4404,8 @@ public class TestAnalyzer
                 "                   PATTERN (A B+) " +
                 "                   DEFINE B AS true " +
                 "                 ) ")
-                .hasErrorCode(INVALID_COLUMN_REFERENCE);
+                .hasErrorCode(INVALID_COLUMN_REFERENCE)
+                .hasMessage("line 1:111: Expected column reference. Actual: (x + 1)");
 
         assertFails("SELECT * " +
                 "          FROM (VALUES approx_set(1)) Ticker(x) " +
@@ -4148,7 +4414,8 @@ public class TestAnalyzer
                 "                   PATTERN (A B+) " +
                 "                   DEFINE B AS true " +
                 "                 ) ")
-                .hasErrorCode(TYPE_MISMATCH);
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:121: HyperLogLog is not orderable, and therefore cannot be used in ORDER BY");
     }
 
     @Test
@@ -5904,6 +6171,449 @@ public class TestAnalyzer
                 .hasMessage("line 1:8: 'JSON_ARRAY(b ABSENT ON NULL)' must be an aggregate expression or appear in GROUP BY clause");
     }
 
+    @Test
+    public void testTableFunctionNotFound()
+    {
+        assertFails("SELECT * FROM TABLE(non_existent_table_function())")
+                .hasErrorCode(FUNCTION_NOT_FOUND)
+                .hasMessage("line 1:21: Table function non_existent_table_function not registered");
+    }
+
+    @Test
+    public void testTableFunctionArguments()
+    {
+        assertFails("SELECT * FROM TABLE(system.two_arguments_function(1, 2, 3))")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:51: Too many arguments. Expected at most 2 arguments, got 3 arguments");
+
+        analyze("SELECT * FROM TABLE(system.two_arguments_function('foo'))");
+        analyze("SELECT * FROM TABLE(system.two_arguments_function(text => 'foo'))");
+        analyze("SELECT * FROM TABLE(system.two_arguments_function('foo', 1))");
+        analyze("SELECT * FROM TABLE(system.two_arguments_function(text => 'foo', number => 1))");
+
+        assertFails("SELECT * FROM TABLE(system.two_arguments_function('foo', number => 1))")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:51: All arguments must be passed by name or all must be passed positionally");
+        assertFails("SELECT * FROM TABLE(system.two_arguments_function(text => 'foo', 1))")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:51: All arguments must be passed by name or all must be passed positionally");
+
+        assertFails("SELECT * FROM TABLE(system.two_arguments_function(text => 'foo', text => 'bar'))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:66: Duplicate argument name: TEXT");
+        // argument names are resolved in the canonical form
+        assertFails("SELECT * FROM TABLE(system.two_arguments_function(text => 'foo', TeXt => 'bar'))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:66: Duplicate argument name: TEXT");
+
+        assertFails("SELECT * FROM TABLE(system.two_arguments_function(text => 'foo', bar => 'bar'))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:66: Unexpected argument name: BAR");
+
+        assertFails("SELECT * FROM TABLE(system.two_arguments_function(number => 1))")
+                .hasErrorCode(MISSING_ARGUMENT)
+                .hasMessage("line 1:51: Missing argument: TEXT");
+    }
+
+    @Test
+    public void testTableArgument()
+    {
+        // cannot pass a table function as the argument
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(input => my_schema.my_table_function(1)))")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:52: Invalid table argument INPUT. Table functions are not allowed as table function arguments");
+
+        assertThatThrownBy(() -> analyze("SELECT * FROM TABLE(system.table_argument_function(input => my_schema.my_table_function(arg => 1)))"))
+                .isInstanceOf(ParsingException.class)
+                .hasMessageContaining("line 1:93: mismatched input '=>'.");
+
+        // cannot pass a table function as the argument, also preceding nested table function with TABLE is incorrect
+        assertThatThrownBy(() -> analyze("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(my_schema.my_table_function(1))))"))
+                .isInstanceOf(ParsingException.class)
+                .hasMessageContaining("line 1:94: mismatched input '('.");
+
+        // a table passed as the argument must be preceded with TABLE
+        analyze("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(t1)))");
+
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(input => t1))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:52: Invalid argument INPUT. Expected table, got expression");
+
+        // a query passed as the argument must be preceded with TABLE
+        analyze("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT * FROM t1)))");
+
+        assertThatThrownBy(() -> analyze("SELECT * FROM TABLE(system.table_argument_function(input => SELECT * FROM t1))"))
+                .isInstanceOf(ParsingException.class)
+                .hasMessageContaining("line 1:61: mismatched input 'SELECT'.");
+
+        // query passed as the argument is correlated
+        analyze("""
+                SELECT *
+                FROM
+                t1
+                CROSS JOIN
+                LATERAL (SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT 1 WHERE a > 0))))
+                """);
+
+        // wrong argument type
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(input => 'foo'))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:52: Invalid argument INPUT. Expected table, got expression");
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(input => DESCRIPTOR(x int, y int)))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:52: Invalid argument INPUT. Expected table, got descriptor");
+    }
+
+    @Test
+    public void testTableArgumentProperties()
+    {
+        analyze("""
+                SELECT * FROM TABLE(system.table_argument_function(
+                    input => TABLE(t1)
+                                      PARTITION BY a
+                                      KEEP WHEN EMPTY
+                                      ORDER BY b))
+                """);
+
+        assertFails("SELECT * FROM TABLE(system.table_argument_row_semantics_function(input => TABLE(t1) PARTITION BY a))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:66: Invalid argument INPUT. Partitioning specified for table argument with row semantics");
+
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT 1 a) PARTITION BY b))")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:92: Column b is not present in the input relation");
+
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT 1 a) ORDER BY 1))")
+                .hasErrorCode(INVALID_COLUMN_REFERENCE)
+                .hasMessage("line 1:88: Expected column reference. Actual: 1");
+
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT approx_set(1) a) PARTITION BY a))")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:104: HyperLogLog is not comparable, and therefore cannot be used in PARTITION BY");
+
+        assertFails("SELECT * FROM TABLE(system.table_argument_row_semantics_function(input => TABLE(t1) ORDER BY a))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:66: Invalid argument INPUT. Ordering specified for table argument with row semantics");
+
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT 1 a) ORDER BY b))")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:88: Column b is not present in the input relation");
+
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT 1 a) ORDER BY 1))")
+                .hasErrorCode(INVALID_COLUMN_REFERENCE)
+                .hasMessage("line 1:88: Expected column reference. Actual: 1");
+
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT approx_set(1) a) ORDER BY a))")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:100: HyperLogLog is not orderable, and therefore cannot be used in ORDER BY");
+
+        assertFails("SELECT * FROM TABLE(system.table_argument_row_semantics_function(input => TABLE(t1) PRUNE WHEN EMPTY))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:85: Invalid argument INPUT. Empty behavior specified for table argument with row semantics");
+
+        assertFails("SELECT * FROM TABLE(system.table_argument_row_semantics_function(input => TABLE(t1) KEEP WHEN EMPTY))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:85: Invalid argument INPUT. Empty behavior specified for table argument with row semantics");
+    }
+
+    @Test
+    public void testDescriptorArgument()
+    {
+        analyze("SELECT * FROM TABLE(system.descriptor_argument_function(schema => DESCRIPTOR(x integer, y boolean)))");
+
+        assertFails("SELECT * FROM TABLE(system.descriptor_argument_function(schema => DESCRIPTOR(1 + 2)))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:57: Invalid descriptor argument SCHEMA. Descriptors should be formatted as 'DESCRIPTOR(name [type], ...)'");
+
+        assertFails("SELECT * FROM TABLE(system.descriptor_argument_function(schema => 1))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:57: Invalid argument SCHEMA. Expected descriptor, got expression");
+
+        assertFails("SELECT * FROM TABLE(system.descriptor_argument_function(schema => TABLE(t1)))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:57: Invalid argument SCHEMA. Expected descriptor, got table");
+
+        assertFails("SELECT * FROM TABLE(system.descriptor_argument_function(schema => DESCRIPTOR(x verybigint)))")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:80: Unknown type: verybigint");
+    }
+
+    @Test
+    public void testScalarArgument()
+    {
+        analyze("SELECT * FROM TABLE(system.two_arguments_function('foo', 1))");
+
+        assertFails("SELECT * FROM TABLE(system.two_arguments_function(text => 'a', number => DESCRIPTOR(x integer, y boolean)))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:64: Invalid argument NUMBER. Expected expression, got descriptor");
+
+        assertFails("SELECT * FROM TABLE(system.two_arguments_function(text => 'a', number => DESCRIPTOR(1 + 2)))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:64: 'descriptor' function is not allowed as a table function argument");
+
+        assertFails("SELECT * FROM TABLE(system.two_arguments_function(text => 'a', number => TABLE(t1)))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:64: Invalid argument NUMBER. Expected expression, got table");
+
+        assertFails("SELECT * FROM TABLE(system.two_arguments_function(text => 'a', number => (SELECT 1)))")
+                .hasErrorCode(EXPRESSION_NOT_CONSTANT)
+                .hasMessage("line 1:74: Constant expression cannot contain a subquery");
+    }
+
+    @Test
+    public void testCopartitioning()
+    {
+        // TABLE(t1) is matched by fully qualified name: tpch.s1.t1. It matches the second copartition item s1.t1.
+        // Aliased relation TABLE(SELECT 1, 2) t1(x, y) is matched by unqualified name. It matches the first copartition item t1.
+        analyze("""
+                SELECT * FROM TABLE(system.two_table_arguments_function(
+                    input1 => TABLE(t1) PARTITION BY (a, b),
+                    input2 => TABLE(SELECT 1, 2) t1(x, y) PARTITION BY (x, y)
+                    COPARTITION (t1, s1.t1)))
+                """);
+
+        // Copartition items t1, t2 are first matched to arguments by unqualified names, and when no match is found, by fully qualified names.
+        // TABLE(tpch.s1.t1) is matched by fully qualified name. It matches the first copartition item t1.
+        // TABLE(s1.t2) is matched by unqualified name: tpch.s1.t2. It matches the second copartition item t2.
+        analyze("""
+                SELECT * FROM TABLE(system.two_table_arguments_function(
+                    input1 => TABLE(tpch.s1.t1) PARTITION BY (a, b),
+                    input2 => TABLE(s1.t2) PARTITION BY (a, b)
+                    COPARTITION (t1, t2)))
+                """);
+
+        assertFails("""
+                SELECT * FROM TABLE(system.two_table_arguments_function(
+                    input1 => TABLE(t1) PARTITION BY (a, b),
+                    input2 => TABLE(t2) PARTITION BY (a, b)
+                    COPARTITION (t1, s1.foo)))
+                """)
+                .hasErrorCode(INVALID_COPARTITIONING)
+                .hasMessage("line 4:22: No table argument found for name: s1.foo");
+
+        // Both table arguments are matched by fully qualified name: tpch.s1.t1
+        assertFails("""
+                SELECT * FROM TABLE(system.two_table_arguments_function(
+                    input1 => TABLE(t1) PARTITION BY (a, b),
+                    input2 => TABLE(t1) PARTITION BY (a, b)
+                    COPARTITION (t1, t2)))
+                """)
+                .hasErrorCode(INVALID_COPARTITIONING)
+                .hasMessage("line 4:18: Ambiguous reference: multiple table arguments found for name: t1");
+
+        // Both table arguments are matched by unqualified name: t1
+        assertFails("""
+                SELECT * FROM TABLE(system.two_table_arguments_function(
+                    input1 => TABLE(SELECT 1, 2) t1(a, b) PARTITION BY (a, b),
+                    input2 => TABLE(SELECT 3, 4) t1(c, d) PARTITION BY (c, d)
+                    COPARTITION (t1, t2)))
+                """)
+                .hasErrorCode(INVALID_COPARTITIONING)
+                .hasMessage("line 4:18: Ambiguous reference: multiple table arguments found for name: t1");
+
+        assertFails("""
+                SELECT * FROM TABLE(system.two_table_arguments_function(
+                    input1 => TABLE(t1) PARTITION BY (a, b),
+                    input2 => TABLE(t2) PARTITION BY (a, b)
+                    COPARTITION (t1, t1)))
+                """)
+                .hasErrorCode(INVALID_COPARTITIONING)
+                .hasMessage("line 4:22: Multiple references to table argument: t1 in COPARTITION clause");
+    }
+
+    @Test
+    public void testCopartitionColumns()
+    {
+        assertFails("""
+                SELECT * FROM TABLE(system.two_table_arguments_function(
+                    input1 => TABLE(t1),
+                    input2 => TABLE(t2) PARTITION BY (a, b)
+                    COPARTITION (t1, t2)))
+                """)
+                .hasErrorCode(INVALID_COPARTITIONING)
+                .hasMessage("line 2:15: Table tpch.s1.t1 referenced in COPARTITION clause is not partitioned");
+
+        assertFails("""
+                SELECT * FROM TABLE(system.two_table_arguments_function(
+                    input1 => TABLE(t1) PARTITION BY (),
+                    input2 => TABLE(t2) PARTITION BY ()
+                    COPARTITION (t1, t2)))
+                """)
+                .hasErrorCode(INVALID_COPARTITIONING)
+                .hasMessage("line 2:15: No partitioning columns specified for table tpch.s1.t1 referenced in COPARTITION clause");
+
+        assertFails("""
+                SELECT * FROM TABLE(system.two_table_arguments_function(
+                    input1 => TABLE(t1) PARTITION BY (a, b),
+                    input2 => TABLE(t2) PARTITION BY (a)
+                    COPARTITION (t1, t2)))
+                """)
+                .hasErrorCode(INVALID_COPARTITIONING)
+                .hasMessage("line 4:18: Numbers of partitioning columns in copartitioned tables do not match");
+
+        assertFails("""
+                SELECT * FROM TABLE(system.two_table_arguments_function(
+                    input1 => TABLE(SELECT 1) t1(a) PARTITION BY (a),
+                    input2 => TABLE(SELECT 'x') t2(b) PARTITION BY (b)
+                    COPARTITION (t1, t2)))
+                """)
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 4:18: Partitioning columns in copartitioned tables have incompatible types");
+    }
+
+    @Test
+    public void testNullArguments()
+    {
+        // cannot pass null for table argument
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(input => null))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:52: Invalid argument INPUT. Expected table, got expression");
+
+        // the wrong way to pass null for descriptor
+        assertFails("SELECT * FROM TABLE(system.descriptor_argument_function(schema => null))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:57: Invalid argument SCHEMA. Expected descriptor, got expression");
+
+        // the right way to pass null for descriptor
+        analyze("SELECT * FROM TABLE(system.descriptor_argument_function(schema => CAST(null AS DESCRIPTOR)))");
+
+        // the default value for the argument schema is null
+        analyze("SELECT * FROM TABLE(system.descriptor_argument_function())");
+
+        analyze("SELECT * FROM TABLE(system.two_arguments_function(null, null))");
+
+        // the default value for the second argument is null
+        analyze("SELECT * FROM TABLE(system.two_arguments_function('a'))");
+    }
+
+    @Test
+    public void testTableFunctionInvocationContext()
+    {
+        // cannot specify relation alias for table function with ONLY PASS THROUGH return type
+        assertFails("SELECT * FROM TABLE(system.only_pass_through_function(TABLE(t1))) f(x)")
+                .hasErrorCode(INVALID_TABLE_FUNCTION_INVOCATION)
+                .hasMessage("line 1:21: Alias specified for table function with ONLY PASS THROUGH return type");
+
+        // per SQL standard, relation alias is required for table function with GENERIC TABLE return type. We don't require it.
+        analyze("SELECT * FROM TABLE(system.two_arguments_function('a', 1)) f(x)");
+        analyze("SELECT * FROM TABLE(system.two_arguments_function('a', 1))");
+
+        // per SQL standard, relation alias is required for table function with statically declared return type, only if the function is polymorphic.
+        // We don't require aliasing polymorphic functions.
+        analyze("SELECT * FROM TABLE(system.monomorphic_static_return_type_function())");
+        analyze("SELECT * FROM TABLE(system.monomorphic_static_return_type_function()) f(x, y)");
+        analyze("SELECT * FROM TABLE(system.polymorphic_static_return_type_function(input => TABLE(t1)))");
+        analyze("SELECT * FROM TABLE(system.polymorphic_static_return_type_function(input => TABLE(t1))) f(x, y)");
+
+        // TODO enable this test when ONLY PASS THROUGH functions are fully analyzed (currently they fail with NOT_SUPPORTED).
+        //  An ONLY PASS THROUGH function had to be used here, because it's the only kind which does not take an alias.
+//        // sampled
+//        assertFails("SELECT * FROM TABLE(system.only_pass_through_function(TABLE(t1))) TABLESAMPLE BERNOULLI (10)")
+//                .hasErrorCode(INVALID_TABLE_FUNCTION_INVOCATION)
+//                .hasMessage("line 1:21: Cannot apply sample to polymorphic table function invocation");
+
+        // TODO enable this test when ONLY PASS THROUGH functions are fully analyzed (currently they fail with NOT_SUPPORTED)
+        //  An ONLY PASS THROUGH function had to be used here, because it's the only kind which does not take an alias.
+//        // row pattern matching
+//        assertFails("""
+//                SELECT *
+//                FROM TABLE(system.only_pass_through_function(TABLE(t1)))
+//                MATCH_RECOGNIZE(
+//                    PATTERN (a*)
+//                    DEFINE a AS true)
+//                """)
+//                .hasErrorCode(INVALID_TABLE_FUNCTION_INVOCATION)
+//                .hasMessage("line 2:12: Cannot apply row pattern matching to polymorphic table function invocation");
+
+        // aliased + sampled
+        assertFails("SELECT * FROM TABLE(system.two_arguments_function('a', 1)) f(x) TABLESAMPLE BERNOULLI (10)")
+                .hasErrorCode(INVALID_TABLE_FUNCTION_INVOCATION)
+                .hasMessage("line 1:15: Cannot apply sample to polymorphic table function invocation");
+
+        // aliased + row pattern matching
+        assertFails("""
+                SELECT *
+                FROM TABLE(system.two_arguments_function('a', 1)) f(x)
+                MATCH_RECOGNIZE(
+                    PATTERN (a*)
+                    DEFINE a AS true
+                ) t(y)
+                """)
+                .hasErrorCode(INVALID_TABLE_FUNCTION_INVOCATION)
+                .hasMessage("line 2:6: Cannot apply row pattern matching to polymorphic table function invocation");
+
+        // TODO enable this test when ONLY PASS THROUGH functions are fully analyzed (currently they fail with NOT_SUPPORTED)
+        //  An ONLY PASS THROUGH function had to be used here, because it's the only kind which does not take an alias.
+//        // row pattern matching + sampled
+//        assertFails("""
+//                SELECT *
+//                FROM TABLE(system.only_pass_through_function(TABLE(t1)))
+//                MATCH_RECOGNIZE(
+//                    PATTERN (a*)
+//                    DEFINE a AS true)
+//                TABLESAMPLE BERNOULLI (10)
+//                """)
+//                .hasErrorCode(INVALID_TABLE_FUNCTION_INVOCATION)
+//                .hasMessage("line 2:12: Cannot apply row pattern matching to polymorphic table function invocation");
+
+        // aliased + row pattern matching + sampled
+        assertFails("""
+                SELECT *
+                FROM TABLE(system.two_arguments_function('a', 1)) f(x)
+                MATCH_RECOGNIZE(
+                    PATTERN (a*)
+                    DEFINE a AS true
+                ) t(y)
+                TABLESAMPLE BERNOULLI (10)
+                """)
+                .hasErrorCode(INVALID_TABLE_FUNCTION_INVOCATION)
+                .hasMessage("line 2:6: Cannot apply row pattern matching to polymorphic table function invocation");
+    }
+
+    @Test
+    public void testTableFunctionAliasing()
+    {
+        // case-insensitive name matching
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(TABLE(t1))) T1(x)")
+                .hasErrorCode(DUPLICATE_RANGE_VARIABLE)
+                .hasMessage("line 1:64: Relation alias: T1 is a duplicate of input table name: tpch.s1.t1");
+
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(TABLE(SELECT 1) T1(a))) t1(x)")
+                .hasErrorCode(DUPLICATE_RANGE_VARIABLE)
+                .hasMessage("line 1:76: Relation alias: t1 is a duplicate of input table name: t1");
+
+        analyze("SELECT * FROM TABLE(system.table_argument_function(TABLE(t1) t2)) T1(x)");
+
+        // the original returned relation type is ("column" : BOOLEAN)
+        analyze("SELECT column FROM TABLE(system.two_arguments_function('a', 1)) table_alias");
+
+        analyze("SELECT column_alias FROM TABLE(system.two_arguments_function('a', 1)) table_alias(column_alias)");
+
+        analyze("SELECT table_alias.column_alias FROM TABLE(system.two_arguments_function('a', 1)) table_alias(column_alias)");
+
+        assertFails("SELECT column FROM TABLE(system.two_arguments_function('a', 1)) table_alias(column_alias)")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:8: Column 'column' cannot be resolved");
+
+        assertFails("SELECT column FROM TABLE(system.two_arguments_function('a', 1)) table_alias(col1, col2, col3)")
+                .hasErrorCode(MISMATCHED_COLUMN_ALIASES)
+                .hasMessage("line 1:20: Column alias list has 3 entries but table function has 1 proper columns");
+
+        // the original returned relation type is ("a" : BOOLEAN, "b" : INTEGER)
+        analyze("SELECT column_alias_1, column_alias_2 FROM TABLE(system.monomorphic_static_return_type_function()) table_alias(column_alias_1, column_alias_2)");
+
+        assertFails("SELECT * FROM TABLE(system.monomorphic_static_return_type_function()) table_alias(col, col)")
+                .hasErrorCode(DUPLICATE_COLUMN_NAME)
+                .hasMessage("line 1:21: Duplicate name of table function proper column: col");
+
+        // case-insensitive name matching
+        assertFails("SELECT * FROM TABLE(system.monomorphic_static_return_type_function()) table_alias(col, COL)")
+                .hasErrorCode(DUPLICATE_COLUMN_NAME)
+                .hasMessage("line 1:21: Duplicate name of table function proper column: col");
+
+        // TODO test pass-through columns wen we support them: they mustn't be aliased, and must be referenced by the original range variables of their corresponding table arguments
+    }
+
     @BeforeClass
     public void setup()
     {
@@ -6262,7 +6972,34 @@ public class TestAnalyzer
                 new ColumnPropertyManager(CatalogServiceProvider.fail()),
                 tablePropertyManager,
                 new MaterializedViewPropertyManager(catalogName -> ImmutableMap.of()))));
-        StatementAnalyzerFactory statementAnalyzerFactory = createTestingStatementAnalyzerFactory(plannerContext, accessControl, tablePropertyManager, analyzePropertyManager);
+        StatementAnalyzerFactory statementAnalyzerFactory = new StatementAnalyzerFactory(
+                plannerContext,
+                new SqlParser(),
+                accessControl,
+                new NoOpTransactionManager()
+                {
+                    // needed to analyze table functions
+                    @Override
+                    public ConnectorTransactionHandle getConnectorTransaction(TransactionId transactionId, CatalogHandle catalogHandle)
+                    {
+                        return new ConnectorTransactionHandle() {};
+                    }
+                },
+                user -> ImmutableSet.of(),
+                new TableProceduresRegistry(CatalogServiceProvider.fail("procedures are not supported in testing analyzer")),
+                new TableFunctionRegistry(catalogName -> new CatalogTableFunctions(ImmutableList.of(
+                        new TwoScalarArgumentsFunction(),
+                        new TableArgumentFunction(),
+                        new TableArgumentRowSemanticsFunction(),
+                        new DescriptorArgumentFunction(),
+                        new TwoTableArgumentsFunction(),
+                        new OnlyPassThroughFunction(),
+                        new MonomorphicStaticReturnTypeFunction(),
+                        new PolymorphicStaticReturnTypeFunction()))),
+                new SessionPropertyManager(),
+                tablePropertyManager,
+                analyzePropertyManager,
+                new TableProceduresPropertyManager(CatalogServiceProvider.fail("procedures are not supported in testing analyzer")));
         AnalyzerFactory analyzerFactory = new AnalyzerFactory(statementAnalyzerFactory, statementRewrite);
         return analyzerFactory.createAnalyzer(
                 session,

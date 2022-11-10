@@ -285,6 +285,16 @@ public class TestDateTimeOperators
         // large year
         assertInvalidFunction("DATE '5881580-07-12'", INVALID_LITERAL, "line 1:1: '5881580-07-12' is not a valid date literal");
         assertInvalidFunction("DATE '392251590-07-12'", INVALID_LITERAL, "line 1:1: '392251590-07-12' is not a valid date literal");
+        // signed
+        assertFunction("DATE '+2013-02-02'", DATE, toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
+        assertFunction("DATE '-2013-02-02'", DATE, toDate(new DateTime(-2013, 2, 2, 0, 0, 0, 0, UTC)));
+        // signed with whitespace
+        assertFunction("DATE ' +2013-02-02'", DATE, toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
+        assertInvalidFunction("DATE '+ 2013-02-02'", INVALID_LITERAL, "line 1:1: '+ 2013-02-02' is not a valid date literal");
+        assertInvalidFunction("DATE ' + 2013-02-02'", INVALID_LITERAL, "line 1:1: ' + 2013-02-02' is not a valid date literal");
+        assertFunction("DATE ' -2013-02-02'", DATE, toDate(new DateTime(-2013, 2, 2, 0, 0, 0, 0, UTC)));
+        assertInvalidFunction("DATE '- 2013-02-02'", INVALID_LITERAL, "line 1:1: '- 2013-02-02' is not a valid date literal");
+        assertInvalidFunction("DATE ' - 2013-02-02'", INVALID_LITERAL, "line 1:1: ' - 2013-02-02' is not a valid date literal");
     }
 
     /**
@@ -293,6 +303,8 @@ public class TestDateTimeOperators
     @Test
     public void testDateCastFromVarchar()
     {
+        // Note: update DomainTranslator.Visitor.createVarcharCastToDateComparisonExtractionResult whenever CAST behavior changes.
+
         assertFunction("CAST('2013-02-02' AS date)", DATE, toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
         // one digit for month or day
         assertFunction("CAST('2013-2-02' AS date)", DATE, toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
@@ -314,6 +326,16 @@ public class TestDateTimeOperators
         // large year
         assertInvalidFunction("CAST('5881580-07-12' AS date)", INVALID_CAST_ARGUMENT, "Value cannot be cast to date: 5881580-07-12");
         assertInvalidFunction("CAST('392251590-07-12' AS date)", INVALID_CAST_ARGUMENT, "Value cannot be cast to date: 392251590-07-12");
+        // signed
+        assertFunction("CAST('+2013-02-02' AS date)", DATE, toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
+        assertFunction("CAST('-2013-02-02' AS date)", DATE, toDate(new DateTime(-2013, 2, 2, 0, 0, 0, 0, UTC)));
+        // signed with whitespace
+        assertFunction("CAST(' +2013-02-02' AS date)", DATE, toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
+        assertInvalidFunction("CAST('+ 2013-02-02' AS date)", INVALID_CAST_ARGUMENT, "Value cannot be cast to date: + 2013-02-02");
+        assertInvalidFunction("CAST(' + 2013-02-02' AS date)", INVALID_CAST_ARGUMENT, "Value cannot be cast to date:  + 2013-02-02");
+        assertFunction("CAST(' -2013-02-02' AS date)", DATE, toDate(new DateTime(-2013, 2, 2, 0, 0, 0, 0, UTC)));
+        assertInvalidFunction("CAST('- 2013-02-02' AS date)", INVALID_CAST_ARGUMENT, "Value cannot be cast to date: - 2013-02-02");
+        assertInvalidFunction("CAST(' - 2013-02-02' AS date)", INVALID_CAST_ARGUMENT, "Value cannot be cast to date:  - 2013-02-02");
     }
 
     @Test

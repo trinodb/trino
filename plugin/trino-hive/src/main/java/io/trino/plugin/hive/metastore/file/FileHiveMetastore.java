@@ -14,6 +14,8 @@
 package io.trino.plugin.hive.metastore.file;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -21,13 +23,16 @@ import com.google.common.collect.ImmutableSet.Builder;
 import com.google.common.collect.Sets;
 import com.google.common.io.ByteStreams;
 import io.airlift.json.JsonCodec;
-import io.trino.plugin.hive.HdfsConfig;
-import io.trino.plugin.hive.HdfsConfiguration;
-import io.trino.plugin.hive.HdfsConfigurationInitializer;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.collect.cache.EvictableCacheBuilder;
+import io.trino.hdfs.DynamicHdfsConfiguration;
+import io.trino.hdfs.HdfsConfig;
+import io.trino.hdfs.HdfsConfiguration;
+import io.trino.hdfs.HdfsConfigurationInitializer;
+import io.trino.hdfs.HdfsContext;
+import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.HiveBasicStatistics;
-import io.trino.plugin.hive.HiveHdfsConfiguration;
+import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.PartitionNotFoundException;
@@ -35,7 +40,6 @@ import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.acid.AcidTransaction;
-import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
@@ -58,7 +62,6 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.RoleGrant;
-import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
@@ -97,6 +100,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HivePartitionManager.extractPartitionValues;
@@ -119,7 +123,9 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
@@ -141,6 +147,9 @@ public class FileHiveMetastore
     // todo there should be a way to manage the admins list
     private static final Set<String> ADMIN_USERS = ImmutableSet.of("admin", "hive", "hdfs");
 
+    // 128 is equals to the max database name length of Thrift Hive metastore
+    private static final int MAX_DATABASE_NAME_LENGTH = 128;
+
     private final String currentVersion;
     private final VersionCompatibility versionCompatibility;
     private final HdfsEnvironment hdfsEnvironment;
@@ -156,11 +165,14 @@ public class FileHiveMetastore
     private final JsonCodec<List<String>> rolesCodec = JsonCodec.listJsonCodec(String.class);
     private final JsonCodec<List<RoleGrant>> roleGrantsCodec = JsonCodec.listJsonCodec(RoleGrant.class);
 
+    // TODO Remove this speed-up workaround once that https://github.com/trinodb/trino/issues/13115 gets implemented
+    private final LoadingCache<String, List<String>> listTablesCache;
+
     @VisibleForTesting
     public static FileHiveMetastore createTestingFileHiveMetastore(File catalogDirectory)
     {
         HdfsConfig hdfsConfig = new HdfsConfig();
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
+        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
         return new FileHiveMetastore(
                 new NodeVersion("testversion"),
@@ -173,8 +185,7 @@ public class FileHiveMetastore
 
     public FileHiveMetastore(NodeVersion nodeVersion, HdfsEnvironment hdfsEnvironment, boolean hideDeltaLakeTables, FileHiveMetastoreConfig config)
     {
-        this.currentVersion = requireNonNull(nodeVersion, "nodeVersion is null").toString();
-        requireNonNull(config, "config is null");
+        this.currentVersion = nodeVersion.toString();
         this.versionCompatibility = requireNonNull(config.getVersionCompatibility(), "config.getVersionCompatibility() is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.catalogDirectory = new Path(requireNonNull(config.getCatalogDirectory(), "catalogDirectory is null"));
@@ -186,17 +197,30 @@ public class FileHiveMetastore
         catch (IOException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
+
+        listTablesCache = EvictableCacheBuilder.newBuilder()
+                .expireAfterWrite(10, SECONDS)
+                .build(CacheLoader.from(this::doListAllTables));
     }
 
     @Override
     public synchronized void createDatabase(Database database)
     {
         requireNonNull(database, "database is null");
+        database = new Database(
+                // Store name in lowercase for compatibility with HMS (and Glue)
+                database.getDatabaseName().toLowerCase(ENGLISH),
+                database.getLocation(),
+                database.getOwnerName(),
+                database.getOwnerType(),
+                database.getComment(),
+                database.getParameters());
 
         if (database.getLocation().isPresent()) {
             throw new TrinoException(HIVE_METASTORE_ERROR, "Database cannot be created with a location set");
         }
 
+        verifyDatabaseNameLength(database.getDatabaseName());
         verifyDatabaseNotExists(database.getDatabaseName());
 
         Path databaseMetadataDirectory = getDatabaseMetadataDirectory(database.getDatabaseName());
@@ -213,6 +237,9 @@ public class FileHiveMetastore
     public synchronized void dropDatabase(String databaseName, boolean deleteData)
     {
         requireNonNull(databaseName, "databaseName is null");
+
+        // Database names are stored lowercase. Accept non-lowercase name for compatibility with HMS (and Glue)
+        databaseName = databaseName.toLowerCase(ENGLISH);
 
         getRequiredDatabase(databaseName);
         if (!getAllTables(databaseName).isEmpty()) {
@@ -234,11 +261,16 @@ public class FileHiveMetastore
         requireNonNull(databaseName, "databaseName is null");
         requireNonNull(newDatabaseName, "newDatabaseName is null");
 
+        verifyDatabaseNameLength(newDatabaseName);
         getRequiredDatabase(databaseName);
         verifyDatabaseNotExists(newDatabaseName);
 
+        Path oldDatabaseMetadataDirectory = getDatabaseMetadataDirectory(databaseName);
+        Path newDatabaseMetadataDirectory = getDatabaseMetadataDirectory(newDatabaseName);
         try {
-            if (!metadataFileSystem.rename(getDatabaseMetadataDirectory(databaseName), getDatabaseMetadataDirectory(newDatabaseName))) {
+            renameSchemaFile(DATABASE, oldDatabaseMetadataDirectory, newDatabaseMetadataDirectory);
+
+            if (!metadataFileSystem.rename(oldDatabaseMetadataDirectory, newDatabaseMetadataDirectory)) {
                 throw new TrinoException(HIVE_METASTORE_ERROR, "Could not rename database metadata directory");
             }
         }
@@ -265,11 +297,14 @@ public class FileHiveMetastore
     {
         requireNonNull(databaseName, "databaseName is null");
 
-        Path databaseMetadataDirectory = getDatabaseMetadataDirectory(databaseName);
+        // Database names are stored lowercase. Accept non-lowercase name for compatibility with HMS (and Glue)
+        String normalizedName = databaseName.toLowerCase(ENGLISH);
+
+        Path databaseMetadataDirectory = getDatabaseMetadataDirectory(normalizedName);
         return readSchemaFile(DATABASE, databaseMetadataDirectory, databaseCodec)
                 .map(databaseMetadata -> {
                     checkVersion(databaseMetadata.getWriterVersion());
-                    return databaseMetadata.toDatabase(databaseName, databaseMetadataDirectory.toString());
+                    return databaseMetadata.toDatabase(normalizedName, databaseMetadataDirectory.toString());
                 });
     }
 
@@ -277,6 +312,13 @@ public class FileHiveMetastore
     {
         return getDatabase(databaseName)
                 .orElseThrow(() -> new SchemaNotFoundException(databaseName));
+    }
+
+    private void verifyDatabaseNameLength(String databaseName)
+    {
+        if (databaseName.length() > MAX_DATABASE_NAME_LENGTH) {
+            throw new TrinoException(NOT_SUPPORTED, format("Schema name must be shorter than or equal to '%s' characters but got '%s'", MAX_DATABASE_NAME_LENGTH, databaseName.length()));
+        }
     }
 
     private void verifyDatabaseNotExists(String databaseName)
@@ -308,7 +350,7 @@ public class FileHiveMetastore
             checkArgument(table.getStorage().getLocation().isEmpty(), "Storage location for view must be empty");
         }
         else if (table.getTableType().equals(MANAGED_TABLE.name())) {
-            if (!tableMetadataDirectory.equals(new Path(table.getStorage().getLocation()))) {
+            if (!(new Path(table.getStorage().getLocation()).toString().contains(tableMetadataDirectory.toString()))) {
                 throw new TrinoException(HIVE_METASTORE_ERROR, "Table directory must be " + tableMetadataDirectory);
             }
         }
@@ -370,7 +412,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public Set<ColumnStatisticType> getSupportedColumnStatistics(Type type)
+    public Set<HiveColumnStatisticType> getSupportedColumnStatistics(Type type)
     {
         return ThriftMetastoreUtil.getSupportedColumnStatistics(type);
     }
@@ -496,6 +538,12 @@ public class FileHiveMetastore
     @GuardedBy("this")
     private List<String> listAllTables(String databaseName)
     {
+        return listTablesCache.getUnchecked(databaseName);
+    }
+
+    @GuardedBy("this")
+    private List<String> doListAllTables(String databaseName)
+    {
         requireNonNull(databaseName, "databaseName is null");
 
         Optional<Database> database = getDatabase(databaseName);
@@ -550,7 +598,7 @@ public class FileHiveMetastore
         }
 
         if (isIcebergTable(table) && !Objects.equals(table.getParameters().get("metadata_location"), newTable.getParameters().get("previous_metadata_location"))) {
-            throw new TrinoException(HIVE_METASTORE_ERROR, "Cannot update Iceberg table: supplied previous location does not match current location");
+            throw new TrinoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Cannot update Iceberg table: supplied previous location does not match current location");
         }
 
         Path tableMetadataDirectory = getTableMetadataDirectory(table);
@@ -603,6 +651,9 @@ public class FileHiveMetastore
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+        finally {
+            listTablesCache.invalidateAll();
         }
     }
 
@@ -1329,6 +1380,24 @@ public class FileHiveMetastore
         catch (Exception e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, "Could not write " + type, e);
         }
+        finally {
+            listTablesCache.invalidateAll();
+        }
+    }
+
+    private void renameSchemaFile(SchemaType type, Path oldMetadataDirectory, Path newMetadataDirectory)
+    {
+        try {
+            if (!metadataFileSystem.rename(getSchemaPath(type, oldMetadataDirectory), getSchemaPath(type, newMetadataDirectory))) {
+                throw new TrinoException(HIVE_METASTORE_ERROR, "Could not rename " + type + " schema");
+            }
+        }
+        catch (IOException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, "Could not rename " + type + " schema", e);
+        }
+        finally {
+            listTablesCache.invalidateAll();
+        }
     }
 
     private void deleteSchemaFile(SchemaType type, Path metadataDirectory)
@@ -1340,6 +1409,9 @@ public class FileHiveMetastore
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, "Could not delete " + type + " schema", e);
+        }
+        finally {
+            listTablesCache.invalidateAll();
         }
     }
 
@@ -1470,7 +1542,7 @@ public class FileHiveMetastore
         @Override
         public String toString()
         {
-            return name().toLowerCase(Locale.ENGLISH);
+            return name().toLowerCase(ENGLISH);
         }
     }
 }

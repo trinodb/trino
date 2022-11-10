@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.DoubleRange;
@@ -23,41 +23,47 @@ import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.FileScanTask;
-import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.io.CloseableIterable;
-import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isExtendedStatisticsEnabled;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
-import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
-import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
-import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 
 public class TableStatisticsMaker
 {
+    public static final String TRINO_STATS_PREFIX = "trino.stats.ndv.";
+    public static final String TRINO_STATS_NDV_FORMAT = TRINO_STATS_PREFIX + "%d.ndv";
+    public static final Pattern TRINO_STATS_COLUMN_ID_PATTERN = Pattern.compile(Pattern.quote(TRINO_STATS_PREFIX) + "(?<columnId>\\d+)\\..*");
+    public static final Pattern TRINO_STATS_NDV_PATTERN = Pattern.compile(Pattern.quote(TRINO_STATS_PREFIX) + "(?<columnId>\\d+)\\.ndv");
+
     private final TypeManager typeManager;
+    private final ConnectorSession session;
     private final Table icebergTable;
 
-    private TableStatisticsMaker(TypeManager typeManager, Table icebergTable)
+    private TableStatisticsMaker(TypeManager typeManager, ConnectorSession session, Table icebergTable)
     {
         this.typeManager = typeManager;
+        this.session = session;
         this.icebergTable = icebergTable;
     }
 
-    public static TableStatistics getTableStatistics(TypeManager typeManager, IcebergTableHandle tableHandle, Table icebergTable)
+    public static TableStatistics getTableStatistics(TypeManager typeManager, ConnectorSession session, IcebergTableHandle tableHandle, Table icebergTable)
     {
-        return new TableStatisticsMaker(typeManager, icebergTable).makeTableStatistics(tableHandle);
+        return new TableStatisticsMaker(typeManager, session, icebergTable).makeTableStatistics(tableHandle);
     }
 
     private TableStatistics makeTableStatistics(IcebergTableHandle tableHandle)
@@ -79,25 +85,9 @@ public class TableStatisticsMaker
         Schema icebergTableSchema = icebergTable.schema();
         List<Types.NestedField> columns = icebergTableSchema.columns();
 
-        Map<Integer, Type.PrimitiveType> idToTypeMapping = primitiveFieldTypes(icebergTableSchema);
-        List<PartitionField> partitionFields = icebergTable.spec().fields();
-
-        List<Type> icebergPartitionTypes = partitionTypes(partitionFields, idToTypeMapping);
         List<IcebergColumnHandle> columnHandles = getColumns(icebergTableSchema, typeManager);
         Map<Integer, IcebergColumnHandle> idToColumnHandle = columnHandles.stream()
                 .collect(toUnmodifiableMap(IcebergColumnHandle::getId, identity()));
-
-        ImmutableMap.Builder<Integer, ColumnFieldDetails> idToDetailsBuilder = ImmutableMap.builder();
-        for (int index = 0; index < partitionFields.size(); index++) {
-            PartitionField field = partitionFields.get(index);
-            Type type = icebergPartitionTypes.get(index);
-            idToDetailsBuilder.put(field.fieldId(), new ColumnFieldDetails(
-                    field,
-                    idToColumnHandle.get(field.sourceId()),
-                    type,
-                    toTrinoType(type, typeManager),
-                    type.typeId().javaClass()));
-        }
 
         TableScan tableScan = icebergTable.newScan()
                 .filter(toIcebergExpression(enforcedPredicate))
@@ -120,6 +110,8 @@ public class TableStatisticsMaker
                     .build();
         }
 
+        Map<Integer, Long> ndvs = readNdvs(icebergTable);
+
         ImmutableMap.Builder<ColumnHandle, ColumnStatistics> columnHandleBuilder = ImmutableMap.builder();
         double recordCount = summary.getRecordCount();
         for (IcebergColumnHandle columnHandle : idToColumnHandle.values()) {
@@ -140,62 +132,32 @@ public class TableStatisticsMaker
             if (min != null && max != null) {
                 columnBuilder.setRange(DoubleRange.from(columnHandle.getType(), min, max));
             }
+            columnBuilder.setDistinctValuesCount(
+                    Optional.ofNullable(ndvs.get(fieldId))
+                            .map(Estimate::of)
+                            .orElseGet(Estimate::unknown));
             columnHandleBuilder.put(columnHandle, columnBuilder.build());
         }
         return new TableStatistics(Estimate.of(recordCount), columnHandleBuilder.buildOrThrow());
     }
 
-    public List<Type> partitionTypes(List<PartitionField> partitionFields, Map<Integer, Type.PrimitiveType> idToTypeMapping)
+    private Map<Integer, Long> readNdvs(Table icebergTable)
     {
-        ImmutableList.Builder<Type> partitionTypeBuilder = ImmutableList.builder();
-        for (PartitionField partitionField : partitionFields) {
-            Type.PrimitiveType sourceType = idToTypeMapping.get(partitionField.sourceId());
-            Type type = partitionField.transform().getResultType(sourceType);
-            partitionTypeBuilder.add(type);
-        }
-        return partitionTypeBuilder.build();
-    }
-
-    private static class ColumnFieldDetails
-    {
-        private final PartitionField field;
-        private final IcebergColumnHandle columnHandle;
-        private final Type icebergType;
-        private final io.trino.spi.type.Type trinoType;
-        private final Class<?> javaClass;
-
-        public ColumnFieldDetails(PartitionField field, IcebergColumnHandle columnHandle, Type icebergType, io.trino.spi.type.Type trinoType, Class<?> javaClass)
-        {
-            this.field = requireNonNull(field, "field is null");
-            this.columnHandle = requireNonNull(columnHandle, "columnHandle is null");
-            this.icebergType = requireNonNull(icebergType, "icebergType is null");
-            this.trinoType = requireNonNull(trinoType, "trinoType is null");
-            this.javaClass = requireNonNull(javaClass, "javaClass is null");
+        if (!isExtendedStatisticsEnabled(session)) {
+            return ImmutableMap.of();
         }
 
-        public PartitionField getField()
-        {
-            return field;
-        }
-
-        public IcebergColumnHandle getColumnHandle()
-        {
-            return columnHandle;
-        }
-
-        public Type getIcebergType()
-        {
-            return icebergType;
-        }
-
-        public io.trino.spi.type.Type getTrinoType()
-        {
-            return trinoType;
-        }
-
-        public Class<?> getJavaClass()
-        {
-            return javaClass;
-        }
+        ImmutableMap.Builder<Integer, Long> ndvByColumnId = ImmutableMap.builder();
+        icebergTable.properties().forEach((key, value) -> {
+            if (key.startsWith(TRINO_STATS_PREFIX)) {
+                Matcher matcher = TRINO_STATS_NDV_PATTERN.matcher(key);
+                if (matcher.matches()) {
+                    int columnId = Integer.parseInt(matcher.group("columnId"));
+                    long ndv = Long.parseLong(value);
+                    ndvByColumnId.put(columnId, ndv);
+                }
+            }
+        });
+        return ndvByColumnId.buildOrThrow();
     }
 }

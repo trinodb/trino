@@ -13,10 +13,12 @@
  */
 package io.trino.sql.query;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionBundle;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.SqlTime;
 import io.trino.spi.type.SqlTimeWithTimeZone;
 import io.trino.spi.type.SqlTimestamp;
@@ -42,21 +44,23 @@ import org.intellij.lang.annotations.Language;
 
 import java.io.Closeable;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.trino.cost.StatsCalculator.noopStatsCalculator;
+import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.sql.planner.assertions.PlanAssert.assertPlan;
-import static io.trino.sql.query.QueryAssertions.ExpressionAssert.newExpressionAssert;
 import static io.trino.sql.query.QueryAssertions.QueryAssert.newQueryAssert;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
@@ -74,7 +78,7 @@ public class QueryAssertions
     public QueryAssertions()
     {
         this(testSessionBuilder()
-                .setCatalog("local")
+                .setCatalog(TEST_CATALOG_NAME)
                 .setSchema("default")
                 .build());
     }
@@ -114,14 +118,43 @@ public class QueryAssertions
         return newQueryAssert(query, runner, session);
     }
 
-    public AssertProvider<ExpressionAssert> expression(@Language("SQL") String expression)
+    public ExpressionAssertProvider expression(@Language("SQL") String expression)
     {
         return expression(expression, runner.getDefaultSession());
     }
 
-    public AssertProvider<ExpressionAssert> expression(@Language("SQL") String expression, Session session)
+    public ExpressionAssertProvider operator(OperatorType operator, @Language("SQL") String... arguments)
     {
-        return newExpressionAssert(expression, runner, session);
+        return function(mangleOperatorName(operator), arguments);
+    }
+
+    public ExpressionAssertProvider function(String name, List<String> arguments)
+    {
+        ImmutableList.Builder<String> builder = ImmutableList.builder();
+        for (int i = 0; i < arguments.size(); i++) {
+            builder.add("a" + i);
+        }
+
+        List<String> names = builder.build();
+        ExpressionAssertProvider assertion = expression("\"%s\"(%s)".formatted(
+                name,
+                String.join(",", names)));
+
+        for (int i = 0; i < arguments.size(); i++) {
+            assertion.binding(names.get(i), arguments.get(i));
+        }
+
+        return assertion;
+    }
+
+    public ExpressionAssertProvider function(String name, @Language("SQL") String... arguments)
+    {
+        return function(name, Arrays.asList(arguments));
+    }
+
+    public ExpressionAssertProvider expression(@Language("SQL") String expression, Session session)
+    {
+        return new ExpressionAssertProvider(runner, session, expression);
     }
 
     public void assertQueryAndPlan(
@@ -285,6 +318,8 @@ public class QueryAssertions
             this.skipResultsCorrectnessCheckForPushdown = skipResultsCorrectnessCheckForPushdown;
         }
 
+        // TODO for better readability, replace this with `exceptColumns(String... columnNamesToExclude)` leveraging MaterializedResult.getColumnNames
+        @Deprecated
         public QueryAssert projected(int... columns)
         {
             return new QueryAssert(
@@ -357,7 +392,7 @@ public class QueryAssertions
             });
         }
 
-        public final QueryAssert matches(PlanMatchPattern expectedPlan)
+        public QueryAssert matches(PlanMatchPattern expectedPlan)
         {
             transaction(runner.getTransactionManager(), runner.getAccessControl())
                     .execute(session, session -> {
@@ -439,14 +474,12 @@ public class QueryAssertions
                                 runner.getFunctionManager(),
                                 noopStatsCalculator(),
                                 plan,
-                                PlanMatchPattern.output(
-                                        PlanMatchPattern.exchange(
-                                                PlanMatchPattern.node(TableScanNode.class))));
+                                PlanMatchPattern.output(PlanMatchPattern.node(TableScanNode.class)));
                     });
 
             if (!skipResultsCorrectnessCheckForPushdown) {
                 // Compare the results with pushdown disabled, so that explicit matches() call is not needed
-                verifyResultsWithPushdownDisabled();
+                hasCorrectResultsRegardlessOfPushdown();
             }
             return this;
         }
@@ -460,7 +493,6 @@ public class QueryAssertions
         @SafeVarargs
         public final QueryAssert isNotFullyPushedDown(Class<? extends PlanNode>... retainedNodes)
         {
-            checkArgument(retainedNodes.length > 0, "No retainedNodes");
             PlanMatchPattern expectedPlan = PlanMatchPattern.node(TableScanNode.class);
             for (Class<? extends PlanNode> retainedNode : ImmutableList.copyOf(retainedNodes).reverse()) {
                 expectedPlan = PlanMatchPattern.node(retainedNode, expectedPlan);
@@ -474,7 +506,7 @@ public class QueryAssertions
          * <b>Note:</b> the primary intent of this assertion is to ensure the test is updated to {@link #isFullyPushedDown()}
          * when pushdown capabilities are improved.
          */
-        public final QueryAssert isNotFullyPushedDown(PlanMatchPattern retainedSubplan)
+        public QueryAssert isNotFullyPushedDown(PlanMatchPattern retainedSubplan)
         {
             PlanMatchPattern expectedPlan = PlanMatchPattern.anyTree(retainedSubplan);
 
@@ -492,12 +524,12 @@ public class QueryAssertions
          * Verifies query has the expected plan and that results are the same as when pushdown is fully disabled.
          */
         @CanIgnoreReturnValue
-        public final QueryAssert hasPlan(PlanMatchPattern expectedPlan)
+        public QueryAssert hasPlan(PlanMatchPattern expectedPlan)
         {
             return hasPlan(expectedPlan, plan -> {});
         }
 
-        private final QueryAssert hasPlan(PlanMatchPattern expectedPlan, Consumer<Plan> additionalPlanVerification)
+        private QueryAssert hasPlan(PlanMatchPattern expectedPlan, Consumer<Plan> additionalPlanVerification)
         {
             transaction(runner.getTransactionManager(), runner.getAccessControl())
                     .execute(session, session -> {
@@ -514,18 +546,117 @@ public class QueryAssertions
 
             if (!skipResultsCorrectnessCheckForPushdown) {
                 // Compare the results with pushdown disabled, so that explicit matches() call is not needed
-                verifyResultsWithPushdownDisabled();
+                hasCorrectResultsRegardlessOfPushdown();
             }
             return this;
         }
 
-        private void verifyResultsWithPushdownDisabled()
+        @CanIgnoreReturnValue
+        public QueryAssert hasCorrectResultsRegardlessOfPushdown()
         {
             Session withoutPushdown = Session.builder(session)
                     .setSystemProperty("allow_pushdown_into_connectors", "false")
                     .build();
             matches(runner.execute(withoutPushdown, query));
+            return this;
         }
+    }
+
+    public static class ExpressionAssertProvider
+            implements AssertProvider<ExpressionAssert>
+    {
+        private final QueryRunner runner;
+        private final String expression;
+        private final Session session;
+
+        private final Map<String, String> bindings = new HashMap<>();
+
+        public ExpressionAssertProvider(QueryRunner runner, Session session, String expression)
+        {
+            this.runner = runner;
+            this.session = session;
+            this.expression = expression;
+        }
+
+        public ExpressionAssertProvider binding(String variable, @Language("SQL") String value)
+        {
+            String previous = bindings.put(variable, value);
+            if (previous != null) {
+                fail("%s already bound to: %s".formatted(variable, value));
+            }
+            return this;
+        }
+
+        public Result evaluate()
+        {
+            if (bindings.isEmpty()) {
+                return run("VALUES ROW(%s)".formatted(expression));
+            }
+            else {
+                List<Map.Entry<String, String>> entries = ImmutableList.copyOf(bindings.entrySet());
+
+                List<String> columns = entries.stream()
+                        .map(Map.Entry::getKey)
+                        .collect(toList());
+
+                List<String> values = entries.stream()
+                        .map(Map.Entry::getValue)
+                        .collect(toList());
+
+                // Evaluate the expression using two modes:
+                //  1. Avoid constant folding -> exercises the compiler and evaluation engine
+                //  2. Force constant folding -> exercises the interpreter
+
+                Result full = run("""
+                        SELECT %s
+                        FROM (
+                            VALUES ROW(%s)
+                        ) t(%s)
+                        WHERE rand() >= 0
+                        """
+                        .formatted(
+                                expression,
+                                Joiner.on(",").join(values),
+                                Joiner.on(",").join(columns)));
+
+                Result withConstantFolding = run("""
+                        SELECT %s
+                        FROM (
+                            VALUES ROW(%s)
+                        ) t(%s)
+                        """
+                        .formatted(
+                                expression,
+                                Joiner.on(",").join(values),
+                                Joiner.on(",").join(columns)));
+
+                if (!full.type().equals(withConstantFolding.type())) {
+                    fail("Mismatched types between interpreter and evaluation engine: %s vs %s".formatted(full.type(), withConstantFolding.type()));
+                }
+
+                if (!Objects.equals(full.value(), withConstantFolding.value())) {
+                    fail("Mismatched results between interpreter and evaluation engine: %s vs %s".formatted(full.value(), withConstantFolding.value()));
+                }
+
+                return new Result(full.type(), full.value);
+            }
+        }
+
+        private Result run(String query)
+        {
+            MaterializedResult result = runner.execute(session, query);
+            return new Result(result.getTypes().get(0), result.getOnlyColumnAsSet().iterator().next());
+        }
+
+        @Override
+        public ExpressionAssert assertThat()
+        {
+            Result result = evaluate();
+            return new ExpressionAssert(runner, session, result.value(), result.type())
+                    .withRepresentation(ExpressionAssert.TYPE_RENDERER);
+        }
+
+        record Result(Type type, Object value) {}
     }
 
     public static class ExpressionAssert
@@ -576,15 +707,6 @@ public class QueryAssertions
         private final Session session;
         private final Type actualType;
 
-        static AssertProvider<ExpressionAssert> newExpressionAssert(String expression, QueryRunner runner, Session session)
-        {
-            MaterializedResult result = runner.execute(session, "VALUES " + expression);
-            Type type = result.getTypes().get(0);
-            Object value = result.getOnlyColumnAsSet().iterator().next();
-            return () -> new ExpressionAssert(runner, session, value, type)
-                    .withRepresentation(TYPE_RENDERER);
-        }
-
         public ExpressionAssert(QueryRunner runner, Session session, Object actual, Type actualType)
         {
             super(actual, Object.class);
@@ -612,6 +734,20 @@ public class QueryAssertions
                         .withRepresentation(TYPE_RENDERER)
                         .isEqualTo(expectedValue);
             });
+        }
+
+        /**
+         * Syntactic sugar for:
+         *
+         * <pre>{@code
+         *     assertThat(...)
+         *         .hasType(type)
+         *         .isNull()
+         * }</pre>
+         */
+        public void isNull(Type type)
+        {
+            hasType(type).isNull();
         }
 
         public ExpressionAssert hasType(Type type)

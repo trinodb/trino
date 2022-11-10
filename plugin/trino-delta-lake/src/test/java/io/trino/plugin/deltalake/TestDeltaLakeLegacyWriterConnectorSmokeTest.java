@@ -32,11 +32,11 @@ public class TestDeltaLakeLegacyWriterConnectorSmokeTest
                 SCHEMA,
                 ImmutableMap.<String, String>builder()
                         .putAll(connectorProperties)
-                        .put("parquet.experimental-optimized-writer.enabled", "false")
+                        .put("parquet.optimized-writer.enabled", "false")
                         .put("delta.enable-non-concurrent-writes", "true")
                         .put("hive.s3.max-connections", "2")
                         .buildOrThrow(),
-                dockerizedMinioDataLake.getMinioAddress(),
-                dockerizedMinioDataLake.getTestingHadoop());
+                hiveMinioDataLake.getMinioAddress(),
+                hiveMinioDataLake.getHiveHadoop());
     }
 }

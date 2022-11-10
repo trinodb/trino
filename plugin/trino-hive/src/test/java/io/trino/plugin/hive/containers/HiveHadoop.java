@@ -25,6 +25,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static java.lang.String.format;
+
 public class HiveHadoop
         extends BaseTestContainer
 {
@@ -66,11 +68,12 @@ public class HiveHadoop
     {
         super.setupContainer();
         String runCmd = "/usr/local/hadoop-run.sh";
-        copyFileToContainer("containers/hive_hadoop/hadoop-run.sh", runCmd);
+        copyResourceToContainer("containers/hive_hadoop/hadoop-run.sh", runCmd);
         withRunCommand(
                 ImmutableList.of(
                         "/bin/bash",
                         runCmd));
+        withLogConsumer(new PrintingLogConsumer(format("%-20s| ", "hadoop")));
     }
 
     @Override
@@ -78,6 +81,16 @@ public class HiveHadoop
     {
         super.start();
         log.info("Hive container started with addresses for metastore: %s", getHiveMetastoreEndpoint());
+    }
+
+    public String runOnHive(String query)
+    {
+        return executeInContainerFailOnError("beeline", "-u", "jdbc:hive2://localhost:10000/default", "-n", "hive", "-e", query);
+    }
+
+    public String runOnMetastore(String query)
+    {
+        return executeInContainerFailOnError("mysql", "-D", "metastore", "-uroot", "-proot", "--batch", "--column-names=false", "-e", query).replaceAll("\n$", "");
     }
 
     public HostAndPort getHiveMetastoreEndpoint()

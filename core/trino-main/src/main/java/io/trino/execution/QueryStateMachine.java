@@ -25,6 +25,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.exchange.ExchangeInput;
 import io.trino.execution.QueryExecution.QueryOutputInfo;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.warnings.WarningCollector;
@@ -60,12 +61,13 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -164,6 +166,9 @@ public class QueryStateMachine
     @GuardedBy("dynamicFiltersStatsSupplierLock")
     private Supplier<DynamicFiltersStats> dynamicFiltersStatsSupplier = () -> DynamicFiltersStats.EMPTY;
     private final Object dynamicFiltersStatsSupplierLock = new Object();
+
+    private final AtomicBoolean committed = new AtomicBoolean();
+    private final AtomicBoolean consumed = new AtomicBoolean();
 
     private QueryStateMachine(
             String query,
@@ -281,6 +286,7 @@ public class QueryStateMachine
             QUERY_STATE_LOG.debug("Query %s is %s", queryStateMachine.getQueryId(), newState);
             if (newState.isDone()) {
                 queryStateMachine.getSession().getTransactionId().ifPresent(transactionManager::trySetInactive);
+                queryStateMachine.getOutputManager().setQueryCompleted();
             }
         });
 
@@ -708,9 +714,9 @@ public class QueryStateMachine
                 operatorStatsSummary.build());
     }
 
-    public void addOutputInfoListener(Consumer<QueryOutputInfo> listener)
+    public void setOutputInfoListener(Consumer<QueryOutputInfo> listener)
     {
-        outputManager.addOutputInfoListener(listener);
+        outputManager.setOutputInfoListener(listener);
     }
 
     public void addOutputTaskFailureListener(TaskFailureListener listener)
@@ -728,9 +734,9 @@ public class QueryStateMachine
         outputManager.setColumns(columnNames, columnTypes);
     }
 
-    public void updateOutputLocations(Map<TaskId, URI> newExchangeLocations, boolean noMoreExchangeLocations)
+    public void updateInputsForQueryResults(List<ExchangeInput> inputs, boolean noMoreInputs)
     {
-        outputManager.updateOutputLocations(newExchangeLocations, noMoreExchangeLocations);
+        outputManager.updateInputsForQueryResults(inputs, noMoreInputs);
     }
 
     public void setInputs(List<Input> inputs)
@@ -926,7 +932,8 @@ public class QueryStateMachine
                 @Override
                 public void onSuccess(@Nullable Void result)
                 {
-                    transitionToFinished();
+                    committed.set(true);
+                    transitionToFinishedIfReady();
                 }
 
                 @Override
@@ -937,13 +944,28 @@ public class QueryStateMachine
             }, directExecutor());
         }
         else {
-            transitionToFinished();
+            committed.set(true);
+            transitionToFinishedIfReady();
         }
         return true;
     }
 
-    private void transitionToFinished()
+    public void resultsConsumed()
     {
+        consumed.set(true);
+        transitionToFinishedIfReady();
+    }
+
+    private void transitionToFinishedIfReady()
+    {
+        if (queryState.get().isDone()) {
+            return;
+        }
+
+        if (!committed.get() || !consumed.get()) {
+            return;
+        }
+
         queryStateTimer.endQuery();
 
         queryState.setIf(FINISHED, currentState -> !currentState.isDone());
@@ -1263,21 +1285,28 @@ public class QueryStateMachine
                 ImmutableList.of()); // Remove the operator summaries as OperatorInfo (especially DirectExchangeClientStatus) can hold onto a large amount of memory
     }
 
+    private QueryOutputManager getOutputManager()
+    {
+        return outputManager;
+    }
+
     public static class QueryOutputManager
     {
         private final Executor executor;
 
         @GuardedBy("this")
-        private final List<Consumer<QueryOutputInfo>> outputInfoListeners = new ArrayList<>();
+        private Optional<Consumer<QueryOutputInfo>> listener = Optional.empty();
 
         @GuardedBy("this")
         private List<String> columnNames;
         @GuardedBy("this")
         private List<Type> columnTypes;
         @GuardedBy("this")
-        private final Map<TaskId, URI> exchangeLocations = new LinkedHashMap<>();
+        private boolean noMoreInputs;
         @GuardedBy("this")
-        private boolean noMoreExchangeLocations;
+        private boolean queryCompleted;
+
+        private final Queue<ExchangeInput> inputsQueue = new ConcurrentLinkedQueue<>();
 
         @GuardedBy("this")
         private final Map<TaskId, Throwable> outputTaskFailures = new HashMap<>();
@@ -1289,16 +1318,17 @@ public class QueryStateMachine
             this.executor = requireNonNull(executor, "executor is null");
         }
 
-        public void addOutputInfoListener(Consumer<QueryOutputInfo> listener)
+        public void setOutputInfoListener(Consumer<QueryOutputInfo> listener)
         {
             requireNonNull(listener, "listener is null");
 
             Optional<QueryOutputInfo> queryOutputInfo;
             synchronized (this) {
-                outputInfoListeners.add(listener);
+                checkState(this.listener.isEmpty(), "listener is already set");
+                this.listener = Optional.of(listener);
                 queryOutputInfo = getQueryOutputInfo();
             }
-            queryOutputInfo.ifPresent(info -> executor.execute(() -> listener.accept(info)));
+            fireStateChangedIfReady(queryOutputInfo, Optional.of(listener));
         }
 
         public void setColumns(List<String> columnNames, List<Type> columnTypes)
@@ -1308,36 +1338,45 @@ public class QueryStateMachine
             checkArgument(columnNames.size() == columnTypes.size(), "columnNames and columnTypes must be the same size");
 
             Optional<QueryOutputInfo> queryOutputInfo;
-            List<Consumer<QueryOutputInfo>> outputInfoListeners;
+            Optional<Consumer<QueryOutputInfo>> listener;
             synchronized (this) {
                 checkState(this.columnNames == null && this.columnTypes == null, "output fields already set");
                 this.columnNames = ImmutableList.copyOf(columnNames);
                 this.columnTypes = ImmutableList.copyOf(columnTypes);
 
                 queryOutputInfo = getQueryOutputInfo();
-                outputInfoListeners = ImmutableList.copyOf(this.outputInfoListeners);
+                listener = this.listener;
             }
-            queryOutputInfo.ifPresent(info -> fireStateChanged(info, outputInfoListeners));
+            fireStateChangedIfReady(queryOutputInfo, listener);
         }
 
-        public void updateOutputLocations(Map<TaskId, URI> newExchangeLocations, boolean noMoreExchangeLocations)
+        public void updateInputsForQueryResults(List<ExchangeInput> newInputs, boolean noMoreInputs)
         {
-            requireNonNull(newExchangeLocations, "newExchangeLocations is null");
+            requireNonNull(newInputs, "newInputs is null");
 
             Optional<QueryOutputInfo> queryOutputInfo;
-            List<Consumer<QueryOutputInfo>> outputInfoListeners;
+            Optional<Consumer<QueryOutputInfo>> listener;
             synchronized (this) {
-                if (this.noMoreExchangeLocations) {
-                    checkArgument(this.exchangeLocations.entrySet().containsAll(newExchangeLocations.entrySet()), "New locations added after no more locations set");
-                    return;
+                if (!queryCompleted) {
+                    // noMoreInputs can be set more than once
+                    checkState(newInputs.isEmpty() || !this.noMoreInputs, "new inputs added after no more inputs set");
+                    inputsQueue.addAll(newInputs);
+                    this.noMoreInputs = noMoreInputs;
                 }
-
-                this.exchangeLocations.putAll(newExchangeLocations);
-                this.noMoreExchangeLocations = noMoreExchangeLocations;
                 queryOutputInfo = getQueryOutputInfo();
-                outputInfoListeners = ImmutableList.copyOf(this.outputInfoListeners);
+                listener = this.listener;
             }
-            queryOutputInfo.ifPresent(info -> fireStateChanged(info, outputInfoListeners));
+            fireStateChangedIfReady(queryOutputInfo, listener);
+        }
+
+        public synchronized void setQueryCompleted()
+        {
+            if (queryCompleted) {
+                return;
+            }
+            queryCompleted = true;
+            inputsQueue.clear();
+            noMoreInputs = true;
         }
 
         public void addOutputTaskFailureListener(TaskFailureListener listener)
@@ -1371,14 +1410,15 @@ public class QueryStateMachine
             if (columnNames == null || columnTypes == null) {
                 return Optional.empty();
             }
-            return Optional.of(new QueryOutputInfo(columnNames, columnTypes, exchangeLocations, noMoreExchangeLocations));
+            return Optional.of(new QueryOutputInfo(columnNames, columnTypes, inputsQueue, noMoreInputs));
         }
 
-        private void fireStateChanged(QueryOutputInfo queryOutputInfo, List<Consumer<QueryOutputInfo>> outputInfoListeners)
+        private void fireStateChangedIfReady(Optional<QueryOutputInfo> info, Optional<Consumer<QueryOutputInfo>> listener)
         {
-            for (Consumer<QueryOutputInfo> outputInfoListener : outputInfoListeners) {
-                executor.execute(() -> outputInfoListener.accept(queryOutputInfo));
+            if (info.isEmpty() || listener.isEmpty()) {
+                return;
             }
+            executor.execute(() -> listener.get().accept(info.get()));
         }
     }
 }

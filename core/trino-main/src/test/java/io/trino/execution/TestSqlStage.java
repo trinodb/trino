@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.SettableFuture;
 import io.trino.client.NodeVersion;
 import io.trino.cost.StatsAndCosts;
+import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.metadata.InternalNode;
 import io.trino.operator.RetryPolicy;
@@ -48,8 +49,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.SqlStage.createSqlStage;
-import static io.trino.execution.buffer.OutputBuffers.BufferType.ARBITRARY;
-import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.ARBITRARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -132,7 +132,7 @@ public class TestSqlStage
                             i,
                             0,
                             Optional.empty(),
-                            createInitialEmptyOutputBuffers(ARBITRARY),
+                            PipelinedOutputBuffers.createInitial(ARBITRARY),
                             ImmutableMultimap.of(),
                             ImmutableSet.of(),
                             Optional.empty());
@@ -183,6 +183,7 @@ public class TestSqlStage
                 ImmutableList.of(planNode.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputSymbols()),
                 StatsAndCosts.empty(),
+                ImmutableList.of(),
                 Optional.empty());
     }
 }

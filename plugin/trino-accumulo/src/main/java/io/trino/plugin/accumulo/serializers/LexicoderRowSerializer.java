@@ -45,7 +45,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -83,7 +83,7 @@ public class LexicoderRowSerializer
         LEXICODER_MAP.put(INTEGER, longLexicoder);
         LEXICODER_MAP.put(REAL, doubleLexicoder);
         LEXICODER_MAP.put(SMALLINT, longLexicoder);
-        LEXICODER_MAP.put(TIME, longLexicoder);
+        LEXICODER_MAP.put(TIME_MILLIS, longLexicoder);
         LEXICODER_MAP.put(TIMESTAMP_MILLIS, longLexicoder);
         LEXICODER_MAP.put(TINYINT, longLexicoder);
         LEXICODER_MAP.put(VARBINARY, new BytesLexicoder());
@@ -280,7 +280,7 @@ public class LexicoderRowSerializer
     @Override
     public void setTime(Text text, Time value)
     {
-        text.set(encode(TIME, value));
+        text.set(encode(TIME_MILLIS, value));
     }
 
     @Override
@@ -349,7 +349,7 @@ public class LexicoderRowSerializer
         else if (type.equals(SMALLINT) && value instanceof Short) {
             toEncode = ((Short) value).longValue();
         }
-        else if (type.equals(TIME) && value instanceof Time) {
+        else if (type.equals(TIME_MILLIS) && value instanceof Time) {
             toEncode = ((Time) value).getTime();
         }
         else if (type.equals(TIMESTAMP_MILLIS) && value instanceof Timestamp) {
@@ -382,19 +382,17 @@ public class LexicoderRowSerializer
         if (Types.isArrayType(type)) {
             return getListLexicoder(type);
         }
-        else if (Types.isMapType(type)) {
+        if (Types.isMapType(type)) {
             return getMapLexicoder(type);
         }
-        else if (type instanceof VarcharType) {
+        if (type instanceof VarcharType) {
             return LEXICODER_MAP.get(VARCHAR);
         }
-        else {
-            Lexicoder lexicoder = LEXICODER_MAP.get(type);
-            if (lexicoder == null) {
-                throw new TrinoException(NOT_SUPPORTED, "No lexicoder for type " + type);
-            }
-            return lexicoder;
+        Lexicoder lexicoder = LEXICODER_MAP.get(type);
+        if (lexicoder == null) {
+            throw new TrinoException(NOT_SUPPORTED, "No lexicoder for type " + type);
         }
+        return lexicoder;
     }
 
     private static ListLexicoder getListLexicoder(Type elementType)

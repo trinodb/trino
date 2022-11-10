@@ -4,6 +4,10 @@ on:
   push:
     branches: [master]
 
+defaults:
+  run:
+    shell: bash --noprofile --norc -euo pipefail {0}
+
 jobs:
   set-milestone:
     if: github.repository_owner == 'trinodb'

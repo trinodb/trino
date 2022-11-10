@@ -13,8 +13,6 @@
  */
 package io.trino.server.testing;
 
-import com.google.common.base.Joiner;
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
@@ -27,7 +25,6 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.discovery.client.Announcer;
 import io.airlift.discovery.client.DiscoveryModule;
-import io.airlift.discovery.client.ServiceAnnouncement;
 import io.airlift.discovery.client.ServiceSelectorManager;
 import io.airlift.discovery.client.testing.TestingDiscoveryModule;
 import io.airlift.event.client.EventModule;
@@ -36,11 +33,10 @@ import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.jmx.testing.TestingJmxModule;
 import io.airlift.json.JsonModule;
-import io.airlift.log.Logger;
 import io.airlift.node.testing.TestingNodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
-import io.trino.connector.CatalogName;
-import io.trino.connector.ConnectorManager;
+import io.trino.connector.CatalogManagerModule;
+import io.trino.connector.ConnectorServicesProvider;
 import io.trino.cost.StatsCalculator;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.eventlistener.EventListenerConfig;
@@ -57,10 +53,10 @@ import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.memory.ClusterMemoryManager;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.metadata.AllNodes;
+import io.trino.metadata.CatalogManager;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
-import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ProcedureRegistry;
@@ -71,6 +67,7 @@ import io.trino.security.AccessControlManager;
 import io.trino.security.GroupProviderManager;
 import io.trino.server.GracefulShutdownHandler;
 import io.trino.server.PluginManager;
+import io.trino.server.Server;
 import io.trino.server.ServerMainModule;
 import io.trino.server.SessionPropertyDefaults;
 import io.trino.server.ShutdownAction;
@@ -97,8 +94,6 @@ import io.trino.testing.TestingGroupProvider;
 import io.trino.testing.TestingWarningCollectorModule;
 import io.trino.transaction.TransactionManager;
 import io.trino.transaction.TransactionManagerModule;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
 import org.weakref.jmx.guice.MBeanModule;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -112,22 +107,16 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Strings.nullToEmpty;
-import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
-import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
 import static java.lang.Integer.parseInt;
 import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.isDirectory;
@@ -137,8 +126,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class TestingTrinoServer
         implements Closeable
 {
-    private static final Logger log = Logger.get(TestingTrinoServer.class);
-
     public static TestingTrinoServer create()
     {
         return builder().build();
@@ -154,7 +141,7 @@ public class TestingTrinoServer
     private final boolean preserveData;
     private final LifeCycleManager lifeCycleManager;
     private final PluginManager pluginManager;
-    private final ConnectorManager connectorManager;
+    private final Optional<CatalogManager> catalogManager;
     private final TestingHttpServer server;
     private final TransactionManager transactionManager;
     private final Metadata metadata;
@@ -177,7 +164,6 @@ public class TestingTrinoServer
     private final LocalMemoryManager localMemoryManager;
     private final InternalNodeManager nodeManager;
     private final ServiceSelectorManager serviceSelectorManager;
-    private final Announcer announcer;
     private final DispatchManager dispatchManager;
     private final SqlQueryManager queryManager;
     private final SqlTaskManager taskManager;
@@ -239,6 +225,7 @@ public class TestingTrinoServer
         ImmutableMap.Builder<String, String> serverProperties = ImmutableMap.<String, String>builder()
                 .putAll(properties)
                 .put("coordinator", String.valueOf(coordinator))
+                .put("catalog.management", "dynamic")
                 .put("task.concurrency", "4")
                 .put("task.max-worker-threads", "4")
                 .put("exchange.client-threads", "4")
@@ -247,6 +234,7 @@ public class TestingTrinoServer
         if (coordinator) {
             // TODO: enable failure detector
             serverProperties.put("failure-detector.enabled", "false");
+            serverProperties.put("catalog.store", "none");
         }
 
         serverProperties.put("optimizer.ignore-stats-calculator-failures", "false");
@@ -261,6 +249,7 @@ public class TestingTrinoServer
                 .add(new EventModule())
                 .add(new TraceTokenModule())
                 .add(new ServerSecurityModule())
+                .add(new CatalogManagerModule())
                 .add(new TransactionManagerModule())
                 .add(new ServerMainModule("testversion"))
                 .add(new TestingWarningCollectorModule())
@@ -292,17 +281,17 @@ public class TestingTrinoServer
 
         modules.add(additionalModule);
 
+        Bootstrap app = new Bootstrap(modules.build());
+
         Map<String, String> optionalProperties = new HashMap<>();
         environment.ifPresent(env -> optionalProperties.put("node.environment", env));
 
-        injector = Failsafe.with(new RetryPolicy<>()
-                        .withMaxRetries(5)
-                        .handleIf(throwable -> getStackTraceAsString(throwable).contains("BindException: Address already in use"))
-                .onRetry(event -> log.debug(
-                        "Initialization failed on attempt %s, will retry. Exception: %s",
-                        event.getAttemptCount(),
-                        event.getLastFailure().getMessage())))
-                .get(() -> initialize(serverProperties.buildOrThrow(), modules.build(), optionalProperties));
+        injector = app
+                .doNotInitializeLogging()
+                .setRequiredConfigurationProperties(serverProperties.buildOrThrow())
+                .setOptionalConfigurationProperties(optionalProperties)
+                .quiet()
+                .initialize();
 
         injector.getInstance(Announcer.class).start();
 
@@ -310,7 +299,11 @@ public class TestingTrinoServer
 
         pluginManager = injector.getInstance(PluginManager.class);
 
-        connectorManager = injector.getInstance(ConnectorManager.class);
+        Optional<CatalogManager> catalogManager = Optional.empty();
+        if (injector.getExistingBinding(Key.get(CatalogManager.class)) != null) {
+            catalogManager = Optional.of(injector.getInstance(CatalogManager.class));
+        }
+        this.catalogManager = catalogManager;
 
         server = injector.getInstance(TestingHttpServer.class);
         transactionManager = injector.getInstance(TransactionManager.class);
@@ -355,7 +348,6 @@ public class TestingTrinoServer
         taskManager = injector.getInstance(SqlTaskManager.class);
         shutdownAction = injector.getInstance(ShutdownAction.class);
         mBeanServer = injector.getInstance(MBeanServer.class);
-        announcer = injector.getInstance(Announcer.class);
         failureInjector = injector.getInstance(FailureInjector.class);
         exchangeManagerRegistry = injector.getInstance(ExchangeManagerRegistry.class);
 
@@ -364,19 +356,9 @@ public class TestingTrinoServer
         EventListenerManager eventListenerManager = injector.getInstance(EventListenerManager.class);
         eventListeners.forEach(eventListenerManager::addEventListener);
 
-        announcer.forceAnnounce();
+        injector.getInstance(Announcer.class).forceAnnounce();
 
         refreshNodes();
-    }
-
-    private static Injector initialize(Map<String, String> serverProperties, List<Module> modules, Map<String, String> optionalProperties)
-    {
-        return new Bootstrap(modules)
-                .doNotInitializeLogging()
-                .setRequiredConfigurationProperties(serverProperties)
-                .setOptionalConfigurationProperties(optionalProperties)
-                .quiet()
-                .initialize();
     }
 
     @Override
@@ -428,21 +410,37 @@ public class TestingTrinoServer
         queryManager.addFinalQueryInfoListener(queryId, stateChangeListener);
     }
 
-    public CatalogName createCatalog(String catalogName, String connectorName)
+    public void createCatalog(String catalogName, String connectorName)
     {
-        return createCatalog(catalogName, connectorName, ImmutableMap.of());
+        createCatalog(catalogName, connectorName, ImmutableMap.of());
     }
 
-    public CatalogName createCatalog(String catalogName, String connectorName, Map<String, String> properties)
+    public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
-        CatalogName catalog = connectorManager.createCatalog(catalogName, connectorName, properties);
-        updateConnectorIdAnnouncement(announcer, catalog, nodeManager);
-        return catalog;
+        if (catalogManager.isEmpty()) {
+            // this is a worker so catalogs are dynamically registered
+            return;
+        }
+        catalogManager.get().createCatalog(catalogName, connectorName, properties);
     }
 
     public void loadExchangeManager(String name, Map<String, String> properties)
     {
         exchangeManagerRegistry.loadExchangeManager(name, properties);
+    }
+
+    /**
+     * Add the event listeners from connectors.  Connector event listeners are
+     * only supported for statically loaded catalogs, and this doesn't match up
+     * with the model of the testing Trino server.  This method should only be
+     * called once after all catalogs are added.
+     */
+    public void addConnectorEventListeners()
+    {
+        Server.addConnectorEventListeners(
+                injector.getInstance(CatalogManager.class),
+                injector.getInstance(ConnectorServicesProvider.class),
+                injector.getInstance(EventListenerManager.class));
     }
 
     public Path getBaseDataDir()
@@ -617,11 +615,6 @@ public class TestingTrinoServer
         }
     }
 
-    public Set<InternalNode> getActiveNodesWithConnector(CatalogName catalogName)
-    {
-        return nodeManager.getActiveConnectorNodes(catalogName);
-    }
-
     public <T> T getInstance(Key<T> key)
     {
         return injector.getInstance(key);
@@ -642,40 +635,6 @@ public class TestingTrinoServer
                 attemptId,
                 injectionType,
                 errorType);
-    }
-
-    private static void updateConnectorIdAnnouncement(Announcer announcer, CatalogName catalogName, InternalNodeManager nodeManager)
-    {
-        //
-        // This code was copied from TrinoServer, and is a hack that should be removed when the connectorId property is removed
-        //
-
-        // get existing announcement
-        ServiceAnnouncement announcement = getTrinoAnnouncement(announcer.getServiceAnnouncements());
-
-        // update connectorIds property
-        Map<String, String> properties = new LinkedHashMap<>(announcement.getProperties());
-        String property = nullToEmpty(properties.get("connectorIds"));
-        Set<String> connectorIds = new LinkedHashSet<>(Splitter.on(',').trimResults().omitEmptyStrings().splitToList(property));
-        connectorIds.add(catalogName.toString());
-        properties.put("connectorIds", Joiner.on(',').join(connectorIds));
-
-        // update announcement
-        announcer.removeServiceAnnouncement(announcement.getId());
-        announcer.addServiceAnnouncement(serviceAnnouncement(announcement.getType()).addProperties(properties).build());
-        announcer.forceAnnounce();
-
-        nodeManager.refreshNodes();
-    }
-
-    private static ServiceAnnouncement getTrinoAnnouncement(Set<ServiceAnnouncement> announcements)
-    {
-        for (ServiceAnnouncement announcement : announcements) {
-            if (announcement.getType().equals("trino")) {
-                return announcement;
-            }
-        }
-        throw new RuntimeException("Trino announcement not found: " + announcements);
     }
 
     private static Path tempDirectory()

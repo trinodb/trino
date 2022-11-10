@@ -135,6 +135,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.lang.String.join;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 public class MariaDbClient
@@ -149,6 +150,9 @@ public class MariaDbClient
 
     // An empty character means that the table doesn't have a comment in MariaDB
     private static final String NO_COMMENT = "";
+
+    // MariaDB Error Codes https://mariadb.com/kb/en/mariadb-error-codes/
+    private static final int PARSE_ERROR = 1064;
 
     private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
 
@@ -242,7 +246,7 @@ public class MariaDbClient
         return metadata.getTables(
                 schemaName.orElse(null),
                 null,
-                escapeNamePattern(tableName, metadata.getSearchStringEscape()).orElse(null),
+                escapeObjectNameForMetadataQuery(tableName, metadata.getSearchStringEscape()).orElse(null),
                 getTableTypes().map(types -> types.toArray(String[]::new)).orElse(null));
     }
 
@@ -266,9 +270,9 @@ public class MariaDbClient
     public void setTableComment(ConnectorSession session, JdbcTableHandle handle, Optional<String> comment)
     {
         String sql = format(
-                "ALTER TABLE %s COMMENT = '%s'",
+                "ALTER TABLE %s COMMENT = %s",
                 quoted(handle.asPlainTable().getRemoteTableName()),
-                comment.orElse(NO_COMMENT)); // An empty character removes the existing comment in MariaDB
+                mariaDbVarcharLiteral(comment.orElse(NO_COMMENT))); // An empty character removes the existing comment in MariaDB
         execute(session, sql);
     }
 
@@ -386,19 +390,17 @@ public class MariaDbClient
         if (type == DOUBLE) {
             return WriteMapping.doubleMapping("double precision", doubleWriteFunction());
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
             if (decimalType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
             }
             return WriteMapping.objectMapping(dataType, longDecimalWriteFunction(decimalType));
         }
-        if (type instanceof CharType) {
-            return WriteMapping.sliceMapping("char(" + ((CharType) type).getLength() + ")", charWriteFunction());
+        if (type instanceof CharType charType) {
+            return WriteMapping.sliceMapping("char(" + charType.getLength() + ")", charWriteFunction());
         }
-        if (type instanceof VarcharType) {
-            VarcharType varcharType = (VarcharType) type;
+        if (type instanceof VarcharType varcharType) {
             String dataType;
             if (varcharType.isUnbounded()) {
                 dataType = "longtext";
@@ -423,15 +425,13 @@ public class MariaDbClient
         if (type == DATE) {
             return WriteMapping.longMapping("date", dateWriteFunction());
         }
-        if (type instanceof TimeType) {
-            TimeType timeType = (TimeType) type;
+        if (type instanceof TimeType timeType) {
             if (timeType.getPrecision() <= MAX_SUPPORTED_DATE_TIME_PRECISION) {
                 return WriteMapping.longMapping(format("time(%s)", timeType.getPrecision()), timeWriteFunction(timeType.getPrecision()));
             }
             return WriteMapping.longMapping(format("time(%s)", MAX_SUPPORTED_DATE_TIME_PRECISION), timeWriteFunction(MAX_SUPPORTED_DATE_TIME_PRECISION));
         }
-        if (type instanceof TimestampType) {
-            TimestampType timestampType = (TimestampType) type;
+        if (type instanceof TimestampType timestampType) {
             if (timestampType.getPrecision() <= MAX_SUPPORTED_DATE_TIME_PRECISION) {
                 verify(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION);
                 return WriteMapping.longMapping(format("timestamp(%s)", timestampType.getPrecision()), timestampWriteFunction(timestampType));
@@ -443,27 +443,25 @@ public class MariaDbClient
     }
 
     @Override
-    public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
+    protected void renameColumn(ConnectorSession session, Connection connection, RemoteTableName remoteTableName, String remoteColumnName, String newRemoteColumnName)
+            throws SQLException
     {
-        try (Connection connection = connectionFactory.openConnection(session)) {
-            String newRemoteColumnName = getIdentifierMapping().toRemoteColumnName(connection, newColumnName);
+        try {
             // MariaDB versions earlier than 10.5.2 do not support the RENAME COLUMN syntax
             // ALTER TABLE ... CHANGE statement exists in th old versions, but it requires providing all attributes of the column
             String sql = format(
                     "ALTER TABLE %s RENAME COLUMN %s TO %s",
-                    quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
-                    quoted(jdbcColumn.getColumnName()),
+                    quoted(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()),
+                    quoted(remoteColumnName),
                     quoted(newRemoteColumnName));
             execute(connection, sql);
         }
-        catch (TrinoException e) {
-            if (e.getCause() instanceof SQLSyntaxErrorException) {
-                throw new TrinoException(NOT_SUPPORTED, "Rename column not supported for the MariaDB server version", e);
+        catch (SQLSyntaxErrorException syntaxError) {
+            // Note: SQLSyntaxErrorException can be thrown also when column name is invalid
+            if (syntaxError.getErrorCode() == PARSE_ERROR) {
+                throw new TrinoException(NOT_SUPPORTED, "Rename column not supported for the MariaDB server version", syntaxError);
             }
-            throw e;
-        }
-        catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
+            throw syntaxError;
         }
     }
 
@@ -476,14 +474,25 @@ public class MariaDbClient
                 tableCopyFormat,
                 quoted(catalogName, schemaName, newTableName),
                 quoted(catalogName, schemaName, tableName));
-        execute(connection, sql);
+        try {
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
     }
 
     @Override
     protected String createTableSql(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
     {
         checkArgument(tableMetadata.getProperties().isEmpty(), "Unsupported table properties: %s", tableMetadata.getProperties());
-        return format("CREATE TABLE %s (%s) COMMENT '%s'", quoted(remoteTableName), join(", ", columns), tableMetadata.getComment().orElse(NO_COMMENT));
+        return format("CREATE TABLE %s (%s) COMMENT %s", quoted(remoteTableName), join(", ", columns), mariaDbVarcharLiteral(tableMetadata.getComment().orElse(NO_COMMENT)));
+    }
+
+    private static String mariaDbVarcharLiteral(String value)
+    {
+        requireNonNull(value, "value is null");
+        return "'" + value.replace("'", "''").replace("\\", "\\\\") + "'";
     }
 
     @Override
@@ -491,8 +500,9 @@ public class MariaDbClient
     {
         // MariaDB doesn't support specifying the catalog name in a rename. By setting the
         // catalogName parameter to null, it will be omitted in the ALTER TABLE statement.
-        verify(handle.getSchemaName() == null);
-        renameTable(session, null, handle.getCatalogName(), handle.getTableName(), newTableName);
+        RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
+        verify(remoteTableName.getSchemaName().isEmpty());
+        renameTable(session, null, remoteTableName.getCatalogName().orElse(null), remoteTableName.getTableName(), newTableName);
     }
 
     @Override

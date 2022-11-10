@@ -103,16 +103,7 @@ class DynamicFiltersFetcher
         fetchDynamicFiltersIfNecessary();
     }
 
-    public synchronized void stop()
-    {
-        running = false;
-        if (future != null) {
-            future.cancel(true);
-            future = null;
-        }
-    }
-
-    public synchronized void updateDynamicFiltersVersion(long newDynamicFiltersVersion)
+    public synchronized void updateDynamicFiltersVersionAndFetchIfNecessary(long newDynamicFiltersVersion)
     {
         if (dynamicFiltersVersion >= newDynamicFiltersVersion) {
             return;
@@ -218,7 +209,9 @@ class DynamicFiltersFetcher
             }
 
             localDynamicFiltersVersion = newDynamicFilterDomains.getVersion();
-            updateDynamicFiltersVersion(localDynamicFiltersVersion);
+            if (dynamicFiltersVersion < localDynamicFiltersVersion) {
+                dynamicFiltersVersion = localDynamicFiltersVersion;
+            }
         }
 
         // Subsequent DF versions can be narrowing down only. Therefore order in which they are intersected

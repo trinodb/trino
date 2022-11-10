@@ -42,6 +42,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.predicate.Utils.TUPLE_DOMAIN_TYPE_OPERATORS;
 import static io.trino.spi.predicate.Utils.handleThrowable;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
@@ -57,7 +58,7 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 public class EquatableValueSet
         implements ValueSet
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(EquatableValueSet.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(EquatableValueSet.class).instanceSize());
 
     private final Type type;
     private final boolean inclusive;
@@ -243,15 +244,13 @@ public class EquatableValueSet
         if (inclusive && otherValueSet.inclusive()) {
             return new EquatableValueSet(type, true, intersect(entries, otherValueSet.entries));
         }
-        else if (inclusive) {
+        if (inclusive) {
             return new EquatableValueSet(type, true, subtract(entries, otherValueSet.entries));
         }
-        else if (otherValueSet.inclusive()) {
+        if (otherValueSet.inclusive()) {
             return new EquatableValueSet(type, true, subtract(otherValueSet.entries, entries));
         }
-        else {
-            return new EquatableValueSet(type, false, union(otherValueSet.entries, entries));
-        }
+        return new EquatableValueSet(type, false, union(otherValueSet.entries, entries));
     }
 
     @Override
@@ -262,15 +261,13 @@ public class EquatableValueSet
         if (inclusive && otherValueSet.inclusive()) {
             return setsOverlap(entries, otherValueSet.entries);
         }
-        else if (inclusive) {
+        if (inclusive) {
             return !otherValueSet.entries.containsAll(entries);
         }
-        else if (otherValueSet.inclusive()) {
+        if (otherValueSet.inclusive()) {
             return !entries.containsAll(otherValueSet.entries);
         }
-        else {
-            return true;
-        }
+        return true;
     }
 
     @Override
@@ -281,15 +278,13 @@ public class EquatableValueSet
         if (inclusive && otherValueSet.inclusive()) {
             return new EquatableValueSet(type, true, union(entries, otherValueSet.entries));
         }
-        else if (inclusive) {
+        if (inclusive) {
             return new EquatableValueSet(type, false, subtract(otherValueSet.entries, entries));
         }
-        else if (otherValueSet.inclusive()) {
+        if (otherValueSet.inclusive()) {
             return new EquatableValueSet(type, false, subtract(entries, otherValueSet.entries));
         }
-        else {
-            return new EquatableValueSet(type, false, intersect(otherValueSet.entries, entries));
-        }
+        return new EquatableValueSet(type, false, intersect(otherValueSet.entries, entries));
     }
 
     @Override
@@ -439,7 +434,7 @@ public class EquatableValueSet
 
     public static class ValueEntry
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(ValueEntry.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ValueEntry.class).instanceSize());
 
         private final Type type;
         private final Block block;

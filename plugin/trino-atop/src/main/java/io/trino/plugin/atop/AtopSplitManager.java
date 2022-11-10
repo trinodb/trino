@@ -51,7 +51,6 @@ public class AtopSplitManager
     public AtopSplitManager(NodeManager nodeManager, AtopConnectorConfig config)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        requireNonNull(config, "config is null");
         timeZone = config.getTimeZoneId();
         maxHistoryDays = config.getMaxHistoryDays();
     }

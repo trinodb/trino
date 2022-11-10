@@ -31,9 +31,9 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
 import static io.trino.tests.product.TestGroups.HIVE_PARTITIONING;
 import static io.trino.tests.product.TestGroups.SMOKE;
-import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
-import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static io.trino.tests.product.hive.util.TableLocationUtils.getTablePath;
+import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
+import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -301,8 +301,7 @@ public class TestHivePartitionProcedures
 
     private Long getTableCount(String tableName)
     {
-        QueryResult countResult = onTrino().executeQuery("SELECT count(*) FROM " + tableName);
-        return (Long) countResult.row(0).get(0);
+        return (Long) onTrino().executeQuery("SELECT count(*) FROM " + tableName).getOnlyValue();
     }
 
     private Set<String> getPartitionValues(String tableName)

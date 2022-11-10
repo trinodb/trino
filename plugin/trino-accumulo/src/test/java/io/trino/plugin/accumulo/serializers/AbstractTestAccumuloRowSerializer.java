@@ -39,7 +39,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -215,7 +215,7 @@ public abstract class AbstractTestAccumuloRowSerializer
             throws Exception
     {
         AccumuloRowSerializer serializer = serializerClass.getConstructor().newInstance();
-        Type type = TIME;
+        Type type = TIME_MILLIS;
         Time expected = new Time(new java.util.Date().getTime());
         byte[] data = serializer.encode(type, expected);
         Time actual = new Time(serializer.decode(type, data));

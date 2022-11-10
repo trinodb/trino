@@ -23,7 +23,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.OperatorStats;
-import io.trino.plugin.deltalake.util.DockerizedMinioDataLake;
+import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
@@ -32,9 +32,8 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.split.SplitSource;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.ResultWithQueryId;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 import org.testng.annotations.DataProvider;
@@ -53,7 +52,6 @@ import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
-import static io.trino.plugin.deltalake.DeltaLakeDockerizedMinioDataLake.createDockerizedMinioDataLakeForDeltaLake;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.testing.DataProviders.toDataProvider;
@@ -68,22 +66,26 @@ public class TestDeltaLakeDynamicFiltering
 {
     private static final String BUCKET_NAME = "delta-lake-test-dynamic-filtering";
 
+    private HiveMinioDataLake hiveMinioDataLake;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         verify(new DynamicFilterConfig().isEnableDynamicFiltering(), "this class assumes dynamic filtering is enabled by default");
-        DockerizedMinioDataLake dockerizedMinioDataLake = closeAfterClass(createDockerizedMinioDataLakeForDeltaLake(BUCKET_NAME));
+        hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(BUCKET_NAME));
+        hiveMinioDataLake.start();
+
         QueryRunner queryRunner = DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 "default",
                 ImmutableMap.of(),
-                dockerizedMinioDataLake.getMinioAddress(),
-                dockerizedMinioDataLake.getTestingHadoop());
+                hiveMinioDataLake.getMinioAddress(),
+                hiveMinioDataLake.getHiveHadoop());
 
         ImmutableList.of(LINE_ITEM, ORDERS).forEach(table -> {
             String tableName = table.getTableName();
-            dockerizedMinioDataLake.copyResources("io/trino/plugin/deltalake/testing/resources/databricks/" + tableName, tableName);
+            hiveMinioDataLake.copyResources("io/trino/plugin/deltalake/testing/resources/databricks/" + tableName, tableName);
             queryRunner.execute(format("CREATE TABLE %s.%s.%s (dummy int) WITH (location = 's3://%s/%3$s')",
                     DELTA_CATALOG,
                     "default",
@@ -104,8 +106,8 @@ public class TestDeltaLakeDynamicFiltering
     public void testDynamicFiltering(JoinDistributionType joinDistributionType)
     {
         String query = "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice > 59995 AND orders.totalprice < 60000";
-        ResultWithQueryId<MaterializedResult> filteredResult = getDistributedQueryRunner().executeWithQueryId(sessionWithDynamicFiltering(true, joinDistributionType), query);
-        ResultWithQueryId<MaterializedResult> unfilteredResult = getDistributedQueryRunner().executeWithQueryId(sessionWithDynamicFiltering(false, joinDistributionType), query);
+        MaterializedResultWithQueryId filteredResult = getDistributedQueryRunner().executeWithQueryId(sessionWithDynamicFiltering(true, joinDistributionType), query);
+        MaterializedResultWithQueryId unfilteredResult = getDistributedQueryRunner().executeWithQueryId(sessionWithDynamicFiltering(false, joinDistributionType), query);
         assertEqualsIgnoreOrder(filteredResult.getResult().getMaterializedRows(), unfilteredResult.getResult().getMaterializedRows());
 
         QueryInputStats filteredStats = getQueryInputStats(filteredResult.getQueryId());

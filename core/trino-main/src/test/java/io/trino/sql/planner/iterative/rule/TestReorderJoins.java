@@ -52,7 +52,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
@@ -67,12 +66,11 @@ public class TestReorderJoins
     @BeforeClass
     public void setUp()
     {
-        tester = defaultRuleTester(
-                ImmutableList.of(),
-                ImmutableMap.of(
-                        JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name(),
-                        JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.AUTOMATIC.name()),
-                Optional.of(4));
+        tester = RuleTester.builder()
+                .addSessionProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .addSessionProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.AUTOMATIC.name())
+                .withNodeCountForStats(4)
+                .build();
     }
 
     @AfterClass(alwaysRun = true)

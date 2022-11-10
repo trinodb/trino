@@ -15,6 +15,7 @@ package io.trino.cost;
 
 import io.trino.Session;
 import io.trino.cost.ComposableStatsCalculator.Rule;
+import io.trino.metadata.Metadata;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Lookup;
@@ -36,6 +37,7 @@ import static java.util.Objects.requireNonNull;
 
 public class StatsCalculatorAssertion
 {
+    private final Metadata metadata;
     private final StatsCalculator statsCalculator;
     private final Session session;
     private final PlanNode planNode;
@@ -43,8 +45,9 @@ public class StatsCalculatorAssertion
 
     private final Map<PlanNode, PlanNodeStatsEstimate> sourcesStats;
 
-    public StatsCalculatorAssertion(StatsCalculator statsCalculator, Session session, PlanNode planNode, TypeProvider types)
+    public StatsCalculatorAssertion(Metadata metadata, StatsCalculator statsCalculator, Session session, PlanNode planNode, TypeProvider types)
     {
+        this.metadata = requireNonNull(metadata, "metadata cannot be null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator cannot be null");
         this.session = requireNonNull(session, "session cannot be null");
         this.planNode = requireNonNull(planNode, "planNode is null");
@@ -84,7 +87,7 @@ public class StatsCalculatorAssertion
     {
         PlanNodeStatsEstimate statsEstimate = transaction(new TestingTransactionManager(), new AllowAllAccessControl())
                 .execute(session, transactionSession -> {
-                    return statsCalculator.calculateStats(planNode, this::getSourceStats, noLookup(), transactionSession, types);
+                    return statsCalculator.calculateStats(planNode, this::getSourceStats, noLookup(), transactionSession, types, new CachingTableStatsProvider(metadata, session));
                 });
         statisticsAssertionConsumer.accept(PlanNodeStatsAssertion.assertThat(statsEstimate));
         return this;
@@ -92,16 +95,16 @@ public class StatsCalculatorAssertion
 
     public StatsCalculatorAssertion check(Rule<?> rule, Consumer<PlanNodeStatsAssertion> statisticsAssertionConsumer)
     {
-        Optional<PlanNodeStatsEstimate> statsEstimate = calculatedStats(rule, planNode, this::getSourceStats, noLookup(), session, types);
+        Optional<PlanNodeStatsEstimate> statsEstimate = calculatedStats(rule, planNode, this::getSourceStats, noLookup(), session, types, new CachingTableStatsProvider(metadata, session));
         checkState(statsEstimate.isPresent(), "Expected stats estimates to be present");
         statisticsAssertionConsumer.accept(PlanNodeStatsAssertion.assertThat(statsEstimate.get()));
         return this;
     }
 
     @SuppressWarnings("unchecked")
-    private static <T extends PlanNode> Optional<PlanNodeStatsEstimate> calculatedStats(Rule<T> rule, PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
+    private static <T extends PlanNode> Optional<PlanNodeStatsEstimate> calculatedStats(Rule<T> rule, PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
     {
-        return rule.calculate((T) node, sourceStats, lookup, session, types);
+        return rule.calculate((T) node, sourceStats, lookup, session, types, tableStatsProvider);
     }
 
     private PlanNodeStatsEstimate getSourceStats(PlanNode sourceNode)

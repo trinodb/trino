@@ -15,24 +15,24 @@ package io.trino.operator.aggregation;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.AggregationFunctionMetadata;
-import io.trino.metadata.AggregationFunctionMetadata.AggregationFunctionMetadataBuilder;
-import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionBinding;
-import io.trino.metadata.FunctionDependencies;
-import io.trino.metadata.FunctionDependencyDeclaration;
-import io.trino.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SignatureBinder;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.ParametricImplementationsGroup;
 import io.trino.operator.aggregation.AggregationFromAnnotationsParser.AccumulatorStateDetails;
 import io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind;
-import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import io.trino.operator.annotations.ImplementationDependency;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.AggregationFunctionMetadata;
+import io.trino.spi.function.AggregationFunctionMetadata.AggregationFunctionMetadataBuilder;
+import io.trino.spi.function.AggregationImplementation;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionDependencyDeclaration;
+import io.trino.spi.function.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.FunctionNullability;
+import io.trino.spi.function.Signature;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collection;
@@ -52,14 +52,14 @@ import static java.util.Objects.requireNonNull;
 public class ParametricAggregation
         extends SqlAggregationFunction
 {
-    private final ParametricImplementationsGroup<AggregationImplementation> implementations;
+    private final ParametricImplementationsGroup<ParametricAggregationImplementation> implementations;
     private final List<AccumulatorStateDetails<?>> stateDetails;
 
     public ParametricAggregation(
             Signature signature,
             AggregationHeader details,
             List<AccumulatorStateDetails<?>> stateDetails,
-            ParametricImplementationsGroup<AggregationImplementation> implementations)
+            ParametricImplementationsGroup<ParametricAggregationImplementation> implementations)
     {
         super(
                 createFunctionMetadata(signature, details, implementations.getFunctionNullability()),
@@ -126,9 +126,9 @@ public class ParametricAggregation
         return builder.build();
     }
 
-    private static void declareDependencies(FunctionDependencyDeclarationBuilder builder, Collection<AggregationImplementation> implementations)
+    private static void declareDependencies(FunctionDependencyDeclarationBuilder builder, Collection<ParametricAggregationImplementation> implementations)
     {
-        for (AggregationImplementation implementation : implementations) {
+        for (ParametricAggregationImplementation implementation : implementations) {
             for (ImplementationDependency dependency : implementation.getInputDependencies()) {
                 dependency.declareDependencies(builder);
             }
@@ -142,44 +142,54 @@ public class ParametricAggregation
     }
 
     @Override
-    public AggregationMetadata specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    public AggregationImplementation specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         // Find implementation matching arguments
-        AggregationImplementation concreteImplementation = findMatchingImplementation(boundSignature);
+        ParametricAggregationImplementation concreteImplementation = findMatchingImplementation(boundSignature);
+        List<AggregationParameterKind> inputParameterKinds = concreteImplementation.getInputParameterKinds();
 
         // Build state factory and serializer
+        AggregationImplementation.Builder builder = AggregationImplementation.builder();
         FunctionMetadata metadata = getFunctionMetadata();
         FunctionBinding functionBinding = SignatureBinder.bindFunction(metadata.getFunctionId(), metadata.getSignature(), boundSignature);
-        List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors = stateDetails.stream()
+        builder.accumulatorStateDescriptors(stateDetails.stream()
                 .map(state -> state.createAccumulatorStateDescriptor(functionBinding, functionDependencies))
-                .collect(toImmutableList());
+                .collect(toImmutableList()));
 
         // Bind provided dependencies to aggregation method handlers
-        MethodHandle inputHandle = bindDependencies(concreteImplementation.getInputFunction(), concreteImplementation.getInputDependencies(), functionBinding, functionDependencies);
-        Optional<MethodHandle> removeInputHandle = concreteImplementation.getRemoveInputFunction().map(
-                removeInputFunction -> bindDependencies(removeInputFunction, concreteImplementation.getRemoveInputDependencies(), functionBinding, functionDependencies));
+        builder.inputFunction(normalizeInputMethod(
+                bindDependencies(
+                        concreteImplementation.getInputFunction(),
+                        concreteImplementation.getInputDependencies(),
+                        functionBinding,
+                        functionDependencies),
+                boundSignature,
+                inputParameterKinds));
+        concreteImplementation.getRemoveInputFunction()
+                .map(removeInputFunction -> bindDependencies(
+                        removeInputFunction,
+                        concreteImplementation.getRemoveInputDependencies(),
+                        functionBinding,
+                        functionDependencies))
+                .map(removeInputFunction -> normalizeInputMethod(removeInputFunction, boundSignature, inputParameterKinds))
+                .ifPresent(builder::removeInputFunction);
 
-        Optional<MethodHandle> combineHandle = concreteImplementation.getCombineFunction();
         if (getAggregationMetadata().isDecomposable()) {
-            checkArgument(combineHandle.isPresent(), "Decomposable method %s does not have a combine method", boundSignature.getName());
-            combineHandle = combineHandle.map(combineFunction -> bindDependencies(combineFunction, concreteImplementation.getCombineDependencies(), functionBinding, functionDependencies));
+            MethodHandle combineHandle = concreteImplementation.getCombineFunction()
+                    .orElseThrow(() -> new IllegalArgumentException(format("Decomposable method %s does not have a combine method", boundSignature.getName())));
+            builder.combineFunction(bindDependencies(combineHandle, concreteImplementation.getCombineDependencies(), functionBinding, functionDependencies));
         }
         else {
             checkArgument(concreteImplementation.getCombineFunction().isEmpty(), "Decomposable method %s does not have a combine method", boundSignature.getName());
         }
 
-        MethodHandle outputHandle = bindDependencies(concreteImplementation.getOutputFunction(), concreteImplementation.getOutputDependencies(), functionBinding, functionDependencies);
+        builder.outputFunction(bindDependencies(
+                concreteImplementation.getOutputFunction(),
+                concreteImplementation.getOutputDependencies(),
+                functionBinding,
+                functionDependencies));
 
-        List<AggregationParameterKind> inputParameterKinds = concreteImplementation.getInputParameterKinds();
-        inputHandle = normalizeInputMethod(inputHandle, boundSignature, inputParameterKinds);
-        removeInputHandle = removeInputHandle.map(function -> normalizeInputMethod(function, boundSignature, inputParameterKinds));
-
-        return new AggregationMetadata(
-                inputHandle,
-                removeInputHandle,
-                combineHandle,
-                outputHandle,
-                accumulatorStateDescriptors);
+        return builder.build();
     }
 
     @VisibleForTesting
@@ -189,20 +199,20 @@ public class ParametricAggregation
     }
 
     @VisibleForTesting
-    public ParametricImplementationsGroup<AggregationImplementation> getImplementations()
+    public ParametricImplementationsGroup<ParametricAggregationImplementation> getImplementations()
     {
         return implementations;
     }
 
-    private AggregationImplementation findMatchingImplementation(BoundSignature boundSignature)
+    private ParametricAggregationImplementation findMatchingImplementation(BoundSignature boundSignature)
     {
         Signature signature = boundSignature.toSignature();
-        Optional<AggregationImplementation> foundImplementation = Optional.empty();
+        Optional<ParametricAggregationImplementation> foundImplementation = Optional.empty();
         if (implementations.getExactImplementations().containsKey(signature)) {
             foundImplementation = Optional.of(implementations.getExactImplementations().get(signature));
         }
         else {
-            for (AggregationImplementation candidate : implementations.getGenericImplementations()) {
+            for (ParametricAggregationImplementation candidate : implementations.getGenericImplementations()) {
                 if (candidate.areTypesAssignable(boundSignature)) {
                     if (foundImplementation.isPresent()) {
                         throw new TrinoException(AMBIGUOUS_FUNCTION_CALL, format("Ambiguous function call (%s) for %s", boundSignature, getFunctionMetadata().getSignature()));

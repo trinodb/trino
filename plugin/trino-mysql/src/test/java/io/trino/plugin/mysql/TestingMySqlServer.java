@@ -30,7 +30,7 @@ import static org.testcontainers.containers.MySQLContainer.MYSQL_PORT;
 public class TestingMySqlServer
         implements AutoCloseable
 {
-    public static final String DEFAULT_IMAGE = "mysql:8.0.29-oracle";
+    public static final String DEFAULT_IMAGE = "mysql:8.0.30";
     public static final String LEGACY_IMAGE = "mysql:5.7.35";
 
     private final MySQLContainer<?> container;
@@ -104,7 +104,7 @@ public class TestingMySqlServer
 
     public String getJdbcUrl()
     {
-        return format("jdbc:mysql://%s:%s?useSSL=false&allowPublicKeyRetrieval=true", container.getContainerIpAddress(), container.getMappedPort(MYSQL_PORT));
+        return format("jdbc:mysql://%s:%s?useSSL=false&allowPublicKeyRetrieval=true", container.getHost(), container.getMappedPort(MYSQL_PORT));
     }
 
     @Override

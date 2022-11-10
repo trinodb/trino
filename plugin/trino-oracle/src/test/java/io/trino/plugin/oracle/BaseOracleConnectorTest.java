@@ -23,6 +23,7 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -43,6 +44,7 @@ import static org.testng.Assert.assertFalse;
 public abstract class BaseOracleConnectorTest
         extends BaseJdbcConnectorTest
 {
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -59,28 +61,25 @@ public abstract class BaseOracleConnectorTest
 
             case SUPPORTS_JOIN_PUSHDOWN:
                 return true;
-
             case SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM:
-                return false;
-
-            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
-                return false;
-
-            case SUPPORTS_COMMENT_ON_TABLE:
-                return false;
-
-            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
-            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
-                return false;
-
-            case SUPPORTS_ARRAY:
-            case SUPPORTS_ROW_TYPE:
                 return false;
 
             case SUPPORTS_CREATE_SCHEMA:
                 return false;
 
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
+                return false;
+
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
+                return false;
+
+            case SUPPORTS_COMMENT_ON_TABLE:
+                return false;
+
+            case SUPPORTS_ARRAY:
+            case SUPPORTS_ROW_TYPE:
                 return false;
 
             default:
@@ -178,6 +177,18 @@ public abstract class BaseOracleConnectorTest
         assertUpdate("COMMENT ON COLUMN " + tableName + ".a IS 'new comment'");
         // without remarksReporting Oracle does not return comments set
         assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue()).doesNotContain("COMMENT 'new comment'");
+    }
+
+    /**
+     * See {@link TestOraclePoolRemarksReportingConnectorSmokeTest#testCommentColumnSpecialCharacter(String comment)}
+     */
+    @Override
+    public void testCommentColumnSpecialCharacter(String comment)
+    {
+        // Oracle connector doesn't return column comments by default
+        assertThatThrownBy(() -> super.testCommentColumnSpecialCharacter(comment))
+                .hasMessageContaining("expected [%s] but found [null]".formatted(comment));
+        throw new SkipException("The test is covered in TestOraclePoolRemarksReportingConnectorSmokeTest");
     }
 
     @Override
@@ -470,10 +481,28 @@ public abstract class BaseOracleConnectorTest
     }
 
     @Override
+    protected void verifyAddNotNullColumnToNonEmptyTableFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessage("ORA-01758: table must be empty to add mandatory (NOT NULL) column\n");
+    }
+
+    @Override
     protected void verifyConcurrentAddColumnFailurePermissible(Exception e)
     {
         assertThat(e)
                 .hasMessage("ORA-14411: The DDL cannot be run concurrently with other DDLs\n");
+    }
+
+    @Override
+    protected OptionalInt maxSchemaNameLength()
+    {
+        return OptionalInt.of(30);
+    }
+
+    @Override
+    protected void verifySchemaNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessage("ORA-00972: identifier is too long\n");
     }
 
     @Override
@@ -484,6 +513,18 @@ public abstract class BaseOracleConnectorTest
 
     @Override
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessage("ORA-00972: identifier is too long\n");
+    }
+
+    @Override
+    protected OptionalInt maxColumnNameLength()
+    {
+        return OptionalInt.of(30);
+    }
+
+    @Override
+    protected void verifyColumnNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessage("ORA-00972: identifier is too long\n");
     }

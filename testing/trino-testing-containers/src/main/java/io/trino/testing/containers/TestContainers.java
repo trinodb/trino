@@ -14,14 +14,20 @@
 
 package io.trino.testing.containers;
 
+import com.github.dockerjava.api.model.ExposedPort;
+import com.github.dockerjava.api.model.PortBinding;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.TestcontainersConfiguration;
 
 import java.io.Closeable;
 
+import static com.github.dockerjava.api.model.Ports.Binding.bindPort;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.System.getenv;
+import static java.util.Objects.requireNonNull;
+import static org.testcontainers.utility.MountableFile.forClasspathResource;
 
 public final class TestContainers
 {
@@ -44,5 +50,28 @@ public final class TestContainers
             return () -> {};
         }
         return container::stop;
+    }
+
+    public static String getPathFromClassPathResource(String resourcePath)
+    {
+        return forClasspathResource(resourcePath)
+                // Container fails to mount jar:file:/<host_path>!<resource_path> resources
+                // This ensures that JAR resources are being copied out to tmp locations
+                // and mounted from there.
+                .getResolvedPath();
+    }
+
+    public static void exposeFixedPorts(GenericContainer<?> container)
+    {
+        checkState(System.getenv("CONTINUOUS_INTEGRATION") == null, "" +
+                "Exposing fixed ports should not be used in regular test code. This could break parallel test execution. " +
+                "This method is supposed to be invoked from local development helpers only e.g. QueryRunner.main(), " +
+                "hence it should never run on CI");
+
+        container.withCreateContainerCmdModifier(cmd -> cmd
+                .withHostConfig(requireNonNull(cmd.getHostConfig(), "hostConfig is null")
+                        .withPortBindings(container.getExposedPorts().stream()
+                                .map(exposedPort -> new PortBinding(bindPort(exposedPort), new ExposedPort(exposedPort)))
+                                .collect(toImmutableList()))));
     }
 }

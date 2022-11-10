@@ -15,6 +15,7 @@ package io.trino.spi.ptf;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import io.trino.spi.Experimental;
 import io.trino.spi.expression.ConnectorExpression;
 
 /**
@@ -32,6 +33,7 @@ import io.trino.spi.expression.ConnectorExpression;
         @JsonSubTypes.Type(value = ScalarArgument.class, name = "scalar"),
         @JsonSubTypes.Type(value = TableArgument.class, name = "table"),
 })
+@Experimental(eta = "2022-10-31")
 public abstract class Argument
 {
 }

@@ -13,6 +13,7 @@
  */
 package io.trino.faulttolerant.hive;
 
+import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
@@ -21,6 +22,7 @@ import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_PARTITION_COUNT;
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.FaultTolerantExecutionConnectorTestHelper.getExtraProperties;
@@ -51,6 +53,21 @@ public class TestHiveFaultTolerantExecutionConnectorTest
     public void testScaleWriters()
     {
         testWithAllStorageFormats(this::testSingleWriter);
+    }
+
+    // We need to override this method because in the case of pipeline execution,
+    // the default number of writers are equal to worker count. Whereas, in the
+    // fault-tolerant execution, it starts with 1.
+    @Override
+    public void testTaskWritersDoesNotScaleWithLargeMinWriterSize()
+    {
+        testTaskScaleWriters(getSession(), DataSize.of(2, GIGABYTE), 4, false).isEqualTo(1);
+    }
+
+    @Override
+    public void testWritersAcrossMultipleWorkersWhenScaleWritersIsEnabled()
+    {
+        // Not applicable for fault-tolerant mode.
     }
 
     @Override

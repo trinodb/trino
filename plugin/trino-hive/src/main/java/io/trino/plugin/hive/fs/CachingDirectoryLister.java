@@ -26,7 +26,6 @@ import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.weakref.jmx.Managed;
@@ -89,28 +88,28 @@ public class CachingDirectoryLister
     }
 
     @Override
-    public RemoteIterator<LocatedFileStatus> list(FileSystem fs, Table table, Path path)
+    public RemoteIterator<TrinoFileStatus> list(FileSystem fs, Table table, Path path)
             throws IOException
     {
         if (!isCacheEnabledFor(table.getSchemaTableName())) {
-            return fs.listLocatedStatus(path);
+            return new TrinoFileStatusRemoteIterator(fs.listLocatedStatus(path));
         }
 
         return listInternal(fs, new DirectoryListingCacheKey(path, false));
     }
 
     @Override
-    public RemoteIterator<LocatedFileStatus> listFilesRecursively(FileSystem fs, Table table, Path path)
+    public RemoteIterator<TrinoFileStatus> listFilesRecursively(FileSystem fs, Table table, Path path)
             throws IOException
     {
         if (!isCacheEnabledFor(table.getSchemaTableName())) {
-            return fs.listFiles(path, true);
+            return new TrinoFileStatusRemoteIterator(fs.listFiles(path, true));
         }
 
         return listInternal(fs, new DirectoryListingCacheKey(path, true));
     }
 
-    private RemoteIterator<LocatedFileStatus> listInternal(FileSystem fs, DirectoryListingCacheKey cacheKey)
+    private RemoteIterator<TrinoFileStatus> listInternal(FileSystem fs, DirectoryListingCacheKey cacheKey)
             throws IOException
     {
         ValueHolder cachedValueHolder = uncheckedCacheGet(cache, cacheKey, ValueHolder::new);
@@ -121,15 +120,13 @@ public class CachingDirectoryLister
         return cachingRemoteIterator(cachedValueHolder, createListingRemoteIterator(fs, cacheKey), cacheKey);
     }
 
-    private static RemoteIterator<LocatedFileStatus> createListingRemoteIterator(FileSystem fs, DirectoryListingCacheKey cacheKey)
+    private static RemoteIterator<TrinoFileStatus> createListingRemoteIterator(FileSystem fs, DirectoryListingCacheKey cacheKey)
             throws IOException
     {
         if (cacheKey.isRecursiveFilesOnly()) {
-            return fs.listFiles(cacheKey.getPath(), true);
+            return new TrinoFileStatusRemoteIterator(fs.listFiles(cacheKey.getPath(), true));
         }
-        else {
-            return fs.listLocatedStatus(cacheKey.getPath());
-        }
+        return new TrinoFileStatusRemoteIterator(fs.listLocatedStatus(cacheKey.getPath()));
     }
 
     @Override
@@ -154,11 +151,11 @@ public class CachingDirectoryLister
         }
     }
 
-    private RemoteIterator<LocatedFileStatus> cachingRemoteIterator(ValueHolder cachedValueHolder, RemoteIterator<LocatedFileStatus> iterator, DirectoryListingCacheKey key)
+    private RemoteIterator<TrinoFileStatus> cachingRemoteIterator(ValueHolder cachedValueHolder, RemoteIterator<TrinoFileStatus> iterator, DirectoryListingCacheKey key)
     {
         return new RemoteIterator<>()
         {
-            private final List<LocatedFileStatus> files = new ArrayList<>();
+            private final List<TrinoFileStatus> files = new ArrayList<>();
 
             @Override
             public boolean hasNext()
@@ -174,10 +171,10 @@ public class CachingDirectoryLister
             }
 
             @Override
-            public LocatedFileStatus next()
+            public TrinoFileStatus next()
                     throws IOException
             {
-                LocatedFileStatus next = iterator.next();
+                TrinoFileStatus next = iterator.next();
                 files.add(next);
                 return next;
             }
@@ -251,19 +248,19 @@ public class CachingDirectoryLister
      */
     private static class ValueHolder
     {
-        private final Optional<List<LocatedFileStatus>> files;
+        private final Optional<List<TrinoFileStatus>> files;
 
         public ValueHolder()
         {
             files = Optional.empty();
         }
 
-        public ValueHolder(List<LocatedFileStatus> files)
+        public ValueHolder(List<TrinoFileStatus> files)
         {
             this.files = Optional.of(ImmutableList.copyOf(requireNonNull(files, "files is null")));
         }
 
-        public Optional<List<LocatedFileStatus>> getFiles()
+        public Optional<List<TrinoFileStatus>> getFiles()
         {
             return files;
         }

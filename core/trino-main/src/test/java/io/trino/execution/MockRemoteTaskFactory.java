@@ -31,6 +31,8 @@ import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.trino.execution.buffer.LazyOutputBuffer;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.buffer.OutputBuffers;
+import io.trino.execution.buffer.PipelinedOutputBuffers;
+import io.trino.execution.buffer.SpoolingOutputStats;
 import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
 import io.trino.memory.context.SimpleLocalMemoryContext;
@@ -78,8 +80,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.trino.execution.StateMachine.StateChangeListener;
-import static io.trino.execution.buffer.OutputBuffers.BufferType.BROADCAST;
-import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.BROADCAST;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -121,13 +122,14 @@ public class MockRemoteTaskFactory
                 ImmutableList.of(sourceId),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
                 StatsAndCosts.empty(),
+                ImmutableList.of(),
                 Optional.empty());
 
         ImmutableMultimap.Builder<PlanNodeId, Split> initialSplits = ImmutableMultimap.builder();
         for (Split sourceSplit : splits) {
             initialSplits.put(sourceId, sourceSplit);
         }
-        return createRemoteTask(TEST_SESSION, taskId, newNode, testFragment, initialSplits.build(), createInitialEmptyOutputBuffers(BROADCAST), partitionedSplitCountTracker, ImmutableSet.of(), Optional.empty(), true);
+        return createRemoteTask(TEST_SESSION, taskId, newNode, testFragment, initialSplits.build(), PipelinedOutputBuffers.createInitial(BROADCAST), partitionedSplitCountTracker, ImmutableSet.of(), Optional.empty(), true);
     }
 
     @Override
@@ -177,8 +179,6 @@ public class MockRemoteTaskFactory
         private SettableFuture<Void> whenSplitQueueHasSpace = SettableFuture.create();
 
         private final PartitionedSplitCountTracker partitionedSplitCountTracker;
-
-        private boolean isOutputBufferOverUtilized;
 
         public MockRemoteTask(
                 TaskId taskId,
@@ -255,7 +255,7 @@ public class MockRemoteTaskFactory
                             failures,
                             0,
                             0,
-                            isOutputBufferOverUtilized,
+                            outputBuffer.getStatus(),
                             DataSize.ofBytes(0),
                             DataSize.ofBytes(0),
                             DataSize.ofBytes(0),
@@ -288,7 +288,7 @@ public class MockRemoteTaskFactory
                     ImmutableList.of(),
                     queuedSplitsInfo.getCount(),
                     combinedSplitsInfo.getCount() - queuedSplitsInfo.getCount(),
-                    isOutputBufferOverUtilized,
+                    outputBuffer.getStatus(),
                     stats.getPhysicalWrittenDataSize(),
                     stats.getUserMemoryReservation(),
                     stats.getPeakUserMemoryReservation(),
@@ -355,11 +355,6 @@ public class MockRemoteTaskFactory
             runningDrivers = splits.size();
             runningDrivers = Math.min(runningDrivers, maxRunning);
             updateSplitQueueSpace();
-        }
-
-        public synchronized void setOutputBufferOverUtilized(boolean isOutputBufferOverUtilized)
-        {
-            this.isOutputBufferOverUtilized = isOutputBufferOverUtilized;
         }
 
         @Override
@@ -501,6 +496,12 @@ public class MockRemoteTaskFactory
         public synchronized int getUnacknowledgedPartitionedSplitCount()
         {
             return unacknowledgedSplits;
+        }
+
+        @Override
+        public SpoolingOutputStats.Snapshot retrieveAndDropSpoolingOutputStats()
+        {
+            throw new UnsupportedOperationException();
         }
     }
 }

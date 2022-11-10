@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.iceberg.catalog.hms;
 
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.iceberg.IcebergConfig;
@@ -38,7 +38,7 @@ public class TrinoHiveCatalogFactory
 {
     private final CatalogName catalogName;
     private final HiveMetastoreFactory metastoreFactory;
-    private final HdfsEnvironment hdfsEnvironment;
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final TypeManager typeManager;
     private final IcebergTableOperationsProvider tableOperationsProvider;
     private final String trinoVersion;
@@ -51,7 +51,7 @@ public class TrinoHiveCatalogFactory
             IcebergConfig config,
             CatalogName catalogName,
             HiveMetastoreFactory metastoreFactory,
-            HdfsEnvironment hdfsEnvironment,
+            TrinoFileSystemFactory fileSystemFactory,
             TypeManager typeManager,
             IcebergTableOperationsProvider tableOperationsProvider,
             NodeVersion nodeVersion,
@@ -59,13 +59,11 @@ public class TrinoHiveCatalogFactory
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationProvider is null");
-        this.trinoVersion = requireNonNull(nodeVersion, "trinoVersion is null").toString();
-        requireNonNull(config, "config is null");
+        this.trinoVersion = nodeVersion.toString();
         this.isUniqueTableLocation = config.isUniqueTableLocation();
-        requireNonNull(securityConfig, "securityConfig is null");
         this.isUsingSystemSecurity = securityConfig.getSecuritySystem() == SYSTEM;
         this.deleteSchemaLocationsFallback = config.isDeleteSchemaLocationsFallback();
     }
@@ -76,7 +74,7 @@ public class TrinoHiveCatalogFactory
         return new TrinoHiveCatalog(
                 catalogName,
                 memoizeMetastore(metastoreFactory.createMetastore(Optional.of(identity)), 1000),
-                hdfsEnvironment,
+                fileSystemFactory,
                 typeManager,
                 tableOperationsProvider,
                 trinoVersion,

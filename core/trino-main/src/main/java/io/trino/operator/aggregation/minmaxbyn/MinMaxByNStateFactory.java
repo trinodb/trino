@@ -24,6 +24,7 @@ import java.util.function.Function;
 import java.util.function.LongFunction;
 
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.toIntExact;
 
 public final class MinMaxByNStateFactory
 {
@@ -37,7 +38,7 @@ public final class MinMaxByNStateFactory
             extends AbstractMinMaxByNState
             implements GroupedAccumulatorState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedMinMaxByNState.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(GroupedMinMaxByNState.class).instanceSize());
 
         private final LongFunction<TypedKeyValueHeap> heapFactory;
         private final Function<Block, TypedKeyValueHeap> deserializer;
@@ -165,7 +166,7 @@ public final class MinMaxByNStateFactory
     public abstract static class SingleMinMaxByNState
             extends AbstractMinMaxByNState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleMinMaxByNState.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SingleMinMaxByNState.class).instanceSize());
 
         private final LongFunction<TypedKeyValueHeap> heapFactory;
         private final Function<Block, TypedKeyValueHeap> deserializer;

@@ -99,7 +99,7 @@ public abstract class BaseDynamicPartitionPruningTest
     public void testJoinWithEmptyBuildSide()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey AND supplier.name = 'abc'";
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
@@ -124,7 +124,7 @@ public abstract class BaseDynamicPartitionPruningTest
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey " +
                 "AND supplier.name = 'Supplier#000000001'";
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
@@ -148,7 +148,7 @@ public abstract class BaseDynamicPartitionPruningTest
     public void testJoinWithNonSelectiveBuildSide()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey";
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
@@ -173,7 +173,7 @@ public abstract class BaseDynamicPartitionPruningTest
     public void testJoinLargeBuildSideRangeDynamicFiltering()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN orders ON partitioned_lineitem.orderkey = orders.orderkey";
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
@@ -204,7 +204,7 @@ public abstract class BaseDynamicPartitionPruningTest
                 "SELECT supplier.suppkey FROM " +
                 "partitioned_lineitem JOIN tpch.tiny.supplier ON partitioned_lineitem.suppkey = supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')" +
                 ") t JOIN supplier ON t.suppkey = supplier.suppkey AND supplier.suppkey IN (2, 3)";
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
@@ -237,7 +237,7 @@ public abstract class BaseDynamicPartitionPruningTest
                 "VALUES " + LINEITEM_COUNT);
 
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem_int l JOIN supplier s ON l.suppkey_int = s.suppkey AND s.name = 'Supplier#000000001'";
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
@@ -260,7 +260,7 @@ public abstract class BaseDynamicPartitionPruningTest
     public void testSemiJoinWithEmptyBuildSide()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier WHERE name = 'abc')";
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
@@ -283,7 +283,7 @@ public abstract class BaseDynamicPartitionPruningTest
     public void testSemiJoinWithSelectiveBuildSide()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier WHERE name = 'Supplier#000000001')";
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
@@ -307,7 +307,7 @@ public abstract class BaseDynamicPartitionPruningTest
     public void testSemiJoinWithNonSelectiveBuildSide()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier)";
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
@@ -332,7 +332,7 @@ public abstract class BaseDynamicPartitionPruningTest
     public void testSemiJoinLargeBuildSideRangeDynamicFiltering()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem WHERE orderkey IN (SELECT orderkey FROM orders)";
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
@@ -359,7 +359,7 @@ public abstract class BaseDynamicPartitionPruningTest
     public void testRightJoinWithEmptyBuildSide()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem l RIGHT JOIN supplier s ON l.suppkey = s.suppkey WHERE name = 'abc'";
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
@@ -382,7 +382,7 @@ public abstract class BaseDynamicPartitionPruningTest
     public void testRightJoinWithSelectiveBuildSide()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem l RIGHT JOIN supplier s ON l.suppkey = s.suppkey WHERE name = 'Supplier#000000001'";
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
@@ -406,7 +406,7 @@ public abstract class BaseDynamicPartitionPruningTest
     public void testRightJoinWithNonSelectiveBuildSide()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem l RIGHT JOIN supplier s ON l.suppkey = s.suppkey";
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
@@ -442,8 +442,9 @@ public abstract class BaseDynamicPartitionPruningTest
         testJoinDynamicFilteringMultiJoin(joinDistributionType, "t0_part", "t1_part", "t2_part");
     }
 
-    @Test(timeOut = 30_000, dataProvider = "joinDistributionTypes")
-    public void testJoinDynamicFilteringMultiJoinOnBucketedTables(JoinDistributionType joinDistributionType)
+    // TODO: use joinDistributionTypeProvider when https://github.com/trinodb/trino/issues/4713 is done as currently waiting for BROADCAST DFs doesn't work for bucketed tables
+    @Test(timeOut = 30_000)
+    public void testJoinDynamicFilteringMultiJoinOnBucketedTables()
     {
         assertUpdate("DROP TABLE IF EXISTS t0_bucketed");
         assertUpdate("DROP TABLE IF EXISTS t1_bucketed");
@@ -454,7 +455,7 @@ public abstract class BaseDynamicPartitionPruningTest
         assertUpdate("INSERT INTO t0_bucketed VALUES (1.0, 1), (1.0, 2)", 2);
         assertUpdate("INSERT INTO t1_bucketed VALUES (2.0, 10), (2.0, 20)", 2);
         assertUpdate("INSERT INTO t2_bucketed VALUES (3.0, 1, 1), (3.0, 2, 2)", 2);
-        testJoinDynamicFilteringMultiJoin(joinDistributionType, "t0_bucketed", "t1_bucketed", "t2_bucketed");
+        testJoinDynamicFilteringMultiJoin(PARTITIONED, "t0_bucketed", "t1_bucketed", "t2_bucketed");
     }
 
     private void testJoinDynamicFilteringMultiJoin(JoinDistributionType joinDistributionType, String t0, String t1, String t2)
@@ -494,7 +495,7 @@ public abstract class BaseDynamicPartitionPruningTest
     private long getQueryInputPositions(Session session, @Language("SQL") String sql, int expectedRowCount)
     {
         DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
-        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(session, sql);
+        MaterializedResultWithQueryId result = runner.executeWithQueryId(session, sql);
         assertThat(result.getResult().getRowCount()).isEqualTo(expectedRowCount);
         QueryId queryId = result.getQueryId();
         QueryStats stats = runner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getQueryStats();

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.pinot.PinotColumnHandle;
 import io.trino.plugin.pinot.PinotException;
 import io.trino.plugin.pinot.PinotMetadata;
+import io.trino.plugin.pinot.PinotTypeConverter;
 import io.trino.plugin.pinot.client.PinotClient;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.SchemaTableName;
@@ -32,7 +33,7 @@ import org.apache.pinot.common.utils.DataSchema;
 import org.apache.pinot.core.query.aggregation.function.AggregationFunction;
 import org.apache.pinot.core.query.reduce.PostAggregationHandler;
 import org.apache.pinot.core.query.request.context.QueryContext;
-import org.apache.pinot.core.query.request.context.utils.BrokerRequestToQueryContextConverter;
+import org.apache.pinot.core.query.request.context.utils.QueryContextConverterUtils;
 import org.apache.pinot.segment.spi.AggregationFunctionType;
 import org.apache.pinot.sql.parsers.CalciteSqlCompiler;
 
@@ -46,19 +47,11 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.pinot.PinotColumnHandle.fromNonAggregateColumnHandle;
-import static io.trino.plugin.pinot.PinotColumnHandle.getTrinoTypeFromPinotType;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_EXCEPTION;
-import static io.trino.plugin.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
 import static io.trino.plugin.pinot.query.PinotExpressionRewriter.rewriteExpression;
 import static io.trino.plugin.pinot.query.PinotPatterns.WILDCARD;
 import static io.trino.plugin.pinot.query.PinotSqlFormatter.formatExpression;
 import static io.trino.plugin.pinot.query.PinotSqlFormatter.formatFilter;
-import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.RealType.REAL;
-import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -69,7 +62,6 @@ import static org.apache.pinot.segment.spi.AggregationFunctionType.getAggregatio
 
 public final class DynamicTableBuilder
 {
-    private static final CalciteSqlCompiler REQUEST_COMPILER = new CalciteSqlCompiler();
     public static final String OFFLINE_SUFFIX = "_OFFLINE";
     public static final String REALTIME_SUFFIX = "_REALTIME";
     private static final Set<AggregationFunctionType> NON_NULL_ON_EMPTY_AGGREGATIONS = EnumSet.of(COUNT, DISTINCTCOUNT, DISTINCTCOUNTHLL);
@@ -78,14 +70,16 @@ public final class DynamicTableBuilder
     {
     }
 
-    public static DynamicTable buildFromPql(PinotMetadata pinotMetadata, SchemaTableName schemaTableName, PinotClient pinotClient)
+    public static DynamicTable buildFromPql(PinotMetadata pinotMetadata, SchemaTableName schemaTableName, PinotClient pinotClient, PinotTypeConverter typeConverter)
     {
         requireNonNull(pinotMetadata, "pinotMetadata is null");
         requireNonNull(schemaTableName, "schemaTableName is null");
+        requireNonNull(typeConverter, "typeConverter is null");
         String query = schemaTableName.getTableName();
-        BrokerRequest request = REQUEST_COMPILER.compileToBrokerRequest(query);
+        BrokerRequest request = CalciteSqlCompiler.compileToBrokerRequest(query);
         PinotQuery pinotQuery = request.getPinotQuery();
-        QueryContext queryContext = BrokerRequestToQueryContextConverter.convert(request);
+        QueryContext queryContext = QueryContextConverterUtils.getQueryContext(pinotQuery);
+
         String tableName = request.getQuerySource().getTableName();
         String trinoTableName = stripSuffix(tableName).toLowerCase(ENGLISH);
         String pinotTableName = pinotClient.getPinotTableNameFromTrinoTableName(trinoTableName);
@@ -93,13 +87,13 @@ public final class DynamicTableBuilder
 
         Map<String, ColumnHandle> columnHandles = pinotMetadata.getPinotColumnHandles(trinoTableName);
         List<OrderByExpression> orderBy = ImmutableList.of();
-        PinotTypeResolver pinotTypeResolver = new PinotTypeResolver(pinotClient, pinotTableName);
+        PinotTypeResolver pinotTypeResolver = new PinotTypeResolver(pinotClient, typeConverter, pinotTableName);
         List<PinotColumnHandle> selectColumns = ImmutableList.of();
 
         Map<String, PinotColumnNameAndTrinoType> aggregateTypes = ImmutableMap.of();
         if (queryContext.getAggregationFunctions() != null) {
             checkState(queryContext.getAggregationFunctions().length > 0, "Aggregation Functions is empty");
-            aggregateTypes = getAggregateTypes(schemaTableName, queryContext, columnHandles);
+            aggregateTypes = getAggregateTypes(schemaTableName, queryContext, columnHandles, typeConverter);
         }
 
         if (queryContext.getSelectExpressions() != null) {
@@ -122,42 +116,19 @@ public final class DynamicTableBuilder
             groupByColumns = getPinotColumns(schemaTableName, queryContext.getGroupByExpressions(), ImmutableList.of(), columnHandles, pinotTypeResolver, aggregateTypes);
         }
 
+        Optional<String> havingExpression = Optional.empty();
+        if (queryContext.getHavingFilter() != null) {
+            String formatted = formatFilter(schemaTableName, queryContext.getHavingFilter(), columnHandles);
+            havingExpression = Optional.of(formatted);
+        }
+
         Optional<String> filter = Optional.empty();
         if (pinotQuery.getFilterExpression() != null) {
             String formatted = formatFilter(schemaTableName, queryContext.getFilter(), columnHandles);
             filter = Optional.of(formatted);
         }
 
-        return new DynamicTable(pinotTableName, suffix, selectColumns, filter, groupByColumns, ImmutableList.of(), orderBy, OptionalLong.of(queryContext.getLimit()), getOffset(queryContext), query);
-    }
-
-    private static Type toTrinoType(DataSchema.ColumnDataType columnDataType)
-    {
-        switch (columnDataType) {
-            case INT:
-                return INTEGER;
-            case LONG:
-                return BIGINT;
-            case FLOAT:
-                return REAL;
-            case DOUBLE:
-                return DOUBLE;
-            case STRING:
-                return VARCHAR;
-            case BYTES:
-                return VARBINARY;
-            case INT_ARRAY:
-                return new ArrayType(INTEGER);
-            case LONG_ARRAY:
-                return new ArrayType(BIGINT);
-            case DOUBLE_ARRAY:
-                return new ArrayType(DOUBLE);
-            case STRING_ARRAY:
-                return new ArrayType(VARCHAR);
-            default:
-                break;
-        }
-        throw new PinotException(PINOT_UNSUPPORTED_COLUMN_TYPE, Optional.empty(), "Unsupported column data type: " + columnDataType);
+        return new DynamicTable(pinotTableName, suffix, selectColumns, filter, groupByColumns, ImmutableList.of(), havingExpression, orderBy, OptionalLong.of(queryContext.getLimit()), getOffset(queryContext), query);
     }
 
     private static List<PinotColumnHandle> getPinotColumns(SchemaTableName schemaTableName, List<ExpressionContext> expressions, List<String> aliases, Map<String, ColumnHandle> columnHandles, PinotTypeResolver pinotTypeResolver, Map<String, PinotColumnNameAndTrinoType> aggregateTypes)
@@ -194,7 +165,7 @@ public final class DynamicTableBuilder
             columnName = aggregateTypes.get(columnName).getPinotColumnName();
         }
         else {
-            trinoType = getTrinoTypeFromPinotType(pinotTypeResolver.resolveExpressionType(rewritten, schemaTableName, columnHandles));
+            trinoType = pinotTypeResolver.resolveExpressionType(rewritten, schemaTableName, columnHandles);
             if (!aggregateTypes.isEmpty() && trinoType instanceof ArrayType) {
                 trinoType = ((ArrayType) trinoType).getElementType();
             }
@@ -237,7 +208,7 @@ public final class DynamicTableBuilder
         throw new PinotException(PINOT_EXCEPTION, Optional.empty(), format("Unsupported expression type '%s'", expressionContext.getType()));
     }
 
-    private static Map<String, PinotColumnNameAndTrinoType> getAggregateTypes(SchemaTableName schemaTableName, QueryContext queryContext, Map<String, ColumnHandle> columnHandles)
+    private static Map<String, PinotColumnNameAndTrinoType> getAggregateTypes(SchemaTableName schemaTableName, QueryContext queryContext, Map<String, ColumnHandle> columnHandles, PinotTypeConverter typeConverter)
     {
         // A mapping from pinot expression to the returned pinot column name and trino type
         // Note: the column name is set by the PostAggregationHandler
@@ -261,7 +232,7 @@ public final class DynamicTableBuilder
                             columnHandles).toString(),
                     new PinotColumnNameAndTrinoType(
                             postAggregationSchema.getColumnName(index),
-                            toTrinoType(postAggregationSchema.getColumnDataType(index))));
+                            typeConverter.toTrinoType(postAggregationSchema.getColumnDataType(index))));
         }
         return aggregationTypesBuilder.buildOrThrow();
     }
@@ -297,9 +268,7 @@ public final class DynamicTableBuilder
         if (queryContext.getOffset() > 0) {
             return OptionalLong.of(queryContext.getOffset());
         }
-        else {
-            return OptionalLong.empty();
-        }
+        return OptionalLong.empty();
     }
 
     private static String stripSuffix(String tableName)
@@ -308,12 +277,10 @@ public final class DynamicTableBuilder
         if (tableName.toUpperCase(ENGLISH).endsWith(OFFLINE_SUFFIX)) {
             return tableName.substring(0, tableName.length() - OFFLINE_SUFFIX.length());
         }
-        else if (tableName.toUpperCase(ENGLISH).endsWith(REALTIME_SUFFIX)) {
+        if (tableName.toUpperCase(ENGLISH).endsWith(REALTIME_SUFFIX)) {
             return tableName.substring(0, tableName.length() - REALTIME_SUFFIX.length());
         }
-        else {
-            return tableName;
-        }
+        return tableName;
     }
 
     private static Optional<String> getSuffix(String tableName)
@@ -322,12 +289,10 @@ public final class DynamicTableBuilder
         if (tableName.toUpperCase(ENGLISH).endsWith(OFFLINE_SUFFIX)) {
             return Optional.of(OFFLINE_SUFFIX);
         }
-        else if (tableName.toUpperCase(ENGLISH).endsWith(REALTIME_SUFFIX)) {
+        if (tableName.toUpperCase(ENGLISH).endsWith(REALTIME_SUFFIX)) {
             return Optional.of(REALTIME_SUFFIX);
         }
-        else {
-            return Optional.empty();
-        }
+        return Optional.empty();
     }
 
     private static class PinotColumnNameAndTrinoType

@@ -23,7 +23,6 @@ import javax.inject.Inject;
 import java.util.Optional;
 
 import static io.trino.server.security.UserMapping.createUserMapping;
-import static java.util.Objects.requireNonNull;
 
 public class InsecureFormAuthenticator
         implements FormAuthenticator
@@ -35,7 +34,7 @@ public class InsecureFormAuthenticator
     public InsecureFormAuthenticator(InsecureAuthenticatorConfig config, SecurityConfig securityConfig)
     {
         userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
-        insecureAuthenticationOverHttpAllowed = requireNonNull(securityConfig, "securityConfig is null").isInsecureAuthenticationOverHttpAllowed();
+        insecureAuthenticationOverHttpAllowed = securityConfig.isInsecureAuthenticationOverHttpAllowed();
     }
 
     @Override

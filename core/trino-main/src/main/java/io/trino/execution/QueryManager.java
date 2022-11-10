@@ -33,13 +33,18 @@ public interface QueryManager
      *
      * @throws NoSuchElementException if query does not exist
      */
-    void addOutputInfoListener(QueryId queryId, Consumer<QueryExecution.QueryOutputInfo> listener)
+    void setOutputInfoListener(QueryId queryId, Consumer<QueryExecution.QueryOutputInfo> listener)
             throws NoSuchElementException;
 
     /**
      * Notify that one of the output tasks failed for a given query
      */
     void outputTaskFailed(TaskId taskId, Throwable failure);
+
+    /**
+     * Notify that the query results for a query have been fully consumed by the client
+     */
+    void resultsConsumed(QueryId queryId);
 
     /**
      * Add a listener that fires each time the query state changes.

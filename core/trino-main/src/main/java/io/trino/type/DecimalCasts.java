@@ -23,9 +23,9 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.PolymorphicScalarFunctionBuilder;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.DecimalConversions;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -46,7 +46,6 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.Decimals.longTenToNth;
 import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -109,7 +108,7 @@ public final class DecimalCasts
                                     long precision = context.getLiteral("precision");
                                     long scale = context.getLiteral("scale");
                                     Object tenToScale;
-                                    if (isShortDecimal(context.getParameterTypes().get(0))) {
+                                    if (((DecimalType) context.getParameterTypes().get(0)).isShort()) {
                                         tenToScale = longTenToNth(DecimalConversions.intScale(scale));
                                     }
                                     else {
@@ -143,7 +142,7 @@ public final class DecimalCasts
                                 .withExtraParameters(context -> {
                                     DecimalType resultType = (DecimalType) context.getReturnType();
                                     Object tenToScale;
-                                    if (isShortDecimal(resultType)) {
+                                    if (resultType.isShort()) {
                                         tenToScale = longTenToNth(resultType.getScale());
                                     }
                                     else {

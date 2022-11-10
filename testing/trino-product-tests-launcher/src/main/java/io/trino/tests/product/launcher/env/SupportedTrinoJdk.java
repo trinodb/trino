@@ -15,7 +15,6 @@ package io.trino.tests.product.launcher.env;
 
 public enum SupportedTrinoJdk
 {
-    ZULU_11("/usr/lib/jvm/zulu-11"),
     ZULU_17("/usr/lib/jvm/zulu-17"),
     /**/;
 

@@ -25,7 +25,6 @@ import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -85,6 +84,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Math.max;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class RedshiftClient
         extends BaseJdbcClient
@@ -103,17 +103,17 @@ public class RedshiftClient
     }
 
     @Override
-    protected void renameTable(ConnectorSession session, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
+    protected void renameTable(ConnectorSession session, Connection connection, String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
+            throws SQLException
     {
-        if (!schemaName.equals(newTable.getSchemaName())) {
+        if (!remoteSchemaName.equals(newRemoteSchemaName)) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
         }
 
-        String sql = format(
+        execute(connection, format(
                 "ALTER TABLE %s RENAME TO %s",
-                quoted(catalogName, schemaName, tableName),
-                quoted(newTable.getTableName()));
-        execute(session, sql);
+                quoted(catalogName, remoteSchemaName, remoteTableName),
+                quoted(newRemoteTableName)));
     }
 
     @Override
@@ -167,12 +167,19 @@ public class RedshiftClient
     @Override
     public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
     {
+        // Redshift doesn't support prepared statement for COMMENT statement
         String sql = format(
                 "COMMENT ON COLUMN %s.%s IS %s",
                 quoted(handle.asPlainTable().getRemoteTableName()),
                 quoted(column.getColumnName()),
-                comment.isPresent() ? format("'%s'", comment.get()) : "NULL");
+                comment.map(RedshiftClient::redshiftVarcharLiteral).orElse("NULL"));
         execute(session, sql);
+    }
+
+    private static String redshiftVarcharLiteral(String value)
+    {
+        requireNonNull(value, "value is null");
+        return "'" + value.replace("'", "''").replace("\\", "\\\\") + "'";
     }
 
     private static Optional<ColumnMapping> legacyDefaultColumnMapping(JdbcTypeHandle typeHandle)
@@ -266,19 +273,17 @@ public class RedshiftClient
         if (type == DOUBLE) {
             return WriteMapping.doubleMapping("double precision", doubleWriteFunction());
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
             if (decimalType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
             }
             return WriteMapping.objectMapping(dataType, longDecimalWriteFunction(decimalType));
         }
-        if (type instanceof CharType) {
-            return WriteMapping.sliceMapping("char(" + ((CharType) type).getLength() + ")", charWriteFunction());
+        if (type instanceof CharType charType) {
+            return WriteMapping.sliceMapping("char(" + charType.getLength() + ")", charWriteFunction());
         }
-        if (type instanceof VarcharType) {
-            VarcharType varcharType = (VarcharType) type;
+        if (type instanceof VarcharType varcharType) {
             String dataType;
             if (varcharType.isUnbounded()) {
                 dataType = "varchar";

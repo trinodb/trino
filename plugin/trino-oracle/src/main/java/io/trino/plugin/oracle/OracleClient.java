@@ -55,7 +55,6 @@ import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.JoinCondition;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -141,7 +140,6 @@ import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
 
 public class OracleClient
@@ -212,7 +210,6 @@ public class OracleClient
     {
         super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
 
-        requireNonNull(oracleConfig, "oracleConfig is null");
         this.synonymsEnabled = oracleConfig.isSynonymsEnabled();
 
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
@@ -274,24 +271,18 @@ public class OracleClient
     }
 
     @Override
-    protected void renameTable(ConnectorSession session, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
+    protected void renameTable(ConnectorSession session, Connection connection, String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
+            throws SQLException
     {
-        if (!schemaName.equalsIgnoreCase(newTable.getSchemaName())) {
+        if (!remoteSchemaName.equals(newRemoteSchemaName)) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
         }
 
-        String newTableName = newTable.getTableName().toUpperCase(ENGLISH);
-        String sql = format(
+        String newTableName = newRemoteTableName.toUpperCase(ENGLISH);
+        execute(connection, format(
                 "ALTER TABLE %s RENAME TO %s",
-                quoted(catalogName, schemaName, tableName),
-                quoted(newTableName));
-
-        try (Connection connection = connectionFactory.openConnection(session)) {
-            execute(connection, sql);
-        }
-        catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
-        }
+                quoted(catalogName, remoteSchemaName, remoteTableName),
+                quoted(newTableName)));
     }
 
     @Override
@@ -597,7 +588,7 @@ public class OracleClient
     {
         return LongWriteFunction.of(OracleTypes.TIMESTAMPTZ, (statement, index, encodedTimeWithZone) -> {
             Instant time = Instant.ofEpochMilli(unpackMillisUtc(encodedTimeWithZone));
-            ZoneId zone = ZoneId.of(unpackZoneKey(encodedTimeWithZone).getId());
+            ZoneId zone = unpackZoneKey(encodedTimeWithZone).getZoneId();
             statement.setObject(index, time.atZone(zone));
         });
     }
@@ -632,9 +623,8 @@ public class OracleClient
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
-        if (type instanceof VarcharType) {
+        if (type instanceof VarcharType varcharType) {
             String dataType;
-            VarcharType varcharType = (VarcharType) type;
             if (varcharType.isUnbounded() || varcharType.getBoundedLength() > ORACLE_VARCHAR2_MAX_CHARS) {
                 dataType = "nclob";
             }
@@ -643,22 +633,22 @@ public class OracleClient
             }
             return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
         }
-        if (type instanceof CharType) {
+        if (type instanceof CharType charType) {
             String dataType;
-            if (((CharType) type).getLength() > ORACLE_CHAR_MAX_CHARS) {
+            if (charType.getLength() > ORACLE_CHAR_MAX_CHARS) {
                 dataType = "nclob";
             }
             else {
-                dataType = "char(" + ((CharType) type).getLength() + " CHAR)";
+                dataType = "char(" + charType.getLength() + " CHAR)";
             }
             return WriteMapping.sliceMapping(dataType, oracleCharWriteFunction());
         }
-        if (type instanceof DecimalType) {
-            String dataType = format("number(%s, %s)", ((DecimalType) type).getPrecision(), ((DecimalType) type).getScale());
-            if (((DecimalType) type).isShort()) {
-                return WriteMapping.longMapping(dataType, shortDecimalWriteFunction((DecimalType) type));
+        if (type instanceof DecimalType decimalType) {
+            String dataType = format("number(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
+            if (decimalType.isShort()) {
+                return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
             }
-            return WriteMapping.objectMapping(dataType, longDecimalWriteFunction((DecimalType) type));
+            return WriteMapping.objectMapping(dataType, longDecimalWriteFunction(decimalType));
         }
         if (type.equals(TIMESTAMP_SECONDS)) {
             // Specify 'date' instead of 'timestamp(0)' to propagate the type in case of CTAS from date columns
@@ -678,11 +668,12 @@ public class OracleClient
     @Override
     public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
     {
+        // Oracle doesn't support prepared statement for COMMENT statement
         String sql = format(
-                "COMMENT ON COLUMN %s.%s IS '%s'",
+                "COMMENT ON COLUMN %s.%s IS %s",
                 quoted(handle.asPlainTable().getRemoteTableName()),
                 quoted(column.getColumnName()),
-                comment.orElse(""));
+                varcharLiteral(comment.orElse("")));
         execute(session, sql);
     }
 }

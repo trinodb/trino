@@ -77,6 +77,8 @@ public final class SystemSessionProperties
     public static final String USE_PREFERRED_WRITE_PARTITIONING = "use_preferred_write_partitioning";
     public static final String PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS = "preferred_write_partitioning_min_number_of_partitions";
     public static final String SCALE_WRITERS = "scale_writers";
+    public static final String TASK_SCALE_WRITERS_ENABLED = "task_scale_writers_enabled";
+    public static final String TASK_SCALE_WRITERS_MAX_WRITER_COUNT = "task_scale_writers_max_writer_count";
     public static final String WRITER_MIN_SIZE = "writer_min_size";
     public static final String PUSH_TABLE_WRITE_THROUGH_UNION = "push_table_write_through_union";
     public static final String EXECUTION_POLICY = "execution_policy";
@@ -101,6 +103,7 @@ public final class SystemSessionProperties
     public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
     public static final String PUSH_AGGREGATION_THROUGH_OUTER_JOIN = "push_aggregation_through_outer_join";
     public static final String PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN = "push_partial_aggregation_through_join";
+    public static final String PRE_AGGREGATE_CASE_AGGREGATIONS_ENABLED = "pre_aggregate_case_aggregations_enabled";
     public static final String PARSE_DECIMAL_LITERALS_AS_DOUBLE = "parse_decimal_literals_as_double";
     public static final String FORCE_SINGLE_NODE_OUTPUT = "force_single_node_output";
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_SIZE = "filter_and_project_min_output_page_size";
@@ -158,6 +161,7 @@ public final class SystemSessionProperties
     public static final String FAULT_TOLERANT_EXECUTION_MIN_TASK_SPLIT_COUNT = "fault_tolerant_execution_min_task_split_count";
     public static final String FAULT_TOLERANT_EXECUTION_TARGET_TASK_SPLIT_COUNT = "fault_tolerant_execution_target_task_split_count";
     public static final String FAULT_TOLERANT_EXECUTION_MAX_TASK_SPLIT_COUNT = "fault_tolerant_execution_max_task_split_count";
+    public static final String FAULT_TOLERANT_EXECUTION_COORDINATOR_TASK_MEMORY = "fault_tolerant_execution_coordinator_task_memory";
     public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY = "fault_tolerant_execution_task_memory";
     public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY_GROWTH_FACTOR = "fault_tolerant_execution_task_memory_growth_factor";
     public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY_ESTIMATION_QUANTILE = "fault_tolerant_execution_task_memory_estimation_quantile";
@@ -273,6 +277,16 @@ public final class SystemSessionProperties
                         "Scale out writers based on throughput (use minimum necessary)",
                         featuresConfig.isScaleWriters(),
                         false),
+                booleanProperty(
+                        TASK_SCALE_WRITERS_ENABLED,
+                        "Scale the number of concurrent table writers per task based on throughput",
+                        taskManagerConfig.isScaleWritersEnabled(),
+                        false),
+                integerProperty(
+                        TASK_SCALE_WRITERS_MAX_WRITER_COUNT,
+                        "Maximum number of writers per task up to which scaling will happen if task.scale-writers.enabled is set",
+                        taskManagerConfig.getScaleWritersMaxWriterCount(),
+                        true),
                 dataSizeProperty(
                         WRITER_MIN_SIZE,
                         "Target minimum size of writer output when scaling writers",
@@ -454,6 +468,11 @@ public final class SystemSessionProperties
                         PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN,
                         "Push partial aggregations below joins",
                         optimizerConfig.isPushPartialAggregationThoughJoin(),
+                        false),
+                booleanProperty(
+                        PRE_AGGREGATE_CASE_AGGREGATIONS_ENABLED,
+                        "Pre-aggregate rows before GROUP BY with multiple CASE aggregations on same column",
+                        optimizerConfig.isPreAggregateCaseAggregationsEnabled(),
                         false),
                 booleanProperty(
                         PARSE_DECIMAL_LITERALS_AS_DOUBLE,
@@ -774,8 +793,13 @@ public final class SystemSessionProperties
                         queryManagerConfig.getFaultTolerantExecutionMaxTaskSplitCount(),
                         false),
                 dataSizeProperty(
+                        FAULT_TOLERANT_EXECUTION_COORDINATOR_TASK_MEMORY,
+                        "Estimated amount of memory a single coordinator task will use when task level retries are used; value is used when allocating nodes for tasks execution",
+                        memoryManagerConfig.getFaultTolerantExecutionCoordinatorTaskMemory(),
+                        false),
+                dataSizeProperty(
                         FAULT_TOLERANT_EXECUTION_TASK_MEMORY,
-                        "Estimated amount of memory a single task will use when task level retries are used; value is used allocating nodes for tasks execution",
+                        "Estimated amount of memory a single task will use when task level retries are used; value is used when allocating nodes for tasks execution",
                         memoryManagerConfig.getFaultTolerantExecutionTaskMemory(),
                         false),
                 doubleProperty(
@@ -901,6 +925,16 @@ public final class SystemSessionProperties
     public static boolean isScaleWriters(Session session)
     {
         return session.getSystemProperty(SCALE_WRITERS, Boolean.class);
+    }
+
+    public static boolean isTaskScaleWritersEnabled(Session session)
+    {
+        return session.getSystemProperty(TASK_SCALE_WRITERS_ENABLED, Boolean.class);
+    }
+
+    public static int getTaskScaleWritersMaxWriterCount(Session session)
+    {
+        return session.getSystemProperty(TASK_SCALE_WRITERS_MAX_WRITER_COUNT, Integer.class);
     }
 
     public static DataSize getWriterMinSize(Session session)
@@ -1077,6 +1111,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN, Boolean.class);
     }
 
+    public static boolean isPreAggregateCaseAggregationsEnabled(Session session)
+    {
+        return session.getSystemProperty(PRE_AGGREGATE_CASE_AGGREGATIONS_ENABLED, Boolean.class);
+    }
+
     public static boolean isParseDecimalLiteralsAsDouble(Session session)
     {
         return session.getSystemProperty(PARSE_DECIMAL_LITERALS_AS_DOUBLE, Boolean.class);
@@ -1144,7 +1183,7 @@ public final class SystemSessionProperties
 
     private static void validateHideInaccessibleColumns(boolean value, boolean defaultValue)
     {
-        if (defaultValue == true && value == false) {
+        if (defaultValue && !value) {
             throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s cannot be disabled with session property when it was enabled with configuration", HIDE_INACCESSIBLE_COLUMNS));
         }
     }
@@ -1275,10 +1314,6 @@ public final class SystemSessionProperties
 
     public static boolean isEnableDynamicFiltering(Session session)
     {
-        if (getRetryPolicy(session) == RetryPolicy.TASK) {
-            // dynamic filtering is not supported with task level failure recovery enabled
-            return false;
-        }
         return session.getSystemProperty(ENABLE_DYNAMIC_FILTERING, Boolean.class);
     }
 
@@ -1430,6 +1465,11 @@ public final class SystemSessionProperties
     public static int getFaultTolerantExecutionMaxTaskSplitCount(Session session)
     {
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_MAX_TASK_SPLIT_COUNT, Integer.class);
+    }
+
+    public static DataSize getFaultTolerantExecutionDefaultCoordinatorTaskMemory(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_COORDINATOR_TASK_MEMORY, DataSize.class);
     }
 
     public static DataSize getFaultTolerantExecutionDefaultTaskMemory(Session session)

@@ -48,6 +48,7 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.operator.Operator.NOT_BLOCKED;
@@ -463,6 +464,11 @@ public class Driver
             }
 
             if (!blockedFutures.isEmpty()) {
+                // allow for operators to unblock drivers when they become finished
+                for (Operator operator : activeOperators) {
+                    operator.getOperatorContext().getFinishedFuture().ifPresent(blockedFutures::add);
+                }
+
                 // unblock when the first future is complete
                 ListenableFuture<Void> blocked = firstFinishedFuture(blockedFutures);
                 // driver records serial blocked time
@@ -693,22 +699,21 @@ public class Driver
             return Optional.empty();
         }
 
-        Optional<T> result;
+        T result = null;
+        Throwable failure = null;
+
         try {
-            result = Optional.of(task.get());
+            result = task.get();
+
+            // opportunistic check to avoid unnecessary lock reacquisition
+            processNewSources();
+            destroyIfNecessary();
+        }
+        catch (Throwable t) {
+            failure = t;
         }
         finally {
-            try {
-                try {
-                    processNewSources();
-                }
-                finally {
-                    destroyIfNecessary();
-                }
-            }
-            finally {
-                exclusiveLock.unlock();
-            }
+            exclusiveLock.unlock();
         }
 
         // If there are more assignment updates available, attempt to reacquire the lock and process them.
@@ -722,8 +727,25 @@ public class Driver
                 try {
                     processNewSources();
                 }
-                finally {
+                catch (Throwable t) {
+                    if (failure == null) {
+                        failure = t;
+                    }
+                    else if (failure != t) {
+                        failure.addSuppressed(t);
+                    }
+                }
+
+                try {
                     destroyIfNecessary();
+                }
+                catch (Throwable t) {
+                    if (failure == null) {
+                        failure = t;
+                    }
+                    else if (failure != t) {
+                        failure.addSuppressed(t);
+                    }
                 }
             }
             finally {
@@ -731,7 +753,14 @@ public class Driver
             }
         }
 
-        return result;
+        if (failure != null) {
+            throwIfUnchecked(failure);
+            // should never happen
+            throw new AssertionError(failure);
+        }
+
+        verify(result != null, "result is null");
+        return Optional.of(result);
     }
 
     private static class DriverLock

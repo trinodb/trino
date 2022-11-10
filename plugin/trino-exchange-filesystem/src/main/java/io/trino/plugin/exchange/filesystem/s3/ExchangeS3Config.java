@@ -50,6 +50,7 @@ public class ExchangeS3Config
     private int asyncClientMaxPendingConnectionAcquires = 10000;
     private Duration connectionAcquisitionTimeout = new Duration(1, MINUTES);
     private Optional<String> gcsJsonKeyFilePath = Optional.empty();
+    private Optional<String> gcsJsonKey = Optional.empty();
 
     public String getS3AwsAccessKey()
     {
@@ -228,9 +229,24 @@ public class ExchangeS3Config
     }
 
     @Config("exchange.gcs.json-key-file-path")
+    @ConfigDescription("Path to the JSON file that contains your Google Cloud Platform service account key. Not to be set together with `exchange.gcs.json-key`")
     public ExchangeS3Config setGcsJsonKeyFilePath(String gcsJsonKeyFilePath)
     {
         this.gcsJsonKeyFilePath = Optional.ofNullable(gcsJsonKeyFilePath);
+        return this;
+    }
+
+    public Optional<String> getGcsJsonKey()
+    {
+        return gcsJsonKey;
+    }
+
+    @Config("exchange.gcs.json-key")
+    @ConfigDescription("Your Google Cloud Platform service account key in JSON format. Not to be set together with `exchange.gcs.json-key-file-path`")
+    @ConfigSecuritySensitive
+    public ExchangeS3Config setGcsJsonKey(String gcsJsonKey)
+    {
+        this.gcsJsonKey = Optional.ofNullable(gcsJsonKey);
         return this;
     }
 }

@@ -23,7 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Streams;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.metadata.AnalyzeMetadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
@@ -47,6 +47,7 @@ import io.trino.spi.security.Identity;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.ExpressionAnalyzer.LabelPrefixedReference;
 import io.trino.sql.analyzer.JsonPathAnalyzer.JsonPathAnalysis;
+import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.ExistsPredicate;
@@ -64,6 +65,7 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QuerySpecification;
@@ -220,6 +222,7 @@ public class Analysis
     private Optional<QualifiedObjectName> delegatedRefreshMaterializedView = Optional.empty();
     private Optional<AnalyzeMetadata> analyzeMetadata = Optional.empty();
     private Optional<List<ColumnSchema>> updatedColumns = Optional.empty();
+    private Optional<MergeAnalysis> mergeAnalysis = Optional.empty();
 
     private final QueryType queryType;
 
@@ -233,7 +236,11 @@ public class Analysis
 
     private Optional<TableExecuteHandle> tableExecuteHandle = Optional.empty();
 
+    // names of tables and aliased relations. All names are resolved case-insensitive.
+    private final Map<NodeRef<Relation>, QualifiedName> relationNames = new LinkedHashMap<>();
     private final Map<NodeRef<TableFunctionInvocation>, TableFunctionInvocationAnalysis> tableFunctionAnalyses = new LinkedHashMap<>();
+    private final Set<NodeRef<Relation>> aliasedRelations = new LinkedHashSet<>();
+    private final Set<NodeRef<TableFunctionInvocation>> polymorphicTableFunctions = new LinkedHashSet<>();
 
     public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, QueryType queryType)
     {
@@ -769,6 +776,16 @@ public class Analysis
         return updatedColumns;
     }
 
+    public Optional<MergeAnalysis> getMergeAnalysis()
+    {
+        return mergeAnalysis;
+    }
+
+    public void setMergeAnalysis(MergeAnalysis mergeAnalysis)
+    {
+        this.mergeAnalysis = Optional.of(mergeAnalysis);
+    }
+
     public void setRefreshMaterializedView(RefreshMaterializedViewAnalysis refreshMaterializedView)
     {
         this.refreshMaterializedView = Optional.of(refreshMaterializedView);
@@ -1207,6 +1224,36 @@ public class Analysis
         return tableFunctionAnalyses.get(NodeRef.of(node));
     }
 
+    public void setRelationName(Relation relation, QualifiedName name)
+    {
+        relationNames.put(NodeRef.of(relation), name);
+    }
+
+    public QualifiedName getRelationName(Relation relation)
+    {
+        return relationNames.get(NodeRef.of(relation));
+    }
+
+    public void addAliased(Relation relation)
+    {
+        aliasedRelations.add(NodeRef.of(relation));
+    }
+
+    public boolean isAliased(Relation relation)
+    {
+        return aliasedRelations.contains(NodeRef.of(relation));
+    }
+
+    public void addPolymorphicTableFunction(TableFunctionInvocation invocation)
+    {
+        polymorphicTableFunctions.add(NodeRef.of(invocation));
+    }
+
+    public boolean isPolymorphicTableFunction(TableFunctionInvocation invocation)
+    {
+        return polymorphicTableFunctions.contains(NodeRef.of(invocation));
+    }
+
     private boolean isInputTable(Table table)
     {
         return !(isUpdateTarget(table) || isInsertTarget(table));
@@ -1625,6 +1672,110 @@ public class Analysis
         }
     }
 
+    public static class MergeAnalysis
+    {
+        private final Table targetTable;
+        private final List<ColumnSchema> dataColumnSchemas;
+        private final List<ColumnHandle> dataColumnHandles;
+        private final List<ColumnHandle> redistributionColumnHandles;
+        private final List<List<ColumnHandle>> mergeCaseColumnHandles;
+        private final Set<ColumnHandle> nonNullableColumnHandles;
+        private final Map<ColumnHandle, Integer> columnHandleFieldNumbers;
+        private final List<Integer> insertPartitioningArgumentIndexes;
+        private final Optional<TableLayout> insertLayout;
+        private final Optional<PartitioningHandle> updateLayout;
+        private final Scope targetTableScope;
+        private final Scope joinScope;
+
+        public MergeAnalysis(
+                Table targetTable,
+                List<ColumnSchema> dataColumnSchemas,
+                List<ColumnHandle> dataColumnHandles,
+                List<ColumnHandle> redistributionColumnHandles,
+                List<List<ColumnHandle>> mergeCaseColumnHandles,
+                Set<ColumnHandle> nonNullableColumnHandles,
+                Map<ColumnHandle, Integer> columnHandleFieldNumbers,
+                List<Integer> insertPartitioningArgumentIndexes,
+                Optional<TableLayout> insertLayout,
+                Optional<PartitioningHandle> updateLayout,
+                Scope targetTableScope,
+                Scope joinScope)
+        {
+            this.targetTable = requireNonNull(targetTable, "targetTable is null");
+            this.dataColumnSchemas = requireNonNull(dataColumnSchemas, "dataColumnSchemas is null");
+            this.dataColumnHandles = requireNonNull(dataColumnHandles, "dataColumnHandles is null");
+            this.redistributionColumnHandles = requireNonNull(redistributionColumnHandles, "redistributionColumnHandles is null");
+            this.mergeCaseColumnHandles = requireNonNull(mergeCaseColumnHandles, "mergeCaseColumnHandles is null");
+            this.nonNullableColumnHandles = requireNonNull(nonNullableColumnHandles, "nonNullableColumnHandles is null");
+            this.columnHandleFieldNumbers = requireNonNull(columnHandleFieldNumbers, "columnHandleFieldNumbers is null");
+            this.insertLayout = requireNonNull(insertLayout, "insertLayout is null");
+            this.updateLayout = requireNonNull(updateLayout, "updateLayout is null");
+            this.insertPartitioningArgumentIndexes = (requireNonNull(insertPartitioningArgumentIndexes, "insertPartitioningArgumentIndexes is null"));
+            this.targetTableScope = requireNonNull(targetTableScope, "targetTableScope is null");
+            this.joinScope = requireNonNull(joinScope, "joinScope is null");
+        }
+
+        public Table getTargetTable()
+        {
+            return targetTable;
+        }
+
+        public List<ColumnSchema> getDataColumnSchemas()
+        {
+            return dataColumnSchemas;
+        }
+
+        public List<ColumnHandle> getDataColumnHandles()
+        {
+            return dataColumnHandles;
+        }
+
+        public List<ColumnHandle> getRedistributionColumnHandles()
+        {
+            return redistributionColumnHandles;
+        }
+
+        public List<List<ColumnHandle>> getMergeCaseColumnHandles()
+        {
+            return mergeCaseColumnHandles;
+        }
+
+        public Set<ColumnHandle> getNonNullableColumnHandles()
+        {
+            return nonNullableColumnHandles;
+        }
+
+        public Map<ColumnHandle, Integer> getColumnHandleFieldNumbers()
+        {
+            return columnHandleFieldNumbers;
+        }
+
+        public List<Integer> getInsertPartitioningArgumentIndexes()
+        {
+            return insertPartitioningArgumentIndexes;
+        }
+
+        public Optional<TableLayout> getInsertLayout()
+        {
+            return insertLayout;
+        }
+
+        public Optional<PartitioningHandle> getUpdateLayout()
+        {
+            return updateLayout;
+        }
+
+        public Scope getJoinScope()
+        {
+            return joinScope;
+        }
+
+        public Scope getTargetTableScope()
+        {
+            return targetTableScope;
+        }
+    }
+
     public static final class AccessControlInfo
     {
         private final AccessControl accessControl;
@@ -1871,7 +2022,7 @@ public class Analysis
         {
             this.name = requireNonNull(name, "name is null");
             this.table = requireNonNull(table, "table is null");
-            this.columns = requireNonNull(columns, "columns is null").map(ImmutableList::copyOf);
+            this.columns = columns.map(ImmutableList::copyOf);
         }
 
         public QualifiedObjectName getName()
@@ -1912,31 +2063,184 @@ public class Analysis
         }
     }
 
+    public static class TableArgumentAnalysis
+    {
+        private final String argumentName;
+        private final Optional<QualifiedName> name;
+        private final Relation relation;
+        private final Optional<List<Expression>> partitionBy; // it is allowed to partition by empty list
+        private final Optional<OrderBy> orderBy;
+        private final boolean pruneWhenEmpty;
+        private final boolean rowSemantics;
+        private final boolean passThroughColumns;
+
+        private TableArgumentAnalysis(
+                String argumentName,
+                Optional<QualifiedName> name,
+                Relation relation,
+                Optional<List<Expression>> partitionBy,
+                Optional<OrderBy> orderBy,
+                boolean pruneWhenEmpty,
+                boolean rowSemantics,
+                boolean passThroughColumns)
+        {
+            this.argumentName = requireNonNull(argumentName, "argumentName is null");
+            this.name = requireNonNull(name, "name is null");
+            this.relation = requireNonNull(relation, "relation is null");
+            this.partitionBy = requireNonNull(partitionBy, "partitionBy is null").map(ImmutableList::copyOf);
+            this.orderBy = requireNonNull(orderBy, "orderBy is null");
+            this.pruneWhenEmpty = pruneWhenEmpty;
+            this.rowSemantics = rowSemantics;
+            this.passThroughColumns = passThroughColumns;
+        }
+
+        public String getArgumentName()
+        {
+            return argumentName;
+        }
+
+        public Optional<QualifiedName> getName()
+        {
+            return name;
+        }
+
+        public Relation getRelation()
+        {
+            return relation;
+        }
+
+        public Optional<List<Expression>> getPartitionBy()
+        {
+            return partitionBy;
+        }
+
+        public Optional<OrderBy> getOrderBy()
+        {
+            return orderBy;
+        }
+
+        public boolean isPruneWhenEmpty()
+        {
+            return pruneWhenEmpty;
+        }
+
+        public boolean isRowSemantics()
+        {
+            return rowSemantics;
+        }
+
+        public boolean isPassThroughColumns()
+        {
+            return passThroughColumns;
+        }
+
+        public static Builder builder()
+        {
+            return new Builder();
+        }
+
+        public static final class Builder
+        {
+            private String argumentName;
+            private Optional<QualifiedName> name = Optional.empty();
+            private Relation relation;
+            private Optional<List<Expression>> partitionBy = Optional.empty();
+            private Optional<OrderBy> orderBy = Optional.empty();
+            private boolean pruneWhenEmpty;
+            private boolean rowSemantics;
+            private boolean passThroughColumns;
+
+            private Builder() {}
+
+            public Builder withArgumentName(String argumentName)
+            {
+                this.argumentName = argumentName;
+                return this;
+            }
+
+            public Builder withName(QualifiedName name)
+            {
+                this.name = Optional.of(name);
+                return this;
+            }
+
+            public Builder withRelation(Relation relation)
+            {
+                this.relation = relation;
+                return this;
+            }
+
+            public Builder withPartitionBy(List<Expression> partitionBy)
+            {
+                this.partitionBy = Optional.of(partitionBy);
+                return this;
+            }
+
+            public Builder withOrderBy(OrderBy orderBy)
+            {
+                this.orderBy = Optional.of(orderBy);
+                return this;
+            }
+
+            public Builder withPruneWhenEmpty(boolean pruneWhenEmpty)
+            {
+                this.pruneWhenEmpty = pruneWhenEmpty;
+                return this;
+            }
+
+            public Builder withRowSemantics(boolean rowSemantics)
+            {
+                this.rowSemantics = rowSemantics;
+                return this;
+            }
+
+            public Builder withPassThroughColumns(boolean passThroughColumns)
+            {
+                this.passThroughColumns = passThroughColumns;
+                return this;
+            }
+
+            public TableArgumentAnalysis build()
+            {
+                return new TableArgumentAnalysis(argumentName, name, relation, partitionBy, orderBy, pruneWhenEmpty, rowSemantics, passThroughColumns);
+            }
+        }
+    }
+
     public static class TableFunctionInvocationAnalysis
     {
-        private final CatalogName catalogName;
+        private final CatalogHandle catalogHandle;
         private final String functionName;
         private final Map<String, Argument> arguments;
+        private final List<TableArgumentAnalysis> tableArgumentAnalyses;
+        private final List<List<String>> copartitioningLists;
+        private final int properColumnsCount;
         private final ConnectorTableFunctionHandle connectorTableFunctionHandle;
         private final ConnectorTransactionHandle transactionHandle;
 
         public TableFunctionInvocationAnalysis(
-                CatalogName catalogName,
+                CatalogHandle catalogHandle,
                 String functionName,
                 Map<String, Argument> arguments,
+                List<TableArgumentAnalysis> tableArgumentAnalyses,
+                List<List<String>> copartitioningLists,
+                int properColumnsCount,
                 ConnectorTableFunctionHandle connectorTableFunctionHandle,
                 ConnectorTransactionHandle transactionHandle)
         {
-            this.catalogName = requireNonNull(catalogName, "catalogName is null");
+            this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
             this.functionName = requireNonNull(functionName, "functionName is null");
-            this.arguments = requireNonNull(arguments, "arguments is null");
+            this.arguments = ImmutableMap.copyOf(arguments);
+            this.tableArgumentAnalyses = ImmutableList.copyOf(tableArgumentAnalyses);
+            this.copartitioningLists = ImmutableList.copyOf(copartitioningLists);
+            this.properColumnsCount = properColumnsCount;
             this.connectorTableFunctionHandle = requireNonNull(connectorTableFunctionHandle, "connectorTableFunctionHandle is null");
             this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
         }
 
-        public CatalogName getCatalogName()
+        public CatalogHandle getCatalogHandle()
         {
-            return catalogName;
+            return catalogHandle;
         }
 
         public String getFunctionName()
@@ -1947,6 +2251,26 @@ public class Analysis
         public Map<String, Argument> getArguments()
         {
             return arguments;
+        }
+
+        public List<TableArgumentAnalysis> getTableArgumentAnalyses()
+        {
+            return tableArgumentAnalyses;
+        }
+
+        public List<List<String>> getCopartitioningLists()
+        {
+            return copartitioningLists;
+        }
+
+        /**
+         * Proper columns are the columns produced by the table function, as opposed to pass-through columns from input tables.
+         * Proper columns should be considered the actual result of the table function.
+         * @return the number of table function's proper columns
+         */
+        public int getProperColumnsCount()
+        {
+            return properColumnsCount;
         }
 
         public ConnectorTableFunctionHandle getConnectorTableFunctionHandle()

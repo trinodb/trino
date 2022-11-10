@@ -926,7 +926,7 @@ public class TestMySqlTypeMapping
                 {ZoneId.of("Europe/Vilnius")},
                 // minutes offset change since 1970-01-01, no DST
                 {ZoneId.of("Asia/Kathmandu")},
-                {ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
+                {TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId()},
         };
     }
 
@@ -1003,6 +1003,33 @@ public class TestMySqlTypeMapping
                 .addRoundTrip("INTEGER UNSIGNED", "4294967295", BIGINT, "4294967295")
                 .addRoundTrip("BIGINT UNSIGNED", "18446744073709551615", createDecimalType(20, 0), "DECIMAL '18446744073709551615'")
                 .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_unsigned"));
+    }
+
+    @Test
+    public void testEnum()
+    {
+        SqlExecutor jdbcSqlExecutor = mySqlServer::execute;
+        // Define enum values in an order different from lexicographical
+        jdbcSqlExecutor.execute("CREATE TABLE tpch.test_enum(id int, enum_column ENUM ('b','a','C'))");
+        assertUpdate("INSERT INTO tpch.test_enum(id, enum_column) values (1,'a'),(2,'b'),(3, NULL)", 3);
+        try {
+            assertQuery(
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_enum'",
+                    "VALUES ('id','integer'),('enum_column','varchar(1)')");
+            assertQuery("SELECT * FROM test_enum", "VALUES (1,'a'),(2,'b'),(3,NULL)");
+            assertQuery("SELECT * FROM test_enum WHERE enum_column = 'a'", "VALUES (1, 'a')");
+            assertQuery("SELECT * FROM test_enum WHERE enum_column != 'a'", "VALUES (2, 'b')");
+            assertQuery("SELECT * FROM test_enum WHERE enum_column <= 'a'", "VALUES (1, 'a')");
+            assertQuery("SELECT * FROM test_enum WHERE enum_column <= 'b'", "VALUES (1, 'a'), (2, 'b')");
+            assertQuery("SELECT * FROM test_enum WHERE enum_column <= 'c'", "VALUES (1, 'a'), (2, 'b')");
+            assertQueryReturnsEmptyResult("SELECT * FROM test_enum WHERE enum_column <= 'C'");
+            assertQuery("SELECT * FROM test_enum WHERE enum_column IS NOT NULL", "VALUES (1, 'a'), (2, 'b')");
+            assertQuery("SELECT * FROM test_enum WHERE enum_column IS NULL", "VALUES (3, NULL)");
+            assertQuery("SELECT id FROM test_enum ORDER BY enum_column LIMIT 1", "VALUES (1)");
+        }
+        finally {
+            jdbcSqlExecutor.execute("DROP TABLE tpch.test_enum");
+        }
     }
 
     private void testUnsupportedDataType(String databaseDataType)

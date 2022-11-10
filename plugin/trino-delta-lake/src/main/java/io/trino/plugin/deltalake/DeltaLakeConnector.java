@@ -21,6 +21,7 @@ import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
+import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
@@ -41,6 +42,8 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Sets.immutableEnumSet;
+import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static io.trino.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static java.util.Objects.requireNonNull;
@@ -91,7 +94,7 @@ public class DeltaLakeConnector
         this.systemTables = ImmutableSet.copyOf(requireNonNull(systemTables, "systemTables is null"));
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
         this.tableProcedures = ImmutableSet.copyOf(requireNonNull(tableProcedures, "tableProcedures is null"));
-        this.sessionProperties = requireNonNull(sessionPropertiesProviders, "sessionPropertiesProviders is null").stream()
+        this.sessionProperties = sessionPropertiesProviders.stream()
                 .map(SessionPropertiesProvider::getSessionProperties)
                 .flatMap(Collection::stream)
                 .collect(toImmutableList());
@@ -213,5 +216,11 @@ public class DeltaLakeConnector
     public final void shutdown()
     {
         lifeCycleManager.stop();
+    }
+
+    @Override
+    public Set<ConnectorCapabilities> getCapabilities()
+    {
+        return immutableEnumSet(NOT_NULL_COLUMN_CONSTRAINT);
     }
 }

@@ -17,12 +17,12 @@ import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.optimizations.Cardinality;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.ValuesNode;
 
-import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
-import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
+import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
 import static io.trino.sql.planner.plan.Patterns.topN;
 
 /**
@@ -48,10 +48,11 @@ public class RemoveRedundantTopN
         if (node.getCount() == 0) {
             return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
         }
-        if (isScalar(node.getSource(), context.getLookup())) {
+        Cardinality sourceCardinality = extractCardinality(node.getSource(), context.getLookup());
+        if (sourceCardinality.isScalar()) {
             return Result.ofPlanNode(node.getSource());
         }
-        if (isAtMost(node.getSource(), context.getLookup(), node.getCount())) {
+        if (sourceCardinality.isAtMost(node.getCount())) {
             return Result.ofPlanNode(new SortNode(context.getIdAllocator().getNextId(), node.getSource(), node.getOrderingScheme(), false));
         }
         return Result.empty();

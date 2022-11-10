@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake.transactionlog.checkpoint;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.math.LongMath;
 import io.airlift.log.Logger;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
@@ -28,7 +29,6 @@ import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
 import io.trino.plugin.deltalake.transactionlog.TransactionEntry;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeParquetFileStatistics;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
@@ -47,7 +47,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
-import org.apache.hadoop.fs.Path;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nullable;
@@ -61,6 +60,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Queue;
 import java.util.Set;
 
@@ -118,7 +118,7 @@ public class CheckpointEntryIterator
 
     private static final Logger log = Logger.get(CheckpointEntryIterator.class);
 
-    private final Path checkpoint;
+    private final String checkpointPath;
     private final ConnectorSession session;
     private final ConnectorPageSource pageSource;
     private final MapType stringMap;
@@ -133,24 +133,22 @@ public class CheckpointEntryIterator
     private int pagePosition;
 
     public CheckpointEntryIterator(
-            Path checkpoint,
+            TrinoInputFile checkpoint,
             ConnectorSession session,
             long fileSize,
             CheckpointSchemaManager checkpointSchemaManager,
             TypeManager typeManager,
             Set<EntryType> fields,
             Optional<MetadataEntry> metadataEntry,
-            HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats,
             ParquetReaderOptions parquetReaderOptions,
             boolean checkpointRowStatisticsWritingEnabled)
     {
-        this.checkpoint = requireNonNull(checkpoint, "checkpoint is null");
+        this.checkpointPath = checkpoint.location();
         this.session = requireNonNull(session, "session is null");
-        this.stringList = (ArrayType) requireNonNull(typeManager, "typeManager is null").getType(TypeSignature.arrayType(VarcharType.VARCHAR.getTypeSignature()));
+        this.stringList = (ArrayType) typeManager.getType(TypeSignature.arrayType(VarcharType.VARCHAR.getTypeSignature()));
         this.stringMap = (MapType) typeManager.getType(TypeSignature.mapType(VarcharType.VARCHAR.getTypeSignature(), VarcharType.VARCHAR.getTypeSignature()));
         this.checkpointRowStatisticsWritingEnabled = checkpointRowStatisticsWritingEnabled;
-        requireNonNull(fields);
         checkArgument(fields.size() > 0, "fields is empty");
         Map<EntryType, CheckPointFieldExtractor> extractors = ImmutableMap.<EntryType, CheckPointFieldExtractor>builder()
                 .put(TRANSACTION, this::buildTxnEntry)
@@ -179,16 +177,13 @@ public class CheckpointEntryIterator
                 checkpoint,
                 0,
                 fileSize,
-                fileSize,
                 columns,
                 tupleDomain,
                 true,
-                hdfsEnvironment,
-                hdfsEnvironment.getConfiguration(new HdfsEnvironment.HdfsContext(session), checkpoint),
-                session.getIdentity(),
                 DateTimeZone.UTC,
                 stats,
-                parquetReaderOptions);
+                parquetReaderOptions,
+                Optional.empty());
 
         verify(pageSource.getReaderColumns().isEmpty(), "All columns expected to be base columns");
 
@@ -207,7 +202,7 @@ public class CheckpointEntryIterator
                 type = schemaManager.getTxnEntryType();
                 break;
             case ADD:
-                type = schemaManager.getAddEntryType(metadataEntry);
+                type = schemaManager.getAddEntryType(metadataEntry, true, true);
                 break;
             case REMOVE:
                 type = schemaManager.getRemoveEntryType();
@@ -224,7 +219,7 @@ public class CheckpointEntryIterator
             default:
                 throw new IllegalArgumentException("Unsupported Delta Lake checkpoint entry type: " + entryType);
         }
-        return new DeltaLakeColumnHandle(entryType.getColumnName(), type, entryType.getColumnName(), type, REGULAR);
+        return new DeltaLakeColumnHandle(entryType.getColumnName(), type, OptionalInt.empty(), entryType.getColumnName(), type, REGULAR);
     }
 
     private DeltaLakeTransactionLogEntry buildCommitInfoEntry(ConnectorSession session, Block block, int pagePosition)
@@ -405,7 +400,7 @@ public class CheckpointEntryIterator
         return DeltaLakeTransactionLogEntry.addFileEntry(result);
     }
 
-    private DeltaLakeParquetFileStatistics parseStatisticsFromParquet(Block statsRowBlock) // TODO: Fix
+    private DeltaLakeParquetFileStatistics parseStatisticsFromParquet(Block statsRowBlock)
     {
         if (metadataEntry == null) {
             throw new TrinoException(DELTA_LAKE_BAD_DATA, "Checkpoint file found without metadata entry");
@@ -596,7 +591,7 @@ public class CheckpointEntryIterator
         if (page.getChannelCount() != extractors.size()) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA,
                     format("Expected page %d (%s) in %s to contain %d channels, but found %d",
-                            pageIndex, page, checkpoint, extractors.size(), page.getChannelCount()));
+                            pageIndex, page, checkpointPath, extractors.size(), page.getChannelCount()));
         }
         pagePosition = 0;
         pageIndex++;

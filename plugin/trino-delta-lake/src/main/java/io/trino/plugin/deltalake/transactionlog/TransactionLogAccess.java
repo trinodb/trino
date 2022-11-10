@@ -22,6 +22,9 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.log.Logger;
 import io.trino.collect.cache.EvictableCacheBuilder;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
@@ -29,7 +32,6 @@ import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterat
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -40,8 +42,6 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarbinaryType;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -88,7 +88,7 @@ public class TransactionLogAccess
     private final TypeManager typeManager;
     private final CheckpointSchemaManager checkpointSchemaManager;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
-    private final HdfsEnvironment hdfsEnvironment;
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final ParquetReaderOptions parquetReaderOptions;
     private final Cache<String /* table location */, TableSnapshot> tableSnapshots;
     private final Cache<String /* table location */, DeltaLakeDataFileCacheEntry> activeDataFileCache;
@@ -100,25 +100,27 @@ public class TransactionLogAccess
             CheckpointSchemaManager checkpointSchemaManager,
             DeltaLakeConfig deltaLakeConfig,
             FileFormatDataSourceStats fileFormatDataSourceStats,
-            HdfsEnvironment hdfsEnvironment,
+            TrinoFileSystemFactory fileSystemFactory,
             ParquetReaderConfig parquetReaderConfig)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.checkpointSchemaManager = requireNonNull(checkpointSchemaManager, "checkpointSchemaManager is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.parquetReaderOptions = requireNonNull(parquetReaderConfig, "parquetReaderConfig is null").toParquetReaderOptions();
-        requireNonNull(deltaLakeConfig, "deltaLakeConfig is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.parquetReaderOptions = parquetReaderConfig.toParquetReaderOptions();
         this.checkpointRowStatisticsWritingEnabled = deltaLakeConfig.isCheckpointRowStatisticsWritingEnabled();
 
         tableSnapshots = EvictableCacheBuilder.newBuilder()
                 .expireAfterWrite(deltaLakeConfig.getMetadataCacheTtl().toMillis(), TimeUnit.MILLISECONDS)
+                .maximumSize(deltaLakeConfig.getMetadataCacheMaxSize())
                 .shareNothingWhenDisabled()
                 .recordStats()
                 .build();
         activeDataFileCache = EvictableCacheBuilder.newBuilder()
                 .weigher((Weigher<String, DeltaLakeDataFileCacheEntry>) (key, value) -> Ints.saturatedCast(estimatedSizeOf(key) + value.getRetainedSizeInBytes()))
                 .maximumWeight(deltaLakeConfig.getDataFileCacheSize().toBytes())
+                .expireAfterWrite(deltaLakeConfig.getDataFileCacheTtl().toMillis(), TimeUnit.MILLISECONDS)
+                .shareNothingWhenDisabled()
                 .recordStats()
                 .build();
     }
@@ -143,7 +145,7 @@ public class TransactionLogAccess
         String location = tableLocation.toString();
         TableSnapshot cachedSnapshot = tableSnapshots.getIfPresent(location);
         TableSnapshot snapshot;
-        FileSystem fileSystem = getFileSystem(tableLocation, table, session);
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         if (cachedSnapshot == null) {
             try {
                 snapshot = tableSnapshots.get(location, () ->
@@ -180,16 +182,13 @@ public class TransactionLogAccess
 
     public Optional<MetadataEntry> getMetadataEntry(TableSnapshot tableSnapshot, ConnectorSession session)
     {
-        FileSystem fileSystem = getFileSystem(tableSnapshot, session);
-
         if (tableSnapshot.getCachedMetadata().isEmpty()) {
             try (Stream<MetadataEntry> metadataEntries = getEntries(
                     tableSnapshot,
                     METADATA,
                     entryStream -> entryStream.map(DeltaLakeTransactionLogEntry::getMetaData).filter(Objects::nonNull),
                     session,
-                    fileSystem,
-                    hdfsEnvironment,
+                    fileSystemFactory.create(session),
                     fileFormatDataSourceStats)) {
                 // Get last entry in the stream
                 tableSnapshot.setCachedMetadata(metadataEntries.reduce((first, second) -> second));
@@ -202,22 +201,30 @@ public class TransactionLogAccess
     {
         try {
             String tableLocation = tableSnapshot.getTableLocation().toString();
-            FileSystem fileSystem = getFileSystem(tableSnapshot, session);
             DeltaLakeDataFileCacheEntry cachedTable = activeDataFileCache.get(tableLocation, () -> {
-                List<AddFileEntry> activeFiles = loadActiveFiles(tableSnapshot, session, fileSystem);
+                List<AddFileEntry> activeFiles = loadActiveFiles(tableSnapshot, session);
                 return new DeltaLakeDataFileCacheEntry(tableSnapshot.getVersion(), activeFiles);
             });
             if (cachedTable.getVersion() > tableSnapshot.getVersion()) {
                 log.warn("Query run with outdated Transaction Log Snapshot, retrieved stale table entries for table: %s and query %s", tableSnapshot.getTable(), session.getQueryId());
-                return loadActiveFiles(tableSnapshot, session, fileSystem);
+                return loadActiveFiles(tableSnapshot, session);
             }
-            else if (cachedTable.getVersion() < tableSnapshot.getVersion()) {
-                List<DeltaLakeTransactionLogEntry> newEntries = getJsonEntries(
-                        cachedTable.getVersion(),
-                        tableSnapshot.getVersion(),
-                        tableSnapshot,
-                        fileSystem);
-                DeltaLakeDataFileCacheEntry updatedCacheEntry = cachedTable.withUpdatesApplied(newEntries, tableSnapshot.getVersion());
+            if (cachedTable.getVersion() < tableSnapshot.getVersion()) {
+                DeltaLakeDataFileCacheEntry updatedCacheEntry;
+                try {
+                    List<DeltaLakeTransactionLogEntry> newEntries = getJsonEntries(
+                            cachedTable.getVersion(),
+                            tableSnapshot.getVersion(),
+                            tableSnapshot,
+                            fileSystemFactory.create(session));
+                    updatedCacheEntry = cachedTable.withUpdatesApplied(newEntries, tableSnapshot.getVersion());
+                }
+                catch (MissingTransactionLogException e) {
+                    // Reset the cached table when there are transaction files which are newer than
+                    // the cached table version which are already garbage collected.
+                    List<AddFileEntry> activeFiles = loadActiveFiles(tableSnapshot, session);
+                    updatedCacheEntry = new DeltaLakeDataFileCacheEntry(tableSnapshot.getVersion(), activeFiles);
+                }
 
                 activeDataFileCache.asMap().replace(tableLocation, cachedTable, updatedCacheEntry);
                 cachedTable = updatedCacheEntry;
@@ -229,15 +236,14 @@ public class TransactionLogAccess
         }
     }
 
-    private List<AddFileEntry> loadActiveFiles(TableSnapshot tableSnapshot, ConnectorSession session, FileSystem fileSystem)
+    private List<AddFileEntry> loadActiveFiles(TableSnapshot tableSnapshot, ConnectorSession session)
     {
         try (Stream<AddFileEntry> entries = getEntries(
                 tableSnapshot,
                 ImmutableSet.of(ADD),
                 this::activeAddEntries,
                 session,
-                fileSystem,
-                hdfsEnvironment,
+                fileSystemFactory.create(session),
                 fileFormatDataSourceStats)) {
             List<AddFileEntry> activeFiles = entries.collect(toImmutableList());
             return activeFiles;
@@ -296,8 +302,7 @@ public class TransactionLogAccess
                 REMOVE,
                 entryStream -> entryStream.map(DeltaLakeTransactionLogEntry::getRemove).filter(Objects::nonNull),
                 session,
-                getFileSystem(tableSnapshot, session),
-                hdfsEnvironment,
+                fileSystemFactory.create(session),
                 fileFormatDataSourceStats);
     }
 
@@ -308,8 +313,7 @@ public class TransactionLogAccess
                 PROTOCOL,
                 entryStream -> entryStream.map(DeltaLakeTransactionLogEntry::getProtocol).filter(Objects::nonNull),
                 session,
-                getFileSystem(tableSnapshot, session),
-                hdfsEnvironment,
+                fileSystemFactory.create(session),
                 fileFormatDataSourceStats);
     }
 
@@ -320,8 +324,7 @@ public class TransactionLogAccess
                 COMMIT,
                 entryStream -> entryStream.map(DeltaLakeTransactionLogEntry::getCommitInfo).filter(Objects::nonNull),
                 session,
-                getFileSystem(tableSnapshot, session),
-                hdfsEnvironment,
+                fileSystemFactory.create(session),
                 fileFormatDataSourceStats);
     }
 
@@ -342,14 +345,13 @@ public class TransactionLogAccess
             Set<CheckpointEntryIterator.EntryType> entryTypes,
             BiFunction<Stream<DeltaLakeTransactionLogEntry>, Stream<DeltaLakeTransactionLogEntry>, Stream<T>> entryMapper,
             ConnectorSession session,
-            FileSystem fileSystem,
-            HdfsEnvironment hdfsEnvironment,
+            TrinoFileSystem fileSystem,
             FileFormatDataSourceStats stats)
     {
         try {
             Stream<DeltaLakeTransactionLogEntry> jsonEntries = tableSnapshot.getJsonTransactionLogEntries().stream();
             Stream<DeltaLakeTransactionLogEntry> checkpointEntries = tableSnapshot.getCheckpointTransactionLogEntries(
-                    session, entryTypes, checkpointSchemaManager, typeManager, fileSystem, hdfsEnvironment, stats);
+                    session, entryTypes, checkpointSchemaManager, typeManager, fileSystem, stats);
 
             return entryMapper.apply(
                     checkpointEntries,
@@ -368,8 +370,7 @@ public class TransactionLogAccess
             CheckpointEntryIterator.EntryType entryType,
             Function<Stream<DeltaLakeTransactionLogEntry>, Stream<T>> entryMapper,
             ConnectorSession session,
-            FileSystem fileSystem,
-            HdfsEnvironment hdfsEnvironment,
+            TrinoFileSystem fileSystem,
             FileFormatDataSourceStats stats)
     {
         return getEntries(
@@ -378,11 +379,10 @@ public class TransactionLogAccess
                 (checkpointStream, jsonStream) -> entryMapper.apply(Stream.concat(checkpointStream, jsonStream)),
                 session,
                 fileSystem,
-                hdfsEnvironment,
                 stats);
     }
 
-    public Stream<DeltaLakeTransactionLogEntry> getJsonEntries(FileSystem fileSystem, Path transactionLogDir, List<Long> forVersions)
+    public Stream<DeltaLakeTransactionLogEntry> getJsonEntries(TrinoFileSystem fileSystem, Path transactionLogDir, List<Long> forVersions)
     {
         return forVersions.stream()
                 .flatMap(version -> {
@@ -402,13 +402,15 @@ public class TransactionLogAccess
     /**
      * Returns a stream of transaction log versions between {@code startAt} point in time and {@code lastVersion}.
      */
-    public List<Long> getPastTableVersions(FileSystem fileSystem, Path transactionLogDir, Instant startAt, long lastVersion)
+    public List<Long> getPastTableVersions(TrinoFileSystem fileSystem, Path transactionLogDir, Instant startAt, long lastVersion)
     {
         ImmutableList.Builder<Long> result = ImmutableList.builder();
         for (long version = lastVersion; version >= 0; version--) {
-            FileStatus fileStatus;
+            Path entryPath = getTransactionLogJsonEntryPath(transactionLogDir, version);
+            TrinoInputFile inputFile = fileSystem.newInputFile(entryPath.toString());
+            long modificationTime;
             try {
-                fileStatus = fileSystem.getFileStatus(getTransactionLogJsonEntryPath(transactionLogDir, version));
+                modificationTime = inputFile.modificationTime();
             }
             catch (IOException e) {
                 if (isFileNotFoundException(e)) {
@@ -417,7 +419,7 @@ public class TransactionLogAccess
                 }
                 throw new UncheckedIOException(e);
             }
-            if (fileStatus.getModificationTime() < startAt.toEpochMilli()) {
+            if (modificationTime < startAt.toEpochMilli()) {
                 // already too old
                 break;
             }
@@ -426,7 +428,7 @@ public class TransactionLogAccess
         return result.build();
     }
 
-    private List<DeltaLakeTransactionLogEntry> getJsonEntries(long startVersion, long endVersion, TableSnapshot tableSnapshot, FileSystem fileSystem)
+    private static List<DeltaLakeTransactionLogEntry> getJsonEntries(long startVersion, long endVersion, TableSnapshot tableSnapshot, TrinoFileSystem fileSystem)
             throws IOException
     {
         Optional<Long> lastCheckpointVersion = tableSnapshot.getLastCheckpointVersion();
@@ -437,21 +439,6 @@ public class TransactionLogAccess
                     .build();
         }
         return TransactionLogTail.loadNewTail(fileSystem, tableSnapshot.getTableLocation(), Optional.of(startVersion), Optional.of(endVersion)).getFileEntries();
-    }
-
-    private FileSystem getFileSystem(TableSnapshot tableSnapshot, ConnectorSession session)
-    {
-        return getFileSystem(tableSnapshot.getTableLocation(), tableSnapshot.getTable(), session);
-    }
-
-    protected FileSystem getFileSystem(Path tableLocation, SchemaTableName table, ConnectorSession session)
-    {
-        try {
-            return hdfsEnvironment.getFileSystem(new HdfsEnvironment.HdfsContext(session), tableLocation);
-        }
-        catch (IOException e) {
-            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Failed accessing transaction log for table: " + table, e);
-        }
     }
 
     public static <T> String canonicalizeColumnName(String columnName)

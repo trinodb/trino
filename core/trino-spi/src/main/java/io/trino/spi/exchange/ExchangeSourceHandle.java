@@ -13,21 +13,17 @@
  */
 package io.trino.spi.exchange;
 
+import io.trino.spi.Experimental;
+
 /*
- * Implementation is expected to be Jackson serializable and include equals, hashCode and toString methods
+ * Implementation is expected to be Jackson serializable
  */
+@Experimental(eta = "2023-01-01")
 public interface ExchangeSourceHandle
 {
     int getPartitionId();
 
+    long getDataSizeInBytes();
+
     long getRetainedSizeInBytes();
-
-    @Override
-    boolean equals(Object obj);
-
-    @Override
-    int hashCode();
-
-    @Override
-    String toString();
 }

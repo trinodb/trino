@@ -83,6 +83,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLSyntaxErrorException;
 import java.sql.Types;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Collection;
@@ -96,13 +97,12 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.emptyToNull;
-import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.mysql.cj.exceptions.MysqlErrorNumbers.ER_UNKNOWN_TABLE;
 import static com.mysql.cj.exceptions.MysqlErrorNumbers.SQL_STATE_ER_TABLE_EXISTS_ERROR;
-import static com.mysql.cj.exceptions.MysqlErrorNumbers.SQL_STATE_SYNTAX_ERROR;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
@@ -208,7 +208,7 @@ public class MySqlClient
     {
         super(config, "`", connectionFactory, queryBuilder, identifierMapping);
         this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
-        this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
+        this.statisticsEnabled = statisticsConfig.isEnabled();
 
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
@@ -312,7 +312,7 @@ public class MySqlClient
         return metadata.getTables(
                 schemaName.orElse(null),
                 null,
-                escapeNamePattern(tableName, metadata.getSearchStringEscape()).orElse(null),
+                escapeObjectNameForMetadataQuery(tableName, metadata.getSearchStringEscape()).orElse(null),
                 getTableTypes().map(types -> types.toArray(String[]::new)).orElse(null));
     }
 
@@ -328,9 +328,9 @@ public class MySqlClient
     public void setTableComment(ConnectorSession session, JdbcTableHandle handle, Optional<String> comment)
     {
         String sql = format(
-                "ALTER TABLE %s COMMENT = '%s'",
+                "ALTER TABLE %s COMMENT = %s",
                 quoted(handle.asPlainTable().getRemoteTableName()),
-                comment.orElse(NO_COMMENT)); // An empty character removes the existing comment in MySQL
+                mysqlVarcharLiteral(comment.orElse(NO_COMMENT))); // An empty character removes the existing comment in MySQL
         execute(session, sql);
     }
 
@@ -346,7 +346,13 @@ public class MySqlClient
     protected String createTableSql(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
     {
         checkArgument(tableMetadata.getProperties().isEmpty(), "Unsupported table properties: %s", tableMetadata.getProperties());
-        return format("CREATE TABLE %s (%s) COMMENT '%s'", quoted(remoteTableName), join(", ", columns), tableMetadata.getComment().orElse(NO_COMMENT));
+        return format("CREATE TABLE %s (%s) COMMENT %s", quoted(remoteTableName), join(", ", columns), mysqlVarcharLiteral(tableMetadata.getComment().orElse(NO_COMMENT)));
+    }
+
+    private static String mysqlVarcharLiteral(String value)
+    {
+        requireNonNull(value, "value is null");
+        return "'" + value.replace("'", "''").replace("\\", "\\\\") + "'";
     }
 
     @Override
@@ -371,6 +377,8 @@ public class MySqlClient
                 return Optional.of(decimalColumnMapping(createDecimalType(20)));
             case "json":
                 return Optional.of(jsonColumnMapping());
+            case "enum":
+                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), false));
         }
 
         switch (typeHandle.getJdbcType()) {
@@ -494,8 +502,7 @@ public class MySqlClient
             return WriteMapping.doubleMapping("double precision", doubleWriteFunction());
         }
 
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
             if (decimalType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
@@ -507,8 +514,7 @@ public class MySqlClient
             return WriteMapping.longMapping("date", dateWriteFunctionUsingLocalDate());
         }
 
-        if (type instanceof TimeType) {
-            TimeType timeType = (TimeType) type;
+        if (type instanceof TimeType timeType) {
             if (timeType.getPrecision() <= MAX_SUPPORTED_DATE_TIME_PRECISION) {
                 return WriteMapping.longMapping(format("time(%s)", timeType.getPrecision()), timeWriteFunction(timeType.getPrecision()));
             }
@@ -519,8 +525,7 @@ public class MySqlClient
             throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
         }
 
-        if (type instanceof TimestampType) {
-            TimestampType timestampType = (TimestampType) type;
+        if (type instanceof TimestampType timestampType) {
             if (timestampType.getPrecision() <= MAX_SUPPORTED_DATE_TIME_PRECISION) {
                 verify(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION);
                 return WriteMapping.longMapping(format("datetime(%s)", timestampType.getPrecision()), timestampWriteFunction(timestampType));
@@ -532,12 +537,11 @@ public class MySqlClient
             return WriteMapping.sliceMapping("mediumblob", varbinaryWriteFunction());
         }
 
-        if (type instanceof CharType) {
-            return WriteMapping.sliceMapping("char(" + ((CharType) type).getLength() + ")", charWriteFunction());
+        if (type instanceof CharType charType) {
+            return WriteMapping.sliceMapping("char(" + charType.getLength() + ")", charWriteFunction());
         }
 
-        if (type instanceof VarcharType) {
-            VarcharType varcharType = (VarcharType) type;
+        if (type instanceof VarcharType varcharType) {
             String dataType;
             if (varcharType.isUnbounded()) {
                 dataType = "longtext";
@@ -577,24 +581,15 @@ public class MySqlClient
     }
 
     @Override
-    public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
+    protected void renameColumn(ConnectorSession session, Connection connection, RemoteTableName remoteTableName, String remoteColumnName, String newRemoteColumnName)
+            throws SQLException
     {
-        try (Connection connection = connectionFactory.openConnection(session)) {
-            String newRemoteColumnName = getIdentifierMapping().toRemoteColumnName(connection, newColumnName);
-            String sql = format(
-                    "ALTER TABLE %s RENAME COLUMN %s TO %s",
-                    quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
-                    quoted(jdbcColumn.getColumnName()),
-                    quoted(newRemoteColumnName));
-            execute(connection, sql);
-        }
-        catch (SQLException e) {
-            // MySQL versions earlier than 8 do not support the above RENAME COLUMN syntax
-            if (SQL_STATE_SYNTAX_ERROR.equals(e.getSQLState())) {
-                throw new TrinoException(NOT_SUPPORTED, format("Rename column not supported in catalog: '%s'", handle.getCatalogName()), e);
-            }
-            throw new TrinoException(JDBC_ERROR, e);
-        }
+        String sql = format(
+                "ALTER TABLE %s RENAME COLUMN %s TO %s",
+                quoted(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()),
+                quoted(remoteColumnName),
+                quoted(newRemoteColumnName));
+        execute(connection, sql);
     }
 
     @Override
@@ -614,7 +609,12 @@ public class MySqlClient
                 tableCopyFormat,
                 quoted(catalogName, schemaName, newTableName),
                 quoted(catalogName, schemaName, tableName));
-        execute(connection, sql);
+        try {
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
     }
 
     @Override
@@ -622,8 +622,9 @@ public class MySqlClient
     {
         // MySQL doesn't support specifying the catalog name in a rename. By setting the
         // catalogName parameter to null, it will be omitted in the ALTER TABLE statement.
-        verify(handle.getSchemaName() == null);
-        renameTable(session, null, handle.getCatalogName(), handle.getTableName(), newTableName);
+        RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
+        verify(remoteTableName.getSchemaName().isEmpty());
+        renameTable(session, null, remoteTableName.getCatalogName().orElse(null), remoteTableName.getTableName(), newTableName);
     }
 
     @Override
@@ -875,12 +876,13 @@ public class MySqlClient
 
         Long getRowCount(JdbcTableHandle table)
         {
+            RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
             return handle.createQuery("" +
                             "SELECT TABLE_ROWS FROM INFORMATION_SCHEMA.TABLES " +
                             "WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table_name " +
                             "AND TABLE_TYPE = 'BASE TABLE' ")
-                    .bind("schema", table.getCatalogName())
-                    .bind("table_name", table.getTableName())
+                    .bind("schema", remoteTableName.getCatalogName().orElse(null))
+                    .bind("table_name", remoteTableName.getTableName())
                     .mapTo(Long.class)
                     .findOne()
                     .orElse(null);
@@ -888,6 +890,7 @@ public class MySqlClient
 
         Map<String, ColumnIndexStatistics> getColumnIndexStatistics(JdbcTableHandle table)
         {
+            RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
             return handle.createQuery("" +
                             "SELECT " +
                             "  COLUMN_NAME, " +
@@ -899,8 +902,8 @@ public class MySqlClient
                             "AND SUB_PART IS NULL " + // ignore cases where only a column prefix is indexed
                             "AND CARDINALITY IS NOT NULL " + // CARDINALITY might be null (https://stackoverflow.com/a/42242729/65458)
                             "GROUP BY COLUMN_NAME") // there might be multiple indexes on a column
-                    .bind("schema", table.getCatalogName())
-                    .bind("table_name", table.getTableName())
+                    .bind("schema", remoteTableName.getCatalogName().orElse(null))
+                    .bind("table_name", remoteTableName.getTableName())
                     .map((rs, ctx) -> {
                         String columnName = rs.getString("COLUMN_NAME");
 
@@ -921,18 +924,19 @@ public class MySqlClient
                 handle.execute("SELECT 1 FROM INFORMATION_SCHEMA.COLUMN_STATISTICS WHERE 0=1");
             }
             catch (UnableToExecuteStatementException e) {
-                if (nullToEmpty(e.getMessage()).contains("Unknown table 'COLUMN_STATISTICS'")) {
+                if (e.getCause() instanceof SQLSyntaxErrorException && ((SQLSyntaxErrorException) e.getCause()).getErrorCode() == ER_UNKNOWN_TABLE) {
                     // The table is available since MySQL 8
                     log.debug("INFORMATION_SCHEMA.COLUMN_STATISTICS table is not available: %s", e);
                     return ImmutableMap.of();
                 }
             }
 
+            RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
             return handle.createQuery("" +
                             "SELECT COLUMN_NAME, HISTOGRAM FROM INFORMATION_SCHEMA.COLUMN_STATISTICS " +
                             "WHERE SCHEMA_NAME = :schema AND TABLE_NAME = :table_name")
-                    .bind("schema", table.getCatalogName())
-                    .bind("table_name", table.getTableName())
+                    .bind("schema", remoteTableName.getCatalogName().orElse(null))
+                    .bind("table_name", remoteTableName.getTableName())
                     .map((rs, ctx) -> new SimpleEntry<>(rs.getString("COLUMN_NAME"), rs.getString("HISTOGRAM")))
                     .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         }

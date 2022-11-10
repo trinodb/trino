@@ -19,8 +19,8 @@ import com.google.inject.Inject;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.qubole.rubix.prestosql.CachingPrestoDistributedFileSystem;
-import io.trino.plugin.hive.DynamicConfigurationProvider;
-import io.trino.plugin.hive.authentication.HdfsAuthenticationConfig;
+import io.trino.hdfs.DynamicConfigurationProvider;
+import io.trino.hdfs.authentication.HdfsAuthenticationConfig;
 import org.apache.hadoop.conf.Configuration;
 
 import java.util.Set;
@@ -34,8 +34,6 @@ import static java.util.Objects.requireNonNull;
 public class RubixModule
         implements Module
 {
-    private static final String RUBIX_DISTRIBUTED_FS_CLASS_NAME = CachingPrestoDistributedFileSystem.class.getName();
-
     @Override
     public void configure(Binder binder)
     {
@@ -68,18 +66,20 @@ public class RubixModule
     static class DefaultRubixHdfsInitializer
             implements RubixHdfsInitializer
     {
-        private HdfsAuthenticationConfig authenticationConfig;
+        private static final String RUBIX_DISTRIBUTED_FS_CLASS_NAME = CachingPrestoDistributedFileSystem.class.getName();
+
+        private final boolean hdfsImpersonationEnabled;
 
         @Inject
         public DefaultRubixHdfsInitializer(HdfsAuthenticationConfig authenticationConfig)
         {
-            this.authenticationConfig = requireNonNull(authenticationConfig, "authenticationConfig is null");
+            this.hdfsImpersonationEnabled = requireNonNull(authenticationConfig, "authenticationConfig is null").isHdfsImpersonationEnabled();
         }
 
         @Override
         public void initializeConfiguration(Configuration config)
         {
-            checkArgument(!authenticationConfig.isHdfsImpersonationEnabled(), "HDFS impersonation is not compatible with Hive caching");
+            checkArgument(!hdfsImpersonationEnabled, "HDFS impersonation is not compatible with Hive caching");
             config.set("fs.hdfs.impl", RUBIX_DISTRIBUTED_FS_CLASS_NAME);
         }
     }

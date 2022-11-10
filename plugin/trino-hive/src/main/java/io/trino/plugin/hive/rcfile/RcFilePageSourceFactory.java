@@ -18,9 +18,10 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
+import io.trino.hdfs.FSDataInputStreamTail;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
@@ -28,7 +29,6 @@ import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.acid.AcidTransaction;
-import io.trino.plugin.hive.util.FSDataInputStreamTail;
 import io.trino.rcfile.AircompressorCodecFactory;
 import io.trino.rcfile.HadoopCodecFactory;
 import io.trino.rcfile.MemoryRcFileDataSource;
@@ -108,7 +108,7 @@ public class RcFilePageSourceFactory
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
-        this.timeZone = requireNonNull(hiveConfig, "hiveConfig is null").getRcfileDateTimeZone();
+        this.timeZone = hiveConfig.getRcfileDateTimeZone();
     }
 
     @Override

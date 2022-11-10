@@ -25,6 +25,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.cost.TableStatsProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.spi.function.OperatorType;
@@ -82,7 +83,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.metadata.Signature.mangleOperatorName;
+import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.plan.ChildReplacer.replaceChildren;
@@ -106,7 +107,7 @@ public class HashGenerationOptimizer
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, TableStatsProvider tableStatsProvider)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -522,7 +523,7 @@ public class HashGenerationOptimizer
                 newHashSymbols.put(preferredHashSymbol, symbolAllocator.newHashSymbol());
             }
 
-            // rewrite partition function to include new symbols (and precomputed hash
+            // rewrite partition function to include new symbols (and precomputed hash)
             partitioningScheme = new PartitioningScheme(
                     partitioningScheme.getPartitioning(),
                     ImmutableList.<Symbol>builder()
@@ -689,7 +690,7 @@ public class HashGenerationOptimizer
                 return new PlanWithProperties(node, ImmutableMap.of());
             }
 
-            // There is not requirement to produce hash symbols and only preference for symbols
+            // There is no requirement to produce hash symbols and only preference for symbols
             PlanWithProperties source = planAndEnforce(Iterables.getOnlyElement(node.getSources()), new HashComputationSet(), alwaysPruneExtraHashSymbols, preferredHashes);
             PlanNode result = replaceChildren(node, ImmutableList.of(source.getNode()));
 

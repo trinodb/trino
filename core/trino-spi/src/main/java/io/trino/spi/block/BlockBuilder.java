@@ -15,6 +15,8 @@ package io.trino.spi.block;
 
 import io.airlift.slice.Slice;
 
+import static io.trino.spi.block.BlockUtil.calculateBlockResetSize;
+
 public interface BlockBuilder
         extends Block
 {
@@ -95,5 +97,20 @@ public interface BlockBuilder
     /**
      * Creates a new block builder of the same type based on the current usage statistics of this block builder.
      */
-    BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus);
+    BlockBuilder newBlockBuilderLike(int expectedEntries, BlockBuilderStatus blockBuilderStatus);
+
+    default BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
+    {
+        return newBlockBuilderLike(calculateBlockResetSize(getPositionCount()), blockBuilderStatus);
+    }
+
+    /**
+     * This method is not expected to be implemented for {@code BlockBuilder} implementations, the method
+     * {@link BlockBuilder#appendNull} should be used instead.
+     */
+    @Override
+    default Block copyWithAppendedNull()
+    {
+        throw new UnsupportedOperationException("BlockBuilder implementation does not support newBlockWithAppendedNull");
+    }
 }

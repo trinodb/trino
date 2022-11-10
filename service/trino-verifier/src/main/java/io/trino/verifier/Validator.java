@@ -321,7 +321,7 @@ public class Validator
             if (queryResult.getState() == State.TIMEOUT) {
                 return queryResult;
             }
-            else if (queryResult.getState() != State.SUCCESS) {
+            if (queryResult.getState() != State.SUCCESS) {
                 return new QueryResult(State.FAILED_TO_SETUP, queryResult.getException(), queryResult.getWallTime(), queryResult.getCpuTime(), queryResult.getQueryId(), ImmutableList.of(), ImmutableList.of());
             }
         }
@@ -812,10 +812,8 @@ public class Validator
         if (a == 0 || b == 0 || diff < Float.MIN_NORMAL) {
             return diff < (epsilon * Float.MIN_NORMAL);
         }
-        else {
-            // use relative error
-            return diff / Math.min((absA + absB), Float.MAX_VALUE) < epsilon;
-        }
+        // use relative error
+        return diff / Math.min((absA + absB), Float.MAX_VALUE) < epsilon;
     }
 
     @VisibleForTesting
@@ -861,9 +859,7 @@ public class Validator
             if (changed == Changed.ADDED) {
                 return "+ " + row;
             }
-            else {
-                return "- " + row;
-            }
+            return "- " + row;
         }
 
         @Override

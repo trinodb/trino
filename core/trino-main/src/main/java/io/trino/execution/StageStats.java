@@ -22,12 +22,14 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.operator.BlockedReason;
 import io.trino.operator.OperatorStats;
+import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.Set;
 
@@ -96,6 +98,7 @@ public class StageStats
     private final Duration failedInputBlockedTime;
 
     private final DataSize bufferedDataSize;
+    private final Optional<TDigestHistogram> outputBufferUtilization;
     private final DataSize outputDataSize;
     private final DataSize failedOutputDataSize;
     private final long outputPositions;
@@ -170,6 +173,7 @@ public class StageStats
             @JsonProperty("failedInputBlockedTime") Duration failedInputBlockedTime,
 
             @JsonProperty("bufferedDataSize") DataSize bufferedDataSize,
+            @JsonProperty("outputBufferUtilization") Optional<TDigestHistogram> outputBufferUtilization,
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("failedOutputDataSize") DataSize failedOutputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
@@ -258,6 +262,7 @@ public class StageStats
         this.failedInputBlockedTime = requireNonNull(failedInputBlockedTime, "failedInputBlockedTime is null");
 
         this.bufferedDataSize = requireNonNull(bufferedDataSize, "bufferedDataSize is null");
+        this.outputBufferUtilization = requireNonNull(outputBufferUtilization, "outputBufferUtilization is null");
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         this.failedOutputDataSize = requireNonNull(failedOutputDataSize, "failedOutputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
@@ -550,6 +555,12 @@ public class StageStats
     public DataSize getBufferedDataSize()
     {
         return bufferedDataSize;
+    }
+
+    @JsonProperty
+    public Optional<TDigestHistogram> getOutputBufferUtilization()
+    {
+        return outputBufferUtilization;
     }
 
     @JsonProperty

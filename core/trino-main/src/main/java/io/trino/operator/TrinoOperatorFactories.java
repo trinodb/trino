@@ -16,8 +16,9 @@ package io.trino.operator;
 import io.trino.operator.join.JoinBridgeManager;
 import io.trino.operator.join.JoinProbe.JoinProbeFactory;
 import io.trino.operator.join.LookupJoinOperatorFactory;
-import io.trino.operator.join.LookupJoinOperatorFactory.JoinType;
 import io.trino.operator.join.LookupSourceFactory;
+import io.trino.operator.join.unspilled.JoinProbe;
+import io.trino.operator.join.unspilled.PartitionedLookupSourceFactory;
 import io.trino.spi.type.Type;
 import io.trino.spiller.PartitioningSpillerFactory;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -29,144 +30,76 @@ import java.util.OptionalInt;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.FULL_OUTER;
-import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.INNER;
-import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.LOOKUP_OUTER;
-import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.PROBE_OUTER;
 
 public class TrinoOperatorFactories
         implements OperatorFactories
 {
     @Override
-    public OperatorFactory innerJoin(
+    public OperatorFactory join(
+            JoinOperatorType joinType,
             int operatorId,
             PlanNodeId planNodeId,
-            JoinBridgeManager<?> lookupSourceFactory,
-            boolean outputSingleMatch,
-            boolean waitForBuild,
+            JoinBridgeManager<? extends PartitionedLookupSourceFactory> lookupSourceFactory,
             boolean hasFilter,
-            boolean spillingEnabled,
             List<Type> probeTypes,
             List<Integer> probeJoinChannel,
             OptionalInt probeHashChannel,
-            Optional<List<Integer>> probeOutputChannels,
-            OptionalInt totalOperatorsCount,
-            PartitioningSpillerFactory partitioningSpillerFactory,
+            Optional<List<Integer>> probeOutputChannelsOptional,
             BlockTypeOperators blockTypeOperators)
     {
-        return createJoinOperatorFactory(
+        List<Integer> probeOutputChannels = probeOutputChannelsOptional.orElse(rangeList(probeTypes.size()));
+        List<Type> probeOutputChannelTypes = probeOutputChannels.stream()
+                .map(probeTypes::get)
+                .collect(toImmutableList());
+
+        return new io.trino.operator.join.unspilled.LookupJoinOperatorFactory(
                 operatorId,
                 planNodeId,
                 lookupSourceFactory,
                 probeTypes,
+                probeOutputChannelTypes,
+                lookupSourceFactory.getBuildOutputTypes(),
+                joinType,
+                new JoinProbe.JoinProbeFactory(probeOutputChannels, probeJoinChannel, probeHashChannel),
+                blockTypeOperators,
                 probeJoinChannel,
-                probeHashChannel,
-                probeOutputChannels.orElse(rangeList(probeTypes.size())),
-                INNER,
-                outputSingleMatch,
-                waitForBuild,
-                spillingEnabled,
-                totalOperatorsCount,
-                partitioningSpillerFactory,
-                blockTypeOperators);
+                probeHashChannel);
     }
 
     @Override
-    public OperatorFactory probeOuterJoin(
+    public OperatorFactory spillingJoin(
+            JoinOperatorType joinType,
             int operatorId,
             PlanNodeId planNodeId,
-            JoinBridgeManager<?> lookupSourceFactory,
-            boolean outputSingleMatch,
+            JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
             boolean hasFilter,
-            boolean spillingEnabled,
             List<Type> probeTypes,
             List<Integer> probeJoinChannel,
             OptionalInt probeHashChannel,
-            Optional<List<Integer>> probeOutputChannels,
+            Optional<List<Integer>> probeOutputChannelsOptional,
             OptionalInt totalOperatorsCount,
             PartitioningSpillerFactory partitioningSpillerFactory,
             BlockTypeOperators blockTypeOperators)
     {
-        return createJoinOperatorFactory(
-                operatorId,
-                planNodeId,
-                lookupSourceFactory,
-                probeTypes,
-                probeJoinChannel,
-                probeHashChannel,
-                probeOutputChannels.orElse(rangeList(probeTypes.size())),
-                PROBE_OUTER,
-                outputSingleMatch,
-                false,
-                spillingEnabled,
-                totalOperatorsCount,
-                partitioningSpillerFactory,
-                blockTypeOperators);
-    }
+        List<Integer> probeOutputChannels = probeOutputChannelsOptional.orElse(rangeList(probeTypes.size()));
+        List<Type> probeOutputChannelTypes = probeOutputChannels.stream()
+                .map(probeTypes::get)
+                .collect(toImmutableList());
 
-    @Override
-    public OperatorFactory lookupOuterJoin(
-            int operatorId,
-            PlanNodeId planNodeId,
-            JoinBridgeManager<?> lookupSourceFactory,
-            boolean waitForBuild,
-            boolean hasFilter,
-            boolean spillingEnabled,
-            List<Type> probeTypes,
-            List<Integer> probeJoinChannel,
-            OptionalInt probeHashChannel,
-            Optional<List<Integer>> probeOutputChannels,
-            OptionalInt totalOperatorsCount,
-            PartitioningSpillerFactory partitioningSpillerFactory,
-            BlockTypeOperators blockTypeOperators)
-    {
-        return createJoinOperatorFactory(
+        return new LookupJoinOperatorFactory(
                 operatorId,
                 planNodeId,
                 lookupSourceFactory,
                 probeTypes,
+                probeOutputChannelTypes,
+                lookupSourceFactory.getBuildOutputTypes(),
+                joinType,
+                new JoinProbeFactory(probeOutputChannels.stream().mapToInt(i -> i).toArray(), probeJoinChannel, probeHashChannel),
+                blockTypeOperators,
+                totalOperatorsCount,
                 probeJoinChannel,
                 probeHashChannel,
-                probeOutputChannels.orElse(rangeList(probeTypes.size())),
-                LOOKUP_OUTER,
-                false,
-                waitForBuild,
-                spillingEnabled,
-                totalOperatorsCount,
-                partitioningSpillerFactory,
-                blockTypeOperators);
-    }
-
-    @Override
-    public OperatorFactory fullOuterJoin(
-            int operatorId,
-            PlanNodeId planNodeId,
-            JoinBridgeManager<?> lookupSourceFactory,
-            boolean hasFilter,
-            boolean spillingEnabled,
-            List<Type> probeTypes,
-            List<Integer> probeJoinChannel,
-            OptionalInt probeHashChannel,
-            Optional<List<Integer>> probeOutputChannels,
-            OptionalInt totalOperatorsCount,
-            PartitioningSpillerFactory partitioningSpillerFactory,
-            BlockTypeOperators blockTypeOperators)
-    {
-        return createJoinOperatorFactory(
-                operatorId,
-                planNodeId,
-                lookupSourceFactory,
-                probeTypes,
-                probeJoinChannel,
-                probeHashChannel,
-                probeOutputChannels.orElse(rangeList(probeTypes.size())),
-                FULL_OUTER,
-                false,
-                false,
-                spillingEnabled,
-                totalOperatorsCount,
-                partitioningSpillerFactory,
-                blockTypeOperators);
+                partitioningSpillerFactory);
     }
 
     private static List<Integer> rangeList(int endExclusive)
@@ -174,61 +107,5 @@ public class TrinoOperatorFactories
         return IntStream.range(0, endExclusive)
                 .boxed()
                 .collect(toImmutableList());
-    }
-
-    private OperatorFactory createJoinOperatorFactory(
-            int operatorId,
-            PlanNodeId planNodeId,
-            JoinBridgeManager<?> lookupSourceFactoryManager,
-            List<Type> probeTypes,
-            List<Integer> probeJoinChannel,
-            OptionalInt probeHashChannel,
-            List<Integer> probeOutputChannels,
-            JoinType joinType,
-            boolean outputSingleMatch,
-            boolean waitForBuild,
-            boolean spillingEnabled,
-            OptionalInt totalOperatorsCount,
-            PartitioningSpillerFactory partitioningSpillerFactory,
-            BlockTypeOperators blockTypeOperators)
-    {
-        List<Type> probeOutputChannelTypes = probeOutputChannels.stream()
-                .map(probeTypes::get)
-                .collect(toImmutableList());
-
-        if (spillingEnabled) {
-            return new LookupJoinOperatorFactory(
-                    operatorId,
-                    planNodeId,
-                    (JoinBridgeManager<? extends LookupSourceFactory>) lookupSourceFactoryManager,
-                    probeTypes,
-                    probeOutputChannelTypes,
-                    lookupSourceFactoryManager.getBuildOutputTypes(),
-                    joinType,
-                    outputSingleMatch,
-                    waitForBuild,
-                    new JoinProbeFactory(probeOutputChannels.stream().mapToInt(i -> i).toArray(), probeJoinChannel, probeHashChannel),
-                    blockTypeOperators,
-                    totalOperatorsCount,
-                    probeJoinChannel,
-                    probeHashChannel,
-                    partitioningSpillerFactory);
-        }
-        else {
-            return new io.trino.operator.join.unspilled.LookupJoinOperatorFactory(
-                    operatorId,
-                    planNodeId,
-                    (JoinBridgeManager<? extends io.trino.operator.join.unspilled.PartitionedLookupSourceFactory>) lookupSourceFactoryManager,
-                    probeTypes,
-                    probeOutputChannelTypes,
-                    lookupSourceFactoryManager.getBuildOutputTypes(),
-                    joinType,
-                    outputSingleMatch,
-                    waitForBuild,
-                    new JoinProbeFactory(probeOutputChannels.stream().mapToInt(i -> i).toArray(), probeJoinChannel, probeHashChannel),
-                    blockTypeOperators,
-                    probeJoinChannel,
-                    probeHashChannel);
-        }
     }
 }

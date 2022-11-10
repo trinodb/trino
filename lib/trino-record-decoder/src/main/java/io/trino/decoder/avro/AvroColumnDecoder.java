@@ -216,7 +216,7 @@ public class AvroColumnDecoder
             if (value instanceof ByteBuffer) {
                 return Slices.wrappedBuffer((ByteBuffer) value);
             }
-            else if (value instanceof GenericFixed) {
+            if (value instanceof GenericFixed) {
                 return Slices.wrappedBuffer(((GenericFixed) value).bytes());
             }
         }

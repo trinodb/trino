@@ -66,8 +66,6 @@ import java.util.OptionalLong;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.hash.Hashing.md5;
-import static com.google.common.io.Files.hash;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -97,6 +95,7 @@ import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -626,9 +625,8 @@ public class TestRaptorStorageManager
     }
 
     private static void assertFileEquals(File actual, File expected)
-            throws IOException
     {
-        assertEquals(hash(actual, md5()), hash(expected, md5()));
+        assertThat(actual).hasSameBinaryContentAs(expected);
     }
 
     private static void assertColumnStats(List<ColumnStats> list, long columnId, Object min, Object max)

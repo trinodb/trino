@@ -83,7 +83,7 @@ public class DecoratedHiveMetastoreModule
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
 
-            this.sortedDecorators = requireNonNull(decorators, "decorators is null").stream()
+            this.sortedDecorators = decorators.stream()
                     .sorted(Comparator.comparing(HiveMetastoreDecorator::getPriority))
                     .collect(toImmutableList());
         }

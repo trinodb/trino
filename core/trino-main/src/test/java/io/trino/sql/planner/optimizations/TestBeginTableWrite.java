@@ -15,6 +15,7 @@ package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.cost.CachingTableStatsProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AbstractMockMetadata;
 import io.trino.metadata.Metadata;
@@ -134,14 +135,16 @@ public class TestBeginTableWrite
     private void applyOptimization(Function<PlanBuilder, PlanNode> planProvider)
     {
         Metadata metadata = new MockMetadata();
+        Session session = testSessionBuilder().build();
         new BeginTableWrite(metadata, createTestingFunctionManager())
                 .optimize(
-                        planProvider.apply(new PlanBuilder(new PlanNodeIdAllocator(), metadata, testSessionBuilder().build())),
-                        testSessionBuilder().build(),
+                        planProvider.apply(new PlanBuilder(new PlanNodeIdAllocator(), metadata, session)),
+                        session,
                         empty(),
                         new SymbolAllocator(),
                         new PlanNodeIdAllocator(),
-                        WarningCollector.NOOP);
+                        WarningCollector.NOOP,
+                        new CachingTableStatsProvider(metadata, session));
     }
 
     private static class MockMetadata
@@ -163,7 +166,7 @@ public class TestBeginTableWrite
         public TableMetadata getTableMetadata(Session session, TableHandle tableHandle)
         {
             return new TableMetadata(
-                    tableHandle.getCatalogName(),
+                    tableHandle.getCatalogHandle().getCatalogName(),
                     new ConnectorTableMetadata(new SchemaTableName("sch", "tab"), ImmutableList.of()));
         }
     }

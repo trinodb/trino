@@ -27,16 +27,19 @@ public class FileSystemExchangeSinkInstanceHandle
     private final FileSystemExchangeSinkHandle sinkHandle;
     private final URI outputDirectory;
     private final int outputPartitionCount;
+    private final boolean preserveOrderWithinPartition;
 
     @JsonCreator
     public FileSystemExchangeSinkInstanceHandle(
             @JsonProperty("sinkHandle") FileSystemExchangeSinkHandle sinkHandle,
             @JsonProperty("outputDirectory") URI outputDirectory,
-            @JsonProperty("outputPartitionCount") int outputPartitionCount)
+            @JsonProperty("outputPartitionCount") int outputPartitionCount,
+            @JsonProperty("preserveOrderWithinPartition") boolean preserveOrderWithinPartition)
     {
         this.sinkHandle = requireNonNull(sinkHandle, "sinkHandle is null");
         this.outputDirectory = requireNonNull(outputDirectory, "outputDirectory is null");
         this.outputPartitionCount = outputPartitionCount;
+        this.preserveOrderWithinPartition = preserveOrderWithinPartition;
     }
 
     @JsonProperty
@@ -55,5 +58,11 @@ public class FileSystemExchangeSinkInstanceHandle
     public int getOutputPartitionCount()
     {
         return outputPartitionCount;
+    }
+
+    @JsonProperty
+    public boolean isPreserveOrderWithinPartition()
+    {
+        return preserveOrderWithinPartition;
     }
 }

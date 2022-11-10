@@ -242,7 +242,7 @@ class ContinuousTaskStatusFetcher
             onFail.accept(new TrinoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, HostAddress.fromUri(getTaskStatus().getSelf()))));
         }
 
-        dynamicFiltersFetcher.updateDynamicFiltersVersion(newValue.getDynamicFiltersVersion());
+        dynamicFiltersFetcher.updateDynamicFiltersVersionAndFetchIfNecessary(newValue.getDynamicFiltersVersion());
     }
 
     /**

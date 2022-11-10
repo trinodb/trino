@@ -345,4 +345,33 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
             onDelta().executeQuery("DROP TABLE default." + tableName);
         }
     }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    public void testTrinoCanReadFromTablePartitionChangedByDatabricks()
+    {
+        String tableName = "test_dl_create_table_partition_changed_by_databricks_" + randomTableSuffix();
+        String tableDirectory = "databricks-compatibility-test-" + tableName;
+
+        ImmutableList<QueryAssert.Row> expected = ImmutableList.of(row(1, "part"));
+
+        onDelta().executeQuery(format("CREATE TABLE default.%s " +
+                        "USING DELTA " +
+                        "PARTITIONED BY (`original_part_col`) LOCATION 's3://%s/%s' AS " +
+                        "SELECT 1 AS original_part_col, 'part' AS new_part_col",
+                tableName,
+                bucketName,
+                tableDirectory));
+
+        try {
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(expected);
+
+            onDelta().executeQuery("REPLACE TABLE default." + tableName + " USING DELTA PARTITIONED BY (new_part_col) AS SELECT * FROM " + tableName);
+
+            // This 2nd SELECT query caused NPE when the connector had cache for partitions and the column was changed remotely
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(expected);
+        }
+        finally {
+            onDelta().executeQuery("DROP TABLE default." + tableName);
+        }
+    }
 }

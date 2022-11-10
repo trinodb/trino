@@ -49,6 +49,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
@@ -78,7 +79,7 @@ public class LocalFileSystemExchangeStorage
     }
 
     @Override
-    public ExchangeStorageReader createExchangeStorageReader(Queue<ExchangeSourceFile> sourceFiles, int maxPageStorageSize)
+    public ExchangeStorageReader createExchangeStorageReader(List<ExchangeSourceFile> sourceFiles, int maxPageStorageSize)
     {
         return new LocalExchangeStorageReader(sourceFiles);
     }
@@ -147,8 +148,9 @@ public class LocalFileSystemExchangeStorage
     private static class LocalExchangeStorageReader
             implements ExchangeStorageReader
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(LocalExchangeStorageReader.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(LocalExchangeStorageReader.class).instanceSize());
 
+        @GuardedBy("this")
         private final Queue<ExchangeSourceFile> sourceFiles;
 
         @GuardedBy("this")
@@ -156,9 +158,9 @@ public class LocalFileSystemExchangeStorage
         @GuardedBy("this")
         private boolean closed;
 
-        public LocalExchangeStorageReader(Queue<ExchangeSourceFile> sourceFiles)
+        public LocalExchangeStorageReader(List<ExchangeSourceFile> sourceFiles)
         {
-            this.sourceFiles = requireNonNull(sourceFiles, "sourceFiles is null");
+            this.sourceFiles = new ArrayDeque<>(requireNonNull(sourceFiles, "sourceFiles is null"));
         }
 
         @Override
@@ -229,9 +231,7 @@ public class LocalFileSystemExchangeStorage
                     throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to create CipherInputStream: " + e.getMessage(), e);
                 }
             }
-            else {
-                return new InputStreamSliceInput(new FileInputStream(file), BUFFER_SIZE_IN_BYTES);
-            }
+            return new InputStreamSliceInput(new FileInputStream(file), BUFFER_SIZE_IN_BYTES);
         }
     }
 
@@ -239,7 +239,7 @@ public class LocalFileSystemExchangeStorage
     private static class LocalExchangeStorageWriter
             implements ExchangeStorageWriter
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(LocalExchangeStorageWriter.class).instanceSize();
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(LocalExchangeStorageWriter.class).instanceSize());
 
         private final OutputStream outputStream;
 

@@ -1639,7 +1639,7 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testInvalidTypeArray()
     {
-        assertQueryFails("SELECT ARRAY[1, 2, 'a']", "\\Qline 1:20: All ARRAY elements must be the same type: integer\\E");
+        assertQueryFails("SELECT ARRAY[1, 2, 'a']", "\\Qline 1:20: All ARRAY elements must be the same type or coercible to a common type. Cannot find common type between integer and varchar(1), all types (without duplicates): [integer, varchar(1)]\\E");
     }
 
     @Test
@@ -2094,6 +2094,29 @@ public abstract class AbstractTestEngineOnlyQueries
                 .build();
 
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testMergeQuantileDigest()
+    {
+        assertThat(query("""
+                WITH
+                    a(field_a, field_b) AS (
+                        VALUES (DOUBLE '10.3', 'group1'), (DOUBLE '11.3', 'group2')),
+                    b AS (
+                        SELECT CAST(qdigest_agg(field_a) AS varbinary) AS qdigest_binary
+                        FROM a GROUP BY field_b)
+                SELECT CAST(merge(CAST(qdigest_binary AS qdigest(double))) AS varbinary)
+                FROM b"""))
+                .matches("""
+                    VALUES X'
+                        00 7b 14 ae 47 e1 7a 84 3f 00 00 00 00 00 00 00
+                        00 00 00 00 00 00 00 00 00 9a 99 99 99 99 99 24
+                        40 9a 99 99 99 99 99 26 40 03 00 00 00 00 00 00
+                        00 00 00 00 f0 3f 9a 99 99 99 99 99 24 c0 00 00
+                        00 00 00 00 00 f0 3f 9a 99 99 99 99 99 26 c0 c7
+                        00 00 00 00 00 00 00 00 9a 99 99 99 99 99 24 c0'
+                    """);
     }
 
     @Test
@@ -2884,7 +2907,8 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         assertQueryFails(
                 "SELECT orderkey, CASE orderstatus WHEN 'O' THEN 'a' WHEN '1' THEN 2 END FROM orders",
-                "\\Qline 1:67: All CASE results must be the same type: varchar(1)\\E");
+                "\\Qline 1:67: All CASE results must be the same type or coercible to a common type. " +
+                        "Cannot find common type between varchar(1) and integer, all types (without duplicates): [varchar(1), integer]\\E");
     }
 
     @Test
@@ -3387,6 +3411,20 @@ public abstract class AbstractTestEngineOnlyQueries
                 "SELECT * FROM (SELECT custkey FROM orders ORDER BY orderkey LIMIT 1) CROSS JOIN (VALUES (10, 1), (20, 2), (30, 3))");
 
         assertQuery("SELECT * FROM orders, UNNEST(ARRAY[1])", "SELECT orders.*, 1 FROM orders");
+
+        assertQuery(
+                """
+                        WITH array_construct AS (
+                            SELECT ARRAY[1, 2, 3] AS array_actual, '[1,2,3]' AS expected
+                            UNION ALL
+                            SELECT NULL AS array_actual, '[]' AS expected)
+                        SELECT
+                            array_actual,
+                            '[' || (SELECT listagg(CAST(element AS varchar), ',') WITHIN GROUP(ORDER BY element) FROM UNNEST(array_actual) t(element)) || ']' AS actual,
+                            expected
+                        FROM array_construct
+                        """,
+                "VALUES (ARRAY[1, 2, 3], CAST('[1,2,3]' AS varchar), '[1,2,3]'), (null, null, '[]')");
     }
 
     @Test
@@ -5314,35 +5352,35 @@ public abstract class AbstractTestEngineOnlyQueries
     public void testSetSession()
     {
         MaterializedResult result = computeActual("SET SESSION test_string = 'bar'");
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertNoRelationalResult(result);
         assertEquals(result.getSetSessionProperties(), ImmutableMap.of("test_string", "bar"));
 
         result = computeActual(format("SET SESSION %s.connector_long = 999", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertNoRelationalResult(result);
         assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_long", "999"));
 
         result = computeActual(format("SET SESSION %s.connector_string = 'baz'", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertNoRelationalResult(result);
         assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_string", "baz"));
 
         result = computeActual(format("SET SESSION %s.connector_string = 'ban' || 'ana'", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertNoRelationalResult(result);
         assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_string", "banana"));
 
         result = computeActual(format("SET SESSION %s.connector_long = 444", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertNoRelationalResult(result);
         assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_long", "444"));
 
         result = computeActual(format("SET SESSION %s.connector_long = 111 + 111", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertNoRelationalResult(result);
         assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_long", "222"));
 
         result = computeActual(format("SET SESSION %s.connector_boolean = 111 < 3", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertNoRelationalResult(result);
         assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_boolean", "false"));
 
         result = computeActual(format("SET SESSION %s.connector_double = 11.1", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertNoRelationalResult(result);
         assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_double", "11.1"));
     }
 
@@ -5350,11 +5388,11 @@ public abstract class AbstractTestEngineOnlyQueries
     public void testResetSession()
     {
         MaterializedResult result = computeActual(getSession(), "RESET SESSION test_string");
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertNoRelationalResult(result);
         assertEquals(result.getResetSessionProperties(), ImmutableSet.of("test_string"));
 
         result = computeActual(getSession(), format("RESET SESSION %s.connector_string", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertNoRelationalResult(result);
         assertEquals(result.getResetSessionProperties(), ImmutableSet.of(TESTING_CATALOG + ".connector_string"));
     }
 
@@ -6533,5 +6571,11 @@ public abstract class AbstractTestEngineOnlyQueries
     private static ZonedDateTime zonedDateTime(String value)
     {
         return ZONED_DATE_TIME_FORMAT.parse(value, ZonedDateTime::from);
+    }
+
+    private void assertNoRelationalResult(MaterializedResult result)
+    {
+        assertThat(result.getMaterializedRows()).isEmpty();
+        assertThat(result.getTypes()).isEmpty(); // i.e. no columns
     }
 }

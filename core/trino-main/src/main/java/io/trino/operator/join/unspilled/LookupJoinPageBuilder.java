@@ -13,7 +13,6 @@
  */
 package io.trino.operator.join.unspilled;
 
-import io.trino.operator.join.JoinProbe;
 import io.trino.operator.join.LookupSource;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -152,7 +151,7 @@ public class LookupJoinPageBuilder
 
     private static Block unwrapLoadedBlock(Block filteredProbeBlock)
     {
-        // Lazy blocks (e.g used in filter condition) could be loaded during filter evaluation.
+        // Lazy blocks (e.g. used in filter condition) could be loaded during filter evaluation.
         // Unwrap them to reduce overhead of further processing.
         return filteredProbeBlock.isLoaded() ? filteredProbeBlock.getLoadedBlock() : filteredProbeBlock;
     }

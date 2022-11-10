@@ -16,6 +16,7 @@ package io.trino.operator;
 import io.trino.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperator;
 import io.trino.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperatorFactory;
 import io.trino.spi.Page;
+import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.Optional;
@@ -24,7 +25,7 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * This {@link WorkProcessorOperator} adapter allows to adapt {@link WorkProcessor} operators
- * that do not require special input handling (e.g streaming operators).
+ * that do not require special input handling (e.g. streaming operators).
  */
 public class BasicWorkProcessorOperatorAdapter
         implements AdapterWorkProcessorOperator
@@ -106,7 +107,7 @@ public class BasicWorkProcessorOperatorAdapter
             BasicAdapterWorkProcessorOperatorFactory operatorFactory)
     {
         this.pageBuffer = new PageBuffer();
-        this.operator = requireNonNull(operatorFactory, "operatorFactory is null").createAdapterOperator(processorContext, pageBuffer.pages());
+        this.operator = operatorFactory.createAdapterOperator(processorContext, pageBuffer.pages());
     }
 
     @Override
@@ -144,5 +145,11 @@ public class BasicWorkProcessorOperatorAdapter
             throws Exception
     {
         operator.close();
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        return operator.getMetrics();
     }
 }

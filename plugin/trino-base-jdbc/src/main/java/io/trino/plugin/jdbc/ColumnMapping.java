@@ -78,12 +78,12 @@ public final class ColumnMapping
         return new ColumnMapping(trinoType, readFunction, writeFunction, predicatePushdownController);
     }
 
-    public static <T> ColumnMapping objectMapping(Type trinoType, ObjectReadFunction readFunction, ObjectWriteFunction writeFunction)
+    public static ColumnMapping objectMapping(Type trinoType, ObjectReadFunction readFunction, ObjectWriteFunction writeFunction)
     {
         return objectMapping(trinoType, readFunction, writeFunction, FULL_PUSHDOWN);
     }
 
-    public static <T> ColumnMapping objectMapping(
+    public static ColumnMapping objectMapping(
             Type trinoType,
             ObjectReadFunction readFunction,
             ObjectWriteFunction writeFunction,

@@ -14,9 +14,11 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.OptionalBinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.hive.AllowHiveTableRename;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
 
@@ -31,8 +33,7 @@ public class ThriftMetastoreModule
     {
         OptionalBinder.newOptionalBinder(binder, ThriftMetastoreClientFactory.class)
                 .setDefault().to(DefaultThriftMetastoreClientFactory.class).in(Scopes.SINGLETON);
-        binder.bind(MetastoreLocator.class).to(StaticMetastoreLocator.class).in(Scopes.SINGLETON);
-        binder.bind(TokenDelegationThriftMetastoreFactory.class);
+        binder.bind(TokenAwareMetastoreClientFactory.class).to(StaticTokenAwareMetastoreClientFactory.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(StaticMetastoreConfig.class);
         configBinder(binder).bindConfig(ThriftMetastoreConfig.class);
 
@@ -44,6 +45,8 @@ public class ThriftMetastoreModule
                 .annotatedWith(RawHiveMetastoreFactory.class)
                 .to(BridgingHiveMetastoreFactory.class)
                 .in(Scopes.SINGLETON);
+
+        binder.bind(Key.get(boolean.class, AllowHiveTableRename.class)).toInstance(true);
 
         install(new ThriftMetastoreAuthenticationModule());
     }

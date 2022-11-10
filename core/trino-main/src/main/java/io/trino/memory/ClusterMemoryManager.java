@@ -139,12 +139,8 @@ public class ClusterMemoryManager
             @ForTaskLowMemoryKiller LowMemoryKiller taskLowMemoryKiller,
             @ForQueryLowMemoryKiller LowMemoryKiller queryLowMemoryKiller,
             ServerConfig serverConfig,
-            MemoryManagerConfig config,
-            NodeMemoryConfig nodeMemoryConfig)
+            MemoryManagerConfig config)
     {
-        requireNonNull(config, "config is null");
-        requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null");
-        requireNonNull(serverConfig, "serverConfig is null");
         checkState(serverConfig.isCoordinator(), "ClusterMemoryManager must not be bound on worker");
 
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");

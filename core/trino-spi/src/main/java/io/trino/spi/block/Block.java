@@ -21,7 +21,6 @@ import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
-import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 
 public interface Block
 {
@@ -244,7 +243,7 @@ public interface Block
     {
         checkArrayRange(positions, offset, length);
 
-        return new DictionaryBlock(offset, length, this, positions, false, randomDictionaryId());
+        return new DictionaryBlock(offset, length, this, positions);
     }
 
     /**
@@ -326,4 +325,13 @@ public interface Block
     {
         return Collections.emptyList();
     }
+
+    /**
+     * Returns a block that contains a copy of the contents of the current block, and an appended null at the end. The
+     * original block will not be modified. The purpose of this method is to leverage the contents of a block and the
+     * structure of the implementation to efficiently produce a copy of the block with a NULL element inserted - so that
+     * it can be used as a dictionary. This method is expected to be invoked on completely built {@link Block} instances
+     * i.e. not on in-progress block builders.
+     */
+    Block copyWithAppendedNull();
 }

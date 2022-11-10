@@ -63,9 +63,7 @@ public class OidcDiscovery
     @Inject
     public OidcDiscovery(OAuth2Config oauthConfig, OidcDiscoveryConfig oidcConfig, NimbusHttpClient httpClient)
     {
-        requireNonNull(oauthConfig, "oauthConfig is null");
         issuer = new Issuer(requireNonNull(oauthConfig.getIssuer(), "issuer is null"));
-        requireNonNull(oidcConfig, "oidcConfig is null");
         userinfoEndpointEnabled = oidcConfig.isUserinfoEndpointEnabled();
         discoveryTimeout = Duration.ofMillis(requireNonNull(oidcConfig.getDiscoveryTimeout(), "discoveryTimeout is null").toMillis());
         accessTokenIssuer = requireNonNull(oidcConfig.getAccessTokenIssuer(), "accessTokenIssuer is null");
@@ -97,9 +95,7 @@ public class OidcDiscovery
             if (statusCode < 400 || statusCode >= 500 || statusCode == REQUEST_TIMEOUT.code() || statusCode == TOO_MANY_REQUESTS.code()) {
                 throw new RuntimeException("Invalid response from OpenID Metadata endpoint: " + statusCode);
             }
-            else {
-                throw new IllegalStateException(format("Invalid response from OpenID Metadata endpoint. Expected response code to be %s, but was %s", OK.code(), statusCode));
-            }
+            throw new IllegalStateException(format("Invalid response from OpenID Metadata endpoint. Expected response code to be %s, but was %s", OK.code(), statusCode));
         }
         return readConfiguration(response.getContent());
     }
@@ -142,14 +138,23 @@ public class OidcDiscovery
 
     private static Optional<String> getOptionalField(String metadataField, Optional<String> metadataValue, String configurationField, Optional<String> configurationValue)
     {
-        if (configurationValue.isPresent()) {
-            if (!configurationValue.equals(metadataValue)) {
-                LOG.warn("Overriding \"%s=%s\" from OpenID metadata document with value \"%s=%s\" defined in configuration",
-                        metadataField, metadataValue.orElse(""), configurationField, configurationValue.orElse(""));
-            }
+        if (configurationValue.isEmpty()) {
+            return metadataValue;
+        }
+
+        if (metadataValue.isEmpty()) {
             return configurationValue;
         }
-        return metadataValue;
+
+        if (!configurationValue.equals(metadataValue)) {
+            LOG.warn("Overriding \"%s=%s\" from OpenID metadata document with value \"%s=%s\" defined in configuration",
+                    metadataField, metadataValue.orElse(""), configurationField, configurationValue.orElse(""));
+        }
+        else {
+            LOG.warn("Provided redundant configuration property \"%s\" with the same value as \"%s\" field in OpenID metadata document",
+                    configurationField, metadataField);
+        }
+        return configurationValue;
     }
 
     private static void checkMetadataState(boolean expression, String additionalMessage, String... additionalMessageArgs)

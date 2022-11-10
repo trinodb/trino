@@ -14,18 +14,24 @@
 
 package io.trino.tests.product.launcher.env.common;
 
+import io.trino.tests.product.launcher.docker.DockerFiles;
+import io.trino.tests.product.launcher.docker.DockerFiles.ResourceProvider;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
+import org.testcontainers.utility.MountableFile;
 
 import javax.inject.Inject;
 
 import java.time.Duration;
 
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
+import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public class Kafka
         implements EnvironmentExtender
@@ -36,11 +42,15 @@ public class Kafka
     static final String SCHEMA_REGISTRY = "schema-registry";
     static final String ZOOKEEPER = "zookeeper";
 
+    private final ResourceProvider configDir;
+
     private final PortBinder portBinder;
 
     @Inject
-    public Kafka(PortBinder portBinder)
+    public Kafka(DockerFiles dockerFiles, PortBinder portBinder)
     {
+        this.configDir = requireNonNull(dockerFiles, "dockerFiles is null")
+                .getDockerFilesHostDirectory("common/kafka");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
     }
 
@@ -50,6 +60,13 @@ public class Kafka
         builder.addContainers(createZookeeper(), createKafka(), createSchemaRegistry())
                 .containerDependsOn(KAFKA, ZOOKEEPER)
                 .containerDependsOn(SCHEMA_REGISTRY, KAFKA);
+
+        MountableFile logConfigFile = forHostPath(configDir.getPath("log.properties"));
+        builder.configureContainers(container -> {
+            if (isTrinoContainer(container.getLogicalName())) {
+                container.withCopyFileToContainer(logConfigFile, CONTAINER_TRINO_ETC + "/log.properties");
+            }
+        });
     }
 
     @SuppressWarnings("resource")

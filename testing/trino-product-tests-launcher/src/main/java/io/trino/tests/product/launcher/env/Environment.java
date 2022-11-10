@@ -13,6 +13,7 @@
  */
 package io.trino.tests.product.launcher.env;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.github.dockerjava.api.command.CreateContainerCmd;
@@ -60,18 +61,21 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.server.PluginReader.CONNECTOR;
+import static io.trino.server.PluginReader.PASSWORD_AUTHENTICATOR;
 import static io.trino.tests.product.launcher.env.DockerContainer.ensurePathExists;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.isPrestoContainer;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
 import static io.trino.tests.product.launcher.env.Environments.pruneEnvironment;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static java.lang.String.format;
 import static java.time.Duration.ofMinutes;
 import static java.util.Objects.requireNonNull;
@@ -291,6 +295,21 @@ public final class Environment
         return name;
     }
 
+    @JsonProperty
+    public String getName()
+    {
+        return name;
+    }
+
+    @JsonProperty
+    public List<String> getFeatures()
+    {
+        return Stream.of(
+                getConfiguredConnectors().stream().map(x -> CONNECTOR + x),
+                getConfiguredPasswordAuthenticators().stream().map(x -> PASSWORD_AUTHENTICATOR + x)
+        ).flatMap(Function.identity()).collect(toImmutableList());
+    }
+
     public static Builder builder(String name)
     {
         return new Builder(name);
@@ -379,7 +398,7 @@ public final class Environment
 
         public Builder containerDependsOn(String container, String dependencyContainer)
         {
-            checkState(containers.containsKey(container), "Container with name %s is not registered", name);
+            checkState(containers.containsKey(container), "Container with name %s is not registered", container);
             checkState(containers.containsKey(dependencyContainer), "Dependency container with name %s is not registered", dependencyContainer);
             containers.get(container).dependsOn(containers.get(dependencyContainer));
 
@@ -431,7 +450,7 @@ public final class Environment
         {
             requireNonNull(connectorName, "connectorName is null");
             requireNonNull(configFile, "configFile is null");
-            return addConnector(connectorName, configFile, CONTAINER_PRESTO_ETC + "/catalog/" + connectorName + ".properties");
+            return addConnector(connectorName, configFile, CONTAINER_TRINO_ETC + "/catalog/" + connectorName + ".properties");
         }
 
         public Builder addConnector(String connectorName, MountableFile configFile, String containerPath)
@@ -439,7 +458,7 @@ public final class Environment
             requireNonNull(configFile, "configFile is null");
             requireNonNull(containerPath, "containerPath is null");
             configureContainers(container -> {
-                if (isPrestoContainer(container.getLogicalName())) {
+                if (isTrinoContainer(container.getLogicalName())) {
                     container.withCopyFileToContainer(configFile, containerPath);
                 }
             });
@@ -458,7 +477,7 @@ public final class Environment
         {
             requireNonNull(name, "name is null");
             requireNonNull(configFile, "configFile is null");
-            return addPasswordAuthenticator(name, configFile, CONTAINER_PRESTO_ETC + "/password-authenticator.properties");
+            return addPasswordAuthenticator(name, configFile, CONTAINER_TRINO_ETC + "/password-authenticator.properties");
         }
 
         public Builder addPasswordAuthenticator(String name, MountableFile configFile, String containerPath)
@@ -499,7 +518,7 @@ public final class Environment
         {
             requireNonNull(logicalName, "logicalName is null");
             checkState(containers.containsKey(logicalName), "Container with name %s is not registered", logicalName);
-            requireNonNull(configurer, "configurer is null").accept(containers.get(logicalName));
+            configurer.accept(containers.get(logicalName));
             return this;
         }
 
@@ -658,7 +677,7 @@ public final class Environment
                         Map.of("databases",
                                 Map.of("presto",
                                         Map.of("configured_connectors", configuredConnectors,
-                                               "configured_password_authenticators", configuredPasswordAuthenticators))));
+                                                "configured_password_authenticators", configuredPasswordAuthenticators))));
             }
             catch (IOException e) {
                 throw new RuntimeException(e);

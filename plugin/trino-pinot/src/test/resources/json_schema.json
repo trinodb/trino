@@ -1,0 +1,24 @@
+{
+    "schemaName": "json_table",
+    "dimensionFieldSpecs": [
+        {
+            "name": "string_col",
+            "dataType": "STRING"
+        },
+        {
+            "name": "json_col",
+            "dataType": "JSON",
+            "maxLength": 2147483647
+        }
+    ],
+    "dateTimeFieldSpecs": [
+        {
+            "name": "updated_at_seconds",
+            "dataType": "LONG",
+            "defaultNullValue" : 0,
+            "format": "1:SECONDS:EPOCH",
+            "transformFunction": "toEpochSeconds(updatedAt)",
+            "granularity" : "1:SECONDS"
+        }
+    ]
+}

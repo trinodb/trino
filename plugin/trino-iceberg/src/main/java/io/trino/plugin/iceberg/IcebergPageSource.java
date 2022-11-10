@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.trino.plugin.hive.ReaderProjectionsAdapter;
 import io.trino.plugin.iceberg.delete.IcebergPositionDeletePageSink;
-import io.trino.plugin.iceberg.delete.TrinoRow;
+import io.trino.plugin.iceberg.delete.RowPredicate;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -27,10 +27,7 @@ import io.trino.spi.block.RowBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.spi.metrics.Metrics;
-import io.trino.spi.type.Type;
 import org.apache.iceberg.Schema;
-import org.apache.iceberg.data.DeleteFilter;
-import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.types.Types;
 
 import javax.annotation.Nullable;
@@ -59,18 +56,17 @@ public class IcebergPageSource
         implements UpdatablePageSource
 {
     private final Schema schema;
-    private final Type[] columnTypes;
     private final int[] expectedColumnIndexes;
     private final ConnectorPageSource delegate;
     private final Optional<ReaderProjectionsAdapter> projectionsAdapter;
-    private final Optional<DeleteFilter<TrinoRow>> deleteFilter;
+    private final Supplier<Optional<RowPredicate>> deletePredicate;
     private final Supplier<IcebergPositionDeletePageSink> positionDeleteSinkSupplier;
     private final Supplier<IcebergPageSink> updatedRowPageSinkSupplier;
     // An array with one element per field in the $row_id column. The value in the array points to the
     // channel where the data can be read from.
-    private int[] updateRowIdChildColumnIndexes = new int[0];
+    private int[] rowIdChildColumnIndexes = new int[0];
     // The $row_id's index in 'expectedColumns', or -1 if there isn't one
-    private int updateRowIdColumnIndex = -1;
+    private int rowIdColumnIndex = -1;
     // Maps the Iceberg field ids of unmodified columns to their indexes in updateRowIdChildColumnIndexes
     private Map<Integer, Integer> icebergIdToRowIdColumnIndex = ImmutableMap.of();
     // Maps the Iceberg field ids of modified columns to their indexes in the updateColumns columnValueAndRowIdChannels array
@@ -85,10 +81,9 @@ public class IcebergPageSource
             Schema schema,
             List<IcebergColumnHandle> expectedColumns,
             List<IcebergColumnHandle> requiredColumns,
-            List<IcebergColumnHandle> readColumns,
             ConnectorPageSource delegate,
             Optional<ReaderProjectionsAdapter> projectionsAdapter,
-            Optional<DeleteFilter<TrinoRow>> deleteFilter,
+            Supplier<Optional<RowPredicate>> deletePredicate,
             Supplier<IcebergPositionDeletePageSink> positionDeleteSinkSupplier,
             Supplier<IcebergPageSink> updatedRowPageSinkSupplier,
             List<IcebergColumnHandle> updatedColumns)
@@ -104,28 +99,25 @@ public class IcebergPageSource
             checkArgument(expectedColumn.equals(requiredColumns.get(i)), "Expected columns must be a prefix of required columns");
             expectedColumnIndexes[i] = i;
 
-            if (expectedColumn.isUpdateRowIdColumn()) {
-                this.updateRowIdColumnIndex = i;
+            if (expectedColumn.isUpdateRowIdColumn() || expectedColumn.isMergeRowIdColumn()) {
+                this.rowIdColumnIndex = i;
 
                 Map<Integer, Integer> fieldIdToColumnIndex = mapFieldIdsToIndex(requiredColumns);
                 List<ColumnIdentity> rowIdFields = expectedColumn.getColumnIdentity().getChildren();
                 ImmutableMap.Builder<Integer, Integer> fieldIdToRowIdIndex = ImmutableMap.builder();
-                this.updateRowIdChildColumnIndexes = new int[rowIdFields.size()];
+                this.rowIdChildColumnIndexes = new int[rowIdFields.size()];
                 for (int columnIndex = 0; columnIndex < rowIdFields.size(); columnIndex++) {
                     int fieldId = rowIdFields.get(columnIndex).getId();
-                    updateRowIdChildColumnIndexes[columnIndex] = requireNonNull(fieldIdToColumnIndex.get(fieldId), () -> format("Column %s not found in requiredColumns", fieldId));
+                    rowIdChildColumnIndexes[columnIndex] = requireNonNull(fieldIdToColumnIndex.get(fieldId), () -> format("Column %s not found in requiredColumns", fieldId));
                     fieldIdToRowIdIndex.put(fieldId, columnIndex);
                 }
                 this.icebergIdToRowIdColumnIndex = fieldIdToRowIdIndex.buildOrThrow();
             }
         }
 
-        this.columnTypes = readColumns.stream()
-                .map(IcebergColumnHandle::getType)
-                .toArray(Type[]::new);
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.projectionsAdapter = requireNonNull(projectionsAdapter, "projectionsAdapter is null");
-        this.deleteFilter = requireNonNull(deleteFilter, "deleteFilter is null");
+        this.deletePredicate = requireNonNull(deletePredicate, "deletePredicate is null");
         this.positionDeleteSinkSupplier = requireNonNull(positionDeleteSinkSupplier, "positionDeleteSinkSupplier is null");
         this.updatedRowPageSinkSupplier = requireNonNull(updatedRowPageSinkSupplier, "updatedRowPageSinkSupplier is null");
         requireNonNull(updatedColumns, "updatedColumnFieldIds is null");
@@ -167,27 +159,16 @@ public class IcebergPageSource
                 return null;
             }
 
-            if (deleteFilter.isPresent()) {
-                int positionCount = dataPage.getPositionCount();
-                int[] positionsToKeep = new int[positionCount];
-                try (CloseableIterable<TrinoRow> filteredRows = deleteFilter.get().filter(CloseableIterable.withNoopClose(TrinoRow.fromPage(columnTypes, dataPage, positionCount)))) {
-                    int positionsToKeepCount = 0;
-                    for (TrinoRow rowToKeep : filteredRows) {
-                        positionsToKeep[positionsToKeepCount] = rowToKeep.getPosition();
-                        positionsToKeepCount++;
-                    }
-                    dataPage = dataPage.getPositions(positionsToKeep, 0, positionsToKeepCount);
-                }
-                catch (IOException e) {
-                    throw new TrinoException(ICEBERG_BAD_DATA, "Failed to filter rows during merge-on-read operation", e);
-                }
+            Optional<RowPredicate> deleteFilterPredicate = deletePredicate.get();
+            if (deleteFilterPredicate.isPresent()) {
+                dataPage = deleteFilterPredicate.get().filterPage(dataPage);
             }
 
             if (projectionsAdapter.isPresent()) {
                 dataPage = projectionsAdapter.get().adaptPage(dataPage);
             }
 
-            dataPage = setUpdateRowIdBlock(dataPage);
+            dataPage = withRowIdBlock(dataPage);
             dataPage = dataPage.getColumns(expectedColumnIndexes);
 
             return dataPage;
@@ -205,20 +186,20 @@ public class IcebergPageSource
      * @param page The raw Page from the Parquet/ORC reader.
      * @return A Page where the $row_id channel has been populated.
      */
-    private Page setUpdateRowIdBlock(Page page)
+    private Page withRowIdBlock(Page page)
     {
-        if (updateRowIdColumnIndex == -1) {
+        if (rowIdColumnIndex == -1) {
             return page;
         }
 
-        Block[] rowIdFields = new Block[updateRowIdChildColumnIndexes.length];
-        for (int childIndex = 0; childIndex < updateRowIdChildColumnIndexes.length; childIndex++) {
-            rowIdFields[childIndex] = page.getBlock(updateRowIdChildColumnIndexes[childIndex]);
+        Block[] rowIdFields = new Block[rowIdChildColumnIndexes.length];
+        for (int childIndex = 0; childIndex < rowIdChildColumnIndexes.length; childIndex++) {
+            rowIdFields[childIndex] = page.getBlock(rowIdChildColumnIndexes[childIndex]);
         }
 
         Block[] fullPage = new Block[page.getChannelCount()];
         for (int channel = 0; channel < page.getChannelCount(); channel++) {
-            if (channel == updateRowIdColumnIndex) {
+            if (channel == rowIdColumnIndex) {
                 fullPage[channel] = RowBlock.fromFieldBlocks(page.getPositionCount(), Optional.empty(), rowIdFields);
                 continue;
             }
@@ -236,7 +217,7 @@ public class IcebergPageSource
             positionDeleteSink = positionDeleteSinkSupplier.get();
             verify(positionDeleteSink != null);
         }
-        positionDeleteSink.appendPage(new Page(rowIds));
+        positionDeleteSink.appendPage(new Page(rowIds)).join();
     }
 
     @Override
@@ -255,7 +236,7 @@ public class IcebergPageSource
         }
 
         ColumnarRow rowIdColumns = ColumnarRow.toColumnarRow(page.getBlock(rowIdChannel));
-        positionDeleteSink.appendPage(new Page(rowIdColumns.getField(0)));
+        positionDeleteSink.appendPage(new Page(rowIdColumns.getField(0))).join();
 
         List<Types.NestedField> columns = schema.columns();
         Block[] fullPage = new Block[columns.size()];
@@ -272,7 +253,7 @@ public class IcebergPageSource
             }
         }
 
-        updatedRowPageSink.appendPage(new Page(page.getPositionCount(), fullPage));
+        updatedRowPageSink.appendPage(new Page(page.getPositionCount(), fullPage)).join();
     }
 
     @Override

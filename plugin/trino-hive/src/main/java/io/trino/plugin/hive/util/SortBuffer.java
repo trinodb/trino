@@ -32,11 +32,12 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.lang.Math.addExact;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class SortBuffer
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SortBuffer.class).instanceSize();
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SortBuffer.class).instanceSize());
 
     private final long maxMemoryBytes;
     private final List<Type> types;

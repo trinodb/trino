@@ -35,7 +35,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
-import static java.util.Objects.requireNonNull;
 
 public class HeaderAuthenticatorManager
 {
@@ -50,7 +49,6 @@ public class HeaderAuthenticatorManager
     @Inject
     public HeaderAuthenticatorManager(HeaderAuthenticatorConfig config)
     {
-        requireNonNull(config, "config is null");
         this.configFiles = ImmutableList.copyOf(config.getHeaderAuthenticatorFiles());
         checkArgument(!configFiles.isEmpty(), "header authenticator files list is empty");
     }

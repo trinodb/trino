@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.stats.Distribution;
 import io.airlift.units.DataSize;
-import io.trino.connector.CatalogName;
 import io.trino.hive.orc.NullMemoryManager;
 import io.trino.hive.orc.impl.WriterImpl;
 import io.trino.metadata.FunctionManager;
@@ -108,6 +107,7 @@ import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.sql.relational.Expressions.field;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
@@ -598,7 +598,7 @@ public class TestOrcPageSourceMemoryTracking
                     columns.stream().map(ColumnHandle.class::cast).collect(toImmutableList()),
                     DynamicFilter.EMPTY);
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
-            operator.addSplit(new Split(new CatalogName("test"), TestingSplit.createLocalSplit()));
+            operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
             return operator;
         }
 
@@ -625,7 +625,7 @@ public class TestOrcPageSourceMemoryTracking
                     DataSize.ofBytes(0),
                     0);
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
-            operator.addSplit(new Split(new CatalogName("test"), TestingSplit.createLocalSplit()));
+            operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
             operator.noMoreSplits();
             return operator;
         }

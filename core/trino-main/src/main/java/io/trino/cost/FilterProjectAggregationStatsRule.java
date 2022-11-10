@@ -56,7 +56,7 @@ public class FilterProjectAggregationStatsRule
     }
 
     @Override
-    protected Optional<PlanNodeStatsEstimate> doCalculate(FilterNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
+    protected Optional<PlanNodeStatsEstimate> doCalculate(FilterNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
     {
         if (!isNonEstimatablePredicateApproximationEnabled(session)) {
             return Optional.empty();

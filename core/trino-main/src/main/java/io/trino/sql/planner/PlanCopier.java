@@ -18,6 +18,7 @@ import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
+import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExceptNode;
 import io.trino.sql.planner.plan.FilterNode;
@@ -160,6 +161,12 @@ public final class PlanCopier
                     node.isSpillable(),
                     node.getDynamicFilters(),
                     node.getReorderJoinStatsAndCost());
+        }
+
+        @Override
+        public PlanNode visitDynamicFilterSource(DynamicFilterSourceNode node, RewriteContext<Void> context)
+        {
+            return new DynamicFilterSourceNode(idAllocator.getNextId(), node.getSource(), node.getDynamicFilters());
         }
 
         @Override

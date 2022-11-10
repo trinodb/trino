@@ -42,3 +42,12 @@ connector:
       Do not change this setting from the default. Non-default values may
       negatively impact performance.
     - ``1000``
+  * - ``dynamic-filtering.enabled``
+    - Push down dynamic filters into JDBC queries
+    - ``true``
+  * - ``dynamic-filtering.wait-timeout``
+    - Maximum duration for which Trino will wait for dynamic filters to be
+      collected from the build side of joins before starting a JDBC query.
+      Using a large timeout can potentially result in more detailed dynamic filters.
+      However, it can also increase latency for some queries.
+    - ``20s``

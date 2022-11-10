@@ -142,6 +142,12 @@ public class TestDynamicFilterSourceOperator
 
                     @Override
                     public void setPartitionCount(int partitionCount) {}
+
+                    @Override
+                    public boolean isDomainCollectionComplete()
+                    {
+                        return false;
+                    }
                 },
                 ImmutableList.copyOf(buildChannels),
                 maxFilterDistinctValues,

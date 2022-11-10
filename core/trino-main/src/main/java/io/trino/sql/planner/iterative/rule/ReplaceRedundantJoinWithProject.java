@@ -18,6 +18,7 @@ import io.trino.matching.Pattern;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
+import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.JoinNode;
@@ -29,7 +30,7 @@ import io.trino.sql.tree.NullLiteral;
 import java.util.List;
 
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
-import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
+import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isEmpty;
 import static io.trino.sql.planner.plan.Patterns.join;
 
 /**
@@ -52,59 +53,55 @@ public class ReplaceRedundantJoinWithProject
     @Override
     public Result apply(JoinNode node, Captures captures, Context context)
     {
-        boolean leftSourceEmpty = isAtMost(node.getLeft(), context.getLookup(), 0);
-        boolean rightSourceEmpty = isAtMost(node.getRight(), context.getLookup(), 0);
+        Lookup lookup = context.getLookup();
+        PlanNode left = node.getLeft();
+        PlanNode right = node.getRight();
 
-        switch (node.getType()) {
-            case INNER:
-                return Result.empty();
-            case LEFT:
-                if (!leftSourceEmpty && rightSourceEmpty) {
-                    return Result.ofPlanNode(appendNulls(
-                            node.getLeft(),
+        return switch (node.getType()) {
+            case INNER -> Result.empty();
+            case LEFT -> !isEmpty(left, lookup) && isEmpty(right, lookup) ?
+                    Result.ofPlanNode(appendNulls(
+                            left,
                             node.getLeftOutputSymbols(),
                             node.getRightOutputSymbols(),
                             context.getIdAllocator(),
-                            context.getSymbolAllocator()));
-                }
-                break;
-            case RIGHT:
-                if (leftSourceEmpty && !rightSourceEmpty) {
-                    return Result.ofPlanNode(appendNulls(
-                            node.getRight(),
+                            context.getSymbolAllocator())) :
+                    Result.empty();
+            case RIGHT -> isEmpty(left, lookup) && !isEmpty(right, lookup) ?
+                    Result.ofPlanNode(appendNulls(
+                            right,
                             node.getRightOutputSymbols(),
                             node.getLeftOutputSymbols(),
                             context.getIdAllocator(),
-                            context.getSymbolAllocator()));
-                }
-                break;
-            case FULL:
-                if (leftSourceEmpty && !rightSourceEmpty) {
-                    return Result.ofPlanNode(appendNulls(
-                            node.getRight(),
+                            context.getSymbolAllocator())) :
+                    Result.empty();
+            case FULL -> {
+                if (isEmpty(left, lookup) && !isEmpty(right, lookup)) {
+                    yield Result.ofPlanNode(appendNulls(
+                            right,
                             node.getRightOutputSymbols(),
                             node.getLeftOutputSymbols(),
                             context.getIdAllocator(),
                             context.getSymbolAllocator()));
                 }
-                else if (!leftSourceEmpty && rightSourceEmpty) {
-                    return Result.ofPlanNode(appendNulls(
-                            node.getLeft(),
+                if (!isEmpty(left, lookup) && isEmpty(right, lookup)) {
+                    yield Result.ofPlanNode(appendNulls(
+                            left,
                             node.getLeftOutputSymbols(),
                             node.getRightOutputSymbols(),
                             context.getIdAllocator(),
                             context.getSymbolAllocator()));
                 }
-        }
-
-        return Result.empty();
+                yield Result.empty();
+            }
+        };
     }
 
     private static ProjectNode appendNulls(PlanNode source, List<Symbol> sourceOutputs, List<Symbol> nullSymbols, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
     {
         Assignments.Builder assignments = Assignments.builder()
                 .putIdentities(sourceOutputs);
-        nullSymbols.stream()
+        nullSymbols
                 .forEach(symbol -> assignments.put(symbol, new Cast(new NullLiteral(), toSqlType(symbolAllocator.getTypes().get(symbol)))));
 
         return new ProjectNode(idAllocator.getNextId(), source, assignments.build());

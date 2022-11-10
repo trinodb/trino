@@ -16,16 +16,17 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionDependencies;
-import io.trino.metadata.FunctionDependencyDeclaration;
-import io.trino.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionDependencyDeclaration;
+import io.trino.spi.function.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.QualifiedFunctionName;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
@@ -35,7 +36,6 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.tree.QualifiedName;
 
 import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
@@ -56,8 +56,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.isLongDecimal;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -122,22 +120,21 @@ public final class FormatFunction
                 type instanceof TimestampWithTimeZoneType ||
                 type instanceof TimestampType ||
                 type instanceof TimeType ||
-                isShortDecimal(type) ||
-                isLongDecimal(type) ||
+                type instanceof DecimalType ||
                 type instanceof VarcharType ||
                 type instanceof CharType) {
             return;
         }
 
         if (type.equals(JSON)) {
-            builder.addFunction(QualifiedName.of("json_format"), ImmutableList.of(JSON));
+            builder.addFunction(QualifiedFunctionName.of("json_format"), ImmutableList.of(JSON));
             return;
         }
         builder.addCast(type, VARCHAR);
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         Type rowType = boundSignature.getArgumentType(1);
 
@@ -146,7 +143,7 @@ public final class FormatFunction
                 (type, index) -> converter(functionDependencies, type, toIntExact(index)))
                 .collect(toImmutableList());
 
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
@@ -212,15 +209,14 @@ public final class FormatFunction
         }
         // TODO: support TIME WITH TIME ZONE by https://github.com/trinodb/trino/issues/191 + mapping to java.time.OffsetTime
         if (type.equals(JSON)) {
-            MethodHandle handle = functionDependencies.getFunctionInvoker(QualifiedName.of("json_format"), ImmutableList.of(JSON), simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
+            MethodHandle handle = functionDependencies.getScalarFunctionImplementation(QualifiedFunctionName.of("json_format"), ImmutableList.of(JSON), simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
             return (session, block) -> convertToString(handle, type.getSlice(block, position));
         }
-        if (isShortDecimal(type)) {
-            int scale = ((DecimalType) type).getScale();
-            return (session, block) -> BigDecimal.valueOf(type.getLong(block, position), scale);
-        }
-        if (isLongDecimal(type)) {
-            int scale = ((DecimalType) type).getScale();
+        if (type instanceof DecimalType decimalType) {
+            int scale = decimalType.getScale();
+            if (decimalType.isShort()) {
+                return (session, block) -> BigDecimal.valueOf(type.getLong(block, position), scale);
+            }
             return (session, block) -> new BigDecimal(((Int128) type.getObject(block, position)).toBigInteger(), scale);
         }
         if (type instanceof VarcharType) {
@@ -248,7 +244,7 @@ public final class FormatFunction
             function = (session, block) -> type.getObject(block, position);
         }
 
-        MethodHandle handle = functionDependencies.getCastInvoker(type, VARCHAR, simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
+        MethodHandle handle = functionDependencies.getCastImplementation(type, VARCHAR, simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
         return (session, block) -> convertToString(handle, function.apply(session, block));
     }
 

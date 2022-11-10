@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.rcfile.HdfsRcFileDataSource;
@@ -73,7 +74,7 @@ public class RcFileFileWriterFactory
             HiveConfig hiveConfig,
             FileFormatDataSourceStats stats)
     {
-        this(hdfsEnvironment, typeManager, nodeVersion, requireNonNull(hiveConfig, "hiveConfig is null").getRcfileDateTimeZone(), stats);
+        this(hdfsEnvironment, typeManager, nodeVersion, hiveConfig.getRcfileDateTimeZone(), stats);
     }
 
     public RcFileFileWriterFactory(

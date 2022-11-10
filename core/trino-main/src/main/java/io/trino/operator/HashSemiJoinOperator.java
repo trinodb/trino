@@ -134,7 +134,7 @@ public class HashSemiJoinOperator
                         channelSetFuture,
                         probeJoinChannel,
                         probeHashChannel,
-                        requireNonNull(memoryTrackingContext, "memoryTrackingContext is null").aggregateUserMemoryContext()));
+                        memoryTrackingContext.aggregateUserMemoryContext()));
     }
 
     @Override
@@ -160,10 +160,10 @@ public class HashSemiJoinOperator
         {
             checkArgument(probeJoinChannel >= 0, "probeJoinChannel is negative");
 
-            this.channelSetFuture = requireNonNull(channelSetFuture, "channelSetFuture is null").getChannelSet();
+            this.channelSetFuture = channelSetFuture.getChannelSet();
             this.probeJoinChannel = probeJoinChannel;
-            this.probeHashChannel = requireNonNull(probeHashChannel, "probeHashChannel is null").orElse(NO_PRECOMPUTED_HASH_CHANNEL);
-            this.localMemoryContext = requireNonNull(aggregatedMemoryContext, "aggregatedMemoryContext is null").newLocalMemoryContext(SemiJoinPages.class.getSimpleName());
+            this.probeHashChannel = probeHashChannel.orElse(NO_PRECOMPUTED_HASH_CHANNEL);
+            this.localMemoryContext = aggregatedMemoryContext.newLocalMemoryContext(SemiJoinPages.class.getSimpleName());
         }
 
         @Override

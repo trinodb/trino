@@ -39,8 +39,8 @@ public class IndexManager
 
     public ConnectorIndex getIndex(Session session, IndexHandle indexHandle, List<ColumnHandle> lookupSchema, List<ColumnHandle> outputSchema)
     {
-        ConnectorSession connectorSession = session.toConnectorSession(indexHandle.getCatalogName());
-        ConnectorIndexProvider provider = indexProvider.getService(indexHandle.getCatalogName());
+        ConnectorSession connectorSession = session.toConnectorSession(indexHandle.getCatalogHandle());
+        ConnectorIndexProvider provider = indexProvider.getService(indexHandle.getCatalogHandle());
         return provider.getIndex(indexHandle.getTransactionHandle(), connectorSession, indexHandle.getConnectorHandle(), lookupSchema, outputSchema);
     }
 }

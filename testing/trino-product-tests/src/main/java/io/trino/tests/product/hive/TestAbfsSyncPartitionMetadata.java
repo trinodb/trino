@@ -19,11 +19,10 @@ import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.tests.product.TestGroups.AZURE;
-import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
-import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
+import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
+import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -153,6 +152,6 @@ public class TestAbfsSyncPartitionMetadata
         onTrino().executeQuery("DROP TABLE IF EXISTS single_int_column");
         onTrino().executeQuery("CREATE TABLE single_int_column (payload bigint) WITH (format = 'ORC')");
         onTrino().executeQuery("INSERT INTO single_int_column VALUES (42)");
-        return getOnlyElement(onTrino().executeQuery("SELECT \"$path\" FROM single_int_column").row(0)).toString();
+        return (String) onTrino().executeQuery("SELECT \"$path\" FROM single_int_column").getOnlyValue();
     }
 }

@@ -20,6 +20,7 @@ import io.trino.metadata.CountingAccessMetadata;
 import io.trino.metadata.MetadataManager;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.iceberg.catalog.file.TestingIcebergFileMetastoreCatalogModule;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.security.PrincipalType;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -70,7 +71,7 @@ public class TestIcebergGetTableStatisticsOperations
         HiveMetastore metastore = createTestingFileHiveMetastore(metastoreDir);
         localQueryRunner.createCatalog(
                 "iceberg",
-                new TestingIcebergConnectorFactory(Optional.of(metastore), Optional.empty(), EMPTY_MODULE),
+                new TestingIcebergConnectorFactory(Optional.of(new TestingIcebergFileMetastoreCatalogModule(metastore)), Optional.empty(), EMPTY_MODULE),
                 ImmutableMap.of());
         Database database = Database.builder()
                 .setDatabaseName("tiny")
@@ -107,7 +108,7 @@ public class TestIcebergGetTableStatisticsOperations
                 "WHERE o.orderkey = l.orderkey");
         assertThat(metadata.getMethodInvocations()).containsExactlyInAnyOrderElementsOf(
                 ImmutableMultiset.<CountingAccessMetadata.Methods>builder()
-                        .addCopies(CountingAccessMetadata.Methods.GET_TABLE_STATISTICS, 5)
+                        .addCopies(CountingAccessMetadata.Methods.GET_TABLE_STATISTICS, 2)
                         .build());
     }
 
@@ -119,7 +120,7 @@ public class TestIcebergGetTableStatisticsOperations
                 "WHERE o.orderkey = l.orderkey AND c.custkey = o.custkey");
         assertThat(metadata.getMethodInvocations()).containsExactlyInAnyOrderElementsOf(
                 ImmutableMultiset.<CountingAccessMetadata.Methods>builder()
-                        .addCopies(CountingAccessMetadata.Methods.GET_TABLE_STATISTICS, 9)
+                        .addCopies(CountingAccessMetadata.Methods.GET_TABLE_STATISTICS, 3)
                         .build());
     }
 

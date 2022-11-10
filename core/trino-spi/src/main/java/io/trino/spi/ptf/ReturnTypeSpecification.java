@@ -13,6 +13,8 @@
  */
 package io.trino.spi.ptf;
 
+import io.trino.spi.Experimental;
+
 import static io.trino.spi.ptf.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -21,6 +23,7 @@ import static java.util.Objects.requireNonNull;
  * These are the columns produced by the table function as opposed to the columns
  * of input relations passed through by the table function.
  */
+@Experimental(eta = "2022-10-31")
 public abstract class ReturnTypeSpecification
 {
     /**

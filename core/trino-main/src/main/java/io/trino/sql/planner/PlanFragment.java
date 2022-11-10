@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.connector.CatalogProperties;
 import io.trino.cost.StatsAndCosts;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanFragmentId;
@@ -50,6 +51,7 @@ public class PlanFragment
     private final List<RemoteSourceNode> remoteSourceNodes;
     private final PartitioningScheme partitioningScheme;
     private final StatsAndCosts statsAndCosts;
+    private final List<CatalogProperties> activeCatalogs;
     private final Optional<String> jsonRepresentation;
 
     // Only for creating instances without the JSON representation embedded
@@ -64,7 +66,8 @@ public class PlanFragment
             Set<PlanNode> partitionedSourceNodes,
             List<RemoteSourceNode> remoteSourceNodes,
             PartitioningScheme partitioningScheme,
-            StatsAndCosts statsAndCosts)
+            StatsAndCosts statsAndCosts,
+            List<CatalogProperties> activeCatalogs)
     {
         this.id = requireNonNull(id, "id is null");
         this.root = requireNonNull(root, "root is null");
@@ -77,6 +80,7 @@ public class PlanFragment
         this.remoteSourceNodes = requireNonNull(remoteSourceNodes, "remoteSourceNodes is null");
         this.partitioningScheme = requireNonNull(partitioningScheme, "partitioningScheme is null");
         this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
+        this.activeCatalogs = requireNonNull(activeCatalogs, "activeCatalogs is null");
         this.jsonRepresentation = Optional.empty();
     }
 
@@ -89,6 +93,7 @@ public class PlanFragment
             @JsonProperty("partitionedSources") List<PlanNodeId> partitionedSources,
             @JsonProperty("partitioningScheme") PartitioningScheme partitioningScheme,
             @JsonProperty("statsAndCosts") StatsAndCosts statsAndCosts,
+            @JsonProperty("activeCatalogs") List<CatalogProperties> activeCatalogs,
             @JsonProperty("jsonRepresentation") Optional<String> jsonRepresentation)
     {
         this.id = requireNonNull(id, "id is null");
@@ -98,6 +103,7 @@ public class PlanFragment
         this.partitionedSources = ImmutableList.copyOf(requireNonNull(partitionedSources, "partitionedSources is null"));
         this.partitionedSourcesSet = ImmutableSet.copyOf(partitionedSources);
         this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
+        this.activeCatalogs = requireNonNull(activeCatalogs, "activeCatalogs is null");
         this.jsonRepresentation = requireNonNull(jsonRepresentation, "jsonRepresentation is null");
 
         checkArgument(partitionedSourcesSet.size() == partitionedSources.size(), "partitionedSources contains duplicates");
@@ -165,6 +171,12 @@ public class PlanFragment
     }
 
     @JsonProperty
+    public List<CatalogProperties> getActiveCatalogs()
+    {
+        return activeCatalogs;
+    }
+
+    @JsonProperty
     public Optional<String> getJsonRepresentation()
     {
         // @reviewer: I believe this should be a json raw value, but that would make this class have a different deserialization constructor.
@@ -188,7 +200,8 @@ public class PlanFragment
                 this.partitionedSourceNodes,
                 this.remoteSourceNodes,
                 this.partitioningScheme,
-                this.statsAndCosts);
+                this.statsAndCosts,
+                this.activeCatalogs);
     }
 
     public List<Type> getTypes()
@@ -242,7 +255,7 @@ public class PlanFragment
 
     public PlanFragment withBucketToPartition(Optional<int[]> bucketToPartition)
     {
-        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme.withBucketToPartition(bucketToPartition), statsAndCosts, jsonRepresentation);
+        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme.withBucketToPartition(bucketToPartition), statsAndCosts, activeCatalogs, jsonRepresentation);
     }
 
     @Override

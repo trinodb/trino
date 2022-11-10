@@ -22,7 +22,7 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * This {@link WorkProcessorOperator} adapter allows to adapt {@link WorkProcessor} operators
- * that require customization of input handling (e.g aggregation operators that want to skip extra
+ * that require customization of input handling (e.g. aggregation operators that want to skip extra
  * buffering step or operators that require more sophisticated initial blocking condition).
  * If such customization is not required, it's recommended to use {@link BasicWorkProcessorOperatorAdapter}
  * instead.
@@ -134,8 +134,7 @@ public class WorkProcessorOperatorAdapter
                 operatorContext.aggregateUserMemoryContext(),
                 operatorContext.aggregateRevocableMemoryContext());
         memoryTrackingContext.initializeLocalMemoryContexts(workProcessorOperatorFactory.getOperatorType());
-        this.workProcessorOperator = requireNonNull(workProcessorOperatorFactory, "workProcessorOperatorFactory is null")
-                .createAdapterOperator(new ProcessorContext(operatorContext.getSession(), memoryTrackingContext, operatorContext));
+        this.workProcessorOperator = workProcessorOperatorFactory.createAdapterOperator(new ProcessorContext(operatorContext.getSession(), memoryTrackingContext, operatorContext));
         this.pages = workProcessorOperator.getOutputPages();
         operatorContext.setInfoSupplier(() -> workProcessorOperator.getOperatorInfo().orElse(null));
     }

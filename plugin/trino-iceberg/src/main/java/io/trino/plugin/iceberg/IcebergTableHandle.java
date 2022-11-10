@@ -33,6 +33,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class IcebergTableHandle
         implements ConnectorTableHandle
@@ -42,7 +43,8 @@ public class IcebergTableHandle
     private final TableType tableType;
     private final Optional<Long> snapshotId;
     private final String tableSchemaJson;
-    private final String partitionSpecJson;
+    // Empty means the partitioning spec is not known (can be the case for certain time travel queries).
+    private final Optional<String> partitionSpecJson;
     private final int formatVersion;
     private final String tableLocation;
     private final Map<String, String> storageProperties;
@@ -71,7 +73,7 @@ public class IcebergTableHandle
             @JsonProperty("tableType") TableType tableType,
             @JsonProperty("snapshotId") Optional<Long> snapshotId,
             @JsonProperty("tableSchemaJson") String tableSchemaJson,
-            @JsonProperty("partitionSpecJson") String partitionSpecJson,
+            @JsonProperty("partitionSpecJson") Optional<String> partitionSpecJson,
             @JsonProperty("formatVersion") int formatVersion,
             @JsonProperty("unenforcedPredicate") TupleDomain<IcebergColumnHandle> unenforcedPredicate,
             @JsonProperty("enforcedPredicate") TupleDomain<IcebergColumnHandle> enforcedPredicate,
@@ -108,7 +110,7 @@ public class IcebergTableHandle
             TableType tableType,
             Optional<Long> snapshotId,
             String tableSchemaJson,
-            String partitionSpecJson,
+            Optional<String> partitionSpecJson,
             int formatVersion,
             TupleDomain<IcebergColumnHandle> unenforcedPredicate,
             TupleDomain<IcebergColumnHandle> enforcedPredicate,
@@ -171,7 +173,7 @@ public class IcebergTableHandle
     }
 
     @JsonProperty
-    public String getPartitionSpecJson()
+    public Optional<String> getPartitionSpecJson()
     {
         return partitionSpecJson;
     }
@@ -380,6 +382,17 @@ public class IcebergTableHandle
     @Override
     public String toString()
     {
-        return getSchemaTableNameWithType() + snapshotId.map(v -> "@" + v).orElse("");
+        StringBuilder builder = new StringBuilder(getSchemaTableNameWithType().toString());
+        snapshotId.ifPresent(snapshotId -> builder.append("@").append(snapshotId));
+        if (enforcedPredicate.isNone()) {
+            builder.append(" constraint=FALSE");
+        }
+        else if (!enforcedPredicate.isAll()) {
+            builder.append(" constraint on ");
+            builder.append(enforcedPredicate.getDomains().orElseThrow().keySet().stream()
+                    .map(IcebergColumnHandle::getQualifiedName)
+                    .collect(joining(", ", "[", "]")));
+        }
+        return builder.toString();
     }
 }

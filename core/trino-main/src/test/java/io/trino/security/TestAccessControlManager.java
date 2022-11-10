@@ -16,11 +16,9 @@ package io.trino.security;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.connector.CatalogName;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.eventlistener.EventListenerManager;
-import io.trino.metadata.CatalogManager;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.base.security.AllowAllAccessControl;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
@@ -58,9 +56,12 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.spi.function.FunctionKind.TABLE;
 import static io.trino.spi.security.AccessDeniedException.denySelectTable;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.nio.file.Files.createTempFile;
@@ -99,7 +100,7 @@ public class TestAccessControlManager
     public void testReadOnlySystemAccessControl()
     {
         Identity identity = Identity.forUser(USER_NAME).withPrincipal(PRINCIPAL).build();
-        QualifiedObjectName tableName = new QualifiedObjectName("catalog", "schema", "table");
+        QualifiedObjectName tableName = new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "table");
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = createAccessControlManager(transactionManager);
 
@@ -110,19 +111,19 @@ public class TestAccessControlManager
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
                     SecurityContext context = new SecurityContext(transactionId, identity, queryId);
-                    accessControlManager.checkCanSetCatalogSessionProperty(context, "catalog", "property");
-                    accessControlManager.checkCanShowSchemas(context, "catalog");
-                    accessControlManager.checkCanShowTables(context, new CatalogSchemaName("catalog", "schema"));
+                    accessControlManager.checkCanSetCatalogSessionProperty(context, TEST_CATALOG_NAME, "property");
+                    accessControlManager.checkCanShowSchemas(context, TEST_CATALOG_NAME);
+                    accessControlManager.checkCanShowTables(context, new CatalogSchemaName(TEST_CATALOG_NAME, "schema"));
                     accessControlManager.checkCanSelectFromColumns(context, tableName, ImmutableSet.of("column"));
                     accessControlManager.checkCanCreateViewWithSelectFromColumns(context, tableName, ImmutableSet.of("column"));
                     accessControlManager.checkCanGrantExecuteFunctionPrivilege(context, "function", Identity.ofUser("bob"), false);
                     accessControlManager.checkCanGrantExecuteFunctionPrivilege(context, "function", Identity.ofUser("bob"), true);
-                    Set<String> catalogs = ImmutableSet.of("catalog");
+                    Set<String> catalogs = ImmutableSet.of(TEST_CATALOG_NAME);
                     assertEquals(accessControlManager.filterCatalogs(context, catalogs), catalogs);
                     Set<String> schemas = ImmutableSet.of("schema");
-                    assertEquals(accessControlManager.filterSchemas(context, "catalog", schemas), schemas);
+                    assertEquals(accessControlManager.filterSchemas(context, TEST_CATALOG_NAME, schemas), schemas);
                     Set<SchemaTableName> tableNames = ImmutableSet.of(new SchemaTableName("schema", "table"));
-                    assertEquals(accessControlManager.filterTables(context, "catalog", tableNames), tableNames);
+                    assertEquals(accessControlManager.filterTables(context, TEST_CATALOG_NAME, tableNames), tableNames);
                 });
 
         assertThatThrownBy(() -> transaction(transactionManager, accessControlManager)
@@ -130,7 +131,7 @@ public class TestAccessControlManager
                     accessControlManager.checkCanInsertIntoTable(new SecurityContext(transactionId, identity, queryId), tableName);
                 }))
                 .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot insert into table catalog.schema.table");
+                .hasMessage("Access Denied: Cannot insert into table test-catalog.schema.table");
     }
 
     @Test
@@ -159,7 +160,7 @@ public class TestAccessControlManager
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
-                    accessControlManager.checkCanSelectFromColumns(context(transactionId), new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of("column"));
+                    accessControlManager.checkCanSelectFromColumns(context(transactionId), new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "table"), ImmutableSet.of("column"));
                 });
     }
 
@@ -174,15 +175,38 @@ public class TestAccessControlManager
             accessControlManager.addSystemAccessControlFactory(accessControlFactory);
             accessControlManager.loadSystemAccessControl("test", ImmutableMap.of());
 
-            queryRunner.createCatalog("catalog", MockConnectorFactory.create(), ImmutableMap.of());
-            accessControlManager.setConnectorAccessControlProvider(CatalogServiceProvider.singleton(new CatalogName("catalog"), Optional.of(new DenyConnectorAccessControl())));
+            queryRunner.createCatalog(TEST_CATALOG_NAME, MockConnectorFactory.create(), ImmutableMap.of());
+            accessControlManager.setConnectorAccessControlProvider(CatalogServiceProvider.singleton(TEST_CATALOG_HANDLE, Optional.of(new DenyConnectorAccessControl())));
 
             assertThatThrownBy(() -> transaction(transactionManager, accessControlManager)
                     .execute(transactionId -> {
-                        accessControlManager.checkCanSelectFromColumns(context(transactionId), new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of("column"));
+                        accessControlManager.checkCanSelectFromColumns(context(transactionId), new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "table"), ImmutableSet.of("column"));
                     }))
                     .isInstanceOf(TrinoException.class)
                     .hasMessageMatching("Access Denied: Cannot select from columns \\[column\\] in table or view schema.table");
+        }
+    }
+
+    @Test
+    public void testDenyTableFunctionCatalogAccessControl()
+    {
+        try (LocalQueryRunner queryRunner = LocalQueryRunner.create(TEST_SESSION)) {
+            TransactionManager transactionManager = queryRunner.getTransactionManager();
+            AccessControlManager accessControlManager = createAccessControlManager(transactionManager);
+
+            TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
+            accessControlManager.addSystemAccessControlFactory(accessControlFactory);
+            accessControlManager.loadSystemAccessControl("allow-all", ImmutableMap.of());
+
+            queryRunner.createCatalog(TEST_CATALOG_NAME, MockConnectorFactory.create(), ImmutableMap.of());
+            accessControlManager.setConnectorAccessControlProvider(CatalogServiceProvider.singleton(TEST_CATALOG_HANDLE, Optional.of(new DenyConnectorAccessControl())));
+
+            assertThatThrownBy(() -> transaction(transactionManager, accessControlManager)
+                    .execute(transactionId -> {
+                        accessControlManager.checkCanGrantExecuteFunctionPrivilege(context(transactionId), TABLE, new QualifiedObjectName(TEST_CATALOG_NAME, "example_schema", "executed_function"), Identity.ofUser("bob"), true);
+                    }))
+                    .isInstanceOf(TrinoException.class)
+                    .hasMessageMatching("Access Denied: 'user_name' cannot grant 'example_schema\\.executed_function' execution to user 'bob'");
         }
     }
 
@@ -221,8 +245,8 @@ public class TestAccessControlManager
             });
             accessControlManager.loadSystemAccessControl("test", ImmutableMap.of());
 
-            queryRunner.createCatalog("catalog", MockConnectorFactory.create(), ImmutableMap.of());
-            accessControlManager.setConnectorAccessControlProvider(CatalogServiceProvider.singleton(new CatalogName("catalog"), Optional.of(new ConnectorAccessControl()
+            queryRunner.createCatalog(TEST_CATALOG_NAME, MockConnectorFactory.create(), ImmutableMap.of());
+            accessControlManager.setConnectorAccessControlProvider(CatalogServiceProvider.singleton(TEST_CATALOG_HANDLE, Optional.of(new ConnectorAccessControl()
             {
                 @Override
                 public List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String column, Type type)
@@ -240,7 +264,7 @@ public class TestAccessControlManager
                     .execute(transactionId -> {
                         List<ViewExpression> masks = accessControlManager.getColumnMasks(
                                 context(transactionId),
-                                new QualifiedObjectName("catalog", "schema", "table"),
+                                new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "table"),
                                 "column",
                                 BIGINT);
                         assertEquals(masks.get(0).getExpression(), "connector mask");
@@ -266,8 +290,8 @@ public class TestAccessControlManager
             accessControlManager.addSystemAccessControlFactory(accessControlFactory);
             accessControlManager.loadSystemAccessControl("test", ImmutableMap.of());
 
-            queryRunner.createCatalog("catalog", MockConnectorFactory.create(), ImmutableMap.of());
-            accessControlManager.setConnectorAccessControlProvider(CatalogServiceProvider.singleton(new CatalogName("connector"), Optional.of(new DenyConnectorAccessControl())));
+            queryRunner.createCatalog(TEST_CATALOG_NAME, MockConnectorFactory.create(), ImmutableMap.of());
+            accessControlManager.setConnectorAccessControlProvider(CatalogServiceProvider.singleton(TEST_CATALOG_HANDLE, Optional.of(new DenyConnectorAccessControl())));
 
             assertThatThrownBy(() -> transaction(transactionManager, accessControlManager)
                     .execute(transactionId -> {
@@ -284,15 +308,14 @@ public class TestAccessControlManager
     @Test
     public void testDenyExecuteProcedureBySystem()
     {
-        CatalogManager catalogManager = new CatalogManager();
-        TransactionManager transactionManager = createTestTransactionManager(catalogManager);
+        TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = createAccessControlManager(transactionManager);
 
         TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("deny-all");
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
         accessControlManager.loadSystemAccessControl("deny-all", ImmutableMap.of());
 
-        assertDenyExecuteProcedure(transactionManager, accessControlManager, "Access Denied: Cannot execute procedure connector.schema.procedure");
+        assertDenyExecuteProcedure(transactionManager, accessControlManager, "Access Denied: Cannot execute procedure test-catalog.schema.procedure");
     }
 
     @Test
@@ -303,8 +326,8 @@ public class TestAccessControlManager
             AccessControlManager accessControlManager = createAccessControlManager(transactionManager);
             accessControlManager.loadSystemAccessControl("allow-all", ImmutableMap.of());
 
-            queryRunner.createCatalog("connector", MockConnectorFactory.create(), ImmutableMap.of());
-            accessControlManager.setConnectorAccessControlProvider(CatalogServiceProvider.singleton(new CatalogName("connector"), Optional.of(new DenyConnectorAccessControl())));
+            queryRunner.createCatalog(TEST_CATALOG_NAME, MockConnectorFactory.create(), ImmutableMap.of());
+            accessControlManager.setConnectorAccessControlProvider(CatalogServiceProvider.singleton(TEST_CATALOG_HANDLE, Optional.of(new DenyConnectorAccessControl())));
 
             assertDenyExecuteProcedure(transactionManager, accessControlManager, "Access Denied: Cannot execute procedure schema.procedure");
         }
@@ -318,12 +341,12 @@ public class TestAccessControlManager
             AccessControlManager accessControlManager = createAccessControlManager(transactionManager);
             accessControlManager.loadSystemAccessControl("allow-all", ImmutableMap.of());
 
-            queryRunner.createCatalog("connector", MockConnectorFactory.create(), ImmutableMap.of());
-            accessControlManager.setConnectorAccessControlProvider(CatalogServiceProvider.singleton(new CatalogName("connector"), Optional.of(new AllowAllAccessControl())));
+            queryRunner.createCatalog(TEST_CATALOG_NAME, MockConnectorFactory.create(), ImmutableMap.of());
+            accessControlManager.setConnectorAccessControlProvider(CatalogServiceProvider.singleton(TEST_CATALOG_HANDLE, Optional.of(new AllowAllAccessControl())));
 
             transaction(transactionManager, accessControlManager)
                     .execute(transactionId -> {
-                        accessControlManager.checkCanExecuteProcedure(context(transactionId), new QualifiedObjectName("connector", "schema", "procedure"));
+                        accessControlManager.checkCanExecuteProcedure(context(transactionId), new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "procedure"));
                     });
         }
     }
@@ -409,7 +432,7 @@ public class TestAccessControlManager
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
                     assertThatThrownBy(
-                            () -> accessControlManager.checkCanExecuteProcedure(context(transactionId), new QualifiedObjectName("connector", "schema", "procedure")))
+                            () -> accessControlManager.checkCanExecuteProcedure(context(transactionId), new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "procedure")))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage(s);
                 });
@@ -418,8 +441,7 @@ public class TestAccessControlManager
     @Test
     public void testDenyExecuteFunctionBySystemAccessControl()
     {
-        CatalogManager catalogManager = new CatalogManager();
-        TransactionManager transactionManager = createTestTransactionManager(catalogManager);
+        TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = createAccessControlManager(transactionManager);
 
         TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("deny-all");
@@ -440,8 +462,7 @@ public class TestAccessControlManager
     @Test
     public void testAllowExecuteFunction()
     {
-        CatalogManager catalogManager = new CatalogManager();
-        TransactionManager transactionManager = createTestTransactionManager(catalogManager);
+        TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = createAccessControlManager(transactionManager);
         accessControlManager.loadSystemAccessControl("allow-all", ImmutableMap.of());
 
@@ -449,6 +470,20 @@ public class TestAccessControlManager
                 .execute(transactionId -> {
                     accessControlManager.checkCanExecuteFunction(context(transactionId), "executed_function");
                     accessControlManager.checkCanGrantExecuteFunctionPrivilege(context(transactionId), "executed_function", Identity.ofUser("bob"), true);
+                });
+    }
+
+    @Test
+    public void testAllowExecuteTableFunction()
+    {
+        TransactionManager transactionManager = createTestTransactionManager();
+        AccessControlManager accessControlManager = createAccessControlManager(transactionManager);
+        accessControlManager.loadSystemAccessControl("allow-all", ImmutableMap.of());
+
+        transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    accessControlManager.checkCanExecuteFunction(context(transactionId), TABLE, new QualifiedObjectName(TEST_CATALOG_NAME, "example_schema", "executed_function"));
+                    accessControlManager.checkCanGrantExecuteFunctionPrivilege(context(transactionId), TABLE, new QualifiedObjectName(TEST_CATALOG_NAME, "example_schema", "executed_function"), Identity.ofUser("bob"), true);
                 });
     }
 

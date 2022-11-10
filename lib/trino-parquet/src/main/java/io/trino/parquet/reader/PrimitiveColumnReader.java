@@ -18,10 +18,9 @@ import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV1;
 import io.trino.parquet.DataPageV2;
 import io.trino.parquet.DictionaryPage;
-import io.trino.parquet.Field;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.ParquetTypeUtils;
-import io.trino.parquet.RichColumnDescriptor;
+import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.dictionary.Dictionary;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
@@ -35,8 +34,8 @@ import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
 import org.apache.parquet.internal.filter2.columnindex.RowRanges;
 import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.TimeLogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
-import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType;
 import org.joda.time.DateTimeZone;
 
@@ -62,7 +61,7 @@ import static java.util.Objects.requireNonNull;
 public abstract class PrimitiveColumnReader
 {
     private static final int EMPTY_LEVEL_VALUE = -1;
-    protected final RichColumnDescriptor columnDescriptor;
+    protected final PrimitiveField field;
 
     protected int definitionLevel = EMPTY_LEVEL_VALUE;
     protected int repetitionLevel = EMPTY_LEVEL_VALUE;
@@ -87,62 +86,66 @@ public abstract class PrimitiveColumnReader
 
     private void skipSingleValue()
     {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
+        if (definitionLevel == field.getDescriptor().getMaxDefinitionLevel()) {
             valuesReader.skip();
         }
     }
 
     protected boolean isValueNull()
     {
-        return ParquetTypeUtils.isValueNull(columnDescriptor.isRequired(), definitionLevel, columnDescriptor.getMaxDefinitionLevel());
+        return ParquetTypeUtils.isValueNull(field.isRequired(), definitionLevel, field.getDefinitionLevel());
     }
 
-    public static PrimitiveColumnReader createReader(RichColumnDescriptor descriptor, DateTimeZone timeZone)
+    public static PrimitiveColumnReader createReader(PrimitiveField field, DateTimeZone timeZone)
     {
-        switch (descriptor.getPrimitiveType().getPrimitiveTypeName()) {
+        PrimitiveType primitiveType = field.getDescriptor().getPrimitiveType();
+        switch (primitiveType.getPrimitiveTypeName()) {
             case BOOLEAN:
-                return new BooleanColumnReader(descriptor);
+                return new BooleanColumnReader(field);
             case INT32:
-                return createDecimalColumnReader(descriptor).orElse(new IntColumnReader(descriptor));
+                return createDecimalColumnReader(field).orElse(new IntColumnReader(field));
             case INT64:
-                if (descriptor.getPrimitiveType().getOriginalType() == OriginalType.TIME_MICROS) {
-                    return new TimeMicrosColumnReader(descriptor);
+                if (primitiveType.getLogicalTypeAnnotation() instanceof TimeLogicalTypeAnnotation &&
+                        ((TimeLogicalTypeAnnotation) primitiveType.getLogicalTypeAnnotation()).getUnit() == LogicalTypeAnnotation.TimeUnit.MICROS) {
+                    return new TimeMicrosColumnReader(field);
                 }
-                if (descriptor.getPrimitiveType().getOriginalType() == OriginalType.TIMESTAMP_MICROS) {
-                    return new TimestampMicrosColumnReader(descriptor);
+                if (primitiveType.getLogicalTypeAnnotation() instanceof TimestampLogicalTypeAnnotation &&
+                        ((TimestampLogicalTypeAnnotation) primitiveType.getLogicalTypeAnnotation()).getUnit() == LogicalTypeAnnotation.TimeUnit.MICROS) {
+                    return new TimestampMicrosColumnReader(field);
                 }
-                if (descriptor.getPrimitiveType().getOriginalType() == OriginalType.TIMESTAMP_MILLIS) {
-                    return new Int64TimestampMillisColumnReader(descriptor);
+                if (primitiveType.getLogicalTypeAnnotation() instanceof TimestampLogicalTypeAnnotation &&
+                        ((TimestampLogicalTypeAnnotation) primitiveType.getLogicalTypeAnnotation()).getUnit() == LogicalTypeAnnotation.TimeUnit.MILLIS) {
+                    return new Int64TimestampMillisColumnReader(field);
                 }
-                if (descriptor.getPrimitiveType().getLogicalTypeAnnotation() instanceof TimestampLogicalTypeAnnotation &&
-                        ((TimestampLogicalTypeAnnotation) descriptor.getPrimitiveType().getLogicalTypeAnnotation()).getUnit() == LogicalTypeAnnotation.TimeUnit.NANOS) {
-                    return new Int64TimestampNanosColumnReader(descriptor);
+                if (primitiveType.getLogicalTypeAnnotation() instanceof TimestampLogicalTypeAnnotation &&
+                        ((TimestampLogicalTypeAnnotation) primitiveType.getLogicalTypeAnnotation()).getUnit() == LogicalTypeAnnotation.TimeUnit.NANOS) {
+                    return new Int64TimestampNanosColumnReader(field);
                 }
-                return createDecimalColumnReader(descriptor).orElse(new LongColumnReader(descriptor));
+                return createDecimalColumnReader(field).orElse(new LongColumnReader(field));
             case INT96:
-                return new TimestampColumnReader(descriptor, timeZone);
+                return new TimestampColumnReader(field, timeZone);
             case FLOAT:
-                return new FloatColumnReader(descriptor);
+                return new FloatColumnReader(field);
             case DOUBLE:
-                return new DoubleColumnReader(descriptor);
+                return new DoubleColumnReader(field);
             case BINARY:
-                return createDecimalColumnReader(descriptor).orElse(new BinaryColumnReader(descriptor));
+                return createDecimalColumnReader(field).orElse(new BinaryColumnReader(field));
             case FIXED_LEN_BYTE_ARRAY:
-                Optional<PrimitiveColumnReader> decimalColumnReader = createDecimalColumnReader(descriptor);
+                Optional<PrimitiveColumnReader> decimalColumnReader = createDecimalColumnReader(field);
                 if (decimalColumnReader.isPresent()) {
                     return decimalColumnReader.get();
                 }
-                if (isLogicalUuid(descriptor.getPrimitiveType())) {
-                    return new UuidColumnReader(descriptor);
+                if (isLogicalUuid(primitiveType)) {
+                    return new UuidColumnReader(field);
                 }
-                if (descriptor.getPrimitiveType().getLogicalTypeAnnotation() == null) {
+                if (primitiveType.getLogicalTypeAnnotation() == null) {
                     // Iceberg 0.11.1 writes UUID as FIXED_LEN_BYTE_ARRAY without logical type annotation (see https://github.com/apache/iceberg/pull/2913)
                     // To support such files, we bet on the type to be UUID, which gets verified later, when reading the column data.
-                    return new UuidColumnReader(descriptor);
+                    return new UuidColumnReader(field);
                 }
                 break;
         }
-        throw new TrinoException(NOT_SUPPORTED, "Unsupported column: " + descriptor);
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported column: " + field.getDescriptor());
     }
 
     private static boolean isLogicalUuid(PrimitiveType type)
@@ -159,15 +162,15 @@ public abstract class PrimitiveColumnReader
                 .orElse(FALSE);
     }
 
-    private static Optional<PrimitiveColumnReader> createDecimalColumnReader(RichColumnDescriptor descriptor)
+    private static Optional<PrimitiveColumnReader> createDecimalColumnReader(PrimitiveField field)
     {
-        return createDecimalType(descriptor)
-                .map(decimalType -> DecimalColumnReaderFactory.createReader(descriptor, decimalType));
+        return createDecimalType(field)
+                .map(decimalType -> DecimalColumnReaderFactory.createReader(field, decimalType));
     }
 
-    public PrimitiveColumnReader(RichColumnDescriptor columnDescriptor)
+    public PrimitiveColumnReader(PrimitiveField field)
     {
-        this.columnDescriptor = requireNonNull(columnDescriptor, "columnDescriptor");
+        this.field = requireNonNull(field, "columnDescriptor");
         pageReader = null;
         this.targetRow = 0;
         this.indexIterator = null;
@@ -185,10 +188,10 @@ public abstract class PrimitiveColumnReader
 
         if (dictionaryPage != null) {
             try {
-                dictionary = dictionaryPage.getEncoding().initDictionary(columnDescriptor, dictionaryPage);
+                dictionary = dictionaryPage.getEncoding().initDictionary(field.getDescriptor(), dictionaryPage);
             }
             catch (IOException e) {
-                throw new ParquetDecodingException("could not decode the dictionary for " + columnDescriptor, e);
+                throw new ParquetDecodingException("could not decode the dictionary for " + field.getDescriptor(), e);
             }
         }
         else {
@@ -210,7 +213,7 @@ public abstract class PrimitiveColumnReader
         nextBatchSize = batchSize;
     }
 
-    public ColumnChunk readPrimitive(Field field)
+    public ColumnChunk readPrimitive()
     {
         // Pre-allocate these arrays to the necessary size. This saves a substantial amount of
         // CPU time by avoiding container resizing.
@@ -240,7 +243,7 @@ public abstract class PrimitiveColumnReader
     private void readValues(BlockBuilder blockBuilder, int valuesToRead, Type type, IntList definitionLevels, IntList repetitionLevels)
     {
         processValues(valuesToRead, () -> {
-            if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
+            if (definitionLevel == field.getDefinitionLevel()) {
                 readValue(blockBuilder, type);
             }
             else if (isValueNull()) {
@@ -380,8 +383,8 @@ public abstract class PrimitiveColumnReader
 
     private ValuesReader readPageV1(DataPageV1 page)
     {
-        ValuesReader rlReader = page.getRepetitionLevelEncoding().getValuesReader(columnDescriptor, REPETITION_LEVEL);
-        ValuesReader dlReader = page.getDefinitionLevelEncoding().getValuesReader(columnDescriptor, DEFINITION_LEVEL);
+        ValuesReader rlReader = page.getRepetitionLevelEncoding().getValuesReader(field.getDescriptor(), REPETITION_LEVEL);
+        ValuesReader dlReader = page.getDefinitionLevelEncoding().getValuesReader(field.getDescriptor(), DEFINITION_LEVEL);
         repetitionReader = new LevelValuesReader(rlReader);
         definitionReader = new LevelValuesReader(dlReader);
         try {
@@ -391,14 +394,14 @@ public abstract class PrimitiveColumnReader
             return initDataReader(page.getValueEncoding(), page.getValueCount(), in, page.getFirstRowIndex());
         }
         catch (IOException e) {
-            throw new ParquetDecodingException("Error reading parquet page " + page + " in column " + columnDescriptor, e);
+            throw new ParquetDecodingException("Error reading parquet page " + page + " in column " + field.getDescriptor(), e);
         }
     }
 
     private ValuesReader readPageV2(DataPageV2 page)
     {
-        repetitionReader = buildLevelRLEReader(columnDescriptor.getMaxRepetitionLevel(), page.getRepetitionLevels());
-        definitionReader = buildLevelRLEReader(columnDescriptor.getMaxDefinitionLevel(), page.getDefinitionLevels());
+        repetitionReader = buildLevelRLEReader(field.getDescriptor().getMaxRepetitionLevel(), page.getRepetitionLevels());
+        definitionReader = buildLevelRLEReader(field.getDescriptor().getMaxDefinitionLevel(), page.getDefinitionLevels());
         return initDataReader(page.getDataEncoding(), page.getValueCount(), toInputStream(page.getSlice()), page.getFirstRowIndex());
     }
 
@@ -417,10 +420,10 @@ public abstract class PrimitiveColumnReader
             if (dictionary == null) {
                 throw new ParquetDecodingException("Dictionary is missing for Page");
             }
-            valuesReader = dataEncoding.getDictionaryBasedValuesReader(columnDescriptor, VALUES, dictionary);
+            valuesReader = dataEncoding.getDictionaryBasedValuesReader(field.getDescriptor(), VALUES, dictionary);
         }
         else {
-            valuesReader = dataEncoding.getValuesReader(columnDescriptor, VALUES);
+            valuesReader = dataEncoding.getValuesReader(field.getDescriptor(), VALUES);
         }
 
         try {
@@ -431,7 +434,7 @@ public abstract class PrimitiveColumnReader
             return valuesReader;
         }
         catch (IOException e) {
-            throw new ParquetDecodingException("Error reading parquet page in column " + columnDescriptor, e);
+            throw new ParquetDecodingException("Error reading parquet page in column " + field.getDescriptor(), e);
         }
     }
 

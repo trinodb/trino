@@ -16,12 +16,13 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.JoinNode;
-import io.trino.sql.planner.plan.JoinNode.Type;
+import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ValuesNode;
 
-import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
+import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isEmpty;
 import static io.trino.sql.planner.plan.Patterns.join;
 
 public class RemoveRedundantJoin
@@ -38,10 +39,7 @@ public class RemoveRedundantJoin
     @Override
     public Result apply(JoinNode node, Captures captures, Context context)
     {
-        if (canRemoveJoin(
-                node.getType(),
-                isAtMost(node.getLeft(), context.getLookup(), 0),
-                isAtMost(node.getRight(), context.getLookup(), 0))) {
+        if (canRemoveJoin(node, context.getLookup())) {
             return Result.ofPlanNode(
                     new ValuesNode(
                             context.getIdAllocator().getNextId(),
@@ -52,19 +50,15 @@ public class RemoveRedundantJoin
         return Result.empty();
     }
 
-    private boolean canRemoveJoin(Type joinType, boolean isLeftSourceEmpty, boolean isRightSourceEmpty)
+    private boolean canRemoveJoin(JoinNode joinNode, Lookup lookup)
     {
-        switch (joinType) {
-            case INNER:
-                return isLeftSourceEmpty || isRightSourceEmpty;
-            case LEFT:
-                return isLeftSourceEmpty;
-            case RIGHT:
-                return isRightSourceEmpty;
-            case FULL:
-                return isLeftSourceEmpty && isRightSourceEmpty;
-        }
-
-        return false;
+        PlanNode left = joinNode.getLeft();
+        PlanNode right = joinNode.getRight();
+        return switch (joinNode.getType()) {
+            case INNER -> isEmpty(left, lookup) || isEmpty(right, lookup);
+            case LEFT -> isEmpty(left, lookup);
+            case RIGHT -> isEmpty(right, lookup);
+            case FULL -> isEmpty(left, lookup) && isEmpty(right, lookup);
+        };
     }
 }

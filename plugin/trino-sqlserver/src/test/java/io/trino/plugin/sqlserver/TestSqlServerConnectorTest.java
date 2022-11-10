@@ -35,11 +35,15 @@ import static io.trino.plugin.sqlserver.SqlServerQueryRunner.createSqlServerQuer
 import static io.trino.plugin.sqlserver.SqlServerSessionProperties.BULK_COPY_FOR_WRITE;
 import static io.trino.plugin.sqlserver.SqlServerSessionProperties.BULK_COPY_FOR_WRITE_LOCK_DESTINATION_TABLE;
 import static io.trino.testing.DataProviders.cartesianProduct;
+import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.DataProviders.trueFalse;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestSqlServerConnectorTest
         extends BaseSqlServerConnectorTest
@@ -151,6 +155,54 @@ public class TestSqlServerConnectorTest
         }
     }
 
+    // TODO move test to BaseConnectorTest https://github.com/trinodb/trino/issues/14517
+    @Test(dataProvider = "testTableNameDataProvider")
+    public void testCreateAndDropTableWithSpecialCharacterName(String tableName)
+    {
+        String tableNameInSql = "\"" + tableName.replace("\"", "\"\"") + "\"";
+        // Until https://github.com/trinodb/trino/issues/17 the table name is effectively lowercase
+        tableName = tableName.toLowerCase(ENGLISH);
+        assertUpdate("CREATE TABLE " + tableNameInSql + " (a bigint, b double, c varchar(50))");
+        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+        assertTableColumnNames(tableNameInSql, "a", "b", "c");
+
+        assertUpdate("DROP TABLE " + tableNameInSql);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
+    // TODO remove this test after https://github.com/trinodb/trino/issues/14517
+    @Test(dataProvider = "testTableNameDataProvider")
+    public void testRenameColumnNameAdditionalTests(String columnName)
+    {
+        String nameInSql = "\"" + columnName.replace("\"", "\"\"") + "\"";
+        String tableName = "tcn_" + nameInSql.replaceAll("[^a-z0-9]", "") + randomTableSuffix();
+        // Use complex identifier to test a source column name when renaming columns
+        String sourceColumnName = "a;b$c";
+
+        assertUpdate("CREATE TABLE " + tableName + "(\"" + sourceColumnName + "\" varchar(50))");
+        assertTableColumnNames(tableName, sourceColumnName);
+
+        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN \"" + sourceColumnName + "\" TO " + nameInSql);
+        assertTableColumnNames(tableName, columnName.toLowerCase(ENGLISH));
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    // TODO move this test to BaseConnectorTest https://github.com/trinodb/trino/issues/14517
+    @Test(dataProvider = "testTableNameDataProvider")
+    public void testRenameFromToTableWithSpecialCharacterName(String tableName)
+    {
+        String tableNameInSql = "\"" + tableName.replace("\"", "\"\"") + "\"";
+        String sourceTableName = "test_rename_source_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
+
+        assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + tableNameInSql);
+        assertQuery("SELECT x FROM " + tableNameInSql, "VALUES 123");
+        // test rename back is working properly
+        assertUpdate("ALTER TABLE " + tableNameInSql + " RENAME TO " + sourceTableName);
+        assertUpdate("DROP TABLE " + sourceTableName);
+    }
+
     private int getTableOperationsCount(String operation, String table)
             throws SQLException
     {
@@ -194,5 +246,45 @@ public class TestSqlServerConnectorTest
                 {"timestamp(9)"},
                 {"timestamp(12)"}
         };
+    }
+
+    // TODO replace TableNameDataProvider and ColumnNameDataProvider with ObjectNameDataProvider
+    //  to one big single list of all special character cases, current list has additional special bracket cases,
+    //  please don't forget to use this list as base
+    @DataProvider
+    public Object[][] testTableNameDataProvider()
+    {
+        return testTableNameTestData().stream()
+                .collect(toDataProvider());
+    }
+
+    private List<String> testTableNameTestData()
+    {
+        return ImmutableList.<String>builder()
+                .add("lowercase")
+                .add("UPPERCASE")
+                .add("MixedCase")
+                .add("an_underscore")
+                .add("a-hyphen-minus") // ASCII '-' is HYPHEN-MINUS in Unicode
+                .add("a space")
+                .add("atrailingspace ")
+                .add(" aleadingspace")
+                .add("a.dot")
+                .add("a,comma")
+                .add("a:colon")
+                .add("a;semicolon")
+                .add("an@at")
+                .add("a\"quote")
+                .add("an'apostrophe")
+                .add("a`backtick`")
+                .add("a/slash`")
+                .add("a\\backslash`")
+                .add("adigit0")
+                .add("0startwithdigit")
+                .add("[brackets]")
+                .add("brackets[]inside")
+                .add("open[bracket")
+                .add("close]bracket")
+                .build();
     }
 }

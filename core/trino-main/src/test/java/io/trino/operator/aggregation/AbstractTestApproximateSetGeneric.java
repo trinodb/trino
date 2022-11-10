@@ -190,9 +190,7 @@ public abstract class AbstractTestApproximateSetGeneric
         if (values.isEmpty()) {
             return new Page(0);
         }
-        else {
-            return new Page(values.size(), createBlock(getValueType(), values));
-        }
+        return new Page(values.size(), createBlock(getValueType(), values));
     }
 
     /**

@@ -17,7 +17,7 @@ create a new metadata file and replace the old metadata with an atomic swap.
 The table metadata file tracks the table schema, partitioning config,
 custom properties, and snapshots of the table contents.
 
-Iceberg data files can be stored in either Parquet or ORC format, as
+Iceberg data files can be stored in either Parquet, ORC or Avro format, as
 determined by the ``format`` property in the table definition.  The
 table ``format`` defaults to ``ORC``.
 
@@ -96,6 +96,7 @@ is used.
 
       * ``PARQUET``
       * ``ORC``
+      * ``AVRO``
     - ``ORC``
   * - ``iceberg.compression-codec``
     - The compression codec to be used when writing files.
@@ -121,7 +122,7 @@ is used.
     - ``1GB``
   * - ``iceberg.unique-table-location``
     - Use randomized, unique table locations.
-    - ``false``
+    - ``true``
   * - ``iceberg.dynamic-filtering.wait-timeout``
     - Maximum duration to wait for completion of dynamic filters during split generation.
     - ``0s``
@@ -201,6 +202,16 @@ property must be one of the following values:
       :ref:`catalog-file-based-access-control` for information on the
       authorization configuration file.
 
+.. _iceberg-table-redirection:
+
+Table redirection
+-----------------
+
+.. include:: table-redirection.fragment
+
+The connector supports redirection from Iceberg tables to Hive tables
+with the ``iceberg.hive-catalog-name`` catalog configuration property.
+
 .. _iceberg-sql-support:
 
 SQL support
@@ -214,6 +225,7 @@ supports the following features:
 * :doc:`/sql/insert`
 * :doc:`/sql/delete`, see also :ref:`iceberg-delete`
 * :doc:`/sql/update`
+* :doc:`/sql/merge`
 * :ref:`sql-schema-table-management`, see also :ref:`iceberg-tables`
 * :ref:`sql-materialized-view-management`, see also
   :ref:`iceberg-materialized-views`
@@ -298,6 +310,20 @@ otherwise the procedure will fail with similar message:
 ``Retention specified (1.00d) is shorter than the minimum retention configured in the system (7.00d)``.
 The default value for this property is ``7d``.
 
+.. _drop-extended-stats:
+
+drop_extended_stats
+~~~~~~~~~~~~~~~~~~~
+
+This is an experimental command to remove extended statistics from the table.
+
+``drop_extended_stats`` can be run as follows:
+
+.. code-block:: sql
+
+  SET SESSION my_catalog.experimental_extended_statistics_enabled = true;
+  ALTER TABLE test_table EXECUTE drop_extended_stats
+
 .. _iceberg-alter-table-set-properties:
 
 ALTER TABLE SET PROPERTIES
@@ -331,14 +357,27 @@ The current values of a table's properties can be shown using :doc:`SHOW CREATE 
 Type mapping
 ------------
 
-Both Iceberg and Trino have types that are not supported by the Iceberg
-connector. The following sections explain their type mapping.
+The connector reads and writes data into the supported data file formats Avro,
+ORC, and Parquet, following the Iceberg specification.
+
+Because Trino and Iceberg each support types that the other does not, this
+connector :ref:`modifies some types <type-mapping-overview>` when reading or
+writing data. Data types may not map the same way in both directions between
+Trino and the data source. Refer to the following sections for type mapping in
+each direction.
+
+The Iceberg specification includes supported data types and the mapping to the
+formating in the Avro, ORC, or Parquet files:
+
+* `Iceberg to Avro <https://iceberg.apache.org/spec/#avro>`_
+* `Iceberg to ORC <https://iceberg.apache.org/spec/#orc>`_
+* `Iceberg to Parquet <https://iceberg.apache.org/spec/#parquet>`_
 
 Iceberg to Trino type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Trino supports selecting Iceberg data types. The following table shows the
-Iceberg to Trino type mapping:
+The connector maps Iceberg types to the corresponding Trino types following this
+table:
 
 .. list-table:: Iceberg to Trino type mapping
   :widths: 40, 60
@@ -372,6 +411,8 @@ Iceberg to Trino type mapping:
     - ``UUID``
   * - ``BINARY``
     - ``VARBINARY``
+  * - ``FIXED (L)``
+    - ``VARBINARY``
   * - ``STRUCT(...)``
     - ``ROW(...)``
   * - ``LIST(e)``
@@ -379,68 +420,54 @@ Iceberg to Trino type mapping:
   * - ``MAP(k,v)``
     - ``MAP(k,v)``
 
+No other types are supported.
+
 Trino to Iceberg type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Trino supports creating tables with the following types in Iceberg. The table
-shows the mappings from Trino to Iceberg data types:
-
+The connector maps Trino types to the corresponding Iceberg types following
+this table:
 
 .. list-table:: Trino to Iceberg type mapping
-  :widths: 25, 30, 45
+  :widths: 40, 60
   :header-rows: 1
 
   * - Trino type
     - Iceberg type
-    - Notes
   * - ``BOOLEAN``
     - ``BOOLEAN``
-    -
   * - ``INTEGER``
     - ``INT``
-    -
   * - ``BIGINT``
     - ``LONG``
-    -
   * - ``REAL``
     - ``FLOAT``
-    -
   * - ``DOUBLE``
     - ``DOUBLE``
-    -
   * - ``DECIMAL(p,s)``
     - ``DECIMAL(p,s)``
-    -
   * - ``DATE``
     - ``DATE``
-    -
   * - ``TIME(6)``
     - ``TIME``
-    - Other precisions not supported
   * - ``TIMESTAMP(6)``
     - ``TIMESTAMP``
-    - Other precisions not supported
   * - ``TIMESTAMP(6) WITH TIME ZONE``
     - ``TIMESTAMPTZ``
-    - Other precisions not supported
-  * - ``VARCHAR, VARCHAR(n)``
+  * - ``VARCHAR``
     - ``STRING``
-    -
   * - ``UUID``
     - ``UUID``
-    -
   * - ``VARBINARY``
     - ``BINARY``
-    -
   * - ``ROW(...)``
     - ``STRUCT(...)``
-    - All fields must have a name
   * - ``ARRAY(e)``
     - ``LIST(e)``
-    -
   * - ``MAP(k,v)``
     - ``MAP(k,v)``
-    -
+
+No other types are supported.
 
 .. _iceberg-tables:
 
@@ -508,17 +535,51 @@ Row level deletion
 Tables using v2 of the Iceberg specification support deletion of individual rows
 by writing position delete files.
 
-Rolling back to a previous snapshot
------------------------------------
+Snapshots
+---------
 
 Iceberg supports a "snapshot" model of data, where table snapshots are
-identified by an snapshot IDs.
+identified by a snapshot ID.
 
-The connector provides a system snapshots table for each Iceberg table.  Snapshots are
-identified by BIGINT snapshot IDs.  You can find the latest snapshot ID for table
-``customer_orders`` by running the following command::
+The connector provides a system table exposing snapshot information for every
+Iceberg table. Snapshots are identified by ``BIGINT`` snapshot IDs.
+For example, you could find the snapshot IDs for the ``customer_orders`` table
+by running the following query::
 
-    SELECT snapshot_id FROM iceberg.testdb."customer_orders$snapshots" ORDER BY committed_at DESC LIMIT 1
+    SELECT snapshot_id
+    FROM iceberg.testdb."customer_orders$snapshots"
+    ORDER BY committed_at DESC
+
+Time travel queries
+^^^^^^^^^^^^^^^^^^^
+
+The connector offers the ability to query historical data.
+This allows you to query the table as it was when a previous snapshot
+of the table was taken, even if the data has since been modified or deleted.
+
+The historical data of the table can be retrieved by specifying the
+snapshot identifier corresponding to the version of the table that
+needs to be retrieved::
+
+   SELECT *
+   FROM iceberg.testdb.customer_orders FOR VERSION AS OF 8954597067493422955
+
+A different approach of retrieving historical data is to specify
+a point in time in the past, such as a day or week ago. The latest snapshot
+of the table taken before or at the specified timestamp in the query is
+internally used for providing the previous state of the table::
+
+   SELECT *
+   FROM iceberg.testdb.customer_orders FOR TIMESTAMP AS OF TIMESTAMP '2022-03-23 09:59:29.803 Europe/Vienna'
+
+Rolling back to a previous snapshot
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Use the ``$snapshots`` metadata table to determine the latest snapshot ID of the table like in the following query::
+
+    SELECT snapshot_id
+    FROM iceberg.testdb."customer_orders$snapshots"
+    ORDER BY committed_at DESC LIMIT 1
 
 A SQL procedure ``system.rollback_to_snapshot`` allows the caller to roll back
 the state of the table to a previous snapshot id::
@@ -528,8 +589,8 @@ the state of the table to a previous snapshot id::
 Schema evolution
 ----------------
 
-Iceberg and the Iceberg connector support schema evolution, with safe
-column add, drop, reorder and rename operations, including in nested structures.
+Iceberg supports schema evolution, with safe column add, drop, reorder
+and rename operations, including in nested structures.
 Table partitioning can also be changed and the connector can still
 query data created before the partitioning change.
 
@@ -549,7 +610,7 @@ Iceberg table properties
 Property name                                      Description
 ================================================== ================================================================
 ``format``                                         Optionally specifies the format of table data files;
-                                                   either ``PARQUET`` or ``ORC``.  Defaults to ``ORC``.
+                                                   either ``PARQUET``, ``ORC`` or ``AVRO```.  Defaults to ``ORC``.
 
 ``partitioning``                                   Optionally specifies table partitioning.
                                                    If a table is partitioned by columns ``c1`` and ``c2``, the
@@ -609,11 +670,13 @@ path metadata as a hidden column in each table:
 
 * ``$path``: Full file system path name of the file for this row
 
-You can use this column in your SQL statements like any other column. This
+* ``$file_modified_time``: Timestamp of the last modification of the file for this row
+
+You can use these columns in your SQL statements like any other column. This
 can be selected directly, or used in conditional statements. For example, you
 can inspect the file path for each record::
 
-    SELECT *, "$path"
+    SELECT *, "$path", "$file_modified_time"
     FROM iceberg.web.page_views;
 
 Retrieve all records that belong to a specific file using ``"$path"`` filter::
@@ -621,6 +684,12 @@ Retrieve all records that belong to a specific file using ``"$path"`` filter::
     SELECT *
     FROM iceberg.web.page_views
     WHERE "$path" = '/usr/iceberg/table/web.page_views/data/file_01.parquet'
+
+Retrieve all records that belong to a specific file using ``"$file_modified_time"`` filter::
+
+    SELECT *
+    FROM iceberg.web.page_views
+    WHERE "$file_modified_time" = CAST('2022-07-01 01:02:03.456 UTC' AS timestamp with time zone)
 
 .. _iceberg-metadata-tables:
 
@@ -775,9 +844,9 @@ You can retrieve the information about the manifests of the Iceberg table
 
 .. code-block:: text
 
-     path                                                                                                           | length          | partition_spec_id    | added_snapshot_id     |  added_data_files_count  | existing_data_files_count   | deleted_data_files_count    | partitions
-    ----------------------------------------------------------------------------------------------------------------+-----------------+----------------------+-----------------------+--------------------------+-----------------------------+-----------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
-     hdfs://hadoop-master:9000/user/hive/warehouse/test_table/metadata/faa19903-1455-4bb8-855a-61a1bbafbaa7-m0.avro |  6277           |   0                  | 7860805980949777961   |  1                       |   0                         |  0                          |{{contains_null=false, contains_nan= false, lower_bound=1, upper_bound=1},{contains_null=false, contains_nan= false, lower_bound=2021-01-12, upper_bound=2021-01-12}}
+     path                                                                                                           | length          | partition_spec_id    | added_snapshot_id     | added_data_files_count  | added_rows_count | existing_data_files_count   | existing_rows_count | deleted_data_files_count    | deleted_rows_count | partitions
+    ----------------------------------------------------------------------------------------------------------------+-----------------+----------------------+-----------------------+-------------------------+------------------+-----------------------------+---------------------+-----------------------------+--------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+     hdfs://hadoop-master:9000/user/hive/warehouse/test_table/metadata/faa19903-1455-4bb8-855a-61a1bbafbaa7-m0.avro |  6277           |   0                  | 7860805980949777961   | 1                       | 100              | 0                           | 0                   | 0                           | 0                  | {{contains_null=false, contains_nan= false, lower_bound=1, upper_bound=1},{contains_null=false, contains_nan= false, lower_bound=2021-01-12, upper_bound=2021-01-12}}
 
 
 The output of the query has the following columns:
@@ -804,12 +873,21 @@ The output of the query has the following columns:
   * - ``added_data_files_count``
     - ``integer``
     - The number of data files with status ``ADDED`` in the manifest file
+  * - ``added_rows_count``
+    - ``bigint``
+    - The total number of rows in all data files with status ``ADDED`` in the manifest file.
   * - ``existing_data_files_count``
     - ``integer``
     - The number of data files with status ``EXISTING`` in the manifest file
+  * - ``existing_rows_count``
+    - ``bigint``
+    - The total number of rows in all data files with status ``EXISTING`` in the manifest file.
   * - ``deleted_data_files_count``
     - ``integer``
     - The number of data files with status ``DELETED`` in the manifest file
+  * - ``deleted_rows_count``
+    - ``bigint``
+    - The total number of rows in all data files with status ``DELETED`` in the manifest file.
   * - ``partitions``
     - ``array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))``
     - Partition range metadata
@@ -966,11 +1044,39 @@ view is queried, the snapshot-ids are used to check if the data in the storage
 table is up to date. If the data is outdated, the materialized view behaves
 like a normal view, and the data is queried directly from the base tables.
 
-.. warning::
-
-    There is a small time window between the commit of the delete and insert,
-    when the materialized view is empty. If the commit operation for the insert
-    fails, the materialized view remains empty.
-
 Dropping a materialized view with :doc:`/sql/drop-materialized-view` removes
 the definition and the storage table.
+
+Table statistics
+----------------
+
+There is experimental support to collect column statistics which can be enabled by
+setting the ``iceberg.experimental.extended-statistics.enabled`` catalog
+configuration property or the corresponding
+``experimental_extended_statistics_enabled`` session property to ``true``.
+Enabling this configuration allows executing :doc:`/sql/analyze` statement to gather statistics.
+
+.. _iceberg_analyze:
+
+Updating table statistics
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If your queries are complex and include joining large data sets,
+running :doc:`/sql/analyze` on tables may improve query performance
+by collecting statistical information about the data::
+
+    ANALYZE table_name
+
+This query collects statistics for all columns.
+
+On wide tables, collecting statistics for all columns can be expensive.
+It is also typically unnecessary - statistics are
+only useful on specific columns, like join keys, predicates, or grouping keys. You can
+specify a subset of columns to analyzed with the optional ``columns`` property::
+
+    ANALYZE table_name WITH (columns = ARRAY['col_1', 'col_2'])
+
+This query collects statistics for columns ``col_1`` and ``col_2``.
+
+Note that if statistics were previously collected for all columns, they need to be dropped
+using :ref:`drop_extended_stats <drop-extended-stats>` command before re-analyzing.

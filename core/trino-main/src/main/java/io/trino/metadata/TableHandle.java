@@ -15,7 +15,7 @@ package io.trino.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
@@ -25,25 +25,25 @@ import static java.util.Objects.requireNonNull;
 
 public final class TableHandle
 {
-    private final CatalogName catalogName;
+    private final CatalogHandle catalogHandle;
     private final ConnectorTableHandle connectorHandle;
     private final ConnectorTransactionHandle transaction;
 
     @JsonCreator
     public TableHandle(
-            @JsonProperty("catalogName") CatalogName catalogName,
+            @JsonProperty("catalogHandle") CatalogHandle catalogHandle,
             @JsonProperty("connectorHandle") ConnectorTableHandle connectorHandle,
             @JsonProperty("transaction") ConnectorTransactionHandle transaction)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
         this.transaction = requireNonNull(transaction, "transaction is null");
     }
 
     @JsonProperty
-    public CatalogName getCatalogName()
+    public CatalogHandle getCatalogHandle()
     {
-        return catalogName;
+        return catalogHandle;
     }
 
     @JsonProperty
@@ -61,7 +61,7 @@ public final class TableHandle
     public TableHandle withConnectorHandle(ConnectorTableHandle connectorHandle)
     {
         return new TableHandle(
-                catalogName,
+                catalogHandle,
                 connectorHandle,
                 transaction);
     }
@@ -69,7 +69,7 @@ public final class TableHandle
     @Override
     public String toString()
     {
-        return catalogName + ":" + connectorHandle;
+        return catalogHandle + ":" + connectorHandle;
     }
 
     @Override
@@ -82,7 +82,7 @@ public final class TableHandle
             return false;
         }
         TableHandle other = (TableHandle) o;
-        return Objects.equals(catalogName, other.catalogName) &&
+        return Objects.equals(catalogHandle, other.catalogHandle) &&
                 Objects.equals(connectorHandle, other.connectorHandle) &&
                 Objects.equals(transaction, other.transaction);
     }
@@ -90,6 +90,6 @@ public final class TableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(catalogName, connectorHandle, transaction);
+        return Objects.hash(catalogHandle, connectorHandle, transaction);
     }
 }

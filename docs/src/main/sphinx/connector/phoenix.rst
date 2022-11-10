@@ -57,6 +57,9 @@ Property name                                      Required   Description
 
 .. include:: jdbc-common-configurations.fragment
 
+.. |default_domain_compaction_threshold| replace:: ``5000``
+.. include:: jdbc-domain-compaction-threshold.fragment
+
 .. include:: jdbc-procedures.fragment
 
 .. include:: jdbc-case-insensitive-matching.fragment
@@ -94,40 +97,115 @@ that catalog name instead of ``phoenix`` in the above examples.
 Type mapping
 ------------
 
-The data type mappings are as follows:
+Because Trino and Phoenix each support types that the other does not, this
+connector :ref:`modifies some types <type-mapping-overview>` when reading or
+writing data. Data types may not map the same way in both directions between
+Trino and the data source. Refer to the following sections for type mapping in
+each direction.
 
-==========================   ============
-Phoenix                      Trino
-==========================   ============
-``BOOLEAN``                  (same)
-``TINYINT``                  (same)
-``UNSIGNED_TINYINT``         ``TINYINT``
-``SMALLINT``                 (same)
-``UNSIGNED_SMALLINT``        ``SMALLINT``
-``INTEGER``                  (same)
-``UNSIGNED_INTEGER``         ``INTEGER``
-``BIGINT``                   (same)
-``UNSIGNED_LONG``            ``BIGINT``
-``FLOAT``                    ``REAL``
-``UNSIGNED_FLOAT``           ``FLOAT``
-``DOUBLE``                   (same)
-``UNSIGNED_DOUBLE``          ``DOUBLE``
-``DECIMAL``                  (same)
-``BINARY``                   ``VARBINARY``
-``VARBINARY``                (same)
-``TIME``                     (same)
-``UNSIGNED_TIME``            ``TIME``
-``DATE``                     (same)
-``UNSIGNED_DATE``            ``DATE``
-``CHAR``                     (same)
-``VARCHAR``                  (same)
-``ARRAY``                    (same)
-==========================   ============
+Phoenix type to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The Phoenix fixed length ``BINARY`` data type is mapped to the Trino
-variable length ``VARBINARY`` data type. There is no way to create a
-Phoenix table in Trino that uses the ``BINARY`` data type, as Trino
-does not have an equivalent type.
+The connector maps Phoenix types to the corresponding Trino types following this
+table:
+
+.. list-table:: Phoenix type to Trino type mapping
+  :widths: 30, 20
+  :header-rows: 1
+
+  * - Phoenix database type
+    - Trino type
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+  * - ``TINYINT``
+    - ``TINYINT``
+  * - ``UNSIGNED_TINYINT``
+    - ``TINYINT``
+  * - ``SMALLINT``
+    - ``SMALLINT``
+  * - ``UNSIGNED_SMALLINT``
+    - ``SMALLINT``
+  * - ``INTEGER``
+    - ``INTEGER``
+  * - ``UNSIGNED_INT``
+    - ``INTEGER``
+  * - ``BIGINT``
+    - ``BIGINT``
+  * - ``UNSIGNED_LONG``
+    - ``BIGINT``
+  * - ``FLOAT``
+    - ``REAL``
+  * - ``UNSIGNED_FLOAT``
+    - ``REAL``
+  * - ``DOUBLE``
+    - ``DOUBLE``
+  * - ``UNSIGNED_DOUBLE``
+    - ``DOUBLE``
+  * - ``DECIMAL(p,s)``
+    - ``DECIMAL(p,s)``
+  * - ``CHAR(n)``
+    - ``CHAR(n)``
+  * - ``VARCHAR(n)``
+    - ``VARCHAR(n)``
+  * - ``BINARY``
+    - ``VARBINARY``
+  * - ``VARBINARY``
+    - ``VARBINARY``
+  * - ``DATE``
+    - ``DATE``
+  * - ``UNSIGNED_DATE``
+    - ``DATE``
+  * - ``ARRAY``
+    - ``ARRAY``
+
+No other types are supported.
+
+Trino type to Phoenix type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The Phoenix fixed length ``BINARY`` data type is mapped to the Trino variable
+length ``VARBINARY`` data type. There is no way to create a Phoenix table in
+Trino that uses the ``BINARY`` data type, as Trino does not have an equivalent
+type.
+
+The connector maps Trino types to the corresponding Phoenix types following this
+table:
+
+.. list-table:: Trino type to Phoenix type mapping
+  :widths: 30, 20
+  :header-rows: 1
+
+  * - Trino database type
+    - Phoenix type
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+  * - ``TINYINT``
+    - ``TINYINT``
+  * - ``SMALLINT``
+    - ``SMALLINT``
+  * - ``INTEGER``
+    - ``INTEGER``
+  * - ``BIGINT``
+    - ``BIGINT``
+  * - ``REAL``
+    - ``FLOAT``
+  * - ``DOUBLE``
+    - ``DOUBLE``
+  * - ``DECIMAL(p,s)``
+    - ``DECIMAL(p,s)``
+  * - ``CHAR(n)``
+    - ``CHAR(n)``
+  * - ``VARCHAR(n)``
+    - ``VARCHAR(n)``
+  * - ``VARBINARY``
+    - ``VARBINARY``
+  * - ``TIME``
+    - ``TIME``
+  * - ``DATE``
+    - ``DATE``
+  * - ``ARRAY``
+    - ``ARRAY``
+
+No other types are supported.
 
 Decimal type handling
 ^^^^^^^^^^^^^^^^^^^^^
@@ -141,7 +219,7 @@ By default, values that require rounding or truncation to fit will cause a failu
 is controlled via the ``decimal-rounding-mode`` configuration property or the ``decimal_rounding_mode`` session
 property, which can be set to ``UNNECESSARY`` (the default),
 ``UP``, ``DOWN``, ``CEILING``, ``FLOOR``, ``HALF_UP``, ``HALF_DOWN``, or ``HALF_EVEN``
-(see `RoundingMode <https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/math/RoundingMode.html#enum.constant.summary>`_).
+(see `RoundingMode <https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/math/RoundingMode.html#enum.constant.summary>`_).
 
 .. include:: jdbc-type-mapping.fragment
 

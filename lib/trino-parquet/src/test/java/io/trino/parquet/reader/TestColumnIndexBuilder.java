@@ -24,6 +24,7 @@ import org.apache.parquet.internal.column.columnindex.BoundaryOrder;
 import org.apache.parquet.internal.column.columnindex.ColumnIndex;
 import org.apache.parquet.internal.column.columnindex.ColumnIndexBuilder;
 import org.apache.parquet.io.api.Binary;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
 import org.testng.annotations.Test;
@@ -51,9 +52,6 @@ import static org.apache.parquet.filter2.predicate.FilterApi.ltEq;
 import static org.apache.parquet.filter2.predicate.FilterApi.notEq;
 import static org.apache.parquet.filter2.predicate.FilterApi.userDefined;
 import static org.apache.parquet.filter2.predicate.LogicalInverter.invert;
-import static org.apache.parquet.schema.OriginalType.DECIMAL;
-import static org.apache.parquet.schema.OriginalType.UINT_8;
-import static org.apache.parquet.schema.OriginalType.UTF8;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BOOLEAN;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.DOUBLE;
@@ -265,7 +263,7 @@ public class TestColumnIndexBuilder
     @Test
     public void testBuildBinaryDecimal()
     {
-        PrimitiveType type = Types.required(BINARY).as(DECIMAL).precision(12).scale(2).named("test_binary_decimal");
+        PrimitiveType type = Types.required(BINARY).as(LogicalTypeAnnotation.decimalType(2, 12)).named("test_binary_decimal");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
         //assertThat(builder, instanceOf(BinaryColumnIndexBuilder.class));
         assertNull(builder.build());
@@ -409,7 +407,7 @@ public class TestColumnIndexBuilder
     @Test
     public void testBuildBinaryUtf8()
     {
-        PrimitiveType type = Types.required(BINARY).as(UTF8).named("test_binary_utf8");
+        PrimitiveType type = Types.required(BINARY).as(LogicalTypeAnnotation.stringType()).named("test_binary_utf8");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
         //assertThat(builder, instanceOf(BinaryColumnIndexBuilder.class));
         assertNull(builder.build());
@@ -554,7 +552,7 @@ public class TestColumnIndexBuilder
     public void testStaticBuildBinary()
     {
         ColumnIndex columnIndex = ColumnIndexBuilder.build(
-                Types.required(BINARY).as(UTF8).named("test_binary_utf8"),
+                Types.required(BINARY).as(LogicalTypeAnnotation.stringType()).named("test_binary_utf8"),
                 BoundaryOrder.ASCENDING,
                 asList(true, true, false, false, true, false, true, false),
                 asList(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L),
@@ -603,7 +601,7 @@ public class TestColumnIndexBuilder
     public void testFilterWithoutNullCounts()
     {
         ColumnIndex columnIndex = ColumnIndexBuilder.build(
-                Types.required(BINARY).as(UTF8).named("test_binary_utf8"),
+                Types.required(BINARY).as(LogicalTypeAnnotation.stringType()).named("test_binary_utf8"),
                 BoundaryOrder.ASCENDING,
                 asList(true, true, false, false, true, false, true, false),
                 null,
@@ -1137,7 +1135,7 @@ public class TestColumnIndexBuilder
     @Test
     public void testBuildUInt8()
     {
-        PrimitiveType type = Types.required(INT32).as(UINT_8).named("test_uint8");
+        PrimitiveType type = Types.required(INT32).as(LogicalTypeAnnotation.intType(8, false)).named("test_uint8");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
         //assertThat(builder, instanceOf(IntColumnIndexBuilder.class));
         assertNull(builder.build());
@@ -1352,7 +1350,7 @@ public class TestColumnIndexBuilder
     {
         ColumnIndexBuilder builder = ColumnIndexBuilder.getNoOpBuilder();
         StatsBuilder sb = new StatsBuilder();
-        builder.add(sb.stats(Types.required(BINARY).as(UTF8).named("test_binary_utf8"), stringBinary("Jeltz"),
+        builder.add(sb.stats(Types.required(BINARY).as(LogicalTypeAnnotation.stringType()).named("test_binary_utf8"), stringBinary("Jeltz"),
                 stringBinary("Slartibartfast"), null, null));
         builder.add(sb.stats(Types.required(BOOLEAN).named("test_boolean"), true, true, null, null));
         builder.add(sb.stats(Types.required(DOUBLE).named("test_double"), null, null, null));

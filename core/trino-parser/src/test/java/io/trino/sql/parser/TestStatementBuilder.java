@@ -252,6 +252,7 @@ public class TestStatementBuilder
         printStatement("create table test (a boolean, b bigint) comment 'test' with (a = 'apple')");
         printStatement("create table test (a boolean with (a = 'apple', b = 'banana'), b bigint comment 'bla' with (c = 'cherry')) comment 'test' with (a = 'apple')");
         printStatement("comment on table test is 'test'");
+        printStatement("comment on view test is 'test'");
         printStatement("comment on column test.a is 'test'");
         printStatement("drop table test");
 
