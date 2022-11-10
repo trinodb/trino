@@ -67,7 +67,9 @@ public class StargateModule
         install(new JdbcJoinPushdownSupportModule());
         install(new JdbcTableScanRedirectionModule());
 
-        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
+        @SuppressWarnings("TrinoExperimentalSpi")
+        Class<ConnectorTableFunction> clazz = ConnectorTableFunction.class;
+        newSetBinder(binder, clazz).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 
     @Provides
