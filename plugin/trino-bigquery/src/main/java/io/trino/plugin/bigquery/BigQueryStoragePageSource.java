@@ -135,6 +135,9 @@ public class BigQueryStoragePageSource
     public Page getNextPage()
     {
         checkState(pageBuilder.isEmpty(), "PageBuilder is not empty at the beginning of a new page");
+        if (!responses.hasNext()) {
+            return null;
+        }
         ReadRowsResponse response = responses.next();
         Iterable<GenericRecord> records = parse(response);
         for (GenericRecord record : records) {
