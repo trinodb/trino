@@ -76,5 +76,6 @@ public abstract class BaseTestDeltaLakeHdfsReads
                 "WITH (location = 'hdfs://hadoop-master:9000/tmp/region')");
 
         assertThat(onTrino().executeQuery("SELECT count(*) FROM delta.default.region")).containsOnly(row(5L));
+        onTrino().executeQuery("DROP TABLE delta.default.region");
     }
 }

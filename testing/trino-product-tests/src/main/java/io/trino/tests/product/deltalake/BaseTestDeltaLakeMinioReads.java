@@ -87,5 +87,6 @@ public abstract class BaseTestDeltaLakeMinioReads
 
         assertNotificationsCount(NOTIFICATIONS_TABLE, OBJECT_ACCESSED_HEAD, tableName + "/_delta_log/00000000000000000000.json", 0);
         assertNotificationsCount(NOTIFICATIONS_TABLE, OBJECT_ACCESSED_GET, tableName + "/_delta_log/00000000000000000000.json", 1);
+        onTrino().executeQuery(format("DROP TABLE delta.default.\"%s\"", tableName));
     }
 }
