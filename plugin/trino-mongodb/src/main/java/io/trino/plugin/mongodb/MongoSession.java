@@ -29,6 +29,7 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.Collation;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.result.DeleteResult;
 import io.airlift.log.Logger;
@@ -134,6 +135,10 @@ public class MongoSession
     private static final String DATABASE_NAME = "databaseName";
     private static final String COLLECTION_NAME = "collectionName";
     private static final String ID = "id";
+
+    // The 'simple' locale is the default collection in MongoDB. The locale doesn't allow specifying other fields (e.g. numericOrdering)
+    // https://www.mongodb.com/docs/manual/reference/collation/
+    private static final Collation SIMPLE_COLLATION = Collation.builder().locale("simple").build();
 
     private final TypeManager typeManager;
     private final MongoClient client;
@@ -412,7 +417,7 @@ public class MongoSession
         }
         MongoCollection<Document> collection = getCollection(tableHandle.getSchemaTableName());
         Document filter = buildFilter(tableHandle);
-        FindIterable<Document> iterable = collection.find(filter).projection(output);
+        FindIterable<Document> iterable = collection.find(filter).projection(output).collation(SIMPLE_COLLATION);
         tableHandle.getLimit().ifPresent(iterable::limit);
         log.debug("Find documents: collection: %s, filter: %s, projection: %s", tableHandle.getSchemaTableName(), filter, output);
 

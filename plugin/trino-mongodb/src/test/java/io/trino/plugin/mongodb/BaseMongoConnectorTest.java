@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.mongodb.DBRef;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.Collation;
+import com.mongodb.client.model.CreateCollectionOptions;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
@@ -39,6 +41,8 @@ import java.util.Date;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.mongodb.client.model.CollationCaseFirst.LOWER;
+import static com.mongodb.client.model.CollationStrength.PRIMARY;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -602,6 +606,45 @@ public abstract class BaseMongoConnectorTest
         // MongoDB doesn't support limit number greater than integer max
         assertThat(query("SELECT name FROM nation LIMIT 2147483647")).isFullyPushedDown();
         assertThat(query("SELECT name FROM nation LIMIT 2147483648")).isNotFullyPushedDown(LimitNode.class);
+    }
+
+    @Test
+    public void testCollationAccent()
+    {
+        String tableName = "test_collation_accent" + randomTableSuffix();
+        Collation collation = Collation.builder().locale("en_US").collationStrength(PRIMARY).build();
+        client.getDatabase("test").createCollection(tableName, new CreateCollectionOptions().collation(collation));
+        client.getDatabase("test").getCollection(tableName)
+                .insertMany(ImmutableList.of(new Document("text", "e"), new Document("text", "é")));
+
+        assertQuery("SELECT * FROM test." + tableName + " WHERE text = 'e'", "VALUES 'e'");
+        client.getDatabase("test").getCollection(tableName).drop();
+    }
+
+    @Test
+    public void testCollationCaseSensitivity()
+    {
+        String tableName = "test_collation_case_sensitivity" + randomTableSuffix();
+        Collation collation = Collation.builder().locale("en_US").collationCaseFirst(LOWER).build();
+        client.getDatabase("test").createCollection(tableName, new CreateCollectionOptions().collation(collation));
+        client.getDatabase("test").getCollection(tableName)
+                .insertMany(ImmutableList.of(new Document("text", "abc"), new Document("text", "ABC")));
+
+        assertQuery("SELECT * FROM test." + tableName + " WHERE text > 'ABC'", "VALUES 'abc'");
+        client.getDatabase("test").getCollection(tableName).drop();
+    }
+
+    @Test
+    public void testCollationNumericOrdering()
+    {
+        String tableName = "test_collation_numeric_ordering" + randomTableSuffix();
+        Collation collation = Collation.builder().locale("en_US").numericOrdering(true).build();
+        client.getDatabase("test").createCollection(tableName, new CreateCollectionOptions().collation(collation));
+        client.getDatabase("test").getCollection(tableName)
+                .insertMany(ImmutableList.of(new Document("number", "-10"), new Document("number", "-2.1"), new Document("number", "1")));
+
+        assertQuery("SELECT * FROM test." + tableName + " WHERE number > '-2.1'", "VALUES '1'");
+        client.getDatabase("test").getCollection(tableName).drop();
     }
 
     @Override
