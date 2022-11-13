@@ -480,8 +480,10 @@ public class TaskExecutor
         if (timeDifference > 0) {
             this.leafSplitsSize.add(lastLeafSplitsSize, timeDifference);
             this.lastLeafSplitsSizeRecordTime = now;
-            this.lastLeafSplitsSize = allSplits.size() - intermediateSplits.size();
         }
+        // always record new lastLeafSplitsSize as it might have changed
+        // even if timeDifference is 0
+        this.lastLeafSplitsSize = allSplits.size() - intermediateSplits.size();
     }
 
     private class TaskRunner
