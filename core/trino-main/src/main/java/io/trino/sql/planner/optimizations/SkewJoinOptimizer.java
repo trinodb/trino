@@ -49,7 +49,6 @@ import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
-import oshi.util.tuples.Pair;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -101,17 +100,7 @@ public class SkewJoinOptimizer
         return plan.accept(new PlanRewriter(session, metadata, skewedTables, rewriter), new HashMap<>());
     }
 
-    private static class SkewedContext
-    {
-        public final DataType keyType;
-        public final List<String> values;
-
-        public SkewedContext(List<String> values, DataType keyType)
-        {
-            this.keyType = keyType;
-            this.values = values;
-        }
-    }
+    private record SkewedContext(List<String> values, DataType keyType){}
 
     private static class PlanRewriter
             extends PlanVisitor<PlanNode, Map<Symbol, SkewedContext>>
@@ -229,12 +218,12 @@ public class SkewJoinOptimizer
 
             if (skewedTables.containsKey(qualifiedTableName)) {
                 SkewJoinConfig skewConfig = skewedTables.get(qualifiedTableName);
-                Optional<Pair<Symbol, ColumnMetadata>> symbolAndMetadata = node.getAssignments().entrySet().stream()
-                        .map(entry -> new Pair<>(entry.getKey(), metadata.getColumnMetadata(session, node.getTable(), entry.getValue())))
-                        .filter(entry -> entry.getB().getName().equals(skewConfig.getColumnName()))
+                Optional<SymbolMetadata> symbolAndMetadata = node.getAssignments().entrySet().stream()
+                        .map(entry -> new SymbolMetadata(entry.getKey(), metadata.getColumnMetadata(session, node.getTable(), entry.getValue())))
+                        .filter(entry -> entry.metadata.getName().equals(skewConfig.getColumnName()))
                         .findFirst();
                 symbolAndMetadata.ifPresent(metadata -> {
-                    context.putIfAbsent(metadata.getA(), new SkewedContext(skewConfig.values, toSqlType(metadata.getB().getType())));
+                    context.putIfAbsent(metadata.symbol, new SkewedContext(skewConfig.values, toSqlType(metadata.metadata.getType())));
                 });
             }
 
@@ -242,13 +231,11 @@ public class SkewJoinOptimizer
         }
     }
 
-    // Parses and validates the user supplied session data.
-    private static class SkewJoinConfig
-    {
-        private final String tableName;
-        private final String columnName;
-        private final List<String> values;
+    private record SymbolMetadata(Symbol symbol, ColumnMetadata metadata){}
 
+    // Parses and validates the user supplied session data.
+    private record SkewJoinConfig(String tableName, String columnName, List<String> values)
+    {
         private static final int TABLE_INDEX = 0;
         private static final int COLUMN_INDEX = 1;
         private static final int VALUE_INDEX = 2;
@@ -256,9 +243,11 @@ public class SkewJoinOptimizer
 
         private SkewJoinConfig(List<String> rawMetadata)
         {
-            tableName = rawMetadata.get(TABLE_INDEX);
-            columnName = rawMetadata.get(COLUMN_INDEX);
-            values = ImmutableList.copyOf(rawMetadata.subList(VALUE_INDEX, rawMetadata.size()));
+            this(
+                    rawMetadata.get(TABLE_INDEX),
+                    rawMetadata.get(COLUMN_INDEX),
+                    ImmutableList.copyOf(rawMetadata.subList(VALUE_INDEX, rawMetadata.size()))
+            );
         }
 
         public String getTableName()
