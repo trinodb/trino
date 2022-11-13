@@ -458,6 +458,27 @@ public class TestDeltaLakeAnalyze
         }
     }
 
+    /**
+     * Verify Delta has good stats for TPC-DS data sets. Note that TPC-DS date_dim contains
+     * dates as old as 1900-01-02, which may be problematic.
+     */
+    @Test
+    public void testStatsOnTpcDsData()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_old_date_stats",
+                "AS SELECT d_date FROM tpcds.tiny.date_dim")) {
+            runAnalyzeVerifySplitCount(table.getName(), 1);
+            // Accurate column stats on d_date are important for producing efficient query plans, e.g. on q72
+            assertQuery(
+                    "SHOW STATS FOR " + table.getName(),
+                    "VALUES"
+                            + "('d_date', null, 72713.0, 0.0,  null,    '1900-01-02', '2100-01-01'),"
+                            + "(null,     null, null,    null, 73049.0, null,         null)");
+        }
+    }
+
     private void runAnalyzeVerifySplitCount(String tableName, long expectedSplitCount)
     {
         MaterializedResultWithQueryId analyzeResult = getDistributedQueryRunner().executeWithQueryId(getSession(), "ANALYZE " + tableName);
