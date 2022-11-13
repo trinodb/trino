@@ -108,9 +108,17 @@ public class TestFileBasedSystemAccessControl
         assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("svc_tenant"), "svc_other_prod"))
                 .isInstanceOf(AccessDeniedException.class);
 
-        accessControlManager.checkCanImpersonateUser(Identity.ofUser("external_corp_dept"), "internal-corp-dept-sandbox");
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("external_corp_dept"), "internal-dept-corp-sandbox");
+        assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("external_corp_dept"), "internal-corp-dept-sandbox"))
+                .isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("external_corp_dept"), "invalid"))
                 .isInstanceOf(AccessDeniedException.class);
+
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("abc_group"), "anything");
+        assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("def_group"), "$2_group_prod"))
+                .isInstanceOf(IndexOutOfBoundsException.class);
+        assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("def_group"), "group_group_prod"))
+                .isInstanceOf(IndexOutOfBoundsException.class);
 
         AccessControlManager accessControlManagerWithPrincipal = newAccessControlManager(transactionManager, "catalog_principal.json");
         accessControlManagerWithPrincipal.checkCanImpersonateUser(Identity.ofUser("anything"), "anythingElse");

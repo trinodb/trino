@@ -29,7 +29,17 @@
         },
         {
             "original_user": "external_(.*)_(.*)",
-            "new_user": "internal-$1-$2-sandbox",
+            "new_user": "internal-$2-$1-sandbox",
+            "allow": true
+        },
+        {
+            "original_user": "abc_(.*)",
+            "new_user": ".*",
+            "allow": true
+        },
+        {
+            "original_user": "def_(.*)",
+            "new_user": "$2_$1_prod",
             "allow": true
         }
     ]
