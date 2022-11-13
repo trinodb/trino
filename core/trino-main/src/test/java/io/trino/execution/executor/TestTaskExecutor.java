@@ -40,6 +40,7 @@ import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static io.trino.execution.executor.MultilevelSplitQueue.LEVEL_CONTRIBUTION_CAP;
 import static io.trino.execution.executor.MultilevelSplitQueue.LEVEL_THRESHOLD_SECONDS;
+import static java.lang.Double.isNaN;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -510,9 +511,9 @@ public class TestTaskExecutor
         TestingJob driver1 = new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, 500);
         TestingJob driver2 = new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, 1000 / 500);
 
-        ticker.increment(1, TimeUnit.SECONDS);
+        ticker.increment(0, TimeUnit.SECONDS);
         taskExecutor.enqueueSplits(testTaskHandle, false, ImmutableList.of(driver1, driver2));
-        assertEquals(taskExecutor.getLeafSplitsSize().getAllTime().getMax(), 0.0);
+        assertTrue(isNaN(taskExecutor.getLeafSplitsSize().getAllTime().getMax()));
 
         ticker.increment(1, TimeUnit.SECONDS);
         taskExecutor.enqueueSplits(testTaskHandle, false, ImmutableList.of(driver1));
