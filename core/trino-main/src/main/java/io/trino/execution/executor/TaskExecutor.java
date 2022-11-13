@@ -287,8 +287,10 @@ public class TaskExecutor
         }
 
         // replace blocked splits that were terminated
-        addNewEntrants();
-        recordLeafSplitsSize();
+        synchronized (this) {
+            addNewEntrants();
+            recordLeafSplitsSize();
+        }
     }
 
     private void doRemoveTask(TaskHandle taskHandle)
