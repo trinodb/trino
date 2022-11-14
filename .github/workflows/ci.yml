@@ -291,9 +291,9 @@ jobs:
             plugin/trino-hive-hadoop2/bin/run_hive_tests.sh
       - name: Run Hive S3 Tests
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESSKEY }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRETKEY }}
-          S3_BUCKET: "presto-ci-test"
+          AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
+          S3_BUCKET: "trino-ci-test"
           S3_BUCKET_ENDPOINT: "https://s3.us-east-2.amazonaws.com"
         run: |
           if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
@@ -306,8 +306,8 @@ jobs:
           fi
       - name: Run Hive Glue Tests
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESSKEY }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRETKEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: us-east-2
         run: |
           if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
@@ -632,10 +632,10 @@ jobs:
           $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dbigquery.credentials-key="${BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY}"
       - name: Iceberg Cloud Tests
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESSKEY }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRETKEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: us-east-2
-          S3_BUCKET: presto-ci-test
+          S3_BUCKET: trino-ci-test
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
         if: >-
           contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests') &&
@@ -887,8 +887,8 @@ jobs:
           ABFS_ACCESS_KEY:
           S3_BUCKET:
           AWS_REGION:
-          DATABRICKS_AWS_ACCESS_KEY_ID:
-          DATABRICKS_AWS_SECRET_ACCESS_KEY:
+          TRINO_AWS_ACCESS_KEY_ID:
+          TRINO_AWS_SECRET_ACCESS_KEY:
           DATABRICKS_73_JDBC_URL:
           DATABRICKS_91_JDBC_URL:
           DATABRICKS_104_JDBC_URL:
@@ -952,8 +952,8 @@ jobs:
           ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_ACCESSKEY }}
           S3_BUCKET: trino-ci-test
           AWS_REGION: us-east-2
-          DATABRICKS_AWS_ACCESS_KEY_ID: ${{ secrets.DATABRICKS_AWS_ACCESS_KEY_ID }}
-          DATABRICKS_AWS_SECRET_ACCESS_KEY: ${{ secrets.DATABRICKS_AWS_SECRET_ACCESS_KEY }}
+          DATABRICKS_AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
+          DATABRICKS_AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
           DATABRICKS_73_JDBC_URL: ${{ secrets.DATABRICKS_73_JDBC_URL }}
           DATABRICKS_91_JDBC_URL: ${{ secrets.DATABRICKS_91_JDBC_URL }}
           DATABRICKS_104_JDBC_URL: ${{ secrets.DATABRICKS_104_JDBC_URL }}
