@@ -183,6 +183,7 @@ public class IcebergFileWriterFactory
             return new IcebergParquetFileWriter(
                     metricsConfig,
                     outputFile,
+                    icebergSchema,
                     rollbackAction,
                     fileColumnTypes,
                     fileColumnNames,

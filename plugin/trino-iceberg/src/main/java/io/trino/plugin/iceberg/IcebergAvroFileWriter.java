@@ -14,9 +14,11 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.type.FixedWidthType;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.Schema;
@@ -49,6 +51,7 @@ public class IcebergAvroFileWriter
 
     private final Schema icebergSchema;
     private final List<Type> types;
+    private final long[] columnSizes;
     private final FileAppender<Record> avroWriter;
     private final Closeable rollbackAction;
 
@@ -62,6 +65,7 @@ public class IcebergAvroFileWriter
         this.rollbackAction = requireNonNull(rollbackAction, "rollbackAction null");
         this.icebergSchema = requireNonNull(icebergSchema, "icebergSchema is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.columnSizes = new long[types.size()];
 
         try {
             avroWriter = Avro.write(file)
@@ -91,6 +95,15 @@ public class IcebergAvroFileWriter
     @Override
     public void appendRows(Page dataPage)
     {
+        for (int i = 0; i < types.size(); i++) {
+            Type type = types.get(i);
+            if (type instanceof FixedWidthType) {
+                columnSizes[i] = 0;
+            }
+            else {
+                columnSizes[i] += dataPage.getBlock(i).getLogicalSizeInBytes();
+            }
+        }
         for (Record record : toIcebergRecords(dataPage, types, icebergSchema)) {
             avroWriter.add(record);
         }
@@ -154,6 +167,18 @@ public class IcebergAvroFileWriter
     @Override
     public Metrics getMetrics()
     {
-        return avroWriter.metrics();
+        ImmutableMap.Builder<Integer, Long> columnsSizesBuilder = ImmutableMap.builder();
+        for (int i = 0; i < icebergSchema.columns().size(); i++) {
+            columnsSizesBuilder.put(icebergSchema.columns().get(i).fieldId(), columnSizes[i]);
+        }
+        Metrics metrics = avroWriter.metrics();
+        return new Metrics(
+                metrics.recordCount(),
+                columnsSizesBuilder.buildOrThrow(),
+                metrics.valueCounts(),
+                metrics.nullValueCounts(),
+                metrics.nanValueCounts(),
+                metrics.lowerBounds(),
+                metrics.upperBounds());
     }
 }

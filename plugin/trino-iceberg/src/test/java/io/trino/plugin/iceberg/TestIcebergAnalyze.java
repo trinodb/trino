@@ -55,8 +55,8 @@ public class TestIcebergAnalyze
                         VALUES
                           ('nationkey', null, null, 0, null, '0', '24'),
                           ('regionkey', null, null, 0, null, '0', '4'),
-                          ('comment', null, null, 0, null, null, null),
-                          ('name', null, null, 0, null, null, null),
+                          ('comment', 1982.0, null, 0, null, null, null),
+                          ('name', 302.0, null, 0, null, null, null),
                           (null, null, null, null, 25, null, null)""");
 
         assertUpdate("ANALYZE " + tableName);
@@ -66,8 +66,8 @@ public class TestIcebergAnalyze
                         VALUES
                           ('nationkey', null, 25, 0, null, '0', '24'),
                           ('regionkey', null, 5, 0, null, '0', '4'),
-                          ('comment', null, 25, 0, null, null, null),
-                          ('name', null, 25, 0, null, null, null),
+                          ('comment', 1982.0, 25, 0, null, null, null),
+                          ('name', 302.0, 25, 0, null, null, null),
                           (null, null, null, null, 25, null, null)""");
 
         // reanalyze data
@@ -78,8 +78,8 @@ public class TestIcebergAnalyze
                         VALUES
                           ('nationkey', null, 25, 0, null, '0', '24'),
                           ('regionkey', null, 5, 0, null, '0', '4'),
-                          ('comment', null, 25, 0, null, null, null),
-                          ('name', null, 25, 0, null, null, null),
+                          ('comment', 1982.0, 25, 0, null, null, null),
+                          ('name', 302.0, 25, 0, null, null, null),
                           (null, null, null, null, 25, null, null)""");
 
         // insert one more copy; should not influence stats other than rowcount
@@ -92,8 +92,8 @@ public class TestIcebergAnalyze
                         VALUES
                           ('nationkey', null, 25, 0, null, '0', '24'),
                           ('regionkey', null, 5, 0, null, '0', '4'),
-                          ('comment', null, 25, 0, null, null, null),
-                          ('name', null, 25, 0, null, null, null),
+                          ('comment', 3964.0, 25, 0, null, null, null),
+                          ('name', 604.0, 25, 0, null, null, null),
                           (null, null, null, null, 50, null, null)""");
 
         // insert modified rows
@@ -106,8 +106,8 @@ public class TestIcebergAnalyze
                         VALUES
                           ('nationkey', null, 25, 0, null, '0', '49'),
                           ('regionkey', null, 5, 0, null, '0', '9'),
-                          ('comment', null, 25, 0, null, null, null),
-                          ('name', null, 25, 0, null, null, null),
+                          ('comment', 5946.0, 25, 0, null, null, null),
+                          ('name', 906.0, 25, 0, null, null, null),
                           (null, null, null, null, 75, null, null)""");
 
         // with analyze we should get new NDV
@@ -118,8 +118,8 @@ public class TestIcebergAnalyze
                         VALUES
                           ('nationkey', null, 50, 0, null, '0', '49'),
                           ('regionkey', null, 10, 0, null, '0', '9'),
-                          ('comment', null, 50, 0, null, null, null),
-                          ('name', null, 50, 0, null, null, null),
+                          ('comment', 5946.0, 50, 0, null, null, null),
+                          ('name', 906.0, 50, 0, null, null, null),
                           (null, null, null, null, 75, null, null)""");
 
         assertUpdate("DROP TABLE " + tableName);
@@ -144,8 +144,8 @@ public class TestIcebergAnalyze
                         VALUES
                           ('nationkey', null, 25, 0, null, '0', '24'),
                           ('regionkey', null, 5, 0, null, '0', '4'),
-                          ('name', null, 25, 0, null, null, null),
-                          ('info', null, null, 0, null, null, null),
+                          ('name', 302.0, 25, 0, null, null, null),
+                          ('info', 2184.0, null, 0, null, null, null),
                           (null, null, null, null, 25, null, null)""");
 
         assertUpdate("ANALYZE " + tableName);
@@ -155,8 +155,8 @@ public class TestIcebergAnalyze
                         VALUES
                           ('nationkey', null, 25, 0, null, '0', '24'),
                           ('regionkey', null, 5, 0, null, '0', '4'),
-                          ('name', null, 25, 0, null, null, null),
-                          ('info', null, 25, 0, null, null, null),
+                          ('name', 302.0, 25, 0, null, null, null),
+                          ('info', 2184.0, 25, 0, null, null, null),
                           (null, null, null, null, 25, null, null)""");
 
         assertUpdate("DROP TABLE " + tableName);
@@ -174,8 +174,8 @@ public class TestIcebergAnalyze
                         VALUES
                           ('nationkey', null, null, 0, null, '0', '24'),
                           ('regionkey', null, null, 0, null, '0', '4'),
-                          ('comment', null, null, 0, null, null, null),
-                          ('name', null, null, 0, null, null, null),
+                          ('comment', 1982.0, null, 0, null, null, null),
+                          ('name', 302.0, null, 0, null, null, null),
                           (null, null, null, null, 25, null, null)""");
 
         assertUpdate("ANALYZE " + tableName);
@@ -185,8 +185,8 @@ public class TestIcebergAnalyze
                         VALUES
                           ('nationkey', null, 25, 0, null, '0', '24'),
                           ('regionkey', null, 5, 0, null, '0', '4'),
-                          ('comment', null, 25, 0, null, null, null),
-                          ('name', null, 25, 0, null, null, null),
+                          ('comment', 1982.0, 25, 0, null, null, null),
+                          ('name', 302.0, 25, 0, null, null, null),
                           (null, null, null, null, 25, null, null)""");
 
         // insert one more copy; should not influence stats other than rowcount
@@ -199,8 +199,8 @@ public class TestIcebergAnalyze
                         VALUES
                           ('nationkey', null, 25, 0, null, '0', '24'),
                           ('regionkey', null, 5, 0, null, '0', '4'),
-                          ('comment', null, 25, 0, null, null, null),
-                          ('name', null, 25, 0, null, null, null),
+                          ('comment', 3964.0, 25, 0, null, null, null),
+                          ('name', 604.0, 25, 0, null, null, null),
                           (null, null, null, null, 50, null, null)""");
 
         // insert modified rows
@@ -213,8 +213,8 @@ public class TestIcebergAnalyze
                         VALUES
                           ('nationkey', null, 25, 0, null, '0', '49'),
                           ('regionkey', null, 5, 0, null, '0', '9'),
-                          ('comment', null, 25, 0, null, null, null),
-                          ('name', null, 25, 0, null, null, null),
+                          ('comment', 5946.0, 25, 0, null, null, null),
+                          ('name', 906.0, 25, 0, null, null, null),
                           (null, null, null, null, 75, null, null)""");
 
         // with analyze we should get new NDV
@@ -225,8 +225,8 @@ public class TestIcebergAnalyze
                         VALUES
                           ('nationkey', null, 50, 0, null, '0', '49'),
                           ('regionkey', null, 10, 0, null, '0', '9'),
-                          ('comment', null, 50, 0, null, null, null),
-                          ('name', null, 50, 0, null, null, null),
+                          ('comment', 5946.0, 50, 0, null, null, null),
+                          ('name', 906.0, 50, 0, null, null, null),
                           (null, null, null, null, 75, null, null)""");
 
         assertUpdate("DROP TABLE " + tableName);
@@ -269,8 +269,8 @@ public class TestIcebergAnalyze
                         VALUES
                           ('nationkey', null, 25, 0, null, '0', '24'),
                           ('regionkey', null, 5, 0, null, '0', '4'),
-                          ('comment', null, 25, 0, null, null, null),
-                          ('name', null, 25, 0, null, null, null),
+                          ('comment', 1982.0, 25, 0, null, null, null),
+                          ('name', 302.0, 25, 0, null, null, null),
                           (null, null, null, null, 25, null, null)""");
 
         assertUpdate("DROP TABLE " + tableName);
@@ -307,8 +307,8 @@ public class TestIcebergAnalyze
                         VALUES
                           ('nationkey', null, 25, 0, null, '0', '24'),
                           ('regionkey', null, 5, 0, null, '0', '4'),
-                          ('comment', null, null, 0, null, null, null),
-                          ('name', null, null, 0, null, null, null),
+                          ('comment', 1982.0, null, 0, null, null, null),
+                          ('name', 302.0, null, 0, null, null, null),
                           (null, null, null, null, 25, null, null)""");
 
         // insert modified rows
@@ -322,8 +322,8 @@ public class TestIcebergAnalyze
                         VALUES
                           ('nationkey', null, 50, 0, null, '0', '49'),
                           ('regionkey', null, 10, 0, null, '0', '9'),
-                          ('comment', null, null, 0, null, null, null),
-                          ('name', null, null, 0, null, null, null),
+                          ('comment', 4014.0, null, 0, null, null, null),
+                          ('name', 629.0, null, 0, null, null, null),
                           (null, null, null, null, 50, null, null)""");
 
         // drop stats
@@ -337,8 +337,8 @@ public class TestIcebergAnalyze
                         VALUES
                           ('nationkey', null, 50, 0, null, '0', '49'),
                           ('regionkey', null, 10, 0, null, '0', '9'),
-                          ('comment', null, 50, 0, null, null, null),
-                          ('name', null, 50, 0, null, null, null),
+                          ('comment', 4014.0, 50, 0, null, null, null),
+                          ('name', 629.0, 50, 0, null, null, null),
                           (null, null, null, null, 50, null, null)""");
 
         // insert modified rows
@@ -351,8 +351,8 @@ public class TestIcebergAnalyze
                         VALUES
                           ('nationkey', null, 50, 0, null, '0', '74'),
                           ('regionkey', null, 10, 0, null, '0', '14'),
-                          ('comment', null, 50, 0, null, null, null),
-                          ('name', null, 50, 0, null, null, null),
+                          ('comment', 6046.0, 50, 0, null, null, null),
+                          ('name', 956.0, 50, 0, null, null, null),
                           (null, null, null, null, 75, null, null)""");
 
         // reanalyze with a subset of columns
@@ -363,8 +363,8 @@ public class TestIcebergAnalyze
                         VALUES
                           ('nationkey', null, 75, 0, null, '0', '74'),
                           ('regionkey', null, 15, 0, null, '0', '14'),
-                          ('comment', null, 50, 0, null, null, null), -- result of previous analyze
-                          ('name', null, 50, 0, null, null, null), -- result of previous analyze
+                          ('comment', 6046.0, 50, 0, null, null, null), -- result of previous analyze
+                          ('name', 956.0, 50, 0, null, null, null), -- result of previous analyze
                           (null, null, null, null, 75, null, null)""");
 
         // analyze all columns
@@ -375,8 +375,8 @@ public class TestIcebergAnalyze
                         VALUES
                           ('nationkey', null, 75, 0, null, '0', '74'),
                           ('regionkey', null, 15, 0, null, '0', '14'),
-                          ('comment', null, 75, 0, null, null, null),
-                          ('name', null, 75, 0, null, null, null),
+                          ('comment', 6046.0, 75, 0, null, null, null),
+                          ('name', 956.0, 75, 0, null, null, null),
                           (null, null, null, null, 75, null, null)""");
 
         assertUpdate("DROP TABLE " + tableName);
@@ -419,15 +419,15 @@ public class TestIcebergAnalyze
                 VALUES
                   ('nationkey', null, null, 0, null, '0', '24'),
                   ('regionkey', null, null, 0, null, '0', '4'),
-                  ('comment', null, null, 0, null, null, null),
-                  ('name',  null, null, 0, null, null, null),
+                  ('comment', 1982.0, null, 0, null, null, null),
+                  ('name',  302.0, null, 0, null, null, null),
                   (null,  null, null, null, 25, null, null)""";
         String extendedStats = """
                 VALUES
                   ('nationkey', null, 25, 0, null, '0', '24'),
                   ('regionkey', null, 5, 0, null, '0', '4'),
-                  ('comment', null, 25, 0, null, null, null),
-                  ('name',  null, 25, 0, null, null, null),
+                  ('comment', 1982.0, 25, 0, null, null, null),
+                  ('name',  302.0, 25, 0, null, null, null),
                   (null,  null, null, null, 25, null, null)""";
 
         assertQuery("SHOW STATS FOR " + tableName, baseStats);
@@ -461,8 +461,8 @@ public class TestIcebergAnalyze
                         VALUES
                           ('nationkey', null, null, 0, null, '0', '24'),
                           ('regionkey', null, null, 0, null, '0', '4'),
-                          ('comment', null, null, 0, null, null, null),
-                          ('name',  null, null, 0, null, null, null),
+                          ('comment', 1982.0, null, 0, null, null, null),
+                          ('name',  302.0, null, 0, null, null, null),
                           (null,  null, null, null, 25, null, null)""");
 
         assertUpdate("DROP TABLE " + tableName);
@@ -530,8 +530,8 @@ public class TestIcebergAnalyze
                         VALUES
                           ('nationkey', null, 25, 0, null, '0', '24'),
                           ('regionkey', null, 5, 0, null, '0', '4'),
-                          ('comment', null, 25, 0, null, null, null),
-                          ('name',  null, 25, 0, null, null, null),
+                          ('comment', 2063.0, 25, 0, null, null, null),
+                          ('name',  316.0, 25, 0, null, null, null),
                           (null,  null, null, null, 26, null, null)""");
 
         assertUpdate(format("CALL system.rollback_to_snapshot('%s', '%s', %s)", schema, tableName, createSnapshot));
@@ -542,8 +542,8 @@ public class TestIcebergAnalyze
                         VALUES
                           ('nationkey', null, 25, 0, null, '0', '24'),
                           ('regionkey', null, 5, 0, null, '0', '4'),
-                          ('comment', null, 25, 0, null, null, null),
-                          ('name',  null, 25, 0, null, null, null),
+                          ('comment', 1982.0, 25, 0, null, null, null),
+                          ('name',  302.0, 25, 0, null, null, null),
                           (null,  null, null, null, 25, null, null)""");
 
         assertUpdate("DROP TABLE " + tableName);
@@ -568,8 +568,8 @@ public class TestIcebergAnalyze
                         VALUES
                           ('nationkey', null, 25, 0, null, '0', '24'),
                           ('regionkey', null, 5, 0, null, '0', '4'),
-                          ('comment', null, 25, 0, null, null, null),
-                          ('name',  null, 25, 0, null, null, null),
+                          ('comment', 1982.0, 25, 0, null, null, null),
+                          ('name',  302.0, 25, 0, null, null, null),
                           (null,  null, null, null, 25, null, null)""");
 
         assertUpdate("DROP TABLE " + tableName);

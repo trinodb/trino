@@ -35,6 +35,11 @@ import io.trino.orc.metadata.statistics.StringStatistics;
 import io.trino.orc.metadata.statistics.TimestampStatistics;
 import io.trino.plugin.hive.WriterKind;
 import io.trino.plugin.hive.orc.OrcFileWriter;
+import io.trino.spi.Page;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.FixedWidthType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;
@@ -70,6 +75,8 @@ public class IcebergOrcFileWriter
         implements IcebergFileWriter
 {
     private final Schema icebergSchema;
+    private final List<Type> fileColumnTypes;
+    private final long[] columnSizes;
     private final ColumnMetadata<OrcType> orcColumns;
     private final MetricsConfig metricsConfig;
 
@@ -91,17 +98,92 @@ public class IcebergOrcFileWriter
     {
         super(orcDataSink, WriterKind.INSERT, NO_ACID_TRANSACTION, false, OptionalInt.empty(), rollbackAction, columnNames, fileColumnTypes, fileColumnOrcTypes, compression, options, fileInputColumnIndexes, metadata, validationInputFactory, validationMode, stats);
         this.icebergSchema = requireNonNull(icebergSchema, "icebergSchema is null");
+        this.fileColumnTypes = requireNonNull(fileColumnTypes, "fileColumnTypes is null");
+        this.columnSizes = new long[computeNumberOfColumns(fileColumnTypes)];
         this.metricsConfig = requireNonNull(metricsConfig, "metricsConfig is null");
         orcColumns = fileColumnOrcTypes;
+    }
+
+    private int computeNumberOfColumns(List<Type> fileColumnTypes)
+    {
+        int result = 0;
+        for (Type type : fileColumnTypes) {
+            result += computeNumberOfColumnsForType(type);
+        }
+        return result;
+    }
+
+    private int computeNumberOfColumnsForType(Type type)
+    {
+        int result = 1;
+        if (type instanceof RowType) {
+            result += computeNumberOfColumns(type.getTypeParameters());
+        }
+        else if (type instanceof ArrayType) {
+            result += computeNumberOfColumnsForType(((ArrayType) type).getElementType());
+        }
+        else if (type instanceof MapType) {
+            MapType mapType = (MapType) type;
+            result += computeNumberOfColumnsForType(mapType.getKeyType());
+            result += computeNumberOfColumnsForType(mapType.getValueType());
+        }
+        return result;
+    }
+
+    @Override
+    public void appendRows(Page dataPage)
+    {
+        int index = 0;
+        for (int i = 0; i < fileColumnTypes.size(); i++) {
+            Type type = fileColumnTypes.get(i);
+            if (type instanceof FixedWidthType) {
+                columnSizes[index] = 0;
+                index++;
+            }
+            else if (type instanceof RowType) {
+                // As stats for each of the row column will be later merged into one it is easier to just
+                // store entire size in the first column
+                columnSizes[index] = dataPage.getBlock(i).getLogicalSizeInBytes();
+                index++;
+                int rowFields = computeNumberOfColumns(type.getTypeParameters());
+                for (int j = 0; j < rowFields; j++) {
+                    columnSizes[index] = 0;
+                    index++;
+                }
+            }
+            else if (type instanceof MapType) {
+                // As stats for each of the map column will be later merged into one it is easier to just
+                // store entire size in the first column
+                columnSizes[index] = dataPage.getBlock(i).getLogicalSizeInBytes();
+                index++;
+                int rowFields = computeNumberOfColumns(type.getTypeParameters());
+                for (int j = 0; j < rowFields; j++) {
+                    columnSizes[index] = 0;
+                    index++;
+                }
+            }
+            else if (type instanceof ArrayType) {
+                // store size of the entire array in its index
+                columnSizes[index] = dataPage.getBlock(i).getLogicalSizeInBytes();
+                index++;
+                columnSizes[index] = 0;
+                index++;
+            }
+            else {
+                columnSizes[index] += dataPage.getBlock(i).getLogicalSizeInBytes();
+                index++;
+            }
+        }
+        super.appendRows(dataPage);
     }
 
     @Override
     public Metrics getMetrics()
     {
-        return computeMetrics(metricsConfig, icebergSchema, orcColumns, orcWriter.getFileRowCount(), orcWriter.getFileStats());
+        return computeMetrics(metricsConfig, icebergSchema, orcColumns, orcWriter.getFileRowCount(), orcWriter.getFileStats(), columnSizes);
     }
 
-    private static Metrics computeMetrics(MetricsConfig metricsConfig, Schema icebergSchema, ColumnMetadata<OrcType> orcColumns, long fileRowCount, Optional<ColumnMetadata<ColumnStatistics>> columnStatistics)
+    private static Metrics computeMetrics(MetricsConfig metricsConfig, Schema icebergSchema, ColumnMetadata<OrcType> orcColumns, long fileRowCount, Optional<ColumnMetadata<ColumnStatistics>> columnStatistics, long[] columnSizes)
     {
         if (columnStatistics.isEmpty()) {
             return new Metrics(fileRowCount, null, null, null, null, null, null);
@@ -112,6 +194,7 @@ public class IcebergOrcFileWriter
         // See https://github.com/apache/iceberg/pull/199#discussion_r429443627
         Set<OrcColumnId> excludedColumns = getExcludedColumns(orcColumns);
 
+        ImmutableMap.Builder<Integer, Long> columnsSizesBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<Integer, Long> valueCountsBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<Integer, Long> nullCountsBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<Integer, Long> nanCountsBuilder = ImmutableMap.builder();
@@ -133,6 +216,7 @@ public class IcebergOrcFileWriter
                 continue;
             }
             verify(icebergField != null, "Cannot find Iceberg column with ID %s in schema %s", icebergId, icebergSchema);
+            columnsSizesBuilder.put(icebergId, columnSizes[i - 1]);
             valueCountsBuilder.put(icebergId, fileRowCount);
             if (orcColumnStats.hasNumberOfValues()) {
                 nullCountsBuilder.put(icebergId, fileRowCount - orcColumnStats.getNumberOfValues());
@@ -148,6 +232,7 @@ public class IcebergOrcFileWriter
                 });
             }
         }
+        Map<Integer, Long> columnsSizes = columnsSizesBuilder.buildOrThrow();
         Map<Integer, Long> valueCounts = valueCountsBuilder.buildOrThrow();
         Map<Integer, Long> nullCounts = nullCountsBuilder.buildOrThrow();
         Map<Integer, Long> nanCounts = nanCountsBuilder.buildOrThrow();
@@ -155,7 +240,7 @@ public class IcebergOrcFileWriter
         Map<Integer, ByteBuffer> upperBounds = upperBoundsBuilder.buildOrThrow();
         return new Metrics(
                 fileRowCount,
-                null, // TODO: Add column size accounting to ORC column writers
+                columnsSizes,
                 valueCounts.isEmpty() ? null : valueCounts,
                 nullCounts.isEmpty() ? null : nullCounts,
                 nanCounts.isEmpty() ? null : nanCounts,

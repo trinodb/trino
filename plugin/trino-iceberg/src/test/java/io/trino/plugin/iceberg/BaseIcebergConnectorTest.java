@@ -823,17 +823,17 @@ public abstract class BaseIcebergConnectorTest
                                 "  ('a_double', NULL, NULL, 0.5, NULL, '1.0', '1.0'), " +
                                 "  ('a_short_decimal', NULL, NULL, 0.5, NULL, '1.0', '1.0'), " +
                                 "  ('a_long_decimal', NULL, NULL, 0.5, NULL, '11.0', '11.0'), " +
-                                "  ('a_varchar', NULL, NULL, 0.5, NULL, NULL, NULL), " +
-                                "  ('a_varbinary', NULL, NULL, 0.5, NULL, NULL, NULL), " +
+                                "  ('a_varchar', 21.0, NULL, 0.5, NULL, NULL, NULL), " +
+                                "  ('a_varbinary', 16.0, NULL, 0.5, NULL, NULL, NULL), " +
                                 "  ('a_date', NULL, NULL, 0.5, NULL, '2021-07-24', '2021-07-24'), " +
                                 "  ('a_time', NULL, NULL, 0.5, NULL, NULL, NULL), " +
                                 "  ('a_timestamp', NULL, NULL, 0.5, NULL, '2021-07-24 03:43:57.987654', '2021-07-24 03:43:57.987654'), " +
                                 "  ('a_timestamptz', NULL, NULL, 0.5, NULL, '2021-07-24 04:43:57.987 UTC', '2021-07-24 04:43:57.987 UTC'), " +
                                 "  ('a_uuid', NULL, NULL, 0.5, NULL, NULL, NULL), " +
-                                "  ('a_row', NULL, NULL, 0.5, NULL, NULL, NULL), " +
-                                "  ('an_array', NULL, NULL, 0.5, NULL, NULL, NULL), " +
-                                "  ('a_map', NULL, NULL, 0.5, NULL, NULL, NULL), " +
-                                "  ('a quoted, field', NULL, NULL, 0.5, NULL, NULL, NULL), " +
+                                "  ('a_row', 42.0, NULL, 0.5, NULL, NULL, NULL), " +
+                                "  ('an_array', 35.0, NULL, 0.5, NULL, NULL, NULL), " +
+                                "  ('a_map', 51.0, NULL, 0.5, NULL, NULL, NULL), " +
+                                "  ('a quoted, field', 17.0, NULL, 0.5, NULL, NULL, NULL), " +
                                 "  (NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
             }
             case PARQUET -> {
@@ -854,9 +854,9 @@ public abstract class BaseIcebergConnectorTest
                                 "  ('a_timestamp', NULL, NULL, 0.5e0, NULL, '2021-07-24 03:43:57.987654', '2021-07-24 03:43:57.987654'), " +
                                 "  ('a_timestamptz', NULL, NULL, 0.5e0, NULL, '2021-07-24 04:43:57.987 UTC', '2021-07-24 04:43:57.987 UTC'), " +
                                 "  ('a_uuid', NULL, NULL, 0.5e0, NULL, NULL, NULL), " +
-                                "  ('a_row', NULL, NULL, NULL, NULL, NULL, NULL), " +
-                                "  ('an_array', NULL, NULL, NULL, NULL, NULL, NULL), " +
-                                "  ('a_map', NULL, NULL, NULL, NULL, NULL, NULL), " +
+                                "  ('a_row', 0e0, NULL, 1e0, NULL, NULL, NULL), " +
+                                "  ('an_array', 105e0, NULL, 0.5e0, NULL, NULL, NULL), " +
+                                "  ('a_map', 0e0, NULL, 1e0, NULL, NULL, NULL), " +
                                 "  ('a quoted, field', 83e0, NULL, 0.5e0, NULL, NULL, NULL), " +
                                 "  (NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
             }
@@ -871,8 +871,8 @@ public abstract class BaseIcebergConnectorTest
                                 "  ('a_double', NULL, NULL, 0.5e0, NULL, '1.0', '1.0'), " +
                                 "  ('a_short_decimal', NULL, NULL, 0.5e0, NULL, '1.0', '1.0'), " +
                                 "  ('a_long_decimal', NULL, NULL, 0.5e0, NULL, '11.0', '11.0'), " +
-                                "  ('a_varchar', NULL, NULL, 0.5e0, NULL, NULL, NULL), " +
-                                "  ('a_varbinary', NULL, NULL, 0.5e0, NULL, NULL, NULL), " +
+                                "  ('a_varchar', 21e0, NULL, 0.5e0, NULL, NULL, NULL), " +
+                                "  ('a_varbinary', 16e0, NULL, 0.5e0, NULL, NULL, NULL), " +
                                 "  ('a_date', NULL, NULL, 0.5e0, NULL, '2021-07-24', '2021-07-24'), " +
                                 "  ('a_time', NULL, NULL, 0.5e0, NULL, NULL, NULL), " +
                                 "  ('a_timestamp', NULL, NULL, 0.5e0, NULL, '2021-07-24 03:43:57.987654', '2021-07-24 03:43:57.987654'), " +
@@ -881,7 +881,7 @@ public abstract class BaseIcebergConnectorTest
                                 "  ('a_row', NULL, NULL, NULL, NULL, NULL, NULL), " +
                                 "  ('an_array', NULL, NULL, NULL, NULL, NULL, NULL), " +
                                 "  ('a_map', NULL, NULL, NULL, NULL, NULL, NULL), " +
-                                "  ('a quoted, field', NULL, NULL, 0.5e0, NULL, NULL, NULL), " +
+                                "  ('a quoted, field', 17e0, NULL, 0.5e0, NULL, NULL, NULL), " +
                                 "  (NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
             }
         }
@@ -2607,7 +2607,7 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SHOW STATS FOR test_truncate_text_transform"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "  ('d', " + (format == PARQUET ? "205e0" : "NULL") + ", NULL, " + (format == AVRO ? "NULL" : "0.125e0") + ", NULL, NULL, NULL), " +
+                        "  ('d', " + (format == PARQUET ? "205e0" : (format == ORC ? "76e0" : "NULL")) + ", NULL, " + (format == AVRO ? "NULL" : "0.125e0") + ", NULL, NULL, NULL), " +
                         (format == AVRO ? "  ('b', NULL, NULL, NULL, NULL, NULL, NULL), " : "  ('b', NULL, NULL, 0e0, NULL, '1', '101'), ") +
                         "  (NULL, NULL, NULL, NULL, 8e0, NULL, NULL)");
 
@@ -2893,7 +2893,7 @@ public abstract class BaseIcebergConnectorTest
         String expected = null;
         if (format == ORC) {
             expected = "VALUES " +
-                    "  ('d', NULL, NULL, 0e0, NULL, NULL, NULL), " +
+                    "  ('d', 71e0, NULL, 0e0, NULL, NULL, NULL), " +
                     "  ('b', NULL, NULL, 0e0, NULL, '1', '7'), " +
                     "  (NULL, NULL, NULL, NULL, 7e0, NULL, NULL)";
         }
@@ -2958,7 +2958,7 @@ public abstract class BaseIcebergConnectorTest
             assertThat(query("SHOW STATS FOR test_void_transform"))
                     .skippingTypesCheck()
                     .matches("VALUES " +
-                            "  ('d', " + (format == PARQUET ? "76e0" : "NULL") + ", NULL, 0.2857142857142857, NULL, NULL, NULL), " +
+                            "  ('d', " + (format == PARQUET ? "76e0" : "59.00000000000001e0") + ", NULL, 0.2857142857142857, NULL, NULL, NULL), " +
                             "  ('b', NULL, NULL, 0e0, NULL, '1', '7'), " +
                             "  (NULL, NULL, NULL, NULL, 7e0, NULL, NULL)");
         }
@@ -3123,8 +3123,8 @@ public abstract class BaseIcebergConnectorTest
                 "  (NULL, NULL, NULL, NULL, 5e0, NULL, NULL)")
                 : ("VALUES " +
                 "  ('regionkey', NULL, NULL, 0e0, NULL, '0', '4'), " +
-                "  ('name', " + (format == PARQUET ? "87e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
-                "  ('comment', " + (format == PARQUET ? "237e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
+                "  ('name', " + (format == PARQUET ? "87e0" : "59e0") + ", NULL, 0e0, NULL, NULL, NULL), " +
+                "  ('comment', " + (format == PARQUET ? "237e0" : "355e0") + ", NULL, 0e0, NULL, NULL, NULL), " +
                 "  (NULL, NULL, NULL, NULL, 5e0, NULL, NULL)");
 
         String statsWithNdv = format == AVRO
@@ -3135,8 +3135,8 @@ public abstract class BaseIcebergConnectorTest
                 "  (NULL, NULL, NULL, NULL, 5e0, NULL, NULL)")
                 : ("VALUES " +
                 "  ('regionkey', NULL, 5e0, 0e0, NULL, '0', '4'), " +
-                "  ('name', " + (format == PARQUET ? "87e0" : "NULL") + ", 5e0, 0e0, NULL, NULL, NULL), " +
-                "  ('comment', " + (format == PARQUET ? "237e0" : "NULL") + ", 5e0, 0e0, NULL, NULL, NULL), " +
+                "  ('name', " + (format == PARQUET ? "87e0" : "59e0") + ", 5e0, 0e0, NULL, NULL, NULL), " +
+                "  ('comment', " + (format == PARQUET ? "237e0" : "355e0") + ", 5e0, 0e0, NULL, NULL, NULL), " +
                 "  (NULL, NULL, NULL, NULL, 5e0, NULL, NULL)");
 
         // initially, no NDV information
@@ -3161,6 +3161,146 @@ public abstract class BaseIcebergConnectorTest
                 .matches(statsWithoutNdv);
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testColumnSizes()
+    {
+        String tableName = "test_basic_column_statistics";
+
+        assertUpdate("CREATE TABLE " + tableName +
+                " (col_int INT, " +
+                "col_varchar VARCHAR, " +
+                "col_row ROW(outer_field1 INT, outer_field2 ROW(inner_field1 VARCHAR, inner_field2 INT)), " +
+                "col_map MAP(INT, VARCHAR), " +
+                "col_array ARRAY(INT))");
+
+        assertUpdate("INSERT INTO " + tableName +
+                " VALUES(0, 'test0', ROW(1, ROW('test1', 11)), MAP(ARRAY[2, 3], ARRAY['test2', 'test3']), ARRAY[4, 5, 6])", 1);
+        String expectedStatsAfterFirstInsert = ("VALUES " +
+                "('col_int', NULL, NULL, NULL, NULL, NULL, NULL), " +
+                "('col_varchar', NULL, NULL, NULL, NULL, NULL, NULL), " +
+                "('col_row', NULL, NULL, NULL, NULL, NULL, NULL), " +
+                "('col_map', NULL, NULL, NULL, NULL, NULL, NULL), " +
+                "('col_array', NULL, NULL, NULL, NULL, NULL, NULL), " +
+                "(NULL, NULL, NULL, NULL, 1e0, NULL, NULL)");
+        if (format == PARQUET) {
+            expectedStatsAfterFirstInsert = ("VALUES " +
+                    "('col_int', NULL, NULL, 0e0, NULL, '0', '0'), " +
+                    "('col_varchar', 45e0, NULL, 0e0, NULL, NULL, NULL), " +
+                    "('col_row', 41e0, NULL, 0e0, NULL, NULL, NULL), " +
+                    "('col_map', 108e0, NULL, 0e0, NULL, NULL, NULL), " +
+                    "('col_array', 55e0, NULL, 0e0, NULL, NULL, NULL), " +
+                    "(NULL, NULL, NULL, NULL, 1e0, NULL, NULL)");
+        }
+        else if (format == ORC) {
+            expectedStatsAfterFirstInsert = ("VALUES " +
+                    "('col_int', NULL, NULL, 0e0, NULL, '0', '0'), " +
+                    "('col_varchar', 10e0, NULL, 0e0, NULL, NULL, NULL), " +
+                    "('col_row', 30e0, NULL, 0e0, NULL, NULL, NULL), " +
+                    "('col_map', 51e0, NULL, 0e0, NULL, NULL, NULL), " +
+                    "('col_array', 20e0, NULL, 0e0, NULL, NULL, NULL), " +
+                    "(NULL, NULL, NULL, NULL, 1e0, NULL, NULL)");
+        }
+
+        assertThat(query("SHOW STATS FOR " + tableName)).skippingTypesCheck().matches(expectedStatsAfterFirstInsert);
+
+        assertUpdate("INSERT INTO " + tableName +
+                " VALUES(10, " +
+                "'test10test10', " +
+                "ROW(100, ROW('test100test100', 110110)), " +
+                "MAP(ARRAY[200, 300, 400], ARRAY['test200', 'test300', 'test400']), " +
+                "ARRAY[500, 600, 700, 800]), " +
+                "(20, " +
+                "'test20test20', " +
+                "ROW(200, ROW('test200test200', 220220)), " +
+                "MAP(ARRAY[220, 330, 440], ARRAY['test220', 'test330', 'test440']), " +
+                "ARRAY[550, 660, 770, 880])", 2);
+        String expectedStatsAfterSecondInsert = ("VALUES " +
+                "('col_int', NULL, NULL, NULL, NULL, NULL, NULL), " +
+                "('col_varchar', NULL, NULL, NULL, NULL, NULL, NULL), " +
+                "('col_row', NULL, NULL, NULL, NULL, NULL, NULL), " +
+                "('col_map', NULL, NULL, NULL, NULL, NULL, NULL), " +
+                "('col_array', NULL, NULL, NULL, NULL, NULL, NULL), " +
+                "(NULL, NULL, NULL, NULL, 3e0, NULL, NULL)");
+        if (format == PARQUET) {
+            expectedStatsAfterSecondInsert = ("VALUES " +
+                    "('col_int', NULL, NULL, 0e0, NULL, '0', '20'), " +
+                    "('col_varchar', 108e0, NULL, 0e0, NULL, NULL, NULL), " +
+                    "('col_row', 86e0, NULL, 0e0, NULL, NULL, NULL), " +
+                    "('col_map', 251e0, NULL, 0e0, NULL, NULL, NULL), " +
+                    "('col_array', 129e0, NULL, 0e0, NULL, NULL, NULL), " +
+                    "(NULL, NULL, NULL, NULL, 3e0, NULL, NULL)");
+        }
+        else if (format == ORC) {
+            expectedStatsAfterSecondInsert = ("VALUES " +
+                    "('col_int', NULL, NULL, 0e0, NULL, '0', '20'), " +
+                    "('col_varchar', 44e0, NULL, 0e0, NULL, NULL, NULL), " +
+                    "('col_row', 108e0, NULL, 0e0, NULL, NULL, NULL), " +
+                    "('col_map', 211e0, NULL, 0e0, NULL, NULL, NULL), " +
+                    "('col_array', 70e0, NULL, 0e0, NULL, NULL, NULL), " +
+                    "(NULL, NULL, NULL, NULL, 3e0, NULL, NULL)");
+        }
+
+        assertThat(query("SHOW STATS FOR " + tableName)).skippingTypesCheck().matches(expectedStatsAfterSecondInsert);
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE col_int = 0", 1);
+
+        String expectedStatsAfterPartialDelete = ("VALUES " +
+                "('col_int', NULL, NULL, NULL, NULL, NULL, NULL), " +
+                "('col_varchar', NULL, NULL, NULL, NULL, NULL, NULL), " +
+                "('col_row', NULL, NULL, NULL, NULL, NULL, NULL), " +
+                "('col_map', NULL, NULL, NULL, NULL, NULL, NULL), " +
+                "('col_array', NULL, NULL, NULL, NULL, NULL, NULL), " +
+                "(NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
+        if (format == PARQUET) {
+            expectedStatsAfterPartialDelete = ("VALUES " +
+                    "('col_int', NULL, NULL, 0e0, NULL, '10', '20'), " +
+                    "('col_varchar', 63e0, NULL, 0e0, NULL, NULL, NULL), " +
+                    "('col_row', 45e0, NULL, 0e0, NULL, NULL, NULL), " +
+                    "('col_map', 143e0, NULL, 0e0, NULL, NULL, NULL), " +
+                    "('col_array', 74e0, NULL, 0e0, NULL, NULL, NULL), " +
+                    "(NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
+        }
+        else if (format == ORC) {
+            expectedStatsAfterPartialDelete = ("VALUES " +
+                    "('col_int', NULL, NULL, 0e0, NULL, '10', '20'), " +
+                    "('col_varchar', 34e0, NULL, 0e0, NULL, NULL, NULL), " +
+                    "('col_row', 78e0, NULL, 0e0, NULL, NULL, NULL), " +
+                    "('col_map', 160e0, NULL, 0e0, NULL, NULL, NULL), " +
+                    "('col_array', 50e0, NULL, 0e0, NULL, NULL, NULL), " +
+                    "(NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
+        }
+        assertThat(query("SHOW STATS FOR " + tableName)).skippingTypesCheck().matches(expectedStatsAfterPartialDelete);
+
+        assertUpdate("DELETE FROM " + tableName, 2);
+        String expectedStatsAfterDeleteAllData = ("VALUES " +
+                "('col_int', 0e0, 0e0, 1e0, NULL, NULL, NULL), " +
+                "('col_varchar', 0e0, 0e0, 1e0, NULL, NULL, NULL), " +
+                "('col_row', 0e0, 0e0, 1e0, NULL, NULL, NULL), " +
+                "('col_map', 0e0, 0e0, 1e0, NULL, NULL, NULL), " +
+                "('col_array', 0e0, 0e0, 1e0, NULL, NULL, NULL), " +
+                "(NULL, NULL, NULL, NULL, 0e0, NULL, NULL)");
+        if (format == PARQUET) {
+            expectedStatsAfterDeleteAllData = ("VALUES " +
+                    "('col_int', 0e0, 0e0, 1e0, NULL, NULL, NULL), " +
+                    "('col_varchar', 0e0, 0e0, 1e0, NULL, NULL, NULL), " +
+                    "('col_row', 0e0, 0e0, 1e0, NULL, NULL, NULL), " +
+                    "('col_map', 0e0, 0e0, 1e0, NULL, NULL, NULL), " +
+                    "('col_array', 0e0, 0e0, 1e0, NULL, NULL, NULL), " +
+                    "(NULL, NULL, NULL, NULL, 0e0, NULL, NULL)");
+        }
+        else if (format == ORC) {
+            expectedStatsAfterDeleteAllData = ("VALUES " +
+                    "('col_int', 0e0, 0e0, 1e0, NULL, NULL, NULL), " +
+                    "('col_varchar', 0e0, 0e0, 1e0, NULL, NULL, NULL), " +
+                    "('col_row', 0e0, 0e0, 1e0, NULL, NULL, NULL), " +
+                    "('col_map', 0e0, 0e0, 1e0, NULL, NULL, NULL), " +
+                    "('col_array', 0e0, 0e0, 1e0, NULL, NULL, NULL), " +
+                    "(NULL, NULL, NULL, NULL, 0e0, NULL, NULL)");
+        }
+
+        assertThat(query("SHOW STATS FOR " + tableName)).skippingTypesCheck().matches(expectedStatsAfterDeleteAllData);
     }
 
     @Test
@@ -3569,17 +3709,17 @@ public abstract class BaseIcebergConnectorTest
                     .matches("VALUES " +
                             "  ('bool', NULL, NULL, 0e0, NULL, 'true', 'true'), " +
                             "  ('int', NULL, NULL, 0e0, NULL, '1', '1'), " +
-                            "  ('arr', NULL, NULL, " + (format == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
+                            "  ('arr', " + (format == PARQUET ? "62e0" : "30e0") + ", NULL, 0e0, NULL, NULL, NULL), " +
                             "  ('big', NULL, NULL, 0e0, NULL, '1', '1'), " +
                             "  ('rl', NULL, NULL, 0e0, NULL, '1.0', '1.0'), " +
                             "  ('dbl', NULL, NULL, 0e0, NULL, '1.0', '1.0'), " +
-                            "  ('mp', NULL, NULL, " + (format == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
+                            "  ('mp', " + (format == PARQUET ? "128e0" : "90e0") + ", NULL, 0e0, NULL, NULL, NULL), " +
                             "  ('dec', NULL, NULL, 0e0, NULL, '1.0', '1.0'), " +
-                            "  ('vc', " + (format == PARQUET ? "43e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
-                            "  ('vb', " + (format == PARQUET ? "55e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
+                            "  ('vc', " + (format == PARQUET ? "43e0" : "8e0") + ", NULL, 0e0, NULL, NULL, NULL), " +
+                            "  ('vb', " + (format == PARQUET ? "55e0" : "20e0") + ", NULL, 0e0, NULL, NULL, NULL), " +
                             "  ('ts', NULL, NULL, 0e0, NULL, '2021-07-24 02:43:57.348000', " + (format == ORC ? "'2021-07-24 02:43:57.348999'" : "'2021-07-24 02:43:57.348000'") + "), " +
                             "  ('tstz', NULL, NULL, 0e0, NULL, '2021-07-24 02:43:57.348 UTC', '2021-07-24 02:43:57.348 UTC'), " +
-                            "  ('str', NULL, NULL, " + (format == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
+                            "  ('str', " + (format == PARQUET ? "0e0" : "37e0") + ", NULL, " + (format == PARQUET ? "1e0" : "0e0") + ", NULL, NULL, NULL), " +
                             "  ('dt', NULL, NULL, 0e0, NULL, '2021-07-24', '2021-07-24'), " +
                             "  (NULL, NULL, NULL, NULL, 1e0, NULL, NULL)");
         }
@@ -3632,14 +3772,14 @@ public abstract class BaseIcebergConnectorTest
                     .skippingTypesCheck()
                     .matches("VALUES " +
                             "  ('int', NULL, NULL, 0e0, NULL, '1', '1'), " +
-                            "  ('arr', NULL, NULL, " + (format == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
+                            "  ('arr', " + (format == ORC ? "38e0" : "0e0") + ", NULL, 0e0, NULL, NULL, NULL), " +
                             "  ('big', NULL, NULL, 0e0, NULL, '1', '1'), " +
                             "  ('rl', NULL, NULL, 0e0, NULL, '1.0', '1.0'), " +
                             "  ('dbl', NULL, NULL, 0e0, NULL, '1.0', '1.0'), " +
-                            "  ('mp', NULL, NULL, " + (format == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
+                            "  ('mp', " + (format == ORC ? "0e0" : "51e0") + ", NULL, 0e0, NULL, NULL, NULL), " +
                             "  ('dec', NULL, NULL, 0e0, NULL, '1.0', '1.0'), " +
-                            "  ('vc', " + (format == PARQUET ? "43e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
-                            "  ('str', NULL, NULL, " + (format == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
+                            "  ('vc', " + (format == PARQUET ? "43e0" : "0e0") + ", NULL, 0e0, NULL, NULL, NULL), " +
+                            "  ('str',  " + (format == ORC ? "0e0" : "104e0") + ", NULL, 0e0, NULL, NULL, NULL), " +
                             "  (NULL, NULL, NULL, NULL, 1e0, NULL, NULL)");
         }
         else {
@@ -3950,16 +4090,16 @@ public abstract class BaseIcebergConnectorTest
                             "  ('a_double', NULL, NULL, 0.5e0, NULL, '1.0', '1.0'), " +
                             "  ('a_short_decimal', NULL, NULL, 0.5e0, NULL, '1.0', '1.0'), " +
                             "  ('a_long_decimal', NULL, NULL, 0.5e0, NULL, '11.0', '11.0'), " +
-                            "  ('a_varchar', " + (format == PARQUET ? "87e0" : "NULL") + ", NULL, 0.5e0, NULL, NULL, NULL), " +
-                            "  ('a_varbinary', " + (format == PARQUET ? "82e0" : "NULL") + ", NULL, 0.5e0, NULL, NULL, NULL), " +
+                            "  ('a_varchar', " + (format == PARQUET ? "87e0" : "21e0") + ", NULL, 0.5e0, NULL, NULL, NULL), " +
+                            "  ('a_varbinary', " + (format == PARQUET ? "82e0" : "16e0") + ", NULL, 0.5e0, NULL, NULL, NULL), " +
                             "  ('a_date', NULL, NULL, 0.5e0, NULL, '2021-07-24', '2021-07-24'), " +
                             "  ('a_time', NULL, NULL, 0.5e0, NULL, NULL, NULL), " +
                             "  ('a_timestamp', NULL, NULL, 0.5e0, NULL, " + (format == ORC ? "'2021-07-24 03:43:57.987000', '2021-07-24 03:43:57.987999'" : "'2021-07-24 03:43:57.987654', '2021-07-24 03:43:57.987654'") + "), " +
                             "  ('a_timestamptz', NULL, NULL, 0.5e0, NULL, '2021-07-24 04:43:57.987 UTC', '2021-07-24 04:43:57.987 UTC'), " +
                             "  ('a_uuid', NULL, NULL, 0.5e0, NULL, NULL, NULL), " +
-                            "  ('a_row', NULL, NULL, " + (format == ORC ? "0.5" : "NULL") + ", NULL, NULL, NULL), " +
-                            "  ('an_array', NULL, NULL, " + (format == ORC ? "0.5" : "NULL") + ", NULL, NULL, NULL), " +
-                            "  ('a_map', NULL, NULL, " + (format == ORC ? "0.5" : "NULL") + ", NULL, NULL, NULL), " +
+                            "  ('a_row', " + (format == PARQUET ? "0e0" : "42e0") + ", NULL, " + (format == ORC ? "0.5" : "1e0") + ", NULL, NULL, NULL), " +
+                            "  ('an_array', " + (format == PARQUET ? "105e0" : "35e0") + ", NULL, 0.5, NULL, NULL, NULL), " +
+                            "  ('a_map', " + (format == PARQUET ? "0e0" : "51e0") + ", NULL, " + (format == ORC ? "0.5" : "1e0") + ", NULL, NULL, NULL), " +
                             "  (NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
         }
         else {
@@ -4004,16 +4144,16 @@ public abstract class BaseIcebergConnectorTest
                             "  ('a_double', NULL, 1e0, 0.5e0, NULL, '1.0', '1.0'), " +
                             "  ('a_short_decimal', NULL, 1e0, 0.5e0, NULL, '1.0', '1.0'), " +
                             "  ('a_long_decimal', NULL, 1e0, 0.5e0, NULL, '11.0', '11.0'), " +
-                            "  ('a_varchar', " + (format == PARQUET ? "87e0" : "NULL") + ", 1e0, 0.5e0, NULL, NULL, NULL), " +
-                            "  ('a_varbinary', " + (format == PARQUET ? "82e0" : "NULL") + ", 1e0, 0.5e0, NULL, NULL, NULL), " +
+                            "  ('a_varchar', " + (format == PARQUET ? "87e0" : "21e0") + ", 1e0, 0.5e0, NULL, NULL, NULL), " +
+                            "  ('a_varbinary', " + (format == PARQUET ? "82e0" : "16e0") + ", 1e0, 0.5e0, NULL, NULL, NULL), " +
                             "  ('a_date', NULL, 1e0, 0.5e0, NULL, '2021-07-24', '2021-07-24'), " +
                             "  ('a_time', NULL, 1e0, 0.5e0, NULL, NULL, NULL), " +
                             "  ('a_timestamp', NULL, 1e0, 0.5e0, NULL, " + (format == ORC ? "'2021-07-24 03:43:57.987000', '2021-07-24 03:43:57.987999'" : "'2021-07-24 03:43:57.987654', '2021-07-24 03:43:57.987654'") + "), " +
                             "  ('a_timestamptz', NULL, 1e0, 0.5e0, NULL, '2021-07-24 04:43:57.987 UTC', '2021-07-24 04:43:57.987 UTC'), " +
                             "  ('a_uuid', NULL, 1e0, 0.5e0, NULL, NULL, NULL), " +
-                            "  ('a_row', NULL, NULL, " + (format == ORC ? "0.5" : "NULL") + ", NULL, NULL, NULL), " +
-                            "  ('an_array', NULL, NULL, " + (format == ORC ? "0.5" : "NULL") + ", NULL, NULL, NULL), " +
-                            "  ('a_map', NULL, NULL, " + (format == ORC ? "0.5" : "NULL") + ", NULL, NULL, NULL), " +
+                            "  ('a_row', " + (format == PARQUET ? "0e0" : "42e0") + ", NULL, " + (format == ORC ? "0.5" : "1e0") + ", NULL, NULL, NULL), " +
+                            "  ('an_array', " + (format == PARQUET ? "105e0" : "35e0") + ", NULL, 0.5, NULL, NULL, NULL), " +
+                            "  ('a_map', " + (format == PARQUET ? "0e0" : "51e0") + ", NULL, " + (format == ORC ? "0.5" : "1e0") + ", NULL, NULL, NULL), " +
                             "  (NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
         }
         else {
