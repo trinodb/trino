@@ -23,6 +23,7 @@ import java.util.List;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_104_RUNTIME_VERSION;
@@ -32,7 +33,6 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumn
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumnCommentOnTrino;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTableCommentOnDelta;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -54,7 +54,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDatabricksCanReadInitialCreateTable()
     {
-        String tableName = "test_dl_create_table_compat_" + randomTableSuffix();
+        String tableName = "test_dl_create_table_compat_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
         onTrino().executeQuery(format("CREATE TABLE delta.default.%s (integer int, string varchar, timetz timestamp with time zone) with (location = 's3://%s/%s')",
@@ -94,7 +94,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDatabricksCanReadInitialCreatePartitionedTable()
     {
-        String tableName = "test_dl_create_table_compat_" + randomTableSuffix();
+        String tableName = "test_dl_create_table_compat_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
         onTrino().executeQuery(
@@ -137,7 +137,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDatabricksCanReadInitialCreateTableAs()
     {
-        String tableName = "test_dl_create_table_as_compat_" + randomTableSuffix();
+        String tableName = "test_dl_create_table_as_compat_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
         onTrino().executeQuery(format("CREATE TABLE delta.default.%s (integer, string, timetz) with (location = 's3://%s/%s') AS " +
@@ -182,7 +182,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDatabricksCanReadInitialCreatePartitionedTableAs()
     {
-        String tableName = "test_dl_create_table_compat_" + randomTableSuffix();
+        String tableName = "test_dl_create_table_compat_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
         onTrino().executeQuery(format("CREATE TABLE delta.default.%s (integer, string, timetz) with (location = 's3://%s/%s', partitioned_by = ARRAY['string']) AS " +
@@ -245,7 +245,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCreateTableWithTableComment()
     {
-        String tableName = "test_dl_create_table_comment_" + randomTableSuffix();
+        String tableName = "test_dl_create_table_comment_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
         onTrino().executeQuery(format("CREATE TABLE delta.default.%s (col INT) COMMENT 'test comment' WITH (location = 's3://%s/%s')",
@@ -268,7 +268,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCreateTableWithColumnCommentOnTrino()
     {
-        String tableName = "test_dl_create_column_comment_" + randomTableSuffix();
+        String tableName = "test_dl_create_column_comment_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
         onTrino().executeQuery(format("CREATE TABLE delta.default.%s (col INT COMMENT 'test comment') WITH (location = 's3://%s/%s')",
@@ -294,7 +294,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCreateTableWithColumnCommentOnDelta()
     {
-        String tableName = "test_dl_create_column_comment_" + randomTableSuffix();
+        String tableName = "test_dl_create_column_comment_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
         onDelta().executeQuery(format("CREATE TABLE default.%s (col INT COMMENT 'test comment') USING DELTA LOCATION 's3://%s/%s'",

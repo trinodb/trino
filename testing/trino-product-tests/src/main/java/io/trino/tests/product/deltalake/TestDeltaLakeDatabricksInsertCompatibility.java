@@ -28,6 +28,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_73;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
@@ -36,7 +37,6 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICK
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.util.Arrays.asList;
@@ -57,7 +57,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testInsertCompatibility()
     {
-        String tableName = "test_dl_insert_" + randomTableSuffix();
+        String tableName = "test_dl_insert_" + randomNameSuffix();
 
         onDelta().executeQuery("" +
                 "CREATE TABLE default." + tableName +
@@ -93,7 +93,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testPartitionedInsertCompatibility()
     {
-        String tableName = "test_dl_partitioned_insert_" + randomTableSuffix();
+        String tableName = "test_dl_partitioned_insert_" + randomNameSuffix();
 
         onDelta().executeQuery("" +
                 "CREATE TABLE default." + tableName +
@@ -131,7 +131,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTrinoPartitionedDifferentOrderInsertCompatibility()
     {
-        String tableName = "test_dl_trino_partitioned_different_order_insert_" + randomTableSuffix();
+        String tableName = "test_dl_trino_partitioned_different_order_insert_" + randomNameSuffix();
 
         onTrino().executeQuery("" +
                 "CREATE TABLE delta.default." + tableName +
@@ -158,7 +158,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDeltaPartitionedDifferentOrderInsertCompatibility()
     {
-        String tableName = "test_dl_delta_partitioned_different_order_insert_" + randomTableSuffix();
+        String tableName = "test_dl_delta_partitioned_different_order_insert_" + randomNameSuffix();
 
         onDelta().executeQuery("" +
                 "CREATE TABLE default." + tableName +
@@ -185,7 +185,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testInsertNonLowercaseColumnsCompatibility()
     {
-        String tableName = "test_dl_insert_nonlowercase_columns_" + randomTableSuffix();
+        String tableName = "test_dl_insert_nonlowercase_columns_" + randomNameSuffix();
 
         onDelta().executeQuery("" +
                 "CREATE TABLE default." + tableName +
@@ -223,7 +223,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testInsertNestedNonLowercaseColumnsCompatibility()
     {
-        String tableName = "test_dl_insert_nested_nonlowercase_columns_" + randomTableSuffix();
+        String tableName = "test_dl_insert_nested_nonlowercase_columns_" + randomNameSuffix();
 
         onDelta().executeQuery("" +
                 "CREATE TABLE default." + tableName +
@@ -263,7 +263,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testPartitionedInsertNonLowercaseColumnsCompatibility()
     {
-        String tableName = "test_dl_partitioned_insert_nonlowercase_columns" + randomTableSuffix();
+        String tableName = "test_dl_partitioned_insert_nonlowercase_columns" + randomNameSuffix();
 
         onDelta().executeQuery("" +
                 "CREATE TABLE default." + tableName +
@@ -302,7 +302,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDeleteCompatibility()
     {
-        String tableName = "test_delete_compatibility_" + randomTableSuffix();
+        String tableName = "test_delete_compatibility_" + randomNameSuffix();
 
         onDelta().executeQuery("CREATE TABLE default." + tableName + " (a int, b int)" +
                 " USING DELTA LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'");
@@ -331,7 +331,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
     public void testCheckConstraintsCompatibility()
     {
         // CHECK constraint is not supported by Trino
-        String tableName = "test_check_constraint_not_supported_" + randomTableSuffix();
+        String tableName = "test_check_constraint_not_supported_" + randomNameSuffix();
 
         onDelta().executeQuery("CREATE TABLE default." + tableName +
                 "(id INT,  a_number INT) " +
@@ -387,7 +387,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
         String tableName = "test_compression" +
                 (optimizedWriter ? "_optimized" : "") +
                 "_" + compressionCodec +
-                "_" + randomTableSuffix();
+                "_" + randomNameSuffix();
         String trinoTableName = "delta.default." + tableName;
         String location = "s3://" + bucketName + "/databricks-compatibility-test-" + tableName;
 
@@ -458,7 +458,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testWritesToTableWithCheckConstraintFails()
     {
-        String tableName = "test_writes_into_table_with_check_constraint_" + randomTableSuffix();
+        String tableName = "test_writes_into_table_with_check_constraint_" + randomNameSuffix();
         try {
             onDelta().executeQuery("CREATE TABLE default." + tableName + " (a INT, b INT) " +
                     "USING DELTA " +
@@ -484,7 +484,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testMetadataOperationsRetainCheckConstraints()
     {
-        String tableName = "test_metadata_operations_retain_check_constraints_" + randomTableSuffix();
+        String tableName = "test_metadata_operations_retain_check_constraints_" + randomNameSuffix();
         try {
             onDelta().executeQuery("CREATE TABLE default." + tableName + " (a INT, b INT) " +
                     "USING DELTA " +
@@ -507,7 +507,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testWritesToTableWithGeneratedColumnFails()
     {
-        String tableName = "test_writes_into_table_with_generated_column_" + randomTableSuffix();
+        String tableName = "test_writes_into_table_with_generated_column_" + randomNameSuffix();
         try {
             onDelta().executeQuery("CREATE TABLE default." + tableName + " (a INT, b BOOLEAN GENERATED ALWAYS AS (CAST(true AS BOOLEAN))) " +
                     "USING DELTA " +
@@ -538,7 +538,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testWritesToTableWithCDFFails()
     {
-        String tableName = "test_writes_into_table_with_CDF_" + randomTableSuffix();
+        String tableName = "test_writes_into_table_with_CDF_" + randomNameSuffix();
         try {
             onDelta().executeQuery("CREATE TABLE default." + tableName + " (a INT, b INT) " +
                     "USING DELTA " +

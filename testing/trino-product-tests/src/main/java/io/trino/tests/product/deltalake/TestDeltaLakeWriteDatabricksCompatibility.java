@@ -31,12 +31,12 @@ import java.util.stream.Stream;
 
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_73;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -64,7 +64,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testUpdateCompatibility()
     {
-        String tableName = "test_update_compatibility_" + randomTableSuffix();
+        String tableName = "test_update_compatibility_" + randomNameSuffix();
 
         onDelta().executeQuery(format(
                 "CREATE TABLE default.%1$s (a int, b int, c int) USING DELTA LOCATION '%2$s%1$s'",
@@ -96,7 +96,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDeleteCompatibility()
     {
-        String tableName = "test_delete_compatibility_" + randomTableSuffix();
+        String tableName = "test_delete_compatibility_" + randomNameSuffix();
 
         onDelta().executeQuery(format(
                 "CREATE TABLE default.%1$s (a int, b int) USING DELTA LOCATION '%2$s%1$s'",
@@ -126,7 +126,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDeleteOnPartitionedTableCompatibility()
     {
-        String tableName = "test_delete_on_partitioned_table_compatibility_" + randomTableSuffix();
+        String tableName = "test_delete_on_partitioned_table_compatibility_" + randomNameSuffix();
 
         onDelta().executeQuery(format(
                 "CREATE TABLE default.%1$s (a int, b int) USING DELTA LOCATION '%2$s%1$s' PARTITIONED BY (b)",
@@ -156,7 +156,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDeleteOnPartitionKeyCompatibility()
     {
-        String tableName = "test_delete_on_partitioned_table_compatibility_" + randomTableSuffix();
+        String tableName = "test_delete_on_partitioned_table_compatibility_" + randomNameSuffix();
 
         onDelta().executeQuery(format(
                 "CREATE TABLE default.%1$s (a int, b int) USING DELTA LOCATION '%2$s%1$s' PARTITIONED BY (b)",
@@ -239,7 +239,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTrinoRespectsDatabricksSettingNonNullableColumn()
     {
-        String tableName = "test_databricks_table_with_nonnullable_columns_" + randomTableSuffix();
+        String tableName = "test_databricks_table_with_nonnullable_columns_" + randomNameSuffix();
 
         onDelta().executeQuery(format(
                 "CREATE TABLE default.%1$s (non_nullable_col INT NOT NULL, nullable_col INT) USING DELTA LOCATION '%2$s%1$s'",
@@ -267,7 +267,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDatabricksRespectsTrinoSettingNonNullableColumn()
     {
-        String tableName = "test_trino_table_with_nonnullable_columns_" + randomTableSuffix();
+        String tableName = "test_trino_table_with_nonnullable_columns_" + randomNameSuffix();
 
         onTrino().executeQuery("CREATE TABLE delta.default.\"" + tableName + "\" " +
                 "(non_nullable_col INT NOT NULL, nullable_col INT) " +
@@ -293,7 +293,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
     @Test(groups = {DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
     public void testInsertingIntoDatabricksTableWithAddedNotNullConstraint()
     {
-        String tableName = "test_databricks_table_altered_after_initial_write_" + randomTableSuffix();
+        String tableName = "test_databricks_table_altered_after_initial_write_" + randomNameSuffix();
 
         onDelta().executeQuery(format(
                 "CREATE TABLE default.%1$s (non_nullable_col INT, nullable_col INT) USING DELTA LOCATION '%2$s%1$s'",
@@ -340,7 +340,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
 
     private void testVacuumRemoveChangeDataFeedFiles(Consumer<String> vacuumExecutor)
     {
-        String tableName = "test_vacuum_ignore_cdf_" + randomTableSuffix();
+        String tableName = "test_vacuum_ignore_cdf_" + randomNameSuffix();
         String directoryName = "databricks-compatibility-test-" + tableName;
         String changeDataPrefix = directoryName + "/_change_data";
 
@@ -431,7 +431,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
 
         CaseTestTable(String namePrefix, String partitionColumnName, Collection<TestRow> rows)
         {
-            this.name = namePrefix + "_" + randomTableSuffix();
+            this.name = namePrefix + "_" + randomNameSuffix();
             this.columns = List.of("lower", "UPPER", partitionColumnName);
             this.rows = List.copyOf(rows);
 

@@ -43,12 +43,12 @@ import static io.trino.tempto.fulfillment.table.MutableTablesState.mutableTables
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static io.trino.tempto.query.QueryExecutor.param;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.LARGE_QUERY;
 import static io.trino.tests.product.TpchTableResults.PRESTO_NATION_RESULT;
 import static io.trino.tests.product.hive.BucketingType.BUCKETED_DEFAULT;
 import static io.trino.tests.product.hive.BucketingType.BUCKETED_V1;
 import static io.trino.tests.product.hive.BucketingType.BUCKETED_V2;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.hive.util.TemporaryHiveTable.temporaryHiveTable;
 import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
 import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
@@ -317,7 +317,7 @@ public class TestHiveBucketedTables
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testBucketingWithUnsupportedDataTypes(BucketingType bucketingType, String columnToBeBucketed)
     {
-        try (TemporaryHiveTable table = temporaryHiveTable("table_with_unsupported_bucketing_types_" + randomTableSuffix())) {
+        try (TemporaryHiveTable table = temporaryHiveTable("table_with_unsupported_bucketing_types_" + randomNameSuffix())) {
             String tableName = table.getName();
             onHive().executeQuery(format("CREATE TABLE %s (" +
                             "n_integer       INT," +

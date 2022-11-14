@@ -35,7 +35,6 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -61,9 +60,7 @@ import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.TestingConnectorSession.builder;
-import static java.lang.Character.MAX_RADIX;
-import static java.lang.Math.abs;
-import static java.lang.Math.min;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
@@ -78,10 +75,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Test(singleThreaded = true)
 public class TestCachingJdbcClient
 {
-    private static final SecureRandom random = new SecureRandom();
-    // The suffix needs to be long enough to "prevent" collisions in practice. The length of 5 was proven not to be long enough
-    private static final int RANDOM_SUFFIX_LENGTH = 10;
-
     private static final Duration FOREVER = Duration.succinctDuration(1, DAYS);
     private static final Duration ZERO = Duration.succinctDuration(0, MILLISECONDS);
 
@@ -758,7 +751,7 @@ public class TestCachingJdbcClient
         List<Future<?>> futures = new ArrayList<>();
         for (int i = 0; i < 5; i++) {
             futures.add(executor.submit(() -> {
-                String schemaName = "schema_" + randomSuffix();
+                String schemaName = "schema_" + randomNameSuffix();
                 assertThat(cachingJdbcClient.getSchemaNames(session)).doesNotContain(schemaName);
                 cachingJdbcClient.createSchema(session, schemaName);
                 assertThat(cachingJdbcClient.getSchemaNames(session)).contains(schemaName);
@@ -893,12 +886,6 @@ public class TestCachingJdbcClient
     public void testEverythingImplemented()
     {
         assertAllMethodsOverridden(JdbcClient.class, CachingJdbcClient.class);
-    }
-
-    private static String randomSuffix()
-    {
-        String randomSuffix = Long.toString(abs(random.nextLong()), MAX_RADIX);
-        return randomSuffix.substring(0, min(RANDOM_SUFFIX_LENGTH, randomSuffix.length()));
     }
 
     private static SingleJdbcCacheStatsAssertions assertTableNamesCache(CachingJdbcClient client)

@@ -35,13 +35,13 @@ import java.util.stream.Collectors;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertLastEntryIsCheckpointed;
 import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertTransactionLogVersion;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -68,7 +68,7 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testPrestoTypesWithDatabricks()
     {
-        String tableName = "test_dl_ctas_" + randomTableSuffix();
+        String tableName = "test_dl_ctas_" + randomNameSuffix();
 
         try {
             assertThat(onTrino().executeQuery("CREATE TABLE delta.default.\"" + tableName + "\" " +
@@ -98,7 +98,7 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testPrestoTimestampsWithDatabricks()
     {
-        String tableName = "test_dl_ctas_timestamps_" + randomTableSuffix();
+        String tableName = "test_dl_ctas_timestamps_" + randomNameSuffix();
 
         try {
             assertThat(onTrino().executeQuery("CREATE TABLE delta.default.\"" + tableName + "\" " +
@@ -126,7 +126,7 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
     public void testPrestoCacheInvalidatedOnCreateTable()
             throws URISyntaxException, IOException
     {
-        String tableName = "test_dl_ctas_caching_" + randomTableSuffix();
+        String tableName = "test_dl_ctas_caching_" + randomNameSuffix();
 
         try {
             assertThat(onTrino().executeQuery("CREATE TABLE delta.default.\"" + tableName + "\" " +
@@ -175,7 +175,7 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCreateFromTrinoWithDefaultPartitionValues()
     {
-        String tableName = "test_create_partitioned_table_default_as_" + randomTableSuffix();
+        String tableName = "test_create_partitioned_table_default_as_" + randomNameSuffix();
 
         try {
             assertThat(onTrino().executeQuery(
@@ -205,7 +205,7 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testReplaceTableWithSchemaChange()
     {
-        String tableName = "test_replace_table_with_schema_change_" + randomTableSuffix();
+        String tableName = "test_replace_table_with_schema_change_" + randomNameSuffix();
 
         onTrino().executeQuery("CREATE TABLE delta.default." + tableName + " (ts VARCHAR) " +
                 "with (location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "', checkpoint_interval = 10)");
@@ -230,7 +230,7 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testReplaceTableWithSchemaChangeOnCheckpoint()
     {
-        String tableName = "test_replace_table_with_schema_change_" + randomTableSuffix();
+        String tableName = "test_replace_table_with_schema_change_" + randomNameSuffix();
         onTrino().executeQuery("CREATE TABLE delta.default." + tableName + " (ts VARCHAR) " +
                 "with (location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "', checkpoint_interval = 10)");
         try {
