@@ -19,9 +19,6 @@ import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.jmx.PrefixObjectNameGeneratorModule;
 import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.exchange.ExchangeManagerFactory;
-import io.trino.spi.exchange.ExchangeManagerHandleResolver;
-import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
-import io.trino.spi.exchange.ExchangeSourceHandle;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
@@ -54,24 +51,5 @@ public class FileSystemExchangeManagerFactory
                 .initialize();
 
         return injector.getInstance(FileSystemExchangeManager.class);
-    }
-
-    @Override
-    public ExchangeManagerHandleResolver getHandleResolver()
-    {
-        return new ExchangeManagerHandleResolver()
-        {
-            @Override
-            public Class<? extends ExchangeSinkInstanceHandle> getExchangeSinkInstanceHandleClass()
-            {
-                return FileSystemExchangeSinkInstanceHandle.class;
-            }
-
-            @Override
-            public Class<? extends ExchangeSourceHandle> getExchangeSourceHandleHandleClass()
-            {
-                return FileSystemExchangeSourceHandle.class;
-            }
-        };
     }
 }

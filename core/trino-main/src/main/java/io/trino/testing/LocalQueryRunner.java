@@ -78,7 +78,6 @@ import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.DisabledSystemSecurityMetadata;
-import io.trino.metadata.ExchangeHandleResolver;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
@@ -462,7 +461,7 @@ public class LocalQueryRunner
                 new TransactionsSystemTable(typeManager, transactionManager)),
                 ImmutableSet.of());
 
-        exchangeManagerRegistry = new ExchangeManagerRegistry(new ExchangeHandleResolver());
+        exchangeManagerRegistry = new ExchangeManagerRegistry();
         this.pluginManager = new PluginManager(
                 (loader, createClassLoader) -> {},
                 catalogFactory,

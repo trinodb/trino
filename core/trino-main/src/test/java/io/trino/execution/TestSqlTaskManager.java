@@ -42,7 +42,6 @@ import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.memory.QueryContext;
 import io.trino.memory.context.LocalMemoryContext;
-import io.trino.metadata.ExchangeHandleResolver;
 import io.trino.metadata.InternalNode;
 import io.trino.operator.DirectExchangeClient;
 import io.trino.operator.DirectExchangeClientSupplier;
@@ -373,7 +372,7 @@ public class TestSqlTaskManager
                 localSpillManager,
                 new NodeSpillConfig(),
                 new TestingGcMonitor(),
-                new ExchangeManagerRegistry(new ExchangeHandleResolver()));
+                new ExchangeManagerRegistry());
     }
 
     private SqlTaskManager createSqlTaskManager(
@@ -397,7 +396,7 @@ public class TestSqlTaskManager
                 localSpillManager,
                 new NodeSpillConfig(),
                 new TestingGcMonitor(),
-                new ExchangeManagerRegistry(new ExchangeHandleResolver()),
+                new ExchangeManagerRegistry(),
                 stuckSplitStackTracePredicate);
     }
 
