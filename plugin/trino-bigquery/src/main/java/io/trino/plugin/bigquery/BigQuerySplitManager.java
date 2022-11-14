@@ -69,6 +69,7 @@ public class BigQuerySplitManager
     private final boolean viewEnabled;
     private final Duration viewExpiration;
     private final NodeManager nodeManager;
+    private final int maxReadRowsRetries;
 
     @Inject
     public BigQuerySplitManager(
@@ -83,6 +84,7 @@ public class BigQuerySplitManager
         this.viewEnabled = config.isViewsEnabled();
         this.viewExpiration = config.getViewExpireDuration();
         this.nodeManager = requireNonNull(nodeManager, "nodeManager cannot be null");
+        this.maxReadRowsRetries = config.getMaxReadRowsRetries();
     }
 
     @Override
@@ -136,7 +138,7 @@ public class BigQuerySplitManager
         if (isSkipViewMaterialization(session) && type == VIEW) {
             return ImmutableList.of(BigQuerySplit.forViewStream(columns, filter));
         }
-        ReadSession readSession = new ReadSessionCreator(bigQueryClientFactory, bigQueryReadClientFactory, viewEnabled, viewExpiration)
+        ReadSession readSession = new ReadSessionCreator(bigQueryClientFactory, bigQueryReadClientFactory, viewEnabled, viewExpiration, maxReadRowsRetries)
                 .create(session, remoteTableId, projectedColumnsNames, filter, actualParallelism);
 
         return readSession.getStreamsList().stream()

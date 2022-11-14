@@ -20,11 +20,14 @@ import com.google.cloud.bigquery.storage.v1.BigQueryReadClient;
 import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
 import com.google.cloud.bigquery.storage.v1.DataFormat;
 import com.google.cloud.bigquery.storage.v1.ReadSession;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
+import net.jodah.failsafe.Failsafe;
+import net.jodah.failsafe.RetryPolicy;
 
 import java.util.List;
 import java.util.Optional;
@@ -34,26 +37,32 @@ import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
+import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.util.stream.Collectors.toList;
 
 // A helper class, also handles view materialization
 public class ReadSessionCreator
 {
+    private static final Logger log = Logger.get(ReadSessionCreator.class);
+
     private final BigQueryClientFactory bigQueryClientFactory;
     private final BigQueryReadClientFactory bigQueryReadClientFactory;
     private final boolean viewEnabled;
     private final Duration viewExpiration;
+    private final int maxCreateReadSessionRetries;
 
     public ReadSessionCreator(
             BigQueryClientFactory bigQueryClientFactory,
             BigQueryReadClientFactory bigQueryReadClientFactory,
             boolean viewEnabled,
-            Duration viewExpiration)
+            Duration viewExpiration,
+            int maxCreateReadSessionRetries)
     {
         this.bigQueryClientFactory = bigQueryClientFactory;
         this.bigQueryReadClientFactory = bigQueryReadClientFactory;
         this.viewEnabled = viewEnabled;
         this.viewExpiration = viewExpiration;
+        this.maxCreateReadSessionRetries = maxCreateReadSessionRetries;
     }
 
     public ReadSession create(ConnectorSession session, TableId remoteTable, List<String> selectedFields, Optional<String> filter, int parallelism)
@@ -73,17 +82,21 @@ public class ReadSessionCreator
                     .addAllSelectedFields(filteredSelectedFields);
             filter.ifPresent(readOptions::setRowRestriction);
 
-            ReadSession readSession = bigQueryReadClient.createReadSession(
-                    CreateReadSessionRequest.newBuilder()
-                            .setParent("projects/" + client.getProjectId())
-                            .setReadSession(ReadSession.newBuilder()
-                                    .setDataFormat(DataFormat.AVRO)
-                                    .setTable(toTableResourceName(actualTable.getTableId()))
-                                    .setReadOptions(readOptions))
-                            .setMaxStreamCount(parallelism)
-                            .build());
+            CreateReadSessionRequest createReadSessionRequest = CreateReadSessionRequest.newBuilder()
+                    .setParent("projects/" + client.getProjectId())
+                    .setReadSession(ReadSession.newBuilder()
+                            .setDataFormat(DataFormat.AVRO)
+                            .setTable(toTableResourceName(actualTable.getTableId()))
+                            .setReadOptions(readOptions))
+                    .setMaxStreamCount(parallelism)
+                    .build();
 
-            return readSession;
+            return Failsafe.with(new RetryPolicy<>()
+                            .withMaxRetries(maxCreateReadSessionRetries)
+                            .withBackoff(10, 500, MILLIS)
+                            .onRetry(event -> log.debug("Request failed, retrying: %s", event.getLastFailure()))
+                            .abortOn(failure -> !BigQueryUtil.isRetryable(failure)))
+                    .get(() -> bigQueryReadClient.createReadSession(createReadSessionRequest));
         }
     }
 
