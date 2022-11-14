@@ -37,7 +37,7 @@ import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
 
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -70,7 +70,7 @@ public class TestHiveThriftMetastoreWithS3
         this.awsAccessKey = requireNonNull(awsAccessKey, "awsAccessKey is null");
         this.awsSecretKey = requireNonNull(awsSecretKey, "awsSecretKey is null");
         this.writableBucket = requireNonNull(writableBucket, "writableBucket is null");
-        this.schemaName = "test_thrift_s3_" + randomTableSuffix();
+        this.schemaName = "test_thrift_s3_" + randomNameSuffix();
 
         String coreSiteXmlContent = Resources.toString(Resources.getResource("s3/hive-core-site.template.xml"), UTF_8)
                 .replace("%S3_BUCKET_ENDPOINT%", s3endpoint)
@@ -124,7 +124,7 @@ public class TestHiveThriftMetastoreWithS3
     @Test
     public void testRecreateTable()
     {
-        String tableName = "test_recreate_table_" + randomTableSuffix();
+        String tableName = "test_recreate_table_" + randomNameSuffix();
         String schemaTableName = "%s.%s".formatted(schemaName, tableName);
         String tableLocation = "%s/%s".formatted(schemaName, tableName);
 
@@ -150,7 +150,7 @@ public class TestHiveThriftMetastoreWithS3
     @Test
     public void testRecreatePartition()
     {
-        String tableName = "test_recreate_partition_" + randomTableSuffix();
+        String tableName = "test_recreate_partition_" + randomNameSuffix();
         String schemaTableName = "%s.%s".formatted(schemaName, tableName);
         String partitionLocation = "%s/%s/part=1".formatted(schemaName, tableName);
 
@@ -181,7 +181,7 @@ public class TestHiveThriftMetastoreWithS3
     public void testUnregisterPartitionNotRemoveData()
     {
         // Verify unregister_partition procedure doesn't remove physical data even when 'hive.metastore.thrift.delete-files-on-drop' config property is true
-        String tableName = "test_recreate_partition_" + randomTableSuffix();
+        String tableName = "test_recreate_partition_" + randomNameSuffix();
         String schemaTableName = "%s.%s".formatted(schemaName, tableName);
 
         assertUpdate("CREATE TABLE " + schemaTableName + "(col int, part int) WITH (partitioned_by = ARRAY['part'])");

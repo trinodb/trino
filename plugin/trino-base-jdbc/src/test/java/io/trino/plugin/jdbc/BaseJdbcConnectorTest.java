@@ -98,8 +98,8 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHD
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -1785,7 +1785,7 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
         skipTestUnless(hasBehavior(SUPPORTS_DYNAMIC_FILTER_PUSHDOWN));
-        String tableName = "orderkeys_" + randomTableSuffix();
+        String tableName = "orderkeys_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (orderkey) AS VALUES 30000, 60000", 2);
         @Language("SQL") String query = "SELECT * FROM orders a JOIN " + tableName + " b ON a.orderkey = b.orderkey";
 

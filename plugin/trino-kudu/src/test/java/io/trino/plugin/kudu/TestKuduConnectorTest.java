@@ -31,8 +31,8 @@ import java.util.regex.Pattern;
 import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunnerTpch;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEquals;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -286,7 +286,7 @@ public class TestKuduConnectorTest
         if (delimited) {
             nameInSql = "\"" + columnName.replace("\"", "\"\"") + "\"";
         }
-        String tableName = "tcn_" + nameInSql.toLowerCase(ENGLISH).replaceAll("[^a-z0-9]", "") + randomTableSuffix();
+        String tableName = "tcn_" + nameInSql.toLowerCase(ENGLISH).replaceAll("[^a-z0-9]", "") + randomNameSuffix();
 
         try {
             // TODO test with both CTAS *and* CREATE TABLE + INSERT, since they use different connector API methods.
@@ -341,7 +341,7 @@ public class TestKuduConnectorTest
     @Override
     public void testExplainAnalyzeWithDeleteWithSubquery()
     {
-        String tableName = "test_delete_" + randomTableSuffix();
+        String tableName = "test_delete_" + randomNameSuffix();
 
         // delete using a subquery
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", 25);
@@ -355,7 +355,7 @@ public class TestKuduConnectorTest
     public void testCreateTable()
     {
         // TODO Remove this overriding test once kudu connector can create tables with default partitions
-        String tableName = "test_create_" + randomTableSuffix();
+        String tableName = "test_create_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " (" +
                 "id INT WITH (primary_key=true)," +
@@ -375,7 +375,7 @@ public class TestKuduConnectorTest
                 ".* Unknown type 'bad_type' for column 'a'");
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
 
-        tableName = "test_create_if_not_exists_" + randomTableSuffix();
+        tableName = "test_create_if_not_exists_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (" +
                 "id INT WITH (primary_key=true)," +
                 "a bigint, b varchar(50), c double)" +
@@ -395,7 +395,7 @@ public class TestKuduConnectorTest
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
 
         // Test CREATE TABLE LIKE
-        tableName = "test_create_origin_" + randomTableSuffix();
+        tableName = "test_create_origin_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (" +
                 "id INT WITH (primary_key=true)," +
                 "a bigint, b double, c varchar(50))" +
@@ -406,7 +406,7 @@ public class TestKuduConnectorTest
         // TODO: remove assertThatThrownBy and uncomment the commented lines
         //  and replace finalTableName with tableName
         //  after (https://github.com/trinodb/trino/issues/12469) is fixed
-        String tableNameLike = "test_create_like_" + randomTableSuffix();
+        String tableNameLike = "test_create_like_" + randomNameSuffix();
         final String finalTableName = tableName;
         assertThatThrownBy(() -> assertUpdate(
                 "CREATE TABLE " + tableNameLike + " (LIKE " + finalTableName + ", " +
@@ -427,7 +427,7 @@ public class TestKuduConnectorTest
     public void testCreateTableWithLongTableName()
     {
         // Overridden because DDL in base class can't create Kudu table due to lack of primary key and required table properties
-        String baseTableName = "test_create_" + randomTableSuffix();
+        String baseTableName = "test_create_" + randomNameSuffix();
         String validTableName = baseTableName + "z".repeat(256 - baseTableName.length());
 
         assertUpdate("CREATE TABLE " + validTableName + "(" +
@@ -450,7 +450,7 @@ public class TestKuduConnectorTest
     public void testCreateTableWithLongColumnName()
     {
         // Overridden because DDL in base class can't create Kudu table due to lack of primary key and required table properties
-        String tableName = "test_long_column" + randomTableSuffix();
+        String tableName = "test_long_column" + randomNameSuffix();
         String baseColumnName = "col";
 
         int maxLength = maxColumnNameLength().orElseThrow();
@@ -476,7 +476,7 @@ public class TestKuduConnectorTest
     public void testCreateTableWithColumnComment()
     {
         // TODO https://github.com/trinodb/trino/issues/12469 Support column comment when creating tables
-        String tableName = "test_create_" + randomTableSuffix();
+        String tableName = "test_create_" + randomNameSuffix();
 
         assertQueryFails(
                 "CREATE TABLE " + tableName + "(" +
@@ -492,7 +492,7 @@ public class TestKuduConnectorTest
     public void testDropTable()
     {
         // TODO Remove this overriding test once kudu connector can create tables with default partitions
-        String tableName = "test_drop_table_" + randomTableSuffix();
+        String tableName = "test_drop_table_" + randomNameSuffix();
         assertUpdate(
                 "CREATE TABLE " + tableName + "(" +
                     "id INT WITH (primary_key=true)," +
@@ -514,7 +514,7 @@ public class TestKuduConnectorTest
     @Override
     public void testAddColumnWithComment()
     {
-        String tableName = "test_add_column_with_comment" + randomTableSuffix();
+        String tableName = "test_add_column_with_comment" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + " (" +
                 "id INT WITH (primary_key=true), " +
@@ -667,7 +667,7 @@ public class TestKuduConnectorTest
     public void testCreateTableAsSelectNegativeDate()
     {
         // Map date column type to varchar
-        String tableName = "negative_date_" + randomTableSuffix();
+        String tableName = "negative_date_" + randomNameSuffix();
 
         try {
             assertUpdate(format("CREATE TABLE %s AS SELECT DATE '-0001-01-01' AS dt", tableName), 1);

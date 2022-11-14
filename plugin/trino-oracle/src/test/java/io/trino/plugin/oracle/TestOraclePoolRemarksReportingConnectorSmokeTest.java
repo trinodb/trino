@@ -26,7 +26,7 @@ import java.io.IOException;
 
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_PASS;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -67,7 +67,7 @@ public class TestOraclePoolRemarksReportingConnectorSmokeTest
     @Override
     public void testCommentColumn()
     {
-        String tableName = "test_comment_column_" + randomTableSuffix();
+        String tableName = "test_comment_column_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + "(a integer)");
 

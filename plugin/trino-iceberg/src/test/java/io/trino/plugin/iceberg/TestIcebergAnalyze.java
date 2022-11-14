@@ -22,7 +22,7 @@ import java.util.Map;
 
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.EXECUTE_TABLE_PROCEDURE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.NATION;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -385,7 +385,7 @@ public class TestIcebergAnalyze
     @Test
     public void testAnalyzeSnapshot()
     {
-        String tableName = "test_analyze_snapshot_" + randomTableSuffix();
+        String tableName = "test_analyze_snapshot_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " (a) AS VALUES 11", 1);
         long snapshotId = getCurrentSnapshotId(tableName);
@@ -487,7 +487,7 @@ public class TestIcebergAnalyze
     @Test
     public void testDropStatsSnapshot()
     {
-        String tableName = "test_drop_stats_snapshot_" + randomTableSuffix();
+        String tableName = "test_drop_stats_snapshot_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " (a) AS VALUES 11", 1);
         long snapshotId = getCurrentSnapshotId(tableName);

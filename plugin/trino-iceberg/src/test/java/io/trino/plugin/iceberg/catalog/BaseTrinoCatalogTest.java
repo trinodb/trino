@@ -46,8 +46,8 @@ import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEquals;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertNotEquals;
@@ -67,7 +67,7 @@ public abstract class BaseTrinoCatalogTest
     public void testCreateNamespaceWithLocation()
     {
         TrinoCatalog catalog = createTrinoCatalog(false);
-        String namespace = "test_create_namespace_with_location_" + randomTableSuffix();
+        String namespace = "test_create_namespace_with_location_" + randomNameSuffix();
         Map<String, Object> namespaceProperties = new HashMap<>(defaultNamespaceProperties(namespace));
         String namespaceLocation = (String) namespaceProperties.computeIfAbsent(LOCATION_PROPERTY, ignored -> "/a/path/");
         namespaceProperties = ImmutableMap.copyOf(namespaceProperties);
@@ -84,7 +84,7 @@ public abstract class BaseTrinoCatalogTest
     {
         TrinoCatalog catalog = createTrinoCatalog(false);
 
-        String namespace = "testNonLowercaseNamespace" + randomTableSuffix();
+        String namespace = "testNonLowercaseNamespace" + randomNameSuffix();
         // Trino schema names are always lowercase (until https://github.com/trinodb/trino/issues/17)
         String schema = namespace.toLowerCase(ENGLISH);
 
@@ -126,7 +126,7 @@ public abstract class BaseTrinoCatalogTest
             throws Exception
     {
         TrinoCatalog catalog = createTrinoCatalog(false);
-        String namespace = "test_create_table_" + randomTableSuffix();
+        String namespace = "test_create_table_" + randomNameSuffix();
         String table = "tableName";
         SchemaTableName schemaTableName = new SchemaTableName(namespace, table);
         try {
@@ -170,8 +170,8 @@ public abstract class BaseTrinoCatalogTest
             throws Exception
     {
         TrinoCatalog catalog = createTrinoCatalog(false);
-        String namespace = "test_rename_table_" + randomTableSuffix();
-        String targetNamespace = "test_rename_table_" + randomTableSuffix();
+        String namespace = "test_rename_table_" + randomNameSuffix();
+        String targetNamespace = "test_rename_table_" + randomNameSuffix();
 
         String table = "tableName";
         SchemaTableName sourceSchemaTableName = new SchemaTableName(namespace, table);
@@ -219,7 +219,7 @@ public abstract class BaseTrinoCatalogTest
             throws IOException
     {
         TrinoCatalog catalog = createTrinoCatalog(true);
-        String namespace = "test_unique_table_locations_" + randomTableSuffix();
+        String namespace = "test_unique_table_locations_" + randomNameSuffix();
         String table = "tableName";
         SchemaTableName schemaTableName = new SchemaTableName(namespace, table);
         Map<String, Object> namespaceProperties = new HashMap<>(defaultNamespaceProperties(namespace));
@@ -263,7 +263,7 @@ public abstract class BaseTrinoCatalogTest
         Path tmpDirectory = Files.createTempDirectory("iceberg_catalog_test_create_view_");
         tmpDirectory.toFile().deleteOnExit();
 
-        String namespace = "test_create_view_" + randomTableSuffix();
+        String namespace = "test_create_view_" + randomNameSuffix();
         String viewName = "viewName";
         String renamedViewName = "renamedViewName";
         SchemaTableName schemaTableName = new SchemaTableName(namespace, viewName);

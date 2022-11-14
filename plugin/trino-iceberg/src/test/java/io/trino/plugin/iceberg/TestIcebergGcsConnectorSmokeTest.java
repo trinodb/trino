@@ -44,7 +44,7 @@ import java.util.Base64;
 
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -67,7 +67,7 @@ public class TestIcebergGcsConnectorSmokeTest
     public TestIcebergGcsConnectorSmokeTest(String gcpStorageBucket, String gcpCredentialKey)
     {
         super(ORC);
-        this.schema = "test_iceberg_gcs_connector_smoke_test_" + randomTableSuffix();
+        this.schema = "test_iceberg_gcs_connector_smoke_test_" + randomNameSuffix();
         this.gcpStorageBucket = requireNonNull(gcpStorageBucket, "gcpStorageBucket is null");
 
         requireNonNull(gcpCredentialKey, "gcpCredentialKey is null");
@@ -171,7 +171,7 @@ public class TestIcebergGcsConnectorSmokeTest
     {
         String schemaName = getSession().getSchema().orElseThrow();
         assertQueryFails(
-                format("ALTER SCHEMA %s RENAME TO %s", schemaName, schemaName + randomTableSuffix()),
+                format("ALTER SCHEMA %s RENAME TO %s", schemaName, schemaName + randomNameSuffix()),
                 "Hive metastore does not support renaming schemas");
     }
 

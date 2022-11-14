@@ -59,8 +59,8 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEquals;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -86,14 +86,14 @@ public class TestKafkaConnectorTest
     private static final String JSON_SECONDS_TABLE_NAME = "seconds_since_epoch_table";
 
     // These tables must not be reused because the data will be modified during tests
-    private static final SchemaTableName TABLE_INSERT_NEGATIVE_DATE = new SchemaTableName("write_test", "test_insert_negative_date_" + randomTableSuffix());
-    private static final SchemaTableName TABLE_INSERT_CUSTOMER = new SchemaTableName("write_test", "test_insert_customer_" + randomTableSuffix());
-    private static final SchemaTableName TABLE_INSERT_ARRAY = new SchemaTableName("write_test", "test_insert_array_" + randomTableSuffix());
-    private static final SchemaTableName TABLE_INSERT_UNICODE_1 = new SchemaTableName("write_test", "test_unicode_1_" + randomTableSuffix());
-    private static final SchemaTableName TABLE_INSERT_UNICODE_2 = new SchemaTableName("write_test", "test_unicode_2_" + randomTableSuffix());
-    private static final SchemaTableName TABLE_INSERT_UNICODE_3 = new SchemaTableName("write_test", "test_unicode_3_" + randomTableSuffix());
-    private static final SchemaTableName TABLE_INSERT_HIGHEST_UNICODE = new SchemaTableName("write_test", "test_highest_unicode_" + randomTableSuffix());
-    private static final SchemaTableName TABLE_INTERNAL_FIELD_PREFIX = new SchemaTableName("write_test", "test_internal_fields_prefix_" + randomTableSuffix());
+    private static final SchemaTableName TABLE_INSERT_NEGATIVE_DATE = new SchemaTableName("write_test", "test_insert_negative_date_" + randomNameSuffix());
+    private static final SchemaTableName TABLE_INSERT_CUSTOMER = new SchemaTableName("write_test", "test_insert_customer_" + randomNameSuffix());
+    private static final SchemaTableName TABLE_INSERT_ARRAY = new SchemaTableName("write_test", "test_insert_array_" + randomNameSuffix());
+    private static final SchemaTableName TABLE_INSERT_UNICODE_1 = new SchemaTableName("write_test", "test_unicode_1_" + randomNameSuffix());
+    private static final SchemaTableName TABLE_INSERT_UNICODE_2 = new SchemaTableName("write_test", "test_unicode_2_" + randomNameSuffix());
+    private static final SchemaTableName TABLE_INSERT_UNICODE_3 = new SchemaTableName("write_test", "test_unicode_3_" + randomNameSuffix());
+    private static final SchemaTableName TABLE_INSERT_HIGHEST_UNICODE = new SchemaTableName("write_test", "test_highest_unicode_" + randomNameSuffix());
+    private static final SchemaTableName TABLE_INTERNAL_FIELD_PREFIX = new SchemaTableName("write_test", "test_internal_fields_prefix_" + randomNameSuffix());
 
     @Override
     protected QueryRunner createQueryRunner()

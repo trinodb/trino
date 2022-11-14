@@ -36,9 +36,9 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -174,7 +174,7 @@ public class TestBigQueryConnectorTest
     @Test(dataProvider = "createTableUnsupportedTypes")
     public void testCreateTableUnsupportedType(String createType)
     {
-        String tableName = format("test_create_table_unsupported_type_%s_%s", createType.replaceAll("[^a-zA-Z0-9]", ""), randomTableSuffix());
+        String tableName = format("test_create_table_unsupported_type_%s_%s", createType.replaceAll("[^a-zA-Z0-9]", ""), randomNameSuffix());
         assertQueryFails(format("CREATE TABLE %s (col1 %s)", tableName, createType), "Unsupported column type: " + createType);
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
     }
@@ -192,7 +192,7 @@ public class TestBigQueryConnectorTest
     @Test
     public void testCreateTableWithRowTypeWithoutField()
     {
-        String tableName = "test_row_type_table_" + randomTableSuffix();
+        String tableName = "test_row_type_table_" + randomNameSuffix();
         assertQueryFails(
                 "CREATE TABLE " + tableName + "(col1 row(int))",
                 "\\QROW type does not have field names declared: row(integer)\\E");
@@ -429,7 +429,7 @@ public class TestBigQueryConnectorTest
     @Test
     public void testSelectTableWithRowAccessPolicyFilterAll()
     {
-        String policyName = "test_policy" + randomTableSuffix();
+        String policyName = "test_policy" + randomNameSuffix();
         try (TestTable table = new TestTable(this::onBigQuery, "test.test_row_access_policy", "AS SELECT 1 col")) {
             assertQuery("SELECT * FROM " + table.getName(), "VALUES 1");
 
@@ -445,7 +445,7 @@ public class TestBigQueryConnectorTest
     @Test
     public void testSelectTableWithRowAccessPolicyFilterPartialRow()
     {
-        String policyName = "test_policy" + randomTableSuffix();
+        String policyName = "test_policy" + randomNameSuffix();
         try (TestTable table = new TestTable(this::onBigQuery, "test.test_row_access_policy", "AS (SELECT 1 col UNION ALL SELECT 2 col)")) {
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (1), (2)");
 
@@ -462,8 +462,8 @@ public class TestBigQueryConnectorTest
     public void testViewDefinitionSystemTable()
     {
         String schemaName = "test";
-        String tableName = "views_system_table_base_" + randomTableSuffix();
-        String viewName = "views_system_table_view_" + randomTableSuffix();
+        String tableName = "views_system_table_base_" + randomNameSuffix();
+        String viewName = "views_system_table_view_" + randomNameSuffix();
 
         onBigQuery(format("CREATE TABLE %s.%s (a INT64, b INT64, c INT64)", schemaName, tableName));
         onBigQuery(format("CREATE VIEW %s.%s AS SELECT * FROM %s.%s", schemaName, viewName, schemaName, tableName));
@@ -534,7 +534,7 @@ public class TestBigQueryConnectorTest
     @Test
     public void testBigQueryMaterializedView()
     {
-        String materializedView = "test_materialized_view" + randomTableSuffix();
+        String materializedView = "test_materialized_view" + randomNameSuffix();
         try {
             onBigQuery("CREATE MATERIALIZED VIEW test." + materializedView + " AS SELECT count(1) AS cnt FROM tpch.region");
             assertQuery("SELECT table_type FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + materializedView + "'", "VALUES 'BASE TABLE'");
@@ -553,7 +553,7 @@ public class TestBigQueryConnectorTest
     @Test
     public void testBigQuerySnapshotTable()
     {
-        String snapshotTable = "test_snapshot" + randomTableSuffix();
+        String snapshotTable = "test_snapshot" + randomNameSuffix();
         try {
             onBigQuery("CREATE SNAPSHOT TABLE test." + snapshotTable + " CLONE tpch.region");
             assertQuery("SELECT table_type FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + snapshotTable + "'", "VALUES 'BASE TABLE'");
@@ -574,7 +574,7 @@ public class TestBigQueryConnectorTest
     public void testBigQueryExternalTable(String gcpStorageBucket)
     {
         // Prerequisite: upload region.csv in resources directory to gs://{testing.gcp-storage-bucket}/tpch/tiny/region.csv
-        String externalTable = "test_external" + randomTableSuffix();
+        String externalTable = "test_external" + randomNameSuffix();
         try {
             onBigQuery("CREATE EXTERNAL TABLE test." + externalTable + " OPTIONS (format = 'CSV', uris = ['gs://" + gcpStorageBucket + "/tpch/tiny/region.csv'])");
             assertQuery("SELECT table_type FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + externalTable + "'", "VALUES 'BASE TABLE'");
@@ -601,7 +601,7 @@ public class TestBigQueryConnectorTest
                 .setCatalogSessionProperty("bigquery", "create_disposition_type", "create_never")
                 .build();
 
-        String materializedView = "test_materialized_view" + randomTableSuffix();
+        String materializedView = "test_materialized_view" + randomNameSuffix();
         try {
             onBigQuery("CREATE MATERIALIZED VIEW test." + materializedView + " AS SELECT count(1) AS cnt FROM tpch.region");
 
@@ -622,7 +622,7 @@ public class TestBigQueryConnectorTest
     @Test
     public void testWildcardTable()
     {
-        String suffix = randomTableSuffix();
+        String suffix = randomNameSuffix();
         String firstTable = format("test_wildcard_%s_1", suffix);
         String secondTable = format("test_wildcard_%s_2", suffix);
         String wildcardTable = format("test_wildcard_%s_*", suffix);
@@ -648,7 +648,7 @@ public class TestBigQueryConnectorTest
     @Test
     public void testWildcardTableWithDifferentColumnDefinition()
     {
-        String suffix = randomTableSuffix();
+        String suffix = randomNameSuffix();
         String firstTable = format("test_invalid_wildcard_%s_1", suffix);
         String secondTable = format("test_invalid_wildcard_%s_2", suffix);
         String wildcardTable = format("test_invalid_wildcard_%s_*", suffix);
@@ -722,7 +722,7 @@ public class TestBigQueryConnectorTest
     @Test
     public void testNativeQuerySelectFromTestTable()
     {
-        String tableName = "test.test_select" + randomTableSuffix();
+        String tableName = "test.test_select" + randomNameSuffix();
         try {
             onBigQuery("CREATE TABLE " + tableName + "(col BIGINT)");
             onBigQuery("INSERT INTO " + tableName + " VALUES (1), (2)");
@@ -738,7 +738,7 @@ public class TestBigQueryConnectorTest
     @Test
     public void testNativeQuerySelectUnsupportedType()
     {
-        String tableName = "test_unsupported" + randomTableSuffix();
+        String tableName = "test_unsupported" + randomNameSuffix();
         try {
             onBigQuery("CREATE TABLE test." + tableName + "(one BIGINT, two BIGNUMERIC(40,2), three STRING)");
             // Check that column 'two' is not supported.
@@ -754,7 +754,7 @@ public class TestBigQueryConnectorTest
     @Test
     public void testNativeQueryCreateStatement()
     {
-        String tableName = "test_create" + randomTableSuffix();
+        String tableName = "test_create" + randomNameSuffix();
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
         assertThatThrownBy(() -> query("SELECT * FROM TABLE(bigquery.system.query(query => 'CREATE TABLE test." + tableName + "(n INTEGER)'))"))
                 .hasMessage("Unsupported statement type: CREATE_TABLE");
@@ -764,7 +764,7 @@ public class TestBigQueryConnectorTest
     @Test
     public void testNativeQueryInsertStatementTableDoesNotExist()
     {
-        String tableName = "test_insert" + randomTableSuffix();
+        String tableName = "test_insert" + randomNameSuffix();
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
         assertThatThrownBy(() -> query("SELECT * FROM TABLE(bigquery.system.query(query => 'INSERT INTO test." + tableName + " VALUES (1)'))"))
                 .hasMessageContaining("Failed to get schema for query")
@@ -774,7 +774,7 @@ public class TestBigQueryConnectorTest
     @Test
     public void testNativeQueryInsertStatementTableExists()
     {
-        String tableName = "test_insert" + randomTableSuffix();
+        String tableName = "test_insert" + randomNameSuffix();
         try {
             onBigQuery("CREATE TABLE test." + tableName + "(col BIGINT)");
             assertThatThrownBy(() -> query("SELECT * FROM TABLE(bigquery.system.query(query => 'INSERT INTO test." + tableName + " VALUES (3)'))"))

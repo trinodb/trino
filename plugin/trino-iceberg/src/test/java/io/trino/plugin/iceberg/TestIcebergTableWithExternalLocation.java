@@ -43,7 +43,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.iceberg.DataFileRecord.toDataFileRecord;
 import static io.trino.plugin.iceberg.catalog.hms.IcebergHiveMetastoreCatalogModule.HIDE_DELTA_LAKE_TABLES_IN_ICEBERG;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
@@ -94,7 +94,7 @@ public class TestIcebergTableWithExternalLocation
     {
         String tableName = "test_table_external_create_and_drop";
         File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();
-        String tempDirPath = tempDir.toURI().toASCIIString() + randomTableSuffix();
+        String tempDirPath = tempDir.toURI().toASCIIString() + randomNameSuffix();
         assertQuerySucceeds(format("CREATE TABLE %s ( x bigint) WITH (location = '%s')", tableName, tempDirPath));
         assertQuerySucceeds(format("INSERT INTO %s VALUES (1), (2), (3)", tableName));
 

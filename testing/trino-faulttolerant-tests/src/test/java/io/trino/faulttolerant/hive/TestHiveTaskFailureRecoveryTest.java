@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Map;
 
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 
 public class TestHiveTaskFailureRecoveryTest
         extends BaseHiveFailureRecoveryTest
@@ -47,11 +47,11 @@ public class TestHiveTaskFailureRecoveryTest
             Map<String, String> coordinatorProperties)
             throws Exception
     {
-        String bucketName = "test-hive-insert-overwrite-" + randomTableSuffix(); // randomizing bucket name to ensure cached TrinoS3FileSystem objects are not reused
+        String bucketName = "test-hive-insert-overwrite-" + randomNameSuffix(); // randomizing bucket name to ensure cached TrinoS3FileSystem objects are not reused
         this.hiveMinioDataLake = new HiveMinioDataLake(bucketName);
         hiveMinioDataLake.start();
 
-        this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomTableSuffix());
+        this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomNameSuffix());
         minioStorage.start();
 
         return S3HiveQueryRunner.builder(hiveMinioDataLake)

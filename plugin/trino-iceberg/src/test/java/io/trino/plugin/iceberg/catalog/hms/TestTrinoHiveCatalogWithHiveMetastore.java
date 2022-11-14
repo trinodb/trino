@@ -48,13 +48,13 @@ import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
 import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_ACCESS_KEY;
 import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_SECRET_KEY;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TestTrinoHiveCatalogWithHiveMetastore
         extends BaseTrinoCatalogTest
 {
-    private static final String bucketName = "test-hive-catalog-with-hms-" + randomTableSuffix();
+    private static final String bucketName = "test-hive-catalog-with-hms-" + randomNameSuffix();
 
     // Use MinIO for storage, since HDFS is hard to get working in a unit test
     private HiveMinioDataLake dataLake;

@@ -43,7 +43,7 @@ import java.util.OptionalInt;
 
 import static com.mongodb.client.model.CollationCaseFirst.LOWER;
 import static com.mongodb.client.model.CollationStrength.PRIMARY;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -649,7 +649,7 @@ public abstract class BaseMongoConnectorTest
     @Test
     public void testCollationAccent()
     {
-        String tableName = "test_collation_accent" + randomTableSuffix();
+        String tableName = "test_collation_accent" + randomNameSuffix();
         Collation collation = Collation.builder().locale("en_US").collationStrength(PRIMARY).build();
         client.getDatabase("test").createCollection(tableName, new CreateCollectionOptions().collation(collation));
         client.getDatabase("test").getCollection(tableName)
@@ -662,7 +662,7 @@ public abstract class BaseMongoConnectorTest
     @Test
     public void testCollationCaseSensitivity()
     {
-        String tableName = "test_collation_case_sensitivity" + randomTableSuffix();
+        String tableName = "test_collation_case_sensitivity" + randomNameSuffix();
         Collation collation = Collation.builder().locale("en_US").collationCaseFirst(LOWER).build();
         client.getDatabase("test").createCollection(tableName, new CreateCollectionOptions().collation(collation));
         client.getDatabase("test").getCollection(tableName)
@@ -675,7 +675,7 @@ public abstract class BaseMongoConnectorTest
     @Test
     public void testCollationNumericOrdering()
     {
-        String tableName = "test_collation_numeric_ordering" + randomTableSuffix();
+        String tableName = "test_collation_numeric_ordering" + randomNameSuffix();
         Collation collation = Collation.builder().locale("en_US").numericOrdering(true).build();
         client.getDatabase("test").createCollection(tableName, new CreateCollectionOptions().collation(collation));
         client.getDatabase("test").getCollection(tableName)
@@ -706,7 +706,7 @@ public abstract class BaseMongoConnectorTest
     @Test
     public void testNativeQueryArray()
     {
-        String tableName = "test_array" + randomTableSuffix();
+        String tableName = "test_array" + randomNameSuffix();
         MongoCollection<Document> collection = client.getDatabase("tpch").getCollection(tableName);
         collection.insertOne(new Document("array_field", ImmutableList.of("zero", "one", "two")));
         collection.insertOne(new Document("array_field", ImmutableList.of("0", "1", "2")));
@@ -718,7 +718,7 @@ public abstract class BaseMongoConnectorTest
     @Test
     public void testNativeQueryNestedRow()
     {
-        String tableName = "test_nested_row" + randomTableSuffix();
+        String tableName = "test_nested_row" + randomNameSuffix();
         MongoCollection<Document> collection = client.getDatabase("tpch").getCollection(tableName);
         collection.insertOne(new Document("row_field", new Document("first", new Document("second", 1))));
         collection.insertOne(new Document("row_field", new Document("first", new Document("second", 2))));
@@ -791,7 +791,7 @@ public abstract class BaseMongoConnectorTest
     @Test
     public void testRenameTableTo120bytesTableName()
     {
-        String sourceTableName = "test_rename_source_" + randomTableSuffix();
+        String sourceTableName = "test_rename_source_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
 
         // The new table has 120 bytes as fully qualified identifier (あ is 3 bytes char)
