@@ -15,13 +15,21 @@ package io.trino.testing;
 
 import java.security.SecureRandom;
 
-import static java.lang.Character.MAX_RADIX;
-import static java.lang.Math.abs;
-import static java.lang.Math.min;
-
 public final class TestingNames
 {
     private TestingNames() {}
+
+    private static final char[] ALPHABET = new char[36];
+
+    static {
+        for (int digit = 0; digit < 10; digit++) {
+            ALPHABET[digit] = (char) ('0' + digit);
+        }
+
+        for (int letter = 0; letter < 26; letter++) {
+            ALPHABET[10 + letter] = (char) ('a' + letter);
+        }
+    }
 
     private static final SecureRandom random = new SecureRandom();
 
@@ -31,7 +39,10 @@ public final class TestingNames
 
     public static String randomNameSuffix()
     {
-        String randomSuffix = Long.toString(abs(random.nextLong()), MAX_RADIX);
-        return randomSuffix.substring(0, min(RANDOM_SUFFIX_LENGTH, randomSuffix.length()));
+        char[] chars = new char[RANDOM_SUFFIX_LENGTH];
+        for (int i = 0; i < chars.length; i++) {
+            chars[i] = ALPHABET[random.nextInt(0, ALPHABET.length)];
+        }
+        return new String(chars);
     }
 }
