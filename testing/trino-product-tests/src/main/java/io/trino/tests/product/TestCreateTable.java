@@ -20,8 +20,8 @@ import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.CREATE_TABLE;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
@@ -53,8 +53,8 @@ public class TestCreateTable
     @Test(groups = CREATE_TABLE)
     public void shouldNotCreateTableInNonExistentSchema()
     {
-        String schemaName = "test_schema_" + randomTableSuffix();
-        String table = schemaName + ".test_create_no_schema_" + randomTableSuffix();
+        String schemaName = "test_schema_" + randomNameSuffix();
+        String table = schemaName + ".test_create_no_schema_" + randomNameSuffix();
         assertQueryFailure(() -> onTrino().executeQuery("CREATE TABLE " + table + " (a bigint)"))
                 .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Schema " + schemaName + " not found");
 
@@ -66,8 +66,8 @@ public class TestCreateTable
     @Test(groups = CREATE_TABLE)
     public void shouldNotCreateExternalTableInNonExistentSchema()
     {
-        String schemaName = "test_schema_" + randomTableSuffix();
-        String table = schemaName + ".test_create_no_schema_" + randomTableSuffix();
+        String schemaName = "test_schema_" + randomNameSuffix();
+        String table = schemaName + ".test_create_no_schema_" + randomNameSuffix();
         assertQueryFailure(() -> onTrino().executeQuery("CREATE TABLE " + table + " (a bigint) WITH (external_location = '/tmp')"))
                 .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Schema " + schemaName + " not found");
 

@@ -55,6 +55,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.HIVE_TRANSACTIONAL;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.hive.BucketingType.BUCKETED_V2;
@@ -64,7 +65,6 @@ import static io.trino.tests.product.hive.TestHiveTransactionalTable.CompactionM
 import static io.trino.tests.product.hive.TransactionalTableType.ACID;
 import static io.trino.tests.product.hive.TransactionalTableType.INSERT_ONLY;
 import static io.trino.tests.product.hive.util.TableLocationUtils.getTablePath;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
 import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
@@ -471,7 +471,7 @@ public class TestHiveTransactionalTable
             throw new SkipException("This tests behavior of ACID table before Hive 3 ");
         }
 
-        try (TemporaryHiveTable table = TemporaryHiveTable.temporaryHiveTable("test_fail_acid_before_hive3_" + randomTableSuffix())) {
+        try (TemporaryHiveTable table = TemporaryHiveTable.temporaryHiveTable("test_fail_acid_before_hive3_" + randomNameSuffix())) {
             String tableName = table.getName();
             onHive().executeQuery("" +
                     "CREATE TABLE " + tableName + "(a bigint) " +
@@ -511,7 +511,7 @@ public class TestHiveTransactionalTable
             throw new SkipException("Hive transactional tables are supported with Hive version 3 or above");
         }
 
-        try (TemporaryHiveTable table = TemporaryHiveTable.temporaryHiveTable(format("ctas_transactional_%s", randomTableSuffix()))) {
+        try (TemporaryHiveTable table = TemporaryHiveTable.temporaryHiveTable(format("ctas_transactional_%s", randomNameSuffix()))) {
             String tableName = table.getName();
             onTrino().executeQuery("CREATE TABLE " + tableName + " " +
                     trinoTableProperties(ACID, isPartitioned, bucketingType) +
@@ -1806,7 +1806,7 @@ public class TestHiveTransactionalTable
         if (transactional) {
             ensureTransactionalHive();
         }
-        try (TemporaryHiveTable table = TemporaryHiveTable.temporaryHiveTable(tableName(rootName, isPartitioned, bucketingType) + randomTableSuffix())) {
+        try (TemporaryHiveTable table = TemporaryHiveTable.temporaryHiveTable(tableName(rootName, isPartitioned, bucketingType) + randomNameSuffix())) {
             testRunner.accept(table.getName());
         }
     }
@@ -2180,7 +2180,7 @@ public class TestHiveTransactionalTable
 
     public static String tableName(String testName, boolean isPartitioned, BucketingType bucketingType)
     {
-        return format("test_%s_%b_%s_%s", testName, isPartitioned, bucketingType.name(), randomTableSuffix());
+        return format("test_%s_%b_%s_%s", testName, isPartitioned, bucketingType.name(), randomNameSuffix());
     }
 
     private static boolean isCompactionForTable(CompactionMode compactMode, String tableName, Map<String, String> row)

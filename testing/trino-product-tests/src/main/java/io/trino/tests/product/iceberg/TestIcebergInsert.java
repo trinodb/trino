@@ -31,10 +31,10 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.TestGroups.ICEBERG;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS_DETAILED;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -52,7 +52,7 @@ public class TestIcebergInsert
         int threads = 3;
         int insertsPerThread = 7;
 
-        String tableName = "iceberg.default.test_insert_concurrent_" + randomTableSuffix();
+        String tableName = "iceberg.default.test_insert_concurrent_" + randomNameSuffix();
         onTrino().executeQuery("CREATE TABLE " + tableName + "(a bigint)");
 
         ExecutorService executor = Executors.newFixedThreadPool(threads);

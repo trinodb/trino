@@ -62,10 +62,10 @@ import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.param;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS_DETAILED;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
 import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static io.trino.tests.product.utils.JdbcDriverUtils.setSessionProperty;
@@ -804,7 +804,7 @@ public class TestHiveStorageFormats
 
     private void runLargeInsert(StorageFormat storageFormat)
     {
-        String tableName = "test_large_insert_" + storageFormat.getName() + randomTableSuffix();
+        String tableName = "test_large_insert_" + storageFormat.getName() + randomNameSuffix();
         setSessionProperties(storageFormat);
         onTrino().executeQuery("CREATE TABLE " + tableName + " WITH (" + storageFormat.getStoragePropertiesAsSql() + ") AS SELECT * FROM tpch.sf1.lineitem WHERE false");
         onTrino().executeQuery("INSERT INTO " + tableName + " SELECT * FROM tpch.sf1.lineitem");
@@ -935,7 +935,7 @@ public class TestHiveStorageFormats
         setSessionProperties(onTrino().getConnection(), format);
 
         String formatName = format.getName().toLowerCase(ENGLISH);
-        String tableName = format("%s_%s_%s", tableNamePrefix, formatName, randomTableSuffix());
+        String tableName = format("%s_%s_%s", tableNamePrefix, formatName, randomNameSuffix());
         onTrino().executeQuery(
                 format("CREATE TABLE %s %s WITH (%s)", tableName, sql, format.getStoragePropertiesAsSql()));
         return tableName;

@@ -28,7 +28,7 @@ import java.util.function.Supplier;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.hive.util.TemporaryHiveTable.temporaryHiveTable;
 import static io.trino.tests.product.utils.JdbcDriverUtils.setSessionProperty;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
@@ -133,7 +133,7 @@ public class TestHivePartitionSchemaEvolution
 
     private TemporaryHiveTable createTable(String format)
     {
-        String tableName = "schema_evolution_" + randomTableSuffix();
+        String tableName = "schema_evolution_" + randomNameSuffix();
         tryExecuteOnHive(format(
                 "CREATE TABLE %s (" +
                         "  int_column int," +

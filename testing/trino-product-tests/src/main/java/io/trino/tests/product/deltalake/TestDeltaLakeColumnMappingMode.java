@@ -23,6 +23,7 @@ import java.util.List;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_73;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_91;
@@ -30,7 +31,6 @@ import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 
@@ -41,7 +41,7 @@ public class TestDeltaLakeColumnMappingMode
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testColumnMappingModeNone()
     {
-        String tableName = "test_dl_column_mapping_mode_none" + randomTableSuffix();
+        String tableName = "test_dl_column_mapping_mode_none" + randomNameSuffix();
 
         onDelta().executeQuery("" +
                 "CREATE TABLE default." + tableName +
@@ -82,7 +82,7 @@ public class TestDeltaLakeColumnMappingMode
 
     private void testColumnMappingMode(String mode)
     {
-        String tableName = "test_dl_column_mapping_mode_name_" + randomTableSuffix();
+        String tableName = "test_dl_column_mapping_mode_name_" + randomNameSuffix();
 
         onDelta().executeQuery("" +
                 "CREATE TABLE default." + tableName +
@@ -153,7 +153,7 @@ public class TestDeltaLakeColumnMappingMode
 
     private void testColumnMappingModeNameWithNonLowerCaseColumn(String mode)
     {
-        String tableName = "test_dl_column_mapping_mode_name_non_loewr_case_" + randomTableSuffix();
+        String tableName = "test_dl_column_mapping_mode_name_non_loewr_case_" + randomNameSuffix();
 
         onDelta().executeQuery("" +
                 "CREATE TABLE default." + tableName +
@@ -201,7 +201,7 @@ public class TestDeltaLakeColumnMappingMode
 
     private void testColumnMappingModeAddColumn(String mode)
     {
-        String tableName = "test_dl_column_mapping_mode_add_column_" + randomTableSuffix();
+        String tableName = "test_dl_column_mapping_mode_add_column_" + randomNameSuffix();
 
         onDelta().executeQuery("" +
                 "CREATE TABLE default." + tableName +
@@ -272,7 +272,7 @@ public class TestDeltaLakeColumnMappingMode
 
     private void testShowStatsFromJsonForColumnMappingMode(String mode)
     {
-        String tableName = "test_dl_show_stats_json_for_column_mapping_mode_" + randomTableSuffix();
+        String tableName = "test_dl_show_stats_json_for_column_mapping_mode_" + randomNameSuffix();
 
         onDelta().executeQuery("" +
                 "CREATE TABLE default." + tableName +
@@ -317,7 +317,7 @@ public class TestDeltaLakeColumnMappingMode
 
     private void testShowStatsFromParquetForColumnMappingMode(String mode)
     {
-        String tableName = "test_dl_show_parquet_stats_parquet_for_column_mapping_mode_" + randomTableSuffix();
+        String tableName = "test_dl_show_parquet_stats_parquet_for_column_mapping_mode_" + randomNameSuffix();
 
         onDelta().executeQuery("" +
                 "CREATE TABLE default." + tableName +
@@ -365,7 +365,7 @@ public class TestDeltaLakeColumnMappingMode
 
     private void testShowStatsOnPartitionedForColumnMappingMode(String mode)
     {
-        String tableName = "test_dl_show_stats_partitioned_for_column_mapping_mode_" + randomTableSuffix();
+        String tableName = "test_dl_show_stats_partitioned_for_column_mapping_mode_" + randomNameSuffix();
 
         onDelta().executeQuery("" +
                 "CREATE TABLE default." + tableName +
@@ -410,7 +410,7 @@ public class TestDeltaLakeColumnMappingMode
 
     private void testUnsupportedOperationsColumnMappingModeName(String mode)
     {
-        String tableName = "test_dl_unsupported_column_mapping_mode_" + randomTableSuffix();
+        String tableName = "test_dl_unsupported_column_mapping_mode_" + randomNameSuffix();
 
         onDelta().executeQuery("" +
                 "CREATE TABLE default." + tableName +
@@ -459,7 +459,7 @@ public class TestDeltaLakeColumnMappingMode
 
     private void testSpecialCharacterColumnNamesWithColumnMappingMode(String mode)
     {
-        String tableName = "test_dl_special_character_column_mapping_mode_" + randomTableSuffix();
+        String tableName = "test_dl_special_character_column_mapping_mode_" + randomNameSuffix();
 
         onDelta().executeQuery("" +
                 "CREATE TABLE default." + tableName +
