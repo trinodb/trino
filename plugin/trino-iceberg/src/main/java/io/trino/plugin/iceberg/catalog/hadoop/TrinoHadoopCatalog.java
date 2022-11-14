@@ -17,8 +17,9 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
 import io.trino.collect.cache.SafeCaches;
+import io.trino.hdfs.HdfsContext;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.base.CatalogName;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
@@ -53,6 +54,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.CatalogProperties.WAREHOUSE_LOCATION;
 import static org.apache.iceberg.CatalogUtil.loadCatalog;
@@ -109,7 +111,7 @@ public class TrinoHadoopCatalog
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
         builder.putAll(catalogProperties);
         builder.putAll(getSessionProperties(session));
-        Configuration hadoopConf = hdfsEnvironment.getConfiguration(new HdfsEnvironment.HdfsContext(session), new Path(warehouse));
+        Configuration hadoopConf = hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(warehouse));
         return loadCatalog(CATALOG_IMPL, catalogName.toString(), builder.buildOrThrow(), hadoopConf);
     }
 
@@ -145,6 +147,24 @@ public class TrinoHadoopCatalog
     private SchemaTableName schemaFromTableId(TableIdentifier tableIdentifier)
     {
         return new SchemaTableName(tableIdentifier.namespace().toString(), tableIdentifier.name());
+    }
+
+    @Override
+    public boolean namespaceExists(ConnectorSession session, String namespace)
+    {
+        if (!namespace.equals(namespace.toLowerCase(ENGLISH))) {
+            // Currently, Trino schemas are always lowercase, so this one cannot exist (https://github.com/trinodb/trino/issues/17)
+            return false;
+        }
+        if (HadoopIcebergUtil.isHadoopSystemSchema(namespace)) {
+            return false;
+        }
+        if (listNamespaces(session).stream().filter(_namespace -> namespace.equals(_namespace.toString())).findAny().orElse(null) != null) {
+            return true;
+        }
+        else {
+            return false;
+        }
     }
 
     @Override
@@ -288,6 +308,12 @@ public class TrinoHadoopCatalog
     public List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> namespace)
     {
         return new ArrayList<>();
+    }
+
+    @Override
+    public void updateViewComment(ConnectorSession session, SchemaTableName viewName, Optional<String> comment)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "updateViewComment is not supported by " + getCatalog(session).name());
     }
 
     @Override
