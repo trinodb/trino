@@ -48,8 +48,8 @@ import static io.trino.plugin.iceberg.TrackingFileSystemFactory.OperationType.OU
 import static io.trino.plugin.iceberg.TrackingFileSystemFactory.OperationType.OUTPUT_FILE_LOCATION;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
@@ -388,7 +388,7 @@ public class TestIcebergMetadataFileOperations
     @Test
     public void testRemoveOrphanFiles()
     {
-        String tableName = "test_remove_orphan_files_" + randomTableSuffix();
+        String tableName = "test_remove_orphan_files_" + randomNameSuffix();
         Session sessionWithShortRetentionUnlocked = Session.builder(getSession())
                 .setCatalogSessionProperty("iceberg", "remove_orphan_files_min_retention", "0s")
                 .build();

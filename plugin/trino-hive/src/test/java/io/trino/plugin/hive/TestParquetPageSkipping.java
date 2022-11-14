@@ -34,7 +34,7 @@ import java.util.Map;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.parquet.reader.ParquetReader.COLUMN_INDEX_ROWS_FILTERED;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -94,7 +94,7 @@ public class TestParquetPageSkipping
     @Test
     public void testAndPredicates()
     {
-        String tableName = "test_and_predicate_" + randomTableSuffix();
+        String tableName = "test_and_predicate_" + randomNameSuffix();
         buildSortedTables(tableName, "totalprice", "double");
         int rowCount = assertColumnIndexResults("SELECT * FROM " + tableName + " WHERE totalprice BETWEEN 100000 AND 131280 AND clerk = 'Clerk#000000624'");
         assertThat(rowCount).isGreaterThan(0);
@@ -108,7 +108,7 @@ public class TestParquetPageSkipping
     @Test
     public void testPageSkippingWithNonSequentialOffsets()
     {
-        String tableName = "test_random_" + randomTableSuffix();
+        String tableName = "test_random_" + randomNameSuffix();
         int updateCount = 8192;
         assertUpdate(
                 "CREATE TABLE " + tableName + " (col) WITH (format = 'PARQUET') AS " +
@@ -132,7 +132,7 @@ public class TestParquetPageSkipping
     public void testFilteringOnColumnNameWithDot()
     {
         String nameInSql = "\"a.dot\"";
-        String tableName = "test_column_name_with_dot_" + randomTableSuffix();
+        String tableName = "test_column_name_with_dot_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + "(key varchar(50), " + nameInSql + " varchar(50)) WITH (format = 'PARQUET')");
         assertUpdate("INSERT INTO " + tableName + " VALUES ('null value', NULL), ('sample value', 'abc'), ('other value', 'xyz')", 3);
@@ -146,7 +146,7 @@ public class TestParquetPageSkipping
     @Test(dataProvider = "dataType")
     public void testPageSkipping(String sortByColumn, String sortByColumnType, Object[][] valuesArray)
     {
-        String tableName = "test_page_skipping_" + randomTableSuffix();
+        String tableName = "test_page_skipping_" + randomNameSuffix();
         buildSortedTables(tableName, sortByColumn, sortByColumnType);
         for (Object[] values : valuesArray) {
             Object lowValue = values[0];
@@ -173,7 +173,7 @@ public class TestParquetPageSkipping
     @Test
     public void testFilteringWithColumnIndex()
     {
-        String tableName = "test_page_filtering_" + randomTableSuffix();
+        String tableName = "test_page_filtering_" + randomNameSuffix();
         String catalog = getSession().getCatalog().orElseThrow();
         assertUpdate(
                 Session.builder(getSession())

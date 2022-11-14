@@ -28,7 +28,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
@@ -147,7 +147,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     @Test
     public void testRegisterTableWithTableLocation()
     {
-        String tableName = "test_register_table_with_table_location_" + randomTableSuffix();
+        String tableName = "test_register_table_with_table_location_" + randomNameSuffix();
 
         assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean)", tableName));
         assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
@@ -169,7 +169,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     @Test
     public void testRegisterTableWithComments()
     {
-        String tableName = "test_register_table_with_comments_" + randomTableSuffix();
+        String tableName = "test_register_table_with_comments_" + randomNameSuffix();
 
         assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean)", tableName));
         assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
@@ -194,7 +194,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     @Test
     public void testRegisterTableWithShowCreateTable()
     {
-        String tableName = "test_register_table_with_show_create_table_" + randomTableSuffix();
+        String tableName = "test_register_table_with_show_create_table_" + randomNameSuffix();
 
         assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean)", tableName));
         assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
@@ -214,7 +214,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     @Test
     public void testRegisterTableWithReInsert()
     {
-        String tableName = "test_register_table_with_re_insert_" + randomTableSuffix();
+        String tableName = "test_register_table_with_re_insert_" + randomNameSuffix();
 
         assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean)", tableName));
         assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
@@ -238,7 +238,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     @Test
     public void testRegisterTableWithDroppedTable()
     {
-        String tableName = "test_register_table_with_dropped_table_" + randomTableSuffix();
+        String tableName = "test_register_table_with_dropped_table_" + randomNameSuffix();
 
         assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean)", tableName));
         assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
@@ -255,7 +255,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     @Test
     public void testRegisterTableWithDifferentTableName()
     {
-        String tableName = "test_register_table_with_different_table_name_" + randomTableSuffix();
+        String tableName = "test_register_table_with_different_table_name_" + randomNameSuffix();
 
         assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean)", tableName));
         assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
@@ -280,7 +280,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     @Test
     public void testRegisterTableWithMetadataFile()
     {
-        String tableName = "test_register_table_with_metadata_file_" + randomTableSuffix();
+        String tableName = "test_register_table_with_metadata_file_" + randomNameSuffix();
 
         assertUpdate(format("CREATE TABLE %s (a int, b varchar, c boolean)", tableName));
         assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);

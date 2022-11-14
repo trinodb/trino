@@ -151,9 +151,9 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_COLUMNS;
 import static io.trino.testing.TestingAccessControlManager.privilege;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
@@ -447,7 +447,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testRequiredPartitionFilterAppliedOnDifferentSchema()
     {
-        String schemaName = "schema_" + randomTableSuffix();
+        String schemaName = "schema_" + randomNameSuffix();
         Session session = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
                         .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
@@ -873,7 +873,7 @@ public abstract class BaseHiveConnectorTest
                 .setIdentity(Identity.forUser("alice").build())
                 .build();
 
-        String schema = "test_view_authorization" + TestTable.randomTableSuffix();
+        String schema = "test_view_authorization" + randomNameSuffix();
 
         assertUpdate(admin, "CREATE SCHEMA " + schema);
         assertUpdate(admin, "CREATE VIEW " + schema + ".test_view AS SELECT current_user AS user");
@@ -902,7 +902,7 @@ public abstract class BaseHiveConnectorTest
                 .setIdentity(Identity.forUser("alice").build())
                 .build();
 
-        String schema = "test_view_authorization" + TestTable.randomTableSuffix();
+        String schema = "test_view_authorization" + randomNameSuffix();
 
         assertUpdate(admin, "CREATE SCHEMA " + schema);
         assertUpdate(admin, "CREATE TABLE " + schema + ".test_table (col int)");
@@ -933,7 +933,7 @@ public abstract class BaseHiveConnectorTest
                 .setIdentity(Identity.forUser("alice").build())
                 .build();
 
-        String schema = "test_view_authorization" + TestTable.randomTableSuffix();
+        String schema = "test_view_authorization" + randomNameSuffix();
 
         assertUpdate(admin, "CREATE SCHEMA " + schema);
         assertUpdate(admin, "CREATE TABLE " + schema + ".test_table (col int)");
@@ -964,7 +964,7 @@ public abstract class BaseHiveConnectorTest
                 .setIdentity(Identity.forUser("alice").build())
                 .build();
 
-        String schema = "test_view_authorization" + TestTable.randomTableSuffix();
+        String schema = "test_view_authorization" + randomNameSuffix();
 
         assertUpdate(admin, "CREATE SCHEMA " + schema);
         assertUpdate(admin, "CREATE TABLE " + schema + ".test_table (col int)");
@@ -2164,7 +2164,7 @@ public abstract class BaseHiveConnectorTest
     @Test(dataProvider = "bucketFilteringDataTypesSetupProvider")
     public void testFilterOnBucketedTable(BucketedFilterTestSetup testSetup)
     {
-        String tableName = "test_filter_on_bucketed_table_" + randomTableSuffix();
+        String tableName = "test_filter_on_bucketed_table_" + randomNameSuffix();
         assertUpdate(
                 """
                 CREATE TABLE %s (bucket_key %s, other_data double)
@@ -2281,7 +2281,7 @@ public abstract class BaseHiveConnectorTest
     @Test(dataProvider = "bucketedUnsupportedTypes")
     public void testBucketedTableUnsupportedTypes(String typeName)
     {
-        String tableName = "test_bucketed_table_for_unsupported_types_" + randomTableSuffix();
+        String tableName = "test_bucketed_table_for_unsupported_types_" + randomNameSuffix();
         assertThatThrownBy(() -> assertUpdate(
                 """
                 CREATE TABLE %s (bucket_key %s, other_data double)
@@ -2304,7 +2304,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testBucketedTableWithTimestampColumn()
     {
-        String tableName = "test_bucketed_table_with_timestamp_" + randomTableSuffix();
+        String tableName = "test_bucketed_table_with_timestamp_" + randomNameSuffix();
 
         String createTable = "" +
                 "CREATE TABLE " + tableName + " (" +
@@ -4021,7 +4021,7 @@ public abstract class BaseHiveConnectorTest
             int taskMaxScaleWriterCount,
             boolean scaleWriters)
     {
-        String tableName = "task_scale_writers_" + randomTableSuffix();
+        String tableName = "task_scale_writers_" + randomNameSuffix();
         try {
             @Language("SQL") String createTableSql = format(
                     "CREATE TABLE %s WITH (format = 'ORC') AS SELECT * FROM tpch.sf5.orders",
@@ -5015,7 +5015,7 @@ public abstract class BaseHiveConnectorTest
     private void doTestParquetTimestampPredicatePushdown(Session baseSession, HiveTimestampPrecision timestampPrecision, LocalDateTime value)
     {
         Session session = withTimestampPrecision(baseSession, timestampPrecision);
-        String tableName = "test_parquet_timestamp_predicate_pushdown_" + randomTableSuffix();
+        String tableName = "test_parquet_timestamp_predicate_pushdown_" + randomNameSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         assertUpdate("CREATE TABLE " + tableName + " (t TIMESTAMP) WITH (format = 'PARQUET')");
         assertUpdate(session, format("INSERT INTO %s VALUES (%s)", tableName, formatTimestamp(value)), 1);
@@ -5126,7 +5126,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testParquetDictionaryPredicatePushdown(Session session)
     {
-        String tableName = "test_parquet_dictionary_pushdown_" + randomTableSuffix();
+        String tableName = "test_parquet_dictionary_pushdown_" + randomNameSuffix();
         assertUpdate(session, "DROP TABLE IF EXISTS " + tableName);
         assertUpdate(session, "CREATE TABLE " + tableName + " (n BIGINT) WITH (format = 'PARQUET')");
         assertUpdate(session, "INSERT INTO " + tableName + " VALUES 1, 1, 2, 2, 4, 4, 5, 5", 8);
@@ -7804,7 +7804,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testOptimize()
     {
-        String tableName = "test_optimize_" + randomTableSuffix();
+        String tableName = "test_optimize_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation WITH NO DATA", 0);
 
         insertNationNTimes(tableName, 10);
@@ -7846,7 +7846,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testOptimizeWithWriterScaling()
     {
-        String tableName = "test_optimize_witer_scaling" + randomTableSuffix();
+        String tableName = "test_optimize_witer_scaling" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation WITH NO DATA", 0);
 
         insertNationNTimes(tableName, 4);
@@ -7876,7 +7876,7 @@ public abstract class BaseHiveConnectorTest
         int insertCount = 4;
         int partitionsCount = 5;
 
-        String tableName = "test_optimize_with_partitioning_" + randomTableSuffix();
+        String tableName = "test_optimize_with_partitioning_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + "(" +
                 "  nationkey BIGINT, " +
                 "  name VARCHAR, " +
@@ -7933,7 +7933,7 @@ public abstract class BaseHiveConnectorTest
     public void testOptimizeWithBucketing()
     {
         int insertCount = 4;
-        String tableName = "test_optimize_with_bucketing_" + randomTableSuffix();
+        String tableName = "test_optimize_with_bucketing_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + "(" +
                 "  nationkey BIGINT, " +
                 "  name VARCHAR, " +
@@ -7965,7 +7965,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testOptimizeHiveSystemTable()
     {
-        String tableName = "test_optimize_system_table_" + randomTableSuffix();
+        String tableName = "test_optimize_system_table_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + "(a bigint, b bigint) WITH (partitioned_by = ARRAY['b'])");
 
         assertQuery("SELECT count(*) FROM " + tableName, "SELECT 0");
@@ -8014,7 +8014,7 @@ public abstract class BaseHiveConnectorTest
             return;
         }
 
-        String tableName = "test_timestamp_precision_" + randomTableSuffix();
+        String tableName = "test_timestamp_precision_" + randomNameSuffix();
         String createTable = "CREATE TABLE " + tableName + " (ts TIMESTAMP) WITH (format = '%s')";
         @Language("SQL") String insert = "INSERT INTO " + tableName + " VALUES (TIMESTAMP '%s')";
 
@@ -8041,7 +8041,7 @@ public abstract class BaseHiveConnectorTest
             return;
         }
 
-        String tableName = "test_timestamp_precision_" + randomTableSuffix();
+        String tableName = "test_timestamp_precision_" + randomNameSuffix();
         String createTableAs = "CREATE TABLE " + tableName + " WITH (format = '%s') AS SELECT TIMESTAMP '%s' ts";
 
         testTimestampPrecisionWrites(
@@ -8086,7 +8086,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testSelectFromViewWithoutDefaultCatalogAndSchema()
     {
-        String viewName = "select_from_view_without_catalog_and_schema_" + randomTableSuffix();
+        String viewName = "select_from_view_without_catalog_and_schema_" + randomNameSuffix();
         assertUpdate("CREATE VIEW " + viewName + " AS SELECT * FROM nation WHERE nationkey=1");
         assertQuery("SELECT count(*) FROM " + viewName, "VALUES 1");
         assertQuery("SELECT count(*) FROM hive.tpch." + viewName, "VALUES 1");
@@ -8112,14 +8112,14 @@ public abstract class BaseHiveConnectorTest
                 .build();
 
         // Hive views tests covered in TestHiveViews.testTimestampHiveView and TestHiveViesLegacy.testTimestampHiveView
-        String tableName = "ts_hive_table_" + randomTableSuffix();
+        String tableName = "ts_hive_table_" + randomNameSuffix();
         assertUpdate(
                 withTimestampPrecision(defaultSession, HiveTimestampPrecision.NANOSECONDS),
                 "CREATE TABLE " + tableName + " AS SELECT TIMESTAMP '1990-01-02 12:13:14.123456789' ts",
                 1);
 
         // Presto view created with config property set to MILLIS and session property not set
-        String prestoViewNameDefault = "presto_view_ts_default_" + randomTableSuffix();
+        String prestoViewNameDefault = "presto_view_ts_default_" + randomNameSuffix();
         assertUpdate(defaultSession, "CREATE VIEW " + prestoViewNameDefault + " AS SELECT *  FROM " + tableName);
 
         assertThat(query(defaultSession, "SELECT ts FROM " + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'");
@@ -8140,7 +8140,7 @@ public abstract class BaseHiveConnectorTest
         assertThat(query(nanosSessions, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'");
 
         // Presto view created with config property set to MILLIS and session property set to NANOS
-        String prestoViewNameNanos = "presto_view_ts_nanos_" + randomTableSuffix();
+        String prestoViewNameNanos = "presto_view_ts_nanos_" + randomNameSuffix();
         assertUpdate(nanosSessions, "CREATE VIEW " + prestoViewNameNanos + " AS SELECT *  FROM " + tableName);
 
         // TODO(https://github.com/trinodb/trino/issues/6295) Presto view schema is fixed on creation
@@ -8177,7 +8177,7 @@ public abstract class BaseHiveConnectorTest
             builder.setCatalogSessionProperty(catalog, lowerCaseFormat + "_use_column_names", String.valueOf(formatUseColumnNames));
         }
         Session admin = builder.build();
-        String tableName = format("test_renames_%s_%s_%s", lowerCaseFormat, formatUseColumnNames, randomTableSuffix());
+        String tableName = format("test_renames_%s_%s_%s", lowerCaseFormat, formatUseColumnNames, randomNameSuffix());
         assertUpdate(admin, format("CREATE TABLE %s (id BIGINT, old_name VARCHAR, age INT, state VARCHAR) WITH (format = '%s', partitioned_by = ARRAY['state'])", tableName, format));
         assertUpdate(admin, format("INSERT INTO %s VALUES(111, 'Katy', 57, 'CA')", tableName), 1);
         assertQuery(admin, "SELECT * FROM " + tableName, "VALUES(111, 'Katy', 57, 'CA')");
@@ -8232,7 +8232,7 @@ public abstract class BaseHiveConnectorTest
             builder.setCatalogSessionProperty(catalog, lowerCaseFormat + "_use_column_names", String.valueOf(formatUseColumnNames));
         }
         Session admin = builder.build();
-        String tableName = format("test_add_drop_%s_%s_%s", lowerCaseFormat, formatUseColumnNames, randomTableSuffix());
+        String tableName = format("test_add_drop_%s_%s_%s", lowerCaseFormat, formatUseColumnNames, randomNameSuffix());
         assertUpdate(admin, format("CREATE TABLE %s (id BIGINT, old_name VARCHAR, age INT, state VARCHAR) WITH (format = '%s')", tableName, format));
         assertUpdate(admin, format("INSERT INTO %s VALUES(111, 'Katy', 57, 'CA')", tableName), 1);
         assertQuery(admin, "SELECT * FROM " + tableName, "VALUES(111, 'Katy', 57, 'CA')");

@@ -45,7 +45,7 @@ import java.util.stream.Collectors;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.testing.MaterializedResult.resultBuilder;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.DAYS;
 import static java.time.temporal.ChronoUnit.MINUTES;
@@ -76,7 +76,7 @@ public abstract class BaseTestHiveOnDataLake
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.bucketName = "test-hive-insert-overwrite-" + randomTableSuffix();
+        this.bucketName = "test-hive-insert-overwrite-" + randomNameSuffix();
         this.hiveMinioDataLake = closeAfterClass(
                 new HiveMinioDataLake(bucketName, hiveHadoopImage));
         this.hiveMinioDataLake.start();
@@ -200,7 +200,7 @@ public abstract class BaseTestHiveOnDataLake
     @Test
     public void testFlushPartitionCache()
     {
-        String tableName = "nation_" + randomTableSuffix();
+        String tableName = "nation_" + randomNameSuffix();
         String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
         String partitionColumn = "regionkey";
 
@@ -218,7 +218,7 @@ public abstract class BaseTestHiveOnDataLake
     @Test
     public void testFlushPartitionCacheWithDeprecatedPartitionParams()
     {
-        String tableName = "nation_" + randomTableSuffix();
+        String tableName = "nation_" + randomNameSuffix();
         String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
         String partitionColumn = "regionkey";
 
@@ -312,7 +312,7 @@ public abstract class BaseTestHiveOnDataLake
     @Test
     public void testEnumPartitionProjectionOnVarcharColumnWithWhitespace()
     {
-        String tableName = "nation_" + randomTableSuffix();
+        String tableName = "nation_" + randomNameSuffix();
         String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
 
         computeActual(
@@ -567,7 +567,7 @@ public abstract class BaseTestHiveOnDataLake
     @Test
     public void testIntegerPartitionProjectionOnVarcharColumnWithDigitsAlignCreatedOnHive()
     {
-        String tableName = "nation_" + randomTableSuffix();
+        String tableName = "nation_" + randomNameSuffix();
         hiveMinioDataLake.getHiveHadoop().runOnHive(
                 "CREATE TABLE " + getHiveTestTableName(tableName) + " ( " +
                         "  name varchar(25), " +
@@ -747,7 +747,7 @@ public abstract class BaseTestHiveOnDataLake
     @Test
     public void testDatePartitionProjectionOnDateColumnWithDefaults()
     {
-        String tableName = "nation_" + randomTableSuffix();
+        String tableName = "nation_" + randomNameSuffix();
         String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
 
         computeActual(
@@ -1311,7 +1311,7 @@ public abstract class BaseTestHiveOnDataLake
     public void testPartitionProjectionInvalidTableProperties()
     {
         assertThatThrownBy(() -> getQueryRunner().execute(
-                "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomTableSuffix()) + " ( " +
+                "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomNameSuffix()) + " ( " +
                         "  name varchar " +
                         ") WITH ( " +
                         "  partition_projection_enabled=true " +
@@ -1319,7 +1319,7 @@ public abstract class BaseTestHiveOnDataLake
                 .hasMessage("Partition projection can't be enabled when no partition columns are defined.");
 
         assertThatThrownBy(() -> getQueryRunner().execute(
-                "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomTableSuffix()) + " ( " +
+                "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomNameSuffix()) + " ( " +
                         "  name varchar WITH ( " +
                         "    partition_projection_type='enum', " +
                         "    partition_projection_values=ARRAY['PL1', 'CZ1']" +
@@ -1332,7 +1332,7 @@ public abstract class BaseTestHiveOnDataLake
                 .hasMessage("Partition projection can't be defined for non partition column: 'name'");
 
         assertThatThrownBy(() -> getQueryRunner().execute(
-                "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomTableSuffix()) + " ( " +
+                "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomNameSuffix()) + " ( " +
                         "  name varchar, " +
                         "  short_name1 varchar WITH ( " +
                         "    partition_projection_type='enum', " +
@@ -1346,7 +1346,7 @@ public abstract class BaseTestHiveOnDataLake
                 .hasMessage("Partition projection definition for column: 'short_name2' missing");
 
         assertThatThrownBy(() -> getQueryRunner().execute(
-                "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomTableSuffix()) + " ( " +
+                "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomNameSuffix()) + " ( " +
                         "  name varchar, " +
                         "  short_name1 varchar WITH (" +
                         "    partition_projection_type='enum', " +
@@ -1364,7 +1364,7 @@ public abstract class BaseTestHiveOnDataLake
                         "is missing partition column: 'short_name2' placeholder");
 
         assertThatThrownBy(() -> getQueryRunner().execute(
-                "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomTableSuffix()) + " ( " +
+                "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomNameSuffix()) + " ( " +
                         "  name varchar, " +
                         "  short_name1 varchar WITH (" +
                         "    partition_projection_type='integer', " +
@@ -1381,7 +1381,7 @@ public abstract class BaseTestHiveOnDataLake
                 .hasMessage("Column projection for column 'short_name1' failed. Property: 'partition_projection_range' needs to be list of 2 integers");
 
         assertThatThrownBy(() -> getQueryRunner().execute(
-                "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomTableSuffix()) + " ( " +
+                "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomNameSuffix()) + " ( " +
                         "  name varchar, " +
                         "  short_name1 varchar WITH (" +
                         "    partition_projection_type='date', " +
@@ -1394,7 +1394,7 @@ public abstract class BaseTestHiveOnDataLake
                 .hasMessage("Column projection for column 'short_name1' failed. Missing required property: 'partition_projection_format'");
 
         assertThatThrownBy(() -> getQueryRunner().execute(
-                "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomTableSuffix()) + " ( " +
+                "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomNameSuffix()) + " ( " +
                         "  name varchar, " +
                         "  short_name1 varchar WITH (" +
                         "    partition_projection_type='date', " +
@@ -1409,7 +1409,7 @@ public abstract class BaseTestHiveOnDataLake
                         "or '^\\s*NOW\\s*(([+-])\\s*([0-9]+)\\s*(DAY|HOUR|MINUTE|SECOND)S?\\s*)?$' that are sequential. Unparseable date: \"2001-01-01\"");
 
         assertThatThrownBy(() -> getQueryRunner().execute(
-                "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomTableSuffix()) + " ( " +
+                "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomNameSuffix()) + " ( " +
                         "  name varchar, " +
                         "  short_name1 varchar WITH (" +
                         "    partition_projection_type='date', " +
@@ -1424,7 +1424,7 @@ public abstract class BaseTestHiveOnDataLake
                         "or '^\\s*NOW\\s*(([+-])\\s*([0-9]+)\\s*(DAY|HOUR|MINUTE|SECOND)S?\\s*)?$' that are sequential. Unparseable date: \"NOW*3DAYS\"");
 
         assertThatThrownBy(() -> getQueryRunner().execute(
-                "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomTableSuffix()) + " ( " +
+                "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomNameSuffix()) + " ( " +
                         "  name varchar, " +
                         "  short_name1 varchar WITH (" +
                         "    partition_projection_type='date', " +
@@ -1439,7 +1439,7 @@ public abstract class BaseTestHiveOnDataLake
                         "or '^\\s*NOW\\s*(([+-])\\s*([0-9]+)\\s*(DAY|HOUR|MINUTE|SECOND)S?\\s*)?$' that are sequential");
 
         assertThatThrownBy(() -> getQueryRunner().execute(
-                "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomTableSuffix()) + " ( " +
+                "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomNameSuffix()) + " ( " +
                         "  name varchar, " +
                         "  short_name1 varchar WITH (" +
                         "    partition_projection_type='date', " +
@@ -1455,7 +1455,7 @@ public abstract class BaseTestHiveOnDataLake
                         "Available options: [Days, Hours, Minutes, Seconds]");
 
         assertThatThrownBy(() -> getQueryRunner().execute(
-                "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomTableSuffix()) + " ( " +
+                "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomNameSuffix()) + " ( " +
                         "  name varchar, " +
                         "  short_name1 varchar WITH (" +
                         "    partition_projection_type='date', " +
@@ -1471,7 +1471,7 @@ public abstract class BaseTestHiveOnDataLake
                         "Interval defaults to 1 day or 1 month, respectively. Otherwise, interval is required");
 
         assertThatThrownBy(() -> getQueryRunner().execute(
-                "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomTableSuffix()) + " ( " +
+                "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomNameSuffix()) + " ( " +
                         "  name varchar, " +
                         "  short_name1 varchar WITH (" +
                         "    partition_projection_type='date', " +
@@ -1486,7 +1486,7 @@ public abstract class BaseTestHiveOnDataLake
         // Verify that ignored flag is only interpreted for pre-existing tables where configuration is loaded from metastore.
         // It should not allow creating corrupted config via Trino. It's a kill switch to run away when we have compatibility issues.
         assertThatThrownBy(() -> getQueryRunner().execute(
-                "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomTableSuffix()) + " ( " +
+                "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomNameSuffix()) + " ( " +
                         "  name varchar, " +
                         "  short_name1 varchar WITH (" +
                         "    partition_projection_type='date', " +
@@ -1506,7 +1506,7 @@ public abstract class BaseTestHiveOnDataLake
     @Test
     public void testPartitionProjectionIgnore()
     {
-        String tableName = "nation_" + randomTableSuffix();
+        String tableName = "nation_" + randomNameSuffix();
         String hiveTestTableName = getHiveTestTableName(tableName);
         String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
 
@@ -1646,7 +1646,7 @@ public abstract class BaseTestHiveOnDataLake
 
     protected String getRandomTestTableName()
     {
-        return "nation_" + randomTableSuffix();
+        return "nation_" + randomNameSuffix();
     }
 
     protected String getFullyQualifiedTestTableName()

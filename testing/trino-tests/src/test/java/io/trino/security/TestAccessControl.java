@@ -72,8 +72,8 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.TRUNCATE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.UPDATE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -191,7 +191,7 @@ public class TestAccessControl
                 .setSchema(getSession().getSchema())
                 .build();
 
-        String columnAccessViewName = "test_view_column_access_" + randomTableSuffix();
+        String columnAccessViewName = "test_view_column_access_" + randomNameSuffix();
 
         // TEST COLUMN-LEVEL PRIVILEGES
         // view creation permissions are only checked at query time, not at creation
@@ -226,7 +226,7 @@ public class TestAccessControl
                 .setSchema(getSession().getSchema())
                 .build();
 
-        String nestedViewName = "test_nested_view_column_access_" + randomTableSuffix();
+        String nestedViewName = "test_nested_view_column_access_" + randomNameSuffix();
         // view creation permissions are only checked at query time, not at creation
         assertAccessAllowed(
                 nestedViewOwnerSession,
@@ -248,7 +248,7 @@ public class TestAccessControl
                 privilege(getSession().getUser(), columnAccessViewName, SELECT_COLUMN));
 
         // verify that INVOKER security runs as session user
-        String invokerViewName = "test_invoker_view_column_access_" + randomTableSuffix();
+        String invokerViewName = "test_invoker_view_column_access_" + randomNameSuffix();
         assertAccessAllowed(
                 viewOwnerSession,
                 "CREATE VIEW " + invokerViewName + " SECURITY INVOKER AS SELECT * FROM orders",
@@ -299,7 +299,7 @@ public class TestAccessControl
 
         // TEST FUNCTION PRIVILEGES
         // view creation permissions are only checked at query time, not at creation
-        String functionAccessViewName = "test_view_function_access_" + randomTableSuffix();
+        String functionAccessViewName = "test_view_function_access_" + randomNameSuffix();
         assertAccessAllowed(
                 viewOwnerSession,
                 "CREATE VIEW " + functionAccessViewName + " AS SELECT abs(1) AS c",
@@ -317,7 +317,7 @@ public class TestAccessControl
 
         // TEST SECURITY INVOKER
         // view creation permissions are only checked at query time, not at creation
-        String invokerFunctionAccessViewName = "test_invoker_view_function_access_" + randomTableSuffix();
+        String invokerFunctionAccessViewName = "test_invoker_view_function_access_" + randomNameSuffix();
         assertAccessAllowed(
                 viewOwnerSession,
                 "CREATE VIEW " + invokerFunctionAccessViewName + " SECURITY INVOKER AS SELECT abs(1) AS c",
@@ -359,7 +359,7 @@ public class TestAccessControl
     @Test
     public void testCommentView()
     {
-        String viewName = "comment_view" + randomTableSuffix();
+        String viewName = "comment_view" + randomNameSuffix();
         assertUpdate("CREATE VIEW " + viewName + " COMMENT 'old comment' AS SELECT * FROM orders");
         assertAccessDenied("COMMENT ON VIEW " + viewName + " IS 'new comment'", "Cannot comment view to .*", privilege(viewName, COMMENT_VIEW));
         assertThatThrownBy(() -> getQueryRunner().execute(getSession(), "COMMENT ON VIEW " + viewName + " IS 'new comment'"))
@@ -400,7 +400,7 @@ public class TestAccessControl
     @Test
     public void testCommentColumnView()
     {
-        String viewName = "comment_view" + randomTableSuffix();
+        String viewName = "comment_view" + randomNameSuffix();
         assertUpdate("CREATE VIEW " + viewName + " AS SELECT * FROM orders");
         assertAccessDenied("COMMENT ON COLUMN " + viewName + ".orderkey IS 'new order key comment'", "Cannot comment column to .*", privilege(viewName, COMMENT_COLUMN));
         assertUpdate(getSession(), "COMMENT ON COLUMN " + viewName + ".orderkey IS 'new comment'");
@@ -442,9 +442,9 @@ public class TestAccessControl
         String catalogName = getSession().getCatalog().orElseThrow();
         String schemaName = getSession().getSchema().orElseThrow();
 
-        String targetTable = "merge_nation_target_" + randomTableSuffix();
+        String targetTable = "merge_nation_target_" + randomNameSuffix();
         String targetName = format("%s.%s.%s", catalogName, schemaName, targetTable);
-        String sourceTable = "merge_nation_source_" + randomTableSuffix();
+        String sourceTable = "merge_nation_source_" + randomNameSuffix();
         String sourceName = format("%s.%s.%s", catalogName, schemaName, sourceTable);
 
         assertUpdate(format("CREATE TABLE %s (nation_name VARCHAR, region_name VARCHAR)", targetTable));
@@ -549,7 +549,7 @@ public class TestAccessControl
     @Test
     public void testDescribeForViews()
     {
-        String viewName = "describe_orders_view" + randomTableSuffix();
+        String viewName = "describe_orders_view" + randomNameSuffix();
         assertUpdate("CREATE VIEW " + viewName + " AS SELECT * FROM orders");
         assertAccessDenied("DESCRIBE " + viewName, "Cannot show columns of table default.*", privilege(viewName, SHOW_COLUMNS));
         executeExclusively(() -> {
