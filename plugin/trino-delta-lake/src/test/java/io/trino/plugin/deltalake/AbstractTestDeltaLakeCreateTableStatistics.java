@@ -48,7 +48,7 @@ import static io.trino.spi.type.Decimals.encodeScaledValue;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.String.format;
@@ -67,7 +67,7 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.bucketName = "delta-test-create-table-statistics-" + randomTableSuffix();
+        this.bucketName = "delta-test-create-table-statistics-" + randomNameSuffix();
         HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
         hiveMinioDataLake.start();
         ImmutableMap.Builder<String, String> queryRunnerProperties = ImmutableMap.<String, String>builder()
@@ -458,7 +458,7 @@ public abstract class AbstractTestDeltaLakeCreateTableStatistics
 
         public TestTable(String name, List<String> columnNames, List<String> partitionNames, String values, Session session)
         {
-            this.name = name + randomTableSuffix();
+            this.name = name + randomNameSuffix();
             String columns = columnNames.isEmpty() ? "" :
                     "(" + String.join(",", columnNames) + ")";
             String partitionedBy = partitionNames.isEmpty() ? "" :

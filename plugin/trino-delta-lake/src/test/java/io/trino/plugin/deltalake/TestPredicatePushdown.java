@@ -32,7 +32,7 @@ import java.util.Set;
 
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
@@ -225,7 +225,7 @@ public class TestPredicatePushdown
          */
         String create(String namePrefix)
         {
-            String name = format("%s_%s", namePrefix, randomTableSuffix());
+            String name = format("%s_%s", namePrefix, randomNameSuffix());
             hiveMinioDataLake.copyResources(RESOURCE_PATH.resolve(resourcePath).toString(), name);
             getQueryRunner().execute(format(
                     "CREATE TABLE %2$s (%3$s) WITH (location = 's3://%1$s/%2$s')",

@@ -41,8 +41,8 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.UPDATE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEquals;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.anyOf;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -51,7 +51,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public abstract class BaseIcebergMaterializedViewTest
         extends AbstractTestQueryFramework
 {
-    protected final String storageSchemaName = "testing_storage_schema_" + randomTableSuffix();
+    protected final String storageSchemaName = "testing_storage_schema_" + randomNameSuffix();
 
     protected abstract String getSchemaName();
 
@@ -91,7 +91,7 @@ public abstract class BaseIcebergMaterializedViewTest
     {
         String catalogName = getSession().getCatalog().orElseThrow();
         String schemaName = getSession().getSchema().orElseThrow();
-        String materializedViewName = format("test_materialized_view_%s", randomTableSuffix());
+        String materializedViewName = format("test_materialized_view_%s", randomNameSuffix());
 
         computeActual("CREATE TABLE small_region AS SELECT * FROM tpch.tiny.region LIMIT 1");
         computeActual(format("CREATE MATERIALIZED VIEW %s AS SELECT * FROM small_region LIMIT 1", materializedViewName));

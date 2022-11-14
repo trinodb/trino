@@ -20,7 +20,7 @@ import org.testng.annotations.Test;
 
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 
 public class TestDeltaLakePartitioning
@@ -146,7 +146,7 @@ public class TestDeltaLakePartitioning
     @Test
     public void testPartitioningWithSpecialCharactersInPartitionColumn()
     {
-        String dataPath = getClass().getClassLoader().getResource("deltalake").toExternalForm() + "/special_char" + randomTableSuffix();
+        String dataPath = getClass().getClassLoader().getResource("deltalake").toExternalForm() + "/special_char" + randomNameSuffix();
         assertUpdate(
                 "CREATE TABLE special_chars (id, col_name) " +
                         "WITH(partitioned_by = ARRAY['col_name'], " +

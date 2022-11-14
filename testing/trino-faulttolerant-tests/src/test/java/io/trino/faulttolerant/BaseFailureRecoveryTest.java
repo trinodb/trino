@@ -68,7 +68,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.NONE;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
@@ -595,7 +595,7 @@ public abstract class BaseFailureRecoveryTest
 
         private ExecutionResult execute(Session session, String query, Optional<String> traceToken)
         {
-            String tableName = "table_" + randomTableSuffix();
+            String tableName = "table_" + randomNameSuffix();
             setup.ifPresent(sql -> getQueryRunner().execute(noRetries(session), resolveTableName(sql, tableName)));
 
             MaterializedResultWithQueryId resultWithQueryId = null;

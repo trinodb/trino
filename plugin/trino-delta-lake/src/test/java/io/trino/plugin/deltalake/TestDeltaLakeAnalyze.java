@@ -33,7 +33,7 @@ import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.TPCH_SCHEMA;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -66,7 +66,7 @@ public class TestDeltaLakeAnalyze
 
     private void testAnalyze(Optional<Integer> checkpointInterval)
     {
-        String tableName = "test_analyze_" + randomTableSuffix();
+        String tableName = "test_analyze_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName
                 + (checkpointInterval.isPresent() ? format(" WITH (checkpoint_interval = %s)", checkpointInterval.get()) : "")
                 + " AS SELECT * FROM tpch.sf1.nation", 25);
@@ -146,7 +146,7 @@ public class TestDeltaLakeAnalyze
     @Test
     public void testAnalyzePartitioned()
     {
-        String tableName = "test_analyze_" + randomTableSuffix();
+        String tableName = "test_analyze_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName
                 + " WITH ("
                 + "   partitioned_by = ARRAY['regionkey']"
@@ -215,7 +215,7 @@ public class TestDeltaLakeAnalyze
     @Test
     public void testAnalyzeEmpty()
     {
-        String tableName = "test_analyze_empty_" + randomTableSuffix();
+        String tableName = "test_analyze_empty_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation WHERE false", 0);
 
         assertQuery(
@@ -256,7 +256,7 @@ public class TestDeltaLakeAnalyze
     @Test
     public void testAnalyzeExtendedStatisticsDisabled()
     {
-        String tableName = "test_analyze_extended_stats_disabled" + randomTableSuffix();
+        String tableName = "test_analyze_extended_stats_disabled" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
 
@@ -274,7 +274,7 @@ public class TestDeltaLakeAnalyze
     public void testAnalyzeWithFilesModifiedAfter()
             throws InterruptedException
     {
-        String tableName = "test_analyze_" + randomTableSuffix();
+        String tableName = "test_analyze_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
 
@@ -305,7 +305,7 @@ public class TestDeltaLakeAnalyze
     @Test
     public void testAnalyzeSomeColumns()
     {
-        String tableName = "test_analyze_some_columns" + randomTableSuffix();
+        String tableName = "test_analyze_some_columns" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
 

@@ -33,8 +33,8 @@ import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -233,7 +233,7 @@ public abstract class AbstractDistributedEngineOnlyQueries
     @Test
     public void testInsertWithCoercion()
     {
-        String tableName = "test_insert_with_coercion_" + randomTableSuffix();
+        String tableName = "test_insert_with_coercion_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " (" +
                 "tinyint_column tinyint, " +
@@ -338,7 +338,7 @@ public abstract class AbstractDistributedEngineOnlyQueries
         String query = format(
                 // use random marker in query for unique matching below
                 "SELECT count(*) c_%s FROM lineitem CROSS JOIN lineitem CROSS JOIN lineitem",
-                randomTableSuffix());
+                randomNameSuffix());
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
         ListenableFuture<?> queryFuture = Futures.submit(
                 () -> queryRunner.execute(getSession(), query), executorService);
