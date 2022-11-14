@@ -970,6 +970,10 @@ public class PostgreSqlClient
             Map<JdbcColumnHandle, String> leftAssignments,
             JoinStatistics statistics)
     {
+        if (joinType == JoinType.FULL_OUTER) {
+            // FULL JOIN is only supported with merge-joinable or hash-joinable join conditions
+            return Optional.empty();
+        }
         return implementJoinCostAware(
                 session,
                 joinType,
