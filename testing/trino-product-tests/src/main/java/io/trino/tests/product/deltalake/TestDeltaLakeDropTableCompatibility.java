@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
@@ -32,7 +33,6 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICK
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.hive.Engine.DELTA;
 import static io.trino.tests.product.hive.Engine.TRINO;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -85,7 +85,7 @@ public class TestDeltaLakeDropTableCompatibility
 
     private void testDropTableAccuracy(Engine creator, Engine dropper, boolean explicitLocation)
     {
-        String schemaName = "test_schema_with_location_" + randomTableSuffix();
+        String schemaName = "test_schema_with_location_" + randomNameSuffix();
         String schemaLocation = format("s3://%s/databricks-compatibility-test-%s", bucketName, schemaName);
         String tableName = explicitLocation ? "test_external_table" : "test_managed_table";
         Optional<String> tableLocation = explicitLocation

@@ -40,10 +40,10 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.HIVE_ICEBERG_REDIRECTIONS;
 import static io.trino.tests.product.TestGroups.HIVE_VIEWS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -170,8 +170,8 @@ public abstract class AbstractTestHiveViews
     @Test(groups = HIVE_VIEWS)
     public void testViewReferencingTableInDifferentSchema()
     {
-        String schemaX = "test_view_table_in_different_schema_x" + randomTableSuffix();
-        String schemaY = "test_view_table_in_different_schema_y" + randomTableSuffix();
+        String schemaX = "test_view_table_in_different_schema_x" + randomNameSuffix();
+        String schemaY = "test_view_table_in_different_schema_y" + randomNameSuffix();
         String tableName = "test_table";
         String viewName = "test_view";
 
@@ -190,7 +190,7 @@ public abstract class AbstractTestHiveViews
     @Test(groups = HIVE_VIEWS)
     public void testViewReferencingTableInTheSameSchemaWithoutQualifier()
     {
-        String schemaX = "test_view_table_same_schema_without_qualifier_schema" + randomTableSuffix();
+        String schemaX = "test_view_table_same_schema_without_qualifier_schema" + randomNameSuffix();
         String tableName = "test_table";
         String viewName = "test_view";
 

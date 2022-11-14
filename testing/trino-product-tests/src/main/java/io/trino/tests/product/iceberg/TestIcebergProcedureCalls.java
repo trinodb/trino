@@ -18,9 +18,9 @@ import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.ICEBERG;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
@@ -31,7 +31,7 @@ public class TestIcebergProcedureCalls
     public void testRollbackToSnapshot()
             throws InterruptedException
     {
-        String tableName = "test_rollback_to_snapshot_" + randomTableSuffix();
+        String tableName = "test_rollback_to_snapshot_" + randomNameSuffix();
 
         onTrino().executeQuery("USE iceberg.default");
         onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
