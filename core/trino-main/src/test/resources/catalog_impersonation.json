@@ -33,12 +33,12 @@
             "allow": true
         },
         {
-            "original_user": "abc_(.*)",
+            "original_user": "missing_replacement_(.*)",
             "new_user": ".*",
             "allow": true
         },
         {
-            "original_user": "def_(.*)",
+            "original_user": "incorrect_number_of_replacements_groups_(.*)",
             "new_user": "$2_$1_prod",
             "allow": true
         }
