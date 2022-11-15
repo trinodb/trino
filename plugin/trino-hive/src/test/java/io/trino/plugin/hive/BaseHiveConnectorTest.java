@@ -1928,6 +1928,7 @@ public abstract class BaseHiveConnectorTest
                 .setSystemProperty("task_scale_writers_enabled", "false")
                 .setSystemProperty("scale_writers", "false")
                 .setSystemProperty("redistribute_writes", "false")
+                .setSystemProperty("use_preferred_write_partitioning", "false")
                 .build();
         assertUpdate(session, createTableSql, 1000000);
         assertThat(computeActual(selectFileInfo).getRowCount()).isEqualTo(3);
@@ -1941,6 +1942,7 @@ public abstract class BaseHiveConnectorTest
                 .setSystemProperty("task_partitioned_writer_count", "1")
                 // task scale writers should be disabled since we want to write with a single task writer
                 .setSystemProperty("task_scale_writers_enabled", "false")
+                .setSystemProperty("use_preferred_write_partitioning", "false")
                 .setCatalogSessionProperty("hive", "target_max_file_size", maxSize.toString())
                 .build();
 
