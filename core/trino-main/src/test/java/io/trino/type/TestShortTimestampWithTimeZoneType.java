@@ -22,10 +22,10 @@ import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 
-public class TestTimestampWithTimeZoneType
+public class TestShortTimestampWithTimeZoneType
         extends AbstractTestType
 {
-    public TestTimestampWithTimeZoneType()
+    public TestShortTimestampWithTimeZoneType()
     {
         super(TIMESTAMP_TZ_MILLIS, SqlTimestampWithTimeZone.class, createTestBlock());
     }

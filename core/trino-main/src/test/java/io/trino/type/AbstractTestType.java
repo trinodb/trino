@@ -24,6 +24,7 @@ import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -58,6 +59,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -484,6 +486,9 @@ public abstract class AbstractTestType
         }
         if (type.getJavaType() == LongTimestamp.class) {
             return new LongTimestamp(1, 0);
+        }
+        if (type.getJavaType() == LongTimestampWithTimeZone.class) {
+            return LongTimestampWithTimeZone.fromEpochSecondsAndFraction(1, 0, UTC_KEY);
         }
         if (type instanceof ArrayType) {
             ArrayType arrayType = (ArrayType) type;
