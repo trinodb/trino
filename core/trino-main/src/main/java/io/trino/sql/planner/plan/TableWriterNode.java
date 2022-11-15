@@ -244,7 +244,7 @@ public class TableWriterNode
         @Override
         public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
         {
-            return layout.map(tableLayout -> tableLayout.getLayout().isMultipleWritersPerPartitionSupported()).orElse(true);
+            return layout.map(tableLayout -> tableLayout.getLayout().supportsMultipleWritersPerPartition()).orElse(true);
         }
 
         public Optional<TableLayout> getLayout()
@@ -367,7 +367,7 @@ public class TableWriterNode
         public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
         {
             return metadata.getInsertLayout(session, handle)
-                    .map(layout -> layout.getLayout().isMultipleWritersPerPartitionSupported())
+                    .map(layout -> layout.getLayout().supportsMultipleWritersPerPartition())
                     .orElse(true);
         }
     }
@@ -481,7 +481,7 @@ public class TableWriterNode
         public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
         {
             return metadata.getInsertLayout(session, storageTableHandle)
-                    .map(layout -> layout.getLayout().isMultipleWritersPerPartitionSupported())
+                    .map(layout -> layout.getLayout().supportsMultipleWritersPerPartition())
                     .orElse(true);
         }
     }
@@ -547,7 +547,7 @@ public class TableWriterNode
         public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
         {
             return metadata.getInsertLayout(session, tableHandle)
-                    .map(layout -> layout.getLayout().isMultipleWritersPerPartitionSupported())
+                    .map(layout -> layout.getLayout().supportsMultipleWritersPerPartition())
                     .orElse(true);
         }
     }
@@ -741,7 +741,7 @@ public class TableWriterNode
         public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
         {
             return metadata.getLayoutForTableExecute(session, executeHandle)
-                    .map(layout -> layout.getLayout().isMultipleWritersPerPartitionSupported())
+                    .map(layout -> layout.getLayout().supportsMultipleWritersPerPartition())
                     .orElse(true);
         }
     }
