@@ -170,6 +170,7 @@ import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.PlanOptimizers;
+import io.trino.sql.planner.QueryTableStatsProviderFactory;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.TypeAnalyzer;
@@ -266,6 +267,7 @@ public class LocalQueryRunner
     private final TypeRegistry typeRegistry;
     private final GlobalFunctionCatalog globalFunctionCatalog;
     private final FunctionManager functionManager;
+    private final QueryTableStatsProviderFactory queryTableStatsProviderFactory;
     private final StatsCalculator statsCalculator;
     private final ScalarStatsCalculator scalarStatsCalculator;
     private final CostCalculator costCalculator;
@@ -441,6 +443,7 @@ public class LocalQueryRunner
                 analyzePropertyManager,
                 tableProceduresPropertyManager);
         TypeAnalyzer typeAnalyzer = new TypeAnalyzer(plannerContext, statementAnalyzerFactory);
+        this.queryTableStatsProviderFactory = new QueryTableStatsProviderFactory(plannerContext.getMetadata());
         this.statsCalculator = createNewStatsCalculator(plannerContext, typeAnalyzer);
         this.scalarStatsCalculator = new ScalarStatsCalculator(plannerContext, typeAnalyzer);
         this.taskCountEstimator = new TaskCountEstimator(() -> nodeCountForStats);
@@ -1092,6 +1095,7 @@ public class LocalQueryRunner
                 idAllocator,
                 getPlannerContext(),
                 new TypeAnalyzer(plannerContext, statementAnalyzerFactory),
+                queryTableStatsProviderFactory,
                 statsCalculator,
                 costCalculator,
                 warningCollector);
@@ -1108,6 +1112,7 @@ public class LocalQueryRunner
                 planFragmenter,
                 plannerContext,
                 statementAnalyzerFactory,
+                queryTableStatsProviderFactory,
                 statsCalculator,
                 costCalculator);
     }

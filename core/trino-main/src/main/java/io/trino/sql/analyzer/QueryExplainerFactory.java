@@ -18,6 +18,7 @@ import io.trino.cost.StatsCalculator;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanOptimizersFactory;
+import io.trino.sql.planner.QueryTableStatsProviderFactory;
 
 import javax.inject.Inject;
 
@@ -29,6 +30,7 @@ public class QueryExplainerFactory
     private final PlanFragmenter planFragmenter;
     private final PlannerContext plannerContext;
     private final StatementAnalyzerFactory statementAnalyzerFactory;
+    private final QueryTableStatsProviderFactory queryTableStatsProviderFactory;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
 
@@ -38,6 +40,7 @@ public class QueryExplainerFactory
             PlanFragmenter planFragmenter,
             PlannerContext plannerContext,
             StatementAnalyzerFactory statementAnalyzerFactory,
+            QueryTableStatsProviderFactory queryTableStatsProviderFactory,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator)
     {
@@ -45,6 +48,7 @@ public class QueryExplainerFactory
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
         this.plannerContext = requireNonNull(plannerContext, "metadata is null");
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
+        this.queryTableStatsProviderFactory = requireNonNull(queryTableStatsProviderFactory, "queryTableStatsProviderFactory is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
     }
@@ -57,6 +61,7 @@ public class QueryExplainerFactory
                 plannerContext,
                 analyzerFactory,
                 statementAnalyzerFactory,
+                queryTableStatsProviderFactory,
                 statsCalculator,
                 costCalculator);
     }

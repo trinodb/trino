@@ -20,10 +20,8 @@ import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.cost.CachingCostProvider;
 import io.trino.cost.CachingStatsProvider;
-import io.trino.cost.CachingTableStatsProvider;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.CostProvider;
-import io.trino.cost.SimpleTableStatsProvider;
 import io.trino.cost.StatsAndCosts;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
@@ -171,6 +169,7 @@ public class LogicalPlanner
     private final TypeCoercion typeCoercion;
     private final TypeAnalyzer typeAnalyzer;
     private final StatisticsAggregationPlanner statisticsAggregationPlanner;
+    private final QueryTableStatsProviderFactory queryTableStatsProviderFactory;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
     private final WarningCollector warningCollector;
@@ -181,11 +180,22 @@ public class LogicalPlanner
             PlanNodeIdAllocator idAllocator,
             PlannerContext plannerContext,
             TypeAnalyzer typeAnalyzer,
+            QueryTableStatsProviderFactory queryTableStatsProviderFactory,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
             WarningCollector warningCollector)
     {
-        this(session, planOptimizers, DISTRIBUTED_PLAN_SANITY_CHECKER, idAllocator, plannerContext, typeAnalyzer, statsCalculator, costCalculator, warningCollector);
+        this(
+                session,
+                planOptimizers,
+                DISTRIBUTED_PLAN_SANITY_CHECKER,
+                idAllocator,
+                plannerContext,
+                typeAnalyzer,
+                queryTableStatsProviderFactory,
+                statsCalculator,
+                costCalculator,
+                warningCollector);
     }
 
     public LogicalPlanner(
@@ -195,6 +205,7 @@ public class LogicalPlanner
             PlanNodeIdAllocator idAllocator,
             PlannerContext plannerContext,
             TypeAnalyzer typeAnalyzer,
+            QueryTableStatsProviderFactory queryTableStatsProviderFactory,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
             WarningCollector warningCollector)
@@ -208,6 +219,7 @@ public class LogicalPlanner
         this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(symbolAllocator, metadata, session);
+        this.queryTableStatsProviderFactory = requireNonNull(queryTableStatsProviderFactory, "queryTableStatsProviderFactory is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
@@ -241,7 +253,7 @@ public class LogicalPlanner
 
         planSanityChecker.validateIntermediatePlan(root, session, plannerContext, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
 
-        TableStatsProvider tableStatsProvider = new CachingTableStatsProvider(new SimpleTableStatsProvider(metadata, session));
+        TableStatsProvider tableStatsProvider = queryTableStatsProviderFactory.create(session);
 
         if (stage.ordinal() >= OPTIMIZED.ordinal()) {
             for (PlanOptimizer optimizer : planOptimizers) {

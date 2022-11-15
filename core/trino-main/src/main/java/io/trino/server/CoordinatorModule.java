@@ -105,6 +105,7 @@ import io.trino.sql.planner.OptimizerStatsMBeanExporter;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanOptimizers;
 import io.trino.sql.planner.PlanOptimizersFactory;
+import io.trino.sql.planner.QueryTableStatsProviderFactory;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.SplitSourceFactory;
 import io.trino.sql.rewrite.DescribeInputRewrite;
@@ -247,6 +248,7 @@ public class CoordinatorModule
         newExporter(binder).export(ClusterSizeMonitor.class).withGeneratedName();
 
         // statistics calculator
+        binder.bind(QueryTableStatsProviderFactory.class).in(Scopes.SINGLETON);
         binder.install(new StatsCalculatorModule());
 
         // cost calculator

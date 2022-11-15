@@ -25,6 +25,7 @@ import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.PlanOptimizersFactory;
+import io.trino.sql.planner.QueryTableStatsProviderFactory;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
@@ -60,6 +61,7 @@ public class QueryExplainer
     private final PlannerContext plannerContext;
     private final AnalyzerFactory analyzerFactory;
     private final StatementAnalyzerFactory statementAnalyzerFactory;
+    private final QueryTableStatsProviderFactory queryTableStatsProviderFactory;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
 
@@ -69,6 +71,7 @@ public class QueryExplainer
             PlannerContext plannerContext,
             AnalyzerFactory analyzerFactory,
             StatementAnalyzerFactory statementAnalyzerFactory,
+            QueryTableStatsProviderFactory queryTableStatsProviderFactory,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator)
     {
@@ -77,6 +80,7 @@ public class QueryExplainer
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
+        this.queryTableStatsProviderFactory = requireNonNull(queryTableStatsProviderFactory, "queryTableStatsProviderFactory is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
     }
@@ -164,6 +168,7 @@ public class QueryExplainer
                 idAllocator,
                 plannerContext,
                 new TypeAnalyzer(plannerContext, statementAnalyzerFactory),
+                queryTableStatsProviderFactory,
                 statsCalculator,
                 costCalculator,
                 warningCollector);

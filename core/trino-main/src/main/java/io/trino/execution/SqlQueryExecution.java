@@ -59,6 +59,7 @@ import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.PlanOptimizersFactory;
+import io.trino.sql.planner.QueryTableStatsProviderFactory;
 import io.trino.sql.planner.SplitSourceFactory;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.TypeAnalyzer;
@@ -128,6 +129,7 @@ public class SqlQueryExecution
     private final ExecutionPolicy executionPolicy;
     private final SplitSchedulerStats schedulerStats;
     private final Analysis analysis;
+    private final QueryTableStatsProviderFactory queryTableStatsProviderFactory;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
     private final DynamicFilterService dynamicFilterService;
@@ -161,6 +163,7 @@ public class SqlQueryExecution
             NodeTaskMap nodeTaskMap,
             ExecutionPolicy executionPolicy,
             SplitSchedulerStats schedulerStats,
+            QueryTableStatsProviderFactory queryTableStatsProviderFactory,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
             DynamicFilterService dynamicFilterService,
@@ -190,6 +193,7 @@ public class SqlQueryExecution
             this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
             this.executionPolicy = requireNonNull(executionPolicy, "executionPolicy is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
+            this.queryTableStatsProviderFactory = requireNonNull(queryTableStatsProviderFactory, "queryTableStatsProviderFactory is null");
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
             this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
@@ -469,6 +473,7 @@ public class SqlQueryExecution
                 idAllocator,
                 plannerContext,
                 typeAnalyzer,
+                queryTableStatsProviderFactory,
                 statsCalculator,
                 costCalculator,
                 stateMachine.getWarningCollector());
@@ -770,6 +775,7 @@ public class SqlQueryExecution
         private final FailureDetector failureDetector;
         private final NodeTaskMap nodeTaskMap;
         private final Map<String, ExecutionPolicy> executionPolicies;
+        private final QueryTableStatsProviderFactory queryTableStatsProviderFactory;
         private final StatsCalculator statsCalculator;
         private final CostCalculator costCalculator;
         private final DynamicFilterService dynamicFilterService;
@@ -801,6 +807,7 @@ public class SqlQueryExecution
                 NodeTaskMap nodeTaskMap,
                 Map<String, ExecutionPolicy> executionPolicies,
                 SplitSchedulerStats schedulerStats,
+                QueryTableStatsProviderFactory queryTableStatsProviderFactory,
                 StatsCalculator statsCalculator,
                 CostCalculator costCalculator,
                 DynamicFilterService dynamicFilterService,
@@ -830,6 +837,7 @@ public class SqlQueryExecution
             this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
             this.executionPolicies = requireNonNull(executionPolicies, "executionPolicies is null");
             this.planOptimizers = planOptimizersFactory.get();
+            this.queryTableStatsProviderFactory = requireNonNull(queryTableStatsProviderFactory, "queryTableStatsProviderFactory is null");
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
             this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
@@ -875,6 +883,7 @@ public class SqlQueryExecution
                     nodeTaskMap,
                     executionPolicy,
                     schedulerStats,
+                    queryTableStatsProviderFactory,
                     statsCalculator,
                     costCalculator,
                     dynamicFilterService,
