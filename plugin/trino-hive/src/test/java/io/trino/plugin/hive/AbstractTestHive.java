@@ -910,6 +910,7 @@ public abstract class AbstractTestHive
                 new GroupByHashPageIndexerFactory(JOIN_COMPILER, BLOCK_TYPE_OPERATORS),
                 TESTING_TYPE_MANAGER,
                 getHiveConfig(),
+                getSortingFileWriterConfig(),
                 locationService,
                 partitionUpdateCodec,
                 new TestingNodeManager("fake-environment"),
@@ -934,8 +935,13 @@ public abstract class AbstractTestHive
     protected HiveConfig getHiveConfig()
     {
         return new HiveConfig()
+                .setTemporaryStagingDirectoryPath(temporaryStagingDirectory.toAbsolutePath().toString());
+    }
+
+    protected SortingFileWriterConfig getSortingFileWriterConfig()
+    {
+        return new SortingFileWriterConfig()
                 .setMaxOpenSortFiles(10)
-                .setTemporaryStagingDirectoryPath(temporaryStagingDirectory.toAbsolutePath().toString())
                 .setWriterSortBufferSize(DataSize.of(100, KILOBYTE));
     }
 
@@ -2764,7 +2770,7 @@ public abstract class AbstractTestHive
 
             assertThat(listAllDataFiles(context, stagingPathRoot))
                     .filteredOn(file -> file.contains(".tmp-sort."))
-                    .size().isGreaterThan(bucketCount * getHiveConfig().getMaxOpenSortFiles() * 2);
+                    .size().isGreaterThan(bucketCount * getSortingFileWriterConfig().getMaxOpenSortFiles() * 2);
 
             // finish the write
             Collection<Slice> fragments = getFutureValue(sink.finish());
