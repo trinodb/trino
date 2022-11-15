@@ -55,10 +55,6 @@ public class FaultTolerantPartitioningSchemeFactory
 
     private FaultTolerantPartitioningScheme create(PartitioningHandle partitioningHandle)
     {
-        if (partitioningHandle.getConnectorHandle() instanceof MergePartitioningHandle mergeHandle) {
-            return mergeHandle.getFaultTolerantScheme(this::create);
-        }
-
         if (partitioningHandle.equals(FIXED_HASH_DISTRIBUTION)) {
             return new FaultTolerantPartitioningScheme(
                     partitionCount,
