@@ -376,10 +376,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public void dropTable(ConnectorSession session, SchemaTableName tableName)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.dropTable(session, tableHandle);
+            delegate.dropTable(session, tableName);
         }
     }
 

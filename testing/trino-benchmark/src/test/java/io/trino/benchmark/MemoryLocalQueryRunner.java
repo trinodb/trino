@@ -130,7 +130,7 @@ public class MemoryLocalQueryRunner
         Metadata metadata = localQueryRunner.getMetadata();
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, QualifiedObjectName.valueOf(tableName));
         assertTrue(tableHandle.isPresent(), "Table " + tableName + " does not exist");
-        metadata.dropTable(session, tableHandle.get());
+        metadata.dropTable(session, QualifiedObjectName.valueOf(tableName));
     }
 
     @Override

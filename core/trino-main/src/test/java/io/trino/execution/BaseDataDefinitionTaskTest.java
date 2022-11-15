@@ -39,6 +39,9 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.DropRedirected;
+import io.trino.spi.connector.DropResult;
+import io.trino.spi.connector.DropSuccess;
 import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TestingColumnHandle;
@@ -302,9 +305,13 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
-        public void dropTable(Session session, TableHandle tableHandle)
+        public DropResult dropTable(Session session, QualifiedObjectName tableName)
         {
-            tables.remove(getTableName(tableHandle));
+            ConnectorTableMetadata connectorTableMetadata = tables.remove(tableName.asSchemaTableName());
+            if (connectorTableMetadata == null) {
+                return new DropRedirected(tableName.asCatalogSchemaTableName());
+            }
+            return DropSuccess.getInstance();
         }
 
         @Override

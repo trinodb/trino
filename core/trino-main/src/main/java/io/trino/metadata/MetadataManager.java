@@ -61,6 +61,9 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.DropRedirected;
+import io.trino.spi.connector.DropResult;
+import io.trino.spi.connector.DropSuccess;
 import io.trino.spi.connector.JoinApplicationResult;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
@@ -758,14 +761,21 @@ public final class MetadataManager
     }
 
     @Override
-    public void dropTable(Session session, TableHandle tableHandle)
+    public DropResult dropTable(Session session, QualifiedObjectName tableName)
     {
-        CatalogHandle catalogHandle = tableHandle.getCatalogHandle();
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogHandle);
+        QualifiedObjectName targetTableName = getRedirectedTableName(session, tableName);
+        if (!targetTableName.equals(tableName)) {
+            return new DropRedirected(targetTableName.asCatalogSchemaTableName());
+        }
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.getCatalogName());
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
-        Optional<CatalogSchemaTableName> tableName = getTableNameIfSystemSecurity(session, catalogMetadata, tableHandle);
-        metadata.dropTable(session.toConnectorSession(catalogHandle), tableHandle.getConnectorHandle());
-        tableName.ifPresent(name -> systemSecurityMetadata.tableDropped(session, name));
+        ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogHandle());
+
+        metadata.dropTable(connectorSession, tableName.asSchemaTableName());
+        if (catalogMetadata.getSecurityManagement() == SYSTEM) {
+            systemSecurityMetadata.tableDropped(session, tableName.asCatalogSchemaTableName());
+        }
+        return DropSuccess.getInstance();
     }
 
     @Override

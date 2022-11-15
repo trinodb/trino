@@ -36,6 +36,7 @@ import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.DropResult;
 import io.trino.spi.connector.JoinApplicationResult;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
@@ -318,7 +319,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void dropTable(Session session, TableHandle tableHandle)
+    public DropResult dropTable(Session session, QualifiedObjectName tableName)
     {
         throw new UnsupportedOperationException();
     }

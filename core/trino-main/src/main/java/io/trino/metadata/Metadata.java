@@ -30,6 +30,7 @@ import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.DropResult;
 import io.trino.spi.connector.JoinApplicationResult;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
@@ -252,9 +253,9 @@ public interface Metadata
     /**
      * Drops the specified table
      *
-     * @throws RuntimeException if the table cannot be dropped or table handle is no longer valid
+     * @throws RuntimeException if the table cannot be dropped
      */
-    void dropTable(Session session, TableHandle tableHandle);
+    DropResult dropTable(Session session, QualifiedObjectName tableName);
 
     /**
      * Truncates the specified table

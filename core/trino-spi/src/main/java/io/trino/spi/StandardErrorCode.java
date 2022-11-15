@@ -189,6 +189,7 @@ public enum StandardErrorCode
     EXCEEDED_TASK_DESCRIPTOR_STORAGE_CAPACITY(131082, INSUFFICIENT_RESOURCES),
 
     UNSUPPORTED_TABLE_TYPE(133001, EXTERNAL),
+    METADATA_NOT_FOUND(133002, EXTERNAL),
     /**/;
 
     // Connectors can use error codes starting at the range 0x0100_0000
