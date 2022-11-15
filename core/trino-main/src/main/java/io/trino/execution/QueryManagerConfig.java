@@ -98,6 +98,7 @@ public class QueryManagerConfig
     private DataSize faultTolerantExecutionTaskDescriptorStorageMaxMemory = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.15));
     private int faultTolerantExecutionPartitionCount = 50;
     private boolean faultTolerantExecutionEventDrivenSchedulerEnabled = true;
+    private boolean faultTolerantExecutionForcePreferredWritePartitioningEnabled = true;
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -628,6 +629,18 @@ public class QueryManagerConfig
     public QueryManagerConfig setFaultTolerantExecutionEventDrivenSchedulerEnabled(boolean faultTolerantExecutionEventDrivenSchedulerEnabled)
     {
         this.faultTolerantExecutionEventDrivenSchedulerEnabled = faultTolerantExecutionEventDrivenSchedulerEnabled;
+        return this;
+    }
+
+    public boolean isFaultTolerantExecutionForcePreferredWritePartitioningEnabled()
+    {
+        return faultTolerantExecutionForcePreferredWritePartitioningEnabled;
+    }
+
+    @Config("experimental.fault-tolerant-execution-force-preferred-write-partitioning-enabled")
+    public QueryManagerConfig setFaultTolerantExecutionForcePreferredWritePartitioningEnabled(boolean faultTolerantExecutionForcePreferredWritePartitioningEnabled)
+    {
+        this.faultTolerantExecutionForcePreferredWritePartitioningEnabled = faultTolerantExecutionForcePreferredWritePartitioningEnabled;
         return this;
     }
 

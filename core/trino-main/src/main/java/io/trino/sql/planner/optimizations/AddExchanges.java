@@ -31,10 +31,12 @@ import io.trino.spi.connector.LocalProperty;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.Partitioning;
+import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
+import io.trino.sql.planner.SystemPartitioningHandle;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
@@ -106,6 +108,7 @@ import static io.trino.sql.planner.FragmentTableScanCounter.countSources;
 import static io.trino.sql.planner.FragmentTableScanCounter.hasMultipleSources;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
@@ -648,6 +651,28 @@ public class AddExchanges
                 }
                 else if (redistributeWrites) {
                     partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), newSource.getNode().getOutputSymbols()));
+                }
+            }
+            else if (scaleWriters
+                    && writerTarget.supportsReportingWrittenBytes(plannerContext.getMetadata(), session)
+                    && writerTarget.supportsMultipleWritersPerPartition(plannerContext.getMetadata(), session)
+                    // do not insert an exchange if partitioning is compatible
+                    && !newSource.getProperties().isCompatibleTablePartitioningWith(partitioningScheme.get().getPartitioning(), false, plannerContext.getMetadata(), session)) {
+                if (partitioningScheme.get().getPartitioning().getHandle().equals(FIXED_HASH_DISTRIBUTION)) {
+                    partitioningScheme = Optional.of(partitioningScheme.get().withPartitioningHandle(SCALED_WRITER_HASH_DISTRIBUTION));
+                }
+                else {
+                    PartitioningHandle partitioningHandle = partitioningScheme.get().getPartitioning().getHandle();
+                    verify(!(partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle));
+                    verify(
+                            partitioningScheme.get().getPartitioning().getArguments().stream().noneMatch(Partitioning.ArgumentBinding::isConstant),
+                            "Table writer partitioning has constant arguments");
+                    partitioningScheme = Optional.of(partitioningScheme.get().withPartitioningHandle(
+                            new PartitioningHandle(
+                                    partitioningHandle.getCatalogHandle(),
+                                    partitioningHandle.getTransactionHandle(),
+                                    partitioningHandle.getConnectorHandle(),
+                                    true)));
                 }
             }
             if (partitioningScheme.isPresent() && !newSource.getProperties().isCompatibleTablePartitioningWith(partitioningScheme.get().getPartitioning(), false, plannerContext.getMetadata(), session)) {
