@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import io.trino.Session;
 import org.testng.SkipException;
 
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
@@ -39,14 +38,14 @@ public class TestIcebergAvroConnectorTest
     }
 
     @Override
-    protected Session withSmallRowGroups(Session session)
-    {
-        return session;
-    }
-
-    @Override
     public void testIncorrectIcebergFileSizes()
     {
         throw new SkipException("Avro does not do tail reads");
+    }
+
+    @Override
+    protected boolean isFileSorted(String path, String sortColumnName)
+    {
+        throw new SkipException("Unimplemented");
     }
 }
