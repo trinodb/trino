@@ -287,7 +287,7 @@ limit, it should return a non-empty result with the "limit guaranteed" or
   The ``applyTopN`` is the only method that receives sort items from the
   ``Sort`` operation.
 
-In an SQL query, the ``ORDER BY`` section can include any column with any order.
+In a query, the ``ORDER BY`` section can include any column with any order.
 But the data source for the connector might only support limited combinations.
 Plugin authors have to decide if the connector should ignore the pushdown,
 return all the data and let the engine sort it, or throw an exception

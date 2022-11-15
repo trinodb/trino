@@ -190,7 +190,7 @@ In order to enable language injection inside Intellij IDEA, some code elements c
 
 Even if the IDE does not support language injection this annotation is useful for documenting the API's intent. Considering the above, we recommend annotating with `@Language`:
 
-- All API parameters which are expecting to take a `String` containing an SQL statement (or any other language, like regular expressions),
+- All API parameters which are expecting to take a `String` containing a statement written in SQL (or any other language, like regular expressions),
 - Local variables which otherwise would not be properly recognized by IDE for language injection.
 
 ## Building the Web UI
