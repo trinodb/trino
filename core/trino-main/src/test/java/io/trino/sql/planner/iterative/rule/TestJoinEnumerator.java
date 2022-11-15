@@ -23,6 +23,7 @@ import io.trino.cost.CachingTableStatsProvider;
 import io.trino.cost.CostComparator;
 import io.trino.cost.CostProvider;
 import io.trino.cost.PlanCostEstimate;
+import io.trino.cost.SimpleTableStatsProvider;
 import io.trino.cost.StatsProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -119,7 +120,7 @@ public class TestJoinEnumerator
                 noLookup(),
                 queryRunner.getDefaultSession(),
                 symbolAllocator.getTypes(),
-                new CachingTableStatsProvider(queryRunner.getMetadata(), queryRunner.getDefaultSession()));
+                new CachingTableStatsProvider(new SimpleTableStatsProvider(queryRunner.getMetadata(), queryRunner.getDefaultSession())));
         CachingCostProvider costProvider = new CachingCostProvider(
                 queryRunner.getCostCalculator(),
                 statsProvider,

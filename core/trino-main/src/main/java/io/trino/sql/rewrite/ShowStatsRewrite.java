@@ -18,6 +18,7 @@ import io.trino.Session;
 import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.CachingTableStatsProvider;
 import io.trino.cost.PlanNodeStatsEstimate;
+import io.trino.cost.SimpleTableStatsProvider;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.SymbolStatsEstimate;
 import io.trino.execution.warnings.WarningCollector;
@@ -138,7 +139,11 @@ public class ShowStatsRewrite
         {
             Query query = getRelation(node);
             Plan plan = queryExplainer.getLogicalPlan(session, query, parameters, warningCollector);
-            CachingStatsProvider cachingStatsProvider = new CachingStatsProvider(statsCalculator, session, plan.getTypes(), new CachingTableStatsProvider(metadata, session));
+            CachingStatsProvider cachingStatsProvider = new CachingStatsProvider(
+                    statsCalculator,
+                    session,
+                    plan.getTypes(),
+                    new CachingTableStatsProvider(new SimpleTableStatsProvider(metadata, session)));
             PlanNodeStatsEstimate stats = cachingStatsProvider.getStats(plan.getRoot());
             return rewriteShowStats(plan, stats);
         }

@@ -16,6 +16,7 @@ package io.trino.sql.planner.assertions;
 import io.trino.Session;
 import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.CachingTableStatsProvider;
+import io.trino.cost.SimpleTableStatsProvider;
 import io.trino.cost.StatsAndCosts;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
@@ -45,7 +46,11 @@ public final class PlanAssert
 
     public static void assertPlan(Session session, Metadata metadata, FunctionManager functionManager, StatsCalculator statsCalculator, Plan actual, Lookup lookup, PlanMatchPattern pattern)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, actual.getTypes(), new CachingTableStatsProvider(metadata, session));
+        StatsProvider statsProvider = new CachingStatsProvider(
+                statsCalculator,
+                session,
+                actual.getTypes(),
+                new CachingTableStatsProvider(new SimpleTableStatsProvider(metadata, session)));
         assertPlan(session, metadata, functionManager, statsProvider, actual, lookup, pattern);
     }
 

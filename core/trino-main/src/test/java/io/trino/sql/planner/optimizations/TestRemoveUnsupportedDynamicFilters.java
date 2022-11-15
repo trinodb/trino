@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.connector.CatalogHandle;
 import io.trino.cost.CachingTableStatsProvider;
+import io.trino.cost.SimpleTableStatsProvider;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
@@ -484,7 +485,7 @@ public class TestRemoveUnsupportedDynamicFilters
                     new SymbolAllocator(),
                     new PlanNodeIdAllocator(),
                     WarningCollector.NOOP,
-                    new CachingTableStatsProvider(metadata, session));
+                    new CachingTableStatsProvider(new SimpleTableStatsProvider(metadata, session)));
             new DynamicFiltersChecker().validate(rewrittenPlan,
                     session,
                     plannerContext, createTestingTypeAnalyzer(plannerContext),

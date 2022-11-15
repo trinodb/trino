@@ -13,33 +13,28 @@
  */
 package io.trino.cost;
 
+import io.trino.Session;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.statistics.TableStatistics;
 
-import java.util.Map;
-import java.util.WeakHashMap;
-
 import static java.util.Objects.requireNonNull;
 
-public class CachingTableStatsProvider
+public final class SimpleTableStatsProvider
         implements TableStatsProvider
 {
-    private final TableStatsProvider delegate;
-    private final Map<TableHandle, TableStatistics> cache = new WeakHashMap<>();
+    private final Metadata metadata;
+    private final Session session;
 
-    public CachingTableStatsProvider(TableStatsProvider delegate)
+    public SimpleTableStatsProvider(Metadata metadata, Session session)
     {
-        this.delegate = requireNonNull(delegate, "delegate is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.session = requireNonNull(session, "session is null");
     }
 
     @Override
     public TableStatistics getTableStatistics(TableHandle tableHandle)
     {
-        TableStatistics stats = cache.get(tableHandle);
-        if (stats == null) {
-            stats = delegate.getTableStatistics(tableHandle);
-            cache.put(tableHandle, stats);
-        }
-        return stats;
+        return metadata.getTableStatistics(session, tableHandle);
     }
 }

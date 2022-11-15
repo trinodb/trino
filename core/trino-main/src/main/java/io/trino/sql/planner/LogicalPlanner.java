@@ -23,6 +23,7 @@ import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.CachingTableStatsProvider;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.CostProvider;
+import io.trino.cost.SimpleTableStatsProvider;
 import io.trino.cost.StatsAndCosts;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
@@ -240,7 +241,7 @@ public class LogicalPlanner
 
         planSanityChecker.validateIntermediatePlan(root, session, plannerContext, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
 
-        TableStatsProvider tableStatsProvider = new CachingTableStatsProvider(metadata, session);
+        TableStatsProvider tableStatsProvider = new CachingTableStatsProvider(new SimpleTableStatsProvider(metadata, session));
 
         if (stage.ordinal() >= OPTIMIZED.ordinal()) {
             for (PlanOptimizer optimizer : planOptimizers) {

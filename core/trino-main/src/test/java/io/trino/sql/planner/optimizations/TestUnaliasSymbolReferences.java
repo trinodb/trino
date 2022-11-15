@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.cost.CachingTableStatsProvider;
+import io.trino.cost.SimpleTableStatsProvider;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
@@ -133,7 +134,7 @@ public class TestUnaliasSymbolReferences
                     symbolAllocator,
                     idAllocator,
                     WarningCollector.NOOP,
-                    new CachingTableStatsProvider(metadata, session));
+                    new CachingTableStatsProvider(new SimpleTableStatsProvider(metadata, session)));
 
             Plan actual = new Plan(optimized, planBuilder.getTypes(), StatsAndCosts.empty());
             PlanAssert.assertPlan(session, queryRunner.getMetadata(), queryRunner.getFunctionManager(), queryRunner.getStatsCalculator(), actual, pattern);

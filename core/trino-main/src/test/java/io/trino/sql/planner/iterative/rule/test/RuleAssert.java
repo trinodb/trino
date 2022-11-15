@@ -21,6 +21,7 @@ import io.trino.cost.CachingTableStatsProvider;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.CostProvider;
 import io.trino.cost.PlanNodeStatsEstimate;
+import io.trino.cost.SimpleTableStatsProvider;
 import io.trino.cost.StatsAndCosts;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
@@ -206,7 +207,7 @@ public class RuleAssert
     private String formatPlan(PlanNode plan, TypeProvider types)
     {
         return inTransaction(session -> {
-            StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types, new CachingTableStatsProvider(metadata, session));
+            StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types, new CachingTableStatsProvider(new SimpleTableStatsProvider(metadata, session)));
             CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, session, types);
             return textLogicalPlan(plan, types, metadata, functionManager, StatsAndCosts.create(plan, statsProvider, costProvider), session, 2, false);
         });
@@ -225,7 +226,13 @@ public class RuleAssert
 
     private Rule.Context ruleContext(StatsCalculator statsCalculator, CostCalculator costCalculator, SymbolAllocator symbolAllocator, Memo memo, Lookup lookup, Session session)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, symbolAllocator.getTypes(), new CachingTableStatsProvider(metadata, session));
+        StatsProvider statsProvider = new CachingStatsProvider(
+                statsCalculator,
+                Optional.of(memo),
+                lookup,
+                session,
+                symbolAllocator.getTypes(),
+                new CachingTableStatsProvider(new SimpleTableStatsProvider(metadata, session)));
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), session, symbolAllocator.getTypes());
 
         return new Rule.Context()
