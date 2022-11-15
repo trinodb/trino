@@ -43,6 +43,7 @@ public class IcebergTableHandle
     private final TableType tableType;
     private final Optional<Long> snapshotId;
     private final String tableSchemaJson;
+    private final List<TrinoSortField> sortOrder;
     // Empty means the partitioning spec is not known (can be the case for certain time travel queries).
     private final Optional<String> partitionSpecJson;
     private final int formatVersion;
@@ -73,6 +74,7 @@ public class IcebergTableHandle
             @JsonProperty("tableType") TableType tableType,
             @JsonProperty("snapshotId") Optional<Long> snapshotId,
             @JsonProperty("tableSchemaJson") String tableSchemaJson,
+            @JsonProperty("sortOrder") List<TrinoSortField> sortOrder,
             @JsonProperty("partitionSpecJson") Optional<String> partitionSpecJson,
             @JsonProperty("formatVersion") int formatVersion,
             @JsonProperty("unenforcedPredicate") TupleDomain<IcebergColumnHandle> unenforcedPredicate,
@@ -90,6 +92,7 @@ public class IcebergTableHandle
                 tableType,
                 snapshotId,
                 tableSchemaJson,
+                sortOrder,
                 partitionSpecJson,
                 formatVersion,
                 unenforcedPredicate,
@@ -110,6 +113,7 @@ public class IcebergTableHandle
             TableType tableType,
             Optional<Long> snapshotId,
             String tableSchemaJson,
+            List<TrinoSortField> sortOrder,
             Optional<String> partitionSpecJson,
             int formatVersion,
             TupleDomain<IcebergColumnHandle> unenforcedPredicate,
@@ -128,6 +132,7 @@ public class IcebergTableHandle
         this.tableType = requireNonNull(tableType, "tableType is null");
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
         this.tableSchemaJson = requireNonNull(tableSchemaJson, "schemaJson is null");
+        this.sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
         this.partitionSpecJson = requireNonNull(partitionSpecJson, "partitionSpecJson is null");
         this.formatVersion = formatVersion;
         this.unenforcedPredicate = requireNonNull(unenforcedPredicate, "unenforcedPredicate is null");
@@ -171,6 +176,12 @@ public class IcebergTableHandle
     public String getTableSchemaJson()
     {
         return tableSchemaJson;
+    }
+
+    @JsonProperty
+    public List<TrinoSortField> getSortOrder()
+    {
+        return sortOrder;
     }
 
     @JsonProperty
@@ -263,6 +274,7 @@ public class IcebergTableHandle
                 tableType,
                 snapshotId,
                 tableSchemaJson,
+                sortOrder,
                 partitionSpecJson,
                 formatVersion,
                 unenforcedPredicate,
@@ -285,6 +297,7 @@ public class IcebergTableHandle
                 tableType,
                 snapshotId,
                 tableSchemaJson,
+                sortOrder,
                 partitionSpecJson,
                 formatVersion,
                 unenforcedPredicate,
@@ -307,6 +320,7 @@ public class IcebergTableHandle
                 tableType,
                 snapshotId,
                 tableSchemaJson,
+                sortOrder,
                 partitionSpecJson,
                 formatVersion,
                 unenforcedPredicate,
@@ -329,6 +343,7 @@ public class IcebergTableHandle
                 tableType,
                 snapshotId,
                 tableSchemaJson,
+                sortOrder,
                 partitionSpecJson,
                 formatVersion,
                 unenforcedPredicate,
@@ -360,6 +375,7 @@ public class IcebergTableHandle
                 tableType == that.tableType &&
                 Objects.equals(snapshotId, that.snapshotId) &&
                 Objects.equals(tableSchemaJson, that.tableSchemaJson) &&
+                Objects.equals(sortOrder, that.sortOrder) &&
                 Objects.equals(partitionSpecJson, that.partitionSpecJson) &&
                 formatVersion == that.formatVersion &&
                 Objects.equals(unenforcedPredicate, that.unenforcedPredicate) &&
@@ -376,7 +392,7 @@ public class IcebergTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName, tableType, snapshotId, tableSchemaJson, partitionSpecJson, formatVersion, unenforcedPredicate, enforcedPredicate,
+        return Objects.hash(schemaName, tableName, tableType, snapshotId, tableSchemaJson, sortOrder, partitionSpecJson, formatVersion, unenforcedPredicate, enforcedPredicate,
                 projectedColumns, nameMappingJson, tableLocation, storageProperties, retryMode, updatedColumns, recordScannedFiles, maxScannedFileSize);
     }
 

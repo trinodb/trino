@@ -21,6 +21,7 @@ import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
+import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.testing.FaultTolerantExecutionConnectorTestHelper.getExtraProperties;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -66,6 +67,12 @@ public class TestIcebergParquetFaultTolerantExecutionConnectorTest
     {
         // TODO: figure out why
         throw new SkipException("We always get 3 partitions with FTE");
+    }
+
+    @Override
+    protected boolean isFileSorted(String path, String sortColumnName)
+    {
+        return checkParquetFileSorting(path, sortColumnName);
     }
 
     @AfterClass(alwaysRun = true)

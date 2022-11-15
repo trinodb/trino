@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static org.apache.iceberg.FileFormat.ORC;
 
 public class TestIcebergMinioOrcConnectorSmokeTest
@@ -21,5 +22,11 @@ public class TestIcebergMinioOrcConnectorSmokeTest
     public TestIcebergMinioOrcConnectorSmokeTest()
     {
         super(ORC);
+    }
+
+    @Override
+    protected boolean isFileSorted(String path, String sortColumnName)
+    {
+        return checkOrcFileSorting(fileSystemFactory, path, sortColumnName);
     }
 }

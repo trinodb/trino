@@ -1233,6 +1233,48 @@ public class TestIcebergSparkCompatibility
         }
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testTrinoReadsSparkSortOrder()
+    {
+        String sourceTableNameBase = "test_insert_into_sorted_table_" + randomNameSuffix();
+        String trinoTableName = trinoTableName(sourceTableNameBase);
+        String sparkTableName = sparkTableName(sourceTableNameBase);
+
+        onSpark().executeQuery("CREATE TABLE " + sparkTableName + " (a INT, b INT, c INT) USING ICEBERG");
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " WRITE ORDERED BY b, c DESC NULLS LAST");
+
+        Assertions.assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + trinoTableName).getOnlyValue())
+                .contains("sorted_by = ARRAY['b ASC NULLS FIRST','c DESC NULLS LAST']");
+
+        onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES (3, 2, 1), (1, 2, 3), (NULL, NULL, NULL)");
+        assertThat(onSpark().executeQuery("SELECT _pos, a, b, c FROM " + sparkTableName))
+                .contains(
+                        row(0, null, null, null),
+                        row(1, 1, 2, 3),
+                        row(2, 3, 2, 1));
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testTrinoIgnoresUnsupportedSparkSortOrder()
+    {
+        String sourceTableNameBase = "test_insert_into_sorted_table_" + randomNameSuffix();
+        String trinoTableName = trinoTableName(sourceTableNameBase);
+        String sparkTableName = sparkTableName(sourceTableNameBase);
+
+        onSpark().executeQuery("CREATE TABLE " + sparkTableName + " (a INT, b INT, c INT) USING ICEBERG");
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " WRITE ORDERED BY truncate(b, 3), a NULLS LAST");
+
+        Assertions.assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + trinoTableName).getOnlyValue())
+                .doesNotContain("sorted_by");
+
+        onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES (3, 2333, 1), (NULL, NULL, NULL), (1, 2222, 3)");
+        assertThat(onSpark().executeQuery("SELECT _pos, a, b, c FROM " + sparkTableName))
+                .contains(
+                        row(0, 1, 2222, 3),
+                        row(1, 3, 2333, 1),
+                        row(2, null, null, null));
+    }
+
     /**
      * @see TestIcebergInsert#testIcebergConcurrentInsert()
      */

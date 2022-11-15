@@ -14,10 +14,13 @@
 package io.trino.plugin.iceberg;
 
 import io.airlift.json.JsonCodec;
+import io.airlift.units.DataSize;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.plugin.hive.SortingFileWriterConfig;
 import io.trino.plugin.iceberg.procedure.IcebergOptimizeHandle;
 import io.trino.plugin.iceberg.procedure.IcebergTableExecuteHandle;
 import io.trino.spi.PageIndexerFactory;
+import io.trino.spi.PageSorter;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
@@ -28,6 +31,7 @@ import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
@@ -50,6 +54,10 @@ public class IcebergPageSinkProvider
     private final IcebergFileWriterFactory fileWriterFactory;
     private final PageIndexerFactory pageIndexerFactory;
     private final int maxOpenPartitions;
+    private final DataSize sortingFileWriterBufferSize;
+    private final int sortingFileWriterMaxOpenFiles;
+    private final TypeManager typeManager;
+    private final PageSorter pageSorter;
 
     @Inject
     public IcebergPageSinkProvider(
@@ -57,13 +65,20 @@ public class IcebergPageSinkProvider
             JsonCodec<CommitTaskData> jsonCodec,
             IcebergFileWriterFactory fileWriterFactory,
             PageIndexerFactory pageIndexerFactory,
-            IcebergConfig config)
+            IcebergConfig config,
+            SortingFileWriterConfig sortingFileWriterConfig,
+            TypeManager typeManager,
+            PageSorter pageSorter)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         this.maxOpenPartitions = config.getMaxPartitionsPerWriter();
+        this.sortingFileWriterBufferSize = sortingFileWriterConfig.getWriterSortBufferSize();
+        this.sortingFileWriterMaxOpenFiles = sortingFileWriterConfig.getMaxOpenSortFiles();
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
     }
 
     @Override
@@ -96,7 +111,12 @@ public class IcebergPageSinkProvider
                 session,
                 tableHandle.getFileFormat(),
                 tableHandle.getStorageProperties(),
-                maxOpenPartitions);
+                maxOpenPartitions,
+                tableHandle.getSortOrder(),
+                sortingFileWriterBufferSize,
+                sortingFileWriterMaxOpenFiles,
+                typeManager,
+                pageSorter);
     }
 
     @Override
@@ -122,7 +142,12 @@ public class IcebergPageSinkProvider
                         session,
                         optimizeHandle.getFileFormat(),
                         optimizeHandle.getTableStorageProperties(),
-                        maxOpenPartitions);
+                        maxOpenPartitions,
+                        optimizeHandle.getSortOrder(),
+                        sortingFileWriterBufferSize,
+                        sortingFileWriterMaxOpenFiles,
+                        typeManager,
+                        pageSorter);
             case DROP_EXTENDED_STATS:
             case EXPIRE_SNAPSHOTS:
             case REMOVE_ORPHAN_FILES:

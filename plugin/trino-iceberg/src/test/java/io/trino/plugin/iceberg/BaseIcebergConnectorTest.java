@@ -66,6 +66,7 @@ import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -99,6 +100,7 @@ import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.EXTENDED_STATISTICS_ENABLED;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
+import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
 import static io.trino.plugin.iceberg.IcebergUtil.TRINO_QUERY_ID_NAME;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.predicate.Domain.singleValue;
@@ -162,6 +164,8 @@ public abstract class BaseIcebergConnectorTest
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(ImmutableMap.<String, String>builder()
                         .put("iceberg.file-format", format.name())
+                        // Allows testing the sorting writer flushing to the file system with smaller tables
+                        .put("iceberg.writer-sort-buffer-size", "1MB")
                         .buildOrThrow())
                 .setInitialTables(ImmutableList.<TpchTable<?>>builder()
                         .addAll(REQUIRED_TPCH_TABLES)
@@ -1242,6 +1246,128 @@ public abstract class BaseIcebergConnectorTest
                 {"col", "date(col)"},
                 {"col", "hour(col)"},
         };
+    }
+
+    @Test
+    public void testSortOrderChange()
+    {
+        Session withSmallRowGroups = withSmallRowGroups(getSession());
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_sort_order_change",
+                "WITH (sorted_by = ARRAY['comment']) AS SELECT * FROM nation WITH NO DATA")) {
+            assertUpdate(withSmallRowGroups, "INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
+            Set<String> sortedByComment = new HashSet<>();
+            computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()
+                    .forEach(fileName -> sortedByComment.add((String) fileName));
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES sorted_by = ARRAY['name']");
+            assertUpdate(withSmallRowGroups, "INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
+
+            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
+                String path = (String) filePath;
+                if (sortedByComment.contains(path)) {
+                    assertTrue(isFileSorted(path, "comment"));
+                }
+                else {
+                    assertTrue(isFileSorted(path, "name"));
+                }
+            }
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation UNION ALL SELECT * FROM nation");
+        }
+    }
+
+    @Test
+    public void testSortingDisabled()
+    {
+        Session withSortingDisabled = Session.builder(withSmallRowGroups(getSession()))
+                .setCatalogSessionProperty(ICEBERG_CATALOG, "sorted_writing_enabled", "false")
+                .build();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_sorting_disabled",
+                "WITH (sorted_by = ARRAY['comment']) AS SELECT * FROM nation WITH NO DATA")) {
+            assertUpdate(withSortingDisabled, "INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
+            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
+                assertFalse(isFileSorted((String) filePath, "comment"));
+            }
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation");
+        }
+    }
+
+    @Test
+    public void testOptimizeWithSortOrder()
+    {
+        Session withSmallRowGroups = withSmallRowGroups(getSession());
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_optimize_with_sort_order",
+                "WITH (sorted_by = ARRAY['comment']) AS SELECT * FROM nation WITH NO DATA")) {
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM nation WHERE nationkey < 10", 10);
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM nation WHERE nationkey >= 10 AND nationkey < 20", 10);
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM nation WHERE nationkey >= 20", 5);
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES sorted_by = ARRAY['comment']");
+            assertUpdate(withSmallRowGroups, "ALTER TABLE " + table.getName() + " EXECUTE optimize");
+
+            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
+                assertTrue(isFileSorted((String) filePath, "comment"));
+            }
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation");
+        }
+    }
+
+    @Test
+    public void testUpdateWithSortOrder()
+    {
+        Session withSmallRowGroups = withSmallRowGroups(getSession());
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_sorted_update",
+                "WITH (sorted_by = ARRAY['comment']) AS SELECT * FROM lineitem WITH NO DATA")) {
+            assertUpdate(
+                    "INSERT INTO " + table.getName() + " SELECT * FROM lineitem",
+                    "VALUES 60175");
+            assertUpdate(withSmallRowGroups, "UPDATE " + table.getName() + " SET comment = substring(comment, 2)", 60175);
+            assertQuery(
+                    "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, returnflag, linestatus, shipdate, " +
+                            "commitdate, receiptdate, shipinstruct, shipmode, comment FROM " + table.getName(),
+                    "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, returnflag, linestatus, shipdate, " +
+                            "commitdate, receiptdate, shipinstruct, shipmode, substring(comment, 2) FROM lineitem");
+            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
+                assertTrue(isFileSorted((String) filePath, "comment"));
+            }
+        }
+    }
+
+    protected abstract boolean isFileSorted(String path, String sortColumnName);
+
+    @Test
+    public void testSortingOnNestedField()
+    {
+        String tableName = "test_sorting_on_nested_field" + randomNameSuffix();
+        assertThatThrownBy(() -> query("CREATE TABLE " + tableName + " (nationkey BIGINT, row_t ROW(name VARCHAR, regionkey BIGINT, comment VARCHAR)) " +
+                "WITH (sorted_by = ARRAY['row_t.comment'])"))
+                .hasMessageContaining("Unable to parse sort field: [row_t.comment]");
+        assertThatThrownBy(() -> query("CREATE TABLE " + tableName + " (nationkey BIGINT, row_t ROW(name VARCHAR, regionkey BIGINT, comment VARCHAR)) " +
+                "WITH (sorted_by = ARRAY['\"row_t\".\"comment\"'])"))
+                .hasMessageContaining("Unable to parse sort field: [\"row_t\".\"comment\"]");
+        assertThatThrownBy(() -> query("CREATE TABLE " + tableName + " (nationkey BIGINT, row_t ROW(name VARCHAR, regionkey BIGINT, comment VARCHAR)) " +
+                "WITH (sorted_by = ARRAY['\"row_t.comment\"'])"))
+                .hasMessageContaining("Column not found: row_t.comment");
+    }
+
+    @Test
+    public void testDroppingSortColumn()
+    {
+        Session withSmallRowGroups = withSmallRowGroups(getSession());
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_dropping_sort_column",
+                "WITH (sorted_by = ARRAY['comment']) AS SELECT * FROM nation WITH NO DATA")) {
+            assertUpdate(withSmallRowGroups, "INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
+            assertThatThrownBy(() -> query("ALTER TABLE " + table.getName() + " DROP COLUMN comment"))
+                    .hasMessageContaining("Cannot find source column for sort field");
+        }
     }
 
     @Test
@@ -4555,8 +4681,6 @@ public abstract class BaseIcebergConnectorTest
             verifyPredicatePushdownDataRead(query, supportsRowGroupStatistics(testSetup.getTrinoTypeName()));
         }
     }
-
-    protected abstract Session withSmallRowGroups(Session session);
 
     protected abstract boolean supportsRowGroupStatistics(String typeName);
 
