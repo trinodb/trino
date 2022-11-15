@@ -59,7 +59,7 @@ public class ConnectorTableLayout
         return partitionColumns;
     }
 
-    public boolean isMultipleWritersPerPartitionSupported()
+    public boolean supportsMultipleWritersPerPartition()
     {
         return multipleWritersPerPartitionSupported;
     }
