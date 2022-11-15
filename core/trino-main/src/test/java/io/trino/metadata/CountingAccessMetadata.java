@@ -341,6 +341,12 @@ public class CountingAccessMetadata
     }
 
     @Override
+    public void dropTable(Session session, QualifiedObjectName tableName)
+    {
+        delegate.dropTable(session, tableName);
+    }
+
+    @Override
     public void truncateTable(Session session, TableHandle tableHandle)
     {
         delegate.truncateTable(session, tableHandle);
@@ -855,6 +861,12 @@ public class CountingAccessMetadata
     public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
     {
         return delegate.getRedirectionAwareTableHandle(session, tableName, startVersion, endVersion);
+    }
+
+    @Override
+    public QualifiedObjectName getRedirectedTableName(Session session, QualifiedObjectName tableName)
+    {
+        return delegate.getRedirectedTableName(session, tableName);
     }
 
     @Override

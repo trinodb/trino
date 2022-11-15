@@ -800,6 +800,20 @@ public final class MetadataManager
     }
 
     @Override
+    public void dropTable(Session session, QualifiedObjectName tableName)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.getCatalogName());
+        ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogHandle());
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+
+        metadata.dropTable(connectorSession, tableName.asSchemaTableName());
+
+        if (catalogMetadata.getSecurityManagement() == SYSTEM) {
+            systemSecurityMetadata.tableDropped(session, tableName.asCatalogSchemaTableName());
+        }
+    }
+
+    @Override
     public void truncateTable(Session session, TableHandle tableHandle)
     {
         CatalogHandle catalogHandle = tableHandle.getCatalogHandle();
@@ -1486,7 +1500,8 @@ public final class MetadataManager
         return metadata.applyTableScanRedirect(connectorSession, tableHandle.getConnectorHandle());
     }
 
-    private QualifiedObjectName getRedirectedTableName(Session session, QualifiedObjectName originalTableName)
+    @Override
+    public QualifiedObjectName getRedirectedTableName(Session session, QualifiedObjectName originalTableName)
     {
         requireNonNull(session, "session is null");
         requireNonNull(originalTableName, "originalTableName is null");

@@ -26,6 +26,7 @@ import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
@@ -43,6 +44,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
@@ -319,6 +321,15 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
+        public void dropTable(Session session, QualifiedObjectName tableName)
+        {
+            SchemaTableName schemaTableName = tableName.asSchemaTableName();
+            if (tables.remove(schemaTableName) == null) {
+                throw new TableNotFoundException(schemaTableName);
+            }
+        }
+
+        @Override
         public void renameTable(Session session, TableHandle tableHandle, CatalogSchemaTableName currentTableName, QualifiedObjectName newTableName)
         {
             SchemaTableName oldTableName = currentTableName.getSchemaTableName();
@@ -378,6 +389,18 @@ public abstract class BaseDataDefinitionTaskTest
         private SchemaTableName getTableName(TableHandle tableHandle)
         {
             return ((TestingTableHandle) tableHandle.getConnectorHandle()).getTableName();
+        }
+
+        @Override
+        public List<QualifiedObjectName> listTables(Session session, QualifiedTablePrefix prefix)
+        {
+            return tables.keySet().stream().map(table -> QualifiedObjectName.convertFromSchemaTableName(TEST_CATALOG_NAME).apply(table)).toList();
+        }
+
+        @Override
+        public QualifiedObjectName getRedirectedTableName(Session session, QualifiedObjectName tableName)
+        {
+            return tableName;
         }
 
         @Override

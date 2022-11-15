@@ -360,8 +360,21 @@ public interface ConnectorMetadata
     /**
      * Drops the specified table
      *
-     * @throws RuntimeException if the table cannot be dropped or table handle is no longer valid
+     * @throws RuntimeException if the table cannot be dropped
      */
+    default void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        dropTable(session, getTableHandle(session, schemaTableName));
+    }
+
+    /**
+     * Drops the specified table
+     *
+     * @throws RuntimeException if the table cannot be dropped or table handle is no longer valid
+     *
+     * @deprecated use {@link #dropTable(ConnectorSession, SchemaTableName)}
+     */
+    @Deprecated
     default void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping tables");

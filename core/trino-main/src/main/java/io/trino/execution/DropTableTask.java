@@ -18,8 +18,8 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.security.AccessControl;
+import io.trino.spi.connector.TableNotFoundException;
 import io.trino.sql.tree.DropTable;
 import io.trino.sql.tree.Expression;
 
@@ -76,17 +76,17 @@ public class DropTableTask
                     "Table '%s' does not exist, but a view with that name exists. Did you mean DROP VIEW %s?", originalTableName, originalTableName);
         }
 
-        RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, originalTableName);
-        if (redirectionAwareTableHandle.getTableHandle().isEmpty()) {
+        QualifiedObjectName targetTable = metadata.getRedirectedTableName(session, originalTableName);
+
+        try {
+            accessControl.checkCanDropTable(session.toSecurityContext(), targetTable);
+            metadata.dropTable(session, targetTable);
+        }
+        catch (TableNotFoundException e) {
             if (!statement.isExists()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", originalTableName);
             }
-            return immediateVoidFuture();
         }
-        QualifiedObjectName tableName = redirectionAwareTableHandle.getRedirectedTableName().orElse(originalTableName);
-        accessControl.checkCanDropTable(session.toSecurityContext(), tableName);
-
-        metadata.dropTable(session, redirectionAwareTableHandle.getTableHandle().get(), tableName.asCatalogSchemaTableName());
 
         return immediateVoidFuture();
     }

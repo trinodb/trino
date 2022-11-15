@@ -186,7 +186,13 @@ public class TestingMetadata
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        tables.remove(getTableName(tableHandle));
+        dropTable(session, getTableName(tableHandle));
+    }
+
+    @Override
+    public void dropTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        tables.remove(tableName);
     }
 
     @Override

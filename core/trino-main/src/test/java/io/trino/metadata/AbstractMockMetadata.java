@@ -337,6 +337,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void dropTable(Session session, QualifiedObjectName tableName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void truncateTable(Session session, TableHandle tableHandle)
     {
         throw new UnsupportedOperationException();
@@ -874,6 +880,12 @@ public abstract class AbstractMockMetadata
 
     @Override
     public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public QualifiedObjectName getRedirectedTableName(Session session, QualifiedObjectName tableName)
     {
         throw new UnsupportedOperationException();
     }

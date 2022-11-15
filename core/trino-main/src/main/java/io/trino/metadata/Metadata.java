@@ -264,8 +264,17 @@ public interface Metadata
      * Drops the specified table
      *
      * @throws RuntimeException if the table cannot be dropped or table handle is no longer valid
+     *
+     * @deprecated use {@link #dropTable(Session, QualifiedObjectName)}
      */
     void dropTable(Session session, TableHandle tableHandle, CatalogSchemaTableName tableName);
+
+    /**
+     * Drops the specified table
+     *
+     * @throws RuntimeException if the table cannot be dropped
+     */
+    void dropTable(Session session, QualifiedObjectName tableName);
 
     /**
      * Truncates the specified table
@@ -707,6 +716,11 @@ public interface Metadata
      * Get the target table handle after performing redirection with a table version.
      */
     RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion);
+
+    /**
+     * Get the table name after performing redirection.
+     */
+    QualifiedObjectName getRedirectedTableName(Session session, QualifiedObjectName tableName);
 
     /**
      * Returns true if the connector reports number of written bytes for an existing table. Otherwise, it returns false.

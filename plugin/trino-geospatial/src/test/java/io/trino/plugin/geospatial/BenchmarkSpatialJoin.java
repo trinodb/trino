@@ -16,7 +16,6 @@ package io.trino.plugin.geospatial;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.metadata.TableHandle;
 import io.trino.plugin.memory.MemoryConnectorFactory;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.MaterializedResult;
@@ -36,7 +35,6 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -47,7 +45,6 @@ import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 import static org.openjdk.jmh.annotations.Scope.Thread;
-import static org.testng.Assert.assertTrue;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Thread)
@@ -109,10 +106,7 @@ public class BenchmarkSpatialJoin
         {
             queryRunner.inTransaction(queryRunner.getDefaultSession(), transactionSession -> {
                 Metadata metadata = queryRunner.getMetadata();
-                QualifiedObjectName tableName = QualifiedObjectName.valueOf("memory.default.points");
-                Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, tableName);
-                assertTrue(tableHandle.isPresent(), "Table memory.default.points does not exist");
-                metadata.dropTable(transactionSession, tableHandle.get(), tableName.asCatalogSchemaTableName());
+                metadata.dropTable(transactionSession, QualifiedObjectName.valueOf("memory.default.points"));
                 return null;
             });
         }

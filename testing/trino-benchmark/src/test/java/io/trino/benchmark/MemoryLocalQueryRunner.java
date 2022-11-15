@@ -23,6 +23,8 @@ import io.trino.execution.TaskId;
 import io.trino.execution.TaskStateMachine;
 import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.QualifiedObjectName;
 import io.trino.operator.Driver;
 import io.trino.operator.TaskContext;
 import io.trino.plugin.memory.MemoryConnectorFactory;
@@ -117,6 +119,13 @@ public class MemoryLocalQueryRunner
                 ImmutableMap.of("memory.max-data-per-node", "4GB"));
 
         return localQueryRunner;
+    }
+
+    public void dropTable(String tableName)
+    {
+        Session session = localQueryRunner.getDefaultSession();
+        Metadata metadata = localQueryRunner.getMetadata();
+        metadata.dropTable(session, QualifiedObjectName.valueOf(tableName));
     }
 
     @Override

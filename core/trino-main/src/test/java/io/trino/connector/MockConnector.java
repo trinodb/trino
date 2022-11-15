@@ -578,6 +578,9 @@ public class MockConnector
         public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle) {}
 
         @Override
+        public void dropTable(ConnectorSession session, SchemaTableName tableName) {}
+
+        @Override
         public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName) {}
 
         @Override
