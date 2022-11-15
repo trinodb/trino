@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
@@ -34,6 +35,7 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
@@ -50,8 +52,10 @@ import java.util.Base64;
 
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
+import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -118,10 +122,14 @@ public class TestIcebergGcsConnectorSmokeTest
                         .put("hive.metastore.uri", "thrift://" + hiveHadoop.getHiveMetastoreEndpoint())
                         .put("iceberg.file-format", format.name())
                         .put("iceberg.register-table-procedure.enabled", "true")
+                        .put("iceberg.writer-sort-buffer-size", "1MB")
                         .buildOrThrow())
                 .setSchemaInitializer(
                         SchemaInitializer.builder()
-                                .withClonedTpchTables(REQUIRED_TPCH_TABLES)
+                                .withClonedTpchTables(ImmutableList.<TpchTable<?>>builder()
+                                        .addAll(REQUIRED_TPCH_TABLES)
+                                        .add(LINE_ITEM)
+                                        .build())
                                 .withSchemaName(schema)
                                 .withSchemaProperties(ImmutableMap.of("location", "'" + schemaPath() + "'"))
                                 .build())
@@ -221,5 +229,11 @@ public class TestIcebergGcsConnectorSmokeTest
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    @Override
+    protected boolean isFileSorted(String path, String sortColumnName)
+    {
+        return checkOrcFileSorting(fileSystemFactory, path, sortColumnName);
     }
 }
