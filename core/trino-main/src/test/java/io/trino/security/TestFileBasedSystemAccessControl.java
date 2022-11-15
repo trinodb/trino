@@ -19,6 +19,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.plugin.base.security.FileBasedSystemAccessControl;
 import io.trino.spi.QueryId;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.AccessDeniedException;
@@ -116,11 +117,11 @@ public class TestFileBasedSystemAccessControl
 
         accessControlManager.checkCanImpersonateUser(Identity.ofUser("missing_replacement_group"), "anything");
         assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("incorrect_number_of_replacements_groups_group"), "$2_group_prod"))
-                .isInstanceOf(IndexOutOfBoundsException.class)
-                .hasMessageContaining("No group 2");
+                .isInstanceOf(TrinoException.class)
+                .hasMessageContaining("new_user in impersonation rule refers to a capturing group that does not exist in original_user");
         assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("incorrect_number_of_replacements_groups_group"), "group_group_prod"))
-                .isInstanceOf(IndexOutOfBoundsException.class)
-                .hasMessageContaining("No group 2");
+                .isInstanceOf(TrinoException.class)
+                .hasMessageContaining("new_user in impersonation rule refers to a capturing group that does not exist in original_user");
 
         AccessControlManager accessControlManagerWithPrincipal = newAccessControlManager(transactionManager, "catalog_principal.json");
         accessControlManagerWithPrincipal.checkCanImpersonateUser(Identity.ofUser("anything"), "anythingElse");
