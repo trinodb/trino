@@ -22,6 +22,7 @@ import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
@@ -53,6 +54,7 @@ public class TestOptimizerConfig
                 .setUsePreferredWritePartitioning(true)
                 .setPreferredWritePartitioningMinNumberOfPartitions(50)
                 .setEnableStatsCalculator(true)
+                .setConnectorStatsProvisioningTimeout("20s")
                 .setStatisticsPrecalculationForPushdownEnabled(true)
                 .setCollectPlanStatisticsForAllQueries(false)
                 .setIgnoreStatsCalculatorFailures(true)
@@ -100,6 +102,7 @@ public class TestOptimizerConfig
                 .put("memory-cost-weight", "0.3")
                 .put("network-cost-weight", "0.2")
                 .put("enable-stats-calculator", "false")
+                .put("connector-statistics-provisioning-timeout", "infinity")
                 .put("statistics-precalculation-for-pushdown.enabled", "false")
                 .put("collect-plan-statistics-for-all-queries", "true")
                 .put("optimizer.ignore-stats-calculator-failures", "false")
@@ -154,6 +157,7 @@ public class TestOptimizerConfig
                 .setMemoryCostWeight(0.3)
                 .setNetworkCostWeight(0.2)
                 .setEnableStatsCalculator(false)
+                .setConnectorStatsProvisioningTimeout(Optional.empty())
                 .setStatisticsPrecalculationForPushdownEnabled(false)
                 .setCollectPlanStatisticsForAllQueries(true)
                 .setIgnoreStatsCalculatorFailures(false)

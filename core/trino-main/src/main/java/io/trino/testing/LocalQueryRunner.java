@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
+import com.google.common.util.concurrent.ForwardingExecutorService;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -443,7 +444,11 @@ public class LocalQueryRunner
                 analyzePropertyManager,
                 tableProceduresPropertyManager);
         TypeAnalyzer typeAnalyzer = new TypeAnalyzer(plannerContext, statementAnalyzerFactory);
-        this.queryTableStatsProviderFactory = new QueryTableStatsProviderFactory(plannerContext.getMetadata());
+        this.queryTableStatsProviderFactory = new QueryTableStatsProviderFactory(
+                plannerContext.getMetadata(),
+                // Force single-threaded stats provisioning for easier debugging test queries
+                unimplementedExecutorService(),
+                optimizerConfig.setConnectorStatsProvisioningTimeout(Optional.empty()));
         this.statsCalculator = createNewStatsCalculator(plannerContext, typeAnalyzer);
         this.scalarStatsCalculator = new ScalarStatsCalculator(plannerContext, typeAnalyzer);
         this.taskCountEstimator = new TaskCountEstimator(() -> nodeCountForStats);
@@ -1147,6 +1152,18 @@ public class LocalQueryRunner
         return searchFrom(node)
                 .where(TableScanNode.class::isInstance)
                 .findAll();
+    }
+
+    private static ExecutorService unimplementedExecutorService()
+    {
+        return new ForwardingExecutorService()
+        {
+            @Override
+            protected ExecutorService delegate()
+            {
+                throw new UnsupportedOperationException();
+            }
+        };
     }
 
     public interface MetadataProvider

@@ -23,9 +23,12 @@ import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import java.util.Optional;
+
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class OptimizerConfig
 {
@@ -41,6 +44,7 @@ public class OptimizerConfig
     private int maxReorderedJoins = 9;
 
     private boolean enableStatsCalculator = true;
+    private Optional<Duration> connectorStatsProvisioningTimeout = Optional.of(new Duration(20, SECONDS));
     private boolean statisticsPrecalculationForPushdownEnabled = true;
     private boolean collectPlanStatisticsForAllQueries;
     private boolean ignoreStatsCalculatorFailures = true;
@@ -227,6 +231,27 @@ public class OptimizerConfig
     public OptimizerConfig setEnableStatsCalculator(boolean enableStatsCalculator)
     {
         this.enableStatsCalculator = enableStatsCalculator;
+        return this;
+    }
+
+    @NotNull
+    public Optional<Duration> getConnectorStatsProvisioningTimeout()
+    {
+        return connectorStatsProvisioningTimeout;
+    }
+
+    @Config("connector-statistics-provisioning-timeout")
+    public OptimizerConfig setConnectorStatsProvisioningTimeout(String connectorStatsProvisioningTimeout)
+    {
+        if ("infinity".equals(connectorStatsProvisioningTimeout)) {
+            return setConnectorStatsProvisioningTimeout(Optional.empty());
+        }
+        return setConnectorStatsProvisioningTimeout(Optional.of(Duration.valueOf(connectorStatsProvisioningTimeout)));
+    }
+
+    public OptimizerConfig setConnectorStatsProvisioningTimeout(Optional<Duration> connectorStatsProvisioningTimeout)
+    {
+        this.connectorStatsProvisioningTimeout = connectorStatsProvisioningTimeout;
         return this;
     }
 

@@ -13,28 +13,43 @@
  */
 package io.trino.sql.planner;
 
+import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.cost.CachingTableStatsProvider;
+import io.trino.cost.ForStatsProvider;
 import io.trino.cost.SimpleTableStatsProvider;
 import io.trino.cost.TableStatsProvider;
+import io.trino.cost.TimingTableStatsProvider;
 import io.trino.metadata.Metadata;
 
 import javax.inject.Inject;
+
+import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 
 import static java.util.Objects.requireNonNull;
 
 public class QueryTableStatsProviderFactory
 {
     private final Metadata metadata;
+    private final ExecutorService executor;
+    private final Optional<Long> timeoutMillis;
 
     @Inject
-    public QueryTableStatsProviderFactory(Metadata metadata)
+    public QueryTableStatsProviderFactory(Metadata metadata, @ForStatsProvider ExecutorService executor, OptimizerConfig optimizerConfig)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.executor = requireNonNull(executor, "executor is null");
+        this.timeoutMillis = optimizerConfig.getConnectorStatsProvisioningTimeout().map(Duration::toMillis);
     }
 
     public TableStatsProvider create(Session session)
     {
-        return new CachingTableStatsProvider(new SimpleTableStatsProvider(metadata, session));
+        TableStatsProvider tableStatsProvider = new SimpleTableStatsProvider(metadata, session);
+        if (timeoutMillis.isPresent()) {
+            tableStatsProvider = new TimingTableStatsProvider(tableStatsProvider, session, executor, timeoutMillis.get());
+        }
+        tableStatsProvider = new CachingTableStatsProvider(tableStatsProvider);
+        return tableStatsProvider;
     }
 }

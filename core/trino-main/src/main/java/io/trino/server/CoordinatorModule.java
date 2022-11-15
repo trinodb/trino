@@ -29,6 +29,7 @@ import io.trino.cost.CostCalculator.EstimatedExchanges;
 import io.trino.cost.CostCalculatorUsingExchanges;
 import io.trino.cost.CostCalculatorWithEstimatedExchanges;
 import io.trino.cost.CostComparator;
+import io.trino.cost.ForStatsProvider;
 import io.trino.cost.StatsAndCosts;
 import io.trino.cost.StatsCalculatorModule;
 import io.trino.cost.TaskCountEstimator;
@@ -383,6 +384,14 @@ public class CoordinatorModule
     public static ScheduledExecutorService createStatementTimeoutExecutor(TaskManagerConfig config)
     {
         return newScheduledThreadPool(config.getHttpTimeoutThreads(), daemonThreadsNamed("statement-timeout-%s"));
+    }
+
+    @Provides
+    @Singleton
+    @ForStatsProvider
+    public static ExecutorService createStatsProviderCoreExecutor()
+    {
+        return newCachedThreadPool(daemonThreadsNamed("stats-provider-%s"));
     }
 
     private void bindLowMemoryQueryKiller(LowMemoryQueryKillerPolicy policy, Class<? extends LowMemoryKiller> clazz)
