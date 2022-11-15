@@ -23,8 +23,8 @@ To connect to SQL Server, you need:
 Configuration
 -------------
 
-The connector can query a single database on an SQL server instance. Create a
-catalog properties file that specifies the SQL server connector by setting the
+The connector can query a single database on a given SQL Server instance. Create
+a catalog properties file that specifies the SQL server connector by setting the
 ``connector.name`` to ``sqlserver``.
 
 For example, to access a database as ``sqlserver``, create the file
@@ -152,7 +152,7 @@ each direction.
 SQL Server type to Trino type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The connector maps SQL server types to the corresponding Trino types following this table:
+The connector maps SQL Server types to the corresponding Trino types following this table:
 
 .. list-table:: SQL Server type to Trino type mapping
   :widths: 30, 20, 50
