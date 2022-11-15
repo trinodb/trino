@@ -738,7 +738,7 @@ Use the ``$snapshots`` metadata table to determine the latest snapshot ID of the
     FROM iceberg.testdb."customer_orders$snapshots"
     ORDER BY committed_at DESC LIMIT 1
 
-An SQL procedure ``system.rollback_to_snapshot`` allows the caller to roll back
+The procedure ``system.rollback_to_snapshot`` allows the caller to roll back
 the state of the table to a previous snapshot id::
 
     CALL iceberg.system.rollback_to_snapshot('testdb', 'customer_orders', 8954597067493422955)
@@ -755,8 +755,9 @@ Register table
 --------------
 The connector can register existing Iceberg tables with the catalog.
 
-An SQL procedure ``system.register_table`` allows the caller to register an existing Iceberg
-table in the metastore, using its existing metadata and data files::
+The procedure ``system.register_table`` allows the caller to register an
+existing Iceberg table in the metastore, using its existing metadata and data
+files::
 
     CALL iceberg.system.register_table(schema_name => 'testdb', table_name => 'customer_orders', table_location => 'hdfs://hadoop-master:9000/user/hive/warehouse/customer_orders-581fad8517934af6be1857a903559d44')
 
