@@ -249,6 +249,7 @@ public abstract class AbstractTestHiveFileSystem
                 new GroupByHashPageIndexerFactory(new JoinCompiler(typeOperators), blockTypeOperators),
                 TESTING_TYPE_MANAGER,
                 config,
+                new SortingFileWriterConfig(),
                 locationService,
                 partitionUpdateCodec,
                 new TestingNodeManager("fake-environment"),
