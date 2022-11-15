@@ -46,6 +46,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartition
 import static io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 @DefunctConfig({
         "dfs.domain-socket-path",
@@ -133,6 +134,7 @@ public class HiveConfig
 
     private boolean tableStatisticsEnabled = true;
     private int partitionStatisticsSampleSize = 100;
+    private Duration partitionSamplingTimeLimit = new Duration(30, SECONDS);
     private boolean ignoreCorruptedStatistics;
     private boolean collectColumnStatisticsOnWrite = true;
 
@@ -985,6 +987,18 @@ public class HiveConfig
     public HiveConfig setPartitionStatisticsSampleSize(int partitionStatisticsSampleSize)
     {
         this.partitionStatisticsSampleSize = partitionStatisticsSampleSize;
+        return this;
+    }
+
+    public Duration getPartitionSamplingTimeLimit()
+    {
+        return partitionSamplingTimeLimit;
+    }
+
+    @Config("hive.partition-statistics-sampling-time-limit")
+    public HiveConfig setPartitionSamplingTimeLimit(Duration partitionSamplingTimeLimit)
+    {
+        this.partitionSamplingTimeLimit = partitionSamplingTimeLimit;
         return this;
     }
 

@@ -97,6 +97,7 @@ public final class HiveSessionProperties
     private static final String PROPAGATE_TABLE_SCAN_SORTING_PROPERTIES = "propagate_table_scan_sorting_properties";
     private static final String STATISTICS_ENABLED = "statistics_enabled";
     private static final String PARTITION_STATISTICS_SAMPLE_SIZE = "partition_statistics_sample_size";
+    private static final String PARTITION_STATISTICS_SAMPLING_TIME_LIMIT = "partition_statistics_sampling_time_limit";
     private static final String IGNORE_CORRUPTED_STATISTICS = "ignore_corrupted_statistics";
     private static final String COLLECT_COLUMN_STATISTICS_ON_WRITE = "collect_column_statistics_on_write";
     private static final String OPTIMIZE_MISMATCHED_BUCKET_COUNT = "optimize_mismatched_bucket_count";
@@ -390,6 +391,11 @@ public final class HiveSessionProperties
                         PARTITION_STATISTICS_SAMPLE_SIZE,
                         "Maximum sample size of the partitions column statistics",
                         hiveConfig.getPartitionStatisticsSampleSize(),
+                        false),
+                durationProperty(
+                        PARTITION_STATISTICS_SAMPLING_TIME_LIMIT,
+                        "Maximum sample size of the partitions column statistics",
+                        hiveConfig.getPartitionSamplingTimeLimit(),
                         false),
                 booleanProperty(
                         IGNORE_CORRUPTED_STATISTICS,
@@ -752,6 +758,11 @@ public final class HiveSessionProperties
             throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be greater than 0: %s", PARTITION_STATISTICS_SAMPLE_SIZE, size));
         }
         return size;
+    }
+
+    public static Duration getPartitionStatisticsSamplingTimeLimit(ConnectorSession session)
+    {
+        return session.getProperty(PARTITION_STATISTICS_SAMPLING_TIME_LIMIT, Duration.class);
     }
 
     public static boolean isIgnoreCorruptedStatistics(ConnectorSession session)

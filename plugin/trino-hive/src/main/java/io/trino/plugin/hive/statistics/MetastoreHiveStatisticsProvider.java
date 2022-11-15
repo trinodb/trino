@@ -17,12 +17,14 @@ package io.trino.plugin.hive.statistics;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashFunction;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartition;
@@ -74,8 +76,10 @@ import static com.google.common.hash.Hashing.murmur3_128;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CORRUPTED_COLUMN_STATISTICS;
 import static io.trino.plugin.hive.HivePartition.UNPARTITIONED_ID;
 import static io.trino.plugin.hive.HiveSessionProperties.getPartitionStatisticsSampleSize;
+import static io.trino.plugin.hive.HiveSessionProperties.getPartitionStatisticsSamplingTimeLimit;
 import static io.trino.plugin.hive.HiveSessionProperties.isIgnoreCorruptedStatistics;
 import static io.trino.plugin.hive.HiveSessionProperties.isStatisticsEnabled;
+import static io.trino.plugin.hive.statistics.TimedBatching.processBatchesWithApproximateTimeLimit;
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
@@ -86,9 +90,11 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
+import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class MetastoreHiveStatisticsProvider
         implements HiveStatisticsProvider
@@ -100,7 +106,7 @@ public class MetastoreHiveStatisticsProvider
     public MetastoreHiveStatisticsProvider(SemiTransactionalHiveMetastore metastore)
     {
         requireNonNull(metastore, "metastore is null");
-        this.statisticsProvider = (session, table, hivePartitions) -> getPartitionsStatistics(metastore, table, hivePartitions);
+        this.statisticsProvider = (session, table, hivePartitions, samplingTimeLimit) -> getPartitionsStatistics(metastore, table, hivePartitions, samplingTimeLimit);
     }
 
     @VisibleForTesting
@@ -109,7 +115,11 @@ public class MetastoreHiveStatisticsProvider
         this.statisticsProvider = requireNonNull(statisticsProvider, "statisticsProvider is null");
     }
 
-    private static Map<String, PartitionStatistics> getPartitionsStatistics(SemiTransactionalHiveMetastore metastore, SchemaTableName table, List<HivePartition> hivePartitions)
+    private static Map<String, PartitionStatistics> getPartitionsStatistics(
+            SemiTransactionalHiveMetastore metastore,
+            SchemaTableName table,
+            List<HivePartition> hivePartitions,
+            Duration samplingTimeLimit)
     {
         if (hivePartitions.isEmpty()) {
             return ImmutableMap.of();
@@ -122,7 +132,17 @@ public class MetastoreHiveStatisticsProvider
         Set<String> partitionNames = hivePartitions.stream()
                 .map(HivePartition::getPartitionId)
                 .collect(toImmutableSet());
-        return metastore.getPartitionStatistics(table.getSchemaName(), table.getTableName(), partitionNames);
+
+        ImmutableMap.Builder<String, PartitionStatistics> result = ImmutableMap.builder();
+        processBatchesWithApproximateTimeLimit(
+                partitionNames.iterator(),
+                // Get 10% of the whole sample in the first batch. TODO remember good batch size from previous calls to reduce number of calls for a fast metastore
+                min(partitionNames.size() / 10, 1),
+                batch -> metastore.getPartitionStatistics(table.getSchemaName(), table.getTableName(), ImmutableSet.copyOf(batch)),
+                samplingTimeLimit.toMillis(),
+                MILLISECONDS)
+                .forEachRemaining(result::putAll);
+        return result.buildOrThrow();
     }
 
     @Override
@@ -140,9 +160,10 @@ public class MetastoreHiveStatisticsProvider
             return createZeroStatistics(columns, columnTypes);
         }
         int sampleSize = getPartitionStatisticsSampleSize(session);
+        Duration samplingTimeLimit = getPartitionStatisticsSamplingTimeLimit(session);
         List<HivePartition> partitionsSample = getPartitionsSample(partitions, sampleSize);
         try {
-            Map<String, PartitionStatistics> statisticsSample = statisticsProvider.getPartitionsStatistics(session, table, partitionsSample);
+            Map<String, PartitionStatistics> statisticsSample = statisticsProvider.getPartitionsStatistics(session, table, partitionsSample, samplingTimeLimit);
             validatePartitionStatistics(table, statisticsSample);
             return getTableStatistics(columns, columnTypes, partitions, statisticsSample);
         }
@@ -886,6 +907,6 @@ public class MetastoreHiveStatisticsProvider
     @VisibleForTesting
     interface PartitionsStatisticsProvider
     {
-        Map<String, PartitionStatistics> getPartitionsStatistics(ConnectorSession session, SchemaTableName table, List<HivePartition> hivePartitions);
+        Map<String, PartitionStatistics> getPartitionsStatistics(ConnectorSession session, SchemaTableName table, List<HivePartition> hivePartitions, Duration samplingTimeLimit);
     }
 }
