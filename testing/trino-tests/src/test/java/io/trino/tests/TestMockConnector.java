@@ -265,4 +265,26 @@ public class TestMockConnector
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE mock.default.new_table (c int) WITH (unknown_property = 1)"))
                 .hasMessage("Catalog 'mock' table property 'unknown_property' does not exist");
     }
+
+    @Test
+    public void testQuotedSemantics()
+    {
+        assertQuery("SELECT \"NationKey\" FROM \"Mock\".\"Default\".\"Nation\"", "SELECT nationkey FROM nation");
+        assertUpdate("CREATE SCHEMA \"Mock\".\"New_Schema\"");
+        assertUpdate("DROP SCHEMA \"Mock\".\"Default\"");
+        assertUpdate("ALTER SCHEMA \"Mock\".\"Default\" RENAME TO \"Renamed\"");
+        assertUpdate("COMMENT ON VIEW \"Mock\".\"Default\".\"Test_View\" IS 'new comment'");
+        assertUpdate("CREATE MATERIALIZED VIEW \"Mock\".\"Default\".\"Materialized_View\" WITH (Refresh_Interval = '1h') AS SELECT * FROM \"Tpch\".\"Tiny\".\"Nation\"");
+        assertUpdate("REFRESH MATERIALIZED VIEW \"Mock\".\"Default\".\"Test_Materialized_View\"", 0);
+        assertUpdate("DROP MATERIALIZED VIEW \"Mock\".\"Default\".\"Test_Materialized_View\"");
+        assertQuery("SELECT \"Nationkey\" FROM \"Mock\".\"Default\".\"Nation\"", "SELECT nationkey FROM nation");
+        assertUpdate("INSERT INTO \"Mock\".\"Default\".\"Nation\" VALUES (101, 'POLAND', 0, 'No comment')", 1);
+        assertUpdate("DELETE FROM \"Mock\".\"Default\".\"Nation\" WHERE \"Nationkey\" = 1", 1);
+        assertUpdate("UPDATE \"Mock\".\"Default\".\"Nation\" SET \"Name\" = 'ALGERIA'", 25);
+        assertUpdate("CALL \"Mock\".\"Default\".\"Test_Procedure\"()");
+        assertThatThrownBy(() -> assertUpdate("SELECT * FROM TABLE(\"Mock\".\"System\".\"Simple_Table_Function\"())"))
+                .hasMessage("execution by operator is not yet implemented for table function simple_table_function");
+        assertUpdate("CREATE TABLE \"Mock\".\"Default\".\"New_Table\" (\"C\" INT) WITH (\"Integer_Table_Property\" = 1)");
+        assertQuerySucceeds("ALTER TABLE \"Mock\".\"Default\".\"Test_Table\" EXECUTE \"Testing_Table_Procedure\"()");
+    }
 }
