@@ -1766,12 +1766,16 @@ public class DeltaLakeMetadata
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;
+        dropTable(session, ((DeltaLakeTableHandle) tableHandle).getSchemaTableName());
+    }
 
-        Table table = metastore.getTable(handle.getSchemaName(), handle.getTableName())
-                .orElseThrow(() -> new TableNotFoundException(handle.getSchemaTableName()));
+    @Override
+    public void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        Table table = metastore.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(schemaTableName));
 
-        metastore.dropTable(session, handle.getSchemaName(), handle.getTableName(), table.getTableType().equals(MANAGED_TABLE.toString()));
+        metastore.dropTable(session, schemaTableName.getSchemaName(), schemaTableName.getTableName(), table.getTableType().equals(MANAGED_TABLE.toString()));
     }
 
     @Override
