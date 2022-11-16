@@ -231,6 +231,8 @@ public class TestingTrinoServer
                 // Use task.writer-count > 1, as this allows to expose writer-concurrency related bugs.
                 .put("task.writer-count", "2")
                 .put("exchange.client-threads", "4")
+                // Reduce memory footprint in tests
+                .put("exchange.max-buffer-size", "4MB")
                 .put("internal-communication.shared-secret", "internal-shared-secret");
 
         if (coordinator) {
