@@ -208,6 +208,7 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static io.trino.spi.StandardErrorCode.METADATA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
@@ -409,8 +410,10 @@ public class DeltaLakeMetadata
         }
 
         TableSnapshot tableSnapshot = metastore.getSnapshot(tableName, session);
-        Optional<MetadataEntry> metadata = metastore.getMetadata(tableSnapshot, session);
-        metadata.ifPresent(metadataEntry -> verifySupportedColumnMapping(getColumnMappingMode(metadataEntry)));
+        MetadataEntry metadata = metastore.getMetadata(tableSnapshot, session)
+                .orElseThrow(() -> new TrinoException(METADATA_NOT_FOUND, "Metadata not found in transaction log for table " + tableName));
+
+        verifySupportedColumnMapping(getColumnMappingMode(metadata));
         return new DeltaLakeTableHandle(
                 tableName.getSchemaName(),
                 tableName.getTableName(),
@@ -1431,7 +1434,7 @@ public class DeltaLakeMetadata
                 handle.getSchemaName(),
                 handle.getTableName(),
                 handle.getLocation(),
-                Optional.of(handle.getMetadataEntry()),
+                handle.getMetadataEntry(),
                 handle.getEnforcedPartitionConstraint(),
                 handle.getNonPartitionConstraint(),
                 handle.getProjectedColumns(),
@@ -1514,7 +1517,7 @@ public class DeltaLakeMetadata
                 handle.getSchemaName(),
                 handle.getTableName(),
                 handle.getLocation(),
-                Optional.of(handle.getMetadataEntry()),
+                handle.getMetadataEntry(),
                 handle.getEnforcedPartitionConstraint(),
                 handle.getNonPartitionConstraint(),
                 handle.getProjectedColumns(),
@@ -2235,7 +2238,7 @@ public class DeltaLakeMetadata
                 tableName.getSchemaName(),
                 tableName.getTableName(),
                 tableHandle.getLocation(),
-                Optional.of(tableHandle.getMetadataEntry()),
+                tableHandle.getMetadataEntry(),
                 // Do not simplify the enforced constraint, the connector is guaranteeing the constraint will be applied as is.
                 // The unenforced constraint will still be checked by the engine.
                 tableHandle.getEnforcedPartitionConstraint()
@@ -2360,7 +2363,7 @@ public class DeltaLakeMetadata
                 handle.getSchemaTableName().getSchemaName(),
                 handle.getSchemaTableName().getTableName(),
                 handle.getLocation(),
-                Optional.of(metadata),
+                metadata,
                 TupleDomain.all(),
                 TupleDomain.all(),
                 Optional.empty(),

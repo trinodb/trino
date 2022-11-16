@@ -68,7 +68,7 @@ public class TestDeltaLakeSplitManager
             "schema",
             "table",
             "location",
-            Optional.of(metadataEntry),
+            metadataEntry,
             TupleDomain.all(),
             TupleDomain.all(),
             Optional.empty(),
