@@ -4,8 +4,8 @@
 
 
 
-<!-- Provide a user-friendly explanation, keep it brief if it isn't user-visible. -->
-## Non-technical explanation
+<!-- Provide details that would help an engineer who is unfamiliar with this part of the code. -->
+## Additional context and related issues
 
 
 
