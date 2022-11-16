@@ -131,6 +131,33 @@ public class HiveSplit
         this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
     }
 
+    public HiveSplit withSchema(Properties schema)
+    {
+        return new HiveSplit(
+                database,
+                table,
+                partitionName,
+                path,
+                start,
+                length,
+                estimatedFileSize,
+                fileModifiedTime,
+                schema,
+                partitionKeys,
+                addresses,
+                readBucketNumber,
+                tableBucketNumber,
+                statementId,
+                forceLocalScheduling,
+                tableToPartitionMapping,
+                bucketConversion,
+                bucketValidation,
+                s3SelectPushdownEnabled,
+                acidInfo,
+                splitNumber,
+                splitWeight);
+    }
+
     @JsonProperty
     public String getDatabase()
     {
