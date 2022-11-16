@@ -133,11 +133,20 @@ public class TestTransactionLogAccess
                 accessTrackingFileSystemFactory,
                 new ParquetReaderConfig());
 
+        String schemaName = "schema";
         DeltaLakeTableHandle tableHandle = new DeltaLakeTableHandle(
-                "schema",
+                schemaName,
                 tableName,
                 "location",
-                Optional.empty(), // ignored
+                new MetadataEntry(
+                        "id",
+                        tableName,
+                        "a table",
+                        new MetadataEntry.Format("provider", ImmutableMap.of()),
+                        schemaName,
+                        ImmutableList.of(),
+                        ImmutableMap.of(),
+                        0L),
                 TupleDomain.none(),
                 TupleDomain.none(),
                 Optional.empty(),

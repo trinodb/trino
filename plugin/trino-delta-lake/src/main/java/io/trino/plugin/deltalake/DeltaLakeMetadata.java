@@ -172,6 +172,7 @@ import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.SYNTHESIZED;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_WRITE;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
+import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_TABLE;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getHiveCatalogName;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isCollectExtendedStatisticsColumnStatisticsOnWrite;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isExtendedStatisticsEnabled;
@@ -415,8 +416,10 @@ public class DeltaLakeMetadata
         }
 
         TableSnapshot tableSnapshot = metastore.getSnapshot(dataTableName, session);
-        Optional<MetadataEntry> metadata = metastore.getMetadata(tableSnapshot, session);
-        metadata.ifPresent(metadataEntry -> verifySupportedColumnMapping(getColumnMappingMode(metadataEntry)));
+        MetadataEntry metadata = metastore.getMetadata(tableSnapshot, session)
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_TABLE, "Metadata not found in transaction log for table " + tableName));
+
+        verifySupportedColumnMapping(getColumnMappingMode(metadata));
         return new DeltaLakeTableHandle(
                 dataTableName.getSchemaName(),
                 dataTableName.getTableName(),
@@ -2034,7 +2037,7 @@ public class DeltaLakeMetadata
                 tableName.getSchemaName(),
                 tableName.getTableName(),
                 tableHandle.getLocation(),
-                Optional.of(tableHandle.getMetadataEntry()),
+                tableHandle.getMetadataEntry(),
                 // Do not simplify the enforced constraint, the connector is guaranteeing the constraint will be applied as is.
                 // The unenforced constraint will still be checked by the engine.
                 tableHandle.getEnforcedPartitionConstraint()
@@ -2161,7 +2164,7 @@ public class DeltaLakeMetadata
                 handle.getSchemaTableName().getSchemaName(),
                 handle.getSchemaTableName().getTableName(),
                 handle.getLocation(),
-                Optional.of(metadata),
+                metadata,
                 TupleDomain.all(),
                 TupleDomain.all(),
                 Optional.empty(),
