@@ -35,7 +35,10 @@ public class SheetsConfig
     private Optional<String> metadataSheetId = Optional.empty();
     private int sheetsDataMaxCacheSize = 1000;
     private Duration sheetsDataExpireAfterWrite = new Duration(5, TimeUnit.MINUTES);
-    private Duration readTimeout = new Duration(20, TimeUnit.SECONDS); // 20s is the default timeout of com.google.api.client.http.HttpRequest
+    // 20s is the default timeout of com.google.api.client.http.HttpRequest
+    private Duration connectionTimeout = new Duration(20, TimeUnit.SECONDS);
+    private Duration readTimeout = new Duration(20, TimeUnit.SECONDS);
+    private Duration writeTimeout = new Duration(20, TimeUnit.SECONDS);
 
     @AssertTrue(message = "Exactly one of 'gsheets.credentials-key' or 'gsheets.credentials-path' must be specified")
     public boolean isCredentialsConfigurationValid()
@@ -119,15 +122,44 @@ public class SheetsConfig
     }
 
     @MinDuration("0ms")
+    public Duration getConnectionTimeout()
+    {
+        return connectionTimeout;
+    }
+
+    @Config("gsheets.connection-timeout")
+    @ConfigDescription("Timeout when connection to Google Sheets API")
+    public SheetsConfig setConnectionTimeout(Duration connectionTimeout)
+    {
+        this.connectionTimeout = connectionTimeout;
+        return this;
+    }
+
+    @MinDuration("0ms")
     public Duration getReadTimeout()
     {
         return readTimeout;
     }
 
     @Config("gsheets.read-timeout")
+    @ConfigDescription("Timeout when reading from Google Sheets API")
     public SheetsConfig setReadTimeout(Duration readTimeout)
     {
         this.readTimeout = readTimeout;
+        return this;
+    }
+
+    @MinDuration("0ms")
+    public Duration getWriteTimeout()
+    {
+        return writeTimeout;
+    }
+
+    @Config("gsheets.write-timeout")
+    @ConfigDescription("Timeout when writing to Google Sheets API")
+    public SheetsConfig setWriteTimeout(Duration writeTimeout)
+    {
+        this.writeTimeout = writeTimeout;
         return this;
     }
 }
