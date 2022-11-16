@@ -517,7 +517,7 @@ public class QueryManagerConfig
     @ConfigDescription("Factor by which retry delay is scaled on subsequent failures")
     public QueryManagerConfig setRetryDelayScaleFactor(double retryDelayScaleFactor)
     {
-        checkArgument(retryDelayScaleFactor >= 1.0, "retry-delay-scale-factor must be greater or equal to 1");
+        checkArgument(retryDelayScaleFactor >= 1.0, "retry-delay-scale-factor must be greater than or equal to 1");
         this.retryDelayScaleFactor = retryDelayScaleFactor;
         return this;
     }

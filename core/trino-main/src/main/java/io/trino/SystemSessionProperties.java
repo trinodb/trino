@@ -769,7 +769,7 @@ public final class SystemSessionProperties
                             if (value < 1.0) {
                                 throw new TrinoException(
                                         INVALID_SESSION_PROPERTY,
-                                        format("%s must be greater or equal to 1.0", RETRY_MAX_DELAY));
+                                        format("%s must be greater than or equal to 1.0", RETRY_DELAY_SCALE_FACTOR));
                             }
                         },
                         false),
