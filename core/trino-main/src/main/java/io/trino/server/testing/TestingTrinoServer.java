@@ -237,6 +237,9 @@ public class TestingTrinoServer
             // TODO: enable failure detector
             serverProperties.put("failure-detector.enabled", "false");
             serverProperties.put("catalog.store", "none");
+
+            // Reduce memory footprint in tests
+            serverProperties.put("query.min-expire-age", "5s");
         }
 
         serverProperties.put("optimizer.ignore-stats-calculator-failures", "false");
