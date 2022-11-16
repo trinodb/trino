@@ -305,7 +305,16 @@ public abstract class BaseJdbcClient
                         getInteger(resultSet, "DECIMAL_DIGITS"),
                         Optional.empty(),
                         Optional.empty());
-                Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
+                Optional<ColumnMapping> columnMapping;
+                try {
+                    columnMapping = toColumnMapping(session, connection, typeHandle);
+                }
+                catch (RuntimeException e) {
+                    // toColumnMapping connector implementation could be not full, broken or rely on broken jdbc driver
+                    // allow ConnectorMetadata#getColumnHandles to list all columns except this one
+                    log.warn("Ignoring '%s' column '%s'. Exception occurred during mapping data type %s".formatted(schemaTableName, columnName, typeHandle), e);
+                    continue;
+                }
                 log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
                 boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
                 // Note: some databases (e.g. SQL Server) do not return column remarks/comment here.

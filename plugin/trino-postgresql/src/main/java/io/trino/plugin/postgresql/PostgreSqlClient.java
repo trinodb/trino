@@ -419,7 +419,16 @@ public class PostgreSqlClient
                             getInteger(resultSet, "DECIMAL_DIGITS"),
                             Optional.ofNullable(arrayColumnDimensions.get(columnName)),
                             Optional.empty());
-                    Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
+                    Optional<ColumnMapping> columnMapping;
+                    try {
+                        columnMapping = toColumnMapping(session, connection, typeHandle);
+                    }
+                    catch (RuntimeException e) {
+                        // toColumnMapping connector implementation could be not full, broken or rely on broken jdbc driver
+                        // allow ConnectorMetadata#getColumnHandles to list all columns except this one
+                        log.warn("Ignoring '%s' column '%s'. Exception occurred during mapping data type %s".formatted(schemaTableName, columnName, typeHandle), e);
+                        continue;
+                    }
                     log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
                     // skip unsupported column types
                     if (columnMapping.isPresent()) {
