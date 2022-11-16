@@ -297,35 +297,8 @@ public abstract class BaseJdbcClient
                     continue;
                 }
                 allColumns++;
-                String columnName = resultSet.getString("COLUMN_NAME");
-                JdbcTypeHandle typeHandle = new JdbcTypeHandle(
-                        getInteger(resultSet, "DATA_TYPE").orElseThrow(() -> new IllegalStateException("DATA_TYPE is null")),
-                        Optional.ofNullable(resultSet.getString("TYPE_NAME")),
-                        getInteger(resultSet, "COLUMN_SIZE"),
-                        getInteger(resultSet, "DECIMAL_DIGITS"),
-                        Optional.empty(),
-                        Optional.empty());
-                Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
-                log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
-                boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
-                // Note: some databases (e.g. SQL Server) do not return column remarks/comment here.
-                Optional<String> comment = Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
-                // skip unsupported column types
-                columnMapping.ifPresent(mapping -> columns.add(JdbcColumnHandle.builder()
-                        .setColumnName(columnName)
-                        .setJdbcTypeHandle(typeHandle)
-                        .setColumnType(mapping.getType())
-                        .setNullable(nullable)
-                        .setComment(comment)
-                        .build()));
-                if (columnMapping.isEmpty()) {
-                    UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
-                    verify(
-                            unsupportedTypeHandling == IGNORE,
-                            "Unsupported type handling is set to %s, but toColumnMapping() returned empty for %s",
-                            unsupportedTypeHandling,
-                            typeHandle);
-                }
+                Optional<JdbcColumnHandle> columnHandle = getColumn(session, schemaTableName, connection, resultSet);
+                columnHandle.ifPresent(columns::add);
             }
             if (columns.isEmpty()) {
                 // A table may have no supported columns. In rare cases (e.g. PostgreSQL) a table might have no columns at all.
@@ -338,6 +311,62 @@ public abstract class BaseJdbcClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
+    }
+
+    private Optional<JdbcColumnHandle> getColumn(ConnectorSession session, SchemaTableName schemaTableName, Connection connection, ResultSet resultSet)
+            throws SQLException
+    {
+        String columnName = resultSet.getString("COLUMN_NAME");
+        try {
+            return getColumn(session, schemaTableName, connection, resultSet, columnName);
+        }
+        catch (SQLException | RuntimeException e) {
+            throw new TrinoException(JDBC_ERROR, "Failed to resolve column %s in table %s. %s".formatted(columnName, schemaTableName, firstNonNull(e.getMessage(), e)), e);
+        }
+    }
+
+    private Optional<JdbcColumnHandle> getColumn(ConnectorSession session, SchemaTableName schemaTableName, Connection connection, ResultSet resultSet, String columnName)
+            throws SQLException
+    {
+        JdbcTypeHandle typeHandle = getTypeHandle(resultSet);
+        Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
+        log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
+        boolean nullable = resultSet.getInt("NULLABLE") != columnNoNulls;
+        // Note: some databases (e.g. SQL Server) do not return column remarks/comment here.
+        Optional<String> comment = Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
+        return columnMapping
+                .or(() -> verifyUnsupportedColumnMapping(session, typeHandle))
+                .map(ColumnMapping::getType)
+                .map(type -> JdbcColumnHandle.builder()
+                        .setColumnName(columnName)
+                        .setJdbcTypeHandle(typeHandle)
+                        .setColumnType(type)
+                        .setNullable(nullable)
+                        .setComment(comment)
+                        .build());
+    }
+
+    private static JdbcTypeHandle getTypeHandle(ResultSet resultSet)
+            throws SQLException
+    {
+        return new JdbcTypeHandle(
+                getInteger(resultSet, "DATA_TYPE").orElseThrow(() -> new IllegalStateException("DATA_TYPE is null")),
+                Optional.ofNullable(resultSet.getString("TYPE_NAME")),
+                getInteger(resultSet, "COLUMN_SIZE"),
+                getInteger(resultSet, "DECIMAL_DIGITS"),
+                Optional.empty(),
+                Optional.empty());
+    }
+
+    private static Optional<ColumnMapping> verifyUnsupportedColumnMapping(ConnectorSession session, JdbcTypeHandle typeHandle)
+    {
+        UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
+        verify(
+                unsupportedTypeHandling == IGNORE,
+                "Unsupported type handling is set to %s, but toColumnMapping() returned empty for %s",
+                unsupportedTypeHandling,
+                typeHandle);
+        return Optional.empty();
     }
 
     protected static Optional<Integer> getInteger(ResultSet resultSet, String columnLabel)
