@@ -97,6 +97,7 @@ import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewAdditionalProperties.STORAGE_SCHEMA;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.encodeMaterializedViewData;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.fromConnectorMaterializedViewDefinition;
@@ -356,16 +357,53 @@ public class TrinoGlueCatalog
     @Override
     public void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        BaseTable table = (BaseTable) loadTable(session, schemaTableName);
-        validateTableCanBeDropped(table);
+        com.amazonaws.services.glue.model.Table metastoreTable;
+        try {
+            metastoreTable = stats.getGetTable().call(() -> glueClient
+                    .getTable(new GetTableRequest()
+                            .withDatabaseName(schemaTableName.getSchemaName())
+                            .withName(schemaTableName.getTableName()))
+                    .getTable());
+        }
+        catch (EntityNotFoundException e) {
+            throw new TableNotFoundException(schemaTableName, e);
+        }
+
+        BaseTable table = null;
+        try {
+            table = (BaseTable) loadTable(session, schemaTableName);
+        }
+        catch (RuntimeException e) {
+            LOG.warn(e, "Failed to load table " + schemaTableName);
+        }
+
+        if (table != null) {
+            validateTableCanBeDropped(table);
+        }
+
+        String metadataLocation = metastoreTable.getParameters().get(METADATA_LOCATION_PROP);
+
+        if (metadataLocation == null) {
+            throw new TrinoException(ICEBERG_INVALID_METADATA, format("Table %s is missing [%s] property", schemaTableName, METADATA_LOCATION_PROP));
+        }
+
         try {
             deleteTable(schemaTableName.getSchemaName(), schemaTableName.getTableName());
         }
         catch (AmazonServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
-        dropTableData(table.io(), table.operations().current());
-        deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, table.location());
+
+        if (table != null) {
+            try {
+                dropTableData(table.io(), table.operations().current());
+            }
+            catch (RuntimeException e) {
+                LOG.warn(e, "Failed to delete data files referenced by TableMetadata for table " + schemaTableName);
+            }
+        }
+        String tableLocation = metadataLocation.replaceFirst("/[^/]*/[^/]*$", "");
+        deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, tableLocation);
     }
 
     @Override

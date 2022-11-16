@@ -1462,11 +1462,16 @@ public class HiveMetadata
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        HiveTableHandle handle = (HiveTableHandle) tableHandle;
-        if (metastore.getTable(handle.getSchemaName(), handle.getTableName()).isEmpty()) {
-            throw new TableNotFoundException(handle.getSchemaTableName());
+        dropTable(session, ((HiveTableHandle) tableHandle).getSchemaTableName());
+    }
+
+    @Override
+    public void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        if (metastore.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName()).isEmpty()) {
+            throw new TableNotFoundException(schemaTableName);
         }
-        metastore.dropTable(session, handle.getSchemaName(), handle.getTableName());
+        metastore.dropTable(session, schemaTableName.getSchemaName(), schemaTableName.getTableName());
     }
 
     @Override

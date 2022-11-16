@@ -323,19 +323,37 @@ public class TrinoHiveCatalog
     @Override
     public void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        BaseTable table = (BaseTable) loadTable(session, schemaTableName);
-        TableMetadata metadata = table.operations().current();
-        validateTableCanBeDropped(table);
-
-        io.trino.plugin.hive.metastore.Table metastoreTable = metastore.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName())
+        io.trino.plugin.hive.metastore.Table metastoreTable = metastore
+                .getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(schemaTableName));
+
+        BaseTable table = null;
+        try {
+            table = (BaseTable) loadTable(session, schemaTableName);
+        }
+        catch (RuntimeException e) {
+            log.warn(e, "Failed to load table " + schemaTableName);
+        }
+
+        if (table != null) {
+            validateTableCanBeDropped(table);
+        }
+
         metastore.dropTable(
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
                 false /* do not delete data */);
-        // Use the Iceberg routine for dropping the table data because the data files
-        // of the Iceberg table may be located in different locations
-        dropTableData(table.io(), metadata);
+
+        if (table != null) {
+            try {
+                // Use the Iceberg routine for dropping the table data because the data files
+                // of the Iceberg table may be located in different locations
+                dropTableData(table.io(), table.operations().current());
+            }
+            catch (RuntimeException e) {
+                log.warn(e, "Failed to delete data files referenced by TableMetadata for table " + schemaTableName);
+            }
+        }
         deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, metastoreTable.getStorage().getLocation());
     }
 
