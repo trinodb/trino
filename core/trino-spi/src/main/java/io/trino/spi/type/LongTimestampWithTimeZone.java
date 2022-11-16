@@ -16,6 +16,7 @@ package io.trino.spi.type;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
+import java.util.StringJoiner;
 
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static java.lang.Math.toIntExact;
@@ -104,5 +105,15 @@ public final class LongTimestampWithTimeZone
             return value;
         }
         return Integer.compare(picosOfMilli, other.picosOfMilli);
+    }
+
+    @Override
+    public String toString()
+    {
+        return new StringJoiner(", ", LongTimestampWithTimeZone.class.getSimpleName() + "[", "]")
+                .add("epochMillis=" + epochMillis)
+                .add("picosOfMilli=" + picosOfMilli)
+                .add("timeZoneKey=" + timeZoneKey)
+                .toString();
     }
 }
