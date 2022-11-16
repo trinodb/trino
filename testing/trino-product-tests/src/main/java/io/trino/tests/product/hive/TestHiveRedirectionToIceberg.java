@@ -13,14 +13,20 @@
  */
 package io.trino.tests.product.hive;
 
+import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreClient;
+import io.trino.tempto.AfterTestWithContext;
 import io.trino.tempto.BeforeTestWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert;
+import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.query.QueryResult;
+import org.apache.thrift.TException;
 import org.assertj.core.api.AbstractStringAssert;
 import org.assertj.core.api.Assertions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
+
+import javax.inject.Inject;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
@@ -30,6 +36,7 @@ import static io.trino.tempto.query.QueryExecutor.param;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.HIVE_ICEBERG_REDIRECTIONS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.iceberg.util.IcebergTestUtils.stripNamenodeURI;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.sql.JDBCType.VARCHAR;
@@ -37,10 +44,25 @@ import static java.sql.JDBCType.VARCHAR;
 public class TestHiveRedirectionToIceberg
         extends ProductTest
 {
+    @Inject
+    private HdfsClient hdfsClient;
+    @Inject
+    private TestHiveMetastoreClientFactory testHiveMetastoreClientFactory;
+    private ThriftMetastoreClient metastoreClient;
+
     @BeforeTestWithContext
     public void createAdditionalSchema()
+            throws TException
     {
+        this.metastoreClient = testHiveMetastoreClientFactory.createMetastoreClient();
         onTrino().executeQuery("CREATE SCHEMA IF NOT EXISTS hive.nondefaultschema");
+    }
+
+    @AfterTestWithContext
+    public void tearDown()
+    {
+        metastoreClient.close();
+        metastoreClient = null;
     }
 
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
@@ -612,6 +634,32 @@ public class TestHiveRedirectionToIceberg
                 .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Table " + hiveTableName + " is redirected to " + icebergTableName + " and DENY is not supported with table redirections");
 
         onTrino().executeQuery("DROP TABLE " + icebergTableName);
+    }
+
+    @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
+    public void testDropTableWithMissingMetadataFile()
+            throws TException
+    {
+        String tableName = "test_drop_table_with_missing_metadata_file_" + randomNameSuffix();
+        String hiveTableName = "hive.default." + tableName;
+        String icebergTableName = "iceberg.default." + tableName;
+
+        createIcebergTable(icebergTableName, false);
+
+        assertResultsEqual(
+                onTrino().executeQuery("TABLE " + hiveTableName),
+                onTrino().executeQuery("TABLE " + icebergTableName));
+
+        String metadataLocation = stripNamenodeURI(metastoreClient.getTable("default", tableName).getParameters().get("metadata_location"));
+
+        // Delete current metadata file
+        hdfsClient.delete(metadataLocation);
+        Assertions.assertThat(hdfsClient.exist(metadataLocation)).as("Current metadata file should not exist").isFalse();
+
+        // try to drop table
+        onTrino().executeQuery("DROP TABLE " + hiveTableName);
+        assertQueryFailure(() -> onTrino().executeQuery("TABLE " + icebergTableName))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Table '" + icebergTableName + "' does not exist");
     }
 
     private static void createIcebergTable(String tableName, boolean partitioned)

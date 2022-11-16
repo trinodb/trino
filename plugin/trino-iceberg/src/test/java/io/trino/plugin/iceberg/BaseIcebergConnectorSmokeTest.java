@@ -14,10 +14,16 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.TestingConnectorSession;
 import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.TableMetadataParser;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -28,22 +34,26 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public abstract class BaseIcebergConnectorSmokeTest
         extends BaseConnectorSmokeTest
 {
     protected final FileFormat format;
+    private final TrinoFileSystem trinoFileSystem;
 
     public BaseIcebergConnectorSmokeTest(FileFormat format)
     {
         this.format = requireNonNull(format, "format is null");
+        this.trinoFileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT).create(TestingConnectorSession.SESSION);
     }
 
     @SuppressWarnings("DuplicateBranchesInSwitch")
@@ -301,6 +311,86 @@ public abstract class BaseIcebergConnectorSmokeTest
                         "ROW(INT '2', VARCHAR 'USA', BOOLEAN 'false'), " +
                         "ROW(INT '3', VARCHAR 'POLAND', BOOLEAN 'true')");
         assertUpdate(format("DROP TABLE %s", tableName));
+    }
+
+    @Test
+    public void testDropTableWithMissingMetadataFile()
+            throws Exception
+    {
+        String tableName = "test_drop_table_with_missing_metadata_file_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
+
+        String metadataLocation = getMetadataLocation(tableName);
+
+        // Delete current metadata file
+        trinoFileSystem.deleteFile(metadataLocation);
+        assertThat(trinoFileSystem.newInputFile(metadataLocation).exists()).as("Current metadata file should not exist").isFalse();
+
+        // try to drop table
+        assertUpdate("DROP TABLE " + tableName);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
+    @Test
+    public void testDropTableWithMissingSnaphsotFile()
+            throws Exception
+    {
+        String tableName = "test_drop_table_with_missing_snapshot_file_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
+
+        String metadataLocation = getMetadataLocation(tableName);
+        TableMetadata tableMetadata = TableMetadataParser.read(trinoFileSystem.toFileIo(), metadataLocation);
+        String currentSnapshotFile = tableMetadata.currentSnapshot().manifestListLocation();
+
+        // Delete current snapshot file
+        trinoFileSystem.deleteFile(currentSnapshotFile);
+        assertThat(trinoFileSystem.newInputFile(currentSnapshotFile).exists()).as("Current snapshot file should not exist").isFalse();
+
+        // try to drop table
+        assertUpdate("DROP TABLE " + tableName);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
+    @Test
+    public void testDropTableWithMissingManifestListFile()
+            throws Exception
+    {
+        String tableName = "test_drop_table_with_missing_manifest_list_file_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
+
+        String metadataLocation = getMetadataLocation(tableName);
+        TableMetadata tableMetadata = TableMetadataParser.read(trinoFileSystem.toFileIo(), metadataLocation);
+        String manifestListFile = tableMetadata.currentSnapshot().allManifests(trinoFileSystem.toFileIo()).get(0).path();
+
+        // Delete Manifest List file
+        trinoFileSystem.deleteFile(manifestListFile);
+        assertThat(trinoFileSystem.newInputFile(manifestListFile).exists()).as("Manifest list file should not exist").isFalse();
+
+        // try to drop table
+        assertUpdate("DROP TABLE " + tableName);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
+    @Test
+    public void testDropTableWithMissingDataFile()
+            throws Exception
+    {
+        String tableName = "test_drop_table_with_missing_data_file_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
+
+        String tableLocation = getTableLocation(tableName);
+        String tableDataPath = String.format("%s/%s", tableLocation, "data");
+        FileIterator fileIterator = trinoFileSystem.listFiles(tableDataPath);
+        assertTrue(fileIterator.hasNext());
+        String dataFile = fileIterator.next().path();
+
+        // Delete data file
+        trinoFileSystem.deleteFile(dataFile);
+        assertThat(trinoFileSystem.newInputFile(dataFile).exists()).as("Data list file should not exist").isFalse();
+
+        // try to drop table
+        assertUpdate("DROP TABLE " + tableName);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
     private String getTableLocation(String tableName)

@@ -139,6 +139,7 @@ import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.types.Types.StringType;
 import org.apache.iceberg.types.Types.StructType;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayDeque;
@@ -230,6 +231,7 @@ import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.OPTIMIZE
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.REMOVE_ORPHAN_FILES;
 import static io.trino.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
+import static io.trino.spi.StandardErrorCode.METADATA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
@@ -354,6 +356,15 @@ public class IcebergMetadata
         }
         catch (TableNotFoundException e) {
             return null;
+        }
+        catch (RuntimeException e) {
+            if (e.getCause() != null) {
+                if (e.getCause() instanceof FileNotFoundException
+                        || e.getCause().getMessage().contains("The specified key does not exist")) {
+                    throw new TrinoException(METADATA_NOT_FOUND, "Metadata not found in metadata location for table " + tableName, e);
+                }
+            }
+            throw e;
         }
 
         Optional<Long> tableSnapshotId;
@@ -1410,7 +1421,13 @@ public class IcebergMetadata
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        catalog.dropTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
+        dropTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
+    }
+
+    @Override
+    public void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        catalog.dropTable(session, schemaTableName);
     }
 
     @Override
