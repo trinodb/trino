@@ -46,7 +46,7 @@
   partition columns. ({issue}`14161`)
 * Improve performance of reads after a `DELETE` removes all rows from a file. ({issue}`14198`)
 * Reduce query latency when using a Glue catalog for metadata. ({issue}`13875`)
-* Fix materalized views temporarily appearing empty when a refresh is about to
+* Fix materialized views temporarily appearing empty when a refresh is about to
   complete. ({issue}`14145`)
 * Fix potential table corruption when changing a table before it is known if
   committing to the Hive metastore has failed or succeeded. ({issue}`14174`)
