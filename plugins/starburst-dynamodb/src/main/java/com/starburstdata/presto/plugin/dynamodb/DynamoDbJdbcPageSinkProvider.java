@@ -36,24 +36,10 @@ public class DynamoDbJdbcPageSinkProvider
         super(jdbcClient);
     }
 
-    @SuppressWarnings("DeprecatedApi")
-    @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle tableHandle)
-    {
-        return super.createPageSink(transactionHandle, session, tableHandle);
-    }
-
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle tableHandle, ConnectorPageSinkId pageSinkId)
     {
         return super.createPageSink(transactionHandle, session, tableHandle, pageSinkId);
-    }
-
-    @SuppressWarnings("DeprecatedApi")
-    @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle tableHandle)
-    {
-        return super.createPageSink(transactionHandle, session, tableHandle);
     }
 
     @Override
@@ -62,24 +48,10 @@ public class DynamoDbJdbcPageSinkProvider
         return super.createPageSink(transactionHandle, session, tableHandle, pageSinkId);
     }
 
-    @SuppressWarnings({"deprecation", "DeprecatedApi"})
-    @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
-    {
-        return super.createPageSink(transactionHandle, session, tableExecuteHandle);
-    }
-
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, ConnectorPageSinkId pageSinkId)
     {
         return super.createPageSink(transactionHandle, session, tableExecuteHandle, pageSinkId);
-    }
-
-    @SuppressWarnings({"deprecation", "DeprecatedApi"})
-    @Override
-    public ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle)
-    {
-        return super.createMergeSink(transactionHandle, session, mergeHandle);
     }
 
     @Override
