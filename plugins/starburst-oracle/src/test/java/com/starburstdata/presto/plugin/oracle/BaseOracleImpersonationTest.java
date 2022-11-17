@@ -22,7 +22,7 @@ import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServe
 import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.withSynonym;
 import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.withTable;
 import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.withView;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
@@ -58,7 +58,7 @@ public abstract class BaseOracleImpersonationTest
     public void testAccessToTable()
             throws Exception
     {
-        String tableName = getProxyUser() + ".some_table" + "_" + randomTableSuffix();
+        String tableName = getProxyUser() + ".some_table" + "_" + randomNameSuffix();
         try (AutoCloseable ignore = withTable(tableName, "(col_1) AS SELECT 'a' FROM dual")) {
             Session aliceSession = createSession(ALICE_USER, getProxyUser());
 
@@ -80,7 +80,7 @@ public abstract class BaseOracleImpersonationTest
     public void testAccessToView()
             throws Exception
     {
-        String suffix = "_" + randomTableSuffix();
+        String suffix = "_" + randomNameSuffix();
         String tableName = getProxyUser() + ".some_table_for_view" + suffix;
         String viewName = getProxyUser() + ".some_view" + suffix;
         try (AutoCloseable ignore = withTable(tableName, "(col_1) AS SELECT 'a' FROM dual");
@@ -105,7 +105,7 @@ public abstract class BaseOracleImpersonationTest
     public void testAccessToSynonym()
             throws Exception
     {
-        String suffix = "_" + randomTableSuffix();
+        String suffix = "_" + randomNameSuffix();
         String tableName = getProxyUser() + ".some_table_for_synonym" + suffix;
         String synonymName = getProxyUser() + ".some_synonym" + suffix;
         try (AutoCloseable ignore = withTable(tableName, "(col_1) AS SELECT 'a' FROM dual");
