@@ -194,6 +194,8 @@ public class IcebergSplitSource
             closer.register(fileScanTaskIterable);
             this.fileScanTaskIterator = fileScanTaskIterable.iterator();
             closer.register(fileScanTaskIterator);
+            // TODO: Remove when NPE check has been released: https://github.com/trinodb/trino/issues/15372
+            isFinished();
         }
 
         TupleDomain<IcebergColumnHandle> dynamicFilterPredicate = dynamicFilter.getCurrentPredicate()
