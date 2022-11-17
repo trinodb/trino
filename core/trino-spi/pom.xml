@@ -199,6 +199,15 @@
                                 <item>
                                     <code>java.field.enumConstantOrderChanged</code>
                                 </item>
+                                <!-- Allow arbitrary changes to unstable APIs -->
+                                <item>
+                                    <regex>true</regex>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>
+                                        <matcher>java</matcher>
+                                        <match>@io.trino.spi.Unstable *;</match>
+                                    </old>
+                                </item>
                                 <!-- Allow removing things that were previously deprecated -->
                                 <item>
                                     <regex>true</regex>

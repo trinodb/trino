@@ -15,6 +15,7 @@ package io.trino.spi.eventlistener;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.spi.Unstable;
 
 import java.util.List;
 
@@ -27,6 +28,7 @@ public class ColumnInfo
     private final List<String> masks;
 
     @JsonCreator
+    @Unstable
     public ColumnInfo(String column, List<String> masks)
     {
         this.column = column;

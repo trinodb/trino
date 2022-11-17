@@ -15,6 +15,7 @@ package io.trino.spi.eventlistener;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.spi.Unstable;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.session.ResourceEstimates;
@@ -58,6 +59,7 @@ public class QueryContext
     private final String retryPolicy;
 
     @JsonCreator
+    @Unstable
     public QueryContext(
             String user,
             Optional<String> principal,
