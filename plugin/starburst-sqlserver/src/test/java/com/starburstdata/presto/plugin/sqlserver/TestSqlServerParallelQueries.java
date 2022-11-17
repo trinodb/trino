@@ -27,7 +27,7 @@ import java.util.stream.IntStream;
 
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.createStarburstSqlServerQueryRunner;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerSessionProperties.PARALLEL_CONNECTIONS_COUNT;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.joining;
@@ -50,7 +50,7 @@ public class TestSqlServerParallelQueries
     @Test(dataProvider = "partitionRangesDataProvider")
     public void testReadingPartitionedTable(int range)
     {
-        String tableName = "partitioned" + randomTableSuffix();
+        String tableName = "partitioned" + randomNameSuffix();
         createPartitionedTable(tableName, 4, range);
         fillTableWithData(tableName, 3);
 
@@ -63,7 +63,7 @@ public class TestSqlServerParallelQueries
     @Test
     public void testReadingPartitionedEmptyTable()
     {
-        String tableName = "partitioned" + randomTableSuffix();
+        String tableName = "partitioned" + randomNameSuffix();
         createPartitionedTable(tableName, 4, 10);
 
         verifyTableSplitCount(tableName, Optional.empty(), 1);
@@ -75,7 +75,7 @@ public class TestSqlServerParallelQueries
     @Test(dataProvider = "partitionRangesDataProvider")
     public void testReadingPartitionedTableWithMaxSplits(int range)
     {
-        String tableName = "partitioned" + randomTableSuffix();
+        String tableName = "partitioned" + randomNameSuffix();
         createPartitionedTable(tableName, 4, range);
         fillTableWithData(tableName, 3);
 
@@ -89,7 +89,7 @@ public class TestSqlServerParallelQueries
     @Test(dataProvider = "partitionRangesDataProvider")
     public void testReadingTableWithMaxSplitsPerScan(int range)
     {
-        String tableName = "partitioned_big" + randomTableSuffix();
+        String tableName = "partitioned_big" + randomNameSuffix();
         createPartitionedTable(tableName, 100, range);
         fillTableWithData(tableName, 1000);
 
@@ -109,7 +109,7 @@ public class TestSqlServerParallelQueries
     @Test
     public void testReadingTableWithMaxSplitsPerScanHugePartition()
     {
-        String tableName = "partitioned_big" + randomTableSuffix();
+        String tableName = "partitioned_big" + randomNameSuffix();
         createPartitionedTable(tableName, 1000, 2);
         fillTableWithData(tableName, 1000);
 
@@ -124,7 +124,7 @@ public class TestSqlServerParallelQueries
     @Test
     public void testReadingNonPartitionedTable()
     {
-        String tableName = "non_partitioned" + randomTableSuffix();
+        String tableName = "non_partitioned" + randomNameSuffix();
         createNonPartitionedTable(tableName);
         fillTableWithData(tableName, 5);
 
