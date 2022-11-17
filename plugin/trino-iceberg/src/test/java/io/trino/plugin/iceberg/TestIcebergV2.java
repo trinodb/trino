@@ -51,6 +51,7 @@ import org.apache.iceberg.data.GenericRecord;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.data.parquet.GenericParquetWriter;
 import org.apache.iceberg.deletes.EqualityDeleteWriter;
+import org.apache.iceberg.deletes.PositionDelete;
 import org.apache.iceberg.deletes.PositionDeleteWriter;
 import org.apache.iceberg.hadoop.HadoopOutputFile;
 import org.apache.iceberg.parquet.Parquet;
@@ -171,8 +172,10 @@ public class TestIcebergV2
                 .withSpec(PartitionSpec.unpartitioned())
                 .buildPositionWriter();
 
+        PositionDelete<Record> positionDelete = PositionDelete.create();
+        PositionDelete<Record> record = positionDelete.set(dataFilePath, 0, GenericRecord.create(icebergTable.schema()));
         try (Closeable ignored = writer) {
-            writer.delete(dataFilePath, 0, GenericRecord.create(icebergTable.schema()));
+            writer.write(record);
         }
 
         icebergTable.newRowDelta().addDeletes(writer.toDeleteFile()).commit();
@@ -521,7 +524,7 @@ public class TestIcebergV2
 
         Record dataDelete = GenericRecord.create(deleteRowSchema);
         try (Closeable ignored = writer) {
-            writer.delete(dataDelete.copy(overwriteValues));
+            writer.write(dataDelete.copy(overwriteValues));
         }
 
         icebergTable.newRowDelta().addDeletes(writer.toDeleteFile()).commit();
