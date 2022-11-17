@@ -15,6 +15,7 @@ package io.trino.spi.eventlistener;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.spi.Unstable;
 
 import java.time.Duration;
 import java.util.Optional;
@@ -38,6 +39,7 @@ public class SplitStatistics
     private final Optional<Duration> timeToLastByte;
 
     @JsonCreator
+    @Unstable
     public SplitStatistics(
             Duration cpuTime,
             Duration wallTime,

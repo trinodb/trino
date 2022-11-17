@@ -15,6 +15,7 @@ package io.trino.spi.eventlistener;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.spi.Unstable;
 
 import java.util.List;
 import java.util.Optional;
@@ -35,6 +36,7 @@ public class QueryOutputMetadata
     private final Optional<Boolean> jsonLengthLimitExceeded;
 
     @JsonCreator
+    @Unstable
     public QueryOutputMetadata(String catalogName, String schema, String table, Optional<List<OutputColumnMetadata>> columns, Optional<String> connectorOutputMetadata, Optional<Boolean> jsonLengthLimitExceeded)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");

@@ -15,6 +15,7 @@ package io.trino.spi.eventlistener;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.spi.Unstable;
 
 import java.util.List;
 
@@ -35,6 +36,7 @@ public class TableInfo
     private final boolean directlyReferenced;
 
     @JsonCreator
+    @Unstable
     public TableInfo(String catalog, String schema, String table, String authorization, List<String> filters, List<ColumnInfo> columns, boolean directlyReferenced)
     {
         this.catalog = requireNonNull(catalog, "catalog is null");
