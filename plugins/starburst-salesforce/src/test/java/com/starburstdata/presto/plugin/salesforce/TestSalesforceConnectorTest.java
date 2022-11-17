@@ -100,9 +100,9 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHD
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.tpch.TpchTable.NATION;
@@ -676,7 +676,7 @@ public class TestSalesforceConnectorTest
     @Test
     public void testCreateTable()
     {
-        String tableName = "test_create_" + randomTableSuffix();
+        String tableName = "test_create_" + randomNameSuffix();
         if (!supportsCreateTable()) {
             assertQueryFails("CREATE TABLE " + tableName + " (a bigint, b double, c varchar)", "This connector does not support creating tables");
             return;
@@ -693,7 +693,7 @@ public class TestSalesforceConnectorTest
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
 
         // TODO (https://github.com/trinodb/trino/issues/5901) revert to longer name__c when Oracle version is updated
-        tableName = "test_cr_tab_not_exists_" + randomTableSuffix();
+        tableName = "test_cr_tab_not_exists_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (a bigint, b varchar, c double)");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
         assertTableColumnNames(tableName, "a", "b", "c");
@@ -706,12 +706,12 @@ public class TestSalesforceConnectorTest
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
 
         // Test CREATE TABLE LIKE
-        tableName = "test_create_original_" + randomTableSuffix();
+        tableName = "test_create_original_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (a bigint, b double, c varchar)");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
         assertTableColumnNames(tableName, "a", "b", "c");
 
-        String tableNameLike = "test_create_like_" + randomTableSuffix();
+        String tableNameLike = "test_create_like_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableNameLike + " (LIKE " + tableName + ", d bigint, e varchar)");
         assertTrue(getQueryRunner().tableExists(getSession(), tableNameLike));
         assertTableColumnNames(tableNameLike, "a", "b", "c", "d", "e");
@@ -726,7 +726,7 @@ public class TestSalesforceConnectorTest
     @Test
     public void testCreateTableAsSelect()
     {
-        String tableName = "test_ctas" + randomTableSuffix();
+        String tableName = "test_ctas" + randomNameSuffix();
         if (!supportsCreateTable()) {
             assertQueryFails("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT name__c, regionkey__c FROM nation__c", "This connector does not support creating tables with data");
             return;
@@ -810,7 +810,7 @@ public class TestSalesforceConnectorTest
 
     protected void assertCreateTableAsSelect(Session session, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
     {
-        String table = "test_table_" + randomTableSuffix();
+        String table = "test_table_" + randomNameSuffix();
         assertUpdate(session, "CREATE TABLE " + table + " AS " + query, rowCountQuery);
         assertQuery(session, "SELECT * FROM " + table, expectedQuery);
         assertUpdate(session, "DROP TABLE " + table);
@@ -823,18 +823,18 @@ public class TestSalesforceConnectorTest
     {
         skipTestUnless(supportsCreateTable());
 
-        String tableName = "test_rename_" + randomTableSuffix();
+        String tableName = "test_rename_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x", 1);
 
-        String renamedTable = "test_rename_new_" + randomTableSuffix();
+        String renamedTable = "test_rename_new_" + randomNameSuffix();
         assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + renamedTable);
         assertQuery("SELECT x FROM " + renamedTable, "VALUES 123");
 
-        String testExistsTableName = "test_rename_new_exists_" + randomTableSuffix();
+        String testExistsTableName = "test_rename_new_exists_" + randomNameSuffix();
         assertUpdate("ALTER TABLE IF EXISTS " + renamedTable + " RENAME TO " + testExistsTableName);
         assertQuery("SELECT x FROM " + testExistsTableName, "VALUES 123");
 
-        String uppercaseName = "TEST_RENAME_" + randomTableSuffix(); // Test an upper-case, not delimited identifier
+        String uppercaseName = "TEST_RENAME_" + randomNameSuffix(); // Test an upper-case, not delimited identifier
         assertUpdate("ALTER TABLE " + testExistsTableName + " RENAME TO " + uppercaseName);
         assertQuery(
                 "SELECT x FROM " + uppercaseName.toLowerCase(ENGLISH), // Ensure select allows for lower-case, not delimited identifier
@@ -858,7 +858,7 @@ public class TestSalesforceConnectorTest
             return;
         }
 
-        String tableName = "test_comment_" + randomTableSuffix();
+        String tableName = "test_comment_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + "(a integer)");
 
         // comment__c set
@@ -907,7 +907,7 @@ public class TestSalesforceConnectorTest
             return;
         }
 
-        String tableName = "test_comment_column_" + randomTableSuffix();
+        String tableName = "test_comment_column_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + "(a integer)");
 
         // comment__c set
@@ -952,7 +952,7 @@ public class TestSalesforceConnectorTest
     {
         skipTestUnless(supportsCreateTable());
 
-        String tableName = "test_rename_column_" + randomTableSuffix();
+        String tableName = "test_rename_column_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 'some value' x", 1);
 
         assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN x TO before_y");
@@ -985,7 +985,7 @@ public class TestSalesforceConnectorTest
     {
         skipTestUnless(supportsCreateTable());
 
-        String tableName = "test_drop_column_" + randomTableSuffix();
+        String tableName = "test_drop_column_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x, 456 y, 111 a", 1);
 
         assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN x");
@@ -1009,7 +1009,7 @@ public class TestSalesforceConnectorTest
     {
         skipTestUnless(supportsCreateTable());
 
-        String tableName = "test_add_column_" + randomTableSuffix();
+        String tableName = "test_add_column_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT CAST('first' AS varchar) x", 1);
 
         assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN x bigint", ".* Column 'x' already exists");
@@ -1052,7 +1052,7 @@ public class TestSalesforceConnectorTest
 
         String query = "SELECT phone, custkey__c, acctbal FROM customer__c";
 
-        String tableName = "test_insert_" + randomTableSuffix();
+        String tableName = "test_insert_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS " + query + " WITH NO DATA", 0);
         assertQuery("SELECT count(*) FROM " + tableName + "", "SELECT 0");
 
@@ -1092,7 +1092,7 @@ public class TestSalesforceConnectorTest
     {
         skipTestUnless(supportsInsert());
 
-        String tableName = "test_insert_unicode_" + randomTableSuffix();
+        String tableName = "test_insert_unicode_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + "(test varchar)");
         assertUpdate("INSERT INTO " + tableName + "(test) VALUES 'Hello', U&'hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801' ", 2);
@@ -1124,7 +1124,7 @@ public class TestSalesforceConnectorTest
     {
         skipTestUnless(supportsInsert());
 
-        String tableName = "test_insert_array_" + randomTableSuffix();
+        String tableName = "test_insert_array_" + randomNameSuffix();
         if (!supportsArrays()) {
             assertThatThrownBy(() -> query("CREATE TABLE " + tableName + " (a array(bigint))"))
                     // TODO Unify failure message across connectors
@@ -1149,7 +1149,7 @@ public class TestSalesforceConnectorTest
             return;
         }
 
-        String tableName = "test_delete_" + randomTableSuffix();
+        String tableName = "test_delete_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders__c", "SELECT count(*) FROM orders__c");
 
         // delete half the table, then delete the rest
@@ -1281,8 +1281,8 @@ public class TestSalesforceConnectorTest
 
         @Language("SQL") String query = "SELECT orderkey__c, orderstatus__c, totalprice__c / 2 half FROM orders__c";
 
-        String testView = "test_view_" + randomTableSuffix();
-        String testViewWithComment = "test_view_with_comment_" + randomTableSuffix();
+        String testView = "test_view_" + randomNameSuffix();
+        String testViewWithComment = "test_view_with_comment_" + randomNameSuffix();
         assertUpdate("CREATE VIEW " + testView + " AS SELECT 123 x");
         assertUpdate("CREATE OR REPLACE VIEW " + testView + " AS " + query);
 
@@ -1313,8 +1313,8 @@ public class TestSalesforceConnectorTest
     {
         skipTestUnless(supportsViews());
 
-        String upperCaseView = "test_view_uppercase_" + randomTableSuffix();
-        String mixedCaseView = "test_view_mixedcase_" + randomTableSuffix();
+        String upperCaseView = "test_view_uppercase_" + randomNameSuffix();
+        String mixedCaseView = "test_view_mixedcase_" + randomNameSuffix();
 
         computeActual("CREATE VIEW " + upperCaseView + " AS SELECT X FROM (SELECT 123 X)");
         computeActual("CREATE VIEW " + mixedCaseView + " AS SELECT XyZ FROM (SELECT 456 XyZ)");
@@ -1330,8 +1330,8 @@ public class TestSalesforceConnectorTest
     {
         skipTestUnless(supportsViews());
 
-        String tableName = "test_table_" + randomTableSuffix();
-        String viewName = "test_view_" + randomTableSuffix();
+        String tableName = "test_table_" + randomNameSuffix();
+        String viewName = "test_view_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 'abcdefg' a", 1);
         assertUpdate("CREATE VIEW " + viewName + " AS SELECT a FROM " + tableName);
@@ -1353,8 +1353,8 @@ public class TestSalesforceConnectorTest
     {
         skipTestUnless(supportsViews());
 
-        String tableName = "test_table_" + randomTableSuffix();
-        String viewName = "test_view_" + randomTableSuffix();
+        String tableName = "test_table_" + randomNameSuffix();
+        String viewName = "test_view_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT BIGINT '1' v", 1);
         assertUpdate("CREATE VIEW " + viewName + " AS SELECT * FROM " + tableName);
@@ -1376,7 +1376,7 @@ public class TestSalesforceConnectorTest
     {
         skipTestUnless(supportsViews());
 
-        String viewName = "meta_test_view_" + randomTableSuffix();
+        String viewName = "meta_test_view_" + randomNameSuffix();
 
         @Language("SQL") String query = "SELECT BIGINT '123' x, 'foo' y";
         assertUpdate("CREATE VIEW " + viewName + securityClauseInCreate + " AS " + query);
@@ -1466,7 +1466,7 @@ public class TestSalesforceConnectorTest
         checkState(getSession().getCatalog().isPresent(), "catalog is not set");
         checkState(getSession().getSchema().isPresent(), "schema is not set");
 
-        String viewName = "test_show_create_view" + randomTableSuffix();
+        String viewName = "test_show_create_view" + randomNameSuffix();
         assertUpdate("DROP VIEW IF EXISTS " + viewName);
         String ddl = format(
                 "CREATE VIEW %s.%s.%s SECURITY DEFINER AS\n" +
@@ -1511,7 +1511,7 @@ public class TestSalesforceConnectorTest
             DispatchManager dispatchManager = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getDispatchManager();
             long beforeCompletedQueriesCount = waitUntilStable(() -> dispatchManager.getStats().getCompletedQueries().getTotalCount(), new Duration(5, SECONDS));
             long beforeSubmittedQueriesCount = dispatchManager.getStats().getSubmittedQueries().getTotalCount();
-            String tableName = "test_query_logging_count" + randomTableSuffix();
+            String tableName = "test_query_logging_count" + randomNameSuffix();
             assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 foo_1, 2 foo_2_4", 1);
             assertQuery("SELECT foo_1, foo_2_4 FROM " + tableName, "SELECT 1, 2");
             assertUpdate("DROP TABLE " + tableName);
@@ -1553,7 +1553,7 @@ public class TestSalesforceConnectorTest
     {
         skipTestUnless(supportsCreateTable());
 
-        String tableName = "test_symbol_aliasing" + randomTableSuffix();
+        String tableName = "test_symbol_aliasing" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 foo_1, 2 foo_2_4", 1);
         assertQuery("SELECT foo_1, foo_2_4 FROM " + tableName, "SELECT 1, 2");
         assertUpdate("DROP TABLE " + tableName);
@@ -1565,7 +1565,7 @@ public class TestSalesforceConnectorTest
         skipTestUnless(supportsCreateTable());
         skipTestUnless(supportsInsert());
 
-        String tableName = "test_written_stats_" + randomTableSuffix();
+        String tableName = "test_written_stats_" + randomNameSuffix();
         String sql = "CREATE TABLE " + tableName + " AS SELECT * FROM nation__c";
         MaterializedResultWithQueryId resultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
         QueryInfo queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
@@ -1588,7 +1588,7 @@ public class TestSalesforceConnectorTest
     @Test
     public void testCreateSchema()
     {
-        String schemaName = "test_schema_create_" + randomTableSuffix();
+        String schemaName = "test_schema_create_" + randomNameSuffix();
         if (!supportsCreateSchema()) {
             assertQueryFails("CREATE SCHEMA " + schemaName, "This connector does not support creating schemas");
             return;
@@ -1638,7 +1638,7 @@ public class TestSalesforceConnectorTest
         if (delimited) {
             nameInSql = "\"" + columnName.replace("\"", "\"\"") + "\"";
         }
-        String tableName = "tcn_" + nameInSql.toLowerCase(ENGLISH).replaceAll("[^a-z0-9]", "_") + "_" + randomTableSuffix();
+        String tableName = "tcn_" + nameInSql.toLowerCase(ENGLISH).replaceAll("[^a-z0-9]", "_") + "_" + randomNameSuffix();
 
         try {
             // TODO test with both CTAS *and* CREATE TABLE + INSERT, since they use different connector API methods.
@@ -1719,7 +1719,7 @@ public class TestSalesforceConnectorTest
 
     protected String dataMappingTableName(String trinoTypeName)
     {
-        return "test_data_mapping_smoke_" + trinoTypeName.replaceAll("[^a-zA-Z0-9]", "_") + "_" + randomTableSuffix();
+        return "test_data_mapping_smoke_" + trinoTypeName.replaceAll("[^a-zA-Z0-9]", "_") + "_" + randomNameSuffix();
     }
 
     @Test(dataProvider = "testDataMappingSmokeTestDataProvider")
@@ -2417,7 +2417,7 @@ public class TestSalesforceConnectorTest
         if (!hasBehavior(SUPPORTS_RENAME_SCHEMA)) {
             String schemaName = getSession().getSchema().orElseThrow();
             assertQueryFails(
-                    format("ALTER SCHEMA %s RENAME TO %s", schemaName, schemaName + randomTableSuffix()),
+                    format("ALTER SCHEMA %s RENAME TO %s", schemaName, schemaName + randomNameSuffix()),
                     "This connector does not support renaming schemas");
             return;
         }
@@ -2426,7 +2426,7 @@ public class TestSalesforceConnectorTest
             throw new SkipException("Skipping as connector does not support CREATE SCHEMA");
         }
 
-        String schemaName = "test_rename_schema_" + randomTableSuffix();
+        String schemaName = "test_rename_schema_" + randomNameSuffix();
         try {
             assertUpdate("CREATE SCHEMA " + schemaName);
             assertUpdate("ALTER SCHEMA " + schemaName + " RENAME TO " + schemaName + "_renamed");
