@@ -253,6 +253,10 @@ import static io.trino.sql.parser.TreeNodes.qualifiedName;
 import static io.trino.sql.parser.TreeNodes.rowType;
 import static io.trino.sql.parser.TreeNodes.simpleType;
 import static io.trino.sql.testing.TreeAssertions.assertFormattedSql;
+import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.DIVIDE;
+import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY;
+import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.SUBTRACT;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.negative;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.positive;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
@@ -896,25 +900,32 @@ public class TestSqlParser
                 new NotExpression(new LongLiteral("1")),
                 new LongLiteral("2")));
 
-        assertExpression("-1 + 2", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.ADD,
+        assertExpression("-1 + 2", new ArithmeticBinaryExpression(
+                ADD,
                 new LongLiteral("-1"),
                 new LongLiteral("2")));
 
-        assertExpression("1 - 2 - 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.SUBTRACT,
-                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.SUBTRACT,
+        assertExpression("1 - 2 - 3", new ArithmeticBinaryExpression(
+                SUBTRACT,
+                new ArithmeticBinaryExpression(
+                        SUBTRACT,
                         new LongLiteral("1"),
                         new LongLiteral("2")),
                 new LongLiteral("3")));
 
-        assertExpression("1 / 2 / 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.DIVIDE,
-                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.DIVIDE,
+        assertExpression("1 / 2 / 3", new ArithmeticBinaryExpression(
+                DIVIDE,
+                new ArithmeticBinaryExpression(
+                        DIVIDE,
                         new LongLiteral("1"),
                         new LongLiteral("2")),
                 new LongLiteral("3")));
 
-        assertExpression("1 + 2 * 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.ADD,
+        assertExpression("1 + 2 * 3", new ArithmeticBinaryExpression(
+                ADD,
                 new LongLiteral("1"),
-                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY,
+                new ArithmeticBinaryExpression(
+                        MULTIPLY,
                         new LongLiteral("2"),
                         new LongLiteral("3"))));
     }
@@ -1874,7 +1885,7 @@ public class TestSqlParser
                                         Optional.of(equal(nameReference("c", "action"), new StringLiteral("mod"))),
                                         ImmutableList.of(
                                                 new MergeUpdate.Assignment(new Identifier("qty"), new ArithmeticBinaryExpression(
-                                                        ArithmeticBinaryExpression.Operator.ADD,
+                                                        ADD,
                                                         nameReference("qty"),
                                                         nameReference("c", "qty"))),
                                                 new MergeUpdate.Assignment(new Identifier("ts"), new CurrentTime(CurrentTime.Function.TIMESTAMP)))),
