@@ -55,9 +55,9 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.datatype.DataType.doubleDataType;
 import static io.trino.testing.datatype.DataType.realDataType;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -883,7 +883,7 @@ public class TestSapHanaTypeMapping
 
     private void testCreateTableAsAndInsertConsistency(String inputLiteral, String expectedResult)
     {
-        String tableName = "test_ctas_and_insert_" + randomTableSuffix();
+        String tableName = "test_ctas_and_insert_" + randomNameSuffix();
 
         // CTAS
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT " + inputLiteral + " a", 1);

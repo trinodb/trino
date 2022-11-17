@@ -22,7 +22,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -225,7 +225,7 @@ public abstract class BaseSapHanaConnectorTest
     public void testSelectFromStandardView()
     {
         String schemaName = getSession().getSchema().orElseThrow();
-        String viewName = schemaName + ".nation_view_" + randomTableSuffix();
+        String viewName = schemaName + ".nation_view_" + randomNameSuffix();
         server.execute("CREATE VIEW " + viewName + " AS SELECT nationkey FROM " + schemaName + ".nation WHERE name = 'ROMANIA'");
         assertThat(query("SELECT * FROM " + viewName)).matches("VALUES BIGINT '19'");
     }

@@ -26,7 +26,7 @@ import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createS
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.NATION;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -60,7 +60,7 @@ public class TestSapHanaColumnViews
         // We use slash in the table name is it convention SAP HANA uses when views are being
         // activated based on object model. The part before slash denotes package in which view is defined
         // and part after slash actual view name.
-        String viewName = "views/calc_view_" + randomTableSuffix();
+        String viewName = "views/calc_view_" + randomNameSuffix();
         server.execute("CREATE CALCULATION SCENARIO " +
                 "\"_SYS_BIC\".\"" + viewName + "\" USING " +
                 "'[\n" +
@@ -184,7 +184,7 @@ public class TestSapHanaColumnViews
         // We use slash in the table name is it convention SAP HANA uses when views are being
         // activated based on object model. The part before slash denotes package in which view is defined
         // and part after slash actual view name.
-        String viewName = "views/attribute_join_view_" + randomTableSuffix();
+        String viewName = "views/attribute_join_view_" + randomNameSuffix();
 
         // Despite saying COLUMN VIEW it actually creates JOIN VIEW (reported as CALC VIEW in JDBC metadata); actual view type is determined by parameters.
         server.execute("" +
@@ -233,7 +233,7 @@ public class TestSapHanaColumnViews
         // We use slash in the table name is it convention SAP HANA uses when views are being
         // activated based on object model. The part before slash denotes package in which view is defined
         // and part after slash actual view name.
-        String viewName = "views/analytics_olap_view_" + randomTableSuffix();
+        String viewName = "views/analytics_olap_view_" + randomNameSuffix();
 
         // Despite saying COLUMN VIEW it actually creates OLAP VIEW (reported as CALC VIEW in JDBC metadata); actual view type is determined by parameters.
         server.execute("" +

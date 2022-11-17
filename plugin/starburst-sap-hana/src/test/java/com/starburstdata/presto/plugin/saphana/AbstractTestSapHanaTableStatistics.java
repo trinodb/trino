@@ -22,8 +22,8 @@ import java.util.List;
 import java.util.Locale;
 
 import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createSapHanaQueryRunner;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.sql.TestTable.fromColumns;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 
@@ -50,7 +50,7 @@ public abstract class AbstractTestSapHanaTableStatistics
     @Test
     public void testNotAnalyzed()
     {
-        String tableName = "test_stats_not_analyzed_" + randomTableSuffix();
+        String tableName = "test_stats_not_analyzed_" + randomNameSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
         try {
@@ -78,7 +78,7 @@ public abstract class AbstractTestSapHanaTableStatistics
     @Test
     public void testBasic()
     {
-        String tableName = "test_stats_orders_" + randomTableSuffix();
+        String tableName = "test_stats_orders_" + randomNameSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
         try {
@@ -106,7 +106,7 @@ public abstract class AbstractTestSapHanaTableStatistics
     @Test
     public void testAllNulls()
     {
-        String tableName = "test_stats_table_all_nulls_" + randomTableSuffix();
+        String tableName = "test_stats_table_all_nulls_" + randomNameSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual(format("CREATE TABLE %s AS SELECT orderkey, custkey, orderpriority, comment FROM tpch.tiny.orders WHERE false", tableName));
         try {
@@ -130,7 +130,7 @@ public abstract class AbstractTestSapHanaTableStatistics
     @Test
     public void testNullsFraction()
     {
-        String tableName = "test_stats_table_with_nulls_" + randomTableSuffix();
+        String tableName = "test_stats_table_with_nulls_" + randomNameSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         assertUpdate("" +
                         "CREATE TABLE " + tableName + " AS " +
@@ -273,7 +273,7 @@ public abstract class AbstractTestSapHanaTableStatistics
     @DataProvider
     public Object[][] testCaseColumnNamesWithRandomSuffixDataProvider()
     {
-        String suffix = randomTableSuffix();
+        String suffix = randomNameSuffix();
         return new Object[][] {
                 {"TEST_STATS_MIXED_UNQUOTED_UPPER_" + suffix.toUpperCase(Locale.ENGLISH)},
                 {"test_stats_mixed_unquoted_lower_" + suffix.toLowerCase(Locale.ENGLISH)},
