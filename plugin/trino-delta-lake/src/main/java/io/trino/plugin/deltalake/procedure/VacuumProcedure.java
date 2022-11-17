@@ -46,6 +46,7 @@ import javax.inject.Provider;
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -68,6 +69,7 @@ public class VacuumProcedure
         implements Provider<Procedure>
 {
     private static final Logger log = Logger.get(VacuumProcedure.class);
+    private static final int DELETE_BATCH_SIZE = 1000;
 
     private static final MethodHandle VACUUM;
 
@@ -209,6 +211,7 @@ public class VacuumProcedure
         long retainedUnknownFiles = 0;
         long removedFiles = 0;
 
+        List<String> filesToDelete = new ArrayList<>();
         FileIterator listing = fileSystem.listFiles(tableLocation.toString());
         while (listing.hasNext()) {
             FileEntry entry = listing.next();
@@ -254,8 +257,17 @@ public class VacuumProcedure
                     path,
                     modificationTime,
                     modificationInstant);
-            fileSystem.deleteFile(path);
-            removedFiles++;
+            filesToDelete.add(path);
+            if (filesToDelete.size() == DELETE_BATCH_SIZE) {
+                fileSystem.deleteFiles(filesToDelete);
+                removedFiles += filesToDelete.size();
+                filesToDelete.clear();
+            }
+        }
+
+        if (!filesToDelete.isEmpty()) {
+            fileSystem.deleteFiles(filesToDelete);
+            removedFiles += filesToDelete.size();
         }
 
         log.info(
