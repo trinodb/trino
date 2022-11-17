@@ -201,8 +201,8 @@ public class SqlServerClient
 
     private final boolean statisticsEnabled;
 
-    private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
-    private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
+    protected ConnectorExpressionRewriter<String> connectorExpressionRewriter;
+    protected AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
 
     private static final int MAX_SUPPORTED_TEMPORAL_PRECISION = 7;
 
@@ -860,7 +860,7 @@ public class SqlServerClient
         return preventTextualTypeAggregationPushdown(groupingSets);
     }
 
-    private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
+    protected static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
     {
         return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
     }
