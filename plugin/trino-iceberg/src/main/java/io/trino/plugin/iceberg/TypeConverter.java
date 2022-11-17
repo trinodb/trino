@@ -114,6 +114,11 @@ public final class TypeConverter
 
     public static org.apache.iceberg.types.Type toIcebergType(Type type)
     {
+        return toIcebergType(type, Optional.empty());
+    }
+
+    public static org.apache.iceberg.types.Type toIcebergType(Type type, Optional<List<ColumnIdentity>> childrenIdentities)
+    {
         if (type instanceof BooleanType) {
             return Types.BooleanType.get();
         }
@@ -154,13 +159,13 @@ public final class TypeConverter
             return Types.UUIDType.get();
         }
         if (type instanceof RowType) {
-            return fromRow((RowType) type);
+            return fromRow((RowType) type, childrenIdentities);
         }
         if (type instanceof ArrayType) {
-            return fromArray((ArrayType) type);
+            return fromArray((ArrayType) type, childrenIdentities);
         }
         if (type instanceof MapType) {
-            return fromMap((MapType) type);
+            return fromMap((MapType) type, childrenIdentities);
         }
         if (type instanceof TimeType) {
             throw new TrinoException(NOT_SUPPORTED, format("Time precision (%s) not supported for Iceberg. Use \"time(6)\" instead.", ((TimeType) type).getPrecision()));
@@ -179,25 +184,33 @@ public final class TypeConverter
         return Types.DecimalType.of(type.getPrecision(), type.getScale());
     }
 
-    private static org.apache.iceberg.types.Type fromRow(RowType type)
+    private static org.apache.iceberg.types.Type fromRow(RowType type, Optional<List<ColumnIdentity>> childrenIdentities)
     {
         List<Types.NestedField> fields = new ArrayList<>();
         for (RowType.Field field : type.getFields()) {
             String name = field.getName().orElseThrow(() ->
                     new TrinoException(NOT_SUPPORTED, "Row type field does not have a name: " + type.getDisplayName()));
-            fields.add(Types.NestedField.optional(fields.size() + 1, name, toIcebergType(field.getType())));
+            Optional<ColumnIdentity> identity = childrenIdentities.map(identities -> identities.get(fields.size()));
+            fields.add(Types.NestedField.optional(identity.map(ColumnIdentity::getId).orElse(fields.size() + 1), name, toIcebergType(field.getType(), identity.map(ColumnIdentity::getChildren))));
         }
         return Types.StructType.of(fields);
     }
 
-    private static org.apache.iceberg.types.Type fromArray(ArrayType type)
+    private static org.apache.iceberg.types.Type fromArray(ArrayType type, Optional<List<ColumnIdentity>> childrenIdentities)
     {
-        return Types.ListType.ofOptional(1, toIcebergType(type.getElementType()));
+        Optional<ColumnIdentity> identity = childrenIdentities.map(identities -> identities.get(0));
+        return Types.ListType.ofOptional(identity.map(ColumnIdentity::getId).orElse(1), toIcebergType(type.getElementType(), identity.map(ColumnIdentity::getChildren)));
     }
 
-    private static org.apache.iceberg.types.Type fromMap(MapType type)
+    private static org.apache.iceberg.types.Type fromMap(MapType type, Optional<List<ColumnIdentity>> childrenIdentities)
     {
-        return Types.MapType.ofOptional(1, 2, toIcebergType(type.getKeyType()), toIcebergType(type.getValueType()));
+        Optional<ColumnIdentity> keyIdentity = childrenIdentities.map(identities -> identities.get(0));
+        Optional<ColumnIdentity> valueIdentity = childrenIdentities.map(identities -> identities.get(1));
+        return Types.MapType.ofOptional(
+                keyIdentity.map(ColumnIdentity::getId).orElse(1),
+                valueIdentity.map(ColumnIdentity::getId).orElse(2),
+                toIcebergType(type.getKeyType(), keyIdentity.map(ColumnIdentity::getChildren)),
+                toIcebergType(type.getValueType(), valueIdentity.map(ColumnIdentity::getChildren)));
     }
 
     public static ColumnMetadata<OrcType> toOrcType(Schema schema)

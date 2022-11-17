@@ -205,6 +205,19 @@ public class TestIcebergV2
     }
 
     @Test
+    public void testV2TableWithEqualityDeleteComplexStruct()
+            throws Exception
+    {
+        String tableName = "test_v2_equality_delete_complex_struct" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT *, CAST(array[row(1, map(array['1'], array[1]), '1')] AS ARRAY(ROW(f1 bigint, f2 MAP(varchar, bigint), f3 varchar))) complex_struct FROM tpch.tiny.nation", 25);
+        Table icebergTable = updateTableToV2(tableName);
+        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[]{1L})));
+        assertQuery("SELECT nationkey, name, regionkey, comment, complex_struct[1].f1, complex_struct[1].f2['1'], complex_struct[1].f3 FROM " + tableName, "SELECT *, 1, 1, '1' FROM nation WHERE regionkey != 1");
+        // natiokey is before the equality delete column in the table schema, comment is after
+        assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE regionkey != 1");
+    }
+
+    @Test
     public void testOptimizingV2TableRemovesEqualityDeletesWhenWholeTableIsScanned()
             throws Exception
     {

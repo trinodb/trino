@@ -243,7 +243,7 @@ public final class IcebergUtil
     public static Schema schemaFromHandles(List<IcebergColumnHandle> columns)
     {
         List<NestedField> icebergColumns = columns.stream()
-                .map(column -> NestedField.optional(column.getId(), column.getName(), toIcebergType(column.getType())))
+                .map(column -> NestedField.optional(column.getId(), column.getName(), toIcebergType(column.getType(), Optional.of(column.getColumnIdentity().getChildren()))))
                 .collect(toImmutableList());
         return new Schema(StructType.of(icebergColumns).asStructType().fields());
     }
