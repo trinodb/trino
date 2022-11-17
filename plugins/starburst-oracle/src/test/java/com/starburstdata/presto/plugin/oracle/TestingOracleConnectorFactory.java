@@ -20,11 +20,8 @@ public class TestingOracleConnectorFactory
 {
     public TestingOracleConnectorFactory()
     {
-        super("oracle", catalogName -> {
-            LicenseManager licenseManager = NOOP_LICENSE_MANAGER;
-            return combine(
-                    binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
-                    new OracleClientModule(licenseManager));
-        });
+        super("oracle", combine(
+                    binder -> binder.bind(LicenseManager.class).toInstance(NOOP_LICENSE_MANAGER),
+                    new OracleClientModule(NOOP_LICENSE_MANAGER)));
     }
 }

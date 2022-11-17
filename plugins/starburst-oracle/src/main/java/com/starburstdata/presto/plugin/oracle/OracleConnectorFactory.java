@@ -22,11 +22,9 @@ public final class OracleConnectorFactory
 
     public static ConnectorFactory create(LicenseManager licenseManager)
     {
-        return new JdbcConnectorFactory("oracle", catalogName -> {
-            requireNonNull(licenseManager, "licenseManager is null");
-            return combine(
+        requireNonNull(licenseManager, "licenseManager is null");
+        return new JdbcConnectorFactory("oracle", combine(
                     binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
-                    new OracleClientModule(licenseManager));
-        });
+                    new OracleClientModule(licenseManager)));
     }
 }
