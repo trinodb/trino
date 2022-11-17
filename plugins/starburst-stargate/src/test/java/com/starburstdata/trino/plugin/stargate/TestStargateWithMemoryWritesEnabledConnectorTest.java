@@ -21,7 +21,7 @@ import java.util.Optional;
 import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.createRemoteStarburstQueryRunnerWithMemory;
 import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.createStargateQueryRunner;
 import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.stargateConnectionUrl;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -122,7 +122,7 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
     @Override // override with version from smoke tests to go faster
     public void testInsert()
     {
-        String tableName = "test_create_" + randomTableSuffix();
+        String tableName = "test_create_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (a bigint, b double)");
         assertUpdate("INSERT INTO " + tableName + " (a, b) VALUES (42, -38.5)", 1);
         assertThat(query("SELECT CAST(a AS bigint), b FROM " + tableName))
@@ -134,7 +134,7 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
     @Override // override with version from smoke tests to go faster
     public void testCreateTableAsSelect()
     {
-        String tableName = "test_create_" + randomTableSuffix();
+        String tableName = "test_create_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT BIGINT '42' a, DOUBLE '-38.5' b", 1);
         assertThat(query("SELECT CAST(a AS bigint), b FROM " + tableName))
                 .matches("VALUES (BIGINT '42', -385e-1)");
@@ -184,7 +184,7 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
         // Overridden because we get an error message with "Query failed (<query_id>):" prefixed instead of one expected by superclass
         String schemaName = getSession().getSchema().orElseThrow();
         assertQueryFails(
-                format("ALTER SCHEMA %s RENAME TO %s", schemaName, schemaName + randomTableSuffix()),
+                format("ALTER SCHEMA %s RENAME TO %s", schemaName, schemaName + randomNameSuffix()),
                 ".*This connector does not support renaming schemas");
     }
 

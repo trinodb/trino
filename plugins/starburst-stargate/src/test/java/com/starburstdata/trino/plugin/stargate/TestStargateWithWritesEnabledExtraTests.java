@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.createRemoteStarburstQueryRunnerWithMemory;
 import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.createStargateQueryRunner;
 import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.stargateConnectionUrl;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
@@ -47,7 +47,7 @@ public class TestStargateWithWritesEnabledExtraTests
     @Test(dataProvider = "largeInValuesCount")
     public void testLargeInLongColumnName(int valuesCount)
     {
-        String tableName = "test_large_column_name_" + randomTableSuffix();
+        String tableName = "test_large_column_name_" + randomNameSuffix();
         String columnName = "this_is_a_very_looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong_column_name";
         assertUpdate(format("CREATE TABLE %s (%s bigint)", tableName, columnName));
 
