@@ -15,6 +15,7 @@ package io.trino.spi.eventlistener;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.spi.Unstable;
 
 import java.time.Duration;
 import java.util.List;
@@ -81,6 +82,7 @@ public class QueryStatistics
     private final Optional<String> planNodeStatsAndCosts;
 
     @JsonCreator
+    @Unstable
     public QueryStatistics(
             Duration cpuTime,
             Duration failedCpuTime,
