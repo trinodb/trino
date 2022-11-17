@@ -913,11 +913,12 @@ class AstBuilder
     @Override
     public Node visitQuery(SqlBaseParser.QueryContext context)
     {
+        Optional<With> with = visitIfPresent(context.with(), With.class);
         Query body = (Query) visit(context.queryNoWith());
 
         return new Query(
                 getLocation(context),
-                visitIfPresent(context.with(), With.class),
+                with,
                 body.getQueryBody(),
                 body.getOrderBy(),
                 body.getOffset(),

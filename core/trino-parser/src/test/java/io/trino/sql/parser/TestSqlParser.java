@@ -2770,6 +2770,20 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.of(new Offset(new Parameter(1))),
                         Optional.of(new FetchFirst(new Parameter(2), true)))));
+
+        // The parameter from CTE has id=0. The parameter from the query has id=1. In the DESCRIBE statement they will be listed following this order.
+        assertStatement("PREPARE myquery FROM WITH t(a) AS (VALUES ROW(?)) SELECT a + ? FROM t",
+                new Prepare(
+                        identifier("myquery"),
+                        query(
+                                new With(
+                                        false,
+                                        ImmutableList.of(new WithQuery(
+                                                identifier("t"),
+                                                query(values(row(new Parameter(0)))),
+                                                Optional.of(ImmutableList.of(identifier("a")))))),
+                                selectList(new ArithmeticBinaryExpression(ADD, identifier("a"), new Parameter(1))),
+                                table(QualifiedName.of("t")))));
     }
 
     @Test

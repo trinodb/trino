@@ -1364,6 +1364,17 @@ public abstract class AbstractTestEngineOnlyQueries
                 .row(4, "decimal(3,2)")
                 .build();
         assertEqualsIgnoreOrder(actual, expected);
+
+        session = Session.builder(getSession())
+                .addPreparedStatement("my_query", "WITH t(a) AS (VALUES lower(?)) SELECT NOT ? FROM t")
+                .build();
+        actual = computeActual(session, "DESCRIBE INPUT my_query");
+        // The parameter from CTE is listed first with id=0. The parameter from the query is listed next with id=1.
+        expected = resultBuilder(session, BIGINT, VARCHAR)
+                .row(0, "varchar(0)")
+                .row(1, "boolean")
+                .build();
+        assertEquals(actual, expected);
     }
 
     @Test

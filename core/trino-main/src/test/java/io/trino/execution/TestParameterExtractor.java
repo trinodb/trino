@@ -65,4 +65,16 @@ public class TestParameterExtractor
 
         assertThat(ParameterExtractor.getParameterCount(statement)).isEqualTo(1);
     }
+
+    @Test
+    public void testWith()
+    {
+        // The parameter from CTE has id=0. The parameter from the query has id=1. In the DESCRIBE statement they will be listed following this order.
+        Statement statement = sqlParser.createStatement("WITH t(a) AS (VALUES ?) SELECT a + ? FROM t", new ParsingOptions());
+        assertThat(ParameterExtractor.getParameters(statement))
+                .containsExactly(
+                        new Parameter(new NodeLocation(1, 22), 0),
+                        new Parameter(new NodeLocation(1, 38), 1));
+        assertThat(ParameterExtractor.getParameterCount(statement)).isEqualTo(2);
+    }
 }

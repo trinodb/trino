@@ -45,6 +45,7 @@ import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.Values;
 import io.trino.sql.tree.WhenClause;
 import io.trino.sql.tree.WindowDefinition;
+import io.trino.sql.tree.With;
 
 import java.util.List;
 import java.util.Optional;
@@ -292,6 +293,25 @@ public final class QueryUtil
         return new Query(
                 Optional.empty(),
                 body,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+    }
+
+    public static Query query(With with, Select select, Relation from)
+    {
+        return new Query(
+                Optional.of(with),
+                new QuerySpecification(
+                        select,
+                        Optional.of(from),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
