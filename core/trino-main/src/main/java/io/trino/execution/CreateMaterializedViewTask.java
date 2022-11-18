@@ -115,6 +115,10 @@ public class CreateMaterializedViewTask
                 parameterLookup,
                 true);
 
+        if (statement.getGracePeriod().isPresent()) {
+            // Should fail in analysis
+            throw new UnsupportedOperationException();
+        }
         MaterializedViewDefinition definition = new MaterializedViewDefinition(
                 sql,
                 session.getCatalog(),

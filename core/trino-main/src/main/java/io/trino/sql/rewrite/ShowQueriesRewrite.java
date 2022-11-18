@@ -599,8 +599,15 @@ public final class ShowQueriesRewrite
                 Collection<PropertyMetadata<?>> allMaterializedViewProperties = materializedViewPropertyManager.getAllProperties(catalogHandle);
                 List<Property> propertyNodes = buildProperties(objectName, Optional.empty(), INVALID_MATERIALIZED_VIEW_PROPERTY, properties, allMaterializedViewProperties);
 
-                String sql = formatSql(new CreateMaterializedView(Optional.empty(), QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)),
-                        query, false, false, propertyNodes, viewDefinition.get().getComment())).trim();
+                String sql = formatSql(new CreateMaterializedView(
+                        Optional.empty(),
+                        QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)),
+                        query,
+                        false,
+                        false,
+                        Optional.empty(), // TODO support GRACE PERIOD
+                        propertyNodes,
+                        viewDefinition.get().getComment())).trim();
                 return singleValueQuery("Create Materialized View", sql);
             }
 
