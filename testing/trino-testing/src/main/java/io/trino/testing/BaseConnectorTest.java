@@ -22,6 +22,8 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
+import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorPlugin;
 import io.trino.cost.StatsAndCosts;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.execution.QueryInfo;
@@ -30,13 +32,19 @@ import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.server.BasicQueryInfo;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.Plan;
+import io.trino.sql.planner.assertions.PlanMatchPattern;
+import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.OutputNode;
+import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -44,17 +52,22 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionService;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -72,6 +85,9 @@ import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
 import static io.trino.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static io.trino.testing.DataProviders.toDataProvider;
@@ -85,6 +101,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_COLU
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_VIEW_COLUMN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_FEDERATED_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
@@ -142,6 +159,27 @@ public abstract class BaseConnectorTest
         extends AbstractTestQueries
 {
     private static final Logger log = Logger.get(BaseConnectorTest.class);
+
+    private final ConcurrentMap<String, Function<ConnectorSession, List<String>>> mockTableListings = new ConcurrentHashMap<>();
+
+    @BeforeClass
+    public void addMockCatalog()
+    {
+        MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
+                .withListSchemaNames(session -> ImmutableList.copyOf(mockTableListings.keySet()))
+                .withListTables((session, schemaName) -> {
+                    if (schemaName.equals("information_schema")) {
+                        // TODO (https://github.com/trinodb/trino/issues/1559) connector should not be asked about information_schema
+                        return List.of();
+                    }
+                    return verifyNotNull(mockTableListings.get(schemaName), "No listing function registered for [%s]", schemaName)
+                            .apply(session);
+                })
+                .build();
+        QueryRunner queryRunner = getQueryRunner();
+        queryRunner.installPlugin(new MockConnectorPlugin(connectorFactory));
+        queryRunner.createCatalog("mock_dynamic_listing", "mock", Map.of());
+    }
 
     /**
      * Make sure to group related behaviours together in the order and grouping they are declared in {@link TestingConnectorBehavior}.
@@ -1118,6 +1156,67 @@ public abstract class BaseConnectorTest
         assertQueryReturnsEmptyResult(listMaterializedViewsSql("name = '" + viewWithComment.getObjectName() + "'"));
 
         assertUpdate("DROP SCHEMA " + otherSchema);
+    }
+
+    @Test
+    public void testFederatedMaterializedView()
+    {
+        String viewName = "test_federated_mv_" + randomNameSuffix();
+
+        String mockSchemaForListing = "mock_schema_for_listing_" + randomNameSuffix();
+        AtomicReference<List<String>> mockListing = new AtomicReference<>(List.of("first_table"));
+        String query = "" +
+                "SELECT table_name, count(*) AS c FROM mock_dynamic_listing.information_schema.tables " +
+                "WHERE table_schema = '" + mockSchemaForListing + "' " +
+                "GROUP BY table_name"; // GROUP BY so that it is easy to distinguish between inlined view and reading materialization
+
+        PlanMatchPattern readFromBaseTables = anyTree(
+                node(AggregationNode.class, // final
+                        anyTree(// exchanges
+                                node(AggregationNode.class, // partial
+                                        anyTree(tableScan("tables"))))));
+        PlanMatchPattern readFromStorageTable = node(OutputNode.class, node(TableScanNode.class));
+
+        withMockTableListing(
+                mockSchemaForListing,
+                connectorSession -> List.copyOf(mockListing.get()),
+                () -> {
+                    String create = "CREATE MATERIALIZED VIEW " + viewName + " AS " + query;
+                    if (!hasBehavior(SUPPORTS_CREATE_FEDERATED_MATERIALIZED_VIEW)) {
+                        // Note: the expected message may need to be updated when a connector supports materialized views, but not federated.
+                        assertQueryFails(create, "This connector does not support creating materialized views");
+                        return;
+                    }
+
+                    assertUpdate(create);
+
+                    assertThat(query("TABLE " + viewName))
+                            // The MV is not refreshed yet, so gets inlined
+                            .hasPlan(readFromBaseTables)
+                            .matches("VALUES (VARCHAR 'first_table', BIGINT '1')");
+
+                    assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 1);
+                    assertThat(query("TABLE " + viewName))
+                            .hasPlan(readFromStorageTable)
+                            .matches("VALUES (VARCHAR 'first_table', BIGINT '1')");
+
+                    // Change underlying state
+                    mockListing.set(List.of("first_table", "second_table"));
+
+                    // The materialized view should return now-stale data, since it doesn't know when it is no longer fresh
+                    assertThat(query("TABLE " + viewName))
+                            .hasPlan(readFromStorageTable)
+                            .matches("VALUES (VARCHAR 'first_table', BIGINT '1')");
+                    assertThat(query("SELECT freshness FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA AND name = '" + viewName + "'"))
+                            .matches("VALUES VARCHAR 'UNKNOWN'");
+
+                    assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 2);
+                    assertThat(query("TABLE " + viewName))
+                            .hasPlan(readFromStorageTable)
+                            .matches("VALUES (VARCHAR 'first_table', BIGINT '1'), ('second_table', 1)");
+
+                    assertUpdate("DROP MATERIALIZED VIEW " + viewName);
+                });
     }
 
     @Test
@@ -4968,6 +5067,20 @@ public abstract class BaseConnectorTest
                         formattedPlan));
             }
         };
+    }
+
+    protected void withMockTableListing(String forSchema, Function<ConnectorSession, List<String>> listing, Runnable closure)
+    {
+        requireNonNull(forSchema, "forSchema is null");
+        requireNonNull(listing, "listing is null");
+
+        checkState(mockTableListings.putIfAbsent(forSchema, listing) == null, "Listing function already registered for [%s]", forSchema);
+        try {
+            closure.run();
+        }
+        finally {
+            mockTableListings.remove(forSchema, listing);
+        }
     }
 
     protected String createSchemaSql(String schemaName)
