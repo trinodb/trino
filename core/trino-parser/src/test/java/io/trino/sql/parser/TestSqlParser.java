@@ -3425,6 +3425,7 @@ public class TestSqlParser
                                 Optional.empty()),
                         false,
                         false,
+                        Optional.empty(),
                         ImmutableList.of(),
                         Optional.empty()));
 
@@ -3464,8 +3465,42 @@ public class TestSqlParser
                                 Optional.empty()),
                         true,
                         false,
+                        Optional.empty(),
                         ImmutableList.of(),
                         Optional.of("A simple materialized view")));
+
+        // GRACE PERIOD
+        assertThat(statement("CREATE MATERIALIZED VIEW a GRACE PERIOD INTERVAL '2' DAY AS SELECT * FROM t"))
+                .isEqualTo(new CreateMaterializedView(
+                        Optional.of(new NodeLocation(1, 1)),
+                        QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 26), "a", false))),
+                        new Query(
+                                new NodeLocation(1, 61),
+                                Optional.empty(),
+                                new QuerySpecification(
+                                        new NodeLocation(1, 61),
+                                        new Select(
+                                                new NodeLocation(1, 61),
+                                                false,
+                                                ImmutableList.of(new AllColumns(new NodeLocation(1, 68), Optional.empty(), ImmutableList.of()))),
+                                        Optional.of(new Table(
+                                                new NodeLocation(1, 75),
+                                                QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 75), "t", false))))),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        false,
+                        false,
+                        Optional.of(new IntervalLiteral(new NodeLocation(1, 41), "2", Sign.POSITIVE, IntervalField.DAY, Optional.empty())),
+                        ImmutableList.of(),
+                        Optional.empty()));
 
         // OR REPLACE, COMMENT, WITH properties
         assertThat(statement("CREATE OR REPLACE MATERIALIZED VIEW catalog.schema.matview COMMENT 'A simple materialized view'" +
@@ -3504,6 +3539,7 @@ public class TestSqlParser
                                 Optional.empty()),
                         true,
                         false,
+                        Optional.empty(),
                         ImmutableList.of(new Property(
                                 new NodeLocation(1, 102),
                                 new Identifier(new NodeLocation(1, 102), "partitioned_by", false),
@@ -3590,6 +3626,7 @@ public class TestSqlParser
                                 Optional.empty()),
                         true,
                         false,
+                        Optional.empty(),
                         ImmutableList.of(new Property(
                                 new NodeLocation(1, 108),
                                 new Identifier(new NodeLocation(1, 108), "partitioned_by", false),

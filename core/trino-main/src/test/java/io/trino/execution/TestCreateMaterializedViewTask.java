@@ -176,6 +176,7 @@ public class TestCreateMaterializedViewTask
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,
                 true,
+                Optional.empty(),
                 ImmutableList.of(),
                 Optional.empty());
 
@@ -193,6 +194,7 @@ public class TestCreateMaterializedViewTask
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,
                 false,
+                Optional.empty(),
                 ImmutableList.of(),
                 Optional.empty());
 
@@ -213,6 +215,7 @@ public class TestCreateMaterializedViewTask
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,
                 true,
+                Optional.empty(),
                 ImmutableList.of(new Property(new Identifier("baz"), new StringLiteral("abc"))),
                 Optional.empty());
 
@@ -234,6 +237,7 @@ public class TestCreateMaterializedViewTask
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,
                 true,
+                Optional.empty(),
                 ImmutableList.of(
                         new Property(new Identifier("foo")),    // set foo to DEFAULT
                         new Property(new Identifier("bar"))),   // set bar to DEFAULT
@@ -258,6 +262,7 @@ public class TestCreateMaterializedViewTask
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,
                 true,
+                Optional.empty(),
                 ImmutableList.of(),
                 Optional.empty());
         TestingAccessControlManager accessControl = new TestingAccessControlManager(transactionManager, emptyEventListenerManager());
