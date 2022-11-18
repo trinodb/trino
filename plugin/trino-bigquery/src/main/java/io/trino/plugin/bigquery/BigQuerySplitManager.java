@@ -103,7 +103,7 @@ public class BigQuerySplitManager
         Optional<String> filter = BigQueryFilterQueryBuilder.buildFilter(tableConstraint);
 
         if (!bigQueryTableHandle.isNamedRelation()) {
-            List<ColumnHandle> columns = bigQueryTableHandle.getProjectedColumns().orElse(ImmutableList.of());
+            List<BigQueryColumnHandle> columns = bigQueryTableHandle.getProjectedColumns().orElse(ImmutableList.of());
             return new FixedSplitSource(ImmutableList.of(BigQuerySplit.forViewStream(columns, filter)));
         }
 
@@ -114,17 +114,17 @@ public class BigQuerySplitManager
         return new FixedSplitSource(splits);
     }
 
-    private static boolean emptyProjectionIsRequired(Optional<List<ColumnHandle>> projectedColumns)
+    private static boolean emptyProjectionIsRequired(Optional<List<BigQueryColumnHandle>> projectedColumns)
     {
         return projectedColumns.isPresent() && projectedColumns.get().isEmpty();
     }
 
-    private List<BigQuerySplit> readFromBigQuery(ConnectorSession session, TableDefinition.Type type, TableId remoteTableId, Optional<List<ColumnHandle>> projectedColumns, int actualParallelism, Optional<String> filter)
+    private List<BigQuerySplit> readFromBigQuery(ConnectorSession session, TableDefinition.Type type, TableId remoteTableId, Optional<List<BigQueryColumnHandle>> projectedColumns, int actualParallelism, Optional<String> filter)
     {
         log.debug("readFromBigQuery(tableId=%s, projectedColumns=%s, actualParallelism=%s, filter=[%s])", remoteTableId, projectedColumns, actualParallelism, filter);
-        List<ColumnHandle> columns = projectedColumns.orElse(ImmutableList.of());
+        List<BigQueryColumnHandle> columns = projectedColumns.orElse(ImmutableList.of());
         List<String> projectedColumnsNames = columns.stream()
-                .map(column -> ((BigQueryColumnHandle) column).getName())
+                .map(BigQueryColumnHandle::getName)
                 .collect(toImmutableList());
 
         if (isWildcardTable(type, remoteTableId.getTable())) {

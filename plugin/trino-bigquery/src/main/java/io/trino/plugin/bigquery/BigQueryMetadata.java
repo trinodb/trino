@@ -326,7 +326,7 @@ public class BigQueryMetadata
         BigQueryTableHandle table = (BigQueryTableHandle) tableHandle;
         if (table.getProjectedColumns().isPresent()) {
             return table.getProjectedColumns().get().stream()
-                    .collect(toImmutableMap(columnHandle -> ((BigQueryColumnHandle) columnHandle).getName(), identity()));
+                    .collect(toImmutableMap(BigQueryColumnHandle::getName, identity()));
         }
 
         checkArgument(table.isNamedRelation(), "Cannot get columns for %s", tableHandle);
@@ -567,11 +567,12 @@ public class BigQueryMetadata
             return Optional.empty();
         }
 
-        ImmutableList.Builder<ColumnHandle> projectedColumns = ImmutableList.builder();
+        ImmutableList.Builder<BigQueryColumnHandle> projectedColumns = ImmutableList.builder();
         ImmutableList.Builder<Assignment> assignmentList = ImmutableList.builder();
         assignments.forEach((name, column) -> {
-            projectedColumns.add(column);
-            assignmentList.add(new Assignment(name, column, ((BigQueryColumnHandle) column).getTrinoType()));
+            BigQueryColumnHandle columnHandle = (BigQueryColumnHandle) column;
+            projectedColumns.add(columnHandle);
+            assignmentList.add(new Assignment(name, column, columnHandle.getTrinoType()));
         });
 
         bigQueryTableHandle = bigQueryTableHandle.withProjectedColumns(projectedColumns.build());
