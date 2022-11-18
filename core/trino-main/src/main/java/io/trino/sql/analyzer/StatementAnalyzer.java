@@ -3230,7 +3230,7 @@ class StatementAnalyzer
             }
 
             if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
-                throw semanticException(NOT_SUPPORTED, merge, "Merge table with row filter");
+                throw semanticException(NOT_SUPPORTED, merge, "Cannot merge into a table with row filters");
             }
 
             Scope targetTableScope = analyzer.analyzeForUpdate(relation, scope, UpdateKind.MERGE);
@@ -3239,7 +3239,7 @@ class StatementAnalyzer
 
             for (ColumnSchema column : dataColumnSchemas) {
                 if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, column.getName(), column.getType()).isEmpty()) {
-                    throw semanticException(NOT_SUPPORTED, merge, "Merge table with column mask");
+                    throw semanticException(NOT_SUPPORTED, merge, "Cannot merge into a table with column masks");
                 }
             }
 
