@@ -230,6 +230,9 @@ import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.REMOVE_O
 import static io.trino.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.UNKNOWN;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -261,6 +264,7 @@ public class IcebergMetadata
     private static final int OPTIMIZE_MAX_SUPPORTED_TABLE_VERSION = 2;
     private static final int CLEANING_UP_PROCEDURES_MAX_SUPPORTED_TABLE_VERSION = 2;
     private static final String RETENTION_THRESHOLD = "retention_threshold";
+    private static final String UNKNOWN_SNAPSHOT_TOKEN = "UNKNOWN";
     public static final Set<String> UPDATABLE_TABLE_PROPERTIES = ImmutableSet.of(FILE_FORMAT_PROPERTY, FORMAT_VERSION_PROPERTY, PARTITIONING_PROPERTY);
 
     public static final String ORC_BLOOM_FILTER_COLUMNS_KEY = "orc.bloom.filter.columns";
@@ -2356,8 +2360,12 @@ public class IcebergMetadata
         }
 
         String dependencies = sourceTableHandles.stream()
-                .map(handle -> (IcebergTableHandle) handle)
-                .map(handle -> handle.getSchemaTableName() + "=" + handle.getSnapshotId().map(Object.class::cast).orElse(""))
+                .map(handle -> {
+                    if (!(handle instanceof IcebergTableHandle icebergHandle)) {
+                        return UNKNOWN_SNAPSHOT_TOKEN;
+                    }
+                    return icebergHandle.getSchemaTableName() + "=" + icebergHandle.getSnapshotId().map(Object.class::cast).orElse("");
+                })
                 .distinct()
                 .collect(joining(","));
 
@@ -2440,7 +2448,7 @@ public class IcebergMetadata
         Optional<ConnectorMaterializedViewDefinition> materializedViewDefinition = getMaterializedView(session, materializedViewName);
         if (materializedViewDefinition.isEmpty()) {
             // View not found, might have been concurrently deleted
-            return new MaterializedViewFreshness(false);
+            return new MaterializedViewFreshness(STALE);
         }
 
         SchemaTableName storageTableName = materializedViewDefinition.get().getStorageTable()
@@ -2450,12 +2458,24 @@ public class IcebergMetadata
         Table icebergTable = catalog.loadTable(session, storageTableName);
         String dependsOnTables = icebergTable.currentSnapshot().summary().getOrDefault(DEPENDS_ON_TABLES, "");
         if (dependsOnTables.isEmpty()) {
-            // Information missing
-            return new MaterializedViewFreshness(false);
+            // Information missing. While it's "unknown" whether storage is stale, we return "stale": under no normal circumstances dependsOnTables should be missing.
+            return new MaterializedViewFreshness(STALE);
         }
-        Map<String, String> tableToSnapshotIdMap = Splitter.on(',').withKeyValueSeparator('=').split(dependsOnTables);
-        for (Map.Entry<String, String> entry : tableToSnapshotIdMap.entrySet()) {
-            List<String> strings = Splitter.on(".").splitToList(entry.getKey());
+        boolean hasUnknownTables = false;
+        Iterable<String> tableToSnapshotIds = Splitter.on(',').split(dependsOnTables);
+        for (String entry : tableToSnapshotIds) {
+            if (entry.equals(UNKNOWN_SNAPSHOT_TOKEN)) {
+                // This is a "federated" materialized view (spanning across connectors). Trust user's choice and assume "fresh or fresh enough".
+                hasUnknownTables = true;
+                continue;
+            }
+            List<String> keyValue = Splitter.on("=").splitToList(entry);
+            if (keyValue.size() != 2) {
+                throw new TrinoException(ICEBERG_INVALID_METADATA, format("Invalid entry in '%s' property: %s'", DEPENDS_ON_TABLES, entry));
+            }
+            String tableName = keyValue.get(0);
+            String value = keyValue.get(1);
+            List<String> strings = Splitter.on(".").splitToList(tableName);
             if (strings.size() == 3) {
                 strings = strings.subList(1, 3);
             }
@@ -2471,17 +2491,17 @@ public class IcebergMetadata
                 throw new MaterializedViewNotFoundException(materializedViewName);
             }
             Optional<TableToken> tableToken;
-            if (entry.getValue().isEmpty()) {
+            if (value.isEmpty()) {
                 tableToken = Optional.empty();
             }
             else {
-                tableToken = Optional.of(new TableToken(Long.parseLong(entry.getValue())));
+                tableToken = Optional.of(new TableToken(Long.parseLong(value)));
             }
             if (!isTableCurrent(session, tableHandle, tableToken)) {
-                return new MaterializedViewFreshness(false);
+                return new MaterializedViewFreshness(STALE);
             }
         }
-        return new MaterializedViewFreshness(true);
+        return new MaterializedViewFreshness(hasUnknownTables ? UNKNOWN : FRESH);
     }
 
     @Override
