@@ -1311,6 +1311,9 @@ class StatementAnalyzer
             if (node.isReplace() && node.isNotExists()) {
                 throw semanticException(NOT_SUPPORTED, node, "'CREATE OR REPLACE' and 'IF NOT EXISTS' clauses can not be used together");
             }
+            if (node.getGracePeriod().isPresent()) {
+                throw new TrinoException(NOT_SUPPORTED, "GRACE PERIOD is not supported yet");
+            }
 
             // analyze the query that creates the view
             StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);

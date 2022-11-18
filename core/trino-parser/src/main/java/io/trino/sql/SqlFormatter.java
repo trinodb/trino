@@ -1009,6 +1009,8 @@ public final class SqlFormatter
             }
 
             builder.append(formatName(node.getName()));
+            node.getGracePeriod().ifPresent(interval ->
+                    builder.append("\nGRACE PERIOD ").append(formatExpression(interval)));
             node.getComment().ifPresent(comment -> builder
                     .append("\nCOMMENT ")
                     .append(formatStringLiteral(comment)));
