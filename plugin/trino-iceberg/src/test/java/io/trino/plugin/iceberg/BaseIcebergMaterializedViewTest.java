@@ -113,15 +113,15 @@ public abstract class BaseIcebergMaterializedViewTest
         // test freshness update
         assertQuery(
                 // TODO (https://github.com/trinodb/trino/issues/9039) remove redundant schema_name filter
-                format("SELECT is_fresh FROM system.metadata.materialized_views WHERE schema_name = '%s' AND name = '%s'", schemaName, materializedViewName),
-                "VALUES false");
+                format("SELECT freshness FROM system.metadata.materialized_views WHERE schema_name = '%s' AND name = '%s'", schemaName, materializedViewName),
+                "VALUES 'STALE'");
 
         computeActual(format("REFRESH MATERIALIZED VIEW %s", materializedViewName));
 
         assertQuery(
                 // TODO (https://github.com/trinodb/trino/issues/9039) remove redundant schema_name filter
-                format("SELECT is_fresh FROM system.metadata.materialized_views WHERE schema_name = '%s' AND name = '%s'", schemaName, materializedViewName),
-                "VALUES true");
+                format("SELECT freshness FROM system.metadata.materialized_views WHERE schema_name = '%s' AND name = '%s'", schemaName, materializedViewName),
+                "VALUES 'FRESH'");
 
         assertUpdate("DROP TABLE small_region");
         assertUpdate(format("DROP MATERIALIZED VIEW %s", materializedViewName));

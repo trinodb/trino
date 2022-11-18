@@ -1239,11 +1239,16 @@ and inserts the data that is the result of executing the materialized view
 query into the existing table. Data is replaced atomically, so users can
 continue to query the materialized view while it is being refreshed.
 Refreshing a materialized view also stores
-the snapshot-ids of all tables that are part of the materialized
+the snapshot-ids of all Iceberg tables that are part of the materialized
 view's query in the materialized view metadata. When the materialized
 view is queried, the snapshot-ids are used to check if the data in the storage
 table is up to date. If the data is outdated, the materialized view behaves
 like a normal view, and the data is queried directly from the base tables.
+Detecting outdated data is possible only when the materialized view uses
+Iceberg tables only, or when it uses mix of Iceberg and non-Iceberg tables
+but some Iceberg tables are outdated. When the materialized view is based
+on non-Iceberg tables, querying it can return outdated data, since the connector
+has no information whether the underlying non-Iceberg tables have changed.
 
 Dropping a materialized view with :doc:`/sql/drop-materialized-view` removes
 the definition and the storage table.

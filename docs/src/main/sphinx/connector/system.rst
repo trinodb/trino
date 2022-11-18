@@ -78,9 +78,9 @@ The materialized views table contains the following information about all
       backing the materialized view.
   * - ``storage_table``
     - Name of the storage table backing the materialized view.
-  * - ``is_fresh``
-    - Flag to signal if data in the storage table is up to date. Queries on the
-      materialized view access the storage table if ``true``, otherwise
+  * - ``freshness``
+    - Freshness of data in the storage table. Queries on the
+      materialized view access the storage table if not ``STALE``, otherwise
       the ``definition`` is used to access the underlying data in the source
       tables.
   * - ``owner``
