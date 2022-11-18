@@ -12,6 +12,11 @@
         {
             "original_user": ".*",
             "new_user": "test"
+        },
+        {
+            "original_user": "team_(.*)",
+            "new_user": "team_$1_sandbox",
+            "allow": true
         }
     ]
 }
