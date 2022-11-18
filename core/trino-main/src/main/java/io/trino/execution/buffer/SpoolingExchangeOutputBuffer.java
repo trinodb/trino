@@ -32,7 +32,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.execution.buffer.PagesSerde.getSerializedPagePositionCount;
-import static io.trino.execution.buffer.PagesSerde.getSerializedPageUncompressedSizeInBytes;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -194,7 +193,7 @@ public class SpoolingExchangeOutputBuffer
         checkState(sink != null, "exchangeSink is null");
         long dataSizeInBytes = 0;
         for (Slice page : pages) {
-            dataSizeInBytes += getSerializedPageUncompressedSizeInBytes(page);
+            dataSizeInBytes += page.length();
             sink.add(partition, page);
             totalRowsAdded.addAndGet(getSerializedPagePositionCount(page));
         }
