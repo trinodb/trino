@@ -181,6 +181,8 @@ jobs:
         with:
           # Upload all test reports only on failure, because the artifacts are large
           upload-results: ${{ steps.test-old.conclusion == 'failure' || steps.test-new.conclusion == 'failure' }}
+          # only upload heap dumps if running on forks, where no secrets are used
+          upload-heap-dump: ${{ secrets.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
           test-report-retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
       - name: Clean local Maven repo
         # Avoid creating a cache entry because this job doesn't download all dependencies
@@ -307,6 +309,8 @@ jobs:
                 steps.test-abfs-wasb.conclusion == 'failure' ||
                 steps.test-abfs-adl.conclusion == 'failure' ||
                 steps.test-alluxio.conclusion == 'failure' }}
+          # only upload heap dumps if running on forks, where no secrets are used
+          upload-heap-dump: ${{ secrets.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
           test-report-retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
       - name: Clean local Maven repo
         # Avoid creating a cache entry because this job doesn't download all dependencies
@@ -364,6 +368,8 @@ jobs:
         with:
           # Upload all test reports only on failure, because the artifacts are large
           upload-results: ${{ steps.test.conclusion == 'failure' }}
+          # only upload heap dumps if running on forks, where no secrets are used
+          upload-heap-dump: ${{ secrets.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
           test-report-retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
       - name: Clean local Maven repo
         # Avoid creating a cache entry because this job doesn't download all dependencies
@@ -556,6 +562,8 @@ jobs:
                 steps.test-cloud-bigquery.conclusion == 'failure' ||
                 steps.test-cloud-bigquery-mapping.conclusion == 'failure' ||
                 steps.test-cloud-iceberg.conclusion == 'failure' }}
+          # only upload heap dumps if running on forks, where no secrets are used
+          upload-heap-dump: ${{ secrets.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
           test-report-retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
       - name: Clean local Maven repo
         # Avoid creating a cache entry because this job doesn't download all dependencies

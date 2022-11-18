@@ -1,12 +1,16 @@
 name: upload
-description: "Upload test results and reports."
+description: "Upload test results, reports, and heap dump."
 inputs:
   name-suffix:
     default: ${{ github.job }}
   upload-results:
     default: false
+  upload-heap-dump:
+    default: false
   test-report-retention-days:
     default: 5
+  heap-dump-retention-days:
+    default: 14
 
 runs:
   using: composite
@@ -29,3 +33,12 @@ runs:
         path: |
           **/surefire-reports/TEST-*.xml
         retention-days: ${{ inputs.test-report-retention-days }}
+    - name: Upload heap dump
+      uses: actions/upload-artifact@v3
+      if: always() && inputs.upload-heap-dump
+      with:
+        name: heap dump ${{ github.job }}
+        if-no-files-found: 'ignore'
+        path: |
+          **/*.hprof
+        retention-days: ${{ inputs.heap-dump-retention-days }}
