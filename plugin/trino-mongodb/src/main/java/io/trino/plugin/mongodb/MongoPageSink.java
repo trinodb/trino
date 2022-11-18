@@ -24,7 +24,6 @@ import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSink;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.CharType;
@@ -85,18 +84,18 @@ public class MongoPageSink
         implements ConnectorPageSink
 {
     private final MongoSession mongoSession;
-    private final SchemaTableName schemaTableName;
+    private final RemoteTableName remoteTableName;
     private final List<MongoColumnHandle> columns;
     private final String implicitPrefix;
 
     public MongoPageSink(
             MongoClientConfig config,
             MongoSession mongoSession,
-            SchemaTableName schemaTableName,
+            RemoteTableName remoteTableName,
             List<MongoColumnHandle> columns)
     {
         this.mongoSession = mongoSession;
-        this.schemaTableName = schemaTableName;
+        this.remoteTableName = remoteTableName;
         this.columns = columns;
         this.implicitPrefix = requireNonNull(config.getImplicitRowFieldPrefix(), "config.getImplicitRowFieldPrefix() is null");
     }
@@ -104,7 +103,7 @@ public class MongoPageSink
     @Override
     public CompletableFuture<?> appendPage(Page page)
     {
-        MongoCollection<Document> collection = mongoSession.getCollection(schemaTableName);
+        MongoCollection<Document> collection = mongoSession.getCollection(remoteTableName);
         List<Document> batch = new ArrayList<>(page.getPositionCount());
 
         for (int position = 0; position < page.getPositionCount(); position++) {

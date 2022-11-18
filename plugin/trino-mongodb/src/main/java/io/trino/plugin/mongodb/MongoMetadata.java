@@ -192,7 +192,8 @@ public class MongoMetadata
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
-        mongoSession.createTable(tableMetadata.getTable(), buildColumnHandles(tableMetadata), tableMetadata.getComment());
+        RemoteTableName remoteTableName = mongoSession.toRemoteSchemaTableName(tableMetadata.getTable());
+        mongoSession.createTable(remoteTableName, buildColumnHandles(tableMetadata), tableMetadata.getComment());
     }
 
     @Override
@@ -200,14 +201,14 @@ public class MongoMetadata
     {
         MongoTableHandle table = (MongoTableHandle) tableHandle;
 
-        mongoSession.dropTable(table.getSchemaTableName());
+        mongoSession.dropTable(table.getRemoteTableName());
     }
 
     @Override
     public void setTableComment(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> comment)
     {
         MongoTableHandle table = (MongoTableHandle) tableHandle;
-        mongoSession.setTableComment(table.getSchemaTableName(), comment);
+        mongoSession.setTableComment(table, comment);
     }
 
     @Override
@@ -215,7 +216,7 @@ public class MongoMetadata
     {
         MongoTableHandle table = (MongoTableHandle) tableHandle;
         MongoColumnHandle column = (MongoColumnHandle) columnHandle;
-        mongoSession.setColumnComment(table.getSchemaTableName(), column.getName(), comment);
+        mongoSession.setColumnComment(table, column.getName(), comment);
     }
 
     @Override
@@ -225,19 +226,19 @@ public class MongoMetadata
             throw new TrinoException(NOT_SUPPORTED, format("Qualified identifier name must be shorter than or equal to '%s' bytes: '%s'", MAX_QUALIFIED_IDENTIFIER_BYTE_LENGTH, newTableName));
         }
         MongoTableHandle table = (MongoTableHandle) tableHandle;
-        mongoSession.renameTable(table.getSchemaTableName(), newTableName);
+        mongoSession.renameTable(table, newTableName);
     }
 
     @Override
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
-        mongoSession.addColumn(((MongoTableHandle) tableHandle).getSchemaTableName(), column);
+        mongoSession.addColumn(((MongoTableHandle) tableHandle), column);
     }
 
     @Override
     public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
     {
-        mongoSession.dropColumn(((MongoTableHandle) tableHandle).getSchemaTableName(), ((MongoColumnHandle) column).getName());
+        mongoSession.dropColumn(((MongoTableHandle) tableHandle), ((MongoColumnHandle) column).getName());
     }
 
     @Override
@@ -247,14 +248,16 @@ public class MongoMetadata
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
         }
 
+        RemoteTableName remoteTableName = mongoSession.toRemoteSchemaTableName(tableMetadata.getTable());
+
         List<MongoColumnHandle> columns = buildColumnHandles(tableMetadata);
 
-        mongoSession.createTable(tableMetadata.getTable(), columns, tableMetadata.getComment());
+        mongoSession.createTable(remoteTableName, columns, tableMetadata.getComment());
 
-        setRollback(() -> mongoSession.dropTable(tableMetadata.getTable()));
+        setRollback(() -> mongoSession.dropTable(remoteTableName));
 
         return new MongoOutputTableHandle(
-                tableMetadata.getTable(),
+                remoteTableName,
                 columns.stream().filter(c -> !c.isHidden()).collect(toList()));
     }
 
@@ -276,7 +279,7 @@ public class MongoMetadata
         List<MongoColumnHandle> columns = mongoSession.getTable(table.getSchemaTableName()).getColumns();
 
         return new MongoInsertTableHandle(
-                table.getSchemaTableName(),
+                table.getRemoteTableName(),
                 columns.stream()
                         .filter(column -> !column.isHidden())
                         .peek(column -> validateColumnNameForInsert(column.getName()))
@@ -318,7 +321,7 @@ public class MongoMetadata
     public OptionalLong executeDelete(ConnectorSession session, ConnectorTableHandle handle)
     {
         MongoTableHandle table = (MongoTableHandle) handle;
-        return OptionalLong.of(mongoSession.deleteDocuments(table.getSchemaTableName(), table.getConstraint()));
+        return OptionalLong.of(mongoSession.deleteDocuments(table.getRemoteTableName(), table.getConstraint()));
     }
 
     @Override
@@ -371,7 +374,7 @@ public class MongoMetadata
         }
 
         return Optional.of(new LimitApplicationResult<>(
-                new MongoTableHandle(handle.getSchemaTableName(), handle.getFilter(), handle.getConstraint(), OptionalInt.of(toIntExact(limit))),
+                new MongoTableHandle(handle.getSchemaTableName(), handle.getRemoteTableName(), handle.getFilter(), handle.getConstraint(), OptionalInt.of(toIntExact(limit))),
                 true,
                 false));
     }
@@ -415,6 +418,7 @@ public class MongoMetadata
 
         handle = new MongoTableHandle(
                 handle.getSchemaTableName(),
+                handle.getRemoteTableName(),
                 handle.getFilter(),
                 newDomain,
                 handle.getLimit());
@@ -470,7 +474,7 @@ public class MongoMetadata
                 getColumnHandles(session, tableHandle).values().stream()
                         .map(MongoColumnHandle.class::cast)
                         .map(MongoColumnHandle::toColumnMetadata)
-                .collect(toImmutableList());
+                        .collect(toImmutableList());
 
         return new ConnectorTableMetadata(tableName, columns, ImmutableMap.of(), mongoTable.getComment());
     }
