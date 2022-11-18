@@ -519,10 +519,6 @@ public class TestRowFilter
                 + "(26, 'POLAND', 0, 'No comment'),"
                 + "(27, 'HOLLAND', 0, 'A comment')"))
                 .hasMessage("Access Denied: Cannot insert row that does not match to a row filter");
-        assertThatThrownBy(() -> assertions.query("INSERT INTO mock.tiny.nation VALUES "
-                + "(26, 'POLAND', 0, 'No comment'),"
-                + "(27, 'HOLLAND', 0, 'A comment')"))
-                .hasMessage("Access Denied: Cannot insert row that does not match to a row filter");
         assertThatThrownBy(() -> assertions.query("INSERT INTO mock.tiny.nation(nationkey) VALUES (null)"))
                 .hasMessage("Access Denied: Cannot insert row that does not match to a row filter");
         assertThatThrownBy(() -> assertions.query("INSERT INTO mock.tiny.nation(regionkey) VALUES (0)"))
