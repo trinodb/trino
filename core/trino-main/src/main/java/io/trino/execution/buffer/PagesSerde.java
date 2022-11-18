@@ -114,11 +114,6 @@ public class PagesSerde
         return serializedPage.getInt(SERIALIZED_PAGE_POSITION_COUNT_OFFSET);
     }
 
-    public static int getSerializedPageUncompressedSizeInBytes(Slice serializedPage)
-    {
-        return serializedPage.getInt(SERIALIZED_PAGE_UNCOMPRESSED_SIZE_OFFSET);
-    }
-
     public static boolean isSerializedPageEncrypted(Slice serializedPage)
     {
         return getSerializedPageMarkerSet(serializedPage).contains(ENCRYPTED);
