@@ -17,7 +17,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
-import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;
 
@@ -26,22 +25,22 @@ import static java.util.Objects.requireNonNull;
 public class MongoOutputTableHandle
         implements ConnectorOutputTableHandle
 {
-    private final SchemaTableName schemaTableName;
+    private final RemoteTableName remoteTableName;
     private final List<MongoColumnHandle> columns;
 
     @JsonCreator
     public MongoOutputTableHandle(
-            @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+            @JsonProperty("remoteTableName") RemoteTableName remoteTableName,
             @JsonProperty("columns") List<MongoColumnHandle> columns)
     {
-        this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+        this.remoteTableName = requireNonNull(remoteTableName, "remoteTableName is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
     }
 
     @JsonProperty
-    public SchemaTableName getSchemaTableName()
+    public RemoteTableName getRemoteTableName()
     {
-        return schemaTableName;
+        return remoteTableName;
     }
 
     @JsonProperty

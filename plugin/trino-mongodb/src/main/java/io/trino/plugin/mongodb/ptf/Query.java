@@ -21,6 +21,7 @@ import io.trino.plugin.mongodb.MongoColumnHandle;
 import io.trino.plugin.mongodb.MongoMetadata;
 import io.trino.plugin.mongodb.MongoSession;
 import io.trino.plugin.mongodb.MongoTableHandle;
+import io.trino.plugin.mongodb.RemoteTableName;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnSchema;
@@ -115,8 +116,9 @@ public class Query
             if (!collection.equals(collection.toLowerCase(ENGLISH))) {
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Only lowercase collection name is supported");
             }
+            RemoteTableName remoteTableName = new RemoteTableName(database, collection);
 
-            MongoTableHandle tableHandle = new MongoTableHandle(new SchemaTableName(database, collection), Optional.of(parseFilter(filter)));
+            MongoTableHandle tableHandle = new MongoTableHandle(new SchemaTableName(database, collection), remoteTableName, Optional.of(parseFilter(filter)));
             ConnectorTableSchema tableSchema = metadata.getTableSchema(session, tableHandle);
             Map<String, ColumnHandle> columnsByName = metadata.getColumnHandles(session, tableHandle);
             List<ColumnHandle> columns = tableSchema.getColumns().stream()
