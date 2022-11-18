@@ -431,6 +431,9 @@ public class TestRowFilter
                                 "(NULL, NULL, NULL, NULL, 0e1, NULL, NULL)");
     }
 
+    /**
+     * @see #testMergeDelete()
+     */
     @Test
     public void testDelete()
     {
@@ -460,6 +463,42 @@ public class TestRowFilter
                 .matches("SELECT BIGINT '0'");
     }
 
+    /**
+     * Like {@link #testDelete()} but using the MERGE statement.
+     */
+    @Test
+    public void testMergeDelete()
+    {
+        accessControl.reset();
+        accessControl.rowFilter(
+                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation"),
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "nationkey < 10"));
+
+        // Within allowed row filter
+        assertThatThrownBy(() -> assertions.query("""
+                MERGE INTO mock.tiny.nation USING (VALUES 1,2) t(x) ON nationkey = x
+                WHEN MATCHED THEN DELETE"""))
+                .hasMessage("line 1:1: Cannot merge into a table with row filters");
+
+        // Outside allowed row filter
+        assertThatThrownBy(() -> assertions.query("""
+                MERGE INTO mock.tiny.nation USING (VALUES 1,2,3,4,5) t(x) ON regionkey = x
+                WHEN MATCHED THEN DELETE"""))
+                .hasMessage("line 1:1: Cannot merge into a table with row filters");
+        assertThatThrownBy(() -> assertions.query("""
+                MERGE INTO mock.tiny.nation USING (VALUES 1,11) t(x) ON nationkey = x
+                WHEN MATCHED THEN DELETE"""))
+                .hasMessage("line 1:1: Cannot merge into a table with row filters");
+        assertThatThrownBy(() -> assertions.query("""
+                MERGE INTO mock.tiny.nation USING (VALUES 11,12,13,14,15) t(x) ON nationkey = x
+                WHEN MATCHED THEN DELETE"""))
+                .hasMessage("line 1:1: Cannot merge into a table with row filters");
+    }
+
+    /**
+     * @see #testMergeUpdate()
+     */
     @Test
     public void testUpdate()
     {
@@ -497,6 +536,66 @@ public class TestRowFilter
                 .hasMessage("line 1:1: Updating a table with a row filter is not supported");
     }
 
+    /**
+     * Like {@link #testUpdate()} but using the MERGE statement.
+     */
+    @Test
+    public void testMergeUpdate()
+    {
+        accessControl.reset();
+        accessControl.rowFilter(
+                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation"),
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "nationkey < 10"));
+
+        // Within allowed row filter
+        assertThatThrownBy(() -> assertions.query("""
+                MERGE INTO mock.tiny.nation USING (VALUES 5) t(x) ON nationkey = x
+                WHEN MATCHED THEN UPDATE SET regionkey = regionkey * 2"""))
+                .hasMessage("line 1:1: Cannot merge into a table with row filters");
+
+        // Outside allowed row filter
+        assertThatThrownBy(() -> assertions.query("""
+                MERGE INTO mock.tiny.nation USING (VALUES 1,2,3,4,5,6) t(x) ON regionkey = x
+                WHEN MATCHED THEN UPDATE SET regionkey = regionkey * 2"""))
+                .hasMessage("line 1:1: Cannot merge into a table with row filters");
+        assertThatThrownBy(() -> assertions.query("""
+                MERGE INTO mock.tiny.nation USING (VALUES 1, 11) t(x) ON nationkey = x
+                WHEN MATCHED THEN UPDATE SET regionkey = regionkey * 2"""))
+                .hasMessage("line 1:1: Cannot merge into a table with row filters");
+        assertThatThrownBy(() -> assertions.query("""
+                MERGE INTO mock.tiny.nation USING (VALUES 11) t(x) ON nationkey = x
+                WHEN MATCHED THEN UPDATE SET regionkey = regionkey * 2"""))
+                .hasMessage("line 1:1: Cannot merge into a table with row filters");
+
+        // Within allowed row filter, but updated rows are outside the row filter
+        assertThatThrownBy(() -> assertions.query("""
+                MERGE INTO mock.tiny.nation USING (VALUES 1,2,3) t(x) ON nationkey = x
+                WHEN MATCHED THEN UPDATE SET nationkey = 10"""))
+                .hasMessage("line 1:1: Cannot merge into a table with row filters");
+        assertThatThrownBy(() -> assertions.query("""
+                MERGE INTO mock.tiny.nation USING (VALUES 1,2,3) t(x) ON nationkey = x
+                WHEN MATCHED THEN UPDATE SET nationkey = NULL"""))
+                .hasMessage("line 1:1: Cannot merge into a table with row filters");
+
+        // Outside allowed row filter, but updated rows are outside the row filter
+        assertThatThrownBy(() -> assertions.query("""
+                MERGE INTO mock.tiny.nation USING (VALUES 10) t(x) ON nationkey = x
+                WHEN MATCHED THEN UPDATE SET nationkey = 13"""))
+                .hasMessage("line 1:1: Cannot merge into a table with row filters");
+        assertThatThrownBy(() -> assertions.query("""
+                MERGE INTO mock.tiny.nation USING (VALUES 10) t(x) ON nationkey = x
+                WHEN MATCHED THEN UPDATE SET nationkey = NULL"""))
+                .hasMessage("line 1:1: Cannot merge into a table with row filters");
+        assertThatThrownBy(() -> assertions.query("""
+                MERGE INTO mock.tiny.nation USING (VALUES 10) t(x) ON nationkey IS NULL
+                WHEN MATCHED THEN UPDATE SET nationkey = 13"""))
+                .hasMessage("line 1:1: Cannot merge into a table with row filters");
+    }
+
+    /**
+     * @see #testMergeInsert()
+     */
     @Test
     public void testInsert()
     {
@@ -523,6 +622,44 @@ public class TestRowFilter
                 .hasMessage("Access Denied: Cannot insert row that does not match to a row filter");
         assertThatThrownBy(() -> assertions.query("INSERT INTO mock.tiny.nation(regionkey) VALUES (0)"))
                 .hasMessage("Access Denied: Cannot insert row that does not match to a row filter");
+    }
+
+    /**
+     * Like {@link #testInsert()} ()} but using the MERGE statement.
+     */
+    @Test
+    public void testMergeInsert()
+    {
+        accessControl.reset();
+        accessControl.rowFilter(
+                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation"),
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "nationkey > 100"));
+
+        // Within allowed row filter
+        assertThatThrownBy(() -> assertions.query("""
+                MERGE INTO mock.tiny.nation USING (VALUES 42) t(dummy) ON false
+                WHEN NOT MATCHED THEN INSERT VALUES (101, 'POLAND', 0, 'No comment')"""))
+                .hasMessage("line 1:1: Cannot merge into a table with row filters");
+
+        // Outside allowed row filter
+        assertThatThrownBy(() -> assertions.query("""
+                MERGE INTO mock.tiny.nation USING (VALUES 42) t(dummy) ON false
+                WHEN NOT MATCHED THEN INSERT VALUES (26, 'POLAND', 0, 'No comment')"""))
+                .hasMessage("line 1:1: Cannot merge into a table with row filters");
+        assertThatThrownBy(() -> assertions.query("""
+                MERGE INTO mock.tiny.nation USING (VALUES (26, 'POLAND', 0, 'No comment'), (27, 'HOLLAND', 0, 'A comment')) t(a,b,c,d) ON nationkey = a
+                WHEN NOT MATCHED THEN INSERT VALUES (a,b,c,d)"""))
+                .hasMessage("line 1:1: Cannot merge into a table with row filters");
+
+        assertThatThrownBy(() -> assertions.query("""
+                MERGE INTO mock.tiny.nation USING (VALUES 42) t(dummy) ON false
+                WHEN NOT MATCHED THEN INSERT (nationkey) VALUES (NULL)"""))
+                .hasMessage("line 1:1: Cannot merge into a table with row filters");
+        assertThatThrownBy(() -> assertions.query("""
+                MERGE INTO mock.tiny.nation USING (VALUES 42) t(dummy) ON false
+                WHEN NOT MATCHED THEN INSERT (nationkey) VALUES (0)"""))
+                .hasMessage("line 1:1: Cannot merge into a table with row filters");
     }
 
     @Test
