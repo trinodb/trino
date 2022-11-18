@@ -40,6 +40,7 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.collect.cache.EvictableCacheBuilder;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 
 import java.util.Collections;
@@ -348,19 +349,21 @@ public class BigQueryClient
     public List<BigQueryColumnHandle> getColumns(BigQueryTableHandle tableHandle)
     {
         if (tableHandle.getProjectedColumns().isPresent()) {
-            return tableHandle.getProjectedColumns().get().stream()
-                    .map(column -> (BigQueryColumnHandle) column)
-                    .collect(toImmutableList());
+            return tableHandle.getProjectedColumns().get();
         }
         checkArgument(tableHandle.isNamedRelation(), "Cannot get columns for %s", tableHandle);
 
         TableInfo tableInfo = getTable(tableHandle.asPlainTable().getRemoteTableName().toTableId())
                 .orElseThrow(() -> new TableNotFoundException(tableHandle.asPlainTable().getSchemaTableName()));
+        return buildColumnHandles(tableInfo);
+    }
+
+    public static List<BigQueryColumnHandle> buildColumnHandles(TableInfo tableInfo)
+    {
         Schema schema = tableInfo.getDefinition().getSchema();
         if (schema == null) {
-            throw new TableNotFoundException(
-                    tableHandle.asPlainTable().getSchemaTableName(),
-                    format("Table '%s' has no schema", tableHandle.asPlainTable().getSchemaTableName()));
+            SchemaTableName schemaTableName = new SchemaTableName(tableInfo.getTableId().getDataset(), tableInfo.getTableId().getTable());
+            throw new TableNotFoundException(schemaTableName, format("Table '%s' has no schema", schemaTableName));
         }
         return schema.getFields()
                 .stream()

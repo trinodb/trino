@@ -17,7 +17,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.HostAddress;
-import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSplit;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -43,7 +42,7 @@ public class BigQuerySplit
     private final Mode mode;
     private final String streamName;
     private final String avroSchema;
-    private final List<ColumnHandle> columns;
+    private final List<BigQueryColumnHandle> columns;
     private final long emptyRowsToGenerate;
     private final Optional<String> filter;
     private final OptionalInt dataSize;
@@ -54,7 +53,7 @@ public class BigQuerySplit
             @JsonProperty("mode") Mode mode,
             @JsonProperty("streamName") String streamName,
             @JsonProperty("avroSchema") String avroSchema,
-            @JsonProperty("columns") List<ColumnHandle> columns,
+            @JsonProperty("columns") List<BigQueryColumnHandle> columns,
             @JsonProperty("emptyRowsToGenerate") long emptyRowsToGenerate,
             @JsonProperty("filter") Optional<String> filter,
             @JsonProperty("dataSize") OptionalInt dataSize)
@@ -68,12 +67,12 @@ public class BigQuerySplit
         this.dataSize = requireNonNull(dataSize, "dataSize is null");
     }
 
-    static BigQuerySplit forStream(String streamName, String avroSchema, List<ColumnHandle> columns, OptionalInt dataSize)
+    static BigQuerySplit forStream(String streamName, String avroSchema, List<BigQueryColumnHandle> columns, OptionalInt dataSize)
     {
         return new BigQuerySplit(STORAGE, streamName, avroSchema, columns, NO_ROWS_TO_GENERATE, Optional.empty(), dataSize);
     }
 
-    static BigQuerySplit forViewStream(List<ColumnHandle> columns, Optional<String> filter)
+    static BigQuerySplit forViewStream(List<BigQueryColumnHandle> columns, Optional<String> filter)
     {
         return new BigQuerySplit(QUERY, "", "", columns, NO_ROWS_TO_GENERATE, filter, OptionalInt.empty());
     }
@@ -102,7 +101,7 @@ public class BigQuerySplit
     }
 
     @JsonProperty
-    public List<ColumnHandle> getColumns()
+    public List<BigQueryColumnHandle> getColumns()
     {
         return columns;
     }
@@ -149,7 +148,7 @@ public class BigQuerySplit
         return INSTANCE_SIZE
                 + estimatedSizeOf(streamName)
                 + estimatedSizeOf(avroSchema)
-                + estimatedSizeOf(columns, column -> ((BigQueryColumnHandle) column).getRetainedSizeInBytes());
+                + estimatedSizeOf(columns, BigQueryColumnHandle::getRetainedSizeInBytes);
     }
 
     @Override
