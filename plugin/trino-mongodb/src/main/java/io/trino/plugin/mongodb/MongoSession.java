@@ -221,41 +221,41 @@ public class MongoSession
         }
     }
 
-    public void createTable(SchemaTableName name, List<MongoColumnHandle> columns, Optional<String> comment)
+    public void createTable(RemoteTableName name, List<MongoColumnHandle> columns, Optional<String> comment)
     {
-        if (!getAllSchemas().contains(name.getSchemaName())) {
-            throw new SchemaNotFoundException(name.getSchemaName());
+        if (getAllSchemas().stream().noneMatch(schemaName -> schemaName.equalsIgnoreCase(name.getDatabaseName()))) {
+            throw new SchemaNotFoundException(name.getDatabaseName());
         }
         createTableMetadata(name, columns, comment);
-        client.getDatabase(name.getSchemaName()).createCollection(name.getTableName());
+        client.getDatabase(name.getDatabaseName()).createCollection(name.getCollectionName());
     }
 
-    public void dropTable(SchemaTableName tableName)
+    public void dropTable(RemoteTableName remoteTableName)
     {
-        deleteTableMetadata(tableName);
-        getCollection(tableName).drop();
+        deleteTableMetadata(remoteTableName);
+        getCollection(remoteTableName).drop();
 
-        tableCache.invalidate(tableName);
+        tableCache.invalidate(new SchemaTableName(remoteTableName.getDatabaseName(), remoteTableName.getCollectionName()));
     }
 
-    public void setTableComment(SchemaTableName schemaTableName, Optional<String> comment)
+    public void setTableComment(MongoTableHandle table, Optional<String> comment)
     {
-        String schemaName = toRemoteSchemaName(schemaTableName.getSchemaName());
-        String tableName = toRemoteTableName(schemaName, schemaTableName.getTableName());
+        String remoteSchemaName = table.getRemoteTableName().getDatabaseName();
+        String remoteTableName = table.getRemoteTableName().getCollectionName();
 
-        Document metadata = getTableMetadata(schemaName, tableName);
+        Document metadata = getTableMetadata(remoteSchemaName, remoteTableName);
         metadata.append(COMMENT_KEY, comment.orElse(null));
 
-        client.getDatabase(schemaName).getCollection(schemaCollection)
-                .findOneAndReplace(new Document(TABLE_NAME_KEY, tableName), metadata);
+        client.getDatabase(remoteSchemaName).getCollection(schemaCollection)
+                .findOneAndReplace(new Document(TABLE_NAME_KEY, remoteTableName), metadata);
 
-        tableCache.invalidate(schemaTableName);
+        tableCache.invalidate(table.getSchemaTableName());
     }
 
-    public void setColumnComment(SchemaTableName schemaTableName, String columnName, Optional<String> comment)
+    public void setColumnComment(MongoTableHandle table, String columnName, Optional<String> comment)
     {
-        String remoteSchemaName = toRemoteSchemaName(schemaTableName.getSchemaName());
-        String remoteTableName = toRemoteTableName(remoteSchemaName, schemaTableName.getTableName());
+        String remoteSchemaName = table.getRemoteTableName().getDatabaseName();
+        String remoteTableName = table.getRemoteTableName().getCollectionName();
 
         Document metadata = getTableMetadata(remoteSchemaName, remoteTableName);
 
@@ -272,13 +272,13 @@ public class MongoSession
         client.getDatabase(remoteSchemaName).getCollection(schemaCollection)
                 .findOneAndReplace(new Document(TABLE_NAME_KEY, remoteTableName), metadata);
 
-        tableCache.invalidate(schemaTableName);
+        tableCache.invalidate(table.getSchemaTableName());
     }
 
-    public void renameTable(SchemaTableName oldName, SchemaTableName newName)
+    public void renameTable(MongoTableHandle table, SchemaTableName newName)
     {
-        String oldSchemaName = toRemoteSchemaName(oldName.getSchemaName());
-        String oldTableName = toRemoteTableName(oldSchemaName, oldName.getTableName());
+        String oldSchemaName = table.getRemoteTableName().getDatabaseName();
+        String oldTableName = table.getRemoteTableName().getCollectionName();
         String newSchemaName = toRemoteSchemaName(newName.getSchemaName());
 
         // Schema collection should always have the source table definition
@@ -292,18 +292,18 @@ public class MongoSession
 
         // Need to check explicitly because the old collection may not exist when it doesn't have any data
         if (collectionExists(client.getDatabase(oldSchemaName), oldTableName)) {
-            getCollection(oldName).renameCollection(new MongoNamespace(newSchemaName, newName.getTableName()));
+            getCollection(table.getRemoteTableName()).renameCollection(new MongoNamespace(newSchemaName, newName.getTableName()));
         }
 
-        tableCache.invalidate(oldName);
+        tableCache.invalidate(table.getSchemaTableName());
     }
 
-    public void addColumn(SchemaTableName schemaTableName, ColumnMetadata columnMetadata)
+    public void addColumn(MongoTableHandle table, ColumnMetadata columnMetadata)
     {
-        String schemaName = toRemoteSchemaName(schemaTableName.getSchemaName());
-        String tableName = toRemoteTableName(schemaName, schemaTableName.getTableName());
+        String remoteSchemaName = table.getRemoteTableName().getDatabaseName();
+        String remoteTableName = table.getRemoteTableName().getCollectionName();
 
-        Document metadata = getTableMetadata(schemaName, tableName);
+        Document metadata = getTableMetadata(remoteSchemaName, remoteTableName);
 
         List<Document> columns = new ArrayList<>(getColumnMetadata(metadata));
 
@@ -316,17 +316,17 @@ public class MongoSession
 
         metadata.append(FIELDS_KEY, columns);
 
-        MongoDatabase db = client.getDatabase(schemaName);
+        MongoDatabase db = client.getDatabase(remoteSchemaName);
         MongoCollection<Document> schema = db.getCollection(schemaCollection);
-        schema.findOneAndReplace(new Document(TABLE_NAME_KEY, tableName), metadata);
+        schema.findOneAndReplace(new Document(TABLE_NAME_KEY, remoteTableName), metadata);
 
-        tableCache.invalidate(schemaTableName);
+        tableCache.invalidate(table.getSchemaTableName());
     }
 
-    public void dropColumn(SchemaTableName schemaTableName, String columnName)
+    public void dropColumn(MongoTableHandle table, String columnName)
     {
-        String remoteSchemaName = toRemoteSchemaName(schemaTableName.getSchemaName());
-        String remoteTableName = toRemoteTableName(remoteSchemaName, schemaTableName.getTableName());
+        String remoteSchemaName = table.getRemoteTableName().getDatabaseName();
+        String remoteTableName = table.getRemoteTableName().getCollectionName();
 
         Document metadata = getTableMetadata(remoteSchemaName, remoteTableName);
 
@@ -340,16 +340,17 @@ public class MongoSession
         MongoCollection<Document> schema = database.getCollection(schemaCollection);
         schema.findOneAndReplace(new Document(TABLE_NAME_KEY, remoteTableName), metadata);
 
-        tableCache.invalidate(schemaTableName);
+        tableCache.invalidate(table.getSchemaTableName());
     }
 
     private MongoTable loadTableSchema(SchemaTableName schemaTableName)
             throws TableNotFoundException
     {
-        String schemaName = toRemoteSchemaName(schemaTableName.getSchemaName());
-        String tableName = toRemoteTableName(schemaName, schemaTableName.getTableName());
+        RemoteTableName remoteSchemaTableName = toRemoteSchemaTableName(schemaTableName);
+        String remoteSchemaName = remoteSchemaTableName.getDatabaseName();
+        String remoteTableName = remoteSchemaTableName.getCollectionName();
 
-        Document tableMeta = getTableMetadata(schemaName, tableName);
+        Document tableMeta = getTableMetadata(remoteSchemaName, remoteTableName);
 
         ImmutableList.Builder<MongoColumnHandle> columnHandles = ImmutableList.builder();
 
@@ -358,8 +359,8 @@ public class MongoSession
             columnHandles.add(columnHandle);
         }
 
-        MongoTableHandle tableHandle = new MongoTableHandle(schemaTableName, Optional.empty());
-        return new MongoTable(tableHandle, columnHandles.build(), getIndexes(schemaName, tableName), getComment(tableMeta));
+        MongoTableHandle tableHandle = new MongoTableHandle(schemaTableName, remoteSchemaTableName, Optional.empty());
+        return new MongoTable(tableHandle, columnHandles.build(), getIndexes(remoteSchemaName, remoteTableName), getComment(tableMeta));
     }
 
     private MongoColumnHandle buildColumnHandle(Document columnMeta)
@@ -388,16 +389,9 @@ public class MongoSession
         return Optional.ofNullable(doc.getString(COMMENT_KEY));
     }
 
-    public MongoCollection<Document> getCollection(SchemaTableName tableName)
+    public MongoCollection<Document> getCollection(RemoteTableName remoteTableName)
     {
-        return getCollection(tableName.getSchemaName(), tableName.getTableName());
-    }
-
-    private MongoCollection<Document> getCollection(String schema, String table)
-    {
-        String schemaName = toRemoteSchemaName(schema);
-        String tableName = toRemoteTableName(schemaName, table);
-        return client.getDatabase(schemaName).getCollection(tableName);
+        return client.getDatabase(remoteTableName.getDatabaseName()).getCollection(remoteTableName.getCollectionName());
     }
 
     public List<MongoIndex> getIndexes(String schemaName, String tableName)
@@ -409,12 +403,12 @@ public class MongoSession
         return MongoIndex.parse(collection.listIndexes());
     }
 
-    public long deleteDocuments(SchemaTableName schemaTableName, TupleDomain<ColumnHandle> constraint)
+    public long deleteDocuments(RemoteTableName remoteTableName, TupleDomain<ColumnHandle> constraint)
     {
         Document filter = buildQuery(constraint);
-        log.debug("Delete documents: collection: %s, filter: %s", schemaTableName, filter);
+        log.debug("Delete documents: collection: %s, filter: %s", remoteTableName, filter);
 
-        DeleteResult result = getCollection(schemaTableName).deleteMany(filter);
+        DeleteResult result = getCollection(remoteTableName).deleteMany(filter);
         return result.getDeletedCount();
     }
 
@@ -424,7 +418,7 @@ public class MongoSession
         for (MongoColumnHandle column : columns) {
             output.append(column.getName(), 1);
         }
-        MongoCollection<Document> collection = getCollection(tableHandle.getSchemaTableName());
+        MongoCollection<Document> collection = getCollection(tableHandle.getRemoteTableName());
         Document filter = buildFilter(tableHandle);
         FindIterable<Document> iterable = collection.find(filter).projection(output).collation(SIMPLE_COLLATION);
         tableHandle.getLimit().ifPresent(iterable::limit);
@@ -674,13 +668,13 @@ public class MongoSession
         return names;
     }
 
-    private void createTableMetadata(SchemaTableName schemaTableName, List<MongoColumnHandle> columns, Optional<String> tableComment)
+    private void createTableMetadata(RemoteTableName remoteSchemaTableName, List<MongoColumnHandle> columns, Optional<String> tableComment)
     {
-        String schemaName = schemaTableName.getSchemaName();
-        String tableName = schemaTableName.getTableName();
+        String remoteSchemaName = remoteSchemaTableName.getDatabaseName();
+        String remoteTableName = remoteSchemaTableName.getCollectionName();
 
-        MongoDatabase db = client.getDatabase(schemaName);
-        Document metadata = new Document(TABLE_NAME_KEY, tableName);
+        MongoDatabase db = client.getDatabase(remoteSchemaName);
+        Document metadata = new Document(TABLE_NAME_KEY, remoteTableName);
 
         ArrayList<Document> fields = new ArrayList<>();
         if (!columns.stream().anyMatch(c -> c.getName().equals("_id"))) {
@@ -702,19 +696,16 @@ public class MongoSession
         schema.insertOne(metadata);
     }
 
-    private boolean deleteTableMetadata(SchemaTableName schemaTableName)
+    private boolean deleteTableMetadata(RemoteTableName remoteTableName)
     {
-        String schemaName = toRemoteSchemaName(schemaTableName.getSchemaName());
-        String tableName = toRemoteTableName(schemaName, schemaTableName.getTableName());
-
-        MongoDatabase db = client.getDatabase(schemaName);
-        if (!collectionExists(db, tableName) &&
-                db.getCollection(schemaCollection).find(new Document(TABLE_NAME_KEY, tableName)).first().isEmpty()) {
+        MongoDatabase db = client.getDatabase(remoteTableName.getDatabaseName());
+        if (!collectionExists(db, remoteTableName.getCollectionName()) &&
+                db.getCollection(schemaCollection).find(new Document(TABLE_NAME_KEY, remoteTableName.getCollectionName())).first().isEmpty()) {
             return false;
         }
 
         DeleteResult result = db.getCollection(schemaCollection)
-                .deleteOne(new Document(TABLE_NAME_KEY, tableName));
+                .deleteOne(new Document(TABLE_NAME_KEY, remoteTableName.getCollectionName()));
 
         return result.getDeletedCount() == 1;
     }
@@ -829,6 +820,13 @@ public class MongoSession
         }
 
         return Optional.ofNullable(typeSignature);
+    }
+
+    public RemoteTableName toRemoteSchemaTableName(SchemaTableName schemaTableName)
+    {
+        String remoteSchemaName = toRemoteSchemaName(schemaTableName.getSchemaName());
+        String remoteTableName = toRemoteTableName(remoteSchemaName, schemaTableName.getTableName());
+        return new RemoteTableName(remoteSchemaName, remoteTableName);
     }
 
     private String toRemoteSchemaName(String schemaName)
