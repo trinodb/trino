@@ -475,7 +475,7 @@ public class TestRowFilter
         assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation SET regionkey = regionkey * 2 WHERE nationkey IN (1, 2, 3)"))
                 .hasMessage("line 1:1: Updating a table with a row filter is not supported");
 
-        // Outside allowed row filter, only readable rows were update
+        // Outside allowed row filter
         assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation SET regionkey = regionkey * 2"))
                 .hasMessage("line 1:1: Updating a table with a row filter is not supported");
         assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation SET regionkey = regionkey * 2 WHERE nationkey IN (1, 11)"))
@@ -490,7 +490,7 @@ public class TestRowFilter
         assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation SET nationkey = null WHERE nationkey < 3"))
                 .hasMessage("line 1:1: Updating a table with a row filter is not supported");
 
-        // Outside allowed row filter, but updated rows are outside the row filter
+        // Outside allowed row filter, and updated rows are outside the row filter
         assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation SET nationkey = 10 WHERE nationkey = 10"))
                 .hasMessage("line 1:1: Updating a table with a row filter is not supported");
         assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation SET nationkey = null WHERE nationkey = null "))
