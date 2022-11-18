@@ -461,6 +461,11 @@ class AstBuilder
     @Override
     public Node visitCreateMaterializedView(SqlBaseParser.CreateMaterializedViewContext context)
     {
+        Optional<IntervalLiteral> gracePeriod = Optional.empty();
+        if (context.GRACE() != null) {
+            gracePeriod = Optional.of((IntervalLiteral) visit(context.interval()));
+        }
+
         Optional<String> comment = Optional.empty();
         if (context.COMMENT() != null) {
             comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
@@ -477,6 +482,7 @@ class AstBuilder
                 (Query) visit(context.query()),
                 context.REPLACE() != null,
                 context.EXISTS() != null,
+                gracePeriod,
                 properties,
                 comment);
     }
