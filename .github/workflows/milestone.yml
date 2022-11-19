@@ -1,6 +1,7 @@
 name: milestone
 
 on:
+  pull_request:
   push:
     branches: [master]
 
@@ -46,6 +47,7 @@ jobs:
             const {
                 MILESTONE_NUMBER
             } = process.env
+            console.log(MILESTONE_NUMBER)
 
             // Find milestone
             const response = await github.rest.issues.listMilestones({
@@ -53,18 +55,23 @@ jobs:
                 repo: context.repo.repo,
                 state: 'all'
             })
+            console.log(response)
             let milestone = response.data.find(milestoneResponse => milestoneResponse.title === MILESTONE_NUMBER)
+            console.log(milestone)
 
             // Create new milestone if it doesn't exist
             if (!milestone) {
+                console.log('Creating new milestone')
                 const create_response = await github.rest.issues.createMilestone({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
                     title: MILESTONE_NUMBER
                 })
+                console.log(create_response)
                 milestone = create_response.data
             }
 
+            console.log(milestone)
             // Set milestone to PR
             await github.rest.issues.update({
                 owner: context.repo.owner,
