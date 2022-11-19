@@ -47,6 +47,7 @@ import static com.google.cloud.bigquery.TableDefinition.Type.EXTERNAL;
 import static com.google.cloud.bigquery.TableDefinition.Type.MATERIALIZED_VIEW;
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
 import static io.trino.plugin.bigquery.BigQuerySessionProperties.createDisposition;
@@ -121,8 +122,10 @@ public class BigQuerySplitManager
 
     private List<BigQuerySplit> readFromBigQuery(ConnectorSession session, TableDefinition.Type type, TableId remoteTableId, Optional<List<BigQueryColumnHandle>> projectedColumns, int actualParallelism, Optional<String> filter)
     {
+        checkArgument(projectedColumns.isPresent() && projectedColumns.get().size() > 0, "Projected column is empty");
+
         log.debug("readFromBigQuery(tableId=%s, projectedColumns=%s, actualParallelism=%s, filter=[%s])", remoteTableId, projectedColumns, actualParallelism, filter);
-        List<BigQueryColumnHandle> columns = projectedColumns.orElse(ImmutableList.of());
+        List<BigQueryColumnHandle> columns = projectedColumns.get();
         List<String> projectedColumnsNames = columns.stream()
                 .map(BigQueryColumnHandle::getName)
                 .collect(toImmutableList());
