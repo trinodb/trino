@@ -50,9 +50,14 @@ jobs:
             } = process.env
             console.log('Milestone number to set', MILESTONE_NUMBER)
 
-            // Find milestone
-            const response = await github.rest.issues.listMilestones(context.repo)
-            let milestone = response.data.find(milestoneResponse => milestoneResponse.title === MILESTONE_NUMBER)
+            // Find milestone with matching title
+            // See https://octokit.github.io/rest.js/v19#pagination
+            const milestones = await github.paginate(github.rest.issues.listMilestones, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'all'
+            })
+            let milestone = milestones.find(milestone => milestone.title === MILESTONE_NUMBER)
             console.log('Found milestone with title', MILESTONE_NUMBER, milestone)
 
             // Create new milestone if it doesn't exist
