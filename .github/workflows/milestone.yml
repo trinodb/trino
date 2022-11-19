@@ -48,11 +48,7 @@ jobs:
             } = process.env
 
             // Find milestone
-            const response = await github.rest.issues.listMilestones({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                state: 'all'
-            })
+            const response = await github.rest.issues.listMilestones(context.repo)
             let milestone = response.data.find(milestoneResponse => milestoneResponse.title === MILESTONE_NUMBER)
 
             // Create new milestone if it doesn't exist
