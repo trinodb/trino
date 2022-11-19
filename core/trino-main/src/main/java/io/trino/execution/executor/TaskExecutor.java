@@ -882,6 +882,12 @@ public class TaskExecutor
                 .filter(filter).map(RunningSplitInfo::getTaskId).collect(toImmutableSet());
     }
 
+    /**
+     * A class representing a split that is running on the TaskRunner.
+     * It has a Thread object that gets assigned while assigning the split
+     * to the taskRunner. However, when the TaskRunner moves to a different split,
+     * the thread stored here will not remain assigned to this split anymore.
+     */
     public static class RunningSplitInfo
             implements Comparable<RunningSplitInfo>
     {
