@@ -602,7 +602,7 @@ public class TestPushJoinIntoTableScan
     {
         return MockConnectorFactory.builder()
                 .withListSchemaNames(connectorSession -> ImmutableList.of(SCHEMA))
-                .withListTables((connectorSession, schema) -> SCHEMA.equals(schema) ? ImmutableList.of(TABLE_A_SCHEMA_TABLE_NAME, TABLE_B_SCHEMA_TABLE_NAME) : ImmutableList.of())
+                .withListTables((connectorSession, schema) -> SCHEMA.equals(schema) ? ImmutableList.of(TABLE_A_SCHEMA_TABLE_NAME.getTableName(), TABLE_B_SCHEMA_TABLE_NAME.getTableName()) : ImmutableList.of())
                 .withApplyJoin(applyJoin)
                 .withGetColumns(schemaTableName -> {
                     if (schemaTableName.equals(TABLE_A_SCHEMA_TABLE_NAME)) {

@@ -81,7 +81,7 @@ public class MockConnectorFactory
     private final String name;
     private final List<PropertyMetadata<?>> sessionProperty;
     private final Function<ConnectorSession, List<String>> listSchemaNames;
-    private final BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables;
+    private final BiFunction<ConnectorSession, String, List<String>> listTables;
     private final Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Iterator<TableColumnsMetadata>>> streamTableColumns;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews;
     private final Supplier<List<PropertyMetadata<?>>> getMaterializedViewProperties;
@@ -123,7 +123,7 @@ public class MockConnectorFactory
             String name,
             List<PropertyMetadata<?>> sessionProperty,
             Function<ConnectorSession, List<String>> listSchemaNames,
-            BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables,
+            BiFunction<ConnectorSession, String, List<String>> listTables,
             Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Iterator<TableColumnsMetadata>>> streamTableColumns,
             BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews,
             Supplier<List<PropertyMetadata<?>>> getMaterializedViewProperties,
@@ -337,7 +337,7 @@ public class MockConnectorFactory
         private String name = "mock";
         private final List<PropertyMetadata<?>> sessionProperties = new ArrayList<>();
         private Function<ConnectorSession, List<String>> listSchemaNames = defaultListSchemaNames();
-        private BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables = defaultListTables();
+        private BiFunction<ConnectorSession, String, List<String>> listTables = defaultListTables();
         private Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Iterator<TableColumnsMetadata>>> streamTableColumns = Optional.empty();
         private BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews = defaultGetViews();
         private Supplier<List<PropertyMetadata<?>>> getMaterializedViewProperties = defaultGetMaterializedViewProperties();
@@ -407,7 +407,7 @@ public class MockConnectorFactory
             return this;
         }
 
-        public Builder withListTables(BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables)
+        public Builder withListTables(BiFunction<ConnectorSession, String, List<String>> listTables)
         {
             this.listTables = requireNonNull(listTables, "listTables is null");
             return this;
@@ -707,7 +707,7 @@ public class MockConnectorFactory
             return (session, roles, grantees, limit) -> ImmutableSet.of();
         }
 
-        public static BiFunction<ConnectorSession, String, List<SchemaTableName>> defaultListTables()
+        public static BiFunction<ConnectorSession, String, List<String>> defaultListTables()
         {
             return (session, schemaName) -> ImmutableList.of();
         }

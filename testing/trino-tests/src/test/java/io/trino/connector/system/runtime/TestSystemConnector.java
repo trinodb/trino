@@ -59,7 +59,6 @@ import static org.testng.Assert.assertTrue;
 public class TestSystemConnector
         extends AbstractTestQueryFramework
 {
-    private static final SchemaTableName SCHEMA_TABLE_NAME = new SchemaTableName("default", "test_table");
     private static final Function<SchemaTableName, List<ColumnMetadata>> DEFAULT_GET_COLUMNS = table -> ImmutableList.of(new ColumnMetadata("c", VARCHAR));
     private static final AtomicLong counter = new AtomicLong();
 
@@ -87,7 +86,7 @@ public class TestSystemConnector
             {
                 MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
                         .withGetViews((session, schemaTablePrefix) -> ImmutableMap.of())
-                        .withListTables((session, s) -> ImmutableList.of(SCHEMA_TABLE_NAME))
+                        .withListTables((session, s) -> ImmutableList.of("test_table"))
                         .withGetColumns(tableName -> getColumns.apply(tableName))
                         .build();
                 return ImmutableList.of(connectorFactory);
