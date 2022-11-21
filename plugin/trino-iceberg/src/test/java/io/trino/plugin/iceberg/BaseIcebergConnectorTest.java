@@ -3128,9 +3128,9 @@ public abstract class BaseIcebergConnectorTest
 
         String statsWithNdv = format == AVRO
                 ? ("VALUES " +
-                "  ('regionkey', NULL, 5e0, NULL, NULL, NULL, NULL), " +
-                "  ('name', NULL, 5e0, NULL, NULL, NULL, NULL), " +
-                "  ('comment', NULL, 5e0, NULL, NULL, NULL, NULL), " +
+                "  ('regionkey', NULL, 5e0, 0e0, NULL, NULL, NULL), " +
+                "  ('name', NULL, 5e0, 0e0, NULL, NULL, NULL), " +
+                "  ('comment', NULL, 5e0, 0e0, NULL, NULL, NULL), " +
                 "  (NULL, NULL, NULL, NULL, 5e0, NULL, NULL)")
                 : ("VALUES " +
                 "  ('regionkey', NULL, 5e0, 0e0, NULL, '0', '4'), " +
@@ -4019,20 +4019,20 @@ public abstract class BaseIcebergConnectorTest
             assertThat(query(extendedStatisticsEnabled, "SHOW STATS FOR test_all_types"))
                     .skippingTypesCheck()
                     .matches("VALUES " +
-                            "  ('a_boolean', NULL, 1e0, NULL, NULL, NULL, NULL), " +
-                            "  ('an_integer', NULL, 1e0, NULL, NULL, NULL, NULL), " +
-                            "  ('a_bigint', NULL, 1e0, NULL, NULL, NULL, NULL), " +
-                            "  ('a_real', NULL, 1e0, NULL, NULL, NULL, NULL), " +
-                            "  ('a_double', NULL, 1e0, NULL, NULL, NULL, NULL), " +
-                            "  ('a_short_decimal', NULL, 1e0, NULL, NULL, NULL, NULL), " +
-                            "  ('a_long_decimal', NULL, 1e0, NULL, NULL, NULL, NULL), " +
-                            "  ('a_varchar', NULL, 1e0, NULL, NULL, NULL, NULL), " +
-                            "  ('a_varbinary', NULL, 1e0, NULL, NULL, NULL, NULL), " +
-                            "  ('a_date', NULL, 1e0, NULL, NULL, NULL, NULL), " +
-                            "  ('a_time', NULL, 1e0, NULL, NULL, NULL, NULL), " +
-                            "  ('a_timestamp', NULL, 1e0, NULL, NULL, NULL, NULL), " +
-                            "  ('a_timestamptz', NULL, 1e0, NULL, NULL, NULL, NULL), " +
-                            "  ('a_uuid', NULL, 1e0, NULL, NULL, NULL, NULL), " +
+                            "  ('a_boolean', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
+                            "  ('an_integer', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
+                            "  ('a_bigint', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
+                            "  ('a_real', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
+                            "  ('a_double', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
+                            "  ('a_short_decimal', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
+                            "  ('a_long_decimal', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
+                            "  ('a_varchar', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
+                            "  ('a_varbinary', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
+                            "  ('a_date', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
+                            "  ('a_time', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
+                            "  ('a_timestamp', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
+                            "  ('a_timestamptz', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
+                            "  ('a_uuid', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
                             "  ('a_row', NULL, NULL, NULL, NULL, NULL, NULL), " +
                             "  ('an_array', NULL, NULL, NULL, NULL, NULL, NULL), " +
                             "  ('a_map', NULL, NULL, NULL, NULL, NULL, NULL), " +
