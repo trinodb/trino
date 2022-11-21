@@ -34,6 +34,11 @@ connection properties as appropriate for your setup:
     connection-user=root
     connection-password=secret
 
+The ``connection-user`` and ``connection-password`` are typically required and
+determine the user credentials for the connection, often a service user. You can
+use :doc:`secrets </security/secrets>` to avoid actual values in the catalog
+properties files.
+
 .. include:: jdbc-authentication.fragment
 
 .. include:: jdbc-common-configurations.fragment
