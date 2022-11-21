@@ -21,10 +21,7 @@ jobs:
     dependsOn: PrepareNode
     displayName: Maven Build (Container)
     variables:
-      buildUid: 1001
       containerRegistry: uchimera
-      imageRepository: cccs/trino-base
-      buildTimestamp: $[format('{0:yyyyMMddHHmmss}', pipeline.startTime)]
       m2RepoContainerPath: /tmp/m2/repository
       DOCKER_BUILDKIT: 1
       JAVA_TOOL_OPTIONS: " -Xmx8g"

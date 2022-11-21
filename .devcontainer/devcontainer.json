@@ -26,14 +26,7 @@
 		"source=${env:HOME}/.devcontainers/trino-bashhistory,target=/usr/local/share/bash_history,type=bind",
 		"source=${env:HOME}/scratch,target=${containerWorkspaceFolder}/scratch,type=bind",
 		"source=trino-dind-var-lib-docker,target=/var/lib/docker,type=volume",
-		"source=${env:HOME}/.m2,target=/usr/local/share/m2,type=bind",
-		"source=${env:HOME}/repositories/cccs-work/trino-azuread-plugin,target=${containerWorkspaceFolder}/trino-azuread-plugin,type=bind",
-		"source=${env:HOME}/repositories/cccs-work/trino-fission-functions-plugin,target=${containerWorkspaceFolder}/trino-fission-functions-plugin,type=bind",
-		"source=${env:HOME}/repositories/cccs-work/trino-queryeventlistener-plugin,target=${containerWorkspaceFolder}/trino-queryeventlistener-plugin,type=bind",
-		"source=${env:HOME}/repositories/cccs-work/trino-sql-functions-plugin,target=${containerWorkspaceFolder}/trino-sql-functions-plugin,type=bind",
-		"source=${env:HOME}/repositories/cccs-work/cccs-trino,target=${containerWorkspaceFolder}/cccs-trino,type=bind",
-		"source=${env:HOME}/repositories/cccs-work/hogwarts-trino-deployment,target=${containerWorkspaceFolder}/hogwarts-trino-deployment,type=bind"
-
+		"source=${env:HOME}/.m2,target=/usr/local/share/m2,type=bind"
 	],
 	"remoteEnv": {
 		"SSH_AUTH_SOCK": "/usr/local/share/ssh-agent.sock",
