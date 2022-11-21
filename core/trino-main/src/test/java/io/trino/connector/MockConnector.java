@@ -37,6 +37,7 @@ import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
+import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
@@ -821,6 +822,18 @@ public class MockConnector
         {
             return new MockPageSink();
         }
+
+        @Override
+        public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, ConnectorPageSinkId pageSinkId)
+        {
+            return new MockPageSink();
+        }
+
+        @Override
+        public ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle, ConnectorPageSinkId pageSinkId)
+        {
+            return new MockMergeSink();
+        }
     }
 
     private static class MockPageSink
@@ -840,6 +853,21 @@ public class MockConnector
 
         @Override
         public void abort() {}
+    }
+
+    private static class MockMergeSink
+            implements ConnectorMergeSink
+    {
+        @Override
+        public void storeMergedRows(Page page)
+        {
+        }
+
+        @Override
+        public CompletableFuture<Collection<Slice>> finish()
+        {
+            return completedFuture(ImmutableList.of());
+        }
     }
 
     private class MockConnectorPageSourceProvider
