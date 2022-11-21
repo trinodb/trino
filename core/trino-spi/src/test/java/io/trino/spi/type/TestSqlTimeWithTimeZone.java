@@ -15,6 +15,7 @@ package io.trino.spi.type;
 
 import org.junit.jupiter.api.Test;
 
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSqlTimeWithTimeZone
@@ -76,5 +77,20 @@ public class TestSqlTimeWithTimeZone
         assertThat(SqlTimeWithTimeZone.newInstance(12, 555555555555L, 1).roundTo(10)).isEqualTo(SqlTimeWithTimeZone.newInstance(10, 555555555600L, 1));
         assertThat(SqlTimeWithTimeZone.newInstance(12, 555555555555L, 1).roundTo(11)).isEqualTo(SqlTimeWithTimeZone.newInstance(11, 555555555560L, 1));
         assertThat(SqlTimeWithTimeZone.newInstance(12, 555555555555L, 1).roundTo(12)).isEqualTo(SqlTimeWithTimeZone.newInstance(12, 555555555555L, 1));
+
+        // round up to next day
+        assertThat(SqlTimeWithTimeZone.newInstance(12, PICOSECONDS_PER_DAY - 1L, 1).roundTo(0)).isEqualTo(SqlTimeWithTimeZone.newInstance(0, 0, 1));
+        assertThat(SqlTimeWithTimeZone.newInstance(12, PICOSECONDS_PER_DAY - 1L, 1).roundTo(1)).isEqualTo(SqlTimeWithTimeZone.newInstance(1, 0, 1));
+        assertThat(SqlTimeWithTimeZone.newInstance(12, PICOSECONDS_PER_DAY - 1L, 1).roundTo(2)).isEqualTo(SqlTimeWithTimeZone.newInstance(2, 0, 1));
+        assertThat(SqlTimeWithTimeZone.newInstance(12, PICOSECONDS_PER_DAY - 1L, 1).roundTo(3)).isEqualTo(SqlTimeWithTimeZone.newInstance(3, 0, 1));
+        assertThat(SqlTimeWithTimeZone.newInstance(12, PICOSECONDS_PER_DAY - 1L, 1).roundTo(4)).isEqualTo(SqlTimeWithTimeZone.newInstance(4, 0, 1));
+        assertThat(SqlTimeWithTimeZone.newInstance(12, PICOSECONDS_PER_DAY - 1L, 1).roundTo(5)).isEqualTo(SqlTimeWithTimeZone.newInstance(5, 0, 1));
+        assertThat(SqlTimeWithTimeZone.newInstance(12, PICOSECONDS_PER_DAY - 1L, 1).roundTo(6)).isEqualTo(SqlTimeWithTimeZone.newInstance(6, 0, 1));
+        assertThat(SqlTimeWithTimeZone.newInstance(12, PICOSECONDS_PER_DAY - 1L, 1).roundTo(7)).isEqualTo(SqlTimeWithTimeZone.newInstance(7, 0, 1));
+        assertThat(SqlTimeWithTimeZone.newInstance(12, PICOSECONDS_PER_DAY - 1L, 1).roundTo(8)).isEqualTo(SqlTimeWithTimeZone.newInstance(8, 0, 1));
+        assertThat(SqlTimeWithTimeZone.newInstance(12, PICOSECONDS_PER_DAY - 1L, 1).roundTo(9)).isEqualTo(SqlTimeWithTimeZone.newInstance(9, 0, 1));
+        assertThat(SqlTimeWithTimeZone.newInstance(12, PICOSECONDS_PER_DAY - 1L, 1).roundTo(10)).isEqualTo(SqlTimeWithTimeZone.newInstance(10, 0, 1));
+        assertThat(SqlTimeWithTimeZone.newInstance(12, PICOSECONDS_PER_DAY - 1L, 1).roundTo(11)).isEqualTo(SqlTimeWithTimeZone.newInstance(11, 0, 1));
+        assertThat(SqlTimeWithTimeZone.newInstance(12, PICOSECONDS_PER_DAY - 1L, 1).roundTo(12)).isEqualTo(SqlTimeWithTimeZone.newInstance(12, PICOSECONDS_PER_DAY - 1L, 1));
     }
 }
