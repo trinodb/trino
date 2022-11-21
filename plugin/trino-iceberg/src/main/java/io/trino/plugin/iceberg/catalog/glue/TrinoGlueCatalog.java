@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.catalog.glue;
 
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.services.glue.AWSGlueAsync;
+import com.amazonaws.services.glue.model.AccessDeniedException;
 import com.amazonaws.services.glue.model.AlreadyExistsException;
 import com.amazonaws.services.glue.model.CreateDatabaseRequest;
 import com.amazonaws.services.glue.model.CreateTableRequest;
@@ -297,8 +298,8 @@ public class TrinoGlueCatalog
                                     .map(table -> new SchemaTableName(glueNamespace, table.getName()))
                                     .collect(toImmutableList()));
                 }
-                catch (EntityNotFoundException e) {
-                    // Namespace may have been deleted
+                catch (EntityNotFoundException | AccessDeniedException e) {
+                    // Namespace may have been deleted or permission denied
                 }
             }
         }
@@ -648,8 +649,8 @@ public class TrinoGlueCatalog
                             .map(table -> new SchemaTableName(glueNamespace, table.getName()))
                             .collect(toImmutableList()));
                 }
-                catch (EntityNotFoundException e) {
-                    // Namespace may have been deleted
+                catch (EntityNotFoundException | AccessDeniedException e) {
+                    // Namespace may have been deleted or permission denied
                 }
             }
         }
