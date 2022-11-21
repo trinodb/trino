@@ -74,7 +74,7 @@ public final class SqlTimeWithTimeZone
 
     public SqlTimeWithTimeZone roundTo(int precision)
     {
-        return new SqlTimeWithTimeZone(precision, round(picos, 12 - precision), offsetMinutes);
+        return new SqlTimeWithTimeZone(precision, round(picos, 12 - precision) % PICOSECONDS_PER_DAY, offsetMinutes);
     }
 
     @Override
