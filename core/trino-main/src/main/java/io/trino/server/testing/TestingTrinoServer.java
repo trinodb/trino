@@ -77,6 +77,7 @@ import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
 import io.trino.spi.eventlistener.EventListener;
+import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.type.TypeManager;
@@ -545,6 +546,11 @@ public class TestingTrinoServer
     public SplitManager getSplitManager()
     {
         return splitManager;
+    }
+
+    public ExchangeManager getExchangeManager()
+    {
+        return exchangeManagerRegistry.getExchangeManager();
     }
 
     public PageSourceManager getPageSourceManager()

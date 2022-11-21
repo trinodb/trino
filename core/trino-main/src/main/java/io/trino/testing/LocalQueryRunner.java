@@ -133,6 +133,7 @@ import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
+import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
@@ -671,6 +672,12 @@ public class LocalQueryRunner
     public SplitManager getSplitManager()
     {
         return splitManager;
+    }
+
+    @Override
+    public ExchangeManager getExchangeManager()
+    {
+        return exchangeManagerRegistry.getExchangeManager();
     }
 
     @Override
