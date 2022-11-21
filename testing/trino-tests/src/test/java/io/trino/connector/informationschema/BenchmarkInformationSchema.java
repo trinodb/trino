@@ -20,7 +20,6 @@ import io.trino.connector.MockConnectorFactory;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
@@ -99,14 +98,11 @@ public class BenchmarkInformationSchema
                             .map(i -> "stream_" + i)
                             .collect(toImmutableList());
 
-                    BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables = (session, schemaName) -> {
-                        List<String> tables = IntStream.range(0, Integer.parseInt(tablesCount))
-                                .boxed()
-                                .map(i -> "table_" + i)
-                                .collect(toImmutableList());
-                        return tables.stream().map(table -> new SchemaTableName(schemaName, table))
-                                .collect(toImmutableList());
-                    };
+                    BiFunction<ConnectorSession, String, List<String>> listTables = (session, schemaName) ->
+                            IntStream.range(0, Integer.parseInt(tablesCount))
+                                    .boxed()
+                                    .map(i -> "table_" + i)
+                                    .collect(toImmutableList());
 
                     MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
                             .withListSchemaNames(listSchemaNames)

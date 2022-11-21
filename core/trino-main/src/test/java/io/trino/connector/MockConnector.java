@@ -125,7 +125,7 @@ public class MockConnector
     private static final String MERGE_ROW_ID = "merge_row_id";
 
     private final Function<ConnectorSession, List<String>> listSchemaNames;
-    private final BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables;
+    private final BiFunction<ConnectorSession, String, List<String>> listTables;
     private final Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Iterator<TableColumnsMetadata>>> streamTableColumns;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews;
     private final Supplier<List<PropertyMetadata<?>>> getMaterializedViewProperties;
@@ -165,7 +165,7 @@ public class MockConnector
     MockConnector(
             List<PropertyMetadata<?>> sessionProperties,
             Function<ConnectorSession, List<String>> listSchemaNames,
-            BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables,
+            BiFunction<ConnectorSession, String, List<String>> listTables,
             Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Iterator<TableColumnsMetadata>>> streamTableColumns,
             BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews,
             Supplier<List<PropertyMetadata<?>>> getMaterializedViewProperties,
@@ -468,11 +468,16 @@ public class MockConnector
         public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
         {
             if (schemaName.isPresent()) {
-                return listTables.apply(session, schemaName.get());
+                String schema = schemaName.get();
+                return listTables.apply(session, schema).stream()
+                        .map(tableName -> new SchemaTableName(schema, tableName))
+                        .collect(toImmutableList());
             }
             ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
             for (String schema : listSchemaNames(session)) {
-                tableNames.addAll(listTables.apply(session, schema));
+                tableNames.addAll(listTables.apply(session, schema).stream()
+                        .map(tableName -> new SchemaTableName(schema, tableName))
+                        .collect(toImmutableList()));
             }
             return tableNames.build();
         }

@@ -86,7 +86,6 @@ public class TestPushProjectionIntoTableScan
 {
     private static final String TEST_SCHEMA = "test_schema";
     private static final String TEST_TABLE = "test_table";
-    private static final SchemaTableName TEST_SCHEMA_TABLE = new SchemaTableName(TEST_SCHEMA, TEST_TABLE);
     private static final Type ROW_TYPE = RowType.from(asList(field("a", BIGINT), field("b", BIGINT)));
 
     private static final TableHandle TEST_TABLE_HANDLE = createTableHandle(TEST_SCHEMA, TEST_TABLE);
@@ -249,7 +248,7 @@ public class TestPushProjectionIntoTableScan
 
         MockConnectorFactory.Builder builder = MockConnectorFactory.builder()
                 .withListSchemaNames(connectorSession -> ImmutableList.of(TEST_SCHEMA))
-                .withListTables((connectorSession, schema) -> TEST_SCHEMA.equals(schema) ? ImmutableList.of(TEST_SCHEMA_TABLE) : ImmutableList.of())
+                .withListTables((connectorSession, schema) -> TEST_SCHEMA.equals(schema) ? ImmutableList.of(TEST_TABLE) : ImmutableList.of())
                 .withGetColumns(schemaTableName -> metadata)
                 .withGetTableProperties((session, tableHandle) -> {
                     MockConnectorTableHandle mockTableHandle = (MockConnectorTableHandle) tableHandle;
