@@ -70,9 +70,8 @@ ARG TRINO_VERSION="400"
 
 # Install Maven
 RUN mkdir -p /tmp \
-    && wget https://dlcdn.apache.org/maven/maven-3/3.8.6/binaries/apache-maven-3.8.6-bin.tar.gz -P /tmp \
-    && sudo tar xf /tmp/apache-maven-*.tar.gz -C /opt \
-    && sudo ln -s /opt/apache-maven-3.8.6 /opt/maven \
+    && apt-get update \
+    && apt-get -y install maven \
     # Install additional OS packages.
     && apt-get update && export DEBIAN_FRONTEND=noninteractive \
     && apt-get -y install --no-install-recommends bash-completion vim \
