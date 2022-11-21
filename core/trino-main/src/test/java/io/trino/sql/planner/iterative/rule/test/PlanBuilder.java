@@ -54,6 +54,7 @@ import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.DynamicFilterId;
@@ -103,7 +104,6 @@ import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.planner.plan.WindowNode.Specification;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.NullLiteral;
@@ -1344,7 +1344,7 @@ public class PlanBuilder
                 filter);
     }
 
-    public WindowNode window(Specification specification, Map<Symbol, WindowNode.Function> functions, PlanNode source)
+    public WindowNode window(DataOrganizationSpecification specification, Map<Symbol, WindowNode.Function> functions, PlanNode source)
     {
         return new WindowNode(
                 idAllocator.getNextId(),
@@ -1356,7 +1356,7 @@ public class PlanBuilder
                 0);
     }
 
-    public WindowNode window(Specification specification, Map<Symbol, WindowNode.Function> functions, Symbol hashSymbol, PlanNode source)
+    public WindowNode window(DataOrganizationSpecification specification, Map<Symbol, WindowNode.Function> functions, Symbol hashSymbol, PlanNode source)
     {
         return new WindowNode(
                 idAllocator.getNextId(),
@@ -1385,7 +1385,7 @@ public class PlanBuilder
                 hashSymbol);
     }
 
-    public TopNRankingNode topNRanking(Specification specification, RankingType rankingType, int maxRankingPerPartition, Symbol rankingSymbol, Optional<Symbol> hashSymbol, PlanNode source)
+    public TopNRankingNode topNRanking(DataOrganizationSpecification specification, RankingType rankingType, int maxRankingPerPartition, Symbol rankingSymbol, Optional<Symbol> hashSymbol, PlanNode source)
     {
         return new TopNRankingNode(
                 idAllocator.getNextId(),

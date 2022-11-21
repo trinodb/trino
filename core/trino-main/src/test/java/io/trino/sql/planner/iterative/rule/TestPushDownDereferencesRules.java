@@ -28,6 +28,7 @@ import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.FrameBound;
@@ -518,7 +519,7 @@ public class TestPushDownDereferencesRules
                                         .put(p.symbol("msg3_x"), expression("msg3[1]"))
                                         .build(),
                                 p.topNRanking(
-                                        new WindowNode.Specification(
+                                        new DataOrganizationSpecification(
                                                 ImmutableList.of(p.symbol("msg1", ROW_TYPE)),
                                                 Optional.of(new OrderingScheme(
                                                         ImmutableList.of(p.symbol("msg2", ROW_TYPE)),
@@ -589,7 +590,7 @@ public class TestPushDownDereferencesRules
                                         .put(p.symbol("msg5_x"), expression("msg5[1]"))
                                         .build(),
                                 p.window(
-                                        new WindowNode.Specification(
+                                        new DataOrganizationSpecification(
                                                 ImmutableList.of(p.symbol("msg1", ROW_TYPE)),
                                                 Optional.of(new OrderingScheme(
                                                         ImmutableList.of(p.symbol("msg2", ROW_TYPE)),

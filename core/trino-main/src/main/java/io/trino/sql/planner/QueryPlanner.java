@@ -47,6 +47,7 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.GroupIdNode;
@@ -328,7 +329,7 @@ class QueryPlanner
         WindowNode windowNode = new WindowNode(
                 idAllocator.getNextId(),
                 checkConvergenceStep.getNode(),
-                new WindowNode.Specification(ImmutableList.of(), Optional.empty()),
+                new DataOrganizationSpecification(ImmutableList.of(), Optional.empty()),
                 ImmutableMap.of(countSymbol, countFunction),
                 Optional.empty(),
                 ImmutableSet.of(),
@@ -1829,7 +1830,7 @@ class QueryPlanner
             }
         }
 
-        WindowNode.Specification specification = planWindowSpecification(window.getPartitionBy(), window.getOrderBy(), coercions::get);
+        DataOrganizationSpecification specification = planWindowSpecification(window.getPartitionBy(), window.getOrderBy(), coercions::get);
 
         // Rewrite frame bounds in terms of pre-projected inputs
         WindowNode.Frame frame = new WindowNode.Frame(
@@ -1882,7 +1883,7 @@ class QueryPlanner
             PlanAndMappings coercions,
             Optional<Symbol> frameEndSymbol)
     {
-        WindowNode.Specification specification = planWindowSpecification(window.getPartitionBy(), window.getOrderBy(), coercions::get);
+        DataOrganizationSpecification specification = planWindowSpecification(window.getPartitionBy(), window.getOrderBy(), coercions::get);
 
         // in window frame with pattern recognition, the frame extent is specified as `ROWS BETWEEN CURRENT ROW AND ... `
         WindowFrame frame = window.getFrame().orElseThrow();
@@ -1949,7 +1950,7 @@ class QueryPlanner
                         components.getVariableDefinitions()));
     }
 
-    public static WindowNode.Specification planWindowSpecification(List<Expression> partitionBy, Optional<OrderBy> orderBy, Function<Expression, Symbol> expressionRewrite)
+    public static DataOrganizationSpecification planWindowSpecification(List<Expression> partitionBy, Optional<OrderBy> orderBy, Function<Expression, Symbol> expressionRewrite)
     {
         // Rewrite PARTITION BY
         ImmutableList.Builder<Symbol> partitionBySymbols = ImmutableList.builder();
@@ -1970,7 +1971,7 @@ class QueryPlanner
             orderingScheme = Optional.of(new OrderingScheme(ImmutableList.copyOf(orderings.keySet()), orderings));
         }
 
-        return new WindowNode.Specification(partitionBySymbols.build(), orderingScheme);
+        return new DataOrganizationSpecification(partitionBySymbols.build(), orderingScheme);
     }
 
     private PlanBuilder planWindowMeasures(Node node, PlanBuilder subPlan, List<WindowOperation> windowMeasures)
@@ -2031,7 +2032,7 @@ class QueryPlanner
             ResolvedWindow window,
             Optional<Symbol> frameEndSymbol)
     {
-        WindowNode.Specification specification = planWindowSpecification(window.getPartitionBy(), window.getOrderBy(), subPlan::translate);
+        DataOrganizationSpecification specification = planWindowSpecification(window.getPartitionBy(), window.getOrderBy(), subPlan::translate);
 
         // in window frame with pattern recognition, the frame extent is specified as `ROWS BETWEEN CURRENT ROW AND ... `
         WindowFrame frame = window.getFrame().orElseThrow();

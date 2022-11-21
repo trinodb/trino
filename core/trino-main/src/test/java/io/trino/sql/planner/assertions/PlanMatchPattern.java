@@ -35,6 +35,7 @@ import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExceptNode;
@@ -1073,7 +1074,7 @@ public final class PlanMatchPattern
                 .collect(toImmutableList());
     }
 
-    public static ExpectedValueProvider<WindowNode.Specification> specification(
+    public static ExpectedValueProvider<DataOrganizationSpecification> specification(
             List<String> partitionBy,
             List<String> orderBy,
             Map<String, SortOrder> orderings)

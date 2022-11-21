@@ -25,7 +25,7 @@ import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.rule.GatherAndMergeWindows;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
-import io.trino.sql.planner.plan.WindowNode;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.tree.WindowFrame;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
@@ -61,13 +61,13 @@ public class TestReorderWindows
 
     private static final Optional<WindowFrame> commonFrame;
 
-    private static final ExpectedValueProvider<WindowNode.Specification> windowA;
-    private static final ExpectedValueProvider<WindowNode.Specification> windowAp;
-    private static final ExpectedValueProvider<WindowNode.Specification> windowApp;
-    private static final ExpectedValueProvider<WindowNode.Specification> windowB;
-    private static final ExpectedValueProvider<WindowNode.Specification> windowC;
-    private static final ExpectedValueProvider<WindowNode.Specification> windowD;
-    private static final ExpectedValueProvider<WindowNode.Specification> windowE;
+    private static final ExpectedValueProvider<DataOrganizationSpecification> windowA;
+    private static final ExpectedValueProvider<DataOrganizationSpecification> windowAp;
+    private static final ExpectedValueProvider<DataOrganizationSpecification> windowApp;
+    private static final ExpectedValueProvider<DataOrganizationSpecification> windowB;
+    private static final ExpectedValueProvider<DataOrganizationSpecification> windowC;
+    private static final ExpectedValueProvider<DataOrganizationSpecification> windowD;
+    private static final ExpectedValueProvider<DataOrganizationSpecification> windowE;
 
     static {
         ImmutableMap.Builder<String, String> columns = ImmutableMap.builder();

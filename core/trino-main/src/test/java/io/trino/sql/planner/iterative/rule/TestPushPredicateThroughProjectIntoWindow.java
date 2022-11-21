@@ -22,9 +22,9 @@ import io.trino.sql.planner.assertions.TopNRankingSymbolMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.TopNRankingNode.RankingType;
 import io.trino.sql.planner.plan.WindowNode.Function;
-import io.trino.sql.planner.plan.WindowNode.Specification;
 import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
@@ -63,7 +63,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                             p.project(
                                     Assignments.identity(a),
                                     p.window(
-                                            new Specification(
+                                            new DataOrganizationSpecification(
                                                     ImmutableList.of(),
                                                     Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, ASC_NULLS_FIRST)))),
                                             ImmutableMap.of(ranking, rankingFunction),
@@ -90,7 +90,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                             p.project(
                                     Assignments.identity(a, ranking),
                                     p.window(
-                                            new Specification(
+                                            new DataOrganizationSpecification(
                                                     ImmutableList.of(),
                                                     Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, ASC_NULLS_FIRST)))),
                                             ImmutableMap.of(ranking, rankingFunction),
@@ -117,7 +117,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                             p.project(
                                     Assignments.identity(a, ranking),
                                     p.window(
-                                            new Specification(
+                                            new DataOrganizationSpecification(
                                                     ImmutableList.of(),
                                                     Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, ASC_NULLS_FIRST)))),
                                             ImmutableMap.of(ranking, rankingFunction),
@@ -144,7 +144,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                             p.project(
                                     Assignments.identity(ranking),
                                     p.window(
-                                            new Specification(
+                                            new DataOrganizationSpecification(
                                                     ImmutableList.of(),
                                                     Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, ASC_NULLS_FIRST)))),
                                             ImmutableMap.of(ranking, rankingFunction),
@@ -185,7 +185,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                             p.project(
                                     Assignments.identity(ranking),
                                     p.window(
-                                            new Specification(
+                                            new DataOrganizationSpecification(
                                                     ImmutableList.of(),
                                                     Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, ASC_NULLS_FIRST)))),
                                             ImmutableMap.of(ranking, rankingFunction),
@@ -224,7 +224,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                             p.project(
                                     Assignments.identity(ranking, a),
                                     p.window(
-                                            new Specification(
+                                            new DataOrganizationSpecification(
                                                     ImmutableList.of(),
                                                     Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, ASC_NULLS_FIRST)))),
                                             ImmutableMap.of(ranking, rankingFunction),
@@ -255,7 +255,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                             p.project(
                                     Assignments.identity(ranking),
                                     p.window(
-                                            new Specification(
+                                            new DataOrganizationSpecification(
                                                     ImmutableList.of(),
                                                     Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, ASC_NULLS_FIRST)))),
                                             ImmutableMap.of(ranking, rankingFunction),

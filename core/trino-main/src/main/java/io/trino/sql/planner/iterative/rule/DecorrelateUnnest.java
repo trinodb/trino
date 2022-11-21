@@ -30,6 +30,7 @@ import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode.Type;
@@ -41,7 +42,6 @@ import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.planner.plan.WindowNode.Specification;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
@@ -473,7 +473,7 @@ public class DecorrelateUnnest
             WindowNode windowNode = new WindowNode(
                     idAllocator.getNextId(),
                     source.getPlan(),
-                    new Specification(ImmutableList.of(uniqueSymbol), Optional.of(node.getOrderingScheme())),
+                    new DataOrganizationSpecification(ImmutableList.of(uniqueSymbol), Optional.of(node.getOrderingScheme())),
                     ImmutableMap.of(rowNumberSymbol, rowNumberFunction),
                     Optional.empty(),
                     ImmutableSet.of(),

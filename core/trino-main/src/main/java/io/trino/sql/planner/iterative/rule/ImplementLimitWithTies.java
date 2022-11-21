@@ -26,6 +26,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -128,7 +129,7 @@ public class ImplementLimitWithTies
         WindowNode windowNode = new WindowNode(
                 idAllocator.getNextId(),
                 source,
-                new WindowNode.Specification(partitionBy, limitNode.getTiesResolvingScheme()),
+                new DataOrganizationSpecification(partitionBy, limitNode.getTiesResolvingScheme()),
                 ImmutableMap.of(rankSymbol, rankFunction),
                 Optional.empty(),
                 ImmutableSet.of(),
