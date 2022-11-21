@@ -189,9 +189,6 @@ public class MySqlClient
 
     private static final JsonCodec<ColumnHistogram> HISTOGRAM_CODEC = jsonCodec(ColumnHistogram.class);
 
-    // We don't know null fraction, but having no null fraction will make CBO useless. Assume some arbitrary value.
-    private static final Estimate UNKNOWN_NULL_FRACTION_REPLACEMENT = Estimate.of(0.1);
-
     private final Type jsonType;
     private final boolean statisticsEnabled;
     private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
@@ -798,13 +795,7 @@ public class MySqlClient
                     rowCount = max(rowCount, columnIndexStatistics.getCardinality());
                 }
 
-                ColumnStatistics columnStatistics = columnStatisticsBuilder.build();
-                if (!columnStatistics.getDistinctValuesCount().isUnknown() && columnStatistics.getNullsFraction().isUnknown()) {
-                    columnStatisticsBuilder.setNullsFraction(UNKNOWN_NULL_FRACTION_REPLACEMENT);
-                    columnStatistics = columnStatisticsBuilder.build();
-                }
-
-                tableStatistics.setColumnStatistics(column, columnStatistics);
+                tableStatistics.setColumnStatistics(column, columnStatisticsBuilder.build());
             }
 
             tableStatistics.setRowCount(Estimate.of(rowCount));
