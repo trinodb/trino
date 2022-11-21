@@ -63,7 +63,7 @@ public class TestInformationSchemaMetadata
         LocalQueryRunner queryRunner = LocalQueryRunner.create(TEST_SESSION);
         MockConnectorFactory mockConnectorFactory = MockConnectorFactory.builder()
                 .withListSchemaNames(connectorSession -> ImmutableList.of("test_schema"))
-                .withListTables((connectorSession, schemaNameOrNull) ->
+                .withListTables((connectorSession, schemaName) ->
                         ImmutableList.of(
                                 new SchemaTableName("test_schema", "test_view"),
                                 new SchemaTableName("test_schema", "another_table")))
