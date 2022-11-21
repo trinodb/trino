@@ -45,6 +45,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
         "query.remote-task.max-consecutive-error-count"})
 public class QueryManagerConfig
 {
+    public static final String QUERY_MAX_RUN_TIME_HARD_LIMIT = "query.max-run-time.hard-limit";
     public static final long AVAILABLE_HEAP_MEMORY = Runtime.getRuntime().maxMemory();
 
     private int scheduleSplitBatchSize = 1000;
@@ -72,6 +73,7 @@ public class QueryManagerConfig
 
     private String queryExecutionPolicy = "phased";
     private Duration queryMaxRunTime = new Duration(100, TimeUnit.DAYS);
+    private Optional<Duration> queryMaxRunTimeHardLimit = Optional.empty();
     private Duration queryMaxExecutionTime = new Duration(100, TimeUnit.DAYS);
     private Duration queryMaxPlanningTime = new Duration(10, TimeUnit.MINUTES);
     private Duration queryMaxCpuTime = new Duration(1_000_000_000, TimeUnit.DAYS);
@@ -316,6 +318,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setQueryMaxRunTime(Duration queryMaxRunTime)
     {
         this.queryMaxRunTime = queryMaxRunTime;
+        return this;
+    }
+
+    @NotNull
+    public Optional<Duration> getQueryMaxRunTimeHardLimit()
+    {
+        return queryMaxRunTimeHardLimit;
+    }
+
+    @Config(QUERY_MAX_RUN_TIME_HARD_LIMIT)
+    public QueryManagerConfig setQueryMaxRunTimeHardLimit(Duration queryMaxRunTimeHardLimit)
+    {
+        this.queryMaxRunTimeHardLimit = Optional.ofNullable(queryMaxRunTimeHardLimit);
         return this;
     }
 

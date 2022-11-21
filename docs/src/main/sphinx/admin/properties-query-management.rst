@@ -136,6 +136,17 @@ it is terminated. The time includes time for analysis and planning, but also
 time spend in a queue waiting, so essentially this is the time allowed for a
 query to exist since creation.
 
+``query.max-run-time.hard-limit``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-duration`
+* **Default value:** None
+
+Hard limit for the ``query_max_run_time`` session property. The maximum
+allowed time for a query may be raised for a session using the
+``query_max_run_time`` session property, but must not exceed this hard limit
+if it is specified.
+
 ``query.max-stage-count``
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
