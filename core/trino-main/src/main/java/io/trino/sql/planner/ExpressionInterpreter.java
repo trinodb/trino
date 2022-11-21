@@ -1361,12 +1361,12 @@ public class ExpressionInterpreter
 
             if (valueType instanceof TimestampType type) {
                 // <timestamp> AT TIME ZONE <tz> gets desugared as at_timezone(cast(<timestamp> AS TIMESTAMP(p) WITH TIME ZONE, <tz>)
-                TimestampWithTimeZoneType timeWithTimeZoneType = createTimestampWithTimeZoneType(type.getPrecision());
+                TimestampWithTimeZoneType timestampWithTimeZoneType = createTimestampWithTimeZoneType(type.getPrecision());
 
                 ResolvedFunction function = plannerContext.getMetadata()
-                        .resolveFunction(session, QualifiedName.of("at_timezone"), TypeSignatureProvider.fromTypes(timeWithTimeZoneType, timeZoneType));
+                        .resolveFunction(session, QualifiedName.of("at_timezone"), TypeSignatureProvider.fromTypes(timestampWithTimeZoneType, timeZoneType));
 
-                ResolvedFunction cast = metadata.getCoercion(session, valueType, timeWithTimeZoneType);
+                ResolvedFunction cast = metadata.getCoercion(session, valueType, timestampWithTimeZoneType);
                 return functionInvoker.invoke(function, connectorSession, ImmutableList.of(
                         functionInvoker.invoke(cast, connectorSession, ImmutableList.of(value)),
                         timeZone));
