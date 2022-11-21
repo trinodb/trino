@@ -36,6 +36,7 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
+import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
@@ -132,6 +133,20 @@ public class BenchmarkInformationSchema
     public MaterializedResult queryInformationSchema(BenchmarkData benchmarkData)
     {
         return benchmarkData.queryRunner.execute(benchmarkData.query);
+    }
+
+    @Test
+    public void test()
+            throws Exception
+    {
+        BenchmarkData data = new BenchmarkData();
+        data.setup();
+        try {
+            queryInformationSchema(data);
+        }
+        finally {
+            data.tearDown();
+        }
     }
 
     public static void main(String[] args)
