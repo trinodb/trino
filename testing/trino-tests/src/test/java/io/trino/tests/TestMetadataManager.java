@@ -80,7 +80,7 @@ public class TestMetadataManager
 
                             return new MockConnectorTableHandle(schemaTableName);
                         })
-                        .withListTables((session, schemaNameOrNull) ->
+                        .withListTables((session, schemaName) ->
                                 ImmutableList.of(new SchemaTableName("UPPER_CASE_SCHEMA", "UPPER_CASE_TABLE")))
                         .withGetViews((session, prefix) -> ImmutableMap.of(viewTableName, getConnectorViewDefinition()))
                         .build();
