@@ -26,6 +26,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.plugin.bigquery.BigQueryType.convertToString;
 import static io.trino.plugin.bigquery.BigQueryUtil.quote;
 import static io.trino.plugin.bigquery.BigQueryUtil.toBigQueryColumnName;
 import static java.util.stream.Collectors.joining;
@@ -95,7 +96,7 @@ public class BigQueryFilterQueryBuilder
         for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
             checkState(!range.isAll()); // Already checked
             if (range.isSingleValue()) {
-                Optional<String> value = column.getBigQueryType().convertToString(column.getTrinoType(), range.getSingleValue());
+                Optional<String> value = convertToString(column.getTrinoType(), column.getBigqueryType(), range.getSingleValue());
                 if (value.isEmpty()) {
                     return Optional.empty();
                 }
@@ -144,7 +145,7 @@ public class BigQueryFilterQueryBuilder
 
     private Optional<String> toPredicate(String columnName, String operator, Object value, BigQueryColumnHandle column)
     {
-        Optional<String> valueAsString = column.getBigQueryType().convertToString(column.getTrinoType(), value);
+        Optional<String> valueAsString = convertToString(column.getTrinoType(), column.getBigqueryType(), value);
         if (valueAsString.isEmpty()) {
             return Optional.empty();
         }
