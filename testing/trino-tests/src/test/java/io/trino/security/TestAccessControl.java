@@ -40,6 +40,7 @@ import io.trino.testing.TestingAccessControlManager.TestingPrivilege;
 import io.trino.testing.TestingSession;
 import org.testng.annotations.Test;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -755,5 +756,30 @@ public class TestAccessControl
                 getQueryRunner().getAccessControl().reset();
             }
         });
+    }
+
+    @Test
+    public void testFunctionAccessControlIsCalledOncePerFunction()
+    {
+        Map<String, Integer> functionCallCounts = new HashMap<>();
+        TestingPrivilege testingPrivilege = new TestingPrivilege(
+                Optional.empty(),
+                name -> {
+                    functionCallCounts.compute(name, (key, value) -> {
+                        if (value == null) {
+                            return 1;
+                        }
+                        return ++value;
+                    });
+                    return false;
+                },
+                EXECUTE_FUNCTION);
+        assertAccessAllowed("SELECT reverse('a1'), reverse('a2'), reverse('a'), length('b'), length('a')", testingPrivilege);
+        assertThat(functionCallCounts)
+                .hasSize(4)
+                .containsEntry("user", 1)
+                .containsEntry("query", 1)
+                .containsEntry("reverse", 1)
+                .containsEntry("length", 1);
     }
 }

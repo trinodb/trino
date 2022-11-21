@@ -246,6 +246,7 @@ import io.trino.sql.tree.With;
 import io.trino.sql.tree.WithQuery;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.TypeCoercion;
+import io.trino.util.OnlyOneInvocationHandler;
 
 import java.math.RoundingMode;
 import java.time.Instant;
@@ -274,6 +275,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.reflect.Reflection.newProxy;
 import static io.trino.SystemSessionProperties.getMaxGroupingSets;
 import static io.trino.metadata.FunctionResolver.toPath;
 import static io.trino.metadata.MetadataManager.toQualifiedFunctionName;
@@ -423,7 +425,9 @@ class StatementAnalyzer
         this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
-        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.accessControl = newProxy(
+                AccessControl.class,
+                new OnlyOneInvocationHandler(requireNonNull(accessControl, "accessControl is null")));
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.session = requireNonNull(session, "session is null");
         this.tableProceduresRegistry = requireNonNull(tableProceduresRegistry, "tableProceduresRegistry is null");
