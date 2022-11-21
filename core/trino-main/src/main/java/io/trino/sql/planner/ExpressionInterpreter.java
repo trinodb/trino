@@ -1462,7 +1462,7 @@ public class ExpressionInterpreter
                     .map(argument -> processWithExceptionHandling(argument, context))
                     .collect(toList());
 
-            if (hasUnresolvedValue(processedArguments)) {
+            if (format instanceof Expression || hasUnresolvedValue(processedArguments)) {
                 return new Format(ImmutableList.<Expression>builder()
                         .add(toExpression(format, type(node)))
                         .addAll(toExpressions(processedArguments, argumentTypes))
