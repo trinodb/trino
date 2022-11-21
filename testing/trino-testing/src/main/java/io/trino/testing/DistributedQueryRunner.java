@@ -42,6 +42,7 @@ import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
 import io.trino.spi.eventlistener.EventListener;
+import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSourceManager;
@@ -355,6 +356,12 @@ public class DistributedQueryRunner
     public SplitManager getSplitManager()
     {
         return coordinator.getSplitManager();
+    }
+
+    @Override
+    public ExchangeManager getExchangeManager()
+    {
+        return coordinator.getExchangeManager();
     }
 
     @Override

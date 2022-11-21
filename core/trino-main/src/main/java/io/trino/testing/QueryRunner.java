@@ -24,6 +24,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
+import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
@@ -62,6 +63,8 @@ public interface QueryRunner
     FunctionManager getFunctionManager();
 
     SplitManager getSplitManager();
+
+    ExchangeManager getExchangeManager();
 
     PageSourceManager getPageSourceManager();
 
