@@ -23,6 +23,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.Expression;
@@ -99,7 +100,7 @@ public class PushDownDereferencesThroughWindow
                 typeAnalyzer,
                 context.getSymbolAllocator().getTypes());
 
-        WindowNode.Specification specification = windowNode.getSpecification();
+        DataOrganizationSpecification specification = windowNode.getSpecification();
         dereferences = dereferences.stream()
                 .filter(expression -> {
                     Symbol symbol = getBase(expression);

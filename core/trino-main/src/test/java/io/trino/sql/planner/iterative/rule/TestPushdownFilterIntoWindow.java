@@ -21,6 +21,7 @@ import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.TopNRankingSymbolMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
@@ -56,7 +57,7 @@ public class TestPushdownFilterIntoWindow
                             ImmutableList.of(a),
                             ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST));
                     return p.filter(expression("rank_1 < cast(100 as bigint)"), p.window(
-                            new WindowNode.Specification(ImmutableList.of(a), Optional.of(orderingScheme)),
+                            new DataOrganizationSpecification(ImmutableList.of(a), Optional.of(orderingScheme)),
                             ImmutableMap.of(rankSymbol, newWindowNodeFunction(ranking, a)),
                             p.values(p.symbol("a"))));
                 })
@@ -84,7 +85,7 @@ public class TestPushdownFilterIntoWindow
                             ImmutableList.of(a),
                             ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST));
                     return p.filter(expression("cast(3 as bigint) < row_number_1 and row_number_1 < cast(100 as bigint)"), p.window(
-                            new WindowNode.Specification(ImmutableList.of(a), Optional.of(orderingScheme)),
+                            new DataOrganizationSpecification(ImmutableList.of(a), Optional.of(orderingScheme)),
                             ImmutableMap.of(rowNumberSymbol, newWindowNodeFunction(ranking, a)),
                             p.values(p.symbol("a"))));
                 })
@@ -107,7 +108,7 @@ public class TestPushdownFilterIntoWindow
                             ImmutableList.of(a),
                             ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST));
                     return p.filter(expression("row_number_1 < cast(100 as bigint) and a = BIGINT '1'"), p.window(
-                            new WindowNode.Specification(ImmutableList.of(a), Optional.of(orderingScheme)),
+                            new DataOrganizationSpecification(ImmutableList.of(a), Optional.of(orderingScheme)),
                             ImmutableMap.of(rowNumberSymbol, newWindowNodeFunction(ranking, a)),
                             p.values(p.symbol("a"))));
                 })
@@ -143,7 +144,7 @@ public class TestPushdownFilterIntoWindow
                     return p.filter(
                             expression("cast(3 as bigint) < row_number_1"),
                             p.window(
-                                    new WindowNode.Specification(ImmutableList.of(a), Optional.of(orderingScheme)),
+                                    new DataOrganizationSpecification(ImmutableList.of(a), Optional.of(orderingScheme)),
                                     ImmutableMap.of(rowNumberSymbol, newWindowNodeFunction(ranking, a)),
                                     p.values(a)));
                 })

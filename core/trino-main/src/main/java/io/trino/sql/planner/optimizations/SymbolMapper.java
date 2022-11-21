@@ -22,6 +22,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.LimitNode;
@@ -239,9 +240,9 @@ public class SymbolMapper
                 frame.getOriginalEndValue());
     }
 
-    private WindowNode.Specification mapAndDistinct(WindowNode.Specification specification)
+    private DataOrganizationSpecification mapAndDistinct(DataOrganizationSpecification specification)
     {
-        return new WindowNode.Specification(
+        return new DataOrganizationSpecification(
                 mapAndDistinct(specification.getPartitionBy()),
                 specification.getOrderingScheme().map(this::map));
     }

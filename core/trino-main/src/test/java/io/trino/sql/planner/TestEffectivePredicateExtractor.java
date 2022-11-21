@@ -44,6 +44,7 @@ import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
@@ -445,7 +446,7 @@ public class TestEffectivePredicateExtractor
                                 equals(AE, BE),
                                 equals(BE, CE),
                                 lessThan(CE, bigintLiteral(10)))),
-                new WindowNode.Specification(
+                new DataOrganizationSpecification(
                         ImmutableList.of(A),
                         Optional.of(new OrderingScheme(
                                 ImmutableList.of(A),
