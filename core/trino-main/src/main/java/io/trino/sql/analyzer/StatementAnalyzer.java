@@ -4557,7 +4557,7 @@ class StatementAnalyzer
             ExpressionAnalysis expressionAnalysis;
             try {
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
-                        createViewSession(filter.getCatalog(), filter.getSchema(), Identity.forUser(filter.getIdentity()).build(), session.getPath()), // TODO: path should be included in row filter
+                        createViewSession(filter.getCatalog(), filter.getSchema(), Identity.ofUser(filter.getIdentity()), session.getPath()), // TODO: path should be included in row filter
                         plannerContext,
                         statementAnalyzerFactory,
                         accessControl,
@@ -4612,7 +4612,7 @@ class StatementAnalyzer
 
             try {
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
-                        createViewSession(mask.getCatalog(), mask.getSchema(), Identity.forUser(mask.getIdentity()).build(), session.getPath()), // TODO: path should be included in row filter
+                        createViewSession(mask.getCatalog(), mask.getSchema(), Identity.ofUser(mask.getIdentity()), session.getPath()), // TODO: path should be included in row filter
                         plannerContext,
                         statementAnalyzerFactory,
                         accessControl,
