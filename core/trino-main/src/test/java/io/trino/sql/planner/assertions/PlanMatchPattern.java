@@ -1010,7 +1010,7 @@ public final class PlanMatchPattern
         return this;
     }
 
-    public PlanMatchPattern matchToAnyNodeTree()
+    PlanMatchPattern matchToAnyNodeTree()
     {
         anyTree = true;
         return this;
