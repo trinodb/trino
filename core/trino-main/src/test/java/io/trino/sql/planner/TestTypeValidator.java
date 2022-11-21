@@ -26,6 +26,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -158,7 +159,7 @@ public class TestTypeValidator
 
         WindowNode.Function function = new WindowNode.Function(resolvedFunction, ImmutableList.of(columnC.toSymbolReference()), frame, false);
 
-        WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), Optional.empty());
+        DataOrganizationSpecification specification = new DataOrganizationSpecification(ImmutableList.of(), Optional.empty());
 
         PlanNode node = new WindowNode(
                 newId(),
@@ -287,7 +288,7 @@ public class TestTypeValidator
 
         WindowNode.Function function = new WindowNode.Function(resolvedFunction, ImmutableList.of(columnA.toSymbolReference()), frame, false);
 
-        WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), Optional.empty());
+        DataOrganizationSpecification specification = new DataOrganizationSpecification(ImmutableList.of(), Optional.empty());
 
         PlanNode node = new WindowNode(
                 newId(),
@@ -322,7 +323,7 @@ public class TestTypeValidator
 
         WindowNode.Function function = new WindowNode.Function(resolvedFunction, ImmutableList.of(columnC.toSymbolReference()), frame, false);
 
-        WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), Optional.empty());
+        DataOrganizationSpecification specification = new DataOrganizationSpecification(ImmutableList.of(), Optional.empty());
 
         PlanNode node = new WindowNode(
                 newId(),

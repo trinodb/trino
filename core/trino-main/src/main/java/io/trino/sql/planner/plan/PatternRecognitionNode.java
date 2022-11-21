@@ -23,7 +23,6 @@ import io.trino.spi.type.Type;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.WindowNode.Frame;
-import io.trino.sql.planner.plan.WindowNode.Specification;
 import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
@@ -52,7 +51,7 @@ public class PatternRecognitionNode
         extends PlanNode
 {
     private final PlanNode source;
-    private final Specification specification;
+    private final DataOrganizationSpecification specification;
     private final Optional<Symbol> hashSymbol;
     private final Set<Symbol> prePartitionedInputs;
     private final int preSortedOrderPrefix;
@@ -81,7 +80,7 @@ public class PatternRecognitionNode
     public PatternRecognitionNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("specification") Specification specification,
+            @JsonProperty("specification") DataOrganizationSpecification specification,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
             @JsonProperty("prePartitionedInputs") Set<Symbol> prePartitionedInputs,
             @JsonProperty("preSortedOrderPrefix") int preSortedOrderPrefix,
@@ -173,7 +172,7 @@ public class PatternRecognitionNode
     }
 
     @JsonProperty
-    public Specification getSpecification()
+    public DataOrganizationSpecification getSpecification()
     {
         return specification;
     }

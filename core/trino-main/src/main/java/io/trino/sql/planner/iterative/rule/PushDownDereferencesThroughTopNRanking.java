@@ -23,9 +23,9 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
-import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
@@ -89,7 +89,7 @@ public class PushDownDereferencesThroughTopNRanking
         Set<SubscriptExpression> dereferences = extractRowSubscripts(projectNode.getAssignments().getExpressions(), false, context.getSession(), typeAnalyzer, context.getSymbolAllocator().getTypes());
 
         // Exclude dereferences on symbols being used in partitionBy and orderBy
-        WindowNode.Specification specification = topNRankingNode.getSpecification();
+        DataOrganizationSpecification specification = topNRankingNode.getSpecification();
         dereferences = dereferences.stream()
                 .filter(expression -> {
                     Symbol symbol = getBase(expression);
