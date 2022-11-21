@@ -149,7 +149,6 @@ public class TestTableRedirection
         return MockConnectorFactory.builder()
                 .withListSchemaNames(session -> SCHEMAS)
                 .withListTables((session, schemaName) -> SCHEMA_TABLE_MAPPING.getOrDefault(schemaName, ImmutableSet.of()).stream()
-                        .map(name -> new SchemaTableName(schemaName, name))
                         .collect(toImmutableList()))
                 .withStreamTableColumns((session, prefix) -> {
                     List<TableColumnsMetadata> allColumnsMetadata = SCHEMA_TABLE_MAPPING.entrySet().stream()
