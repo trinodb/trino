@@ -62,7 +62,7 @@ public final class SqlTime
 
     public SqlTime roundTo(int precision)
     {
-        return new SqlTime(precision, round(picos, 12 - precision));
+        return new SqlTime(precision, round(picos, 12 - precision) % PICOSECONDS_PER_DAY);
     }
 
     @Override
