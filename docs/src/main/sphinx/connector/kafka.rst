@@ -986,6 +986,8 @@ The following is an example insert query for the preceding table definition:
     INSERT INTO example_avro_table (field1, field2, field3)
       VALUES (123456789, 'example text', FALSE);
 
+.. _kafka-protobuf-encoding:
+
 Protobuf encoder
 """"""""""""""""
 
