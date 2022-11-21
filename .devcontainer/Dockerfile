@@ -70,11 +70,9 @@ ARG TRINO_VERSION="400"
 
 # Install Maven
 RUN mkdir -p /tmp \
-    && apt-get update \
-    && apt-get -y install maven \
     # Install additional OS packages.
     && apt-get update && export DEBIAN_FRONTEND=noninteractive \
-    && apt-get -y install --no-install-recommends bash-completion vim \
+    && apt-get -y install --no-install-recommends bash-completion vim maven \
     && apt-get autoremove -y && apt-get clean -y && rm -rf /var/lib/apt/lists/* \
     # Install Trino CLI
     && wget https://repo1.maven.org/maven2/io/trino/trino-cli/${TRINO_VERSION}/trino-cli-${TRINO_VERSION}-executable.jar -P /usr/local/bin \
