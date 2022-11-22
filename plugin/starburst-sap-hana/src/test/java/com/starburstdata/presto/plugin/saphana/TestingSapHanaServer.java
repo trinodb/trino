@@ -27,8 +27,8 @@ import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 
 import static com.google.common.base.Throwables.getCausalChain;
-import static com.starburstdata.presto.testing.TestContainersUtil.startOrReuse;
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.trino.testing.containers.TestContainers.startOrReuse;
 import static java.time.temporal.ChronoUnit.MINUTES;
 
 public final class TestingSapHanaServer
