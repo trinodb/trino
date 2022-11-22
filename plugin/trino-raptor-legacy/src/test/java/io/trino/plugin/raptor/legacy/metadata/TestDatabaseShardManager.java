@@ -117,6 +117,7 @@ public class TestDatabaseShardManager
             throws IOException
     {
         dummyHandle.close();
+        dummyHandle = null;
         deleteRecursively(dataDir.toPath(), ALLOW_INSECURE);
     }
 

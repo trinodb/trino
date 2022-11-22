@@ -67,6 +67,7 @@ public abstract class BaseTestDeltaLakeMinioReads
     {
         deleteNotificationsTable(NOTIFICATIONS_TABLE);
         client.close();
+        client = null;
     }
 
     @Test(groups = {DELTA_LAKE_MINIO, PROFILE_SPECIFIC_TESTS})

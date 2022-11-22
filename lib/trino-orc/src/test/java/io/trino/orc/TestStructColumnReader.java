@@ -75,6 +75,7 @@ public class TestStructColumnReader
             throws IOException
     {
         tempFile.close();
+        tempFile = null;
     }
 
     /**

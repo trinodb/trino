@@ -13,6 +13,7 @@
  */
 package io.trino.tests.product.hive;
 
+import io.trino.tempto.AfterTestWithContext;
 import io.trino.tempto.BeforeTestWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.query.QueryExecutor;
@@ -50,6 +51,16 @@ public class TestSqlStandardAccessControlChecks
 
         aliceExecutor.executeQuery(format("DROP VIEW IF EXISTS %s", viewName));
         aliceExecutor.executeQuery(format("CREATE VIEW %s AS SELECT month, day FROM %s", viewName, tableName));
+    }
+
+    @AfterTestWithContext
+    public void cleanup()
+    {
+        // should not be closed, this would close a shared, global QueryExecutor
+        aliceExecutor = null;
+        bobExecutor = null;
+        charlieExecutor = null;
+        caseSensitiveUserNameExecutor = null;
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
