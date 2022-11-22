@@ -737,6 +737,8 @@ Property Name                                Description
                                              This is mutually exclusive with a global JSON key file.
 ============================================ =================================================================
 
+.. _hive-performance-tuning-configuration:
+
 Performance tuning configuration properties
 -------------------------------------------
 
