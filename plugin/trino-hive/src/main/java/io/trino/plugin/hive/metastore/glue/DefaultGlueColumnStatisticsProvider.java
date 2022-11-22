@@ -227,11 +227,11 @@ public class DefaultGlueColumnStatisticsProvider
             List<List<ColumnStatistics>> columnChunks = Lists.partition(columnStats, GLUE_COLUMN_WRITE_STAT_PAGE_SIZE);
 
             List<CompletableFuture<Void>> updateFutures = columnChunks.stream().map(columnChunk -> runAsync(
-                    () -> stats.getUpdateColumnStatisticsForTable().call(() -> glueClient.updateColumnStatisticsForTable(
-                            new UpdateColumnStatisticsForTableRequest()
-                                    .withDatabaseName(table.getDatabaseName())
-                                    .withTableName(table.getTableName())
-                                    .withColumnStatisticsList(columnChunk))), this.writeExecutor))
+                            () -> stats.getUpdateColumnStatisticsForTable().call(() -> glueClient.updateColumnStatisticsForTable(
+                                    new UpdateColumnStatisticsForTableRequest()
+                                            .withDatabaseName(table.getDatabaseName())
+                                            .withTableName(table.getTableName())
+                                            .withColumnStatisticsList(columnChunk))), this.writeExecutor))
                     .collect(toUnmodifiableList());
 
             Map<String, HiveColumnStatistics> currentTableColumnStatistics = this.getTableColumnStatistics(table);
