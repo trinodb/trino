@@ -227,7 +227,7 @@ public class OrcFileWriterFactory
     public static OrcDataSink createOrcDataSink(TrinoFileSystem fileSystem, String path)
             throws IOException
     {
-        return new OutputStreamOrcDataSink(fileSystem.newOutputFile(path).create());
+        return OutputStreamOrcDataSink.create(fileSystem.newOutputFile(path));
     }
 
     private static CompressionKind getCompression(Properties schema, JobConf configuration)

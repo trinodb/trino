@@ -210,7 +210,7 @@ public class IcebergFileWriterFactory
             DataSize stringStatisticsLimit)
     {
         try {
-            OrcDataSink orcDataSink = new OutputStreamOrcDataSink(fileSystem.newOutputFile(outputPath).create());
+            OrcDataSink orcDataSink = OutputStreamOrcDataSink.create(fileSystem.newOutputFile(outputPath));
 
             Closeable rollbackAction = () -> fileSystem.deleteFile(outputPath);
 

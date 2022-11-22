@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import io.trino.orc.OrcTester.LocalTrinoOutputFile;
 import io.trino.orc.OrcWriteValidation.OrcWriteValidationMode;
 import io.trino.orc.metadata.Footer;
 import io.trino.orc.metadata.OrcMetadataReader;
@@ -34,7 +35,6 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.ZoneId;
@@ -67,7 +67,7 @@ public class TestOrcWriter
             List<Type> types = ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR);
 
             OrcWriter writer = new OrcWriter(
-                    new OutputStreamOrcDataSink(new FileOutputStream(tempFile.getFile())),
+                    OutputStreamOrcDataSink.create(new LocalTrinoOutputFile(tempFile.getFile())),
                     ImmutableList.of("test1", "test2", "test3", "test4", "test5"),
                     types,
                     OrcType.createRootOrcType(columnNames, types),
