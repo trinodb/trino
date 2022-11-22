@@ -11,21 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.trino.filesystem;
 
 import io.trino.memory.context.AggregatedMemoryContext;
+import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.io.OutputStream;
 
-public interface TrinoOutputFile
+public interface MemoryAwareFileSystem
 {
-    OutputStream create(AggregatedMemoryContext memoryContext)
+    OutputStream create(Path f, AggregatedMemoryContext memoryContext)
             throws IOException;
-
-    OutputStream createOrOverwrite(AggregatedMemoryContext memoryContext)
-            throws IOException;
-
-    String location();
 }

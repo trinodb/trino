@@ -32,6 +32,7 @@ import java.io.OutputStream;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -45,7 +46,7 @@ public class TestHdfsParquetDataSource
         Slice testingInput = Slices.wrappedIntArray(IntStream.range(0, 1000).toArray());
         String path = "/tmp/" + UUID.randomUUID();
         TrinoFileSystem trinoFileSystem = HDFS_FILE_SYSTEM_FACTORY.create(SESSION);
-        try (OutputStream outputStream = trinoFileSystem.newOutputFile(path).create()) {
+        try (OutputStream outputStream = trinoFileSystem.newOutputFile(path).create(newSimpleAggregatedMemoryContext())) {
             outputStream.write(testingInput.getBytes());
         }
         TrinoParquetDataSource dataSource = new TrinoParquetDataSource(

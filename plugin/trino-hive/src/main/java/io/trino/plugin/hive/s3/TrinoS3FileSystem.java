@@ -83,8 +83,11 @@ import com.google.common.net.MediaType;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.filesystem.MemoryAwareFileSystem;
 import io.trino.hdfs.FSDataInputStreamTail;
 import io.trino.hdfs.FileSystemWithBatchDelete;
+import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.memory.context.LocalMemoryContext;
 import org.apache.hadoop.conf.Configurable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
@@ -152,6 +155,7 @@ import static com.google.common.collect.Iterables.toArray;
 import static com.google.common.hash.Hashing.md5;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.plugin.hive.aws.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
 import static io.trino.plugin.hive.util.RetryDriver.retry;
 import static java.lang.Math.max;
@@ -175,7 +179,7 @@ import static org.apache.hadoop.fs.FSExceptionMessages.STREAM_IS_CLOSED;
 
 public class TrinoS3FileSystem
         extends FileSystem
-        implements FileSystemWithBatchDelete
+        implements FileSystemWithBatchDelete, MemoryAwareFileSystem
 {
     public static final String S3_USER_AGENT_PREFIX = "trino.s3.user-agent-prefix";
     public static final String S3_CREDENTIALS_PROVIDER = "trino.s3.credentials-provider";
@@ -529,10 +533,17 @@ public class TrinoS3FileSystem
     {
         // Ignore the overwrite flag, since Trino Hive connector *usually* writes to unique file names.
         // Checking for file existence is thus an unnecessary, expensive operation.
-        return new FSDataOutputStream(createOutputStream(path), statistics);
+        return new FSDataOutputStream(createOutputStream(path, newSimpleAggregatedMemoryContext()), statistics);
     }
 
-    private OutputStream createOutputStream(Path path)
+    @Override
+    public OutputStream create(Path path, AggregatedMemoryContext aggregatedMemoryContext)
+            throws IOException
+    {
+        return new FSDataOutputStream(createOutputStream(path, aggregatedMemoryContext), statistics);
+    }
+
+    private OutputStream createOutputStream(Path path, AggregatedMemoryContext memoryContext)
             throws IOException
     {
         String bucketName = getBucketName(uri);
@@ -540,7 +551,7 @@ public class TrinoS3FileSystem
 
         if (streamingUploadEnabled) {
             Supplier<String> uploadIdFactory = () -> initMultipartUpload(bucketName, key).getUploadId();
-            return new TrinoS3StreamingOutputStream(s3, bucketName, key, this::customizePutObjectRequest, uploadIdFactory, uploadExecutor, streamingUploadPartSize);
+            return new TrinoS3StreamingOutputStream(s3, bucketName, key, this::customizePutObjectRequest, uploadIdFactory, uploadExecutor, streamingUploadPartSize, memoryContext);
         }
 
         if (!stagingDirectory.exists()) {
@@ -1613,6 +1624,7 @@ public class TrinoS3FileSystem
         private final List<UploadPartResult> parts = new ArrayList<>();
         private final int partSize;
         private int initialBufferSize;
+        private final LocalMemoryContext memoryContext;
 
         public TrinoS3StreamingOutputStream(
                 AmazonS3 s3,
@@ -1621,7 +1633,8 @@ public class TrinoS3FileSystem
                 Consumer<PutObjectRequest> requestCustomizer,
                 Supplier<String> uploadIdFactory,
                 ExecutorService uploadExecutor,
-                int partSize)
+                int partSize,
+                AggregatedMemoryContext memoryContext)
         {
             STATS.uploadStarted();
 
@@ -1634,6 +1647,8 @@ public class TrinoS3FileSystem
             this.uploadExecutor = requireNonNull(uploadExecutor, "uploadExecutor is null");
             this.buffer = new byte[0];
             this.initialBufferSize = 64;
+            this.memoryContext = requireNonNull(memoryContext, "memoryContext is null")
+                    .newLocalMemoryContext(TrinoS3StreamingOutputStream.class.getSimpleName());
         }
 
         @Override
@@ -1691,6 +1706,7 @@ public class TrinoS3FileSystem
 
             try {
                 flushBuffer(true);
+                memoryContext.close();
                 waitForPreviousUploadFinish();
             }
             catch (IOException | RuntimeException e) {
@@ -1720,6 +1736,7 @@ public class TrinoS3FileSystem
                     newBytesLength = min(newBytesLength, partSize);
                 }
                 buffer = Arrays.copyOf(buffer, newBytesLength);
+                memoryContext.setBytes(buffer.length);
             }
         }
 
@@ -1760,6 +1777,7 @@ public class TrinoS3FileSystem
                     this.initialBufferSize = partSize;
                     bufferSize = 0;
                 }
+                memoryContext.setBytes(0);
 
                 try {
                     waitForPreviousUploadFinish();
