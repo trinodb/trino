@@ -1100,58 +1100,75 @@ public class SemiTransactionalHiveMetastore
         throw new IllegalStateException("Unknown action type: " + oldPartitionAction.getType());
     }
 
-    public synchronized void finishInsertIntoExistingPartition(
+    public synchronized void finishInsertIntoExistingPartitions(
             ConnectorSession session,
             String databaseName,
             String tableName,
-            List<String> partitionValues,
-            Path currentLocation,
-            List<String> fileNames,
-            PartitionStatistics statisticsUpdate,
+            List<PartitionUpdateInfo> partitionUpdateInfos,
             boolean cleanExtraOutputFilesOnCommit)
     {
         setShared();
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
+        HdfsContext context = new HdfsContext(session);
         Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(schemaTableName, k -> new HashMap<>());
-        Action<PartitionAndMore> oldPartitionAction = partitionActionsOfTable.get(partitionValues);
-        if (oldPartitionAction == null) {
-            Partition partition = delegate.getPartition(databaseName, tableName, partitionValues)
-                    .orElseThrow(() -> new PartitionNotFoundException(schemaTableName, partitionValues));
-            String partitionName = getPartitionName(databaseName, tableName, partitionValues);
-            PartitionStatistics currentStatistics = delegate.getPartitionStatistics(databaseName, tableName, ImmutableSet.of(partitionName)).get(partitionName);
-            if (currentStatistics == null) {
-                throw new TrinoException(HIVE_METASTORE_ERROR, "currentStatistics is null");
+
+        for (PartitionUpdateInfo partitionInfo : partitionUpdateInfos) {
+            Action<PartitionAndMore> oldPartitionAction = partitionActionsOfTable.get(partitionInfo.partitionValues);
+            if (oldPartitionAction != null) {
+                switch (oldPartitionAction.getType()) {
+                    case DROP, DROP_PRESERVE_DATA ->
+                            throw new PartitionNotFoundException(schemaTableName, partitionInfo.partitionValues);
+                    case ADD, ALTER, INSERT_EXISTING, DELETE_ROWS, UPDATE, MERGE ->
+                            throw new UnsupportedOperationException("Inserting into a partition that were added, altered, or inserted into in the same transaction is not supported");
+                    default -> throw new IllegalStateException("Unknown action type: " + oldPartitionAction.getType());
+                }
             }
-            HdfsContext context = new HdfsContext(session);
-            partitionActionsOfTable.put(
-                    partitionValues,
-                    new Action<>(
-                            ActionType.INSERT_EXISTING,
-                            new PartitionAndMore(
-                                    partition,
-                                    currentLocation,
-                                    Optional.of(fileNames),
-                                    merge(currentStatistics, statisticsUpdate),
-                                    statisticsUpdate,
-                                    cleanExtraOutputFilesOnCommit),
-                            context,
-                            session.getQueryId()));
-            return;
         }
 
-        switch (oldPartitionAction.getType()) {
-            case DROP:
-            case DROP_PRESERVE_DATA:
-                throw new PartitionNotFoundException(schemaTableName, partitionValues);
-            case ADD:
-            case ALTER:
-            case INSERT_EXISTING:
-            case DELETE_ROWS:
-            case UPDATE:
-            case MERGE:
-                throw new UnsupportedOperationException("Inserting into a partition that were added, altered, or inserted into in the same transaction is not supported");
+        for (List<PartitionUpdateInfo> partitionInfoBatch : Iterables.partition(partitionUpdateInfos, 100)) {
+            List<String> partitionNames = partitionInfoBatch.stream()
+                    .map(PartitionUpdateInfo::partitionValues)
+                    .map(partitionValues -> getPartitionName(databaseName, tableName, partitionValues))
+                    .collect(toImmutableList());
+
+            Map<String, Optional<Partition>> partitionsByNames = delegate.getPartitionsByNames(
+                    schemaTableName.getSchemaName(),
+                    schemaTableName.getTableName(),
+                    partitionNames);
+            Map<String, PartitionStatistics> partitionStatistics = delegate.getPartitionStatistics(
+                    schemaTableName.getSchemaName(),
+                    schemaTableName.getTableName(),
+                    ImmutableSet.copyOf(partitionNames));
+
+            for (int i = 0; i < partitionInfoBatch.size(); i++) {
+                PartitionUpdateInfo partitionInfo = partitionInfoBatch.get(i);
+                String partitionName = partitionNames.get(i);
+
+                Optional<Partition> partition = partitionsByNames.get(partitionName);
+                if (partition.isEmpty()) {
+                    throw new PartitionNotFoundException(schemaTableName, partitionInfo.partitionValues);
+                }
+
+                PartitionStatistics currentStatistics = partitionStatistics.get(partitionName);
+                if (currentStatistics == null) {
+                    throw new TrinoException(HIVE_METASTORE_ERROR, "currentStatistics is null");
+                }
+
+                partitionActionsOfTable.put(
+                        partitionInfo.partitionValues,
+                        new Action<>(
+                                ActionType.INSERT_EXISTING,
+                                new PartitionAndMore(
+                                        partition.get(),
+                                        partitionInfo.currentLocation,
+                                        Optional.of(partitionInfo.fileNames),
+                                        merge(currentStatistics, partitionInfo.statisticsUpdate),
+                                        partitionInfo.statisticsUpdate,
+                                        cleanExtraOutputFilesOnCommit),
+                                context,
+                                session.getQueryId()));
+            }
         }
-        throw new IllegalStateException("Unknown action type: " + oldPartitionAction.getType());
     }
 
     private synchronized AcidTransaction getCurrentAcidTransaction()
@@ -3883,6 +3900,17 @@ public class SemiTransactionalHiveMetastore
                     HIVE_FILESYSTEM_ERROR,
                     format("Error deleting failed retry attempt files from %s; remaining files %s; manual cleanup may be required", path, filesToDelete),
                     e);
+        }
+    }
+
+    public record PartitionUpdateInfo(List<String> partitionValues, Path currentLocation, List<String> fileNames, PartitionStatistics statisticsUpdate)
+    {
+        public PartitionUpdateInfo(List<String> partitionValues, Path currentLocation, List<String> fileNames, PartitionStatistics statisticsUpdate)
+        {
+            this.partitionValues = requireNonNull(partitionValues, "partitionValues is null");
+            this.currentLocation = requireNonNull(currentLocation, "currentLocation is null");
+            this.fileNames = requireNonNull(fileNames, "fileNames is null");
+            this.statisticsUpdate = requireNonNull(statisticsUpdate, "statisticsUpdate is null");
         }
     }
 }
