@@ -46,6 +46,7 @@ import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.retryOnModifiedConcurrentlyFailure;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -127,7 +128,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
         }
         finally {
             // cleanup
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE default." + tableName));
         }
     }
 
@@ -187,7 +188,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
         }
         finally {
             // cleanup
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE default." + tableName));
         }
     }
 
@@ -255,7 +256,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
         }
         finally {
             // cleanup
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE default." + tableName));
         }
     }
 
@@ -340,7 +341,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
         }
         finally {
             // cleanup
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE default." + tableName));
         }
     }
 
@@ -405,7 +406,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
         }
         finally {
             // cleanup
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE default." + tableName));
         }
     }
 
@@ -448,7 +449,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
                             row(null, null, null, null, 1.0, null, null)));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE default." + tableName));
         }
     }
 
@@ -492,7 +493,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
                             row(null, null, null, null, null, null, null)));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE default." + tableName));
         }
     }
 
@@ -550,7 +551,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
                             row(null, null, null, null, 3.0, null, null)));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE default." + tableName));
         }
     }
 
@@ -640,7 +641,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
                             row(null, null, null, null, 1.0, null, null)));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE default." + tableName));
         }
     }
 

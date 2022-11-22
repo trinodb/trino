@@ -31,6 +31,7 @@ import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.retryOnModifiedConcurrentlyFailure;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 
@@ -62,7 +63,7 @@ public class TestDeltaLakeColumnMappingMode
                     .containsOnly(expectedRows);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE default." + tableName));
         }
     }
 
@@ -133,7 +134,7 @@ public class TestDeltaLakeColumnMappingMode
                     .containsOnly(expectedRows);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE default." + tableName));
         }
     }
 
@@ -181,7 +182,7 @@ public class TestDeltaLakeColumnMappingMode
                             row(null, null, null, null, 2.0, null, null)));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE default." + tableName));
         }
     }
 
@@ -252,7 +253,7 @@ public class TestDeltaLakeColumnMappingMode
                     .containsOnly(row(1, null), row(2, null));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE default." + tableName));
         }
     }
 
@@ -297,7 +298,7 @@ public class TestDeltaLakeColumnMappingMode
                             row(null, null, null, null, 3.0, null, null)));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE default." + tableName));
         }
     }
 
@@ -345,7 +346,7 @@ public class TestDeltaLakeColumnMappingMode
                             row(null, null, null, null, 3.0, null, null)));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE default." + tableName));
         }
     }
 
@@ -390,7 +391,7 @@ public class TestDeltaLakeColumnMappingMode
                             row(null, null, null, null, 3.0, null, null)));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE default." + tableName));
         }
     }
 
@@ -439,7 +440,7 @@ public class TestDeltaLakeColumnMappingMode
                     .hasMessageContaining("This connector does not support dropping columns");
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE default." + tableName));
         }
     }
 
@@ -482,7 +483,7 @@ public class TestDeltaLakeColumnMappingMode
                             row(null, null, null, null, 3.0, null, null)));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE default." + tableName));
         }
     }
 }

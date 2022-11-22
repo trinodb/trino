@@ -39,6 +39,7 @@ import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.retryOnModifiedConcurrentlyFailure;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.util.Arrays.asList;
@@ -87,7 +88,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                     .containsOnly(expectedRows);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE default." + tableName));
         }
     }
 
@@ -125,7 +126,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                     .containsOnly(expectedRows);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE default." + tableName));
         }
     }
 
@@ -179,7 +180,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                     .containsOnly(expectedRows);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE default." + tableName));
         }
     }
 
@@ -217,7 +218,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                     .containsOnly(expectedRows);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE default." + tableName));
         }
     }
 
@@ -257,7 +258,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                     .containsOnly(expectedRows);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE default." + tableName));
         }
     }
 
@@ -296,7 +297,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                     .containsOnly(expectedRows);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE default." + tableName));
         }
     }
 
@@ -324,7 +325,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                     .containsOnly(expectedRows);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE default." + tableName));
         }
     }
 
@@ -358,7 +359,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                     .containsOnly(row(1, 1));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE default." + tableName));
         }
     }
 
@@ -478,7 +479,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                     .hasMessageContaining("Writing to tables with CHECK constraints is not supported");
         }
         finally {
-            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName));
         }
     }
 
@@ -501,7 +502,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                     .hasMessageContaining("Writing to tables with CHECK constraints is not supported");
         }
         finally {
-            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName));
         }
     }
 
@@ -532,7 +533,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                     .hasMessageContaining("Writing to tables with generated columns is not supported");
         }
         finally {
-            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName));
         }
     }
 
@@ -561,7 +562,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                     .containsOnly(row(1, 2, "insert", 1L));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName));
         }
     }
 }

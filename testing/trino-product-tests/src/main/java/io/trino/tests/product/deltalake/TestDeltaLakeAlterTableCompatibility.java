@@ -36,6 +36,7 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumn
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumnCommentOnTrino;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTableCommentOnDelta;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.retryOnModifiedConcurrentlyFailure;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -87,7 +88,7 @@ public class TestDeltaLakeAlterTableCompatibility
                     .hasMessageMatching(".* Table .* requires Delta Lake writer version 5 which is not supported");
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE default." + tableName));
         }
     }
 
@@ -120,7 +121,7 @@ public class TestDeltaLakeAlterTableCompatibility
                     .containsOnly(row(1), row(2));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE default." + tableName));
         }
     }
 
@@ -154,7 +155,7 @@ public class TestDeltaLakeAlterTableCompatibility
                     .containsOnly(row(1, "part1"), row(2, "part2"));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE default." + tableName));
         }
     }
 
@@ -369,7 +370,7 @@ public class TestDeltaLakeAlterTableCompatibility
                     .containsOnly(row(1, 2, 3));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            retryOnModifiedConcurrentlyFailure(() -> onDelta().executeQuery("DROP TABLE default." + tableName));
         }
     }
 }
