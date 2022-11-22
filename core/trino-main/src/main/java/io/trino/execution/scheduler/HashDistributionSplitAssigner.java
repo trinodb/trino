@@ -219,6 +219,7 @@ class HashDistributionSplitAssigner
 
         public void assignId(int id)
         {
+            checkState(this.id.isEmpty(), "id is already assigned");
             this.id = OptionalInt.of(id);
         }
 
