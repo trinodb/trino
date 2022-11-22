@@ -14,6 +14,7 @@
 package io.trino.plugin.singlestore;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.testing.ResourcePresence;
 import org.testcontainers.containers.JdbcDatabaseContainer;
 import org.testcontainers.utility.DockerImageName;
 
@@ -101,6 +102,12 @@ public class TestingSingleStoreServer
     public void execute(String sql)
     {
         execute(sql, getUsername(), getPassword());
+    }
+
+    @ResourcePresence
+    public boolean isResourcePresent()
+    {
+        return isRunning() || getContainerId() != null;
     }
 
     public void execute(String sql, String user, String password)

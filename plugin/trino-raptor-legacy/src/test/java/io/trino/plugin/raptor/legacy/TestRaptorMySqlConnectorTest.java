@@ -45,6 +45,7 @@ public class TestRaptorMySqlConnectorTest
     public final void destroy()
     {
         mysqlContainer.close();
+        mysqlContainer = null;
     }
 
     private static String getJdbcUrl(MySQLContainer<?> container)

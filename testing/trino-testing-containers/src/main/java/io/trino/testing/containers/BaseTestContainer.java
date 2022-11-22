@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.log.Logger;
+import io.trino.testing.ResourcePresence;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import org.testcontainers.containers.Container;
@@ -161,6 +162,12 @@ public abstract class BaseTestContainer
     public void close()
     {
         stop();
+    }
+
+    @ResourcePresence
+    public boolean isPresent()
+    {
+        return container.isRunning() || container.getContainerId() != null;
     }
 
     protected abstract static class Builder<SELF extends BaseTestContainer.Builder<SELF, BUILD>, BUILD extends BaseTestContainer>

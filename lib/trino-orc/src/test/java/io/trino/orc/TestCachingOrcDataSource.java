@@ -90,6 +90,7 @@ public class TestCachingOrcDataSource
             throws Exception
     {
         tempFile.close();
+        tempFile = null;
     }
 
     @Test

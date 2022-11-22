@@ -88,6 +88,11 @@ public class TestGrantRevoke
         aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
         aliceExecutor.executeQuery(format("DROP VIEW IF EXISTS %s", viewName));
         cleanupRoles();
+
+        // should not be closed, this would close a shared, global QueryExecutor
+        aliceExecutor = null;
+        bobExecutor = null;
+        charlieExecutor = null;
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
