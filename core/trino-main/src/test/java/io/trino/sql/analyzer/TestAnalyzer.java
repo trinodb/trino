@@ -224,7 +224,7 @@ public class TestAnalyzer
 
     private static final SqlParser SQL_PARSER = new SqlParser();
 
-    private final Closer closer = Closer.create();
+    private Closer closer;
     private TransactionManager transactionManager;
     private AccessControl accessControl;
     private PlannerContext plannerContext;
@@ -6625,6 +6625,7 @@ public class TestAnalyzer
     @BeforeClass
     public void setup()
     {
+        closer = Closer.create();
         LocalQueryRunner queryRunner = LocalQueryRunner.create(TEST_SESSION);
         closer.register(queryRunner);
         transactionManager = queryRunner.getTransactionManager();
@@ -6959,6 +6960,7 @@ public class TestAnalyzer
             throws Exception
     {
         closer.close();
+        closer = null;
         transactionManager = null;
         accessControl = null;
         plannerContext = null;

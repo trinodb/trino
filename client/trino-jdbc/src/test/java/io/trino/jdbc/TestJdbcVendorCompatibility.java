@@ -119,7 +119,9 @@ public class TestJdbcVendorCompatibility
             throws Exception
     {
         statement.close();
+        statement = null;
         connection.close();
+        connection = null;
         for (ReferenceDriver driver : referenceDrivers) {
             try {
                 driver.tearDown();

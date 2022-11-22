@@ -35,7 +35,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestLdapAuthenticatorWithTimeouts
 {
-    private final Closer closer = Closer.create();
+    private Closer closer;
 
     private TestingOpenLdapServer openLdapServer;
     private String proxyLdapUrl;
@@ -44,6 +44,7 @@ public class TestLdapAuthenticatorWithTimeouts
     public void setup()
             throws Exception
     {
+        closer = Closer.create();
         Network network = Network.newNetwork();
         closer.register(network::close);
 
@@ -66,6 +67,7 @@ public class TestLdapAuthenticatorWithTimeouts
             throws Exception
     {
         closer.close();
+        closer = null;
         openLdapServer = null;
         proxyLdapUrl = null;
     }

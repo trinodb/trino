@@ -14,6 +14,7 @@
 package io.trino.plugin.phoenix5;
 
 import io.airlift.log.Logger;
+import io.trino.testng.services.ReportResourceHungryTests;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
@@ -31,6 +32,7 @@ import static org.apache.hadoop.hbase.HConstants.HBASE_CLIENT_RETRIES_NUMBER;
 import static org.apache.hadoop.hbase.HConstants.MASTER_INFO_PORT;
 import static org.apache.hadoop.hbase.HConstants.REGIONSERVER_INFO_PORT;
 
+@ReportResourceHungryTests.Suppress(because = "The actual server is kept on a static field and instance of this class is used for reference counting only")
 public final class TestingPhoenixServer
 {
     private static final Logger LOG = Logger.get(TestingPhoenixServer.class);

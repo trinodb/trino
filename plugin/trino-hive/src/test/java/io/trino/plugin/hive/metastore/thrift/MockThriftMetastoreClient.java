@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.acid.AcidOperation;
+import io.trino.testng.services.ReportResourceHungryTests;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsData;
@@ -50,6 +51,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
 
+@ReportResourceHungryTests.Suppress(because = "close() is no-op and instance's resources are negligible")
 public class MockThriftMetastoreClient
         implements ThriftMetastoreClient
 {

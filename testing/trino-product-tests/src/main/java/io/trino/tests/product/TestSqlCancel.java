@@ -80,6 +80,7 @@ public class TestSqlCancel
             throws IOException
     {
         closer.close();
+        closer = null;
     }
 
     @Test(groups = CANCEL_QUERY, timeOut = 60_000L)

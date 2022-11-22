@@ -90,6 +90,7 @@ public class TestMinimalFunctionality
     public void stop()
     {
         embeddedKinesisStream.close();
+        embeddedKinesisStream = null;
     }
 
     @Parameters({

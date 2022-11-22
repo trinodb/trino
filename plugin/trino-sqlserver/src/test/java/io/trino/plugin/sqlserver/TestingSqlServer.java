@@ -14,6 +14,7 @@
 package io.trino.plugin.sqlserver;
 
 import io.airlift.log.Logger;
+import io.trino.testing.ResourcePresence;
 import io.trino.testing.sql.SqlExecutor;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
@@ -211,6 +212,12 @@ public final class TestingSqlServer
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    @ResourcePresence
+    public boolean isRunning()
+    {
+        return container.getContainerId() != null;
     }
 
     private static class InitializedState
