@@ -129,7 +129,7 @@ public class MongoMetadata
     {
         requireNonNull(tableHandle, "tableHandle is null");
         SchemaTableName tableName = getTableName(tableHandle);
-        return getTableMetadata(session, tableName);
+        return getTableMetadata(tableName);
     }
 
     @Override
@@ -166,7 +166,7 @@ public class MongoMetadata
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
         for (SchemaTableName tableName : listTables(session, prefix)) {
             try {
-                columns.put(tableName, getTableMetadata(session, tableName).getColumns());
+                columns.put(tableName, getTableMetadata(tableName).getColumns());
             }
             catch (NotFoundException e) {
                 // table disappeared during listing operation
@@ -459,16 +459,13 @@ public class MongoMetadata
         return ((MongoTableHandle) tableHandle).getSchemaTableName();
     }
 
-    private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName tableName)
+    private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
     {
         MongoTable mongoTable = mongoSession.getTable(tableName);
-        MongoTableHandle tableHandle = mongoTable.getTableHandle();
 
-        List<ColumnMetadata> columns =
-                getColumnHandles(session, tableHandle).values().stream()
-                        .map(MongoColumnHandle.class::cast)
-                        .map(MongoColumnHandle::toColumnMetadata)
-                        .collect(toImmutableList());
+        List<ColumnMetadata> columns = mongoTable.getColumns().stream()
+                .map(MongoColumnHandle::toColumnMetadata)
+                .collect(toImmutableList());
 
         return new ConnectorTableMetadata(tableName, columns, ImmutableMap.of(), mongoTable.getComment());
     }
