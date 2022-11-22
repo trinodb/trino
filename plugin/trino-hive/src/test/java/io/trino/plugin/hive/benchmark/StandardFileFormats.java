@@ -60,6 +60,7 @@ import static io.trino.orc.OrcWriteValidation.OrcWriteValidationMode.BOTH;
 import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_INT96_TIMESTAMP_ENCODING;
 import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
+import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.createGenericHiveRecordCursorProvider;
 import static io.trino.plugin.hive.benchmark.AbstractFileFormat.createSchema;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
@@ -349,7 +350,7 @@ public final class StandardFileFormats
                 throws IOException
         {
             writer = new OrcWriter(
-                    new OutputStreamOrcDataSink(new FileOutputStream(targetFile)),
+                    OutputStreamOrcDataSink.create(HDFS_FILE_SYSTEM_FACTORY.create(SESSION).newOutputFile(targetFile.getAbsolutePath())),
                     columnNames,
                     types,
                     OrcType.createRootOrcType(columnNames, types),

@@ -38,6 +38,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.MoreCollectors.toOptional;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.LAST_CHECKPOINT_FILENAME;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
@@ -137,7 +138,7 @@ public class CheckpointWriterManager
             LastCheckpoint newLastCheckpoint = new LastCheckpoint(newCheckpointVersion, checkpointEntries.size(), Optional.empty());
             Path checkpointPath = new Path(transactionLogDirectory, LAST_CHECKPOINT_FILENAME);
             TrinoOutputFile outputFile = fileSystem.newOutputFile(checkpointPath.toString());
-            try (OutputStream outputStream = outputFile.createOrOverwrite()) {
+            try (OutputStream outputStream = outputFile.createOrOverwrite(newSimpleAggregatedMemoryContext())) {
                 outputStream.write(lastCheckpointCodec.toJsonBytes(newLastCheckpoint));
             }
         }

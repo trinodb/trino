@@ -174,7 +174,7 @@ public class OrcFileWriter
     private static OrcDataSink createOrcDataSink(File target)
     {
         try {
-            return new OutputStreamOrcDataSink(new SyncingFileOutputStream(target));
+            return OutputStreamOrcDataSink.create(new SyncingFileOutputStream(target));
         }
         catch (IOException e) {
             throw new TrinoException(RAPTOR_ERROR, "Failed to open output file: " + target, e);

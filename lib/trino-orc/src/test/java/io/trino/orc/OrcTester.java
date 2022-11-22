@@ -22,7 +22,9 @@ import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import io.trino.filesystem.TrinoOutputFile;
 import io.trino.hive.orc.OrcConf;
+import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.orc.metadata.ColumnMetadata;
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.orc.metadata.OrcType;
@@ -91,6 +93,7 @@ import org.joda.time.DateTimeZone;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.time.LocalDateTime;
@@ -620,7 +623,7 @@ public class OrcTester
                 .collect(toImmutableList());
 
         OrcWriter writer = new OrcWriter(
-                new OutputStreamOrcDataSink(new FileOutputStream(outputFile)),
+                OutputStreamOrcDataSink.create(new LocalTrinoOutputFile(outputFile)),
                 columnNames,
                 types,
                 OrcType.createRootOrcType(columnNames, types),
@@ -660,7 +663,7 @@ public class OrcTester
         }));
 
         OrcWriter writer = new OrcWriter(
-                new OutputStreamOrcDataSink(new FileOutputStream(outputFile)),
+                OutputStreamOrcDataSink.create(new LocalTrinoOutputFile(outputFile)),
                 ImmutableList.of("test"),
                 types,
                 orcType,
@@ -1277,5 +1280,36 @@ public class OrcTester
                     .anyMatch(OrcTester::isUuid);
         }
         return false;
+    }
+
+    public static class LocalTrinoOutputFile
+            implements TrinoOutputFile
+    {
+        private final File file;
+
+        public LocalTrinoOutputFile(File file)
+        {
+            this.file = file;
+        }
+
+        @Override
+        public OutputStream create(AggregatedMemoryContext memoryContext)
+                throws IOException
+        {
+            return new FileOutputStream(file);
+        }
+
+        @Override
+        public OutputStream createOrOverwrite(AggregatedMemoryContext memoryContext)
+                throws IOException
+        {
+            return new FileOutputStream(file);
+        }
+
+        @Override
+        public String location()
+        {
+            return file.getAbsolutePath();
+        }
     }
 }
