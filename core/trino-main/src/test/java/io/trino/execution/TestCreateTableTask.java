@@ -373,7 +373,8 @@ public class TestCreateTableTask
                         new TableHandle(
                                 TEST_CATALOG_HANDLE,
                                 new TestingTableHandle(tableName.asSchemaTableName()),
-                                TestingConnectorTransactionHandle.INSTANCE));
+                                TestingConnectorTransactionHandle.INSTANCE,
+                                session.getIdentity()));
             }
             return Optional.empty();
         }

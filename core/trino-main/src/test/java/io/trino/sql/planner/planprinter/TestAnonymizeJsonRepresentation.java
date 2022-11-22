@@ -28,6 +28,7 @@ import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.security.Identity;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.DynamicFilterId;
@@ -160,7 +161,8 @@ public class TestAnonymizeJsonRepresentation
                         new TableHandle(
                                 createRootCatalogHandle("tpch"),
                                 new TpchTableHandle(TINY_SCHEMA_NAME, "orders", TINY_SCALE_FACTOR),
-                                TpchTransactionHandle.INSTANCE),
+                                TpchTransactionHandle.INSTANCE,
+                                Identity.forUser("test").build()),
                         ImmutableList.of(pb.symbol("a", BIGINT), pb.symbol("b", BIGINT), pb.symbol("c", BIGINT), pb.symbol("d", BIGINT)),
                         ImmutableMap.of(
                                 pb.symbol("a", BIGINT), TEST_COLUMN_HANDLE_A,

@@ -24,6 +24,7 @@ import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.security.Identity;
 import io.trino.spi.type.BigintType;
 import io.trino.sql.ExpressionUtils;
 import io.trino.sql.planner.Plan;
@@ -151,7 +152,8 @@ public class TestUnaliasSymbolReferences
         return new TableHandle(
                 TEST_CATALOG_HANDLE,
                 new TpchTableHandle(TINY_SCHEMA_NAME, tableName, TINY_SCALE_FACTOR),
-                TestingTransactionHandle.create());
+                TestingTransactionHandle.create(),
+                Identity.forUser("test").build());
     }
 
     interface PlanCreator

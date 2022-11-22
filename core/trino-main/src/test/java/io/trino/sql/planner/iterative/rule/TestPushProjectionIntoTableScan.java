@@ -39,6 +39,7 @@ import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.Identity;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
@@ -337,7 +338,8 @@ public class TestPushProjectionIntoTableScan
         return new TableHandle(
                 TEST_CATALOG_HANDLE,
                 new MockConnectorTableHandle(new SchemaTableName(schemaName, tableName)),
-                TestingTransactionHandle.create());
+                TestingTransactionHandle.create(),
+                Identity.forUser("test").build());
     }
 
     private static SymbolReference symbolReference(String name)

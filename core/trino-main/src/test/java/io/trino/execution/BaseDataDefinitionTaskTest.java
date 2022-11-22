@@ -276,7 +276,8 @@ public abstract class BaseDataDefinitionTaskTest
                     .map(tableMetadata -> new TableHandle(
                             TEST_CATALOG_HANDLE,
                             new TestingTableHandle(tableName.asSchemaTableName()),
-                            TestingConnectorTransactionHandle.INSTANCE));
+                            TestingConnectorTransactionHandle.INSTANCE,
+                            session.getIdentity()));
         }
 
         @Override

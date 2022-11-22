@@ -30,6 +30,7 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.Identity;
 import io.trino.testing.TestingConnectorSession;
 import org.testng.annotations.Test;
 
@@ -153,7 +154,8 @@ public class TestNodeLocalDynamicSplitPruning
                                 20,
                                 20,
                                 ImmutableList.of()))),
-                transaction);
+                transaction,
+                Identity.forUser("test").build());
 
         HivePageSourceProvider provider = new HivePageSourceProvider(
                 TESTING_TYPE_MANAGER,

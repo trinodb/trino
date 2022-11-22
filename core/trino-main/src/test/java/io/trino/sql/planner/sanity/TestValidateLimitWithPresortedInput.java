@@ -28,6 +28,7 @@ import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SortingProperty;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.Identity;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
@@ -68,7 +69,8 @@ public class TestValidateLimitWithPresortedInput
     private static final TableHandle MOCK_TABLE_HANDLE = new TableHandle(
             TEST_CATALOG_HANDLE,
             new MockConnectorTableHandle(MOCK_TABLE_NAME),
-            TestingTransactionHandle.create());
+            TestingTransactionHandle.create(),
+            Identity.forUser("test").build());
 
     @Override
     protected LocalQueryRunner createLocalQueryRunner()

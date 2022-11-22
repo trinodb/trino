@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.security.Identity;
 
 import java.util.Objects;
 
@@ -28,16 +29,19 @@ public final class TableHandle
     private final CatalogHandle catalogHandle;
     private final ConnectorTableHandle connectorHandle;
     private final ConnectorTransactionHandle transaction;
+    private final Identity executedAs;
 
     @JsonCreator
     public TableHandle(
             @JsonProperty("catalogHandle") CatalogHandle catalogHandle,
             @JsonProperty("connectorHandle") ConnectorTableHandle connectorHandle,
-            @JsonProperty("transaction") ConnectorTransactionHandle transaction)
+            @JsonProperty("transaction") ConnectorTransactionHandle transaction,
+            @JsonProperty("executedAs") Identity executedAs)
     {
         this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
         this.transaction = requireNonNull(transaction, "transaction is null");
+        this.executedAs = requireNonNull(executedAs, "executedAs is null");
     }
 
     @JsonProperty
@@ -58,12 +62,19 @@ public final class TableHandle
         return transaction;
     }
 
+    @JsonProperty
+    public Identity getExecutedAs()
+    {
+        return executedAs;
+    }
+
     public TableHandle withConnectorHandle(ConnectorTableHandle connectorHandle)
     {
         return new TableHandle(
                 catalogHandle,
                 connectorHandle,
-                transaction);
+                transaction,
+                executedAs);
     }
 
     @Override
@@ -84,12 +95,13 @@ public final class TableHandle
         TableHandle other = (TableHandle) o;
         return Objects.equals(catalogHandle, other.catalogHandle) &&
                 Objects.equals(connectorHandle, other.connectorHandle) &&
-                Objects.equals(transaction, other.transaction);
+                Objects.equals(transaction, other.transaction) &&
+                Objects.equals(executedAs, other.executedAs);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(catalogHandle, connectorHandle, transaction);
+        return Objects.hash(catalogHandle, connectorHandle, transaction, executedAs);
     }
 }

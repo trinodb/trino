@@ -83,7 +83,8 @@ public class TestApplyTableScanRedirection
         return new TableHandle(
                 TEST_CATALOG_HANDLE,
                 tableHandle,
-                TestingTransactionHandle.create());
+                TestingTransactionHandle.create(),
+                testSessionBuilder().build().getIdentity());
     }
 
     @Test

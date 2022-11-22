@@ -63,13 +63,15 @@ public class TestRemoveRedundantPredicateAboveTableScan
         nationTableHandle = new TableHandle(
                 catalogHandle,
                 nation,
-                TpchTransactionHandle.INSTANCE);
+                TpchTransactionHandle.INSTANCE,
+                tester().getSession().getIdentity());
 
         TpchTableHandle orders = new TpchTableHandle("sf1", "orders", 1.0);
         ordersTableHandle = new TableHandle(
                 catalogHandle,
                 orders,
-                TpchTransactionHandle.INSTANCE);
+                TpchTransactionHandle.INSTANCE,
+                tester().getSession().getIdentity());
     }
 
     @Test

@@ -36,6 +36,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.Identity;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
@@ -108,13 +109,15 @@ public class TestPushPredicateIntoTableScan
         nationTableHandle = new TableHandle(
                 catalogHandle,
                 nation,
-                TpchTransactionHandle.INSTANCE);
+                TpchTransactionHandle.INSTANCE,
+                tester().getSession().getIdentity());
 
         TpchTableHandle orders = new TpchTableHandle("sf1", "orders", 1.0);
         ordersTableHandle = new TableHandle(
                 catalogHandle,
                 orders,
-                TpchTransactionHandle.INSTANCE);
+                TpchTransactionHandle.INSTANCE,
+                tester().getSession().getIdentity());
     }
 
     @Test
@@ -410,6 +413,7 @@ public class TestPushPredicateIntoTableScan
         return new TableHandle(
                 createRootCatalogHandle(MOCK_CATALOG),
                 connectorTableHandle,
-                TestingTransactionHandle.create());
+                TestingTransactionHandle.create(),
+                Identity.forUser("test").build());
     }
 }

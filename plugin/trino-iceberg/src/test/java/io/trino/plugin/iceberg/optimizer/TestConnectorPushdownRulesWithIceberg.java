@@ -184,7 +184,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 ImmutableList.of(),
                 false,
                 Optional.empty());
-        TableHandle table = new TableHandle(TEST_CATALOG_HANDLE, icebergTable, new HiveTransactionHandle(false));
+        TableHandle table = new TableHandle(TEST_CATALOG_HANDLE, icebergTable, new HiveTransactionHandle(false), tester().getSession().getIdentity());
 
         IcebergColumnHandle fullColumn = partialColumn.getBaseColumn();
 
@@ -214,7 +214,8 @@ public class TestConnectorPushdownRulesWithIceberg
                                         new TableHandle(
                                                 TEST_CATALOG_HANDLE,
                                                 icebergTable.withProjectedColumns(ImmutableSet.of(fullColumn)),
-                                                new HiveTransactionHandle(false)),
+                                                new HiveTransactionHandle(false),
+                                                tester().getSession().getIdentity()),
                                         ImmutableList.of(p.symbol("struct_of_int", baseType)),
                                         ImmutableMap.of(p.symbol("struct_of_int", baseType), fullColumn))))
                 .doesNotFire();
@@ -266,7 +267,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 ImmutableList.of(),
                 false,
                 Optional.empty());
-        TableHandle table = new TableHandle(TEST_CATALOG_HANDLE, icebergTable, new HiveTransactionHandle(false));
+        TableHandle table = new TableHandle(TEST_CATALOG_HANDLE, icebergTable, new HiveTransactionHandle(false), tester().getSession().getIdentity());
 
         IcebergColumnHandle column = new IcebergColumnHandle(primitiveColumnIdentity(1, "a"), INTEGER, ImmutableList.of(), INTEGER, Optional.empty());
 
@@ -315,7 +316,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 ImmutableList.of(),
                 false,
                 Optional.empty());
-        TableHandle table = new TableHandle(TEST_CATALOG_HANDLE, icebergTable, new HiveTransactionHandle(false));
+        TableHandle table = new TableHandle(TEST_CATALOG_HANDLE, icebergTable, new HiveTransactionHandle(false), tester().getSession().getIdentity());
 
         IcebergColumnHandle columnA = new IcebergColumnHandle(primitiveColumnIdentity(0, "a"), INTEGER, ImmutableList.of(), INTEGER, Optional.empty());
         IcebergColumnHandle columnB = new IcebergColumnHandle(primitiveColumnIdentity(1, "b"), INTEGER, ImmutableList.of(), INTEGER, Optional.empty());
@@ -375,7 +376,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 ImmutableList.of(),
                 false,
                 Optional.empty());
-        TableHandle table = new TableHandle(TEST_CATALOG_HANDLE, icebergTable, new HiveTransactionHandle(false));
+        TableHandle table = new TableHandle(TEST_CATALOG_HANDLE, icebergTable, new HiveTransactionHandle(false), tester().getSession().getIdentity());
 
         IcebergColumnHandle bigintColumn = new IcebergColumnHandle(primitiveColumnIdentity(1, "just_bigint"), BIGINT, ImmutableList.of(), BIGINT, Optional.empty());
         IcebergColumnHandle partialColumn = new IcebergColumnHandle(

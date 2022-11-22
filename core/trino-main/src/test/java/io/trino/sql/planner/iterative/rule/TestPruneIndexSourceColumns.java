@@ -22,6 +22,7 @@ import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.plugin.tpch.TpchTransactionHandle;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.security.Identity;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
@@ -83,7 +84,8 @@ public class TestPruneIndexSourceColumns
                         new TableHandle(
                                 TEST_CATALOG_HANDLE,
                                 new TpchTableHandle(TINY_SCHEMA_NAME, "orders", TINY_SCALE_FACTOR),
-                                TpchTransactionHandle.INSTANCE),
+                                TpchTransactionHandle.INSTANCE,
+                                Identity.forUser("test").build()),
                         ImmutableSet.of(orderkey, custkey),
                         ImmutableList.of(orderkey, custkey, totalprice),
                         ImmutableMap.of(

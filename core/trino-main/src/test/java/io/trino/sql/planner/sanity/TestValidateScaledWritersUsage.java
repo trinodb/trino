@@ -78,7 +78,8 @@ public class TestValidateScaledWritersUsage
         TableHandle nationTableHandle = new TableHandle(
                 catalogSupportingScaledWriters,
                 new TpchTableHandle("sf1", "nation", 1.0),
-                TestingTransactionHandle.create());
+                TestingTransactionHandle.create(),
+                TEST_SESSION.getIdentity());
         TpchColumnHandle nationkeyColumnHandle = new TpchColumnHandle("nationkey", BIGINT);
         symbol = new Symbol("nationkey");
         tableScanNode = planBuilder.tableScan(nationTableHandle, ImmutableList.of(symbol), ImmutableMap.of(symbol, nationkeyColumnHandle));

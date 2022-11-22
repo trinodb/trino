@@ -27,6 +27,7 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.Identity;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.planner.plan.TopNNode;
@@ -73,7 +74,8 @@ public class TestPushTopNIntoTableScan
         return new TableHandle(
                 TEST_CATALOG_HANDLE,
                 tableHandle,
-                new ConnectorTransactionHandle() {});
+                new ConnectorTransactionHandle() {},
+                Identity.forUser("test").build());
     }
 
     @Test

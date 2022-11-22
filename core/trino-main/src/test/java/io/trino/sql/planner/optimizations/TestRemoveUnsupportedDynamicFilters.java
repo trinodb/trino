@@ -87,14 +87,16 @@ public class TestRemoveUnsupportedDynamicFilters
         lineitemTableHandle = new TableHandle(
                 catalogHandle,
                 new TpchTableHandle("sf1", "lineitem", 1.0),
-                TestingTransactionHandle.create());
+                TestingTransactionHandle.create(),
+                TEST_SESSION.getIdentity());
         lineitemOrderKeySymbol = builder.symbol("LINEITEM_OK", BIGINT);
         lineitemTableScanNode = builder.tableScan(lineitemTableHandle, ImmutableList.of(lineitemOrderKeySymbol), ImmutableMap.of(lineitemOrderKeySymbol, new TpchColumnHandle("orderkey", BIGINT)));
 
         TableHandle ordersTableHandle = new TableHandle(
                 catalogHandle,
                 new TpchTableHandle("sf1", "orders", 1.0),
-                TestingTransactionHandle.create());
+                TestingTransactionHandle.create(),
+                TEST_SESSION.getIdentity());
         ordersOrderKeySymbol = builder.symbol("ORDERS_OK", BIGINT);
         ordersTableScanNode = builder.tableScan(ordersTableHandle, ImmutableList.of(ordersOrderKeySymbol), ImmutableMap.of(ordersOrderKeySymbol, new TpchColumnHandle("orderkey", BIGINT)));
     }

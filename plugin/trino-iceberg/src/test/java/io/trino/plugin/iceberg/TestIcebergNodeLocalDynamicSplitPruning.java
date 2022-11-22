@@ -43,6 +43,7 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.Identity;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.testing.TestingConnectorSession;
@@ -185,7 +186,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                         ImmutableList.of(),
                         false,
                         Optional.empty()),
-                transaction);
+                transaction,
+                Identity.forUser("user").build());
 
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
         IcebergPageSourceProvider provider = new IcebergPageSourceProvider(

@@ -62,7 +62,8 @@ public class TestValidateAggregationsWithDefaultValues
         TableHandle nationTableHandle = new TableHandle(
                 catalogHandle,
                 new TpchTableHandle("sf1", "nation", 1.0),
-                TestingTransactionHandle.create());
+                TestingTransactionHandle.create(),
+                getQueryRunner().getDefaultSession().getIdentity());
         TpchColumnHandle nationkeyColumnHandle = new TpchColumnHandle("nationkey", BIGINT);
         symbol = new Symbol("nationkey");
         tableScanNode = builder.tableScan(nationTableHandle, ImmutableList.of(symbol), ImmutableMap.of(symbol, nationkeyColumnHandle));

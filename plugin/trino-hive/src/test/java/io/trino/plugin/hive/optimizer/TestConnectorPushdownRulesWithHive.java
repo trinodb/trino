@@ -166,7 +166,7 @@ public class TestConnectorPushdownRulesWithHive
                 Optional.empty());
 
         HiveTableHandle hiveTable = new HiveTableHandle(SCHEMA_NAME, tableName, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
-        TableHandle table = new TableHandle(TEST_CATALOG_HANDLE, hiveTable, new HiveTransactionHandle(false));
+        TableHandle table = new TableHandle(TEST_CATALOG_HANDLE, hiveTable, new HiveTransactionHandle(false), tester().getSession().getIdentity());
 
         HiveColumnHandle fullColumn = partialColumn.getBaseColumn();
 
@@ -196,7 +196,8 @@ public class TestConnectorPushdownRulesWithHive
                                         new TableHandle(
                                                 TEST_CATALOG_HANDLE,
                                                 hiveTable.withProjectedColumns(ImmutableSet.of(fullColumn)),
-                                                new HiveTransactionHandle(false)),
+                                                new HiveTransactionHandle(false),
+                                                tester().getSession().getIdentity()),
                                         ImmutableList.of(p.symbol("struct_of_int", baseType)),
                                         ImmutableMap.of(p.symbol("struct_of_int", baseType), fullColumn))))
                 .doesNotFire();
@@ -230,7 +231,7 @@ public class TestConnectorPushdownRulesWithHive
         PushPredicateIntoTableScan pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), tester().getTypeAnalyzer());
 
         HiveTableHandle hiveTable = new HiveTableHandle(SCHEMA_NAME, tableName, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
-        TableHandle table = new TableHandle(TEST_CATALOG_HANDLE, hiveTable, new HiveTransactionHandle(false));
+        TableHandle table = new TableHandle(TEST_CATALOG_HANDLE, hiveTable, new HiveTransactionHandle(false), tester().getSession().getIdentity());
 
         HiveColumnHandle column = createBaseColumn("a", 0, HIVE_INT, INTEGER, REGULAR, Optional.empty());
 
@@ -262,7 +263,7 @@ public class TestConnectorPushdownRulesWithHive
         PruneTableScanColumns pruneTableScanColumns = new PruneTableScanColumns(tester().getMetadata());
 
         HiveTableHandle hiveTable = new HiveTableHandle(SCHEMA_NAME, tableName, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
-        TableHandle table = new TableHandle(TEST_CATALOG_HANDLE, hiveTable, new HiveTransactionHandle(false));
+        TableHandle table = new TableHandle(TEST_CATALOG_HANDLE, hiveTable, new HiveTransactionHandle(false), tester().getSession().getIdentity());
 
         HiveColumnHandle columnA = createBaseColumn("a", 0, HIVE_INT, INTEGER, REGULAR, Optional.empty());
         HiveColumnHandle columnB = createBaseColumn("b", 1, HIVE_INT, INTEGER, REGULAR, Optional.empty());
@@ -305,7 +306,7 @@ public class TestConnectorPushdownRulesWithHive
                 new ScalarStatsCalculator(tester().getPlannerContext(), tester().getTypeAnalyzer()));
 
         HiveTableHandle hiveTable = new HiveTableHandle(SCHEMA_NAME, tableName, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
-        TableHandle table = new TableHandle(TEST_CATALOG_HANDLE, hiveTable, new HiveTransactionHandle(false));
+        TableHandle table = new TableHandle(TEST_CATALOG_HANDLE, hiveTable, new HiveTransactionHandle(false), tester().getSession().getIdentity());
 
         HiveColumnHandle bigintColumn = createBaseColumn("just_bigint", 1, toHiveType(BIGINT), BIGINT, REGULAR, Optional.empty());
         HiveColumnHandle partialColumn = new HiveColumnHandle(

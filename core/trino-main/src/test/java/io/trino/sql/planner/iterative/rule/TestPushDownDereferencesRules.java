@@ -303,7 +303,8 @@ public class TestPushDownDereferencesRules
         TableHandle testTable = new TableHandle(
                 TEST_CATALOG_HANDLE,
                 new TpchTableHandle("sf1", "orders", 1.0),
-                TestingTransactionHandle.create());
+                TestingTransactionHandle.create(),
+                tester().getSession().getIdentity());
 
         RowType nestedRowType = RowType.from(ImmutableList.of(new RowType.Field(Optional.of("nested"), ROW_TYPE)));
         tester().assertThat(new ExtractDereferencesFromFilterAboveScan(tester().getTypeAnalyzer()))

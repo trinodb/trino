@@ -92,7 +92,8 @@ public class TestPushDistinctLimitIntoTableScan
         tableHandle = new TableHandle(
                 TEST_CATALOG_HANDLE,
                 new MockConnectorTableHandle(new SchemaTableName("mock_schema", "mock_nation")),
-                MockConnectorTransactionHandle.INSTANCE);
+                MockConnectorTransactionHandle.INSTANCE,
+                tester().getSession().getIdentity());
     }
 
     @BeforeMethod

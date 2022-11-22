@@ -15,6 +15,7 @@ package io.trino.testing;
 
 import io.trino.connector.CatalogHandle;
 import io.trino.metadata.TableHandle;
+import io.trino.spi.security.Identity;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 
 import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
@@ -28,7 +29,8 @@ public final class TestingHandles
     public static final TableHandle TEST_TABLE_HANDLE = new TableHandle(
             TEST_CATALOG_HANDLE,
             new TestingTableHandle(),
-            TestingTransactionHandle.create());
+            TestingTransactionHandle.create(),
+            Identity.forUser("test").build());
 
     public static CatalogHandle createTestCatalogHandle(String catalogName)
     {

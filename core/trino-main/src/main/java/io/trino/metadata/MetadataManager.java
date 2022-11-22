@@ -286,7 +286,8 @@ public final class MetadataManager
                     .map(connectorTableHandle -> new TableHandle(
                             catalogHandle,
                             connectorTableHandle,
-                            catalogMetadata.getTransactionHandleFor(catalogHandle)));
+                            catalogMetadata.getTransactionHandleFor(catalogHandle),
+                            session.getIdentity()));
         });
     }
 
@@ -399,7 +400,7 @@ public final class MetadataManager
                 session.toConnectorSession(catalogHandle),
                 tableHandle.getConnectorHandle(),
                 partitioningHandle.getConnectorHandle());
-        return new TableHandle(catalogHandle, newTableHandle, transaction);
+        return new TableHandle(catalogHandle, newTableHandle, transaction, session.getIdentity());
     }
 
     @Override
@@ -802,7 +803,7 @@ public final class MetadataManager
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
         ConnectorAnalyzeMetadata analyze = metadata.getStatisticsCollectionMetadata(session.toConnectorSession(catalogHandle), tableHandle.getConnectorHandle(), analyzeProperties);
-        return new AnalyzeMetadata(analyze.getStatisticsMetadata(), new TableHandle(catalogHandle, analyze.getTableHandle(), tableHandle.getTransaction()));
+        return new AnalyzeMetadata(analyze.getStatisticsMetadata(), new TableHandle(catalogHandle, analyze.getTableHandle(), tableHandle.getTransaction(), session.getIdentity()));
     }
 
     @Override
@@ -1012,7 +1013,7 @@ public final class MetadataManager
 
         ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
         return metadata.applyDelete(connectorSession, table.getConnectorHandle())
-                .map(newHandle -> new TableHandle(catalogHandle, newHandle, table.getTransaction()));
+                .map(newHandle -> new TableHandle(catalogHandle, newHandle, table.getTransaction(), session.getIdentity()));
     }
 
     @Override
@@ -1031,7 +1032,7 @@ public final class MetadataManager
         CatalogHandle catalogHandle = tableHandle.getCatalogHandle();
         ConnectorMetadata metadata = getMetadataForWrite(session, catalogHandle);
         ConnectorTableHandle newHandle = metadata.beginDelete(session.toConnectorSession(catalogHandle), tableHandle.getConnectorHandle(), getRetryPolicy(session).getRetryMode());
-        return new TableHandle(tableHandle.getCatalogHandle(), newHandle, tableHandle.getTransaction());
+        return new TableHandle(tableHandle.getCatalogHandle(), newHandle, tableHandle.getTransaction(), session.getIdentity());
     }
 
     @Override
@@ -1048,7 +1049,7 @@ public final class MetadataManager
         CatalogHandle catalogHandle = tableHandle.getCatalogHandle();
         ConnectorMetadata metadata = getMetadataForWrite(session, catalogHandle);
         ConnectorTableHandle newHandle = metadata.beginUpdate(session.toConnectorSession(catalogHandle), tableHandle.getConnectorHandle(), updatedColumns, getRetryPolicy(session).getRetryMode());
-        return new TableHandle(tableHandle.getCatalogHandle(), newHandle, tableHandle.getTransaction());
+        return new TableHandle(tableHandle.getCatalogHandle(), newHandle, tableHandle.getTransaction(), session.getIdentity());
     }
 
     @Override
@@ -1577,7 +1578,7 @@ public final class MetadataManager
         ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
         return metadata.applyLimit(connectorSession, table.getConnectorHandle(), limit)
                 .map(result -> new LimitApplicationResult<>(
-                        new TableHandle(catalogHandle, result.getHandle(), table.getTransaction()),
+                        new TableHandle(catalogHandle, result.getHandle(), table.getTransaction(), session.getIdentity()),
                         result.isLimitGuaranteed(),
                         result.isPrecalculateStatistics()));
     }
@@ -1593,7 +1594,8 @@ public final class MetadataManager
                 .map(result -> new SampleApplicationResult<>(new TableHandle(
                         catalogHandle,
                         result.getHandle(),
-                        table.getTransaction()),
+                        table.getTransaction(),
+                        session.getIdentity()),
                         result.isPrecalculateStatistics()));
     }
 
@@ -1617,7 +1619,7 @@ public final class MetadataManager
                     verifyProjection(table, result.getProjections(), result.getAssignments(), aggregations.size());
 
                     return new AggregationApplicationResult<>(
-                            new TableHandle(catalogHandle, result.getHandle(), table.getTransaction()),
+                            new TableHandle(catalogHandle, result.getHandle(), table.getTransaction(), session.getIdentity()),
                             result.getProjections(),
                             result.getAssignments(),
                             result.getGroupingColumnMapping(),
@@ -1679,7 +1681,8 @@ public final class MetadataManager
                     new TableHandle(
                             catalogHandle,
                             result.getTableHandle(),
-                            transaction),
+                            transaction,
+                            session.getIdentity()),
                     result.getLeftColumnHandles(),
                     result.getRightColumnHandles(),
                     result.isPrecalculateStatistics());
@@ -1700,7 +1703,7 @@ public final class MetadataManager
         ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
         return metadata.applyTopN(connectorSession, table.getConnectorHandle(), topNCount, sortItems, assignments)
                 .map(result -> new TopNApplicationResult<>(
-                        new TableHandle(catalogHandle, result.getHandle(), table.getTransaction()),
+                        new TableHandle(catalogHandle, result.getHandle(), table.getTransaction(), session.getIdentity()),
                         result.isTopNGuaranteed(),
                         result.isPrecalculateStatistics()));
     }
@@ -1713,7 +1716,7 @@ public final class MetadataManager
 
         return metadata.applyTableFunction(session.toConnectorSession(catalogHandle), handle.getFunctionHandle())
                 .map(result -> new TableFunctionApplicationResult<>(
-                        new TableHandle(catalogHandle, result.getTableHandle(), handle.getTransactionHandle()),
+                        new TableHandle(catalogHandle, result.getTableHandle(), handle.getTransactionHandle(), session.getIdentity()),
                         result.getColumnHandles()));
     }
 
@@ -1756,7 +1759,7 @@ public final class MetadataManager
 
         ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
         return metadata.applyFilter(connectorSession, table.getConnectorHandle(), constraint)
-                .map(result -> result.transform(handle -> new TableHandle(catalogHandle, handle, table.getTransaction())));
+                .map(result -> result.transform(handle -> new TableHandle(catalogHandle, handle, table.getTransaction(), session.getIdentity())));
     }
 
     @Override
@@ -1771,7 +1774,7 @@ public final class MetadataManager
                     verifyProjection(table, result.getProjections(), result.getAssignments(), projections.size());
 
                     return new ProjectionApplicationResult<>(
-                            new TableHandle(catalogHandle, result.getHandle(), table.getTransaction()),
+                            new TableHandle(catalogHandle, result.getHandle(), table.getTransaction(), session.getIdentity()),
                             result.getProjections(),
                             result.getAssignments(),
                             result.isPrecalculateStatistics());

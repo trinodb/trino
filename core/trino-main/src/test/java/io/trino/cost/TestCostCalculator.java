@@ -800,7 +800,7 @@ public class TestCostCalculator
         TpchTableHandle tableHandle = new TpchTableHandle("sf1", "orders", 1.0);
         return new TableScanNode(
                 new PlanNodeId(id),
-                new TableHandle(TEST_CATALOG_HANDLE, tableHandle, INSTANCE),
+                new TableHandle(TEST_CATALOG_HANDLE, tableHandle, INSTANCE, session.getIdentity()),
                 symbolsList,
                 assignments.buildOrThrow(),
                 TupleDomain.all(),

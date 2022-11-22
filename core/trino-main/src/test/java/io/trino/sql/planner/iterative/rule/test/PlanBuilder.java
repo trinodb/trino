@@ -33,6 +33,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.Identity;
 import io.trino.spi.type.Type;
 import io.trino.sql.ExpressionUtils;
 import io.trino.sql.analyzer.TypeSignatureProvider;
@@ -607,7 +608,7 @@ public class PlanBuilder
     public static class TableScanBuilder
     {
         private final PlanNodeIdAllocator idAllocator;
-        private TableHandle tableHandle = new TableHandle(TEST_CATALOG_HANDLE, new TestingTableHandle(), TestingTransactionHandle.create());
+        private TableHandle tableHandle = new TableHandle(TEST_CATALOG_HANDLE, new TestingTableHandle(), TestingTransactionHandle.create(), Identity.forUser("test").build());
         private List<Symbol> symbols;
         private Map<Symbol, ColumnHandle> assignments;
         private TupleDomain<ColumnHandle> enforcedConstraint = TupleDomain.all();
@@ -755,7 +756,8 @@ public class PlanBuilder
                 Optional.of(new TableHandle(
                         TEST_CATALOG_HANDLE,
                         new TestingTableHandle(),
-                        TestingTransactionHandle.create())),
+                        TestingTransactionHandle.create(),
+                        session.getIdentity())),
                 schemaTableName);
     }
 
@@ -806,7 +808,8 @@ public class PlanBuilder
         TableHandle tableHandle = new TableHandle(
                 TEST_CATALOG_HANDLE,
                 new TestingTableHandle(),
-                TestingTransactionHandle.create());
+                TestingTransactionHandle.create(),
+                session.getIdentity());
         return new UpdateTarget(
                 Optional.of(tableHandle),
                 schemaTableName,
@@ -833,7 +836,8 @@ public class PlanBuilder
                 new TableHandle(
                         TEST_CATALOG_HANDLE,
                         new TestingTableHandle(),
-                        TestingTransactionHandle.create()),
+                        TestingTransactionHandle.create(),
+                        session.getIdentity()),
                 Optional.empty(),
                 schemaTableName,
                 new MergeParadigmAndTypes(Optional.of(DELETE_ROW_AND_INSERT_ROW), ImmutableList.of(), ImmutableList.of(), INTEGER));

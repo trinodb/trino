@@ -276,6 +276,7 @@ public class TestTableScanNodePartitioning
         return new TableHandle(
                 TEST_CATALOG_HANDLE,
                 connectorTableHandle,
-                TestingTransactionHandle.create());
+                TestingTransactionHandle.create(),
+                testSessionBuilder().build().getIdentity());
     }
 }

@@ -67,7 +67,8 @@ public class TestThriftProjectionPushdown
     private static final TableHandle NATION_TABLE = new TableHandle(
             TEST_CATALOG_HANDLE,
             NATION_THRIFT_TABLE,
-            ThriftTransactionHandle.INSTANCE);
+            ThriftTransactionHandle.INSTANCE,
+            testSessionBuilder().build().getIdentity());
 
     private static final Session SESSION = testSessionBuilder()
             .setCatalog(TEST_CATALOG_NAME)
@@ -152,7 +153,8 @@ public class TestThriftProjectionPushdown
                                     new TableHandle(
                                             TEST_CATALOG_HANDLE,
                                             tableWithColumns,
-                                            ThriftTransactionHandle.INSTANCE),
+                                            ThriftTransactionHandle.INSTANCE,
+                                            tester().getSession().getIdentity()),
                                     ImmutableList.of(orderStatusSymbol),
                                     ImmutableMap.of(orderStatusSymbol, columnHandle)));
                 })

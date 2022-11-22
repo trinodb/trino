@@ -36,7 +36,7 @@ public class TestRemoveEmptyUpdate
                 .on(p -> p.tableUpdate(
                         new SchemaTableName("sch", "tab"),
                         p.tableScan(
-                                new TableHandle(TEST_CATALOG_HANDLE, new TpchTableHandle("sf1", "nation", 1.0), TpchTransactionHandle.INSTANCE),
+                                new TableHandle(TEST_CATALOG_HANDLE, new TpchTableHandle("sf1", "nation", 1.0), TpchTransactionHandle.INSTANCE, tester().getSession().getIdentity()),
                                 ImmutableList.of(),
                                 ImmutableMap.of()),
                         p.symbol("a", BigintType.BIGINT),

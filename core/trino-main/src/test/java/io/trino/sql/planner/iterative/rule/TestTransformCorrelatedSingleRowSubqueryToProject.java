@@ -54,7 +54,8 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                                         new TableHandle(
                                                 TEST_CATALOG_HANDLE,
                                                 new TpchTableHandle(TINY_SCHEMA_NAME, "nation", TINY_SCALE_FACTOR),
-                                                TpchTransactionHandle.INSTANCE),
+                                                TpchTransactionHandle.INSTANCE,
+                                                tester().getSession().getIdentity()),
                                         ImmutableList.of(p.symbol("l_nationkey")),
                                         ImmutableMap.of(p.symbol("l_nationkey"), new TpchColumnHandle("nationkey",
                                                 BIGINT))),
