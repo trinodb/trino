@@ -196,9 +196,7 @@ public class CassandraServer
     @Override
     public void close()
     {
-        if (session != null) {
-            session.close();
-        }
+        session.close();
         dockerContainer.close();
     }
 }
