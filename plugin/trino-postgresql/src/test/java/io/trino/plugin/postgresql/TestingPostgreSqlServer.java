@@ -15,6 +15,7 @@ package io.trino.plugin.postgresql;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.jdbc.RemoteDatabaseEvent;
+import io.trino.testing.ResourcePresence;
 import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.PostgreSQLContainer;
 
@@ -162,6 +163,12 @@ public class TestingPostgreSqlServer
     public void close()
     {
         dockerContainer.close();
+    }
+
+    @ResourcePresence
+    public boolean isRunning()
+    {
+        return dockerContainer.getContainerId() != null;
     }
 
     public static class DatabaseEventsRecorder
