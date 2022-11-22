@@ -1774,7 +1774,7 @@ public final class MetadataManager
                     verifyProjection(table, result.getProjections(), result.getAssignments(), projections.size());
 
                     return new ProjectionApplicationResult<>(
-                            new TableHandle(catalogHandle, result.getHandle(), table.getTransaction(), session.getIdentity()),
+                            new TableHandle(catalogHandle, result.getHandle(), table.getTransaction(), table.getExecutedAsIdentity()),
                             result.getProjections(),
                             result.getAssignments(),
                             result.isPrecalculateStatistics());

@@ -53,7 +53,8 @@ public class SplitManager
             dynamicFilter = DynamicFilter.EMPTY;
         }
 
-        ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
+        ConnectorSession connectorSession = session.toConnectorSession(table.getExecutedAsIdentity(), catalogHandle);
+        System.out.println("Identity " + connectorSession.getUser() + " " + table.getExecutedAs());
 
         ConnectorSplitSource source = splitManager.getSplits(
                 table.getTransaction(),

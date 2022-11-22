@@ -61,7 +61,7 @@ public class PageSourceManager
         }
         return provider.createPageSource(
                 table.getTransaction(),
-                session.toConnectorSession(catalogHandle),
+                session.toConnectorSession(table.getExecutedAsIdentity(), catalogHandle),
                 split.getConnectorSplit(),
                 table.getConnectorHandle(),
                 columns,

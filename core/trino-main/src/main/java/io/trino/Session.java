@@ -455,6 +455,20 @@ public final class Session
                 sessionPropertyManager);
     }
 
+    public ConnectorSession toConnectorSession(Identity identity, CatalogHandle catalogHandle)
+    {
+        requireNonNull(catalogHandle, "catalogHandle is null");
+
+        String catalogName = catalogHandle.getCatalogName();
+        return new FullConnectorSession(
+                this,
+                identity.toConnectorIdentity(catalogName),
+                catalogProperties.getOrDefault(catalogName, ImmutableMap.of()),
+                catalogHandle,
+                catalogName,
+                sessionPropertyManager);
+    }
+
     public SessionRepresentation toSessionRepresentation()
     {
         return new SessionRepresentation(

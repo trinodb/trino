@@ -14,6 +14,7 @@
 package io.trino.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -29,19 +30,32 @@ public final class TableHandle
     private final CatalogHandle catalogHandle;
     private final ConnectorTableHandle connectorHandle;
     private final ConnectorTransactionHandle transaction;
-    private final Identity executedAs;
+    private final String executedAs;
 
     @JsonCreator
     public TableHandle(
             @JsonProperty("catalogHandle") CatalogHandle catalogHandle,
             @JsonProperty("connectorHandle") ConnectorTableHandle connectorHandle,
             @JsonProperty("transaction") ConnectorTransactionHandle transaction,
-            @JsonProperty("executedAs") Identity executedAs)
+            @JsonProperty("executedAs") String executedAs)
     {
         this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
         this.transaction = requireNonNull(transaction, "transaction is null");
         this.executedAs = requireNonNull(executedAs, "executedAs is null");
+    }
+
+    public TableHandle(
+            CatalogHandle catalogHandle,
+            ConnectorTableHandle connectorHandle,
+            ConnectorTransactionHandle transaction,
+            Identity executedAs)
+    {
+        System.out.println("Identity " + executedAs);
+        this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
+        this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
+        this.transaction = requireNonNull(transaction, "transaction is null");
+        this.executedAs = executedAs.getUser();
     }
 
     @JsonProperty
@@ -62,10 +76,16 @@ public final class TableHandle
         return transaction;
     }
 
-    @JsonProperty
-    public Identity getExecutedAs()
+    @JsonProperty("executedAs")
+    public String getExecutedAs()
     {
         return executedAs;
+    }
+
+    @JsonIgnore
+    public Identity getExecutedAsIdentity()
+    {
+        return Identity.forUser(executedAs).build();
     }
 
     public TableHandle withConnectorHandle(ConnectorTableHandle connectorHandle)
