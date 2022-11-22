@@ -278,6 +278,15 @@ public class TestAccumuloConnectorTest
         Assert.assertEquals(actualColumns, expectedColumns);
     }
 
+    @Test
+    @Override
+    public void testInsertSameValues()
+    {
+        assertThatThrownBy(super::testInsertSameValues)
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("not equal");
+    }
+
     @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {

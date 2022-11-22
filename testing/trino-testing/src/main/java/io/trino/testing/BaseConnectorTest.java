@@ -3017,6 +3017,20 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testInsertSameValues()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_INSERT));
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "insert_same_values",
+                "AS " + join(" UNION ALL ", nCopies(2, "SELECT * FROM region")))) {
+            assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 10");
+        }
+    }
+
+    @Test
     public void testInsertNegativeDate()
     {
         if (!hasBehavior(SUPPORTS_INSERT)) {
