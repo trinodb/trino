@@ -1,0 +1,34 @@
+name: compile-commit
+description: "Compile specific commit"
+inputs:
+  commit:
+    description: "Git commit to compile"
+  base_ref:
+    description: 'Git base ref'
+
+env:
+  # allow overriding Maven command
+  MAVEN: ./mvnw
+  # maven.wagon.rto is in millis, defaults to 30m
+  MAVEN_OPTS: "-Xmx3G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
+  MAVEN_COMPILE_COMMITS: "-B --strict-checksums --quiet -T C1 -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all=true -Dmaven.javadoc.skip=true --no-snapshot-updates --no-transfer-progress -pl '!:trino-server-rpm'"
+  MAVEN_GIB: "-P gib -Dgib.referenceBranch=refs/remotes/origin/${{ github.event.inputs.base_ref }}"
+  # used by actions/cache to retry the download after this time: https://github.com/actions/cache/blob/main/workarounds.md#cache-segment-restore-timeout
+  SEGMENT_DOWNLOAD_TIMEOUT_MINS: 5
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0 # checkout all commits to be able to determine merge base
+        ref: ${{ github.event.inputs.commit }}
+    - uses: ./.github/actions/setup
+    - name: Check if a specified commit compiles
+      run: |
+        set -x
+        $MAVEN package ${MAVEN_COMPILE_COMMITS} ${MAVEN_GIB}
+    - name: Clean local Maven repo
+      # Avoid creating a cache entry because this job doesn't download all dependencies
+      if: steps.cache.outputs.cache-hit != 'true'
+      run: rm -rf ~/.m2/repository
