@@ -84,37 +84,46 @@ jobs:
   check-commits:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base
           ref: ${{ github.event.pull_request.head.sha }} # checkout PR HEAD commit instead of merge commit
-      - uses: ./.github/actions/setup
       - name: Check Commits
         uses: trinodb/github-actions/block-commits@c2991972560c5219d9ae5fb68c0c9d687ffcdd10
         with:
           action-merge: fail
           action-fixup: none
-      - name: Check if all intermediate commits of this PR compile
+      - name: Set matrix
+        id: set-matrix
+        # The output from rev-list ends with a newline, so we have to filter out index -1 in jq since it's an empty string
+        # The HEAD commit of the PR (index -2) can be safely ignored since it's already compiled in other jobs
         run: |
-          set -x
-          # Fake identity to tag rebased commits with.
-          # These commits will be discarded, but the important part is that `git rebase` executes commands between all commits.
-          git config user.name "Compile all commits builder"
-          git config user.email "compile-all-commits@trino.io"
-          # Show the entire PR branch and the base ref all the way to the fork point.
-          # This shows some context on the state of the repo and shows commit hashes without having to scroll through entire repo history.
-          git log --oneline --decorate=full --graph "$( git merge-base HEAD refs/remotes/origin/${{ github.event.pull_request.base.ref }} )~..refs/remotes/origin/${{ github.event.pull_request.base.ref }}" HEAD
-          # We can skip compiling the top commit since it's already being compiled and tested in other jobs.
-          git checkout HEAD~
-          # If the PR branch contains only 1 commit, checkout will move HEAD to a commit already on the base branch, and the rebase doesn't do anything.
-          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          git rebase --verbose --exec "$MAVEN package ${MAVEN_COMPILE_COMMITS} ${MAVEN_GIB} || (git status && false)" $( git merge-base HEAD refs/remotes/origin/${{ github.event.pull_request.base.ref }} )
-      # The local repo is broken at this point, and should be abandoned
-      - name: Clean local Maven repo
-        # Avoid creating a cache entry because this job doesn't download all dependencies
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: rm -rf ~/.m2/repository
+          export JQ_PIPELINE='split("\n") | .[0:-2] | map({base_ref: "${{ github.event.pull_request.base.ref }}", commit: .}) | select(length > 0) | {include: .}'
+          git rev-list refs/remotes/origin/${{ github.event.pull_request.base.ref }}..HEAD | jq --raw-input --slurp "$JQ_PIPELINE" > commit-matrix.json
+          echo "Commit matrix: $(jq '.' commit-matrix.json)"
+          echo "matrix=$(jq -c '.' commit-matrix.json)" >> $GITHUB_OUTPUT
+
+  check-commits-dispatcher:
+    runs-on: ubuntu-latest
+    needs: check-commits
+    if: github.event_name == 'pull_request' && needs.check-commits.outputs.matrix != ''
+    strategy:
+      matrix: ${{ fromJson(needs.check-commits.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # checkout all commits to be able to determine merge base
+          ref: ${{ matrix.commit }}
+      # This composite job must be entirely standalone, and checked out from the correct commit before being executed.
+      # It can't accept any parameters defined in this workflow, because the values of those parameters would always be taken from
+      # PR HEAD since that is the commit the workflow is started for. This could lead to problems if those parameters were changed
+      # in the middle of a PR branch.
+      - uses: ./.github/actions/compile-commit
+        with:
+          base_ref: ${{ matrix.base_ref }}
 
   error-prone-checks:
     runs-on: ubuntu-latest
