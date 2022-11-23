@@ -279,9 +279,9 @@ public class TestDynamoDbTypeMapping
     @Test
     public void testNullDate()
     {
-        // TODO (https://starburstdata.atlassian.net/browse/SEP-8186) Add support for NULL date
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_unsupported_date", "(dt date)")) {
-            assertQueryFails(format("INSERT INTO %s VALUES (CAST(NULL AS date))", table.getName()), "NULL value not allowed for NOT NULL column: dt");
+        // First column becomes by default partition key (not nullable), to test null values we should use next columns
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_unsupported_date", "(a smallint, dt date)")) {
+            assertQuerySucceeds(format("INSERT INTO %s VALUES (1, CAST(NULL AS date))", table.getName()));
         }
     }
 
