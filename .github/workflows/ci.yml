@@ -396,6 +396,7 @@ jobs:
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive-2 }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-iceberg }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-postgresql }
+            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-mongodb }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-mysql }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-sqlserver }
             - { modules: testing/trino-tests }

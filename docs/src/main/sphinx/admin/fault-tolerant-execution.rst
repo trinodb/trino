@@ -52,6 +52,7 @@ depending on the desired :ref:`retry policy <fte-retry-policy>`.
     * :doc:`/connector/delta-lake`
     * :doc:`/connector/hive`
     * :doc:`/connector/iceberg`
+    * :doc:`/connector/mongodb`
     * :doc:`/connector/mysql`
     * :doc:`/connector/postgresql`
     * :doc:`/connector/sqlserver`
