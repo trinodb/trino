@@ -48,6 +48,15 @@ public class Int96ColumnAdapter
         return new Int96ArrayBlock(values.size(), Optional.empty(), values.longs, values.ints);
     }
 
+    @Override
+    public void decodeDictionaryIds(Int96Buffer values, int offset, int length, int[] ids, Int96Buffer dictionary)
+    {
+        for (int i = 0; i < length; i++) {
+            values.longs[offset + i] = dictionary.longs[ids[i]];
+            values.ints[offset + i] = dictionary.ints[ids[i]];
+        }
+    }
+
     public static class Int96Buffer
     {
         public final long[] longs;
