@@ -52,6 +52,7 @@ import io.trino.spiller.LocalSpillManager;
 import io.trino.spiller.NodeSpillConfig;
 import io.trino.version.EmbedVersion;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -90,12 +91,13 @@ public class TestSqlTaskManager
     private static final TaskId TASK_ID = new TaskId(new StageId("query", 0), 1, 0);
     public static final OutputBufferId OUT = new OutputBufferId(0);
 
-    private final TaskExecutor taskExecutor;
-    private final TaskManagementExecutor taskManagementExecutor;
-    private final LocalMemoryManager localMemoryManager;
-    private final LocalSpillManager localSpillManager;
+    private TaskExecutor taskExecutor;
+    private TaskManagementExecutor taskManagementExecutor;
+    private LocalMemoryManager localMemoryManager;
+    private LocalSpillManager localSpillManager;
 
-    public TestSqlTaskManager()
+    @BeforeClass
+    public void setUp()
     {
         localMemoryManager = new LocalMemoryManager(new NodeMemoryConfig());
         localSpillManager = new LocalSpillManager(new NodeSpillConfig());
@@ -108,7 +110,9 @@ public class TestSqlTaskManager
     public void tearDown()
     {
         taskExecutor.stop();
+        taskExecutor = null;
         taskManagementExecutor.close();
+        taskManagementExecutor = null;
     }
 
     @Test
