@@ -119,6 +119,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     protected HiveMinioDataLake hiveMinioDataLake;
     private HiveMetastore metastore;
 
+    protected void environmentSetup() {}
+
     protected abstract HiveMinioDataLake createHiveMinioDataLake()
             throws Exception;
 
@@ -137,6 +139,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        environmentSetup();
+
         this.hiveMinioDataLake = closeAfterClass(createHiveMinioDataLake());
         this.metastore = new BridgingHiveMetastore(
                 testingThriftHiveMetastoreBuilder()

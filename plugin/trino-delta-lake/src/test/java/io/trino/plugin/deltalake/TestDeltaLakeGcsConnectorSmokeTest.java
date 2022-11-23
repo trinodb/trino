@@ -71,15 +71,21 @@ public class TestDeltaLakeGcsConnectorSmokeTest
     private static final FileAttribute<?> READ_ONLY_PERMISSIONS = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"));
 
     private final String gcpStorageBucket;
-    private final Path gcpCredentialsFile;
-    private final FileSystem fileSystem;
+    private final String gcpCredentialKey;
+
+    private Path gcpCredentialsFile;
+    private FileSystem fileSystem;
 
     @Parameters({"testing.gcp-storage-bucket", "testing.gcp-credentials-key"})
     public TestDeltaLakeGcsConnectorSmokeTest(String gcpStorageBucket, String gcpCredentialKey)
     {
         this.gcpStorageBucket = requireNonNull(gcpStorageBucket, "gcpStorageBucket is null");
+        this.gcpCredentialKey = requireNonNull(gcpCredentialKey, "gcpCredentialKey is null");
+    }
 
-        requireNonNull(gcpCredentialKey, "gcpCredentialKey is null");
+    @Override
+    protected void environmentSetup()
+    {
         InputStream jsonKey = new ByteArrayInputStream(Base64.getDecoder().decode(gcpCredentialKey));
         try {
             this.gcpCredentialsFile = Files.createTempFile("gcp-credentials", ".json", READ_ONLY_PERMISSIONS);
@@ -111,6 +117,7 @@ public class TestDeltaLakeGcsConnectorSmokeTest
                 // The GCS bucket should be configured to expire objects automatically. Clean up issues do not need to fail the test.
                 LOG.warn(e, "Failed to clean up GCS test directory: %s", bucketUrl());
             }
+            fileSystem = null;
         }
     }
 
