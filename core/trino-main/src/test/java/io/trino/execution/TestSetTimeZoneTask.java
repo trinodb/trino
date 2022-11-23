@@ -27,6 +27,7 @@ import io.trino.sql.tree.SetTimeZone;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.testing.LocalQueryRunner;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -50,10 +51,11 @@ import static org.testng.Assert.assertEquals;
 
 public class TestSetTimeZoneTask
 {
-    private final LocalQueryRunner localQueryRunner;
     private ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
+    private LocalQueryRunner localQueryRunner;
 
-    public TestSetTimeZoneTask()
+    @BeforeClass
+    public void setUp()
     {
         localQueryRunner = LocalQueryRunner.create(TEST_SESSION);
     }
@@ -63,6 +65,8 @@ public class TestSetTimeZoneTask
     {
         executor.shutdownNow();
         executor = null;
+        localQueryRunner.close();
+        localQueryRunner = null;
     }
 
     @Test
