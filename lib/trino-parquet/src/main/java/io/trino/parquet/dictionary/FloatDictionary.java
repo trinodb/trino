@@ -22,14 +22,13 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.trino.parquet.ParquetReaderUtils.toInputStream;
 
 public class FloatDictionary
-        extends Dictionary
+        implements Dictionary
 {
     private final float[] content;
 
     public FloatDictionary(DictionaryPage dictionaryPage)
             throws IOException
     {
-        super(dictionaryPage.getEncoding());
         content = new float[dictionaryPage.getDictionarySize()];
         FloatPlainValuesReader floatReader = new FloatPlainValuesReader();
         floatReader.initFromPage(dictionaryPage.getDictionarySize(), toInputStream(dictionaryPage));
