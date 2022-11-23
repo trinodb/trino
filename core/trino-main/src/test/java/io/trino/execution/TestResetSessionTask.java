@@ -28,6 +28,7 @@ import io.trino.sql.tree.ResetSession;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.transaction.TransactionManager;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -48,14 +49,16 @@ public class TestResetSessionTask
 {
     private static final String CATALOG_NAME = "my_catalog";
     private ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
-    private final TransactionManager transactionManager;
-    private final AccessControl accessControl;
-    private final Metadata metadata;
-    private final SessionPropertyManager sessionPropertyManager;
+    private LocalQueryRunner queryRunner;
+    private TransactionManager transactionManager;
+    private AccessControl accessControl;
+    private Metadata metadata;
+    private SessionPropertyManager sessionPropertyManager;
 
-    public TestResetSessionTask()
+    @BeforeClass
+    public void setUp()
     {
-        LocalQueryRunner queryRunner = LocalQueryRunner.builder(TEST_SESSION)
+        queryRunner = LocalQueryRunner.builder(TEST_SESSION)
                 .withExtraSystemSessionProperties(ImmutableSet.of(() -> ImmutableList.of(
                         stringProperty(
                                 "foo",
@@ -84,6 +87,8 @@ public class TestResetSessionTask
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
+        queryRunner.close();
+        queryRunner = null;
         executor.shutdownNow();
         executor = null;
     }
