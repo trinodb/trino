@@ -231,6 +231,7 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
                         0,
                         0,
                         OutputBufferStatus.initial(),
+                        DataSize.of(0, DataSize.Unit.MEGABYTE),
                         DataSize.of(1, DataSize.Unit.MEGABYTE),
                         DataSize.of(1, DataSize.Unit.MEGABYTE),
                         DataSize.of(1, DataSize.Unit.MEGABYTE),

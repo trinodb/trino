@@ -3942,6 +3942,7 @@ public abstract class BaseHiveConnectorTest
     {
         testWithAllStorageFormats(this::testSingleWriter);
         testWithAllStorageFormats(this::testMultipleWriters);
+        testWithAllStorageFormats(this::testMultipleWritersWithSkewedData);
     }
 
     protected void testSingleWriter(Session session, HiveStorageFormat storageFormat)
@@ -3994,6 +3995,39 @@ public abstract class BaseHiveConnectorTest
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS scale_writers_large");
+        }
+    }
+
+    private void testMultipleWritersWithSkewedData(Session session, HiveStorageFormat storageFormat)
+    {
+        try {
+            // skewed table that will scale writers to multiple machines
+            String selectSql = "SELECT t1.* FROM (SELECT *, case when orderkey >= 0 then 1 else orderkey end as join_key FROM tpch.sf1.orders) t1 " +
+                               "INNER JOIN (SELECT orderkey FROM tpch.sf1.orders) t2 " +
+                               "ON t1.join_key = t2.orderkey";
+            @Language("SQL") String createTableSql = format("" +
+                            "CREATE TABLE scale_writers_skewed WITH (format = '%s') AS " + selectSql,
+                    storageFormat);
+            assertUpdate(
+                    Session.builder(session)
+                            .setSystemProperty("task_writer_count", "1")
+                            .setSystemProperty("scale_writers", "true")
+                            .setSystemProperty("task_scale_writers_enabled", "false")
+                            .setSystemProperty("writer_min_size", "1MB")
+                            .setSystemProperty("join_distribution_type", "PARTITIONED")
+                            .setCatalogSessionProperty(catalog, "parquet_writer_block_size", "4MB")
+                            .build(),
+                    createTableSql,
+                    (long) computeActual("SELECT count(*) FROM (" + selectSql + ")")
+                            .getOnlyValue());
+
+            long files = (long) computeScalar("SELECT count(DISTINCT \"$path\") FROM scale_writers_skewed");
+            long workers = (long) computeScalar("SELECT count(*) FROM system.runtime.nodes");
+            assertThat(files).isBetween(2L, workers);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS skewed_table");
+            assertUpdate("DROP TABLE IF EXISTS scale_writers_skewed");
         }
     }
 
