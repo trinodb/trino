@@ -13,6 +13,8 @@
  */
 package io.trino.parquet.reader.flat;
 
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.VariableWidthBlock;
 
@@ -74,5 +76,32 @@ public class BinaryColumnAdapter
         while (destOffset <= endOffset) {
             destination[destOffset++] = source[nonNullCount];
         }
+    }
+
+    @Override
+    public void decodeDictionaryIds(BinaryBuffer values, int offset, int length, int[] ids, BinaryBuffer dictionary)
+    {
+        Slice dictionarySlice = dictionary.asSlice();
+        int[] outputOffsets = values.getOffsets();
+        int[] dictionaryOffsets = dictionary.getOffsets();
+        int outputLength = 0;
+        for (int i = 0; i < length; i++) {
+            int id = ids[i];
+            int positionLength = dictionaryOffsets[id + 1] - dictionaryOffsets[id];
+            outputLength += positionLength;
+            outputOffsets[offset + i + 1] = outputOffsets[offset + i] + positionLength;
+        }
+        byte[] outputChunk = new byte[outputLength];
+        int outputIndex = 0;
+        for (int i = 0; i < length; i++) {
+            int id = ids[i];
+            int startIndex = dictionaryOffsets[id];
+            int endIndex = dictionaryOffsets[id + 1];
+            int positionLength = endIndex - startIndex;
+            dictionarySlice.getBytes(startIndex, outputChunk, outputIndex, positionLength);
+            outputIndex += positionLength;
+        }
+
+        values.addChunk(Slices.wrappedBuffer(outputChunk));
     }
 }

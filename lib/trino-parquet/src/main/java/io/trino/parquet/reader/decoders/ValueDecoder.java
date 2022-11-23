@@ -15,10 +15,7 @@ package io.trino.parquet.reader.decoders;
 
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.PrimitiveField;
-import io.trino.parquet.dictionary.Dictionary;
 import io.trino.parquet.reader.SimpleSliceInputStream;
-
-import javax.annotation.Nullable;
 
 public interface ValueDecoder<T>
 {
@@ -30,6 +27,6 @@ public interface ValueDecoder<T>
 
     interface ValueDecodersProvider<T>
     {
-        ValueDecoder<T> create(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary);
+        ValueDecoder<T> create(ParquetEncoding encoding, PrimitiveField field);
     }
 }

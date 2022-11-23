@@ -142,12 +142,12 @@ public final class ColumnReaderFactory
                 if (timestampType.isShort()) {
                     return new FlatColumnReader<>(
                             field,
-                            (encoding, primitiveField, dictionary) -> getInt96ToShortTimestampDecoder(encoding, primitiveField, dictionary, timeZone),
+                            (encoding, primitiveField) -> getInt96ToShortTimestampDecoder(encoding, primitiveField, timeZone),
                             LONG_ADAPTER);
                 }
                 return new FlatColumnReader<>(
                         field,
-                        (encoding, primitiveField, dictionary) -> getInt96ToLongTimestampDecoder(encoding, primitiveField, dictionary, timeZone),
+                        (encoding, primitiveField) -> getInt96ToLongTimestampDecoder(encoding, primitiveField, timeZone),
                         INT96_ADAPTER);
             }
             if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && primitiveType == INT96) {
