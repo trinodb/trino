@@ -76,6 +76,8 @@ public class TestGenerateTokenFilter
             throws Exception
     {
         closeAll(server, httpClient);
+        server = null;
+        httpClient = null;
     }
 
     @Test

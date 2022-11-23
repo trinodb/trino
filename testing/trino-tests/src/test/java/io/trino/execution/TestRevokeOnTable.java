@@ -84,6 +84,7 @@ public class TestRevokeOnTable
     {
         assertions.close();
         assertions = null;
+        queryRunner = null; // closed by assertions.close
     }
 
     @Test(dataProvider = "privilegesAndUsers")

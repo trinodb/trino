@@ -142,6 +142,12 @@ public class TestCreateTableTask
         if (queryRunner != null) {
             queryRunner.close();
         }
+        queryRunner = null;
+        transactionManager = null;
+        tablePropertyManager = null;
+        columnPropertyManager = null;
+        metadata = null;
+        plannerContext = null;
     }
 
     @Test

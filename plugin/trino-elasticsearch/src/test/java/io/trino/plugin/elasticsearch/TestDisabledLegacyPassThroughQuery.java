@@ -54,6 +54,7 @@ public class TestDisabledLegacyPassThroughQuery
             throws IOException
     {
         elasticsearch.stop();
+        elasticsearch = null;
     }
 
     @Test

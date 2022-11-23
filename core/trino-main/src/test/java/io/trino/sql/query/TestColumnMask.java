@@ -158,6 +158,7 @@ public class TestColumnMask
     @AfterAll
     public void teardown()
     {
+        accessControl = null;
         assertions.close();
         assertions = null;
     }

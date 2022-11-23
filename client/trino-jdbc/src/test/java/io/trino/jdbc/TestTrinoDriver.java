@@ -130,6 +130,7 @@ public class TestTrinoDriver
         executorService.shutdownNow();
         executorService = null;
         server.close();
+        server = null;
     }
 
     @Test

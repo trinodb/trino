@@ -106,6 +106,8 @@ public class TestServer
             throws Exception
     {
         closeAll(server, client);
+        server = null;
+        client = null;
     }
 
     @Test

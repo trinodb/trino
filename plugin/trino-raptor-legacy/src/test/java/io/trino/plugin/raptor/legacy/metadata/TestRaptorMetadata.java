@@ -112,6 +112,7 @@ public class TestRaptorMetadata
     public void cleanupDatabase()
     {
         dummyHandle.close();
+        dummyHandle = null;
     }
 
     @Test

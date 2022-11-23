@@ -82,6 +82,7 @@ public class TestCallTask
     {
         if (queryRunner != null) {
             queryRunner.close();
+            queryRunner = null;
         }
         executor.shutdownNow();
         executor = null;

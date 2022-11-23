@@ -155,6 +155,15 @@ public class TestCreateMaterializedViewTask
         if (queryRunner != null) {
             queryRunner.close();
         }
+        testSession = null;
+        metadata = null;
+        plannerContext = null;
+        transactionManager = null;
+        parser = null;
+        queryStateMachine = null;
+        analyzerFactory = null;
+        materializedViewPropertyManager = null;
+        queryRunner = null;
     }
 
     @Test

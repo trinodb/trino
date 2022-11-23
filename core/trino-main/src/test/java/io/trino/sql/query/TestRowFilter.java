@@ -144,6 +144,7 @@ public class TestRowFilter
     @AfterAll
     public void teardown()
     {
+        accessControl = null;
         assertions.close();
         assertions = null;
     }

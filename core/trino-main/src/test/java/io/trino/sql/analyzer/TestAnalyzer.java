@@ -6959,6 +6959,11 @@ public class TestAnalyzer
             throws Exception
     {
         closer.close();
+        transactionManager = null;
+        accessControl = null;
+        plannerContext = null;
+        tablePropertyManager = null;
+        analyzePropertyManager = null;
     }
 
     private void inSetupTransaction(Consumer<Session> consumer)
