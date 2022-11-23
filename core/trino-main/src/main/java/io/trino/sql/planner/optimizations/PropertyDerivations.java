@@ -283,8 +283,6 @@ public final class PropertyDerivations
                 localProperties.add(new GroupingProperty<>(node.getPartitionBy()));
             }
 
-            orderingScheme.ifPresent(ordering -> localProperties.addAll(ordering.toLocalProperties()));
-
             return ActualProperties.builderFrom(properties)
                     .local(LocalProperties.normalizeAndPrune(localProperties.build()))
                     .build();

@@ -160,13 +160,10 @@ public class TestPartialTopNWithPresortedInput
                 output(
                         topN(5, orderBy, FINAL,
                                 exchange(LOCAL, GATHER, ImmutableList.of(),
-                                        limit(
+                                        topN(
                                                 5,
-                                                ImmutableList.of(),
-                                                true,
-                                                orderBy.stream()
-                                                        .map(PlanMatchPattern.Ordering::getField)
-                                                        .collect(toImmutableList()),
+                                                orderBy,
+                                                PARTIAL,
                                                 exchange(LOCAL, REPARTITION, ImmutableList.of(),
                                                         window(
                                                                 p -> p.specification(
