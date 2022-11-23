@@ -16,6 +16,7 @@ package io.trino.parquet;
 import io.airlift.slice.Slice;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class DictionaryPage
@@ -27,10 +28,7 @@ public class DictionaryPage
 
     public DictionaryPage(Slice slice, int dictionarySize, ParquetEncoding encoding)
     {
-        this(requireNonNull(slice, "slice is null"),
-                slice.length(),
-                dictionarySize,
-                requireNonNull(encoding, "encoding is null"));
+        this(slice, slice.length(), dictionarySize, encoding);
     }
 
     public DictionaryPage(Slice slice, int uncompressedSize, int dictionarySize, ParquetEncoding encoding)
@@ -39,6 +37,10 @@ public class DictionaryPage
         this.slice = requireNonNull(slice, "slice is null");
         this.dictionarySize = dictionarySize;
         this.encoding = requireNonNull(encoding, "encoding is null");
+        checkArgument(
+                encoding == ParquetEncoding.PLAIN_DICTIONARY || encoding == ParquetEncoding.PLAIN,
+                "Dictionary does not support encoding: %s",
+                encoding);
     }
 
     public Slice getSlice()
