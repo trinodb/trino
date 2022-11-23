@@ -52,8 +52,7 @@ public class TestLdapAuthenticatorWithTimeouts
         closer.register(proxyServer::close);
         proxyServer.start();
 
-        openLdapServer = new TestingOpenLdapServer(network);
-        closer.register(openLdapServer);
+        openLdapServer = closer.register(new TestingOpenLdapServer(network));
         openLdapServer.start();
 
         ContainerProxy proxy = proxyServer.getProxy(openLdapServer.getNetworkAlias(), LDAP_PORT);
@@ -67,6 +66,8 @@ public class TestLdapAuthenticatorWithTimeouts
             throws Exception
     {
         closer.close();
+        openLdapServer = null;
+        proxyLdapUrl = null;
     }
 
     @Test
