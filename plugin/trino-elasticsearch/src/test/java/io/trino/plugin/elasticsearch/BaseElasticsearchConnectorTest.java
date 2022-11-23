@@ -92,7 +92,9 @@ public abstract class BaseElasticsearchConnectorTest
             throws IOException
     {
         elasticsearch.stop();
+        elasticsearch = null;
         client.close();
+        client = null;
     }
 
     @SuppressWarnings("DuplicateBranchesInSwitch")

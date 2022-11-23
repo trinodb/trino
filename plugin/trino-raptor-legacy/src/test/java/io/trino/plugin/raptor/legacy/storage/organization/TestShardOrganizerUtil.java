@@ -94,6 +94,7 @@ public class TestShardOrganizerUtil
             throws Exception
     {
         dummyHandle.close();
+        dummyHandle = null;
         deleteRecursively(dataDir.toPath(), ALLOW_INSECURE);
     }
 

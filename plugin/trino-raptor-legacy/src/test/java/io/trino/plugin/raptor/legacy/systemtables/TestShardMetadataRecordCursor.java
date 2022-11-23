@@ -92,6 +92,7 @@ public class TestShardMetadataRecordCursor
     public void teardown()
     {
         dummyHandle.close();
+        dummyHandle = null;
     }
 
     @Test

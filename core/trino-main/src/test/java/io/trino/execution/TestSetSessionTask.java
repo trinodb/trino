@@ -136,6 +136,11 @@ public class TestSetSessionTask
         queryRunner = null;
         executor.shutdownNow();
         executor = null;
+        transactionManager = null;
+        accessControl = null;
+        metadata = null;
+        plannerContext = null;
+        sessionPropertyManager = null;
     }
 
     @Test

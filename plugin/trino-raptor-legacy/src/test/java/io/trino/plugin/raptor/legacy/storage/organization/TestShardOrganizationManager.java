@@ -77,6 +77,7 @@ public class TestShardOrganizationManager
     public void teardown()
     {
         dummyHandle.close();
+        dummyHandle = null;
     }
 
     @Test

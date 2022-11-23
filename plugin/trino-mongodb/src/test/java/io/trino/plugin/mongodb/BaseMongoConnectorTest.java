@@ -63,7 +63,9 @@ public abstract class BaseMongoConnectorTest
     public final void destroy()
     {
         server.close();
+        server = null;
         client.close();
+        client = null;
     }
 
     @SuppressWarnings("DuplicateBranchesInSwitch")

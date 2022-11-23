@@ -87,10 +87,14 @@ public class TestResetSessionTask
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
-        queryRunner.close();
-        queryRunner = null;
         executor.shutdownNow();
         executor = null;
+        queryRunner.close();
+        queryRunner = null;
+        transactionManager = null;
+        accessControl = null;
+        metadata = null;
+        sessionPropertyManager = null;
     }
 
     @Test

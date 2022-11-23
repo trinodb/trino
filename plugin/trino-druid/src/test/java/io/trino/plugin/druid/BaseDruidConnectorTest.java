@@ -57,6 +57,7 @@ public abstract class BaseDruidConnectorTest
     {
         if (druidServer != null) {
             druidServer.close();
+            druidServer = null;
         }
     }
 

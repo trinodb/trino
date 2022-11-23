@@ -166,6 +166,7 @@ public class TestTrinoDatabaseMetaData
             throws Exception
     {
         connection.close();
+        connection = null;
     }
 
     @Test

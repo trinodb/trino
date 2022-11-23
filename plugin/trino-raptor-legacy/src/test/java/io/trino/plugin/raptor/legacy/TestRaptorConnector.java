@@ -120,6 +120,7 @@ public class TestRaptorConnector
             throws Exception
     {
         dummyHandle.close();
+        dummyHandle = null;
         deleteRecursively(dataDir.toPath(), ALLOW_INSECURE);
     }
 

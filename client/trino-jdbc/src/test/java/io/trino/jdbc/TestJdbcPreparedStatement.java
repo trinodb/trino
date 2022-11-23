@@ -107,6 +107,7 @@ public class TestJdbcPreparedStatement
             throws Exception
     {
         server.close();
+        server = null;
     }
 
     @Test

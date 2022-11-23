@@ -68,6 +68,7 @@ public class TestGrantOnSchema
     {
         assertions.close();
         assertions = null;
+        queryRunner = null; // closed by assertions.close
     }
 
     @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
