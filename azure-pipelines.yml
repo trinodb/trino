@@ -21,9 +21,7 @@ jobs:
     dependsOn: PrepareNode
     displayName: Maven Build (Container)
     variables:
-      containerRegistry: uchimera
       m2RepoContainerPath: /tmp/m2/repository
-      DOCKER_BUILDKIT: 1
       JAVA_TOOL_OPTIONS: " -Xmx8g"
     container:
       image: uchimera.azurecr.io/cccs/dev/projector-intellij-ce:trino_20221115170918_b5437
