@@ -45,15 +45,15 @@ public class BinaryColumnAdapter
     }
 
     @Override
-    public Block createNullableBlock(int batchSize, boolean[] nulls, BinaryBuffer values)
+    public Block createNullableBlock(boolean[] nulls, BinaryBuffer values)
     {
-        return new VariableWidthBlock(batchSize, values.asSlice(), values.getOffsets(), Optional.of(nulls));
+        return new VariableWidthBlock(values.getValueCount(), values.asSlice(), values.getOffsets(), Optional.of(nulls));
     }
 
     @Override
-    public Block createNonNullBlock(int batchSize, BinaryBuffer values)
+    public Block createNonNullBlock(BinaryBuffer values)
     {
-        return new VariableWidthBlock(batchSize, values.asSlice(), values.getOffsets(), Optional.empty());
+        return new VariableWidthBlock(values.getValueCount(), values.asSlice(), values.getOffsets(), Optional.empty());
     }
 
     @Override

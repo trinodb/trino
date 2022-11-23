@@ -155,10 +155,10 @@ public class FlatColumnReader<BufferType>
         boolean hasNoNulls = totalNonNullCount == nextBatchSize;
         Block block;
         if (hasNoNulls) {
-            block = columnAdapter.createNonNullBlock(nextBatchSize, values);
+            block = columnAdapter.createNonNullBlock(values);
         }
         else {
-            block = columnAdapter.createNullableBlock(nextBatchSize, isNull, values);
+            block = columnAdapter.createNullableBlock(isNull, values);
         }
         return new ColumnChunk(block, EMPTY_DEFINITION_LEVELS, EMPTY_REPETITION_LEVELS);
     }
@@ -187,7 +187,7 @@ public class FlatColumnReader<BufferType>
             remainingPageValueCount -= chunkSize;
         }
 
-        Block block = columnAdapter.createNonNullBlock(nextBatchSize, values);
+        Block block = columnAdapter.createNonNullBlock(values);
         return new ColumnChunk(block, EMPTY_DEFINITION_LEVELS, EMPTY_REPETITION_LEVELS);
     }
 
