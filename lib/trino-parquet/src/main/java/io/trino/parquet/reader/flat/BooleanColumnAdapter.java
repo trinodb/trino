@@ -30,15 +30,15 @@ public class BooleanColumnAdapter
     }
 
     @Override
-    public Block createNonNullBlock(int size, byte[] values)
+    public Block createNonNullBlock(byte[] values)
     {
-        return new ByteArrayBlock(size, Optional.empty(), values);
+        return new ByteArrayBlock(values.length, Optional.empty(), values);
     }
 
     @Override
-    public Block createNullableBlock(int size, boolean[] nulls, byte[] values)
+    public Block createNullableBlock(boolean[] nulls, byte[] values)
     {
-        return new ByteArrayBlock(size, Optional.of(nulls), values);
+        return new ByteArrayBlock(values.length, Optional.of(nulls), values);
     }
 
     @Override

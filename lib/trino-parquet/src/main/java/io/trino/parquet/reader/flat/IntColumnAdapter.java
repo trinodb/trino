@@ -30,15 +30,15 @@ public class IntColumnAdapter
     }
 
     @Override
-    public Block createNonNullBlock(int size, int[] values)
+    public Block createNonNullBlock(int[] values)
     {
-        return new IntArrayBlock(size, Optional.empty(), values);
+        return new IntArrayBlock(values.length, Optional.empty(), values);
     }
 
     @Override
-    public Block createNullableBlock(int size, boolean[] nulls, int[] values)
+    public Block createNullableBlock(boolean[] nulls, int[] values)
     {
-        return new IntArrayBlock(size, Optional.of(nulls), values);
+        return new IntArrayBlock(values.length, Optional.of(nulls), values);
     }
 
     @Override
