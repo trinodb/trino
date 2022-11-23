@@ -35,6 +35,7 @@ import io.trino.sql.tree.StringLiteral;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.transaction.TransactionManager;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -69,15 +70,17 @@ public class TestSetSessionTask
         LARGE,
     }
 
-    private final TransactionManager transactionManager;
-    private final AccessControl accessControl;
-    private final Metadata metadata;
-    private final PlannerContext plannerContext;
-    private final SessionPropertyManager sessionPropertyManager;
+    private LocalQueryRunner queryRunner;
+    private TransactionManager transactionManager;
+    private AccessControl accessControl;
+    private Metadata metadata;
+    private PlannerContext plannerContext;
+    private SessionPropertyManager sessionPropertyManager;
 
-    public TestSetSessionTask()
+    @BeforeClass
+    public void setUp()
     {
-        LocalQueryRunner queryRunner = LocalQueryRunner.builder(TEST_SESSION)
+        queryRunner = LocalQueryRunner.builder(TEST_SESSION)
                 .withExtraSystemSessionProperties(ImmutableSet.of(() -> ImmutableList.of(
                         stringProperty(
                                 "foo",
@@ -129,6 +132,8 @@ public class TestSetSessionTask
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
+        queryRunner.close();
+        queryRunner = null;
         executor.shutdownNow();
         executor = null;
     }
