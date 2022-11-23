@@ -163,18 +163,24 @@ jobs:
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
       - name: Test old JDBC vs current server
+        id: test-old
         run: |
           if [ ! -f gib-impacted.log ] || grep -q testing/trino-test-jdbc-compatibility-old-driver gib-impacted.log; then
             testing/trino-test-jdbc-compatibility-old-driver/bin/run_tests.sh
           fi
       - name: Test current JDBC vs old server
+        id: test-new
         if: always()
         run: |
           if [ ! -f gib-impacted.log ] || grep -q testing/trino-test-jdbc-compatibility-old-server gib-impacted.log; then
             $MAVEN test ${MAVEN_TEST} -pl :trino-test-jdbc-compatibility-old-server
           fi
       - uses: ./.github/actions/upload
+        # Always upload the test report for the annotate.yml workflow, but only the single XML file to keep the artifact small
+        if: always()
         with:
+          # Upload all test reports only on failure, because the artifacts are large
+          upload-results: ${{ steps.test-old.conclusion == 'failure' || steps.test-new.conclusion == 'failure' }}
           test-report-retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
       - name: Clean local Maven repo
         # Avoid creating a cache entry because this job doesn't download all dependencies
@@ -200,10 +206,12 @@ jobs:
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -am -pl :trino-hive-hadoop2
       - name: Run Hive Tests
+        id: test-hive
         run: |
           source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
             plugin/trino-hive-hadoop2/bin/run_hive_tests.sh
       - name: Run Hive S3 Tests
+        id: test-s3
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
@@ -219,6 +227,7 @@ jobs:
             fi
           fi
       - name: Run Hive Glue Tests
+        id: test-glue
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
@@ -228,6 +237,7 @@ jobs:
             $MAVEN test ${MAVEN_TEST} -pl :trino-hive -P test-hive-glue
           fi
       - name: Run Hive Azure ABFS Access Key Tests
+        id: test-abfs-access-key
         if: matrix.config != 'config-empty' # Hive 1.x does not support Azure storage
         env:
           ABFS_CONTAINER: ${{ secrets.AZURE_ABFS_CONTAINER }}
@@ -239,6 +249,7 @@ jobs:
               plugin/trino-hive-hadoop2/bin/run_hive_abfs_access_key_tests.sh
           fi
       - name: Run Hive Azure ABFS OAuth Tests
+        id: test-abfs-oauth
         if: matrix.config != 'config-empty' # Hive 1.x does not support Azure storage
         env:
           ABFS_CONTAINER: ${{ secrets.AZURE_ABFS_CONTAINER }}
@@ -252,6 +263,7 @@ jobs:
               plugin/trino-hive-hadoop2/bin/run_hive_abfs_oauth_tests.sh
           fi
       - name: Run Hive Azure WASB Tests
+        id: test-abfs-wasb
         if: matrix.config != 'config-empty' # Hive 1.x does not support Azure storage
         env:
           WASB_CONTAINER: ${{ secrets.AZURE_WASB_CONTAINER }}
@@ -263,6 +275,7 @@ jobs:
               plugin/trino-hive-hadoop2/bin/run_hive_wasb_tests.sh
           fi
       - name: Run Hive Azure ADL Tests
+        id: test-abfs-adl
         if: matrix.config != 'config-empty' # Hive 1.x does not support Azure storage
         env:
           ADL_NAME: ${{ secrets.AZURE_ADL_NAME }}
@@ -275,12 +288,25 @@ jobs:
               plugin/trino-hive-hadoop2/bin/run_hive_adl_tests.sh
           fi
       - name: Run Hive Alluxio Tests
+        id: test-alluxio
         run: |
           source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
             plugin/trino-hive-hadoop2/bin/run_hive_alluxio_tests.sh
       - uses: ./.github/actions/upload
+        # Always upload the test report for the annotate.yml workflow, but only the single XML file to keep the artifact small
+        if: always()
         with:
           name-suffix: ${{ github.job }} (${{ matrix.config }})
+          # Upload all test reports only on failure, because the artifacts are large
+          upload-results: >-
+            ${{ steps.test-hive.conclusion == 'failure' ||
+                steps.test-s3.conclusion == 'failure' ||
+                steps.test-glue.conclusion == 'failure' ||
+                steps.test-abfs-access-key.conclusion == 'failure' ||
+                steps.test-abfs-oauth.conclusion == 'failure' ||
+                steps.test-abfs-wasb.conclusion == 'failure' ||
+                steps.test-abfs-adl.conclusion == 'failure' ||
+                steps.test-alluxio.conclusion == 'failure' }}
           test-report-retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
       - name: Clean local Maven repo
         # Avoid creating a cache entry because this job doesn't download all dependencies
@@ -300,6 +326,7 @@ jobs:
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
       - name: Maven Tests
+        id: test
         run: |
           $MAVEN test ${MAVEN_TEST} -pl '
             !:trino-accumulo,
@@ -332,7 +359,11 @@ jobs:
             !:trino-test-jdbc-compatibility-old-server,
             !:trino-tests'
       - uses: ./.github/actions/upload
+        # Always upload the test report for the annotate.yml workflow, but only the single XML file to keep the artifact small
+        if: always()
         with:
+          # Upload all test reports only on failure, because the artifacts are large
+          upload-results: ${{ steps.test.conclusion == 'failure' }}
           test-report-retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
       - name: Clean local Maven repo
         # Avoid creating a cache entry because this job doesn't download all dependencies
@@ -426,13 +457,15 @@ jobs:
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -am -pl "${{ matrix.modules }}"
       - name: Maven Tests
+        id: test
         if: >-
           matrix.modules != 'plugin/trino-singlestore' &&
           !((contains(matrix.modules, 'trino-delta-lake') && (contains(matrix.profile, 'cloud-tests') || contains(matrix.profile, 'gcs-tests'))) || (contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests')))
         run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
       # Additional tests for selected modules
       - name: Cloud Delta Lake Tests
-      # Cloud tests are separate because they are time intensive, requiring cross-cloud network communication
+        id: test-cloud-delta
+        # Cloud tests are separate because they are time intensive, requiring cross-cloud network communication
         env:
           ABFS_CONTAINER: ${{ secrets.AZURE_ABFS_CONTAINER }}
           ABFS_ACCOUNT: ${{ secrets.AZURE_ABFS_ACCOUNT }}
@@ -450,7 +483,8 @@ jobs:
             -Dhive.hadoop2.azure-abfs-account="${ABFS_ACCOUNT}" \
             -Dhive.hadoop2.azure-abfs-access-key="${ABFS_ACCESSKEY}"
       - name: GCS Delta Lake Tests
-      # Cloud tests are separate because they are time intensive, requiring cross-cloud network communication
+        id: test-gcs-delta
+        # Cloud tests are separate because they are time intensive, requiring cross-cloud network communication
         env:
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
         # Run tests if any of the secrets is present. Do not skip tests when one secret renamed, or secret name has a typo.
@@ -461,12 +495,14 @@ jobs:
             -Dtesting.gcp-storage-bucket="trino-ci-test" \
             -Dtesting.gcp-credentials-key="${GCP_CREDENTIALS_KEY}"
       - name: Memsql Tests
+        id: test-memsql
         env:
           MEMSQL_LICENSE: ${{ secrets.MEMSQL_LICENSE }}
         if: matrix.modules == 'plugin/trino-singlestore' && env.MEMSQL_LICENSE != ''
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-singlestore -Dmemsql.license=${MEMSQL_LICENSE}
       - name: Cloud BigQuery Tests
+        id: test-cloud-bigquery
         env:
           BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CREDENTIALS_KEY }}
         if: matrix.modules == 'plugin/trino-bigquery' && env.BIGQUERY_CREDENTIALS_KEY != ''
@@ -476,12 +512,14 @@ jobs:
             -Dtesting.gcp-storage-bucket="trino-ci-test" \
             -Dtesting.alternate-bq-project-id=bigquery-cicd-alternate
       - name: Cloud BigQuery Case Insensitive Mapping Tests
+        id: test-cloud-bigquery-mapping
         env:
           BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY }}
         if: matrix.modules == 'plugin/trino-bigquery' && env.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY != ''
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dbigquery.credentials-key="${BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY}"
       - name: Iceberg Cloud Tests
+        id: test-cloud-iceberg
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
@@ -505,8 +543,19 @@ jobs:
           name=$(echo -n "${{ matrix.modules }}" | sed -e 's/[":<>|\*\?\\\/]/_/g')
           echo "ARTIFACT_NAME=$name" >> $GITHUB_ENV
       - uses: ./.github/actions/upload
+        # Always upload the test report for the annotate.yml workflow, but only the single XML file to keep the artifact small
+        if: always()
         with:
           name-suffix: ${{ env.ARTIFACT_NAME }}
+          # Upload all test reports only on failure, because the artifacts are large
+          upload-results: >-
+            ${{ steps.test.conclusion == 'failure' ||
+                steps.test-cloud-delta.conclusion == 'failure' ||
+                steps.test-gcs-delta.conclusion == 'failure' ||
+                steps.test-memsql.conclusion == 'failure' ||
+                steps.test-cloud-bigquery.conclusion == 'failure' ||
+                steps.test-cloud-bigquery-mapping.conclusion == 'failure' ||
+                steps.test-cloud-iceberg.conclusion == 'failure' }}
           test-report-retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
       - name: Clean local Maven repo
         # Avoid creating a cache entry because this job doesn't download all dependencies
@@ -798,6 +847,7 @@ jobs:
         if: failure()
         with:
           name: result pt (${{ matrix.config }}, ${{ matrix.suite }}, ${{ matrix.jdk }})
+          if-no-files-found: 'ignore'
           path: |
             testing/trino-product-tests/target/*
             logs/*

@@ -1,8 +1,10 @@
 name: upload
-description: "Upload test results"
+description: "Upload test results and reports."
 inputs:
   name-suffix:
     default: ${{ github.job }}
+  upload-results:
+    default: false
   test-report-retention-days:
     default: 5
 
@@ -11,17 +13,15 @@ runs:
   steps:
     - name: Upload test results
       uses: actions/upload-artifact@v3
-      # Upload all test reports only on failure, because the artifacts are large
-      if: failure()
+      if: always() && inputs.upload-results
       with:
         name: result ${{ inputs.name-suffix }}
+        if-no-files-found: 'ignore'
         path: |
           **/target/surefire-reports
           **/target/checkstyle-*
     - name: Upload test report
       uses: actions/upload-artifact@v3
-      # Always upload the test report for the annotate.yml workflow,
-      # but only the single XML file to keep the artifact small
       if: always()
       with:
         # Name prefix is checked in the `Annotate checks` workflow
