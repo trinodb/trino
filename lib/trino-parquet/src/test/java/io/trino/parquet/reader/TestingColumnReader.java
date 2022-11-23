@@ -610,7 +610,7 @@ public class TestingColumnReader
                         .collect(toDataProvider()));
     }
 
-    private static Binary encodeInt96Timestamp(long epochSeconds, int nanos)
+    public static Binary encodeInt96Timestamp(long epochSeconds, int nanos)
     {
         LocalDateTime javaTime = LocalDateTime.ofEpochSecond(epochSeconds, nanos, UTC);
         Slice slice = Slices.allocate(12);
