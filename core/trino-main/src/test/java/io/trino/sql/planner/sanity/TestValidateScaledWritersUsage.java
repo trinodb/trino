@@ -37,6 +37,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.TestingTransactionHandle;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -55,13 +56,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestValidateScaledWritersUsage
         extends BasePlanTest
 {
+    private LocalQueryRunner queryRunner;
     private PlannerContext plannerContext;
     private PlanBuilder planBuilder;
     private Symbol symbol;
     private TableScanNode tableScanNode;
     private CatalogHandle catalogSupportingScaledWriters;
     private CatalogHandle catalogNotSupportingScaledWriters;
-    private LocalQueryRunner queryRunner;
     private SchemaTableName schemaTableName;
 
     @BeforeClass
@@ -82,6 +83,18 @@ public class TestValidateScaledWritersUsage
         TpchColumnHandle nationkeyColumnHandle = new TpchColumnHandle("nationkey", BIGINT);
         symbol = new Symbol("nationkey");
         tableScanNode = planBuilder.tableScan(nationTableHandle, ImmutableList.of(symbol), ImmutableMap.of(symbol, nationkeyColumnHandle));
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        queryRunner.close();
+        queryRunner = null;
+        plannerContext = null;
+        planBuilder = null;
+        tableScanNode = null;
+        catalogSupportingScaledWriters = null;
+        catalogNotSupportingScaledWriters = null;
     }
 
     private MockConnectorFactory createConnectorFactorySupportingReportingBytesWritten(boolean supportsWrittenBytes, String name)
