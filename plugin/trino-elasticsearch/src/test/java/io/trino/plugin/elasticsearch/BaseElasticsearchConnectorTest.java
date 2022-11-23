@@ -87,6 +87,17 @@ public abstract class BaseElasticsearchConnectorTest
                 catalogName);
     }
 
+    @AfterClass
+    public void tearDown()
+            throws Exception
+    {
+        elasticsearch.stop();
+        elasticsearch = null;
+
+        client.close();
+        client = null;
+    }
+
     @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
