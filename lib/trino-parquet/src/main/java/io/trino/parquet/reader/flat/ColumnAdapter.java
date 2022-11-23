@@ -45,4 +45,6 @@ public interface ColumnAdapter<BufferType>
             destOffset++;
         }
     }
+
+    void decodeDictionaryIds(BufferType values, int offset, int length, int[] ids, BufferType dictionary);
 }

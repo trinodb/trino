@@ -46,4 +46,12 @@ public class IntColumnAdapter
     {
         destination[destinationIndex] = source[sourceIndex];
     }
+
+    @Override
+    public void decodeDictionaryIds(int[] values, int offset, int length, int[] ids, int[] dictionary)
+    {
+        for (int i = 0; i < length; i++) {
+            values[offset + i] = dictionary[ids[i]];
+        }
+    }
 }

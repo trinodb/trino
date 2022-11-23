@@ -15,13 +15,10 @@ package io.trino.parquet.reader.decoders;
 
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.PrimitiveField;
-import io.trino.parquet.dictionary.Dictionary;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import org.joda.time.DateTimeZone;
-
-import javax.annotation.Nullable;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.parquet.reader.decoders.ValueDecoders.getInt96Decoder;
@@ -50,10 +47,10 @@ public class TransformingValueDecoders
 {
     private TransformingValueDecoders() {}
 
-    public static ValueDecoder<long[]> getTimeMicrosDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    public static ValueDecoder<long[]> getTimeMicrosDecoder(ParquetEncoding encoding, PrimitiveField field)
     {
         return new InlineTransformDecoder<>(
-                getLongDecoder(encoding, field, dictionary),
+                getLongDecoder(encoding, field),
                 (values, offset, length) -> {
                     for (int i = offset; i < offset + length; i++) {
                         values[i] = values[i] * PICOSECONDS_PER_MICROSECOND;
@@ -61,14 +58,14 @@ public class TransformingValueDecoders
                 });
     }
 
-    public static ValueDecoder<long[]> getInt96ToShortTimestampDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary, DateTimeZone timeZone)
+    public static ValueDecoder<long[]> getInt96ToShortTimestampDecoder(ParquetEncoding encoding, PrimitiveField field, DateTimeZone timeZone)
     {
         checkArgument(
                 field.getType() instanceof TimestampType timestampType && timestampType.isShort(),
                 "Trino type %s is not a short timestamp",
                 field.getType());
         int precision = ((TimestampType) field.getType()).getPrecision();
-        ValueDecoder<Int96Buffer> delegate = getInt96Decoder(encoding, field, dictionary);
+        ValueDecoder<Int96Buffer> delegate = getInt96Decoder(encoding, field);
         return new ValueDecoder<>()
         {
             @Override
@@ -104,7 +101,7 @@ public class TransformingValueDecoders
         };
     }
 
-    public static ValueDecoder<Int96Buffer> getInt96ToLongTimestampDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary, DateTimeZone timeZone)
+    public static ValueDecoder<Int96Buffer> getInt96ToLongTimestampDecoder(ParquetEncoding encoding, PrimitiveField field, DateTimeZone timeZone)
     {
         checkArgument(
                 field.getType() instanceof TimestampType timestampType && !timestampType.isShort(),
@@ -112,7 +109,7 @@ public class TransformingValueDecoders
                 field.getType());
         int precision = ((TimestampType) field.getType()).getPrecision();
         return new InlineTransformDecoder<>(
-                getInt96Decoder(encoding, field, dictionary),
+                getInt96Decoder(encoding, field),
                 (values, offset, length) -> {
                     for (int i = offset; i < offset + length; i++) {
                         long epochSeconds = values.longs[i];
@@ -131,13 +128,13 @@ public class TransformingValueDecoders
                 });
     }
 
-    public static ValueDecoder<long[]> getInt96ToShortTimestampWithTimeZoneDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    public static ValueDecoder<long[]> getInt96ToShortTimestampWithTimeZoneDecoder(ParquetEncoding encoding, PrimitiveField field)
     {
         checkArgument(
                 field.getType() instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && timestampWithTimeZoneType.isShort(),
                 "Trino type %s is not a short timestamp with timezone",
                 field.getType());
-        ValueDecoder<Int96Buffer> delegate = getInt96Decoder(encoding, field, dictionary);
+        ValueDecoder<Int96Buffer> delegate = getInt96Decoder(encoding, field);
         return new ValueDecoder<>() {
             @Override
             public void init(SimpleSliceInputStream input)
@@ -166,14 +163,14 @@ public class TransformingValueDecoders
         };
     }
 
-    public static ValueDecoder<long[]> getInt64TimestampMillsToShortTimestampDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    public static ValueDecoder<long[]> getInt64TimestampMillsToShortTimestampDecoder(ParquetEncoding encoding, PrimitiveField field)
     {
         checkArgument(
                 field.getType() instanceof TimestampType timestampType && timestampType.isShort(),
                 "Trino type %s is not a short timestamp",
                 field.getType());
         int precision = ((TimestampType) field.getType()).getPrecision();
-        ValueDecoder<long[]> valueDecoder = getLongDecoder(encoding, field, dictionary);
+        ValueDecoder<long[]> valueDecoder = getLongDecoder(encoding, field);
         if (precision < 3) {
             return new InlineTransformDecoder<>(
                     valueDecoder,
@@ -194,14 +191,14 @@ public class TransformingValueDecoders
                 });
     }
 
-    public static ValueDecoder<long[]> getInt64TimestampMillsToShortTimestampWithTimeZoneDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    public static ValueDecoder<long[]> getInt64TimestampMillsToShortTimestampWithTimeZoneDecoder(ParquetEncoding encoding, PrimitiveField field)
     {
         checkArgument(
                 field.getType() instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && timestampWithTimeZoneType.isShort(),
                 "Trino type %s is not a short timestamp",
                 field.getType());
         int precision = ((TimestampWithTimeZoneType) field.getType()).getPrecision();
-        ValueDecoder<long[]> valueDecoder = getLongDecoder(encoding, field, dictionary);
+        ValueDecoder<long[]> valueDecoder = getLongDecoder(encoding, field);
         if (precision < 3) {
             return new InlineTransformDecoder<>(
                     valueDecoder,
@@ -222,14 +219,14 @@ public class TransformingValueDecoders
                 });
     }
 
-    public static ValueDecoder<long[]> getInt64TimestampMicrosToShortTimestampDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    public static ValueDecoder<long[]> getInt64TimestampMicrosToShortTimestampDecoder(ParquetEncoding encoding, PrimitiveField field)
     {
         checkArgument(
                 field.getType() instanceof TimestampType timestampType && timestampType.isShort(),
                 "Trino type %s is not a short timestamp",
                 field.getType());
         int precision = ((TimestampType) field.getType()).getPrecision();
-        ValueDecoder<long[]> valueDecoder = getLongDecoder(encoding, field, dictionary);
+        ValueDecoder<long[]> valueDecoder = getLongDecoder(encoding, field);
         if (precision == 6) {
             return valueDecoder;
         }
@@ -243,7 +240,7 @@ public class TransformingValueDecoders
                 });
     }
 
-    public static ValueDecoder<long[]> getInt64TimestampMicrosToShortTimestampWithTimeZoneDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    public static ValueDecoder<long[]> getInt64TimestampMicrosToShortTimestampWithTimeZoneDecoder(ParquetEncoding encoding, PrimitiveField field)
     {
         checkArgument(
                 field.getType() instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && timestampWithTimeZoneType.isShort(),
@@ -251,7 +248,7 @@ public class TransformingValueDecoders
                 field.getType());
         int precision = ((TimestampWithTimeZoneType) field.getType()).getPrecision();
         return new InlineTransformDecoder<>(
-                getLongDecoder(encoding, field, dictionary),
+                getLongDecoder(encoding, field),
                 (values, offset, length) -> {
                     // decoded values are epochMicros, round to lower precision and convert to packed millis utc value
                     for (int i = offset; i < offset + length; i++) {
@@ -260,7 +257,7 @@ public class TransformingValueDecoders
                 });
     }
 
-    public static ValueDecoder<long[]> getInt64TimestampNanosToShortTimestampDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    public static ValueDecoder<long[]> getInt64TimestampNanosToShortTimestampDecoder(ParquetEncoding encoding, PrimitiveField field)
     {
         checkArgument(
                 field.getType() instanceof TimestampType timestampType && timestampType.isShort(),
@@ -268,7 +265,7 @@ public class TransformingValueDecoders
                 field.getType());
         int precision = ((TimestampType) field.getType()).getPrecision();
         return new InlineTransformDecoder<>(
-                getLongDecoder(encoding, field, dictionary),
+                getLongDecoder(encoding, field),
                 (values, offset, length) -> {
                     // decoded values are epochNanos, round to lower precision and convert to epochMicros
                     for (int i = offset; i < offset + length; i++) {
@@ -277,9 +274,9 @@ public class TransformingValueDecoders
                 });
     }
 
-    public static ValueDecoder<Int96Buffer> getInt64TimestampMillisToLongTimestampDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    public static ValueDecoder<Int96Buffer> getInt64TimestampMillisToLongTimestampDecoder(ParquetEncoding encoding, PrimitiveField field)
     {
-        ValueDecoder<long[]> delegate = getLongDecoder(encoding, field, dictionary);
+        ValueDecoder<long[]> delegate = getLongDecoder(encoding, field);
         return new ValueDecoder<>()
         {
             @Override
@@ -306,9 +303,9 @@ public class TransformingValueDecoders
         };
     }
 
-    public static ValueDecoder<Int96Buffer> getInt64TimestampMicrosToLongTimestampDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    public static ValueDecoder<Int96Buffer> getInt64TimestampMicrosToLongTimestampDecoder(ParquetEncoding encoding, PrimitiveField field)
     {
-        ValueDecoder<long[]> delegate = getLongDecoder(encoding, field, dictionary);
+        ValueDecoder<long[]> delegate = getLongDecoder(encoding, field);
         return new ValueDecoder<>()
         {
             @Override
@@ -332,9 +329,9 @@ public class TransformingValueDecoders
         };
     }
 
-    public static ValueDecoder<Int96Buffer> getInt64TimestampMicrosToLongTimestampWithTimeZoneDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    public static ValueDecoder<Int96Buffer> getInt64TimestampMicrosToLongTimestampWithTimeZoneDecoder(ParquetEncoding encoding, PrimitiveField field)
     {
-        ValueDecoder<long[]> delegate = getLongDecoder(encoding, field, dictionary);
+        ValueDecoder<long[]> delegate = getLongDecoder(encoding, field);
         return new ValueDecoder<>()
         {
             @Override
@@ -363,9 +360,9 @@ public class TransformingValueDecoders
         };
     }
 
-    public static ValueDecoder<Int96Buffer> getInt64TimestampNanosToLongTimestampDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    public static ValueDecoder<Int96Buffer> getInt64TimestampNanosToLongTimestampDecoder(ParquetEncoding encoding, PrimitiveField field)
     {
-        ValueDecoder<long[]> delegate = getLongDecoder(encoding, field, dictionary);
+        ValueDecoder<long[]> delegate = getLongDecoder(encoding, field);
         return new ValueDecoder<>()
         {
             @Override

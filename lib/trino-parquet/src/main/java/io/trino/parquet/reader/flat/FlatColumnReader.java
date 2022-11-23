@@ -21,7 +21,6 @@ import io.trino.parquet.DataPageV2;
 import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.PrimitiveField;
-import io.trino.parquet.dictionary.Dictionary;
 import io.trino.parquet.reader.ColumnChunk;
 import io.trino.parquet.reader.ColumnReader;
 import io.trino.parquet.reader.FilteredRowRanges;
@@ -34,11 +33,13 @@ import org.apache.parquet.io.ParquetDecodingException;
 
 import javax.annotation.Nullable;
 
-import java.io.IOException;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.parquet.ParquetEncoding.PLAIN;
+import static io.trino.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static io.trino.parquet.ParquetEncoding.RLE;
+import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
 import static io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
 import static io.trino.parquet.reader.flat.RowRangesIterator.createRowRangesIterator;
 import static java.lang.Math.toIntExact;
@@ -60,7 +61,7 @@ public class FlatColumnReader<BufferType>
     private int readOffset;
     private int remainingPageValueCount;
     @Nullable
-    private Dictionary dictionary;
+    private DictionaryDecoder<BufferType> dictionaryDecoder;
     private FlatDefinitionLevelDecoder definitionLevelDecoder;
     private ValueDecoder<BufferType> valueDecoder;
 
@@ -283,8 +284,7 @@ public class FlatColumnReader<BufferType>
             }
         }
 
-        valueDecoder = decodersProvider.create(page.getValueEncoding(), field, dictionary);
-        valueDecoder.init(new SimpleSliceInputStream(buffer.slice(alreadyRead, buffer.length() - alreadyRead)));
+        createValueDecoder(page.getValueEncoding(), buffer.slice(alreadyRead, buffer.length() - alreadyRead));
     }
 
     private void readFlatPageV2(DataPageV2 page)
@@ -294,8 +294,21 @@ public class FlatColumnReader<BufferType>
 
         definitionLevelDecoder = new NullsDecoder(page.getDefinitionLevels());
 
-        valueDecoder = decodersProvider.create(page.getDataEncoding(), field, dictionary);
-        valueDecoder.init(new SimpleSliceInputStream(page.getSlice()));
+        createValueDecoder(page.getDataEncoding(), page.getSlice());
+    }
+
+    private void createValueDecoder(ParquetEncoding encoding, Slice data)
+    {
+        if (encoding == PLAIN_DICTIONARY || encoding == RLE_DICTIONARY) {
+            if (dictionaryDecoder == null) {
+                throw new ParquetDecodingException(format("Dictionary is missing for %s", field));
+            }
+            valueDecoder = dictionaryDecoder;
+        }
+        else {
+            valueDecoder = decodersProvider.create(encoding, field);
+        }
+        valueDecoder.init(new SimpleSliceInputStream(data));
     }
 
     protected boolean isNonNull()
@@ -313,19 +326,19 @@ public class FlatColumnReader<BufferType>
     public void setPageReader(PageReader pageReader, Optional<FilteredRowRanges> rowRanges)
     {
         this.pageReader = requireNonNull(pageReader, "pageReader");
+        // The dictionary page must be placed at the first position of the column chunk
+        // if it is partly or completely dictionary encoded. At most one dictionary page
+        // can be placed in a column chunk.
         DictionaryPage dictionaryPage = pageReader.readDictionaryPage();
 
         // For dictionary based encodings - https://github.com/apache/parquet-format/blob/master/Encodings.md
         if (dictionaryPage != null) {
-            try {
-                dictionary = dictionaryPage.getEncoding().initDictionary(field.getDescriptor(), dictionaryPage);
-            }
-            catch (IOException e) {
-                throw new ParquetDecodingException("could not decode the dictionary for " + field.getDescriptor(), e);
-            }
-        }
-        else {
-            dictionary = null;
+            int size = dictionaryPage.getDictionarySize();
+            BufferType dictionary = columnAdapter.createBuffer(size);
+            ValueDecoder<BufferType> plainValuesDecoder = decodersProvider.create(PLAIN, field);
+            plainValuesDecoder.init(new SimpleSliceInputStream(dictionaryPage.getSlice()));
+            plainValuesDecoder.read(dictionary, 0, size);
+            dictionaryDecoder = new DictionaryDecoder<>(dictionary, columnAdapter);
         }
         checkArgument(pageReader.getTotalValueCount() > 0, "page is empty");
         this.rowRanges = createRowRangesIterator(rowRanges);
