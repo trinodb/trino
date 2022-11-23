@@ -25,7 +25,7 @@ public class MongoServer
 
     public MongoServer()
     {
-        this("4.0.0");
+        this("4.2.0");
     }
 
     public MongoServer(String mongoVersion)
